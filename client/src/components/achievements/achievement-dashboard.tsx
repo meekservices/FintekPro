@@ -94,10 +94,10 @@ export function AchievementDashboard({ userId }: { userId: string }) {
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case 'beginner': return 'bg-green-100 text-green-800 border-green-200';
-      case 'intermediate': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'advanced': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'expert': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'beginner': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-200 dark:border-green-800';
+      case 'intermediate': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800';
+      case 'advanced': return 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-200 dark:border-orange-800';
+      case 'expert': return 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border-purple-200 dark:border-purple-800';
       default: return 'bg-muted text-foreground border-border';
     }
   };
@@ -114,11 +114,11 @@ export function AchievementDashboard({ userId }: { userId: string }) {
 
   const getRankBadge = (rank: string) => {
     const rankColors = {
-      'Bronze': 'bg-amber-100 text-amber-800 border-amber-200',
+      'Bronze': 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800',
       'Silver': 'bg-muted text-foreground border-border',
-      'Gold': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      'Platinum': 'bg-indigo-100 text-indigo-800 border-indigo-200',
-      'Diamond': 'bg-purple-100 text-purple-800 border-purple-200'
+      'Gold': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border-yellow-200 dark:border-yellow-800',
+      'Platinum': 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 border-indigo-200 dark:border-indigo-800',
+      'Diamond': 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border-purple-200 dark:border-purple-800'
     };
     return rankColors[rank as keyof typeof rankColors] || 'bg-muted text-foreground border-border';
   };
@@ -147,24 +147,24 @@ export function AchievementDashboard({ userId }: { userId: string }) {
     <div className="space-y-6" data-testid="achievement-dashboard">
       {/* User Stats Header */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200">
+        <Card className="bg-gradient-to-br from-yellow-50 dark:from-yellow-950/30 to-amber-50 dark:to-amber-950/30 border-yellow-200 dark:border-yellow-800">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-yellow-700 font-medium">Total Points</p>
-                <p className="text-3xl font-bold text-yellow-800">{userStats?.totalPoints || 0}</p>
+                <p className="text-sm text-yellow-700 dark:text-yellow-300 font-medium">Total Points</p>
+                <p className="text-3xl font-bold text-yellow-800 dark:text-yellow-200">{userStats?.totalPoints || 0}</p>
               </div>
               <Trophy className="h-8 w-8 text-yellow-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+        <Card className="bg-gradient-to-br from-blue-50 dark:from-blue-950/30 to-indigo-50 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-blue-700 font-medium">Current Level</p>
-                <p className="text-3xl font-bold text-blue-800">{userStats?.currentLevel || 1}</p>
+                <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">Current Level</p>
+                <p className="text-3xl font-bold text-blue-800 dark:text-blue-200">{userStats?.currentLevel || 1}</p>
               </div>
               <Star className="h-8 w-8 text-blue-600" />
             </div>
@@ -177,23 +177,23 @@ export function AchievementDashboard({ userId }: { userId: string }) {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+        <Card className="bg-gradient-to-br from-green-50 dark:from-green-950/30 to-emerald-50 dark:to-emerald-950/30 border-green-200 dark:border-green-800">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-green-700 font-medium">Achievements</p>
-                <p className="text-3xl font-bold text-green-800">{userStats?.completedAchievements || 0}</p>
+                <p className="text-sm text-green-700 dark:text-green-300 font-medium">Achievements</p>
+                <p className="text-3xl font-bold text-green-800 dark:text-green-200">{userStats?.completedAchievements || 0}</p>
               </div>
               <Medal className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-50 to-violet-50 border-purple-200">
+        <Card className="bg-gradient-to-br from-purple-50 dark:from-purple-950/30 to-violet-50 dark:to-violet-950/30 border-purple-200 dark:border-purple-800">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-purple-700 font-medium">Current Rank</p>
+                <p className="text-sm text-purple-700 dark:text-purple-300 font-medium">Current Rank</p>
                 <Badge className={`${getRankBadge(userStats?.rank || 'Bronze')} text-sm px-2 py-1`}>
                   {userStats?.rank || 'Bronze'}
                 </Badge>
@@ -203,7 +203,7 @@ export function AchievementDashboard({ userId }: { userId: string }) {
             {userStats?.streakDays && (
               <div className="mt-3 flex items-center">
                 <Flame className="h-4 w-4 text-orange-500 mr-1" />
-                <span className="text-sm text-purple-700">{userStats.streakDays} day streak!</span>
+                <span className="text-sm text-purple-700 dark:text-purple-300">{userStats.streakDays} day streak!</span>
               </div>
             )}
           </CardContent>
@@ -226,8 +226,8 @@ export function AchievementDashboard({ userId }: { userId: string }) {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-green-700">Completed</span>
-                  <Badge className="bg-green-100 text-green-800">{completedAchievements.length}</Badge>
+                  <span className="text-sm font-medium text-green-700 dark:text-green-300">Completed</span>
+                  <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">{completedAchievements.length}</Badge>
                 </div>
               </CardContent>
             </Card>
@@ -235,8 +235,8 @@ export function AchievementDashboard({ userId }: { userId: string }) {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-blue-700">In Progress</span>
-                  <Badge className="bg-blue-100 text-blue-800">{inProgressAchievements.length}</Badge>
+                  <span className="text-sm font-medium text-blue-700 dark:text-blue-300">In Progress</span>
+                  <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">{inProgressAchievements.length}</Badge>
                 </div>
               </CardContent>
             </Card>
@@ -260,11 +260,11 @@ export function AchievementDashboard({ userId }: { userId: string }) {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {completedAchievements.map((userAchievement) => (
-                  <Card key={userAchievement.id} className="border-2 border-green-200 bg-green-50/50" data-testid={`achievement-${userAchievement.achievementId}`}>
+                  <Card key={userAchievement.id} className="border-2 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30/50" data-testid={`achievement-${userAchievement.achievementId}`}>
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-3">
-                          <div className="p-2 bg-green-100 rounded-lg">
+                          <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
                             {getCategoryIcon(userAchievement.achievement.category?.name || '')}
                           </div>
                           <div>
@@ -279,7 +279,7 @@ export function AchievementDashboard({ userId }: { userId: string }) {
                             </div>
                           </div>
                         </div>
-                        <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                        <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 text-xs">
                           +{userAchievement.achievement.points}
                         </Badge>
                       </div>
@@ -325,11 +325,11 @@ export function AchievementDashboard({ userId }: { userId: string }) {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {inProgressAchievements.map((userAchievement) => (
-                  <Card key={userAchievement.id} className="border-2 border-blue-200 bg-blue-50/50">
+                  <Card key={userAchievement.id} className="border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30/50">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-3">
-                          <div className="p-2 bg-blue-100 rounded-lg">
+                          <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                             {getCategoryIcon(userAchievement.achievement.category?.name || '')}
                           </div>
                           <div>
@@ -344,7 +344,7 @@ export function AchievementDashboard({ userId }: { userId: string }) {
                             </div>
                           </div>
                         </div>
-                        <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                        <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 text-xs">
                           +{userAchievement.achievement.points}
                         </Badge>
                       </div>
@@ -357,10 +357,10 @@ export function AchievementDashboard({ userId }: { userId: string }) {
                       
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-blue-700">Progress</span>
+                          <span className="text-blue-700 dark:text-blue-300">Progress</span>
                           <span className="font-medium">{userAchievement.progress}%</span>
                         </div>
-                        <Progress value={userAchievement.progress} className="h-2 bg-blue-100" />
+                        <Progress value={userAchievement.progress} className="h-2 bg-blue-100 dark:bg-blue-900/30" />
                       </div>
                     </CardContent>
                   </Card>
@@ -431,7 +431,7 @@ export function AchievementDashboard({ userId }: { userId: string }) {
               {leaderboard.map((entry: any, index: number) => (
                 <div key={entry.userId} className="flex items-center justify-between p-3 rounded-lg bg-muted">
                   <div className="flex items-center space-x-3">
-                    <Badge className={`${index < 3 ? 'bg-yellow-100 text-yellow-800' : 'bg-muted text-white'}`}>
+                    <Badge className={`${index < 3 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' : 'bg-muted text-white'}`}>
                       #{index + 1}
                     </Badge>
                     <div>

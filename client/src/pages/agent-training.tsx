@@ -91,9 +91,9 @@ export default function AgentTrainingPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "completed":
-        return <Badge className="bg-green-100 text-green-800">Completed</Badge>;
+        return <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">Completed</Badge>;
       case "in_progress":
-        return <Badge className="bg-yellow-100 text-yellow-800">In Progress</Badge>;
+        return <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">In Progress</Badge>;
       default:
         return <Badge variant="outline">Not Started</Badge>;
     }
@@ -132,7 +132,7 @@ export default function AgentTrainingPage() {
             </p>
           </div>
           {(certifications as any)?.isCertified && (
-            <Badge className="bg-green-100 text-green-800 px-4 py-2">
+            <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 px-4 py-2">
               <Award className="h-4 w-4 mr-2" />
               Growth-Optimized Certified
             </Badge>
@@ -155,7 +155,7 @@ export default function AgentTrainingPage() {
                 {playbooks?.map((playbook) => (
                   <Card key={playbook.id} className="relative" data-testid={`playbook-card-${playbook.id}`}>
                     {playbook.isRequired && (
-                      <Badge className="absolute top-4 right-4 bg-red-100 text-red-800">
+                      <Badge className="absolute top-4 right-4 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200">
                         Required
                       </Badge>
                     )}
@@ -215,7 +215,7 @@ export default function AgentTrainingPage() {
 
           <TabsContent value="certifications" className="mt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className={(certifications as any)?.isCertified ? "border-green-200 bg-green-50/50" : ""}>
+              <Card className={(certifications as any)?.isCertified ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30/50" : ""}>
                 <CardHeader>
                   <div className="flex items-center gap-4">
                     {(certifications as any)?.isCertified ? (
@@ -234,7 +234,7 @@ export default function AgentTrainingPage() {
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Status</span>
-                        <Badge className="bg-green-100 text-green-800">Active</Badge>
+                        <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">Active</Badge>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Certified</span>
@@ -276,11 +276,11 @@ export default function AgentTrainingPage() {
                 {quizResult.passed ? (
                   <>
                     <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                    <h3 className="text-2xl font-bold text-green-700 mb-2">Congratulations!</h3>
+                    <h3 className="text-2xl font-bold text-green-700 dark:text-green-300 mb-2">Congratulations!</h3>
                     <p className="text-muted-foreground mb-4">
                       You scored {quizResult.score}% and earned your certification.
                     </p>
-                    <Badge className="bg-green-100 text-green-800 px-4 py-2">
+                    <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 px-4 py-2">
                       <Award className="h-4 w-4 mr-2" />
                       Growth-Optimized Certified
                     </Badge>
@@ -288,7 +288,7 @@ export default function AgentTrainingPage() {
                 ) : (
                   <>
                     <AlertTriangle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-                    <h3 className="text-2xl font-bold text-yellow-700 mb-2">Not Passed</h3>
+                    <h3 className="text-2xl font-bold text-yellow-700 dark:text-yellow-300 mb-2">Not Passed</h3>
                     <p className="text-muted-foreground mb-4">
                       You scored {quizResult.score}%. You need 80% or higher to pass.
                       Please review the training material and try again.

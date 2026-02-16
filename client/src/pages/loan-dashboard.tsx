@@ -172,7 +172,7 @@ export default function LoanDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 dark:from-blue-950/30 to-indigo-100 dark:to-indigo-900/30 py-8">
       <div className="container mx-auto px-4 max-w-7xl">
         {/* Header */}
         <div className="text-center mb-8">
@@ -402,7 +402,7 @@ export default function LoanDashboard() {
                 </Button>
 
                 {selectedApplication && (
-                  <Card className="mt-6 border-2 border-blue-200 bg-blue-50">
+                  <Card className="mt-6 border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
                     <CardHeader>
                       <CardTitle className="flex items-center space-x-2">
                         <span className="text-xl">{getLenderLogo(selectedApplication.lenderId)}</span>
@@ -508,7 +508,7 @@ export default function LoanDashboard() {
                 <div className="space-y-4">
                   <h3 className="font-semibold">Need Help?</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="border-blue-200 bg-blue-50">
+                    <Card className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
                       <CardContent className="py-4 text-center">
                         <PhoneCall className="w-8 h-8 text-blue-600 mx-auto mb-2" />
                         <h4 className="font-semibold text-sm mb-1">Call Support</h4>
@@ -516,7 +516,7 @@ export default function LoanDashboard() {
                       </CardContent>
                     </Card>
                     
-                    <Card className="border-green-200 bg-green-50">
+                    <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30">
                       <CardContent className="py-4 text-center">
                         <Mail className="w-8 h-8 text-green-600 mx-auto mb-2" />
                         <h4 className="font-semibold text-sm mb-1">Email Support</h4>
@@ -524,7 +524,7 @@ export default function LoanDashboard() {
                       </CardContent>
                     </Card>
                     
-                    <Card className="border-purple-200 bg-purple-50">
+                    <Card className="border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30">
                       <CardContent className="py-4 text-center">
                         <MapPin className="w-8 h-8 text-purple-600 mx-auto mb-2" />
                         <h4 className="font-semibold text-sm mb-1">Branch Locator</h4>

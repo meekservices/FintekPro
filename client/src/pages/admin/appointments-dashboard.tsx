@@ -133,13 +133,13 @@ export default function AdminAppointmentsDashboard() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending_admin_approval":
-        return <Badge className="bg-yellow-100 text-yellow-800"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
+        return <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
       case "active":
-        return <Badge className="bg-green-100 text-green-800"><CheckCircle2 className="h-3 w-3 mr-1" />Active</Badge>;
+        return <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200"><CheckCircle2 className="h-3 w-3 mr-1" />Active</Badge>;
       case "rejected":
-        return <Badge className="bg-red-100 text-red-800"><XCircle className="h-3 w-3 mr-1" />Rejected</Badge>;
+        return <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200"><XCircle className="h-3 w-3 mr-1" />Rejected</Badge>;
       case "suspended":
-        return <Badge className="bg-orange-100 text-orange-800"><Ban className="h-3 w-3 mr-1" />Suspended</Badge>;
+        return <Badge className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200"><Ban className="h-3 w-3 mr-1" />Suspended</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -147,12 +147,12 @@ export default function AdminAppointmentsDashboard() {
 
   const getRoleBadge = (role: string) => {
     const roleColors: Record<string, string> = {
-      partner: "bg-purple-100 text-purple-800",
-      master_agent: "bg-blue-100 text-blue-800",
-      agent: "bg-indigo-100 text-indigo-800",
-      sub_agent: "bg-cyan-100 text-cyan-800",
+      partner: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200",
+      master_agent: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
+      agent: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200",
+      sub_agent: "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-200",
       support_staff: "bg-muted text-foreground",
-      ca: "bg-teal-100 text-teal-800",
+      ca: "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200",
     };
     return (
       <Badge className={roleColors[role] || "bg-muted text-foreground"}>
@@ -373,7 +373,7 @@ export default function AdminAppointmentsDashboard() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                className="text-green-600 hover:text-green-700 dark:text-green-300 hover:bg-green-50 dark:bg-green-950/30"
                                 onClick={() => {
                                   setSelectedUser(apt);
                                   setShowApproveDialog(true);
@@ -385,7 +385,7 @@ export default function AdminAppointmentsDashboard() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                className="text-red-600 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:bg-red-950/30"
                                 onClick={() => {
                                   setSelectedUser(apt);
                                   setShowRejectDialog(true);
@@ -425,7 +425,7 @@ export default function AdminAppointmentsDashboard() {
         <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-green-700">
+              <DialogTitle className="flex items-center gap-2 text-green-700 dark:text-green-300">
                 <CheckCircle2 className="h-5 w-5" />
                 Approve Appointment
               </DialogTitle>
@@ -453,8 +453,8 @@ export default function AdminAppointmentsDashboard() {
                     <p className="font-medium">{selectedUser.initiatorName}</p>
                   </div>
                 </div>
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                  <p className="text-sm text-green-800">
+                <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                  <p className="text-sm text-green-800 dark:text-green-200">
                     Upon approval, this user will be able to log in and access platform features based on their assigned role.
                   </p>
                 </div>
@@ -480,7 +480,7 @@ export default function AdminAppointmentsDashboard() {
         <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-red-700">
+              <DialogTitle className="flex items-center gap-2 text-red-700 dark:text-red-300">
                 <XCircle className="h-5 w-5" />
                 Reject Appointment
               </DialogTitle>
@@ -512,8 +512,8 @@ export default function AdminAppointmentsDashboard() {
                     data-testid="rejection-reason-input"
                   />
                 </div>
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-sm text-red-800">
+                <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                  <p className="text-sm text-red-800 dark:text-red-200">
                     This action is permanent. The user will not be able to access the platform.
                   </p>
                 </div>

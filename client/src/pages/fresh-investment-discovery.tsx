@@ -77,10 +77,10 @@ const typeConfig: Record<string, { label: string; color: string; icon: any }> = 
 };
 
 const riskColors: Record<string, string> = {
-  low: 'bg-green-100 text-green-700',
-  medium: 'bg-yellow-100 text-yellow-700',
-  high: 'bg-orange-100 text-orange-700',
-  very_high: 'bg-red-100 text-red-700'
+  low: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+  medium: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+  high: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+  very_high: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
 };
 
 export default function FreshInvestmentDiscovery() {
@@ -438,7 +438,7 @@ export default function FreshInvestmentDiscovery() {
                 </p>
               </div>
             </div>
-            <Button variant="outline" className="border-indigo-300 text-indigo-700 hover:bg-indigo-100" data-testid="button-ai-advisor">
+            <Button variant="outline" className="border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:bg-indigo-900/30" data-testid="button-ai-advisor">
               <Sparkles className="w-4 h-4 mr-2" /> Ask AI Advisor
             </Button>
           </div>

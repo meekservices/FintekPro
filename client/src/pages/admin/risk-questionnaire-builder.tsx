@@ -433,8 +433,8 @@ export default function RiskQuestionnaireBuilder() {
             <CardContent className="space-y-4">
               <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
                 <AlertTriangle className="h-4 w-4 text-amber-600" />
-                <AlertTitle className="text-amber-800">Regulatory Override Rules</AlertTitle>
-                <AlertDescription className="text-amber-700">
+                <AlertTitle className="text-amber-800 dark:text-amber-200">Regulatory Override Rules</AlertTitle>
+                <AlertDescription className="text-amber-700 dark:text-amber-300">
                   These rules cannot be disabled as they are mandated by SEBI regulations.
                 </AlertDescription>
               </Alert>

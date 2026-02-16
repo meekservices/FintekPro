@@ -587,7 +587,7 @@ export default function IntelligentTaxHub() {
                           data-testid={`prefill-source-${source.id}`}
                         >
                           <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded ${source.connected ? 'bg-green-100 text-green-600' : 'bg-muted text-muted-foreground'}`}>
+                            <div className={`p-1.5 rounded ${source.connected ? 'bg-green-100 dark:bg-green-900/30 text-green-600' : 'bg-muted text-muted-foreground'}`}>
                               {getTypeIcon(source.type)}
                             </div>
                             <div>
@@ -600,7 +600,7 @@ export default function IntelligentTaxHub() {
                           {source.connected ? (
                             <div className="flex items-center gap-1">
                               {source.autoImported && (
-                                <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-700">Auto</Badge>
+                                <Badge variant="secondary" className="text-[10px] bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">Auto</Badge>
                               )}
                               <CheckCircle className="h-4 w-4 text-green-500" />
                             </div>
@@ -640,8 +640,8 @@ export default function IntelligentTaxHub() {
                 
                 const getPriorityColor = (priority: string) => {
                   switch (priority) {
-                    case "urgent": return "bg-red-100 text-red-700 border-red-200";
-                    case "recommended": return "bg-amber-100 text-amber-700 border-amber-200";
+                    case "urgent": return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800";
+                    case "recommended": return "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800";
                     default: return "bg-muted text-muted-foreground border-border";
                   }
                 };
@@ -799,12 +799,12 @@ export default function IntelligentTaxHub() {
                         <div className="flex items-center gap-2">
                           <span className="font-semibold">₹{source.amount.toLocaleString()}</span>
                           {source.verified ? (
-                            <Badge variant="default" className="bg-green-100 text-green-800">
+                            <Badge variant="default" className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                               <CheckCircle className="h-3 w-3 mr-1" />
                               Verified
                             </Badge>
                           ) : (
-                            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                            <Badge variant="secondary" className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">
                               <Clock className="h-3 w-3 mr-1" />
                               Pending
                             </Badge>
@@ -830,8 +830,8 @@ export default function IntelligentTaxHub() {
                         data-testid={`timeline-event-${idx}`}
                       >
                         <div className={`mt-1 p-2 rounded-full ${
-                          event.status === 'completed' ? 'bg-green-100' :
-                          event.status === 'upcoming' ? 'bg-blue-100' : 'bg-red-100'
+                          event.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30' :
+                          event.status === 'upcoming' ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-red-100 dark:bg-red-900/30'
                         }`}>
                           {event.type === 'deadline' ? <Calendar className="h-4 w-4" /> :
                            event.type === 'payment' ? <Banknote className="h-4 w-4" /> :
@@ -1065,8 +1065,8 @@ export default function IntelligentTaxHub() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className={`p-2 rounded-lg ${
-                              doc.uploaded ? 'bg-green-100 text-green-600' :
-                              doc.uploadProgress > 0 ? 'bg-blue-100 text-blue-600' :
+                              doc.uploaded ? 'bg-green-100 dark:bg-green-900/30 text-green-600' :
+                              doc.uploadProgress > 0 ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' :
                               'bg-muted text-muted-foreground'
                             }`}>
                               <File className="h-5 w-5" />
@@ -1075,7 +1075,7 @@ export default function IntelligentTaxHub() {
                               <div className="flex items-center gap-2">
                                 <span className="font-medium text-sm">{doc.name}</span>
                                 {doc.required && (
-                                  <Badge variant="secondary" className="text-[10px] bg-red-100 text-red-700">Required</Badge>
+                                  <Badge variant="secondary" className="text-[10px] bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">Required</Badge>
                                 )}
                               </div>
                               {doc.uploaded ? (

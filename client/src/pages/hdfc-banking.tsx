@@ -272,7 +272,7 @@ export default function HDFCBanking() {
                     <CardContent className="p-4">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Badge variant="outline" className="border-red-200">{account.accountType}</Badge>
+                          <Badge variant="outline" className="border-red-200 dark:border-red-800">{account.accountType}</Badge>
                           <Badge variant="secondary">{account.currency}</Badge>
                         </div>
                         <div>

@@ -514,10 +514,10 @@ export function RiskAssessment() {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <div className={`p-2 rounded-lg ${
-                                rec.riskLevel === 'Low' ? 'bg-green-100 text-green-600' :
-                                rec.riskLevel === 'Medium' ? 'bg-blue-100 text-blue-600' :
-                                rec.riskLevel === 'High' ? 'bg-orange-100 text-orange-600' :
-                                'bg-red-100 text-red-600'
+                                rec.riskLevel === 'Low' ? 'bg-green-100 dark:bg-green-900/30 text-green-600' :
+                                rec.riskLevel === 'Medium' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' :
+                                rec.riskLevel === 'High' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600' :
+                                'bg-red-100 dark:bg-red-900/30 text-red-600'
                               }`}>
                                 {rec.riskLevel === 'Low' ? <Shield className="w-4 h-4" /> :
                                  rec.riskLevel === 'Medium' ? <BarChart3 className="w-4 h-4" /> :
@@ -563,13 +563,13 @@ export function RiskAssessment() {
                 </div>
 
                 {/* Premium Investment Suitability Assessment */}
-                <Card data-testid="card-premium-investment-suitability" className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+                <Card data-testid="card-premium-investment-suitability" className="bg-gradient-to-r from-amber-50 dark:from-amber-950/30 to-orange-50 dark:to-orange-950/30 border-amber-200 dark:border-amber-800">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-amber-800">
+                    <CardTitle className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
                       <Star className="w-5 h-5 text-amber-600" />
                       Premium Investment Suitability Assessment
                     </CardTitle>
-                    <CardDescription className="text-amber-700">
+                    <CardDescription className="text-amber-700 dark:text-amber-300">
                       Based on your risk profile and financial capacity - aligned with current regulations
                     </CardDescription>
                   </CardHeader>
@@ -577,10 +577,10 @@ export function RiskAssessment() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {premiumAssessments.map((assessment, index) => (
                         <Card key={index} className={`border-2 transition-colors ${
-                          assessment.suitabilityLevel === 'Highly Suitable' ? 'border-green-300 bg-green-50' :
-                          assessment.suitabilityLevel === 'Suitable' ? 'border-blue-300 bg-blue-50' :
-                          assessment.suitabilityLevel === 'Suitable with Caution' ? 'border-yellow-300 bg-yellow-50' :
-                          'border-red-300 bg-red-50'
+                          assessment.suitabilityLevel === 'Highly Suitable' ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/30' :
+                          assessment.suitabilityLevel === 'Suitable' ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/30' :
+                          assessment.suitabilityLevel === 'Suitable with Caution' ? 'border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-950/30' :
+                          'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/30'
                         }`} data-testid={`premium-assessment-${index}`}>
                           <CardContent className="p-4">
                             <div className="space-y-4">
@@ -637,7 +637,7 @@ export function RiskAssessment() {
                                 <h5 className="text-sm font-medium">📋 Current Regulations</h5>
                                 <div className="space-y-1">
                                   {assessment.regulations.slice(0, 2).map((reg, regIndex) => (
-                                    <div key={regIndex} className="text-xs bg-blue-100 text-blue-800 p-2 rounded">
+                                    <div key={regIndex} className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 p-2 rounded">
                                       {reg}
                                     </div>
                                   ))}
@@ -647,7 +647,7 @@ export function RiskAssessment() {
                               {/* Pros & Cons */}
                               <div className="grid grid-cols-1 gap-3">
                                 <div className="space-y-2">
-                                  <h5 className="text-sm font-medium text-green-700">✅ Key Benefits</h5>
+                                  <h5 className="text-sm font-medium text-green-700 dark:text-green-300">✅ Key Benefits</h5>
                                   <div className="space-y-1">
                                     {assessment.pros.slice(0, 2).map((pro, proIndex) => (
                                       <div key={proIndex} className="text-xs text-green-600 flex items-start gap-1">
@@ -658,7 +658,7 @@ export function RiskAssessment() {
                                   </div>
                                 </div>
                                 <div className="space-y-2">
-                                  <h5 className="text-sm font-medium text-orange-700">⚠️ Key Risks</h5>
+                                  <h5 className="text-sm font-medium text-orange-700 dark:text-orange-300">⚠️ Key Risks</h5>
                                   <div className="space-y-1">
                                     {assessment.cons.slice(0, 2).map((con, conIndex) => (
                                       <div key={conIndex} className="text-xs text-orange-600 flex items-start gap-1">
@@ -671,9 +671,9 @@ export function RiskAssessment() {
                               </div>
 
                               {/* Investment Suggestion */}
-                              <div className="p-3 bg-amber-100 rounded-lg">
-                                <h5 className="text-sm font-medium text-amber-800 mb-1">💡 Investment Suggestion</h5>
-                                <p className="text-sm text-amber-700">{assessment.monthlyInvestmentSuggestion}</p>
+                              <div className="p-3 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                                <h5 className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-1">💡 Investment Suggestion</h5>
+                                <p className="text-sm text-amber-700 dark:text-amber-300">{assessment.monthlyInvestmentSuggestion}</p>
                               </div>
                             </div>
                           </CardContent>
@@ -682,39 +682,39 @@ export function RiskAssessment() {
                     </div>
 
                     {/* Overall Premium Investment Strategy */}
-                    <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
-                      <h4 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                    <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 dark:from-purple-950/30 to-indigo-50 dark:to-indigo-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
+                      <h4 className="font-semibold text-purple-900 dark:text-purple-100 mb-3 flex items-center gap-2">
                         <Star className="w-5 h-5" />
                         Your Premium Investment Journey
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                         <div className="space-y-2">
-                          <h5 className="font-medium text-purple-800">🎯 Start Now</h5>
+                          <h5 className="font-medium text-purple-800 dark:text-purple-200">🎯 Start Now</h5>
                           <div className="space-y-1">
                             {premiumAssessments
                               .filter(a => a.timelineToAccess === 'Immediate')
                               .map((a, i) => (
-                                <div key={i} className="text-purple-700">• {a.category}</div>
+                                <div key={i} className="text-purple-700 dark:text-purple-300">• {a.category}</div>
                               ))}
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <h5 className="font-medium text-purple-800">📈 Medium Term (2-6 years)</h5>
+                          <h5 className="font-medium text-purple-800 dark:text-purple-200">📈 Medium Term (2-6 years)</h5>
                           <div className="space-y-1">
                             {premiumAssessments
                               .filter(a => a.category === 'PMS')
                               .map((a, i) => (
-                                <div key={i} className="text-purple-700">• {a.category} - {a.timelineToAccess}</div>
+                                <div key={i} className="text-purple-700 dark:text-purple-300">• {a.category} - {a.timelineToAccess}</div>
                               ))}
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <h5 className="font-medium text-purple-800">🏆 Long Term (7+ years)</h5>
+                          <h5 className="font-medium text-purple-800 dark:text-purple-200">🏆 Long Term (7+ years)</h5>
                           <div className="space-y-1">
                             {premiumAssessments
                               .filter(a => a.category === 'AIF')
                               .map((a, i) => (
-                                <div key={i} className="text-purple-700">• {a.category} - {a.timelineToAccess}</div>
+                                <div key={i} className="text-purple-700 dark:text-purple-300">• {a.category} - {a.timelineToAccess}</div>
                               ))}
                           </div>
                         </div>
@@ -735,14 +735,14 @@ export function RiskAssessment() {
                     <div className="space-y-3">
                       {riskProfile === 'conservative' && (
                         <>
-                          <div className="flex items-start gap-2 p-3 bg-green-50 rounded-lg">
+                          <div className="flex items-start gap-2 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                             <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
                             <div>
                               <p className="font-medium">Focus on Capital Protection</p>
                               <p className="text-sm text-muted-foreground">Prioritize government securities and high-grade corporate bonds</p>
                             </div>
                           </div>
-                          <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
+                          <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                             <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
                             <div>
                               <p className="font-medium">Emergency Fund Priority</p>
@@ -754,14 +754,14 @@ export function RiskAssessment() {
 
                       {riskProfile === 'moderate' && (
                         <>
-                          <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
+                          <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                             <Target className="w-5 h-5 text-blue-600 mt-0.5" />
                             <div>
                               <p className="font-medium">Balanced Diversification</p>
                               <p className="text-sm text-muted-foreground">Mix growth and stability with 60:40 equity to debt ratio</p>
                             </div>
                           </div>
-                          <div className="flex items-start gap-2 p-3 bg-purple-50 rounded-lg">
+                          <div className="flex items-start gap-2 p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                             <PieChart className="w-5 h-5 text-purple-600 mt-0.5" />
                             <div>
                               <p className="font-medium">Regular Portfolio Review</p>
@@ -773,14 +773,14 @@ export function RiskAssessment() {
 
                       {riskProfile === 'aggressive' && (
                         <>
-                          <div className="flex items-start gap-2 p-3 bg-purple-50 rounded-lg">
+                          <div className="flex items-start gap-2 p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                             <TrendingUp className="w-5 h-5 text-purple-600 mt-0.5" />
                             <div>
                               <p className="font-medium">Growth-Oriented Strategy</p>
                               <p className="text-sm text-muted-foreground">Focus on equity and growth assets for wealth multiplication</p>
                             </div>
                           </div>
-                          <div className="flex items-start gap-2 p-3 bg-orange-50 rounded-lg">
+                          <div className="flex items-start gap-2 p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
                             <AlertTriangle className="w-5 h-5 text-orange-600 mt-0.5" />
                             <div>
                               <p className="font-medium">Volatility Management</p>

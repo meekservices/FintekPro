@@ -581,11 +581,11 @@ export default function AgentPortal() {
               </p>
               {agentProfile?.euinNumber && (
                 <div className="flex items-center gap-4 mt-2">
-                  <Badge className="bg-blue-100 text-blue-800">
+                  <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">
                     EUIN: {agentProfile.euinNumber}
                   </Badge>
                   {agentProfile.arnCode && (
-                    <Badge className="bg-green-100 text-green-800">
+                    <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                       ARN: {agentProfile.arnCode}
                     </Badge>
                   )}
@@ -763,24 +763,24 @@ export default function AgentPortal() {
                         <TableCell>
                           {partner.euinNumber ? (
                             <div>
-                              <Badge className="bg-green-100 text-green-800">
+                              <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                                 EUIN: {partner.euinNumber}
                               </Badge>
                               {partner.arnCode && (
-                                <Badge className="bg-blue-100 text-blue-800 mt-1">
+                                <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 mt-1">
                                   ARN: {partner.arnCode}
                                 </Badge>
                               )}
                             </div>
                           ) : (
-                            <Badge className="bg-yellow-100 text-yellow-800">
+                            <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">
                               No EUIN/ARN
                             </Badge>
                           )}
                         </TableCell>
                         <TableCell>
                           {partner.masterAgentEuin ? (
-                            <Badge className="bg-purple-100 text-purple-800">
+                            <Badge className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200">
                               {partner.masterAgentEuin}
                             </Badge>
                           ) : (
@@ -859,7 +859,7 @@ export default function AgentPortal() {
                         </TableCell>
                         <TableCell>
                           {client.assignedAgent ? (
-                            <Badge className="bg-blue-100 text-blue-800">
+                            <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">
                               {client.assignedAgent}
                             </Badge>
                           ) : (
@@ -868,21 +868,21 @@ export default function AgentPortal() {
                         </TableCell>
                         <TableCell>
                           {client.euinNumber ? (
-                            <Badge className="bg-green-100 text-green-800">
+                            <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                               {client.euinNumber}
                             </Badge>
                           ) : client.masterAgentEuin ? (
-                            <Badge className="bg-purple-100 text-purple-800">
+                            <Badge className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200">
                               Master: {client.masterAgentEuin}
                             </Badge>
                           ) : (
-                            <Badge className="bg-red-100 text-red-800">
+                            <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200">
                               No EUIN
                             </Badge>
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge className={client.isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                          <Badge className={client.isActive ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200" : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200"}>
                             {client.isActive ? "Active" : "Inactive"}
                           </Badge>
                         </TableCell>

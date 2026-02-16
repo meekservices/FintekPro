@@ -87,7 +87,7 @@ export function MarketNewsletter() {
             </div>
           ) : (
             <div className="text-center py-4">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Mail className="w-8 h-8 text-green-600" />
               </div>
               <h3 className="font-semibold text-lg mb-2">Successfully Subscribed!</h3>
@@ -129,12 +129,12 @@ export function MarketNewsletter() {
                       {newsletter.type === 'weekly' ? 'Weekly' : 'Special'}
                     </Badge>
                     {newsletter.status === 'latest' && (
-                      <Badge className="bg-green-100 text-green-800 text-xs">
+                      <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 text-xs">
                         Latest
                       </Badge>
                     )}
                     {newsletter.status === 'popular' && (
-                      <Badge className="bg-blue-100 text-blue-800 text-xs">
+                      <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-xs">
                         Popular
                       </Badge>
                     )}

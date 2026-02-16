@@ -215,11 +215,11 @@ export default function AdminLoanManagement() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
+      case 'active': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200';
       case 'inactive': return 'bg-muted text-foreground';
-      case 'on_leave': return 'bg-yellow-100 text-yellow-800';
-      case 'resigned': return 'bg-red-100 text-red-800';
-      case 'terminated': return 'bg-red-100 text-red-800';
+      case 'on_leave': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200';
+      case 'resigned': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200';
+      case 'terminated': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200';
       default: return 'bg-muted text-foreground';
     }
   };
@@ -253,7 +253,7 @@ export default function AdminLoanManagement() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="flex items-center p-4">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mr-3">
               <Building2 className="h-5 w-5 text-blue-600" />
             </div>
             <div>
@@ -264,7 +264,7 @@ export default function AdminLoanManagement() {
         </Card>
         <Card>
           <CardContent className="flex items-center p-4">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+            <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center mr-3">
               <FileText className="h-5 w-5 text-green-600" />
             </div>
             <div>
@@ -275,7 +275,7 @@ export default function AdminLoanManagement() {
         </Card>
         <Card>
           <CardContent className="flex items-center p-4">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+            <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center mr-3">
               <IndianRupee className="h-5 w-5 text-purple-600" />
             </div>
             <div>
@@ -286,7 +286,7 @@ export default function AdminLoanManagement() {
         </Card>
         <Card>
           <CardContent className="flex items-center p-4">
-            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
+            <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center mr-3">
               <TrendingUp className="h-5 w-5 text-orange-600" />
             </div>
             <div>
@@ -319,7 +319,7 @@ export default function AdminLoanManagement() {
                 <Card key={provider.providerKey} className="hover:shadow-md transition-shadow" data-testid={`lender-${provider.providerKey}`}>
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between mb-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                         <Building2 className="h-6 w-6 text-blue-600" />
                       </div>
                       <Badge variant={provider.isActive ? "default" : "secondary"}>
@@ -380,7 +380,7 @@ export default function AdminLoanManagement() {
                 <Card key={product.key} className="hover:shadow-md transition-shadow" data-testid={`product-admin-${product.key}`}>
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between mb-4">
-                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                      <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                         <FileText className="h-5 w-5 text-green-600" />
                       </div>
                       <Badge variant={product.isActive !== false ? "default" : "secondary"}>
@@ -781,7 +781,7 @@ export default function AdminLoanManagement() {
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="text-red-600 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:bg-red-950/30"
                             onClick={() => handleDeleteStaff(member.id)}
                             data-testid={`delete-staff-${member.id}`}
                           >
@@ -964,7 +964,7 @@ export default function AdminLoanManagement() {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+                          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded flex items-center justify-center">
                             <Clock className="h-4 w-4 text-blue-600" />
                           </div>
                           <span>Total Leads</span>
@@ -973,7 +973,7 @@ export default function AdminLoanManagement() {
                       </div>
                       <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-yellow-100 rounded flex items-center justify-center">
+                          <div className="w-8 h-8 bg-yellow-100 dark:bg-yellow-900/30 rounded flex items-center justify-center">
                             <AlertTriangle className="h-4 w-4 text-yellow-600" />
                           </div>
                           <span>In Processing</span>
@@ -982,7 +982,7 @@ export default function AdminLoanManagement() {
                       </div>
                       <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-green-100 rounded flex items-center justify-center">
+                          <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded flex items-center justify-center">
                             <CheckCircle className="h-4 w-4 text-green-600" />
                           </div>
                           <span>Sanctioned</span>
@@ -991,7 +991,7 @@ export default function AdminLoanManagement() {
                       </div>
                       <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-purple-100 rounded flex items-center justify-center">
+                          <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded flex items-center justify-center">
                             <IndianRupee className="h-4 w-4 text-purple-600" />
                           </div>
                           <span>Disbursed</span>
@@ -1000,7 +1000,7 @@ export default function AdminLoanManagement() {
                       </div>
                       <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-red-100 rounded flex items-center justify-center">
+                          <div className="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center">
                             <XCircle className="h-4 w-4 text-red-600" />
                           </div>
                           <span>Rejected</span>

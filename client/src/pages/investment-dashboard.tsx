@@ -206,18 +206,18 @@ export default function InvestmentDashboard() {
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
-      case 'low': return 'bg-green-100 text-green-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'high': return 'bg-red-100 text-red-800';
+      case 'low': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200';
+      case 'medium': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200';
+      case 'high': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200';
       default: return 'bg-muted text-foreground';
     }
   };
 
   const getRecommendationColor = (rec: string) => {
     switch (rec) {
-      case 'BUY': return 'bg-green-100 text-green-800';
-      case 'SELL': return 'bg-red-100 text-red-800';
-      case 'HOLD': return 'bg-blue-100 text-blue-800';
+      case 'BUY': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200';
+      case 'SELL': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200';
+      case 'HOLD': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200';
       default: return 'bg-muted text-foreground';
     }
   };
@@ -444,7 +444,7 @@ export default function InvestmentDashboard() {
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {optimizationSuggestions.map((suggestion: OptimizationSuggestion, index: number) => (
-                      <Alert key={index} className={suggestion.priority === 'high' ? 'border-red-200' : suggestion.priority === 'medium' ? 'border-orange-200' : 'border-blue-200'}>
+                      <Alert key={index} className={suggestion.priority === 'high' ? 'border-red-200 dark:border-red-800' : suggestion.priority === 'medium' ? 'border-orange-200 dark:border-orange-800' : 'border-blue-200 dark:border-blue-800'}>
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription>
                           <div className="space-y-2">
@@ -696,7 +696,7 @@ export default function InvestmentDashboard() {
                           <div className="flex items-center gap-3">
                             <h3 className="font-medium">{tracker.symbol}</h3>
                             <Badge variant="outline">{tracker.instrumentType}</Badge>
-                            <Badge className={tracker.totalReturn >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                            <Badge className={tracker.totalReturn >= 0 ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'}>
                               {formatPercentage(tracker.totalReturn)}
                             </Badge>
                           </div>

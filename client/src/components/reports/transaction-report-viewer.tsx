@@ -193,13 +193,13 @@ export function TransactionReportViewer() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge className="bg-green-100 text-green-800">Completed</Badge>;
+        return <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">Completed</Badge>;
       case 'processing':
-        return <Badge className="bg-blue-100 text-blue-800">Processing</Badge>;
+        return <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">Processing</Badge>;
       case 'failed':
-        return <Badge className="bg-red-100 text-red-800">Failed</Badge>;
+        return <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200">Failed</Badge>;
       default:
-        return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+        return <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">Pending</Badge>;
     }
   };
 

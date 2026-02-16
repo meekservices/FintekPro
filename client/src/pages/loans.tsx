@@ -277,9 +277,9 @@ export default function Loans() {
   };
 
   const getRiskColor = (score: number) => {
-    if (score >= 80) return "text-green-600 bg-green-100";
-    if (score >= 60) return "text-yellow-600 bg-yellow-100";
-    return "text-red-600 bg-red-100";
+    if (score >= 80) return "text-green-600 bg-green-100 dark:bg-green-900/30";
+    if (score >= 60) return "text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30";
+    return "text-red-600 bg-red-100 dark:bg-red-900/30";
   };
 
   const toggleOfferSelection = (offerId: string) => {
@@ -375,7 +375,7 @@ export default function Loans() {
               <Card>
                 <CardContent className="flex items-center p-6">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                       <Building2 className="h-6 w-6 text-blue-600" />
                     </div>
                     <div>
@@ -390,7 +390,7 @@ export default function Loans() {
               <Card>
                 <CardContent className="flex items-center p-6">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                       <TrendingUp className="h-6 w-6 text-green-600" />
                     </div>
                     <div>
@@ -403,7 +403,7 @@ export default function Loans() {
               <Card>
                 <CardContent className="flex items-center p-6">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
                       <Clock className="h-6 w-6 text-purple-600" />
                     </div>
                     <div>
@@ -432,7 +432,7 @@ export default function Loans() {
                         data-testid={`product-${productKey}`}
                       >
                         <CardContent className="p-6">
-                          <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4 bg-blue-100">
+                          <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4 bg-blue-100 dark:bg-blue-900/30">
                             <IconComponent className="h-6 w-6 text-blue-600" />
                           </div>
                           <h3 className="text-lg font-bold text-foreground mb-1">{product.productName || product.name || 'Loan Product'}</h3>
@@ -751,7 +751,7 @@ export default function Loans() {
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-4">
-                          <div className="text-center p-4 bg-blue-50 rounded-lg">
+                          <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                             <p className="text-sm text-muted-foreground">Interest Rate</p>
                             <p className="text-2xl font-bold text-blue-600">{offer.interestRate}%</p>
                             <p className="text-xs text-muted-foreground">per annum</p>
@@ -789,12 +789,12 @@ export default function Loans() {
                           </div>
 
                           {/* RBI Mandated KFS Link */}
-                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                             <div className="flex items-center gap-2 mb-2">
                               <FileText className="h-4 w-4 text-blue-600" />
-                              <span className="text-xs font-medium text-blue-800">Key Facts Statement (KFS)</span>
+                              <span className="text-xs font-medium text-blue-800 dark:text-blue-200">Key Facts Statement (KFS)</span>
                             </div>
-                            <div className="space-y-1 text-xs text-blue-700">
+                            <div className="space-y-1 text-xs text-blue-700 dark:text-blue-300">
                               <div className="flex justify-between">
                                 <span>APR (All-in Cost):</span>
                                 <span className="font-semibold">{offer.apr || (offer.interestRate + 0.5).toFixed(2)}%</span>
@@ -913,7 +913,7 @@ export default function Loans() {
                                 const bestRate = Math.min(...selectedOffers.map(id => offers.find(o => o.id === id)?.interestRate || Infinity));
                                 const isBest = offer.interestRate === bestRate;
                                 return (
-                                  <td key={offerId} className={`py-4 px-4 text-center ${isBest ? 'bg-green-50' : ''}`} data-testid={`rate-${offerId}`}>
+                                  <td key={offerId} className={`py-4 px-4 text-center ${isBest ? 'bg-green-50 dark:bg-green-950/30' : ''}`} data-testid={`rate-${offerId}`}>
                                     <div className={`text-xl font-bold ${isBest ? 'text-green-600' : 'text-foreground'}`}>
                                       {offer.interestRate}%
                                     </div>
@@ -933,7 +933,7 @@ export default function Loans() {
                                 const lowestEmi = Math.min(...selectedOffers.map(id => offers.find(o => o.id === id)?.monthlyEmi || Infinity));
                                 const isBest = offer.monthlyEmi === lowestEmi;
                                 return (
-                                  <td key={offerId} className={`py-4 px-4 text-center ${isBest ? 'bg-green-50' : ''}`} data-testid={`emi-${offerId}`}>
+                                  <td key={offerId} className={`py-4 px-4 text-center ${isBest ? 'bg-green-50 dark:bg-green-950/30' : ''}`} data-testid={`emi-${offerId}`}>
                                     <div className={`text-lg font-semibold ${isBest ? 'text-green-600' : 'text-foreground'}`}>
                                       {formatCurrency(offer.monthlyEmi)}
                                     </div>
@@ -952,7 +952,7 @@ export default function Loans() {
                                 const lowestFee = Math.min(...selectedOffers.map(id => offers.find(o => o.id === id)?.processingFee || Infinity));
                                 const isBest = offer.processingFee === lowestFee;
                                 return (
-                                  <td key={offerId} className={`py-4 px-4 text-center ${isBest ? 'bg-green-50' : ''}`} data-testid={`fee-${offerId}`}>
+                                  <td key={offerId} className={`py-4 px-4 text-center ${isBest ? 'bg-green-50 dark:bg-green-950/30' : ''}`} data-testid={`fee-${offerId}`}>
                                     <div className={`text-lg font-semibold ${isBest ? 'text-green-600' : 'text-foreground'}`}>
                                       {offer.processingFee}%
                                     </div>
@@ -971,7 +971,7 @@ export default function Loans() {
                                 const lowestInterest = Math.min(...selectedOffers.map(id => offers.find(o => o.id === id)?.totalInterest || Infinity));
                                 const isBest = offer.totalInterest === lowestInterest;
                                 return (
-                                  <td key={offerId} className={`py-4 px-4 text-center ${isBest ? 'bg-green-50' : ''}`} data-testid={`total-interest-${offerId}`}>
+                                  <td key={offerId} className={`py-4 px-4 text-center ${isBest ? 'bg-green-50 dark:bg-green-950/30' : ''}`} data-testid={`total-interest-${offerId}`}>
                                     <div className={`text-lg font-semibold ${isBest ? 'text-green-600' : 'text-red-600'}`}>
                                       {formatCurrency(offer.totalInterest)}
                                     </div>
@@ -1069,10 +1069,10 @@ export default function Loans() {
                       </div>
 
                       {/* Comparison Insights */}
-                      <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                      <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                         <div className="flex items-center gap-2 mb-2">
                           <Target className="h-5 w-5 text-blue-600" />
-                          <h4 className="font-semibold text-blue-900">Comparison Insights</h4>
+                          <h4 className="font-semibold text-blue-900 dark:text-blue-100">Comparison Insights</h4>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                           {(() => {
@@ -1088,17 +1088,17 @@ export default function Loans() {
                             return (
                               <>
                                 <div className="space-y-1">
-                                  <p className="text-blue-800 font-medium">Rate Difference</p>
+                                  <p className="text-blue-800 dark:text-blue-200 font-medium">Rate Difference</p>
                                   <p className="text-blue-600">{rateDifference.toFixed(2)}% spread</p>
                                   <p className="text-xs text-blue-600">Best: {bestRate}% | Worst: {worstRate}%</p>
                                 </div>
                                 <div className="space-y-1">
-                                  <p className="text-blue-800 font-medium">EMI Difference</p>
+                                  <p className="text-blue-800 dark:text-blue-200 font-medium">EMI Difference</p>
                                   <p className="text-blue-600">{formatCurrency(emiDifference)} monthly</p>
                                   <p className="text-xs text-blue-600">{formatCurrency(emiDifference * 12)} annually</p>
                                 </div>
                                 <div className="space-y-1">
-                                  <p className="text-blue-800 font-medium">Best Overall</p>
+                                  <p className="text-blue-800 dark:text-blue-200 font-medium">Best Overall</p>
                                   <p className="text-blue-600 font-semibold">{bestRateOffer?.providerName}</p>
                                   <p className="text-xs text-blue-600">Lowest rate & competitive terms</p>
                                 </div>
@@ -1297,7 +1297,7 @@ export default function Loans() {
                   </div>
 
                   <div className="space-y-6">
-                    <div className="text-center p-6 bg-blue-50 rounded-lg">
+                    <div className="text-center p-6 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                       <h3 className="text-sm font-medium text-muted-foreground mb-2">Monthly EMI</h3>
                       <p className="text-3xl font-bold text-blue-600" data-testid="calc-emi">
                         {emiResult ? formatCurrency(emiResult.emi) : '₹0'}
@@ -1305,19 +1305,19 @@ export default function Loans() {
                     </div>
                     
                     <div className="grid grid-cols-1 gap-4">
-                      <div className="p-4 bg-green-50 rounded-lg">
+                      <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
                         <h4 className="text-sm font-medium text-muted-foreground">Principal Amount</h4>
                         <p className="text-lg font-bold text-green-600" data-testid="calc-principal">
                           {emiResult ? formatCurrency(emiResult.principal) : '₹0'}
                         </p>
                       </div>
-                      <div className="p-4 bg-red-50 rounded-lg">
+                      <div className="p-4 bg-red-50 dark:bg-red-950/30 rounded-lg">
                         <h4 className="text-sm font-medium text-muted-foreground">Total Interest</h4>
                         <p className="text-lg font-bold text-red-600" data-testid="calc-interest">
                           {emiResult ? formatCurrency(emiResult.totalInterest) : '₹0'}
                         </p>
                       </div>
-                      <div className="p-4 bg-purple-50 rounded-lg">
+                      <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                         <h4 className="text-sm font-medium text-muted-foreground">Total Amount Payable</h4>
                         <p className="text-lg font-bold text-purple-600" data-testid="calc-total">
                           {emiResult ? formatCurrency(emiResult.totalPayment) : '₹0'}
@@ -1375,10 +1375,10 @@ export default function Loans() {
         </Tabs>
 
         {/* RBI Digital Lending Directions 2025 Compliance Footer */}
-        <Card className="mt-8 bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+        <Card className="mt-8 bg-gradient-to-r from-amber-50 dark:from-amber-950/30 to-orange-50 dark:to-orange-950/30 border-amber-200 dark:border-amber-800">
           <CardContent className="p-6">
             <div className="flex items-start gap-4">
-              <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
                 <Info className="h-5 w-5 text-amber-600" />
               </div>
               <div className="space-y-4">

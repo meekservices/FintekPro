@@ -78,13 +78,13 @@ export default function AdminAgentOversightPage() {
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case "critical":
-        return "bg-red-100 text-red-800";
+        return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200";
       case "high":
-        return "bg-orange-100 text-orange-800";
+        return "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200";
       case "medium":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200";
       default:
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200";
     }
   };
 
@@ -189,9 +189,9 @@ export default function AdminAgentOversightPage() {
             </div>
 
             {overviewData?.complianceAlerts && overviewData.complianceAlerts.length > 0 && (
-              <Card className="border-yellow-200 bg-yellow-50/50">
+              <Card className="border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950/30/50">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-yellow-800">
+                  <CardTitle className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200">
                     <AlertTriangle className="h-5 w-5" />
                     Compliance Alerts
                   </CardTitle>
@@ -257,12 +257,12 @@ export default function AdminAgentOversightPage() {
                             </TableCell>
                             <TableCell className="text-center">
                               {agent.complianceRate >= 95 ? (
-                                <Badge className="bg-green-100 text-green-800">
+                                <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                                   <CheckCircle2 className="h-3 w-3 mr-1" />
                                   Compliant
                                 </Badge>
                               ) : (
-                                <Badge className="bg-yellow-100 text-yellow-800">
+                                <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">
                                   <AlertCircle className="h-3 w-3 mr-1" />
                                   Review Needed
                                 </Badge>
@@ -327,26 +327,26 @@ export default function AdminAgentOversightPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="p-4 border rounded-lg bg-green-50">
-                        <div className="text-2xl font-bold text-green-700">
+                      <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950/30">
+                        <div className="text-2xl font-bold text-green-700 dark:text-green-300">
                           {overviewData?.performanceScores?.distribution?.excellent || 0}
                         </div>
                         <div className="text-sm text-green-600">Excellent (90+)</div>
                       </div>
-                      <div className="p-4 border rounded-lg bg-blue-50">
-                        <div className="text-2xl font-bold text-blue-700">
+                      <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/30">
+                        <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                           {overviewData?.performanceScores?.distribution?.good || 0}
                         </div>
                         <div className="text-sm text-blue-600">Good (75-89)</div>
                       </div>
-                      <div className="p-4 border rounded-lg bg-yellow-50">
-                        <div className="text-2xl font-bold text-yellow-700">
+                      <div className="p-4 border rounded-lg bg-yellow-50 dark:bg-yellow-950/30">
+                        <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-300">
                           {overviewData?.performanceScores?.distribution?.average || 0}
                         </div>
                         <div className="text-sm text-yellow-600">Average (60-74)</div>
                       </div>
-                      <div className="p-4 border rounded-lg bg-red-50">
-                        <div className="text-2xl font-bold text-red-700">
+                      <div className="p-4 border rounded-lg bg-red-50 dark:bg-red-950/30">
+                        <div className="text-2xl font-bold text-red-700 dark:text-red-300">
                           {overviewData?.performanceScores?.distribution?.needsImprovement || 0}
                         </div>
                         <div className="text-sm text-red-600">Needs Improvement (&lt;60)</div>

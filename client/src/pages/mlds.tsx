@@ -49,12 +49,12 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
 
   if (pendingProposals.length === 0) {
     return (
-      <Card className="border-dashed border-2 border-teal-200 bg-teal-50/50">
+      <Card className="border-dashed border-2 border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950/30/50">
         <CardContent className="flex flex-col items-center justify-center py-16">
           <Bot className="w-16 h-16 text-teal-400 mb-4" />
           <h3 className="text-xl font-semibold mb-2">No Pending MLD Proposals</h3>
           <p className="text-muted-foreground text-center max-w-md mb-4">AI and agent recommendations for Market Linked Debentures will appear here.</p>
-          <Button variant="outline" onClick={() => refetch()} className="border-teal-300 text-teal-600"><RefreshCw className="w-4 h-4 mr-2" />Refresh</Button>
+          <Button variant="outline" onClick={() => refetch()} className="border-teal-300 dark:border-teal-700 text-teal-600"><RefreshCw className="w-4 h-4 mr-2" />Refresh</Button>
         </CardContent>
       </Card>
     );
@@ -72,11 +72,11 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       {proposal.proposalSource === 'ai' ? (
-                        <Badge className="bg-teal-100 text-teal-700"><Bot className="w-3 h-3 mr-1" />AI Generated</Badge>
+                        <Badge className="bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"><Bot className="w-3 h-3 mr-1" />AI Generated</Badge>
                       ) : (
-                        <Badge className="bg-emerald-100 text-emerald-700"><UserCheck className="w-3 h-3 mr-1" />Agent Recommended</Badge>
+                        <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"><UserCheck className="w-3 h-3 mr-1" />Agent Recommended</Badge>
                       )}
-                      <Badge variant="outline" className="bg-teal-50 text-teal-700">MLD</Badge>
+                      <Badge variant="outline" className="bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-300">MLD</Badge>
                     </div>
                     <h3 className="text-lg font-semibold">{proposal.title}</h3>
                     <p className="text-sm text-muted-foreground mt-1">{proposal.description}</p>
@@ -88,12 +88,12 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
                 </div>
 
                 {proposal.analysisRationale && (
-                  <div className="mb-4 p-4 rounded-lg bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-100">
+                  <div className="mb-4 p-4 rounded-lg bg-gradient-to-r from-teal-50 dark:from-teal-950/30 to-cyan-50 dark:to-cyan-950/30 border border-teal-100 dark:border-teal-800">
                     <div className="flex items-start gap-2">
                       <Sparkles className="w-5 h-5 text-teal-500 mt-0.5" />
                       <div>
-                        <p className="font-medium text-teal-800 text-sm">Investment Rationale</p>
-                        <p className="text-sm text-teal-700 mt-1">{proposal.analysisRationale}</p>
+                        <p className="font-medium text-teal-800 dark:text-teal-200 text-sm">Investment Rationale</p>
+                        <p className="text-sm text-teal-700 dark:text-teal-300 mt-1">{proposal.analysisRationale}</p>
                       </div>
                     </div>
                   </div>
@@ -110,7 +110,7 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
                   <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => approveMutation.mutate(proposal.id)} disabled={approveMutation.isPending} data-testid={`approve-mld-${proposal.id}`}>
                     {approveMutation.isPending ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <ThumbsUp className="w-4 h-4 mr-2" />}Approve & Add to Cart
                   </Button>
-                  <Button variant="outline" className="border-red-300 text-red-600" onClick={() => rejectMutation.mutate(proposal.id)} data-testid={`reject-mld-${proposal.id}`}>
+                  <Button variant="outline" className="border-red-300 dark:border-red-700 text-red-600" onClick={() => rejectMutation.mutate(proposal.id)} data-testid={`reject-mld-${proposal.id}`}>
                     <ThumbsDown className="w-4 h-4 mr-2" />Reject
                   </Button>
                 </div>
@@ -156,7 +156,7 @@ function CartTab({ productType, onCheckout }: { productType: string; onCheckout:
 
   if (cartItems.length === 0) {
     return (
-      <Card className="border-dashed border-2 border-teal-200 bg-teal-50/50">
+      <Card className="border-dashed border-2 border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950/30/50">
         <CardContent className="flex flex-col items-center justify-center py-16">
           <ShoppingCart className="w-16 h-16 text-teal-400 mb-4" />
           <h3 className="text-xl font-semibold mb-2">Your MLD Cart is Empty</h3>
@@ -177,7 +177,7 @@ function CartTab({ productType, onCheckout }: { productType: string; onCheckout:
                   <div className="flex items-center gap-2 mb-2">
                     <Package className="w-5 h-5 text-teal-600" />
                     <h4 className="font-semibold">{item.productName || 'MLD Investment'}</h4>
-                    <Badge className="bg-teal-100 text-teal-700">MLD</Badge>
+                    <Badge className="bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300">MLD</Badge>
                   </div>
                 </div>
                 <div className="text-right">
@@ -192,7 +192,7 @@ function CartTab({ productType, onCheckout }: { productType: string; onCheckout:
         ))}
       </div>
       <div className="lg:col-span-1">
-        <Card className="sticky top-4 border-2 border-teal-200 bg-gradient-to-b from-teal-50 to-cyan-50">
+        <Card className="sticky top-4 border-2 border-teal-200 dark:border-teal-800 bg-gradient-to-b from-teal-50 dark:from-teal-950/30 to-cyan-50 dark:to-cyan-950/30">
           <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard className="w-5 h-5 text-teal-600" />Order Summary</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -202,10 +202,10 @@ function CartTab({ productType, onCheckout }: { productType: string; onCheckout:
             <div className="border-t pt-4">
               <div className="flex justify-between text-lg font-bold"><span>Total</span><span className="text-teal-600">₹{totalValue.toLocaleString('en-IN')}</span></div>
             </div>
-            <div className="bg-amber-100 rounded-lg p-3 text-sm">
+            <div className="bg-amber-100 dark:bg-amber-900/30 rounded-lg p-3 text-sm">
               <div className="flex items-start gap-2">
                 <AlertOctagon className="w-4 h-4 text-amber-600 mt-0.5" />
-                <div><p className="font-medium text-amber-800">MLD Notice</p><p className="text-amber-700 text-xs">Minimum ₹1 Lakh. Principal protection at maturity.</p></div>
+                <div><p className="font-medium text-amber-800 dark:text-amber-200">MLD Notice</p><p className="text-amber-700 dark:text-amber-300 text-xs">Minimum ₹1 Lakh. Principal protection at maturity.</p></div>
               </div>
             </div>
             <Button className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 text-foreground font-semibold py-6" onClick={() => checkoutMutation.mutate()} disabled={checkoutMutation.isPending} data-testid="mld-checkout-btn">
@@ -242,7 +242,7 @@ function OrdersTab({ productType }: { productType: string }) {
           <CardContent className="p-6">
             <div className="flex items-start justify-between mb-4">
               <div><h4 className="font-semibold text-lg">{order.productName || order.schemeName}</h4><p className="text-sm text-muted-foreground">Order #{order.id?.slice(-8)}</p></div>
-              <Badge className={order.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>{order.status}</Badge>
+              <Badge className={order.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'}>{order.status}</Badge>
             </div>
             <div className="grid grid-cols-4 gap-4 text-sm">
               <div><span className="text-muted-foreground">Amount</span><p className="font-semibold">₹{parseFloat(order.amount || '0').toLocaleString('en-IN')}</p></div>

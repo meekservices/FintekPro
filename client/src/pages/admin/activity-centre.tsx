@@ -953,7 +953,7 @@ export default function ActivityCentre() {
                 {criticalErrors?.slice(0, 3).map(error => (
                   <div 
                     key={error.id} 
-                    className="flex items-center justify-between p-3 bg-card rounded-lg border border-red-200"
+                    className="flex items-center justify-between p-3 bg-card rounded-lg border border-red-200 dark:border-red-800"
                   >
                     <div className="flex items-center gap-3">
                       <AlertTriangle className="h-4 w-4 text-red-500" />

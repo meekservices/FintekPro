@@ -113,9 +113,9 @@ export default function TaxITRPage() {
 
   const getComplexityBadge = (complexity: string) => {
     switch (complexity) {
-      case "simple": return <Badge className="bg-green-100 text-green-700">Simple</Badge>;
-      case "moderate": return <Badge className="bg-yellow-100 text-yellow-700">Moderate</Badge>;
-      case "complex": return <Badge className="bg-orange-100 text-orange-700">Complex</Badge>;
+      case "simple": return <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">Simple</Badge>;
+      case "moderate": return <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300">Moderate</Badge>;
+      case "complex": return <Badge className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300">Complex</Badge>;
       default: return null;
     }
   };
@@ -134,7 +134,7 @@ export default function TaxITRPage() {
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-lg">{panContext?.name || "Loading..."}</span>
                   {panContext?.isVerified && (
-                    <Badge className="bg-green-100 text-green-700">
+                    <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
                       <CheckCircle className="h-3 w-3 mr-1" /> Verified
                     </Badge>
                   )}
@@ -160,7 +160,7 @@ export default function TaxITRPage() {
           <p className="text-muted-foreground">AY 2024-25 | Due Date: July 31, 2024</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-orange-600 border-orange-300">
+          <Badge variant="outline" className="text-orange-600 border-orange-300 dark:border-orange-700">
             <Clock className="h-3 w-3 mr-1" /> 45 days left
           </Badge>
         </div>
@@ -343,7 +343,7 @@ export default function TaxITRPage() {
               <CardContent className="pt-6">
                 <div className="text-center">
                   <Sparkles className="h-8 w-8 mx-auto text-green-600 mb-2" />
-                  <div className="text-2xl font-bold text-green-700">98%</div>
+                  <div className="text-2xl font-bold text-green-700 dark:text-green-300">98%</div>
                   <p className="text-xs text-muted-foreground">Accuracy Rate</p>
                 </div>
               </CardContent>
@@ -352,7 +352,7 @@ export default function TaxITRPage() {
               <CardContent className="pt-6">
                 <div className="text-center">
                   <Clock className="h-8 w-8 mx-auto text-blue-600 mb-2" />
-                  <div className="text-2xl font-bold text-blue-700">15 min</div>
+                  <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">15 min</div>
                   <p className="text-xs text-muted-foreground">Avg. Filing Time</p>
                 </div>
               </CardContent>
@@ -361,7 +361,7 @@ export default function TaxITRPage() {
               <CardContent className="pt-6">
                 <div className="text-center">
                   <Users className="h-8 w-8 mx-auto text-purple-600 mb-2" />
-                  <div className="text-2xl font-bold text-purple-700">50+</div>
+                  <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">50+</div>
                   <p className="text-xs text-muted-foreground">Expert CAs</p>
                 </div>
               </CardContent>
@@ -370,7 +370,7 @@ export default function TaxITRPage() {
               <CardContent className="pt-6">
                 <div className="text-center">
                   <IndianRupee className="h-8 w-8 mx-auto text-orange-600 mb-2" />
-                  <div className="text-2xl font-bold text-orange-700">₹2.5L</div>
+                  <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">₹2.5L</div>
                   <p className="text-xs text-muted-foreground">Avg. Refund</p>
                 </div>
               </CardContent>
@@ -401,7 +401,7 @@ export default function TaxITRPage() {
               {/* Self-file wizard steps indicator */}
               <div className="grid grid-cols-6 gap-2 text-xs text-center">
                 {["Personal", "Income", "Deductions", "Tax", "Preview", "Submit"].map((step, idx) => (
-                  <div key={step} className={`p-2 rounded ${idx === 0 ? "bg-blue-100 text-blue-700 font-medium" : "bg-muted text-muted-foreground"}`}>
+                  <div key={step} className={`p-2 rounded ${idx === 0 ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium" : "bg-muted text-muted-foreground"}`}>
                     {step}
                   </div>
                 ))}
@@ -426,7 +426,7 @@ export default function TaxITRPage() {
                       <Button 
                         key={id} 
                         variant="outline" 
-                        className="h-auto py-4 flex flex-col gap-2 hover:border-blue-500 hover:bg-blue-50"
+                        className="h-auto py-4 flex flex-col gap-2 hover:border-blue-500 hover:bg-blue-50 dark:bg-blue-950/30"
                         data-testid={`income-source-${id}`}
                       >
                         <Icon className="h-6 w-6" />
@@ -539,7 +539,7 @@ export default function TaxITRPage() {
                 <div className="p-4 border rounded-lg bg-yellow-50 dark:bg-yellow-950" data-testid="current-filing">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-yellow-100 rounded-full">
+                      <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
                         <Clock className="h-5 w-5 text-yellow-600" />
                       </div>
                       <div>
@@ -547,7 +547,7 @@ export default function TaxITRPage() {
                         <p className="text-sm text-muted-foreground">ITR-1 (Sahaj)</p>
                       </div>
                     </div>
-                    <Badge className="bg-yellow-100 text-yellow-700">In Progress</Badge>
+                    <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300">In Progress</Badge>
                   </div>
                   <Progress value={40} className="h-2 mb-2" />
                   <p className="text-xs text-muted-foreground">Step 3 of 6: Deductions</p>
@@ -566,7 +566,7 @@ export default function TaxITRPage() {
                     <div key={idx} className="p-4 border rounded-lg" data-testid={`past-filing-${idx}`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-green-100 rounded-full">
+                          <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
                             <CheckCircle className="h-5 w-5 text-green-600" />
                           </div>
                           <div>
@@ -575,7 +575,7 @@ export default function TaxITRPage() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <Badge className="bg-green-100 text-green-700">{filing.status}</Badge>
+                          <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">{filing.status}</Badge>
                           <p className="text-sm text-green-600 mt-1">Refund: {filing.refund}</p>
                         </div>
                       </div>

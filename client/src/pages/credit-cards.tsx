@@ -310,7 +310,7 @@ export default function CreditCardsPage() {
         <TabsContent value="premium" className="space-y-4">
           <div className="grid md:grid-cols-2 gap-6">
             {creditCards.filter(c => c.category === "premium").map((card) => (
-              <Card key={card.id} className="border-yellow-200 hover:shadow-lg transition-shadow">
+              <Card key={card.id} className="border-yellow-200 dark:border-yellow-800 hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -320,7 +320,7 @@ export default function CreditCardsPage() {
                         <CardDescription>{card.bank}</CardDescription>
                       </div>
                     </div>
-                    <Badge className="bg-yellow-100 text-yellow-800">Premium</Badge>
+                    <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">Premium</Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -344,7 +344,7 @@ export default function CreditCardsPage() {
         <TabsContent value="cashback" className="space-y-4">
           <div className="grid md:grid-cols-2 gap-6">
             {creditCards.filter(c => c.category === "cashback").map((card) => (
-              <Card key={card.id} className="border-green-200">
+              <Card key={card.id} className="border-green-200 dark:border-green-800">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -354,12 +354,12 @@ export default function CreditCardsPage() {
                         <CardDescription>{card.bank}</CardDescription>
                       </div>
                     </div>
-                    <Badge className="bg-green-100 text-green-800">Cashback</Badge>
+                    <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">Cashback</Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="p-4 bg-green-50 rounded-lg">
-                    <p className="font-semibold text-green-900">{card.rewardRate}</p>
+                  <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                    <p className="font-semibold text-green-900 dark:text-green-100">{card.rewardRate}</p>
                   </div>
                   <Button className="w-full" data-testid={`button-apply-cashback-${card.id}`}>Apply for Cashback Card</Button>
                 </CardContent>
@@ -372,7 +372,7 @@ export default function CreditCardsPage() {
         <TabsContent value="rewards" className="space-y-4">
           <div className="grid md:grid-cols-2 gap-6">
             {creditCards.filter(c => c.category === "rewards").map((card) => (
-              <Card key={card.id} className="border-purple-200">
+              <Card key={card.id} className="border-purple-200 dark:border-purple-800">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -382,12 +382,12 @@ export default function CreditCardsPage() {
                         <CardDescription>{card.bank}</CardDescription>
                       </div>
                     </div>
-                    <Badge className="bg-purple-100 text-purple-800">Rewards</Badge>
+                    <Badge className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200">Rewards</Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="p-4 bg-purple-50 rounded-lg">
-                    <p className="font-semibold text-purple-900">{card.rewardRate}</p>
+                  <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
+                    <p className="font-semibold text-purple-900 dark:text-purple-100">{card.rewardRate}</p>
                   </div>
                   <Button className="w-full" data-testid={`button-apply-rewards-${card.id}`}>Apply for Rewards Card</Button>
                 </CardContent>

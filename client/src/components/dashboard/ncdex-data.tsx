@@ -105,7 +105,7 @@ export function NCDEXData() {
                 <div key={segment.segment} className="text-center">
                   <p className="text-sm font-medium text-foreground">{segment.segment}</p>
                   <Badge 
-                    className={segment.status === 'Open' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
+                    className={segment.status === 'Open' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'}
                   >
                     {segment.status}
                   </Badge>
@@ -172,7 +172,7 @@ export function NCDEXData() {
                           </div>
                         </td>
                         <td className="py-2">
-                          <Badge className="bg-green-100 text-green-800 text-xs">
+                          <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 text-xs">
                             {commodity.category}
                           </Badge>
                         </td>
@@ -204,7 +204,7 @@ export function NCDEXData() {
         <TabsContent value="gainers" data-testid="ncdex-gainers">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center text-green-700">
+              <CardTitle className="flex items-center text-green-700 dark:text-green-300">
                 <TrendingUp className="h-5 w-5 mr-2" />
                 Top Performing Agricultural Commodities
               </CardTitle>
@@ -212,10 +212,10 @@ export function NCDEXData() {
             <CardContent>
               <div className="space-y-3">
                 {gainersData.map((commodity, index) => (
-                  <div key={commodity.symbol} className="flex items-center justify-between p-3 bg-green-50 rounded-lg" data-testid={`gainer-${commodity.symbol}`}>
+                  <div key={commodity.symbol} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/30 rounded-lg" data-testid={`gainer-${commodity.symbol}`}>
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-bold text-green-700">#{index + 1}</span>
+                      <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-bold text-green-700 dark:text-green-300">#{index + 1}</span>
                       </div>
                       <div>
                         <p className="font-medium text-foreground">{commodity.name}</p>
@@ -238,7 +238,7 @@ export function NCDEXData() {
         <TabsContent value="losers" data-testid="ncdex-losers">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center text-red-700">
+              <CardTitle className="flex items-center text-red-700 dark:text-red-300">
                 <TrendingDown className="h-5 w-5 mr-2" />
                 Declining Agricultural Commodities
               </CardTitle>
@@ -246,10 +246,10 @@ export function NCDEXData() {
             <CardContent>
               <div className="space-y-3">
                 {losersData.map((commodity, index) => (
-                  <div key={commodity.symbol} className="flex items-center justify-between p-3 bg-red-50 rounded-lg" data-testid={`loser-${commodity.symbol}`}>
+                  <div key={commodity.symbol} className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-950/30 rounded-lg" data-testid={`loser-${commodity.symbol}`}>
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-bold text-red-700">#{index + 1}</span>
+                      <div className="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-bold text-red-700 dark:text-red-300">#{index + 1}</span>
                       </div>
                       <div>
                         <p className="font-medium text-foreground">{commodity.name}</p>
@@ -280,17 +280,17 @@ export function NCDEXData() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
+            <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
               <p className="text-2xl font-bold text-blue-600">{commoditiesData.length}</p>
               <p className="text-sm text-muted-foreground">Active Commodities</p>
             </div>
-            <div className="text-center p-4 bg-green-50 rounded-lg">
+            <div className="text-center p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
               <p className="text-2xl font-bold text-green-600">
                 {commoditiesData.filter(c => c.change > 0).length}
               </p>
               <p className="text-sm text-muted-foreground">Advancing</p>
             </div>
-            <div className="text-center p-4 bg-red-50 rounded-lg">
+            <div className="text-center p-4 bg-red-50 dark:bg-red-950/30 rounded-lg">
               <p className="text-2xl font-bold text-red-600">
                 {commoditiesData.filter(c => c.change < 0).length}
               </p>

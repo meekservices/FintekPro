@@ -720,11 +720,11 @@ export default function PmsSeedPage() {
                 </p>
               </div>
               <div className="flex gap-2 flex-wrap justify-center text-sm text-muted-foreground">
-                <Badge variant="outline" className="text-blue-600 border-blue-300">Large-cap</Badge>
-                <Badge variant="outline" className="text-purple-600 border-purple-300">Multi-cap</Badge>
-                <Badge variant="outline" className="text-indigo-600 border-indigo-300">Mid-cap</Badge>
-                <Badge variant="outline" className="text-orange-600 border-orange-300">Focused</Badge>
-                <Badge variant="outline" className="text-green-600 border-green-300">Value</Badge>
+                <Badge variant="outline" className="text-blue-600 border-blue-300 dark:border-blue-700">Large-cap</Badge>
+                <Badge variant="outline" className="text-purple-600 border-purple-300 dark:border-purple-700">Multi-cap</Badge>
+                <Badge variant="outline" className="text-indigo-600 border-indigo-300 dark:border-indigo-700">Mid-cap</Badge>
+                <Badge variant="outline" className="text-orange-600 border-orange-300 dark:border-orange-700">Focused</Badge>
+                <Badge variant="outline" className="text-green-600 border-green-300 dark:border-green-700">Value</Badge>
               </div>
               <Button 
                 onClick={() => previewSeedMutation.mutate()}

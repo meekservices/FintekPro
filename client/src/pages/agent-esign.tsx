@@ -1130,7 +1130,7 @@ export default function AgentESignPage() {
                               variant="ghost" 
                               size="icon" 
                               onClick={() => handleRemoveSigner(signer.id)}
-                              className="text-red-500 hover:text-red-700"
+                              className="text-red-500 hover:text-red-700 dark:text-red-300"
                               data-testid={`button-remove-signer-${idx}`}
                             >
                               <Trash2 className="h-4 w-4" />

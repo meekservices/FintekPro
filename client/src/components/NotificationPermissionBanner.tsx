@@ -89,7 +89,7 @@ export function NotificationPermissionBanner({
           size="sm"
           onClick={handleEnable}
           disabled={enabling}
-          className="bg-card text-emerald-700 hover:bg-card/90"
+          className="bg-card text-emerald-700 dark:text-emerald-300 hover:bg-card/90"
           data-testid="button-enable-notifications"
         >
           {enabling ? 'Enabling...' : 'Enable Notifications'}

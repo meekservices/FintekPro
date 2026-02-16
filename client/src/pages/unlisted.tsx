@@ -267,9 +267,9 @@ function AIPicksSection() {
 
   const getSignalColor = (signal: string) => {
     switch (signal) {
-      case 'buy': return 'bg-green-100 text-green-800';
-      case 'hold': return 'bg-yellow-100 text-yellow-800';
-      case 'avoid': return 'bg-red-100 text-red-800';
+      case 'buy': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200';
+      case 'hold': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200';
+      case 'avoid': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200';
       default: return 'bg-muted text-foreground';
     }
   };
@@ -336,7 +336,7 @@ function AIPicksSection() {
       </Card>
 
       {data?.summary && (
-        <Card className="bg-gradient-to-r from-purple-50 to-blue-50" data-testid="card-ai-unlisted-summary">
+        <Card className="bg-gradient-to-r from-purple-50 dark:from-purple-950/30 to-blue-50 dark:to-blue-950/30" data-testid="card-ai-unlisted-summary">
           <CardContent className="py-4">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
               <div>
@@ -429,10 +429,10 @@ function AIPicksSection() {
 
                 {rec.keyStrengths && rec.keyStrengths.length > 0 && (
                   <div className="mb-2">
-                    <div className="text-xs font-medium text-green-700 mb-1">Strengths:</div>
+                    <div className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">Strengths:</div>
                     <div className="flex flex-wrap gap-1">
                       {rec.keyStrengths.slice(0, 2).map((s: string, i: number) => (
-                        <Badge key={i} variant="outline" className="text-xs bg-green-50">{s}</Badge>
+                        <Badge key={i} variant="outline" className="text-xs bg-green-50 dark:bg-green-950/30">{s}</Badge>
                       ))}
                     </div>
                   </div>
@@ -440,10 +440,10 @@ function AIPicksSection() {
 
                 {rec.keyRisks && rec.keyRisks.length > 0 && (
                   <div className="mb-3">
-                    <div className="text-xs font-medium text-orange-700 mb-1">Risks:</div>
+                    <div className="text-xs font-medium text-orange-700 dark:text-orange-300 mb-1">Risks:</div>
                     <div className="flex flex-wrap gap-1">
                       {rec.keyRisks.slice(0, 2).map((r: string, i: number) => (
-                        <Badge key={i} variant="outline" className="text-xs bg-orange-50">{r}</Badge>
+                        <Badge key={i} variant="outline" className="text-xs bg-orange-50 dark:bg-orange-950/30">{r}</Badge>
                       ))}
                     </div>
                   </div>
@@ -469,11 +469,11 @@ function AIPicksSection() {
       )}
 
       {data?.summary?.disclaimer && (
-        <Card className="bg-amber-50 border-amber-200">
+        <Card className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
           <CardContent className="py-3">
             <div className="flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-amber-800">{data.summary.disclaimer}</p>
+              <p className="text-xs text-amber-800 dark:text-amber-200">{data.summary.disclaimer}</p>
             </div>
           </CardContent>
         </Card>

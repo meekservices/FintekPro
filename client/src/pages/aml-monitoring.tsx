@@ -85,10 +85,10 @@ export default function AMLMonitoring() {
 
   const getRiskBadgeColor = (riskLevel: string) => {
     switch (riskLevel) {
-      case 'low': return 'bg-green-100 text-green-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'high': return 'bg-orange-100 text-orange-800';
-      case 'critical': return 'bg-red-100 text-red-800';
+      case 'low': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200';
+      case 'medium': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200';
+      case 'high': return 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200';
+      case 'critical': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200';
       default: return 'bg-muted text-foreground';
     }
   };
@@ -252,22 +252,22 @@ export default function AMLMonitoring() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-green-50 rounded-lg">
+            <div className="text-center p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
               <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
               <p className="font-medium">Sanction Scanner</p>
               <p className="text-sm text-green-600">Operational</p>
             </div>
-            <div className="text-center p-4 bg-green-50 rounded-lg">
+            <div className="text-center p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
               <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
               <p className="font-medium">ComplyCube</p>
               <p className="text-sm text-green-600">Operational</p>
             </div>
-            <div className="text-center p-4 bg-green-50 rounded-lg">
+            <div className="text-center p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
               <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
               <p className="font-medium">Sumsub</p>
               <p className="text-sm text-green-600">Operational</p>
             </div>
-            <div className="text-center p-4 bg-green-50 rounded-lg">
+            <div className="text-center p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
               <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
               <p className="font-medium">Database</p>
               <p className="text-sm text-green-600">Operational</p>

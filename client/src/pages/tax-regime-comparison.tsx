@@ -398,7 +398,7 @@ export default function TaxRegimeComparison() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Old Tax Regime</CardTitle>
               {displayRecommendation === 'old' && (
-                <Badge className="bg-green-100 text-green-800">
+                <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                   <CheckCircle2 className="h-3 w-3 mr-1" />
                   Recommended
                 </Badge>
@@ -453,7 +453,7 @@ export default function TaxRegimeComparison() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">New Tax Regime (2024)</CardTitle>
               {displayRecommendation === 'new' && (
-                <Badge className="bg-green-100 text-green-800">
+                <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                   <CheckCircle2 className="h-3 w-3 mr-1" />
                   Recommended
                 </Badge>

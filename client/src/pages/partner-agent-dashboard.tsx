@@ -322,9 +322,9 @@ export default function PartnerAgentDashboard() {
                       <div key={agent.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                            index === 0 ? 'bg-yellow-100 text-yellow-700' :
+                            index === 0 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
                             index === 1 ? 'bg-muted text-muted-foreground' :
-                            index === 2 ? 'bg-orange-100 text-orange-700' :
+                            index === 2 ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' :
                             'bg-muted text-muted-foreground'
                           }`}>
                             {index + 1}
@@ -336,7 +336,7 @@ export default function PartnerAgentDashboard() {
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-lg">{agent.performanceScore}%</p>
-                          <Badge className={agent.targetAchievement >= 100 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}>
+                          <Badge className={agent.targetAchievement >= 100 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'}>
                             {agent.targetAchievement}% of target
                           </Badge>
                         </div>
@@ -517,9 +517,9 @@ export default function PartnerAgentDashboard() {
                       <TableCell className="text-right font-medium">{formatCurrency(expense.amount)}</TableCell>
                       <TableCell>
                         <Badge className={
-                          expense.status === 'approved' ? 'bg-green-100 text-green-700' :
-                          expense.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                          'bg-yellow-100 text-yellow-700'
+                          expense.status === 'approved' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+                          expense.status === 'rejected' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                          'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
                         }>
                           {expense.status}
                         </Badge>
@@ -530,7 +530,7 @@ export default function PartnerAgentDashboard() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                              className="text-green-600 hover:text-green-700 dark:text-green-300 hover:bg-green-50 dark:bg-green-950/30"
                               onClick={() => handleApproveExpense(expense.id)}
                               data-testid={`button-approve-${expense.id}`}
                             >
@@ -539,7 +539,7 @@ export default function PartnerAgentDashboard() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="text-red-600 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:bg-red-950/30"
                               onClick={() => handleRejectExpense(expense.id)}
                               data-testid={`button-reject-${expense.id}`}
                             >

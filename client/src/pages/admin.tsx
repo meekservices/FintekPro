@@ -641,7 +641,7 @@ function AIBusinessIntelligenceDashboard() {
               disabled={generateInsights.isPending || insightsLoading}
               variant="secondary"
               size="lg"
-              className="bg-card text-purple-600 hover:bg-purple-50"
+              className="bg-card text-purple-600 hover:bg-purple-50 dark:bg-purple-950/30"
               data-testid="button-generate-insights"
             >
               {generateInsights.isPending ? (

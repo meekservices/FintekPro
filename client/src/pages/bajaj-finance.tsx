@@ -196,25 +196,25 @@ export default function BajajFinance() {
               <div className="text-center py-4">Loading rates...</div>
             ) : interestRates?.success ? (
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-blue-900">Personal Loan</h4>
-                  <p className="text-blue-700">{interestRates.data.personalLoan.min}% - {interestRates.data.personalLoan.max}%</p>
+                <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg">
+                  <h4 className="font-semibold text-blue-900 dark:text-blue-100">Personal Loan</h4>
+                  <p className="text-blue-700 dark:text-blue-300">{interestRates.data.personalLoan.min}% - {interestRates.data.personalLoan.max}%</p>
                 </div>
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-green-900">Business Loan</h4>
-                  <p className="text-green-700">{interestRates.data.businessLoan.min}% - {interestRates.data.businessLoan.max}%</p>
+                <div className="bg-green-50 dark:bg-green-950/30 p-4 rounded-lg">
+                  <h4 className="font-semibold text-green-900 dark:text-green-100">Business Loan</h4>
+                  <p className="text-green-700 dark:text-green-300">{interestRates.data.businessLoan.min}% - {interestRates.data.businessLoan.max}%</p>
                 </div>
-                <div className="bg-purple-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-purple-900">Home Loan</h4>
-                  <p className="text-purple-700">{interestRates.data.homeLoan.min}% - {interestRates.data.homeLoan.max}%</p>
+                <div className="bg-purple-50 dark:bg-purple-950/30 p-4 rounded-lg">
+                  <h4 className="font-semibold text-purple-900 dark:text-purple-100">Home Loan</h4>
+                  <p className="text-purple-700 dark:text-purple-300">{interestRates.data.homeLoan.min}% - {interestRates.data.homeLoan.max}%</p>
                 </div>
-                <div className="bg-orange-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-orange-900">Fixed Deposit</h4>
-                  <p className="text-orange-700">{interestRates.data.fixedDeposit.regular}% - {interestRates.data.fixedDeposit.seniorCitizen}%</p>
+                <div className="bg-orange-50 dark:bg-orange-950/30 p-4 rounded-lg">
+                  <h4 className="font-semibold text-orange-900 dark:text-orange-100">Fixed Deposit</h4>
+                  <p className="text-orange-700 dark:text-orange-300">{interestRates.data.fixedDeposit.regular}% - {interestRates.data.fixedDeposit.seniorCitizen}%</p>
                 </div>
-                <div className="bg-red-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-red-900">Auto Loan</h4>
-                  <p className="text-red-700">{interestRates.data.autoLoan.min}% - {interestRates.data.autoLoan.max}%</p>
+                <div className="bg-red-50 dark:bg-red-950/30 p-4 rounded-lg">
+                  <h4 className="font-semibold text-red-900 dark:text-red-100">Auto Loan</h4>
+                  <p className="text-red-700 dark:text-red-300">{interestRates.data.autoLoan.min}% - {interestRates.data.autoLoan.max}%</p>
                 </div>
               </div>
             ) : (
@@ -290,18 +290,18 @@ export default function BajajFinance() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-blue-900">Monthly EMI</h4>
-                        <p className="text-2xl font-bold text-blue-700">{formatCurrency(emiResult.emi)}</p>
+                      <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg">
+                        <h4 className="font-semibold text-blue-900 dark:text-blue-100">Monthly EMI</h4>
+                        <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{formatCurrency(emiResult.emi)}</p>
                       </div>
-                      <div className="bg-green-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-green-900">Total Amount</h4>
-                        <p className="text-xl font-bold text-green-700">{formatCurrency(emiResult.totalAmount)}</p>
+                      <div className="bg-green-50 dark:bg-green-950/30 p-4 rounded-lg">
+                        <h4 className="font-semibold text-green-900 dark:text-green-100">Total Amount</h4>
+                        <p className="text-xl font-bold text-green-700 dark:text-green-300">{formatCurrency(emiResult.totalAmount)}</p>
                       </div>
                     </div>
-                    <div className="bg-orange-50 p-4 rounded-lg">
-                      <h4 className="font-semibold text-orange-900">Total Interest</h4>
-                      <p className="text-xl font-bold text-orange-700">{formatCurrency(emiResult.totalInterest)}</p>
+                    <div className="bg-orange-50 dark:bg-orange-950/30 p-4 rounded-lg">
+                      <h4 className="font-semibold text-orange-900 dark:text-orange-100">Total Interest</h4>
+                      <p className="text-xl font-bold text-orange-700 dark:text-orange-300">{formatCurrency(emiResult.totalInterest)}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -361,23 +361,23 @@ export default function BajajFinance() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-blue-900">Monthly EMI</h4>
-                        <p className="text-2xl font-bold text-blue-700">{formatCurrency(personalLoanResult.emi)}</p>
+                      <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg">
+                        <h4 className="font-semibold text-blue-900 dark:text-blue-100">Monthly EMI</h4>
+                        <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{formatCurrency(personalLoanResult.emi)}</p>
                       </div>
-                      <div className="bg-green-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-green-900">Interest Rate</h4>
-                        <p className="text-xl font-bold text-green-700">{personalLoanResult.interestRate}%</p>
+                      <div className="bg-green-50 dark:bg-green-950/30 p-4 rounded-lg">
+                        <h4 className="font-semibold text-green-900 dark:text-green-100">Interest Rate</h4>
+                        <p className="text-xl font-bold text-green-700 dark:text-green-300">{personalLoanResult.interestRate}%</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-orange-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-orange-900">Processing Fee</h4>
-                        <p className="text-lg font-bold text-orange-700">{formatCurrency(personalLoanResult.processingFee)}</p>
+                      <div className="bg-orange-50 dark:bg-orange-950/30 p-4 rounded-lg">
+                        <h4 className="font-semibold text-orange-900 dark:text-orange-100">Processing Fee</h4>
+                        <p className="text-lg font-bold text-orange-700 dark:text-orange-300">{formatCurrency(personalLoanResult.processingFee)}</p>
                       </div>
-                      <div className="bg-purple-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-purple-900">Total Amount</h4>
-                        <p className="text-lg font-bold text-purple-700">{formatCurrency(personalLoanResult.totalAmount)}</p>
+                      <div className="bg-purple-50 dark:bg-purple-950/30 p-4 rounded-lg">
+                        <h4 className="font-semibold text-purple-900 dark:text-purple-100">Total Amount</h4>
+                        <p className="text-lg font-bold text-purple-700 dark:text-purple-300">{formatCurrency(personalLoanResult.totalAmount)}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -457,23 +457,23 @@ export default function BajajFinance() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-blue-900">Monthly EMI</h4>
-                        <p className="text-2xl font-bold text-blue-700">{formatCurrency(businessLoanResult.emi)}</p>
+                      <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg">
+                        <h4 className="font-semibold text-blue-900 dark:text-blue-100">Monthly EMI</h4>
+                        <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{formatCurrency(businessLoanResult.emi)}</p>
                       </div>
-                      <div className="bg-green-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-green-900">Interest Rate</h4>
-                        <p className="text-xl font-bold text-green-700">{businessLoanResult.interestRate}%</p>
+                      <div className="bg-green-50 dark:bg-green-950/30 p-4 rounded-lg">
+                        <h4 className="font-semibold text-green-900 dark:text-green-100">Interest Rate</h4>
+                        <p className="text-xl font-bold text-green-700 dark:text-green-300">{businessLoanResult.interestRate}%</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-orange-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-orange-900">Processing Fee</h4>
-                        <p className="text-lg font-bold text-orange-700">{formatCurrency(businessLoanResult.processingFee)}</p>
+                      <div className="bg-orange-50 dark:bg-orange-950/30 p-4 rounded-lg">
+                        <h4 className="font-semibold text-orange-900 dark:text-orange-100">Processing Fee</h4>
+                        <p className="text-lg font-bold text-orange-700 dark:text-orange-300">{formatCurrency(businessLoanResult.processingFee)}</p>
                       </div>
-                      <div className="bg-red-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-red-900">Collateral Required</h4>
-                        <p className="text-lg font-bold text-red-700">
+                      <div className="bg-red-50 dark:bg-red-950/30 p-4 rounded-lg">
+                        <h4 className="font-semibold text-red-900 dark:text-red-100">Collateral Required</h4>
+                        <p className="text-lg font-bold text-red-700 dark:text-red-300">
                           {businessLoanResult.collateralRequired ? "Yes" : "No"}
                         </p>
                       </div>
@@ -551,18 +551,18 @@ export default function BajajFinance() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-green-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-green-900">Maturity Amount</h4>
-                        <p className="text-2xl font-bold text-green-700">{formatCurrency(fdResult.maturityAmount)}</p>
+                      <div className="bg-green-50 dark:bg-green-950/30 p-4 rounded-lg">
+                        <h4 className="font-semibold text-green-900 dark:text-green-100">Maturity Amount</h4>
+                        <p className="text-2xl font-bold text-green-700 dark:text-green-300">{formatCurrency(fdResult.maturityAmount)}</p>
                       </div>
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-blue-900">Interest Rate</h4>
-                        <p className="text-xl font-bold text-blue-700">{fdResult.interestRate}%</p>
+                      <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg">
+                        <h4 className="font-semibold text-blue-900 dark:text-blue-100">Interest Rate</h4>
+                        <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{fdResult.interestRate}%</p>
                       </div>
                     </div>
-                    <div className="bg-orange-50 p-4 rounded-lg">
-                      <h4 className="font-semibold text-orange-900">Interest Earned</h4>
-                      <p className="text-xl font-bold text-orange-700">{formatCurrency(fdResult.interestEarned)}</p>
+                    <div className="bg-orange-50 dark:bg-orange-950/30 p-4 rounded-lg">
+                      <h4 className="font-semibold text-orange-900 dark:text-orange-100">Interest Earned</h4>
+                      <p className="text-xl font-bold text-orange-700 dark:text-orange-300">{formatCurrency(fdResult.interestEarned)}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -630,19 +630,19 @@ export default function BajajFinance() {
                     <CardTitle>Eligibility Result</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className={`p-4 rounded-lg ${eligibilityResult.eligible ? 'bg-green-50' : 'bg-red-50'}`}>
-                      <h4 className={`font-semibold ${eligibilityResult.eligible ? 'text-green-900' : 'text-red-900'}`}>
+                    <div className={`p-4 rounded-lg ${eligibilityResult.eligible ? 'bg-green-50 dark:bg-green-950/30' : 'bg-red-50 dark:bg-red-950/30'}`}>
+                      <h4 className={`font-semibold ${eligibilityResult.eligible ? 'text-green-900 dark:text-green-100' : 'text-red-900 dark:text-red-100'}`}>
                         {eligibilityResult.eligible ? 'Eligible' : 'Not Eligible'}
                       </h4>
                       {eligibilityResult.eligible ? (
                         <div>
-                          <p className="text-green-700 mb-2">Maximum loan amount:</p>
-                          <p className="text-2xl font-bold text-green-700">
+                          <p className="text-green-700 dark:text-green-300 mb-2">Maximum loan amount:</p>
+                          <p className="text-2xl font-bold text-green-700 dark:text-green-300">
                             {formatCurrency(eligibilityResult.maxLoanAmount)}
                           </p>
                         </div>
                       ) : (
-                        <p className="text-red-700">{eligibilityResult.reason}</p>
+                        <p className="text-red-700 dark:text-red-300">{eligibilityResult.reason}</p>
                       )}
                     </div>
                   </CardContent>

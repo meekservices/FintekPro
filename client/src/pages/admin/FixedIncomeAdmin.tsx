@@ -708,10 +708,10 @@ function BondsManagement() {
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={
-                      bond.creditRating?.startsWith('AAA') ? 'bg-green-50 text-green-700' :
-                      bond.creditRating?.startsWith('AA') ? 'bg-emerald-50 text-emerald-700' :
-                      bond.creditRating?.startsWith('A') ? 'bg-blue-50 text-blue-700' :
-                      'bg-amber-50 text-amber-700'
+                      bond.creditRating?.startsWith('AAA') ? 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300' :
+                      bond.creditRating?.startsWith('AA') ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' :
+                      bond.creditRating?.startsWith('A') ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300' :
+                      'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300'
                     }>
                       {bond.creditRating || 'Unrated'}
                     </Badge>
@@ -848,7 +848,7 @@ function NcdManagement() {
                   <TableCell className="text-right text-emerald-600 font-medium">{issue.couponRate}%</TableCell>
                   <TableCell>{issue.tenure} {issue.tenureUnit}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="bg-green-50 text-green-700">{issue.creditRating}</Badge>
+                    <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300">{issue.creditRating}</Badge>
                   </TableCell>
                   <TableCell className="text-sm">
                     {new Date(issue.issueOpenDate).toLocaleDateString()} - {new Date(issue.issueCloseDate).toLocaleDateString()}
@@ -909,10 +909,10 @@ function SgbManagement() {
         </Button>
       </div>
 
-      <Alert className="bg-amber-50 border-amber-200">
+      <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
         <Coins className="h-4 w-4 text-amber-600" />
-        <AlertTitle className="text-amber-800">RBI Managed</AlertTitle>
-        <AlertDescription className="text-amber-700">
+        <AlertTitle className="text-amber-800 dark:text-amber-200">RBI Managed</AlertTitle>
+        <AlertDescription className="text-amber-700 dark:text-amber-300">
           SGB issues are announced by RBI. Use sync to fetch latest issue details from official sources.
         </AlertDescription>
       </Alert>
@@ -1505,7 +1505,7 @@ export default function FixedIncomeAdmin({ defaultTab = 'bonds' }: FixedIncomeAd
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-blue-100">
+              <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
                 <Landmark className="h-5 w-5 text-blue-600" />
               </div>
               <div>
@@ -1518,7 +1518,7 @@ export default function FixedIncomeAdmin({ defaultTab = 'bonds' }: FixedIncomeAd
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-purple-100">
+              <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900/30">
                 <Receipt className="h-5 w-5 text-purple-600" />
               </div>
               <div>
@@ -1531,7 +1531,7 @@ export default function FixedIncomeAdmin({ defaultTab = 'bonds' }: FixedIncomeAd
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-amber-100">
+              <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/30">
                 <Coins className="h-5 w-5 text-amber-600" />
               </div>
               <div>
@@ -1544,7 +1544,7 @@ export default function FixedIncomeAdmin({ defaultTab = 'bonds' }: FixedIncomeAd
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-green-100">
+              <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
                 <TrendingUp className="h-5 w-5 text-green-600" />
               </div>
               <div>

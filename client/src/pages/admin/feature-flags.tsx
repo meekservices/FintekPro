@@ -93,9 +93,9 @@ export default function FeatureFlags() {
 
   const getTestStatusColor = (status: string) => {
     switch (status) {
-      case 'running': return 'bg-emerald-100 text-emerald-800';
-      case 'paused': return 'bg-amber-100 text-amber-800';
-      case 'completed': return 'bg-blue-100 text-blue-800';
+      case 'running': return 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200';
+      case 'paused': return 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200';
+      case 'completed': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200';
       default: return 'bg-muted text-foreground';
     }
   };
@@ -280,7 +280,7 @@ export default function FeatureFlags() {
                             {test.status}
                           </Badge>
                           {test.winner && (
-                            <Badge className="bg-emerald-100 text-emerald-800">
+                            <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200">
                               Winner: {test.winner}
                             </Badge>
                           )}

@@ -418,8 +418,8 @@ export default function DistributionPartnerPortal() {
                           <TableCell className="font-medium">{agent.fullName}</TableCell>
                           <TableCell>
                             <Badge variant="outline" className={
-                              agent.agentLevel === 'master' ? 'bg-blue-100 text-blue-800' :
-                              agent.agentLevel === 'sub_agent' ? 'bg-green-100 text-green-800' :
+                              agent.agentLevel === 'master' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' :
+                              agent.agentLevel === 'sub_agent' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' :
                               'bg-muted text-foreground'
                             }>
                               {agent.agentLevel === 'master' ? 'Agent' : 

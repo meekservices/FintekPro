@@ -256,8 +256,8 @@ export default function OneClickTaxFiling() {
                   <div className="flex flex-col items-center">
                     <div className={`
                       w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all
-                      ${status === 'completed' ? 'bg-green-100 text-green-600' : ''}
-                      ${status === 'current' ? 'bg-blue-100 text-blue-600 ring-4 ring-blue-200' : ''}
+                      ${status === 'completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-600' : ''}
+                      ${status === 'current' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 ring-4 ring-blue-200' : ''}
                       ${status === 'upcoming' ? 'bg-muted text-muted-foreground' : ''}
                     `}>
                       <Icon className="h-6 w-6" />
@@ -313,7 +313,7 @@ export default function OneClickTaxFiling() {
                       <p className="text-sm text-muted-foreground">{source.recordsCount} records</p>
                     </div>
                     <Badge className={
-                      source.status === 'connected' ? 'bg-green-100 text-green-800' : 'bg-muted text-white'
+                      source.status === 'connected' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' : 'bg-muted text-white'
                     }>
                       {source.status}
                     </Badge>
@@ -498,12 +498,12 @@ export default function OneClickTaxFiling() {
               <div className="flex items-center justify-between">
                 <div>
                   {itrData.readyForFiling ? (
-                    <Badge className="bg-green-100 text-green-800">
+                    <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                       <CheckCircle className="h-3 w-3 mr-1" />
                       Ready for Filing
                     </Badge>
                   ) : (
-                    <Badge className="bg-yellow-100 text-yellow-800">
+                    <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">
                       <AlertCircle className="h-3 w-3 mr-1" />
                       Review Required
                     </Badge>
@@ -549,14 +549,14 @@ export default function OneClickTaxFiling() {
 
       {/* Step: Complete */}
       {currentStep === 'complete' && (
-        <Card className="border-green-200 bg-green-50">
+        <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30">
           <CardContent className="p-8">
             <div className="flex flex-col items-center justify-center text-center space-y-4">
-              <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
+              <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                 <CheckCircle className="h-12 w-12 text-green-600" />
               </div>
-              <h2 className="text-3xl font-bold text-green-800">ITR Filed Successfully!</h2>
-              <p className="text-lg text-green-700">
+              <h2 className="text-3xl font-bold text-green-800 dark:text-green-200">ITR Filed Successfully!</h2>
+              <p className="text-lg text-green-700 dark:text-green-300">
                 Your Income Tax Return for AY {selectedYear} has been successfully filed.
               </p>
               <div className="flex gap-4 mt-6">

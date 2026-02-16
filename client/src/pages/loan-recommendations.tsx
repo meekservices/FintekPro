@@ -83,18 +83,18 @@ function getLoanTypeIcon(loanType: string) {
 
 function getPriorityColor(priority: string) {
   switch (priority) {
-    case 'high': return 'bg-red-100 text-red-800 border-red-300';
-    case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-    case 'low': return 'bg-green-100 text-green-800 border-green-300';
+    case 'high': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-300 dark:border-red-700';
+    case 'medium': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700';
+    case 'low': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700';
     default: return 'bg-muted text-foreground border-border';
   }
 }
 
 function getUrgencyColor(urgency: string) {
   switch (urgency) {
-    case 'immediate': return 'bg-red-50 border-red-200 text-red-700';
-    case 'within_month': return 'bg-orange-50 border-orange-200 text-orange-700';
-    case 'future_consideration': return 'bg-blue-50 border-blue-200 text-blue-700';
+    case 'immediate': return 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300';
+    case 'within_month': return 'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300';
+    case 'future_consideration': return 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300';
     default: return 'bg-muted border-border text-muted-foreground';
   }
 }
@@ -111,7 +111,7 @@ function LoanRecommendationCard({ recommendation, onApplyClick }: {
       <CardHeader className="relative pb-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center group-hover:bg-blue-200 dark:bg-blue-800/30 transition-colors">
               <LoanIcon className="w-6 h-6 text-blue-600" />
             </div>
             <div>
@@ -167,12 +167,12 @@ function LoanRecommendationCard({ recommendation, onApplyClick }: {
         </div>
 
         {/* Rationale */}
-        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+        <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+          <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
             <Target className="w-4 h-4" />
             Why This Loan?
           </h4>
-          <p className="text-blue-800 text-sm leading-relaxed">{recommendation.rationale}</p>
+          <p className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed">{recommendation.rationale}</p>
         </div>
 
         {/* Key Benefits */}
@@ -202,12 +202,12 @@ function LoanRecommendationCard({ recommendation, onApplyClick }: {
           </div>
           
           {recommendation.specialOffers && recommendation.specialOffers.length > 0 && (
-            <div className="flex-1 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex-1 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
               <div className="flex items-center gap-2 mb-1">
                 <Award className="w-4 h-4 text-green-600" />
-                <span className="font-semibold text-sm text-green-800">Special Offers</span>
+                <span className="font-semibold text-sm text-green-800 dark:text-green-200">Special Offers</span>
               </div>
-              <div className="text-sm text-green-700">
+              <div className="text-sm text-green-700 dark:text-green-300">
                 {recommendation.specialOffers.join(', ')}
               </div>
             </div>
@@ -447,17 +447,17 @@ export default function LoanRecommendationsPage() {
           
           {recommendationData?.data && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+              <Card className="bg-gradient-to-r from-blue-50 dark:from-blue-950/30 to-indigo-50 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                       <FileText className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
                       <div className="text-2xl font-bold text-blue-600">
                         {recommendationData.data.totalCount}
                       </div>
-                      <div className="text-sm text-blue-800 font-medium">
+                      <div className="text-sm text-blue-800 dark:text-blue-200 font-medium">
                         Total Recommendations
                       </div>
                     </div>
@@ -465,17 +465,17 @@ export default function LoanRecommendationsPage() {
                 </CardContent>
               </Card>
               
-              <Card className="bg-gradient-to-r from-red-50 to-pink-50 border-red-200">
+              <Card className="bg-gradient-to-r from-red-50 dark:from-red-950/30 to-pink-50 dark:to-pink-950/30 border-red-200 dark:border-red-800">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                    <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
                       <AlertTriangle className="w-5 h-5 text-red-600" />
                     </div>
                     <div>
                       <div className="text-2xl font-bold text-red-600">
                         {recommendationData.data.highPriorityCount}
                       </div>
-                      <div className="text-sm text-red-800 font-medium">
+                      <div className="text-sm text-red-800 dark:text-red-200 font-medium">
                         High Priority
                       </div>
                     </div>
@@ -483,17 +483,17 @@ export default function LoanRecommendationsPage() {
                 </CardContent>
               </Card>
               
-              <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+              <Card className="bg-gradient-to-r from-green-50 dark:from-green-950/30 to-emerald-50 dark:to-emerald-950/30 border-green-200 dark:border-green-800">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                       <Shield className="w-5 h-5 text-green-600" />
                     </div>
                     <div>
                       <div className="text-2xl font-bold text-green-600">
                         AI Powered
                       </div>
-                      <div className="text-sm text-green-800 font-medium">
+                      <div className="text-sm text-green-800 dark:text-green-200 font-medium">
                         Recommendation Engine
                       </div>
                     </div>

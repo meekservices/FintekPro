@@ -405,7 +405,7 @@ export default function AgentDerivatives() {
                                     <Button 
                                       variant="ghost" 
                                       size="sm" 
-                                      className="h-6 px-2 text-green-600 hover:bg-green-100"
+                                      className="h-6 px-2 text-green-600 hover:bg-green-100 dark:bg-green-900/30"
                                       onClick={() => addLegFromOption(call, 'buy')}
                                       data-testid={`button-buy-call-${strike}`}
                                     >
@@ -417,7 +417,7 @@ export default function AgentDerivatives() {
                                     <Button 
                                       variant="ghost" 
                                       size="sm" 
-                                      className="h-6 px-2 text-red-600 hover:bg-red-100"
+                                      className="h-6 px-2 text-red-600 hover:bg-red-100 dark:bg-red-900/30"
                                       onClick={() => addLegFromOption(call, 'sell')}
                                       data-testid={`button-sell-call-${strike}`}
                                     >
@@ -436,7 +436,7 @@ export default function AgentDerivatives() {
                                     <Button 
                                       variant="ghost" 
                                       size="sm" 
-                                      className="h-6 px-2 text-green-600 hover:bg-green-100"
+                                      className="h-6 px-2 text-green-600 hover:bg-green-100 dark:bg-green-900/30"
                                       onClick={() => addLegFromOption(put, 'buy')}
                                       data-testid={`button-buy-put-${strike}`}
                                     >
@@ -448,7 +448,7 @@ export default function AgentDerivatives() {
                                     <Button 
                                       variant="ghost" 
                                       size="sm" 
-                                      className="h-6 px-2 text-red-600 hover:bg-red-100"
+                                      className="h-6 px-2 text-red-600 hover:bg-red-100 dark:bg-red-900/30"
                                       onClick={() => addLegFromOption(put, 'sell')}
                                       data-testid={`button-sell-put-${strike}`}
                                     >

@@ -305,7 +305,7 @@ export function LoanApplicationForm({ onClose, defaultPortfolioId }: LoanApplica
               </div>
 
               {eligibilityData && (
-                <Card className={`${eligibilityData.isEligible ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                <Card className={`${eligibilityData.isEligible ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30' : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30'}`}>
                   <CardContent className="pt-4">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>

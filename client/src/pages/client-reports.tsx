@@ -229,12 +229,12 @@ export default function ClientReports() {
 
   const getStatusConfig = (status: string, reportId: string) => {
     if (generatingReports.has(reportId)) {
-      return { color: 'bg-blue-100 text-blue-700 border-blue-200', label: 'Generating', icon: Loader2 };
+      return { color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800', label: 'Generating', icon: Loader2 };
     }
     switch (status) {
-      case 'ready': return { color: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Ready', icon: CheckCircle };
-      case 'generating': return { color: 'bg-blue-100 text-blue-700 border-blue-200', label: 'Generating', icon: Loader2 };
-      case 'scheduled': return { color: 'bg-amber-100 text-amber-700 border-amber-200', label: 'Scheduled', icon: Clock };
+      case 'ready': return { color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800', label: 'Ready', icon: CheckCircle };
+      case 'generating': return { color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800', label: 'Generating', icon: Loader2 };
+      case 'scheduled': return { color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800', label: 'Scheduled', icon: Clock };
       default: return { color: 'bg-muted text-muted-foreground border-border', label: status, icon: FileText };
     }
   };
@@ -318,7 +318,7 @@ export default function ClientReports() {
           <Card className="bg-card border-border shadow-sm" data-testid="card-total-reports">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-100">
+                <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
                   <FileText className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
@@ -332,7 +332,7 @@ export default function ClientReports() {
           <Card className="bg-card border-border shadow-sm" data-testid="card-ready-reports">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-emerald-100">
+                <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
                   <CheckCircle className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
@@ -346,7 +346,7 @@ export default function ClientReports() {
           <Card className="bg-card border-border shadow-sm" data-testid="card-generating-reports">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-100">
+                <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
                   <Loader2 className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
@@ -362,7 +362,7 @@ export default function ClientReports() {
           <Card className="bg-card border-border shadow-sm" data-testid="card-scheduled-reports">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-amber-100">
+                <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
                   <Clock className="h-5 w-5 text-amber-600" />
                 </div>
                 <div>
@@ -411,7 +411,7 @@ export default function ClientReports() {
                     >
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
-                          <div className="p-2 rounded-lg bg-blue-100">
+                          <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
                             <ReportIcon className="h-5 w-5 text-blue-600" />
                           </div>
                           <Badge variant="outline" className={statusConfig.color} data-testid={`report-status-${report.id}`}>
@@ -475,14 +475,14 @@ export default function ClientReports() {
           ))}
         </Tabs>
 
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <Card className="bg-gradient-to-r from-blue-50 dark:from-blue-950/30 to-indigo-50 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold text-foreground mb-1">Need a Custom Report?</h3>
                 <p className="text-muted-foreground text-sm">Contact your advisor to request specialized reports tailored to your needs.</p>
               </div>
-              <Button variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100" data-testid="button-request-report">
+              <Button variant="outline" className="border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:bg-blue-900/30" data-testid="button-request-report">
                 Request Custom Report
               </Button>
             </div>

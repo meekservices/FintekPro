@@ -42,14 +42,14 @@ interface Bank {
 }
 
 const loanTypeConfig: Record<string, { label: string; icon: any; color: string; description: string }> = {
-  personal: { label: "Personal Loan", icon: User, color: "bg-blue-100 text-blue-700", description: "Quick funds for personal needs" },
-  home: { label: "Home Loan", icon: Home, color: "bg-green-100 text-green-700", description: "Finance your dream home" },
-  car: { label: "Car Loan", icon: Car, color: "bg-purple-100 text-purple-700", description: "Drive your new vehicle" },
-  business: { label: "Business Loan", icon: Building2, color: "bg-orange-100 text-orange-700", description: "Grow your business" },
-  education: { label: "Education Loan", icon: GraduationCap, color: "bg-cyan-100 text-cyan-700", description: "Invest in education" },
-  gold: { label: "Gold Loan", icon: Coins, color: "bg-yellow-100 text-yellow-700", description: "Leverage your gold assets" },
-  lap: { label: "Loan Against Property", icon: Building2, color: "bg-rose-100 text-rose-700", description: "Unlock property value" },
-  las: { label: "Loan Against Shares", icon: TrendingUp, color: "bg-indigo-100 text-indigo-700", description: "Leverage your stock portfolio" },
+  personal: { label: "Personal Loan", icon: User, color: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300", description: "Quick funds for personal needs" },
+  home: { label: "Home Loan", icon: Home, color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300", description: "Finance your dream home" },
+  car: { label: "Car Loan", icon: Car, color: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300", description: "Drive your new vehicle" },
+  business: { label: "Business Loan", icon: Building2, color: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300", description: "Grow your business" },
+  education: { label: "Education Loan", icon: GraduationCap, color: "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300", description: "Invest in education" },
+  gold: { label: "Gold Loan", icon: Coins, color: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300", description: "Leverage your gold assets" },
+  lap: { label: "Loan Against Property", icon: Building2, color: "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300", description: "Unlock property value" },
+  las: { label: "Loan Against Shares", icon: TrendingUp, color: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300", description: "Leverage your stock portfolio" },
 };
 
 export default function AgentLoanMarketplace() {

@@ -177,7 +177,7 @@ export function AdvisorOverrideSystem({
                   <span className="font-medium">Override Reason:</span>
                 </div>
                 <p>{recommendation.override.overrideReason}</p>
-                <div className="flex items-center gap-3 pt-1 border-t border-amber-200/50">
+                <div className="flex items-center gap-3 pt-1 border-t border-amber-200 dark:border-amber-800/50">
                   <span className="flex items-center gap-1">
                     <User className="h-3 w-3" />
                     {recommendation.override.overriddenBy}
@@ -205,7 +205,7 @@ export function AdvisorOverrideSystem({
                     size="sm"
                     onClick={() => revertMutation.mutate()}
                     disabled={revertMutation.isPending}
-                    className="text-xs h-7 text-amber-600 hover:text-amber-700"
+                    className="text-xs h-7 text-amber-600 hover:text-amber-700 dark:text-amber-300"
                   >
                     <Undo2 className="h-3 w-3 mr-1" />
                     Revert

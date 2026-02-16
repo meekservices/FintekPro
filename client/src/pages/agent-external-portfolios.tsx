@@ -91,11 +91,11 @@ export default function AgentExternalPortfolios() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge className="bg-green-100 text-green-700"><CheckCircle className="w-3 h-3 mr-1" />Completed</Badge>;
+        return <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"><CheckCircle className="w-3 h-3 mr-1" />Completed</Badge>;
       case 'in_progress':
-        return <Badge className="bg-blue-100 text-blue-700"><Clock className="w-3 h-3 mr-1" />In Progress</Badge>;
+        return <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"><Clock className="w-3 h-3 mr-1" />In Progress</Badge>;
       case 'failed':
-        return <Badge className="bg-red-100 text-red-700"><AlertTriangle className="w-3 h-3 mr-1" />Failed</Badge>;
+        return <Badge className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"><AlertTriangle className="w-3 h-3 mr-1" />Failed</Badge>;
       default:
         return <Badge variant="outline">Pending</Badge>;
     }

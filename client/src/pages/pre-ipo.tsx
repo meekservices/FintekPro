@@ -91,18 +91,18 @@ export default function PreIPOPage() {
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
-      case "low": return "text-green-600 bg-green-50";
-      case "medium": return "text-yellow-600 bg-yellow-50";
-      case "high": return "text-red-600 bg-red-50";
+      case "low": return "text-green-600 bg-green-50 dark:bg-green-950/30";
+      case "medium": return "text-yellow-600 bg-yellow-50 dark:bg-yellow-950/30";
+      case "high": return "text-red-600 bg-red-50 dark:bg-red-950/30";
       default: return "text-muted-foreground bg-muted";
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "confirmed": return "text-green-600 bg-green-50";
-      case "pending": return "text-yellow-600 bg-yellow-50";
-      case "rejected": return "text-red-600 bg-red-50";
+      case "confirmed": return "text-green-600 bg-green-50 dark:bg-green-950/30";
+      case "pending": return "text-yellow-600 bg-yellow-50 dark:bg-yellow-950/30";
+      case "rejected": return "text-red-600 bg-red-50 dark:bg-red-950/30";
       default: return "text-muted-foreground bg-muted";
     }
   };
@@ -303,7 +303,7 @@ export default function PreIPOPage() {
                       <p className="font-semibold">₹{listing.currentPrice}</p>
                       <Badge 
                         variant={listing.currentGains > 0 ? "default" : "destructive"}
-                        className={listing.currentGains > 0 ? "bg-green-50 text-green-700" : ""}
+                        className={listing.currentGains > 0 ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300" : ""}
                       >
                         {listing.currentGains > 0 ? "+" : ""}{listing.currentGains}%
                       </Badge>
@@ -538,7 +538,7 @@ export default function PreIPOPage() {
                       <CardTitle>{ipo.companyName}</CardTitle>
                       <CardDescription>{ipo.category} • {ipo.exchange}</CardDescription>
                     </div>
-                    <Badge className="bg-orange-50 text-orange-700">
+                    <Badge className="bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300">
                       {ipo.dayRemaining} day{ipo.dayRemaining !== 1 ? 's' : ''} left
                     </Badge>
                   </div>
@@ -593,7 +593,7 @@ export default function PreIPOPage() {
                       <CardDescription>Market analysis and investment outlook</CardDescription>
                     </div>
                     <Badge 
-                      className={insight.marketSentiment === 'bullish' ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}
+                      className={insight.marketSentiment === 'bullish' ? 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300' : 'bg-yellow-50 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-300'}
                     >
                       {insight.marketSentiment}
                     </Badge>
@@ -636,7 +636,7 @@ export default function PreIPOPage() {
 
                     <div className="flex justify-between items-center pt-2">
                       <Badge 
-                        className={insight.investmentRecommendation === 'buy' ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}
+                        className={insight.investmentRecommendation === 'buy' ? 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300' : 'bg-yellow-50 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-300'}
                       >
                         Recommendation: {insight.investmentRecommendation}
                       </Badge>

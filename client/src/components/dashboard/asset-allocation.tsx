@@ -183,7 +183,7 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
             </div>
             
             {/* Rebalance Suggestions */}
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg" data-testid="rebalance-suggestions">
+            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg" data-testid="rebalance-suggestions">
               <h4 className="font-semibold text-foreground mb-2">Rebalance Suggestions</h4>
               <div className="space-y-2 text-sm">
                 {chartData.map((item) => {

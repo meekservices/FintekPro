@@ -129,7 +129,7 @@ export function KYCVerificationDashboard() {
       );
     } else if (level === "basic") {
       return (
-        <Badge variant="outline" className="border-yellow-600 text-yellow-700" data-testid="kyc-level-basic">
+        <Badge variant="outline" className="border-yellow-600 text-yellow-700 dark:text-yellow-300" data-testid="kyc-level-basic">
           <AlertTriangle className="h-3 w-3 mr-1" />
           Basic KYC (Upgrade Required)
         </Badge>

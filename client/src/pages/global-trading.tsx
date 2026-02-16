@@ -495,7 +495,7 @@ export default function GlobalTrading() {
                   <div className="font-semibold">{session.market}</div>
                   <Badge 
                     variant={session.status === "OPEN" ? "default" : "secondary"}
-                    className={session.status === "OPEN" ? "bg-green-100 text-green-800" : ""}
+                    className={session.status === "OPEN" ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200" : ""}
                   >
                     {session.status}
                   </Badge>
@@ -645,7 +645,7 @@ export default function GlobalTrading() {
                             <td className="text-center p-2">
                               <Badge 
                                 variant={stock.isMarketOpen ? "default" : "secondary"}
-                                className={stock.isMarketOpen ? "bg-green-100 text-green-800" : ""}
+                                className={stock.isMarketOpen ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200" : ""}
                               >
                                 {stock.isMarketOpen ? "OPEN" : "CLOSED"}
                               </Badge>
@@ -740,7 +740,7 @@ export default function GlobalTrading() {
                 <CardContent>
                   <div className="grid md:grid-cols-2 gap-4">
                     {globalMutualFunds.map(fund => (
-                      <Card key={fund.id} className="border-2 hover:border-purple-200 transition-colors">
+                      <Card key={fund.id} className="border-2 hover:border-purple-200 dark:border-purple-800 transition-colors">
                         <CardHeader className="pb-4">
                           <div className="flex items-center justify-between">
                             <div>

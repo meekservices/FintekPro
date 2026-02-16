@@ -306,7 +306,7 @@ export default function ReferralProgram() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                   <Mail className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
@@ -319,7 +319,7 @@ export default function ReferralProgram() {
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                   <Users className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
@@ -332,7 +332,7 @@ export default function ReferralProgram() {
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                   <CheckCircle className="h-5 w-5 text-purple-600" />
                 </div>
                 <div>
@@ -345,7 +345,7 @@ export default function ReferralProgram() {
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
                   <IndianRupee className="h-5 w-5 text-orange-600" />
                 </div>
                 <div>

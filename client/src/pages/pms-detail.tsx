@@ -112,9 +112,9 @@ function getReturnColor(value: string | null): string {
 
 function getRiskBadge(score: number | null) {
   if (!score) return <Badge variant="outline">N/A</Badge>;
-  if (score <= 3) return <Badge className="bg-green-100 text-green-800">Low Risk</Badge>;
-  if (score <= 6) return <Badge className="bg-yellow-100 text-yellow-800">Medium Risk</Badge>;
-  return <Badge className="bg-red-100 text-red-800">High Risk</Badge>;
+  if (score <= 3) return <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">Low Risk</Badge>;
+  if (score <= 6) return <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">Medium Risk</Badge>;
+  return <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200">High Risk</Badge>;
 }
 
 function getStatusBadge(status: string | null) {
@@ -199,7 +199,7 @@ function OtherFundsByManager({
             >
               <div className="flex items-start justify-between mb-2">
                 <h4 className="font-semibold text-sm line-clamp-2">{fund.name}</h4>
-                <span className={`text-xs px-2 py-0.5 rounded ${fund.fundType === 'pms' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                <span className={`text-xs px-2 py-0.5 rounded ${fund.fundType === 'pms' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'}`}>
                   {fund.fundType.toUpperCase()}
                 </span>
               </div>
@@ -458,11 +458,11 @@ export default function PMSDetail() {
                     <p className="text-sm text-muted-foreground">5Y Rolling</p>
                     <p className={`text-xl font-bold ${getReturnColor(rolling.roll5Y)}`}>{formatPercent(rolling.roll5Y)}</p>
                   </div>
-                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <div className="text-center p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
                     <p className="text-sm text-muted-foreground">Best 1Y</p>
                     <p className="text-xl font-bold text-green-600">{formatPercent(rolling.bestRoll1Y)}</p>
                   </div>
-                  <div className="text-center p-4 bg-red-50 rounded-lg">
+                  <div className="text-center p-4 bg-red-50 dark:bg-red-950/30 rounded-lg">
                     <p className="text-sm text-muted-foreground">Worst 1Y</p>
                     <p className="text-xl font-bold text-red-600">{formatPercent(rolling.worstRoll1Y)}</p>
                   </div>

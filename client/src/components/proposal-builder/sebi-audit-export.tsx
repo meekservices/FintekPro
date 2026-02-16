@@ -53,9 +53,9 @@ interface SEBIAuditExportProps {
 }
 
 const statusConfig = {
-  COMPLIANT: { color: "bg-green-100 text-green-700 border-green-200", icon: CheckCircle2 },
-  FLAGGED: { color: "bg-red-100 text-red-700 border-red-200", icon: AlertTriangle },
-  PENDING_REVIEW: { color: "bg-amber-100 text-amber-700 border-amber-200", icon: Clock },
+  COMPLIANT: { color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800", icon: CheckCircle2 },
+  FLAGGED: { color: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800", icon: AlertTriangle },
+  PENDING_REVIEW: { color: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800", icon: Clock },
 };
 
 export function SEBIAuditExport({ proposalId, isAdmin = false }: SEBIAuditExportProps) {
@@ -169,7 +169,7 @@ export function SEBIAuditExport({ proposalId, isAdmin = false }: SEBIAuditExport
               </div>
               <div className={cn(
                 "p-3 rounded-lg text-center",
-                summary.riskDisclosuresPresent ? "bg-green-50" : "bg-red-50"
+                summary.riskDisclosuresPresent ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"
               )}>
                 {summary.riskDisclosuresPresent ? (
                   <CheckCircle2 className="h-5 w-5 mx-auto mb-1 text-green-600" />
@@ -178,7 +178,7 @@ export function SEBIAuditExport({ proposalId, isAdmin = false }: SEBIAuditExport
                 )}
                 <div className={cn(
                   "text-xs font-medium",
-                  summary.riskDisclosuresPresent ? "text-green-700" : "text-red-700"
+                  summary.riskDisclosuresPresent ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"
                 )}>
                   {summary.riskDisclosuresPresent ? "Disclosures ✓" : "Missing"}
                 </div>

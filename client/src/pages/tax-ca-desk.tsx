@@ -192,7 +192,7 @@ export default function TaxCADeskPage() {
             return (
               <Card 
                 key={service.id} 
-                className={`cursor-pointer hover:shadow-lg transition-all border-2 ${selectedService === service.id ? "border-purple-500" : "hover:border-purple-300"}`}
+                className={`cursor-pointer hover:shadow-lg transition-all border-2 ${selectedService === service.id ? "border-purple-500" : "hover:border-purple-300 dark:border-purple-700"}`}
                 onClick={() => setSelectedService(service.id)}
                 data-testid={`service-${service.id}`}
               >

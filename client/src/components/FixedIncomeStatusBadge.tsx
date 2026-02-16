@@ -13,14 +13,14 @@ export function FixedIncomeStatusBadge({ status, showLabel = true }: FixedIncome
   switch (status) {
     case 'SELLABLE':
       return (
-        <Badge className="bg-green-500/10 text-green-600 border-green-200 gap-1">
+        <Badge className="bg-green-500/10 text-green-600 border-green-200 dark:border-green-800 gap-1">
           <CheckCircle2 className="h-3 w-3" />
           {showLabel && 'Available'}
         </Badge>
       );
     case 'VISIBLE':
       return (
-        <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-amber-200 gap-1">
+        <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800 gap-1">
           <AlertTriangle className="h-3 w-3" />
           {showLabel && 'View Only'}
         </Badge>
@@ -45,7 +45,7 @@ interface VisibleInstrumentWarningProps {
 export function VisibleInstrumentWarning({ instrumentName, compact = false }: VisibleInstrumentWarningProps) {
   if (compact) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-700">
+      <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md text-sm text-amber-700 dark:text-amber-300">
         <AlertTriangle className="h-4 w-4 flex-shrink-0" />
         <span>This instrument is shown for reference only and cannot be recommended or transacted.</span>
       </div>
@@ -53,9 +53,9 @@ export function VisibleInstrumentWarning({ instrumentName, compact = false }: Vi
   }
 
   return (
-    <Alert className="bg-amber-50 border-amber-200">
+    <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
       <AlertTriangle className="h-4 w-4 text-amber-600" />
-      <AlertDescription className="text-amber-700">
+      <AlertDescription className="text-amber-700 dark:text-amber-300">
         <strong>{instrumentName || 'This instrument'}</strong> is displayed for reference only. 
         It cannot be recommended or transacted at this time due to liquidity, regulatory, or credit constraints.
       </AlertDescription>

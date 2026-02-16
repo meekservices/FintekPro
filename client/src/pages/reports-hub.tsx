@@ -194,12 +194,12 @@ const reportCategories: ReportCategory[] = [
 ];
 
 const colorClasses: Record<string, { bg: string; border: string; text: string; iconBg: string }> = {
-  blue: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', iconBg: 'bg-blue-100' },
-  green: { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', iconBg: 'bg-green-100' },
-  purple: { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', iconBg: 'bg-purple-100' },
-  amber: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', iconBg: 'bg-amber-100' },
-  teal: { bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-700', iconBg: 'bg-teal-100' },
-  red: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', iconBg: 'bg-red-100' },
+  blue: { bg: 'bg-blue-50 dark:bg-blue-950/30', border: 'border-blue-200 dark:border-blue-800', text: 'text-blue-700 dark:text-blue-300', iconBg: 'bg-blue-100 dark:bg-blue-900/30' },
+  green: { bg: 'bg-green-50 dark:bg-green-950/30', border: 'border-green-200 dark:border-green-800', text: 'text-green-700 dark:text-green-300', iconBg: 'bg-green-100 dark:bg-green-900/30' },
+  purple: { bg: 'bg-purple-50 dark:bg-purple-950/30', border: 'border-purple-200 dark:border-purple-800', text: 'text-purple-700 dark:text-purple-300', iconBg: 'bg-purple-100 dark:bg-purple-900/30' },
+  amber: { bg: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-200 dark:border-amber-800', text: 'text-amber-700 dark:text-amber-300', iconBg: 'bg-amber-100 dark:bg-amber-900/30' },
+  teal: { bg: 'bg-teal-50 dark:bg-teal-950/30', border: 'border-teal-200 dark:border-teal-800', text: 'text-teal-700 dark:text-teal-300', iconBg: 'bg-teal-100 dark:bg-teal-900/30' },
+  red: { bg: 'bg-red-50 dark:bg-red-950/30', border: 'border-red-200 dark:border-red-800', text: 'text-red-700 dark:text-red-300', iconBg: 'bg-red-100 dark:bg-red-900/30' },
 };
 
 export default function ReportsHub() {
@@ -364,18 +364,18 @@ export default function ReportsHub() {
           </p>
         </div>
 
-        <Alert className="border-blue-200 bg-blue-50">
+        <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
           <Shield className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-800">
+          <AlertDescription className="text-blue-800 dark:text-blue-200">
             <span className="font-semibold">SEBI & PMLA Compliant:</span> All reports are encrypted, audit-logged, and stored securely for 7 years as per regulatory requirements.
           </AlertDescription>
         </Alert>
 
-        <Card className="border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
+        <Card className="border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-r from-purple-50 dark:from-purple-950/30 to-indigo-50 dark:to-indigo-950/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                   <Receipt className="w-5 h-5 text-purple-600" />
                 </div>
                 <div>
@@ -394,10 +394,10 @@ export default function ReportsHub() {
         </Card>
 
         {/* Store Transaction History - SEBI/RBI Compliant */}
-        <Card className="border-2 border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50">
+        <Card className="border-2 border-emerald-200 dark:border-emerald-800 bg-gradient-to-r from-emerald-50 dark:from-emerald-950/30 to-teal-50 dark:to-teal-950/30">
           <CardHeader className="pb-2">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
                 <Database className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
@@ -565,9 +565,9 @@ export default function ReportsHub() {
                                       {order.orderType?.toUpperCase()}
                                     </Badge>
                                     <Badge variant="outline" className={
-                                      order.status === 'executed' || order.status === 'settled' ? 'border-green-300 text-green-700' :
-                                      order.status === 'failed' || order.status === 'rejected' ? 'border-red-300 text-red-700' :
-                                      order.status === 'processing' || order.status === 'placed' ? 'border-blue-300 text-blue-700' :
+                                      order.status === 'executed' || order.status === 'settled' ? 'border-green-300 dark:border-green-700 text-green-700 dark:text-green-300' :
+                                      order.status === 'failed' || order.status === 'rejected' ? 'border-red-300 dark:border-red-700 text-red-700 dark:text-red-300' :
+                                      order.status === 'processing' || order.status === 'placed' ? 'border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300' :
                                       'border-border text-muted-foreground'
                                     }>
                                       {order.status}
@@ -638,9 +638,9 @@ export default function ReportsHub() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+              <Card className="bg-gradient-to-br from-blue-50 dark:from-blue-950/30 to-indigo-50 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
                 <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2 text-blue-800">
+                  <CardTitle className="text-lg flex items-center gap-2 text-blue-800 dark:text-blue-200">
                     <Shield className="w-5 h-5" />
                     Your KYC Status
                   </CardTitle>
@@ -648,7 +648,7 @@ export default function ReportsHub() {
                 <CardContent>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-blue-700">Current Level</span>
+                      <span className="text-sm text-blue-700 dark:text-blue-300">Current Level</span>
                       <Badge className={userKYCLevel >= 2 ? "bg-green-600" : userKYCLevel >= 1 ? "bg-blue-600" : "bg-muted"}>
                         {kycLevelName}
                       </Badge>
@@ -656,7 +656,7 @@ export default function ReportsHub() {
                     <Separator />
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-blue-700">PAN Verified</span>
+                        <span className="text-blue-700 dark:text-blue-300">PAN Verified</span>
                         {isPanVerified ? (
                           <CheckCircle2 className="w-4 h-4 text-green-600" />
                         ) : (
@@ -664,7 +664,7 @@ export default function ReportsHub() {
                         )}
                       </div>
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-blue-700">CKYC Fetched</span>
+                        <span className="text-blue-700 dark:text-blue-300">CKYC Fetched</span>
                         {isCkycFetched ? (
                           <CheckCircle2 className="w-4 h-4 text-green-600" />
                         ) : (
@@ -672,7 +672,7 @@ export default function ReportsHub() {
                         )}
                       </div>
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-blue-700">KRA Verified</span>
+                        <span className="text-blue-700 dark:text-blue-300">KRA Verified</span>
                         {isKraVerified ? (
                           <CheckCircle2 className="w-4 h-4 text-green-600" />
                         ) : (
@@ -681,7 +681,7 @@ export default function ReportsHub() {
                       </div>
                     </div>
                     <Separator />
-                    <div className="text-sm text-blue-700">
+                    <div className="text-sm text-blue-700 dark:text-blue-300">
                       <p className="font-medium mb-2">Accessible Reports:</p>
                       <ul className="space-y-1">
                         {reportCategories.flatMap(cat => 
@@ -708,13 +708,13 @@ export default function ReportsHub() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+              <Card className="bg-gradient-to-br from-green-50 dark:from-green-950/30 to-emerald-50 dark:to-emerald-950/30 border-green-200 dark:border-green-800">
                 <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2 text-green-800">
+                  <CardTitle className="text-lg flex items-center gap-2 text-green-800 dark:text-green-200">
                     <Database className="w-5 h-5" />
                     Sync to Portfolio
                   </CardTitle>
-                  <CardDescription className="text-green-700">
+                  <CardDescription className="text-green-700 dark:text-green-300">
                     Auto-populate your portfolio with holdings from external sources
                   </CardDescription>
                 </CardHeader>

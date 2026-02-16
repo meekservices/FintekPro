@@ -1356,7 +1356,7 @@ export default function ProjectFinanceWizard({ applicationId, loanSubType, onCom
                               <TableCell className="font-medium">{rule.name || rule.rule}</TableCell>
                               <TableCell>
                                 {rule.passed ? (
-                                  <Badge variant="default" className="bg-green-100 text-green-800">
+                                  <Badge variant="default" className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                                     <CheckCircle2 className="h-3 w-3 mr-1" /> Pass
                                   </Badge>
                                 ) : (
@@ -1568,7 +1568,7 @@ export default function ProjectFinanceWizard({ applicationId, loanSubType, onCom
                                   <TableCell>
                                     <div className="flex flex-wrap gap-1">
                                       {m.flags.slice(0, 2).map((f: string, fi: number) => (
-                                        <Badge key={fi} variant="outline" className="text-[10px] text-orange-600 border-orange-300">{f}</Badge>
+                                        <Badge key={fi} variant="outline" className="text-[10px] text-orange-600 border-orange-300 dark:border-orange-700">{f}</Badge>
                                       ))}
                                       {m.appetite?.specialConditions && m.flags.length === 0 && (
                                         <Badge variant="outline" className="text-[10px]">{m.appetite.specialConditions.length > 40 ? m.appetite.specialConditions.slice(0, 40) + "..." : m.appetite.specialConditions}</Badge>

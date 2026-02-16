@@ -338,10 +338,10 @@ export function RetirementPlanning() {
             </div>
 
             <div className={`p-4 rounded-lg ${
-              readiness.color === 'green' ? 'bg-green-50 border border-green-200' :
-              readiness.color === 'blue' ? 'bg-blue-50 border border-blue-200' :
-              readiness.color === 'yellow' ? 'bg-yellow-50 border border-yellow-200' :
-              'bg-red-50 border border-red-200'
+              readiness.color === 'green' ? 'bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800' :
+              readiness.color === 'blue' ? 'bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800' :
+              readiness.color === 'yellow' ? 'bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800' :
+              'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800'
             }`}>
               <p className={`font-medium text-${readiness.color}-700`}>{readiness.message}</p>
             </div>
@@ -369,17 +369,17 @@ export function RetirementPlanning() {
             <CardContent>
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                     <div className="text-3xl font-bold text-blue-600">{recommendations.equity}%</div>
                     <div className="text-sm text-blue-600">Equity</div>
                     <div className="text-xs text-muted-foreground mt-1">Growth focused</div>
                   </div>
-                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <div className="text-center p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
                     <div className="text-3xl font-bold text-green-600">{recommendations.debt}%</div>
                     <div className="text-sm text-green-600">Debt</div>
                     <div className="text-xs text-muted-foreground mt-1">Stability focused</div>
                   </div>
-                  <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                  <div className="text-center p-4 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
                     <div className="text-3xl font-bold text-yellow-600">{recommendations.gold}%</div>
                     <div className="text-sm text-yellow-600">Gold</div>
                     <div className="text-xs text-muted-foreground mt-1">Hedge against inflation</div>
@@ -389,15 +389,15 @@ export function RetirementPlanning() {
                 <div className="space-y-2">
                   <h4 className="font-medium">Monthly Investment Breakdown</h4>
                   <div className="space-y-2">
-                    <div className="flex justify-between p-2 bg-blue-50 rounded">
+                    <div className="flex justify-between p-2 bg-blue-50 dark:bg-blue-950/30 rounded">
                       <span>Equity Investments</span>
                       <span className="font-bold">{formatCurrency(plan.monthlyInvestmentNeeded * recommendations.equity / 100)}</span>
                     </div>
-                    <div className="flex justify-between p-2 bg-green-50 rounded">
+                    <div className="flex justify-between p-2 bg-green-50 dark:bg-green-950/30 rounded">
                       <span>Debt Investments</span>
                       <span className="font-bold">{formatCurrency(plan.monthlyInvestmentNeeded * recommendations.debt / 100)}</span>
                     </div>
-                    <div className="flex justify-between p-2 bg-yellow-50 rounded">
+                    <div className="flex justify-between p-2 bg-yellow-50 dark:bg-yellow-950/30 rounded">
                       <span>Gold Investments</span>
                       <span className="font-bold">{formatCurrency(plan.monthlyInvestmentNeeded * recommendations.gold / 100)}</span>
                     </div>
@@ -423,7 +423,7 @@ export function RetirementPlanning() {
                 {recommendations.instruments.map((instrument, index) => (
                   <div key={index} className="flex items-center justify-between p-3 border rounded-lg" data-testid={`instrument-${index}`}>
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
+                      <div className="p-2 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-lg">
                         <TrendingUp className="w-4 h-4" />
                       </div>
                       <span className="font-medium">{instrument}</span>
@@ -450,7 +450,7 @@ export function RetirementPlanning() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                     <div>
                       <p className="font-medium">Employee Provident Fund (EPF)</p>
                       <p className="text-sm text-muted-foreground">Currently earning 8.25% interest</p>
@@ -458,7 +458,7 @@ export function RetirementPlanning() {
                     <Badge variant="outline">Tax Free</Badge>
                   </div>
                   
-                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                     <div>
                       <p className="font-medium">Public Provident Fund (PPF)</p>
                       <p className="text-sm text-muted-foreground">15-year lock-in, tax benefits</p>
@@ -466,7 +466,7 @@ export function RetirementPlanning() {
                     <Badge variant="outline">7.1% returns</Badge>
                   </div>
                   
-                  <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                     <div>
                       <p className="font-medium">National Pension System (NPS)</p>
                       <p className="text-sm text-muted-foreground">Market-linked returns, low cost</p>
@@ -486,7 +486,7 @@ export function RetirementPlanning() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                     <div>
                       <p className="font-medium">ELSS Mutual Funds</p>
                       <p className="text-sm text-muted-foreground">3-year lock-in, tax saving</p>
@@ -494,7 +494,7 @@ export function RetirementPlanning() {
                     <Badge variant="outline">₹1.5L deduction</Badge>
                   </div>
                   
-                  <div className="flex items-center justify-between p-3 bg-indigo-50 rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-lg">
                     <div>
                       <p className="font-medium">Retirement Mutual Funds</p>
                       <p className="text-sm text-muted-foreground">Target date funds</p>
@@ -530,15 +530,15 @@ export function RetirementPlanning() {
               <div className="space-y-3">
                 <h4 className="font-medium text-lg">Immediate Actions</h4>
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 p-2 bg-blue-50 rounded">
+                  <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded">
                     <CheckCircle className="w-4 h-4 text-blue-600" />
                     <span className="text-sm">Start SIP of {formatCurrency(plan.monthlyInvestmentNeeded)}/month</span>
                   </div>
-                  <div className="flex items-center gap-2 p-2 bg-green-50 rounded">
+                  <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-950/30 rounded">
                     <CheckCircle className="w-4 h-4 text-green-600" />
                     <span className="text-sm">Maximize EPF contribution (12% of salary)</span>
                   </div>
-                  <div className="flex items-center gap-2 p-2 bg-purple-50 rounded">
+                  <div className="flex items-center gap-2 p-2 bg-purple-50 dark:bg-purple-950/30 rounded">
                     <CheckCircle className="w-4 h-4 text-purple-600" />
                     <span className="text-sm">Open PPF account for tax benefits</span>
                   </div>
@@ -548,15 +548,15 @@ export function RetirementPlanning() {
               <div className="space-y-3">
                 <h4 className="font-medium text-lg">Long-term Strategy</h4>
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 p-2 bg-indigo-50 rounded">
+                  <div className="flex items-center gap-2 p-2 bg-indigo-50 dark:bg-indigo-950/30 rounded">
                     <Target className="w-4 h-4 text-indigo-600" />
                     <span className="text-sm">Review and rebalance portfolio annually</span>
                   </div>
-                  <div className="flex items-center gap-2 p-2 bg-yellow-50 rounded">
+                  <div className="flex items-center gap-2 p-2 bg-yellow-50 dark:bg-yellow-950/30 rounded">
                     <Shield className="w-4 h-4 text-yellow-600" />
                     <span className="text-sm">Gradually shift to conservative allocation near retirement</span>
                   </div>
-                  <div className="flex items-center gap-2 p-2 bg-pink-50 rounded">
+                  <div className="flex items-center gap-2 p-2 bg-pink-50 dark:bg-pink-950/30 rounded">
                     <IndianRupee className="w-4 h-4 text-pink-600" />
                     <span className="text-sm">Consider partial withdrawal options post 60</span>
                   </div>

@@ -78,7 +78,7 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
           <p className="text-muted-foreground text-center max-w-md mb-4">
             AI-generated and agent recommendations for Alternative Investment Funds will appear here based on your risk profile.
           </p>
-          <Button variant="outline" onClick={() => refetch()} className="border-blue-300 text-blue-600 hover:bg-blue-50">
+          <Button variant="outline" onClick={() => refetch()} className="border-blue-300 dark:border-blue-700 text-blue-600 hover:bg-blue-50 dark:bg-blue-950/30">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh Proposals
           </Button>
@@ -99,11 +99,11 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       {proposal.proposalSource === 'ai' ? (
-                        <Badge className="bg-blue-100 text-blue-700 border-blue-200"><Bot className="w-3 h-3 mr-1" />AI Generated</Badge>
+                        <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"><Bot className="w-3 h-3 mr-1" />AI Generated</Badge>
                       ) : (
-                        <Badge className="bg-cyan-100 text-cyan-700 border-cyan-200"><UserCheck className="w-3 h-3 mr-1" />Agent Recommended</Badge>
+                        <Badge className="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800"><UserCheck className="w-3 h-3 mr-1" />Agent Recommended</Badge>
                       )}
-                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700">AIF</Badge>
+                      <Badge variant="outline" className="text-xs bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300">AIF</Badge>
                     </div>
                     <h3 className="text-lg font-semibold text-foreground">{proposal.title}</h3>
                     <p className="text-sm text-muted-foreground mt-1">{proposal.description}</p>
@@ -155,7 +155,7 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
                     Approve & Add to Cart
                   </Button>
                   <Button 
-                    variant="outline" className="border-red-300 text-red-600 hover:bg-red-50"
+                    variant="outline" className="border-red-300 dark:border-red-700 text-red-600 hover:bg-red-50 dark:bg-red-950/30"
                     onClick={() => rejectMutation.mutate(proposal.id)}
                     disabled={rejectMutation.isPending}
                     data-testid={`reject-aif-${proposal.id}`}
@@ -244,14 +244,14 @@ function CartTab({ productType, onCheckout }: { productType: string; onCheckout:
                   <div className="flex items-center gap-2 mb-2">
                     <Package className="w-5 h-5 text-blue-600" />
                     <h4 className="font-semibold text-foreground">{item.productName || item.schemeName || 'AIF Investment'}</h4>
-                    <Badge className="bg-amber-100 text-amber-700">AIF</Badge>
+                    <Badge className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">AIF</Badge>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-bold text-foreground flex items-center justify-end">
                     <IndianRupee className="w-4 h-4" />{parseFloat(item.amount || item.quantity || '0').toLocaleString('en-IN')}
                   </p>
-                  <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 mt-2"
+                  <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 dark:text-red-300 mt-2"
                     onClick={() => removeFromCartMutation.mutate(item.id)} data-testid={`remove-aif-${index}`}>
                     <Trash2 className="w-4 h-4 mr-1" />Remove
                   </Button>
@@ -329,7 +329,7 @@ function OrdersTab({ productType }: { productType: string }) {
                 <h4 className="font-semibold text-lg">{order.schemeName || order.productName}</h4>
                 <p className="text-sm text-muted-foreground">Order #{order.id?.slice(-8)}</p>
               </div>
-              <Badge className={order.status === 'completed' ? 'bg-green-100 text-green-700' : order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-muted text-muted-foreground'}>
+              <Badge className={order.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : order.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' : 'bg-muted text-muted-foreground'}>
                 {order.status}
               </Badge>
             </div>

@@ -1081,12 +1081,12 @@ export default function SmartKYCOnboarding() {
               </span>
             )}
             {inv.suggestedEntityType && (
-              <Badge variant="outline" className="border-blue-300">
+              <Badge variant="outline" className="border-blue-300 dark:border-blue-700">
                 {inv.suggestedEntityType.charAt(0).toUpperCase() + inv.suggestedEntityType.slice(1)} Entity
               </Badge>
             )}
             {inv.suggestedMode && (
-              <Badge variant="outline" className="border-blue-300">
+              <Badge variant="outline" className="border-blue-300 dark:border-blue-700">
                 {inv.suggestedMode === 'smart' ? 'Smart' : 'Manual'} Mode
               </Badge>
             )}
@@ -1180,7 +1180,7 @@ export default function SmartKYCOnboarding() {
                               <h3 className="font-semibold text-lg text-green-800 dark:text-green-200">
                                 {detectedPanType.displayName} Detected
                               </h3>
-                              <Badge variant="secondary" className="bg-green-200 text-green-800">
+                              <Badge variant="secondary" className="bg-green-200 dark:bg-green-800/30 text-green-800 dark:text-green-200">
                                 PAN Type: {detectedPanType.code}
                               </Badge>
                             </div>
@@ -1189,19 +1189,19 @@ export default function SmartKYCOnboarding() {
                             </p>
                             <div className="flex flex-wrap gap-2 mb-3">
                               {detectedPanType.canInvest && (
-                                <Badge variant="outline" className="text-green-700 border-green-300">
+                                <Badge variant="outline" className="text-green-700 dark:text-green-300 border-green-300 dark:border-green-700">
                                   <TrendingUp className="h-3 w-3 mr-1" />
                                   Can Invest
                                 </Badge>
                               )}
                               {detectedPanType.canTrade && (
-                                <Badge variant="outline" className="text-green-700 border-green-300">
+                                <Badge variant="outline" className="text-green-700 dark:text-green-300 border-green-300 dark:border-green-700">
                                   <TrendingUp className="h-3 w-3 mr-1" />
                                   Can Trade
                                 </Badge>
                               )}
                               {detectedPanType.onboardingMode === 'treasury_only' && (
-                                <Badge variant="outline" className="text-orange-700 border-orange-300">
+                                <Badge variant="outline" className="text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-700">
                                   <Building2 className="h-3 w-3 mr-1" />
                                   Treasury Only
                                 </Badge>
@@ -1410,7 +1410,7 @@ export default function SmartKYCOnboarding() {
                 PAN: <span className="font-mono">{maskPanNumber(panNumber)}</span>
               </p>
             </div>
-            <Badge className="bg-green-100 text-green-800">
+            <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
               <CheckCircle className="h-3 w-3 mr-1" />
               Verified
             </Badge>
@@ -1453,9 +1453,9 @@ export default function SmartKYCOnboarding() {
           </div>
           
           {detectedPanType.requiresApproval && (
-            <Alert className="bg-orange-50 border-orange-200">
+            <Alert className="bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800">
               <Info className="h-4 w-4 text-orange-600" />
-              <AlertDescription className="text-orange-800">
+              <AlertDescription className="text-orange-800 dark:text-orange-200">
                 <strong>Note:</strong> {detectedPanType.displayName} accounts require additional verification and admin approval before activation.
               </AlertDescription>
             </Alert>
@@ -1696,17 +1696,17 @@ export default function SmartKYCOnboarding() {
       </CardHeader>
       <CardContent className="space-y-4">
         {panData && (
-          <Alert className="bg-green-50 border-green-200">
+          <Alert className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
             <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-800">
+            <AlertDescription className="text-green-800 dark:text-green-200">
               <strong>PAN Verified:</strong> {panData.name}
             </AlertDescription>
           </Alert>
         )}
         
-        <Alert className="bg-blue-50 border-blue-200">
+        <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
           <Info className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-800 text-sm">
+          <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm">
             <strong>Important:</strong> OTP will be sent by UIDAI to the mobile number linked with your Aadhaar card, not the number you registered with on FintekPro. Please ensure you have access to your Aadhaar-registered mobile.
           </AlertDescription>
         </Alert>
@@ -1926,9 +1926,9 @@ export default function SmartKYCOnboarding() {
       <CardContent className="space-y-4">
         {aadhaarData && (
           <div className="space-y-4">
-            <Alert className="bg-green-50 border-green-200">
+            <Alert className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
               <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
+              <AlertDescription className="text-green-800 dark:text-green-200">
                 <strong>Both verifications completed successfully!</strong>
               </AlertDescription>
             </Alert>
@@ -1980,21 +1980,21 @@ export default function SmartKYCOnboarding() {
         )}
         {!aadhaarData && (
           <div className="space-y-4">
-            <Alert className="bg-amber-50 border-amber-200">
+            <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
               <AlertCircle className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-800">
+              <AlertDescription className="text-amber-800 dark:text-amber-200">
                 <strong>Aadhaar verification required</strong><br />
                 Please complete Aadhaar OTP verification to proceed with your KYC.
               </AlertDescription>
             </Alert>
             
             {panData && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
                   <CheckCircle className="h-5 w-5 text-green-600" />
-                  <span className="font-medium text-green-800">PAN Verified</span>
+                  <span className="font-medium text-green-800 dark:text-green-200">PAN Verified</span>
                 </div>
-                <p className="text-sm text-green-700">{panData?.name || panFullName}</p>
+                <p className="text-sm text-green-700 dark:text-green-300">{panData?.name || panFullName}</p>
                 <p className="text-xs text-muted-foreground mt-1">PAN: {maskPanNumber(panNumber || panData?.pan_number || '')}</p>
               </div>
             )}
@@ -2198,9 +2198,9 @@ export default function SmartKYCOnboarding() {
           )}
           
           {isFormValid && (
-            <Alert className="bg-green-50 border-green-200">
+            <Alert className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
               <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
+              <AlertDescription className="text-green-800 dark:text-green-200">
                 All mandatory declarations accepted. You may now submit your compliance sign-off.
               </AlertDescription>
             </Alert>
@@ -2859,9 +2859,9 @@ export default function SmartKYCOnboarding() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <Alert className="bg-blue-50 border-blue-200">
+        <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
           <Info className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-800">
+          <AlertDescription className="text-blue-800 dark:text-blue-200">
             HUF PAN detected: <span className="font-mono font-bold">{maskPanNumber(panNumber)}</span>
           </AlertDescription>
         </Alert>
@@ -2948,9 +2948,9 @@ export default function SmartKYCOnboarding() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <Alert className="bg-blue-50 border-blue-200">
+        <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
           <Info className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-800">
+          <AlertDescription className="text-blue-800 dark:text-blue-200">
             Company PAN detected: <span className="font-mono font-bold">{maskPanNumber(panNumber)}</span>
           </AlertDescription>
         </Alert>
@@ -3022,8 +3022,8 @@ export default function SmartKYCOnboarding() {
             </div>
           </div>
           
-          <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-            <p className="text-sm text-orange-800">
+          <div className="p-4 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg">
+            <p className="text-sm text-orange-800 dark:text-orange-200">
               <strong>Note:</strong> Corporate accounts are restricted to Treasury products only. 
               A Board Resolution authorizing investments will be required.
             </p>
@@ -3065,9 +3065,9 @@ export default function SmartKYCOnboarding() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <Alert className="bg-blue-50 border-blue-200">
+        <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
           <Info className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-800">
+          <AlertDescription className="text-blue-800 dark:text-blue-200">
             Firm/LLP PAN detected: <span className="font-mono font-bold">{maskPanNumber(panNumber)}</span>
           </AlertDescription>
         </Alert>
@@ -3160,9 +3160,9 @@ export default function SmartKYCOnboarding() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <Alert className="bg-blue-50 border-blue-200">
+        <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
           <Info className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-800">
+          <AlertDescription className="text-blue-800 dark:text-blue-200">
             {detectedPanType?.displayName} PAN detected: <span className="font-mono font-bold">{maskPanNumber(panNumber)}</span>
           </AlertDescription>
         </Alert>
@@ -3218,9 +3218,9 @@ export default function SmartKYCOnboarding() {
             </div>
           </div>
           
-          <Alert className="bg-orange-50 border-orange-200">
+          <Alert className="bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800">
             <Info className="h-4 w-4 text-orange-600" />
-            <AlertDescription className="text-orange-800">
+            <AlertDescription className="text-orange-800 dark:text-orange-200">
               Trust accounts are restricted to Treasury products only and require admin approval.
             </AlertDescription>
           </Alert>
@@ -3300,7 +3300,7 @@ export default function SmartKYCOnboarding() {
                     {doc.required && <span className="text-red-500 ml-1">*</span>}
                   </Label>
                   {uploadedDocuments[doc.key] && (
-                    <Badge variant="secondary" className="bg-green-100 text-green-800">
+                    <Badge variant="secondary" className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                       <CheckCircle className="h-3 w-3 mr-1" />
                       Uploaded
                     </Badge>
@@ -3430,9 +3430,9 @@ export default function SmartKYCOnboarding() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <Alert className="bg-blue-50 border-blue-200">
+        <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
           <Info className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-800">
+          <AlertDescription className="text-blue-800 dark:text-blue-200">
             {detectedPanType?.displayName} accounts are configured for Treasury products including 
             Liquid Funds, Debt Funds, and Short-term Bonds.
           </AlertDescription>
@@ -3454,20 +3454,20 @@ export default function SmartKYCOnboarding() {
           </div>
           
           {!makerCheckerEnabled && (
-            <Alert className="bg-orange-50 border-orange-200">
+            <Alert className="bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800">
               <AlertCircle className="h-4 w-4 text-orange-600" />
-              <AlertDescription className="text-orange-800">
+              <AlertDescription className="text-orange-800 dark:text-orange-200">
                 Single approval mode: Transactions will execute immediately upon first approval.
               </AlertDescription>
             </Alert>
           )}
         </div>
         
-        <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-          <h4 className="font-medium text-green-800 mb-2">Available Products</h4>
+        <div className="p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+          <h4 className="font-medium text-green-800 dark:text-green-200 mb-2">Available Products</h4>
           <div className="flex flex-wrap gap-2">
             {detectedPanType?.productsAllowed.map((product) => (
-              <Badge key={product} variant="secondary" className="bg-green-100 text-green-800">
+              <Badge key={product} variant="secondary" className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                 {product}
               </Badge>
             ))}
@@ -3514,9 +3514,9 @@ export default function SmartKYCOnboarding() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Alert className="bg-green-50 border-green-200">
+        <Alert className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
           <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-800">
+          <AlertDescription className="text-green-800 dark:text-green-200">
             {detectedPanType?.requiresApproval ? (
               <>
                 <strong>Submission Received!</strong> Your {detectedPanType?.displayName} onboarding 

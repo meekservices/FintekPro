@@ -41,13 +41,13 @@ interface TaxDocument {
 
 
 const DOCUMENT_CATEGORIES = [
-  { type: "itr", name: "ITR Returns", icon: FileText, color: "text-blue-600 bg-blue-100" },
-  { type: "computation", name: "Computations", icon: Receipt, color: "text-green-600 bg-green-100" },
-  { type: "form26as", name: "Form 26AS", icon: FileCheck, color: "text-purple-600 bg-purple-100" },
-  { type: "ais", name: "AIS", icon: File, color: "text-orange-600 bg-orange-100" },
-  { type: "tis", name: "TIS", icon: File, color: "text-yellow-600 bg-yellow-100" },
-  { type: "form15", name: "Form 15CA/CB", icon: Shield, color: "text-red-600 bg-red-100" },
-  { type: "acknowledgement", name: "Acknowledgements", icon: CheckCircle, color: "text-emerald-600 bg-emerald-100" }
+  { type: "itr", name: "ITR Returns", icon: FileText, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30" },
+  { type: "computation", name: "Computations", icon: Receipt, color: "text-green-600 bg-green-100 dark:bg-green-900/30" },
+  { type: "form26as", name: "Form 26AS", icon: FileCheck, color: "text-purple-600 bg-purple-100 dark:bg-purple-900/30" },
+  { type: "ais", name: "AIS", icon: File, color: "text-orange-600 bg-orange-100 dark:bg-orange-900/30" },
+  { type: "tis", name: "TIS", icon: File, color: "text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30" },
+  { type: "form15", name: "Form 15CA/CB", icon: Shield, color: "text-red-600 bg-red-100 dark:bg-red-900/30" },
+  { type: "acknowledgement", name: "Acknowledgements", icon: CheckCircle, color: "text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30" }
 ];
 
 export default function TaxDocumentVaultPage() {
@@ -73,9 +73,9 @@ export default function TaxDocumentVaultPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "verified": return <Badge className="bg-green-100 text-green-700"><CheckCircle className="h-3 w-3 mr-1" /> Verified</Badge>;
-      case "pending": return <Badge className="bg-yellow-100 text-yellow-700"><Clock className="h-3 w-3 mr-1" /> Pending</Badge>;
-      case "expired": return <Badge className="bg-red-100 text-red-700">Expired</Badge>;
+      case "verified": return <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"><CheckCircle className="h-3 w-3 mr-1" /> Verified</Badge>;
+      case "pending": return <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"><Clock className="h-3 w-3 mr-1" /> Pending</Badge>;
+      case "expired": return <Badge className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">Expired</Badge>;
       default: return null;
     }
   };

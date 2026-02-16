@@ -45,14 +45,14 @@ const bondTypeIcons: Record<string, any> = {
 };
 
 const bondTypeColors: Record<string, string> = {
-  g_sec: "bg-blue-100 text-blue-800 border-blue-300",
-  corporate: "bg-purple-100 text-purple-800 border-purple-300",
-  ncd: "bg-orange-100 text-orange-800 border-orange-300",
-  tax_free: "bg-green-100 text-green-800 border-green-300",
-  sgb: "bg-yellow-100 text-yellow-800 border-yellow-300",
-  sdl: "bg-cyan-100 text-cyan-800 border-cyan-300",
+  g_sec: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-300 dark:border-blue-700",
+  corporate: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-700",
+  ncd: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-700",
+  tax_free: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700",
+  sgb: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700",
+  sdl: "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-200 border-cyan-300 dark:border-cyan-700",
   t_bill: "bg-muted text-foreground border-border",
-  infrastructure: "bg-indigo-100 text-indigo-800 border-indigo-300",
+  infrastructure: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 border-indigo-300 dark:border-indigo-700",
 };
 
 export default function BondCommissionSettings() {

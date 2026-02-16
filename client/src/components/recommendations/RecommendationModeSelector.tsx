@@ -158,7 +158,7 @@ export function RecommendationModeSelector({
                           </Badge>
                         )}
                         {mode.requiresDisclosure && (
-                          <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
+                          <Badge variant="outline" className="text-xs text-orange-600 border-orange-300 dark:border-orange-700">
                             Requires Disclosure
                           </Badge>
                         )}

@@ -340,7 +340,7 @@ export default function TaxReminderSubscription() {
                   <Badge variant={subscription.isFree ? "default" : "secondary"}>
                     {subscription.isFree ? "Free Tier" : "Paid"}
                   </Badge>
-                  <Badge variant="default" className="bg-green-100 text-green-800">
+                  <Badge variant="default" className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                     {subscription.subscriptionStatus}
                   </Badge>
                 </div>

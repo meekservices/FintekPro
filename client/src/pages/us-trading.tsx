@@ -92,7 +92,7 @@ function ErrorCard({ title, message, onRetry }: { title: string; message: string
         <h3 className="font-semibold text-red-800 dark:text-red-200 mb-2">{title}</h3>
         <p className="text-sm text-red-600 dark:text-red-400 mb-4">{message}</p>
         {onRetry && (
-          <Button variant="outline" size="sm" onClick={onRetry} className="border-red-300">
+          <Button variant="outline" size="sm" onClick={onRetry} className="border-red-300 dark:border-red-700">
             <RefreshCw className="h-4 w-4 mr-2" />
             Try Again
           </Button>
@@ -457,7 +457,7 @@ export default function USTradingPage() {
                   </div>
                   <Badge 
                     variant={index.change >= 0 ? "default" : "destructive"}
-                    className={index.change >= 0 ? "bg-green-100 text-green-700" : ""}
+                    className={index.change >= 0 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300" : ""}
                   >
                     {index.change >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
                     {index.changePercent.toFixed(2)}%
@@ -553,7 +553,7 @@ export default function USTradingPage() {
                             {quote && (
                               <Badge 
                                 variant={quote.change >= 0 ? "default" : "destructive"}
-                                className={quote.change >= 0 ? "bg-green-100 text-green-700" : ""}
+                                className={quote.change >= 0 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300" : ""}
                               >
                                 {quote.change >= 0 ? "+" : ""}{quote.changePercent?.toFixed(2)}%
                               </Badge>
@@ -878,7 +878,7 @@ export default function USTradingPage() {
                                   <div className="flex items-center gap-2">
                                     <Badge 
                                       variant="outline" 
-                                      className={trade.priority === 'high' ? 'border-red-300 text-red-600' : trade.priority === 'medium' ? 'border-yellow-300 text-yellow-600' : 'border-border'}
+                                      className={trade.priority === 'high' ? 'border-red-300 dark:border-red-700 text-red-600' : trade.priority === 'medium' ? 'border-yellow-300 dark:border-yellow-700 text-yellow-600' : 'border-border'}
                                     >
                                       {trade.priority}
                                     </Badge>

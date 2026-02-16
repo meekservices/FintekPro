@@ -52,7 +52,7 @@ export function FeeBreakdownCard({ orderValueInr, compact = false }: FeeBreakdow
 
   if (isError || !data?.success) {
     return (
-      <Alert variant="default" className="border-amber-200">
+      <Alert variant="default" className="border-amber-200 dark:border-amber-800">
         <Info className="h-4 w-4" />
         <AlertDescription>
           Unable to calculate fees. Please select a fee mode first.

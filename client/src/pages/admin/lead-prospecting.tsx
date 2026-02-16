@@ -457,7 +457,7 @@ export default function LeadProspecting() {
                   <h4 className="font-medium text-amber-800 dark:text-amber-200">Probe42 API Unavailable</h4>
                   <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{apiError}</p>
                   <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
-                    You can still create B2B leads manually in the <a href="/admin/prospect-dashboard" className="underline font-medium hover:text-amber-800">Prospect Dashboard</a> or import from Zoho CRM.
+                    You can still create B2B leads manually in the <a href="/admin/prospect-dashboard" className="underline font-medium hover:text-amber-800 dark:text-amber-200">Prospect Dashboard</a> or import from Zoho CRM.
                   </p>
                 </div>
               </div>
@@ -688,7 +688,7 @@ export default function LeadProspecting() {
                                         {company.companyStatus}
                                       </Badge>
                                       {company.listingStatus && company.listingStatus !== 'Unlisted' && (
-                                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                        <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
                                           {company.listingStatus}
                                         </Badge>
                                       )}
@@ -697,7 +697,7 @@ export default function LeadProspecting() {
                                   </div>
                                   <div className="flex gap-2 items-center">
                                     {!company.isEnriched && (
-                                      <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                                      <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 dark:border-amber-700">
                                         Limited Data
                                       </Badge>
                                     )}
@@ -892,9 +892,9 @@ export default function LeadProspecting() {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-full ${
-                        lead.leadQuality === 'hot' ? 'bg-orange-100' :
-                        lead.leadQuality === 'warm' ? 'bg-yellow-100' :
-                        'bg-blue-100'
+                        lead.leadQuality === 'hot' ? 'bg-orange-100 dark:bg-orange-900/30' :
+                        lead.leadQuality === 'warm' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
+                        'bg-blue-100 dark:bg-blue-900/30'
                       }`}>
                         {lead.leadQuality === 'hot' ? (
                           <Star className="h-5 w-5 text-orange-500" />
@@ -1292,7 +1292,7 @@ export default function LeadProspecting() {
                     {selectedCompany.openChargesCount !== undefined && selectedCompany.openChargesCount > 0 && (
                       <div className="flex items-center gap-2">
                         <span className="font-medium">Open Charges:</span>
-                        <Badge variant="outline" className="text-amber-600 border-amber-300">{selectedCompany.openChargesCount} active</Badge>
+                        <Badge variant="outline" className="text-amber-600 border-amber-300 dark:border-amber-700">{selectedCompany.openChargesCount} active</Badge>
                       </div>
                     )}
                     {selectedCompany.creditRating && (

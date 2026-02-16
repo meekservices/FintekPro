@@ -489,11 +489,11 @@ export default function Portfolio() {
             <Card className="border-l-4 border-green-500">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center text-green-700">
+                  <CardTitle className="text-lg flex items-center text-green-700 dark:text-green-300">
                     <Landmark className="h-5 w-5 mr-2" />
                     Government Schemes Summary
                   </CardTitle>
-                  <Badge className="bg-green-100 text-green-800">
+                  <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                     {(ppfHoldings?.length || 0) + (npsAccounts?.length || 0) + (apyAccounts?.length || 0) + (epsHoldings?.length || 0)} Accounts
                   </Badge>
                 </div>
@@ -509,23 +509,23 @@ export default function Portfolio() {
                   
                   return (
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                      <div className="p-3 bg-green-50 rounded-lg text-center">
+                      <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg text-center">
                         <p className="text-xs text-muted-foreground mb-1">Total Value</p>
                         <p className="text-lg font-bold text-green-600">₹{govtTotal.toLocaleString('en-IN')}</p>
                       </div>
-                      <div className="p-3 bg-blue-50 rounded-lg text-center">
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-center">
                         <p className="text-xs text-muted-foreground mb-1">PPF</p>
                         <p className="text-lg font-bold text-blue-600">₹{ppfTotal.toLocaleString('en-IN')}</p>
                       </div>
-                      <div className="p-3 bg-purple-50 rounded-lg text-center">
+                      <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg text-center">
                         <p className="text-xs text-muted-foreground mb-1">NPS</p>
                         <p className="text-lg font-bold text-purple-600">₹{npsTotal.toLocaleString('en-IN')}</p>
                       </div>
-                      <div className="p-3 bg-amber-50 rounded-lg text-center">
+                      <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg text-center">
                         <p className="text-xs text-muted-foreground mb-1">APY + EPS</p>
                         <p className="text-lg font-bold text-amber-600">₹{(apyTotal + epsTotal).toLocaleString('en-IN')}</p>
                       </div>
-                      <div className="p-3 bg-emerald-50 rounded-lg text-center">
+                      <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg text-center">
                         <p className="text-xs text-muted-foreground mb-1">Est. Pension</p>
                         <p className="text-lg font-bold text-emerald-600">₹{parseFloat(estimatedPension).toLocaleString('en-IN')}/mo</p>
                       </div>
@@ -636,23 +636,23 @@ export default function Portfolio() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="p-4 bg-blue-50 rounded-lg">
-                        <div className="font-medium text-blue-900 mb-2">Overall Portfolio Health</div>
-                        <div className="text-sm text-blue-700">
+                      <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                        <div className="font-medium text-blue-900 dark:text-blue-100 mb-2">Overall Portfolio Health</div>
+                        <div className="text-sm text-blue-700 dark:text-blue-300">
                           Your portfolio shows strong diversification with good risk-adjusted returns. 
                           Consider the commodity allocation recommendations for better inflation protection.
                         </div>
                       </div>
-                      <div className="p-4 bg-green-50 rounded-lg">
-                        <div className="font-medium text-green-900 mb-2">Performance Score</div>
-                        <div className="text-sm text-green-700">
+                      <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                        <div className="font-medium text-green-900 dark:text-green-100 mb-2">Performance Score</div>
+                        <div className="text-sm text-green-700 dark:text-green-300">
                           <span className="text-2xl font-bold">8.2/10</span> - Excellent performance 
                           with balanced risk exposure across asset classes.
                         </div>
                       </div>
-                      <div className="p-4 bg-yellow-50 rounded-lg">
-                        <div className="font-medium text-yellow-900 mb-2">Next Actions</div>
-                        <div className="text-sm text-yellow-700">
+                      <div className="p-4 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
+                        <div className="font-medium text-yellow-900 dark:text-yellow-100 mb-2">Next Actions</div>
+                        <div className="text-sm text-yellow-700 dark:text-yellow-300">
                           Review commodity exposure and consider rebalancing equity allocation 
                           for optimal yield generation.
                         </div>
@@ -678,23 +678,23 @@ export default function Portfolio() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="p-4 bg-yellow-50 rounded-lg">
-                        <div className="font-medium text-yellow-900 mb-2">Current Allocation</div>
-                        <div className="text-sm text-yellow-700">
+                      <div className="p-4 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
+                        <div className="font-medium text-yellow-900 dark:text-yellow-100 mb-2">Current Allocation</div>
+                        <div className="text-sm text-yellow-700 dark:text-yellow-300">
                           10% of your portfolio (₹1,34,785) is allocated to commodities, 
                           providing good inflation protection.
                         </div>
                       </div>
-                      <div className="p-4 bg-orange-50 rounded-lg">
-                        <div className="font-medium text-orange-900 mb-2">Diversification Benefits</div>
-                        <div className="text-sm text-orange-700">
+                      <div className="p-4 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
+                        <div className="font-medium text-orange-900 dark:text-orange-100 mb-2">Diversification Benefits</div>
+                        <div className="text-sm text-orange-700 dark:text-orange-300">
                           Commodity exposure reduces portfolio correlation and provides 
                           hedge against economic uncertainty.
                         </div>
                       </div>
-                      <div className="p-4 bg-green-50 rounded-lg">
-                        <div className="font-medium text-green-900 mb-2">Performance</div>
-                        <div className="text-sm text-green-700">
+                      <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                        <div className="font-medium text-green-900 dark:text-green-100 mb-2">Performance</div>
+                        <div className="text-sm text-green-700 dark:text-green-300">
                           +1.75% today • Outperforming broader market with gold and silver gains.
                         </div>
                       </div>
@@ -719,7 +719,7 @@ export default function Portfolio() {
                       All transactions and investments made through FintekPro platform
                     </CardDescription>
                   </div>
-                  <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                  <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800">
                     <Shield className="h-3 w-3 mr-1" />
                     PAN Verified
                   </Badge>
@@ -732,23 +732,23 @@ export default function Portfolio() {
                   <div className="space-y-6">
                     {/* Summary Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div className="p-4 bg-blue-50 rounded-lg" data-testid="stat-total-orders">
+                      <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg" data-testid="stat-total-orders">
                         <div className="text-sm text-muted-foreground">Total Orders</div>
                         <div className="text-2xl font-bold text-blue-600">{fintekproOrders.length}</div>
                       </div>
-                      <div className="p-4 bg-green-50 rounded-lg" data-testid="stat-completed-orders">
+                      <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg" data-testid="stat-completed-orders">
                         <div className="text-sm text-muted-foreground">Completed</div>
                         <div className="text-2xl font-bold text-green-600">
                           {fintekproOrders.filter(o => o.status === 'completed').length}
                         </div>
                       </div>
-                      <div className="p-4 bg-yellow-50 rounded-lg" data-testid="stat-pending-orders">
+                      <div className="p-4 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg" data-testid="stat-pending-orders">
                         <div className="text-sm text-muted-foreground">Pending</div>
                         <div className="text-2xl font-bold text-yellow-600">
                           {fintekproOrders.filter(o => o.status === 'processing' || o.status === 'initiated').length}
                         </div>
                       </div>
-                      <div className="p-4 bg-purple-50 rounded-lg" data-testid="stat-total-invested">
+                      <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg" data-testid="stat-total-invested">
                         <div className="text-sm text-muted-foreground">Total Invested</div>
                         <div className="text-2xl font-bold text-purple-600">
                           ₹{fintekproOrders.reduce((sum, o) => sum + parseFloat(o.amount || '0'), 0).toLocaleString()}
@@ -790,10 +790,10 @@ export default function Portfolio() {
                               <TableCell>
                                 <Badge 
                                   className={
-                                    order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                    order.status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                                    order.status === 'cancelled' || order.status === 'failed' ? 'bg-red-100 text-red-800' :
-                                    'bg-yellow-100 text-yellow-800'
+                                    order.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' :
+                                    order.status === 'processing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' :
+                                    order.status === 'cancelled' || order.status === 'failed' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200' :
+                                    'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200'
                                   }
                                 >
                                   {order.status === 'completed' && <CheckCircle2 className="h-3 w-3 mr-1" />}
@@ -910,7 +910,7 @@ export default function Portfolio() {
                       PAN-level consolidated holdings from all your demat accounts (NSDL/CDSL)
                     </CardDescription>
                   </div>
-                  <Badge className="bg-teal-100 text-teal-800 border-teal-200">
+                  <Badge className="bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200 border-teal-200 dark:border-teal-800">
                     <Shield className="h-3 w-3 mr-1" />
                     PAN Verified
                   </Badge>
@@ -923,23 +923,23 @@ export default function Portfolio() {
                   <div className="space-y-6">
                     {/* Tracker Summary Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div className="p-4 bg-teal-50 rounded-lg" data-testid="stat-total-holdings">
+                      <div className="p-4 bg-teal-50 dark:bg-teal-950/30 rounded-lg" data-testid="stat-total-holdings">
                         <div className="text-sm text-muted-foreground">Total Holdings</div>
                         <div className="text-2xl font-bold text-teal-600">{enhancedHoldings.length}</div>
                       </div>
-                      <div className="p-4 bg-green-50 rounded-lg" data-testid="stat-total-value">
+                      <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg" data-testid="stat-total-value">
                         <div className="text-sm text-muted-foreground">Total Value</div>
                         <div className="text-2xl font-bold text-green-600">
                           ₹{enhancedHoldings.reduce((sum, h) => sum + parseFloat(h.currentValue || '0'), 0).toLocaleString()}
                         </div>
                       </div>
-                      <div className="p-4 bg-blue-50 rounded-lg" data-testid="stat-total-invested">
+                      <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg" data-testid="stat-total-invested">
                         <div className="text-sm text-muted-foreground">Total Invested</div>
                         <div className="text-2xl font-bold text-blue-600">
                           ₹{enhancedHoldings.reduce((sum, h) => sum + parseFloat(h.investedValue || '0'), 0).toLocaleString()}
                         </div>
                       </div>
-                      <div className="p-4 bg-purple-50 rounded-lg" data-testid="stat-total-gain">
+                      <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg" data-testid="stat-total-gain">
                         <div className="text-sm text-muted-foreground">Total Gain/Loss</div>
                         <div className={`text-2xl font-bold ${
                           enhancedHoldings.reduce((sum, h) => sum + parseFloat(h.gainLoss || '0'), 0) >= 0 
@@ -953,15 +953,15 @@ export default function Portfolio() {
 
                     {/* Holdings by Depository */}
                     <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div className="p-4 bg-purple-50 rounded-lg text-center">
+                      <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg text-center">
                         <p className="text-sm font-medium text-purple-600">NSDL Holdings</p>
-                        <p className="text-2xl font-bold text-purple-800">
+                        <p className="text-2xl font-bold text-purple-800 dark:text-purple-200">
                           {enhancedHoldings.filter(h => h.exchange === 'NSE' || (h as any).depository === 'NSDL').length}
                         </p>
                       </div>
-                      <div className="p-4 bg-indigo-50 rounded-lg text-center">
+                      <div className="p-4 bg-indigo-50 dark:bg-indigo-950/30 rounded-lg text-center">
                         <p className="text-sm font-medium text-indigo-600">CDSL Holdings</p>
-                        <p className="text-2xl font-bold text-indigo-800">
+                        <p className="text-2xl font-bold text-indigo-800 dark:text-indigo-200">
                           {enhancedHoldings.filter(h => h.exchange === 'BSE' || (h as any).depository === 'CDSL').length}
                         </p>
                       </div>
@@ -969,15 +969,15 @@ export default function Portfolio() {
 
                     {/* Holdings by Source */}
                     <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div className="p-4 bg-blue-50 rounded-lg text-center">
+                      <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-center">
                         <p className="text-sm font-medium text-blue-600">FintekPro Holdings</p>
-                        <p className="text-2xl font-bold text-blue-800">
+                        <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">
                           {taggedTrackerHoldings.filter(h => h.source === 'FINTEKPRO').length}
                         </p>
                       </div>
-                      <div className="p-4 bg-orange-50 rounded-lg text-center">
+                      <div className="p-4 bg-orange-50 dark:bg-orange-950/30 rounded-lg text-center">
                         <p className="text-sm font-medium text-orange-600">External Holdings</p>
-                        <p className="text-2xl font-bold text-orange-800">
+                        <p className="text-2xl font-bold text-orange-800 dark:text-orange-200">
                           {taggedTrackerHoldings.filter(h => h.source === 'EXTERNAL').length}
                         </p>
                       </div>
@@ -1005,8 +1005,8 @@ export default function Portfolio() {
                               <TableCell>
                                 <Badge 
                                   className={holding.source === 'FINTEKPRO' 
-                                    ? 'bg-blue-100 text-blue-800 border-blue-200' 
-                                    : 'bg-orange-100 text-orange-800 border-orange-200'
+                                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800' 
+                                    : 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-200 dark:border-orange-800'
                                   }
                                   data-testid={`source-badge-${holding.source.toLowerCase()}`}
                                 >
@@ -1034,7 +1034,7 @@ export default function Portfolio() {
                                 </span>
                               </TableCell>
                               <TableCell>
-                                <Badge className={holding.exchange === 'NSE' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'}>
+                                <Badge className={holding.exchange === 'NSE' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200' : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200'}>
                                   {holding.exchange || 'NSE'}
                                 </Badge>
                               </TableCell>
@@ -1085,11 +1085,11 @@ export default function Portfolio() {
           {/* External Portfolio Tab - DERIVED as (Tracker - FintekPro) */}
           <TabsContent value="external" className="space-y-8">
             {/* SEBI Compliance Disclosure Banner */}
-            <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg" data-testid="external-portfolio-disclosure">
+            <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg" data-testid="external-portfolio-disclosure">
               <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-amber-800">Advisory Only - No Transaction Capability</p>
-                <p className="text-sm text-amber-700 mt-1">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Advisory Only - No Transaction Capability</p>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
                   External holdings are shown for information and analysis purposes only. These holdings cannot be transacted through FintekPro unless migrated to the platform.
                 </p>
               </div>
@@ -1107,7 +1107,7 @@ export default function Portfolio() {
                       Holdings from external brokers (Derived: Tracker Portfolio − FintekPro Portfolio)
                     </CardDescription>
                   </div>
-                  <Badge className="bg-orange-100 text-orange-800 border-orange-200">
+                  <Badge className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-200 dark:border-orange-800">
                     <AlertTriangle className="h-3 w-3 mr-1" />
                     Derived View
                   </Badge>
@@ -1120,23 +1120,23 @@ export default function Portfolio() {
                   <div className="space-y-6">
                     {/* External Portfolio Summary Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div className="p-4 bg-orange-50 rounded-lg" data-testid="stat-external-holdings">
+                      <div className="p-4 bg-orange-50 dark:bg-orange-950/30 rounded-lg" data-testid="stat-external-holdings">
                         <div className="text-sm text-muted-foreground">External Holdings</div>
                         <div className="text-2xl font-bold text-orange-600">{externalHoldings.length}</div>
                       </div>
-                      <div className="p-4 bg-green-50 rounded-lg" data-testid="stat-external-value">
+                      <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg" data-testid="stat-external-value">
                         <div className="text-sm text-muted-foreground">Total Value</div>
                         <div className="text-2xl font-bold text-green-600">
                           ₹{externalHoldings.reduce((sum, h) => sum + parseFloat(h.currentValue || '0'), 0).toLocaleString()}
                         </div>
                       </div>
-                      <div className="p-4 bg-blue-50 rounded-lg" data-testid="stat-external-invested">
+                      <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg" data-testid="stat-external-invested">
                         <div className="text-sm text-muted-foreground">Total Invested</div>
                         <div className="text-2xl font-bold text-blue-600">
                           ₹{externalHoldings.reduce((sum, h) => sum + parseFloat(h.investedValue || '0'), 0).toLocaleString()}
                         </div>
                       </div>
-                      <div className="p-4 bg-purple-50 rounded-lg" data-testid="stat-external-gain">
+                      <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg" data-testid="stat-external-gain">
                         <div className="text-sm text-muted-foreground">Total Gain/Loss</div>
                         <div className={`text-2xl font-bold ${
                           externalHoldings.reduce((sum, h) => sum + parseFloat(h.gainLoss || '0'), 0) >= 0 
@@ -1184,7 +1184,7 @@ export default function Portfolio() {
                                 </span>
                               </TableCell>
                               <TableCell>
-                                <Badge className={holding.exchange === 'NSE' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'}>
+                                <Badge className={holding.exchange === 'NSE' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200' : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200'}>
                                   {holding.exchange || 'NSE'}
                                 </Badge>
                               </TableCell>
@@ -1200,13 +1200,13 @@ export default function Portfolio() {
                     </div>
 
                     {/* Migration CTA */}
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-blue-800">Migrate to FintekPro</p>
+                          <p className="font-medium text-blue-800 dark:text-blue-200">Migrate to FintekPro</p>
                           <p className="text-sm text-blue-600">Transfer external holdings to FintekPro for full transaction capability and AI recommendations</p>
                         </div>
-                        <Button variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100" data-testid="button-migrate-holdings">
+                        <Button variant="outline" className="border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:bg-blue-900/30" data-testid="button-migrate-holdings">
                           Learn More
                         </Button>
                       </div>
@@ -1247,9 +1247,9 @@ export default function Portfolio() {
               onRequestConsent={handleRequestConsent}
             >
               {/* PAN Verification Banner */}
-              <div className="flex items-center mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center mb-6 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
                 <Shield className="h-4 w-4 text-green-600 mr-2" />
-                <span className="text-sm text-green-700">
+                <span className="text-sm text-green-700 dark:text-green-300">
                   Insurance holdings verified with your PAN card for secure access
                 </span>
               </div>
@@ -1273,11 +1273,11 @@ export default function Portfolio() {
                     <div className="space-y-6">
                       {/* Summary Stats */}
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-blue-50 rounded-lg">
+                        <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                           <div className="text-sm text-muted-foreground">Total Policies</div>
                           <div className="text-2xl font-bold text-blue-600">{insuranceHoldings?.length || 0}</div>
                         </div>
-                        <div className="p-4 bg-green-50 rounded-lg">
+                        <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
                           <div className="text-sm text-muted-foreground">Total Coverage</div>
                           <div className="text-2xl font-bold text-green-600">
                             ₹{Array.isArray(insuranceHoldings) ? insuranceHoldings.reduce((sum, policy) => sum + parseFloat(policy.sumAssured || '0'), 0).toLocaleString() : "0"}
@@ -1311,11 +1311,11 @@ export default function Portfolio() {
                       <div className="space-y-3">
                         <h4 className="font-semibold text-foreground">Depository Details</h4>
                         <div className="grid grid-cols-2 gap-2">
-                          <div className="text-center p-3 bg-purple-50 rounded-lg">
+                          <div className="text-center p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                             <p className="text-sm font-medium text-purple-600">NSDL Holdings</p>
                             <p className="text-xs text-purple-600">{insuranceHoldings?.filter(p => p.depositoryName === 'NSDL').length || 0} policies</p>
                           </div>
-                          <div className="text-center p-3 bg-indigo-50 rounded-lg">
+                          <div className="text-center p-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-lg">
                             <p className="text-sm font-medium text-indigo-600">CDSL Holdings</p>
                             <p className="text-xs text-indigo-600">{insuranceHoldings?.filter(p => p.depositoryName === 'CDSL').length || 0} policies</p>
                           </div>
@@ -1348,7 +1348,7 @@ export default function Portfolio() {
                                 <p className="text-sm text-muted-foreground">Policy No: {policy.policyNumber}</p>
                                 <p className="text-xs text-muted-foreground">{policy.insuranceCompany}</p>
                               </div>
-                              <Badge className={(policy.policyStatus || '') === 'active' ? "bg-green-100 text-green-800" : "bg-muted text-white"}>
+                              <Badge className={(policy.policyStatus || '') === 'active' ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200" : "bg-muted text-white"}>
                                 {policy.policyStatus ? policy.policyStatus.charAt(0).toUpperCase() + policy.policyStatus.slice(1) : 'Unknown'}
                               </Badge>
                             </div>
@@ -1501,9 +1501,9 @@ export default function Portfolio() {
               onRequestConsent={handleRequestConsent}
             >
               {/* PAN Verification Banner */}
-              <div className="flex items-center mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center mb-6 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
                 <Shield className="h-4 w-4 text-green-600 mr-2" />
-                <span className="text-sm text-green-700">
+                <span className="text-sm text-green-700 dark:text-green-300">
                   EPF data verified with your PAN card and UAN for secure access
                 </span>
               </div>
@@ -1556,21 +1556,21 @@ export default function Portfolio() {
                           <div className="space-y-4">
                             <h4 className="font-semibold text-foreground">Balance Breakdown</h4>
                             <div className="space-y-3">
-                              <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                                <span className="text-sm font-medium text-blue-900">Employee Contribution</span>
-                                <span className="font-bold text-blue-900">₹{parseFloat(epf.employeeContribution || '0').toLocaleString('en-IN')}</span>
+                              <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                                <span className="text-sm font-medium text-blue-900 dark:text-blue-100">Employee Contribution</span>
+                                <span className="font-bold text-blue-900 dark:text-blue-100">₹{parseFloat(epf.employeeContribution || '0').toLocaleString('en-IN')}</span>
                               </div>
-                              <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                                <span className="text-sm font-medium text-green-900">Employer Contribution</span>
-                                <span className="font-bold text-green-900">₹{parseFloat(epf.employerContribution || '0').toLocaleString('en-IN')}</span>
+                              <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                                <span className="text-sm font-medium text-green-900 dark:text-green-100">Employer Contribution</span>
+                                <span className="font-bold text-green-900 dark:text-green-100">₹{parseFloat(epf.employerContribution || '0').toLocaleString('en-IN')}</span>
                               </div>
-                              <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
-                                <span className="text-sm font-medium text-purple-900">Pension Fund (EPS)</span>
-                                <span className="font-bold text-purple-900">₹{parseFloat(epf.pensionContribution || '0').toLocaleString('en-IN')}</span>
+                              <div className="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
+                                <span className="text-sm font-medium text-purple-900 dark:text-purple-100">Pension Fund (EPS)</span>
+                                <span className="font-bold text-purple-900 dark:text-purple-100">₹{parseFloat(epf.pensionContribution || '0').toLocaleString('en-IN')}</span>
                               </div>
-                              <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
-                                <span className="text-sm font-medium text-orange-900">Interest Earned</span>
-                                <span className="font-bold text-orange-900">₹{parseFloat(epf.interestEarned || '0').toLocaleString('en-IN')}</span>
+                              <div className="flex justify-between items-center p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
+                                <span className="text-sm font-medium text-orange-900 dark:text-orange-100">Interest Earned</span>
+                                <span className="font-bold text-orange-900 dark:text-orange-100">₹{parseFloat(epf.interestEarned || '0').toLocaleString('en-IN')}</span>
                               </div>
                             </div>
                           </div>
@@ -1612,7 +1612,7 @@ export default function Portfolio() {
                                 <p className="text-lg font-bold text-foreground">₹7,200</p>
                               </div>
                             </div>
-                            <div className="p-3 bg-green-50 rounded-lg">
+                            <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                               <p className="text-sm text-muted-foreground">Total Monthly Addition</p>
                               <p className="text-xl font-bold text-green-600">₹14,400</p>
                             </div>
@@ -1641,13 +1641,13 @@ export default function Portfolio() {
                     <div className="space-y-3">
                       <h4 className="font-semibold text-foreground">Withdrawal Information</h4>
                       <div className="space-y-2">
-                        <div className="p-3 bg-yellow-50 rounded-lg">
-                          <p className="text-sm font-medium text-yellow-900">Partial Withdrawal</p>
-                          <p className="text-xs text-yellow-700">Available after 5 years for specific purposes</p>
+                        <div className="p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
+                          <p className="text-sm font-medium text-yellow-900 dark:text-yellow-100">Partial Withdrawal</p>
+                          <p className="text-xs text-yellow-700 dark:text-yellow-300">Available after 5 years for specific purposes</p>
                         </div>
-                        <div className="p-3 bg-blue-50 rounded-lg">
-                          <p className="text-sm font-medium text-blue-900">Full Withdrawal</p>
-                          <p className="text-xs text-blue-700">Available after employment termination or retirement</p>
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                          <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Full Withdrawal</p>
+                          <p className="text-xs text-blue-700 dark:text-blue-300">Available after employment termination or retirement</p>
                         </div>
                       </div>
                     </div>
@@ -1767,9 +1767,9 @@ export default function Portfolio() {
               onRequestConsent={handleRequestConsent}
             >
               {/* PAN Verification Banner */}
-              <div className="flex items-center mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center mb-6 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
                 <Shield className="h-4 w-4 text-green-600 mr-2" />
-                <span className="text-sm text-green-700">
+                <span className="text-sm text-green-700 dark:text-green-300">
                   PPF data verified with your PAN card and PPF account number for secure access
                 </span>
               </div>
@@ -1819,12 +1819,12 @@ export default function Portfolio() {
                     <div className="space-y-4">
                       <h4 className="font-semibold text-foreground">Current Status & Timeline</h4>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-blue-50 rounded-lg">
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Years Completed</p>
                           <p className="text-2xl font-bold text-blue-600">9</p>
                           <p className="text-xs text-blue-600">6 years remaining</p>
                         </div>
-                        <div className="p-3 bg-green-50 rounded-lg">
+                        <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Interest Rate (2024-25)</p>
                           <p className="text-2xl font-bold text-green-600">8.2%</p>
                           <p className="text-xs text-green-600">Tax-free returns</p>
@@ -1836,17 +1836,17 @@ export default function Portfolio() {
                     <div className="space-y-4">
                       <h4 className="font-semibold text-foreground">Balance Summary</h4>
                       <div className="space-y-3">
-                        <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
-                          <span className="text-sm font-medium text-purple-900">Total Contribution</span>
-                          <span className="font-bold text-purple-900">{(ppf as any).totalContribution ? `₹${parseFloat((ppf as any).totalContribution).toLocaleString('en-IN')}` : 'Not available'}</span>
+                        <div className="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
+                          <span className="text-sm font-medium text-purple-900 dark:text-purple-100">Total Contribution</span>
+                          <span className="font-bold text-purple-900 dark:text-purple-100">{(ppf as any).totalContribution ? `₹${parseFloat((ppf as any).totalContribution).toLocaleString('en-IN')}` : 'Not available'}</span>
                         </div>
-                        <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
-                          <span className="text-sm font-medium text-orange-900">Interest Earned</span>
-                          <span className="font-bold text-orange-900">{(ppf as any).interestEarned ? `₹${parseFloat((ppf as any).interestEarned).toLocaleString('en-IN')}` : 'Not available'}</span>
+                        <div className="flex justify-between items-center p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
+                          <span className="text-sm font-medium text-orange-900 dark:text-orange-100">Interest Earned</span>
+                          <span className="font-bold text-orange-900 dark:text-orange-100">{(ppf as any).interestEarned ? `₹${parseFloat((ppf as any).interestEarned).toLocaleString('en-IN')}` : 'Not available'}</span>
                         </div>
-                        <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                          <span className="text-sm font-medium text-green-900">Current Balance</span>
-                          <span className="font-bold text-green-900">{ppf.totalBalance ? `₹${parseFloat(ppf.totalBalance).toLocaleString('en-IN')}` : 'Not available'}</span>
+                        <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                          <span className="text-sm font-medium text-green-900 dark:text-green-100">Current Balance</span>
+                          <span className="font-bold text-green-900 dark:text-green-100">{ppf.totalBalance ? `₹${parseFloat(ppf.totalBalance).toLocaleString('en-IN')}` : 'Not available'}</span>
                         </div>
                       </div>
                     </div>
@@ -1893,7 +1893,7 @@ export default function Portfolio() {
                           <p className="text-sm text-muted-foreground">Contributed So Far</p>
                           <p className="text-lg font-bold text-foreground">₹1,20,000</p>
                         </div>
-                        <div className="p-3 bg-orange-50 rounded-lg">
+                        <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Remaining Limit</p>
                           <p className="text-lg font-bold text-orange-600">₹30,000</p>
                         </div>
@@ -1910,15 +1910,15 @@ export default function Portfolio() {
                     <div className="space-y-3">
                       <h4 className="font-semibold text-foreground">Tax Benefits</h4>
                       <div className="space-y-2">
-                        <div className="flex justify-between items-center p-2 bg-green-50 rounded">
+                        <div className="flex justify-between items-center p-2 bg-green-50 dark:bg-green-950/30 rounded">
                           <span className="text-sm">Section 80C Deduction</span>
                           <span className="font-medium text-green-600">₹1,20,000</span>
                         </div>
-                        <div className="flex justify-between items-center p-2 bg-blue-50 rounded">
+                        <div className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-950/30 rounded">
                           <span className="text-sm">Tax Saved (30% bracket)</span>
                           <span className="font-medium text-blue-600">₹36,000</span>
                         </div>
-                        <div className="flex justify-between items-center p-2 bg-purple-50 rounded">
+                        <div className="flex justify-between items-center p-2 bg-purple-50 dark:bg-purple-950/30 rounded">
                           <span className="text-sm">Interest & Maturity</span>
                           <span className="font-medium text-purple-600">Tax-Free</span>
                         </div>
@@ -1929,21 +1929,21 @@ export default function Portfolio() {
                     <div className="space-y-3">
                       <h4 className="font-semibold text-foreground">Available Features</h4>
                       <div className="space-y-2">
-                        <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
-                          <p className="text-sm font-medium text-green-900">✓ Loan Available</p>
-                          <p className="text-xs text-green-700">
+                        <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border-l-4 border-green-500">
+                          <p className="text-sm font-medium text-green-900 dark:text-green-100">✓ Loan Available</p>
+                          <p className="text-xs text-green-700 dark:text-green-300">
                             Up to ₹3.87L (20% of balance) - From 3rd year onwards
                           </p>
                         </div>
-                        <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-                          <p className="text-sm font-medium text-blue-900">✓ Partial Withdrawal</p>
-                          <p className="text-xs text-blue-700">
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border-l-4 border-blue-500">
+                          <p className="text-sm font-medium text-blue-900 dark:text-blue-100">✓ Partial Withdrawal</p>
+                          <p className="text-xs text-blue-700 dark:text-blue-300">
                             Up to ₹9.67L (50% of balance) - From 7th year onwards
                           </p>
                         </div>
-                        <div className="p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-500">
-                          <p className="text-sm font-medium text-yellow-900">⏳ Extension Option</p>
-                          <p className="text-xs text-yellow-700">
+                        <div className="p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border-l-4 border-yellow-500">
+                          <p className="text-sm font-medium text-yellow-900 dark:text-yellow-100">⏳ Extension Option</p>
+                          <p className="text-xs text-yellow-700 dark:text-yellow-300">
                             Available after maturity - 5-year blocks without contribution
                           </p>
                         </div>
@@ -2061,7 +2061,7 @@ export default function Portfolio() {
                     <div className="grid grid-cols-9 gap-2">
                       {Array.from({ length: 9 }, (_, i) => (
                         <div key={i} className="text-center">
-                          <div className="bg-purple-100 rounded-lg p-2 mb-2">
+                          <div className="bg-purple-100 dark:bg-purple-900/30 rounded-lg p-2 mb-2">
                             <div className="text-xs text-muted-foreground">FY {2016 + i}</div>
                             <div className="text-sm font-bold text-purple-600">₹{1.5 - (Math.random() * 0.3)}L</div>
                           </div>
@@ -2109,9 +2109,9 @@ export default function Portfolio() {
               onRequestConsent={handleRequestConsent}
             >
               {/* PAN Verification Banner */}
-              <div className="flex items-center mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center mb-6 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
                 <Shield className="h-4 w-4 text-green-600 mr-2" />
-                <span className="text-sm text-green-700">
+                <span className="text-sm text-green-700 dark:text-green-300">
                   EPS pension data verified with your PAN card and UAN for secure access
                 </span>
               </div>
@@ -2159,21 +2159,21 @@ export default function Portfolio() {
                     <div className="space-y-4">
                       <h4 className="font-semibold text-foreground">Service Information</h4>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-blue-50 rounded-lg">
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Service Start Date</p>
                           <p className="font-bold text-blue-600">01-Jun-2015</p>
                         </div>
-                        <div className="p-3 bg-green-50 rounded-lg">
+                        <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Total Service</p>
                           <p className="font-bold text-green-600">9 Years 8 Months</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-purple-50 rounded-lg">
+                        <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Current Salary</p>
                           <p className="font-bold text-purple-600">₹85,000</p>
                         </div>
-                        <div className="p-3 bg-orange-50 rounded-lg">
+                        <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Pensionable Wage</p>
                           <p className="font-bold text-orange-600">₹15,000</p>
                           <p className="text-xs text-orange-600">Max ceiling</p>
@@ -2185,17 +2185,17 @@ export default function Portfolio() {
                     <div className="space-y-4">
                       <h4 className="font-semibold text-foreground">Vesting & Eligibility Status</h4>
                       <div className="space-y-3">
-                        <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
+                        <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border-l-4 border-green-500">
                           <div>
-                            <p className="font-medium text-green-900">✓ Vested</p>
-                            <p className="text-xs text-green-700">Completed 10+ years minimum service</p>
+                            <p className="font-medium text-green-900 dark:text-green-100">✓ Vested</p>
+                            <p className="text-xs text-green-700 dark:text-green-300">Completed 10+ years minimum service</p>
                           </div>
-                          <Badge className="bg-green-100 text-green-800 border-green-300">Eligible</Badge>
+                          <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700">Eligible</Badge>
                         </div>
-                        <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-500">
+                        <div className="flex justify-between items-center p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border-l-4 border-yellow-500">
                           <div>
-                            <p className="font-medium text-yellow-900">⏳ Pension Eligibility</p>
-                            <p className="text-xs text-yellow-700">Available from age 58 (Currently 35)</p>
+                            <p className="font-medium text-yellow-900 dark:text-yellow-100">⏳ Pension Eligibility</p>
+                            <p className="text-xs text-yellow-700 dark:text-yellow-300">Available from age 58 (Currently 35)</p>
                           </div>
                           <Badge variant="outline" className="text-yellow-600 border-yellow-600">23 years</Badge>
                         </div>
@@ -2232,21 +2232,21 @@ export default function Portfolio() {
                     <div className="space-y-3">
                       <h4 className="font-semibold text-foreground">Monthly Contribution (FY 2024-25)</h4>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-blue-50 rounded-lg">
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Contribution Rate</p>
-                          <p className="text-lg font-bold text-blue-900">8.33%</p>
+                          <p className="text-lg font-bold text-blue-900 dark:text-blue-100">8.33%</p>
                           <p className="text-xs text-blue-600">of pensionable wage</p>
                         </div>
-                        <div className="p-3 bg-green-50 rounded-lg">
+                        <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Monthly Contribution</p>
-                          <p className="text-lg font-bold text-green-900">₹1,249</p>
+                          <p className="text-lg font-bold text-green-900 dark:text-green-100">₹1,249</p>
                           <p className="text-xs text-green-600">8.33% of ₹15,000</p>
                         </div>
                       </div>
-                      <div className="p-3 bg-purple-50 rounded-lg">
+                      <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-purple-900">Total Contributions Till Date</span>
-                          <span className="font-bold text-purple-900">₹1,45,104</span>
+                          <span className="text-sm font-medium text-purple-900 dark:text-purple-100">Total Contributions Till Date</span>
+                          <span className="font-bold text-purple-900 dark:text-purple-100">₹1,45,104</span>
                         </div>
                         <p className="text-xs text-purple-600 mt-1">9 years 8 months of contributions</p>
                       </div>
@@ -2280,17 +2280,17 @@ export default function Portfolio() {
                     <div className="space-y-3">
                       <h4 className="font-semibold text-foreground">Projected Monthly Pension</h4>
                       <div className="space-y-2">
-                        <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                          <span className="text-sm font-medium text-green-900">At Current Service (9.8 years)</span>
-                          <span className="font-bold text-green-900">₹2,103</span>
+                        <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                          <span className="text-sm font-medium text-green-900 dark:text-green-100">At Current Service (9.8 years)</span>
+                          <span className="font-bold text-green-900 dark:text-green-100">₹2,103</span>
                         </div>
-                        <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                          <span className="text-sm font-medium text-blue-900">At Retirement (32 years)</span>
-                          <span className="font-bold text-blue-900">₹6,857</span>
+                        <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                          <span className="text-sm font-medium text-blue-900 dark:text-blue-100">At Retirement (32 years)</span>
+                          <span className="font-bold text-blue-900 dark:text-blue-100">₹6,857</span>
                         </div>
-                        <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
-                          <span className="text-sm font-medium text-purple-900">Annual Pension (at retirement)</span>
-                          <span className="font-bold text-purple-900">₹82,286</span>
+                        <div className="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
+                          <span className="text-sm font-medium text-purple-900 dark:text-purple-100">Annual Pension (at retirement)</span>
+                          <span className="font-bold text-purple-900 dark:text-purple-100">₹82,286</span>
                         </div>
                       </div>
                     </div>
@@ -2299,17 +2299,17 @@ export default function Portfolio() {
                     <div className="space-y-3">
                       <h4 className="font-semibold text-foreground">Additional Benefits</h4>
                       <div className="space-y-2">
-                        <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
-                          <p className="text-sm font-medium text-green-900">✓ Lifelong Pension</p>
-                          <p className="text-xs text-green-700">Monthly pension for entire lifetime</p>
+                        <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border-l-4 border-green-500">
+                          <p className="text-sm font-medium text-green-900 dark:text-green-100">✓ Lifelong Pension</p>
+                          <p className="text-xs text-green-700 dark:text-green-300">Monthly pension for entire lifetime</p>
                         </div>
-                        <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-                          <p className="text-sm font-medium text-blue-900">✓ Family Pension</p>
-                          <p className="text-xs text-blue-700">50% pension to spouse after member's death</p>
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border-l-4 border-blue-500">
+                          <p className="text-sm font-medium text-blue-900 dark:text-blue-100">✓ Family Pension</p>
+                          <p className="text-xs text-blue-700 dark:text-blue-300">50% pension to spouse after member's death</p>
                         </div>
-                        <div className="p-3 bg-purple-50 rounded-lg border-l-4 border-purple-500">
-                          <p className="text-sm font-medium text-purple-900">✓ Medical Benefits</p>
-                          <p className="text-xs text-purple-700">CGHS/ESI medical coverage continuation</p>
+                        <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border-l-4 border-purple-500">
+                          <p className="text-sm font-medium text-purple-900 dark:text-purple-100">✓ Medical Benefits</p>
+                          <p className="text-xs text-purple-700 dark:text-purple-300">CGHS/ESI medical coverage continuation</p>
                         </div>
                       </div>
                     </div>
@@ -2355,21 +2355,21 @@ export default function Portfolio() {
                     <div className="space-y-4">
                       <h4 className="font-semibold text-foreground">Account Details</h4>
                       <div className="space-y-3">
-                        <div className="p-3 bg-green-50 rounded-lg">
+                        <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">APY Account</p>
-                          <p className="font-bold text-green-900">APY/SBI/001/789123</p>
+                          <p className="font-bold text-green-900 dark:text-green-100">APY/SBI/001/789123</p>
                         </div>
-                        <div className="p-3 bg-blue-50 rounded-lg">
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Bank Partner</p>
-                          <p className="font-bold text-blue-900">State Bank of India</p>
+                          <p className="font-bold text-blue-900 dark:text-blue-100">State Bank of India</p>
                         </div>
-                        <div className="p-3 bg-purple-50 rounded-lg">
+                        <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Enrollment Date</p>
-                          <p className="font-bold text-purple-900">01-Sep-2018</p>
+                          <p className="font-bold text-purple-900 dark:text-purple-100">01-Sep-2018</p>
                         </div>
-                        <div className="p-3 bg-orange-50 rounded-lg">
+                        <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Current Age</p>
-                          <p className="font-bold text-orange-900">35 Years</p>
+                          <p className="font-bold text-orange-900 dark:text-orange-100">35 Years</p>
                         </div>
                       </div>
                     </div>
@@ -2378,19 +2378,19 @@ export default function Portfolio() {
                     <div className="space-y-4">
                       <h4 className="font-semibold text-foreground">Pension Plan</h4>
                       <div className="space-y-3">
-                        <div className="text-center p-4 bg-gradient-to-br from-green-100 to-green-200 rounded-lg border-2 border-green-300">
-                          <p className="text-sm text-green-700 font-medium">Guaranteed Monthly Pension</p>
-                          <p className="text-3xl font-bold text-green-800">₹3,000</p>
+                        <div className="text-center p-4 bg-gradient-to-br from-green-100 dark:from-green-900/30 to-green-200 rounded-lg border-2 border-green-300 dark:border-green-700">
+                          <p className="text-sm text-green-700 dark:text-green-300 font-medium">Guaranteed Monthly Pension</p>
+                          <p className="text-3xl font-bold text-green-800 dark:text-green-200">₹3,000</p>
                           <p className="text-xs text-green-600">from age 60</p>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                          <div className="text-center p-2 bg-blue-50 rounded border">
+                          <div className="text-center p-2 bg-blue-50 dark:bg-blue-950/30 rounded border">
                             <p className="text-xs text-muted-foreground">Annual Pension</p>
-                            <p className="font-bold text-blue-900">₹36,000</p>
+                            <p className="font-bold text-blue-900 dark:text-blue-100">₹36,000</p>
                           </div>
-                          <div className="text-center p-2 bg-purple-50 rounded border">
+                          <div className="text-center p-2 bg-purple-50 dark:bg-purple-950/30 rounded border">
                             <p className="text-xs text-muted-foreground">Maturity Age</p>
-                            <p className="font-bold text-purple-900">60 Years</p>
+                            <p className="font-bold text-purple-900 dark:text-purple-100">60 Years</p>
                           </div>
                         </div>
                       </div>
@@ -2400,19 +2400,19 @@ export default function Portfolio() {
                     <div className="space-y-4">
                       <h4 className="font-semibold text-foreground">Contributions (FY 2024-25)</h4>
                       <div className="space-y-3">
-                        <div className="p-3 bg-blue-50 rounded-lg">
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Monthly Contribution</p>
-                          <p className="text-lg font-bold text-blue-900">₹168</p>
+                          <p className="text-lg font-bold text-blue-900 dark:text-blue-100">₹168</p>
                           <p className="text-xs text-blue-600">Auto-debit from salary</p>
                         </div>
-                        <div className="p-3 bg-green-50 rounded-lg">
+                        <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Govt Co-contribution</p>
-                          <p className="text-lg font-bold text-green-900">₹84</p>
+                          <p className="text-lg font-bold text-green-900 dark:text-green-100">₹84</p>
                           <p className="text-xs text-green-600">50% govt support</p>
                         </div>
-                        <div className="p-3 bg-purple-50 rounded-lg">
+                        <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Total Monthly</p>
-                          <p className="text-lg font-bold text-purple-900">₹252</p>
+                          <p className="text-lg font-bold text-purple-900 dark:text-purple-100">₹252</p>
                           <p className="text-xs text-purple-600">Your + Government</p>
                         </div>
                       </div>
@@ -2434,9 +2434,9 @@ export default function Portfolio() {
                           <span className="font-medium">25 years to go</span>
                           <span className="text-muted-foreground">Age 60</span>
                         </div>
-                        <div className="p-3 bg-orange-50 rounded-lg">
+                        <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Total Contributed</p>
-                          <p className="text-lg font-bold text-orange-900">₹1,27,008</p>
+                          <p className="text-lg font-bold text-orange-900 dark:text-orange-100">₹1,27,008</p>
                           <p className="text-xs text-orange-600">Your + Govt contributions</p>
                         </div>
                       </div>
@@ -2450,17 +2450,17 @@ export default function Portfolio() {
                       <div className="space-y-3">
                         <h5 className="font-medium text-foreground">Pension Benefits</h5>
                         <div className="space-y-2">
-                          <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
-                            <p className="text-sm font-medium text-green-900">✓ Guaranteed Pension</p>
-                            <p className="text-xs text-green-700">₹3,000/month from age 60</p>
+                          <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border-l-4 border-green-500">
+                            <p className="text-sm font-medium text-green-900 dark:text-green-100">✓ Guaranteed Pension</p>
+                            <p className="text-xs text-green-700 dark:text-green-300">₹3,000/month from age 60</p>
                           </div>
-                          <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-                            <p className="text-sm font-medium text-blue-900">✓ Spouse Pension</p>
-                            <p className="text-xs text-blue-700">Same pension amount to spouse</p>
+                          <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border-l-4 border-blue-500">
+                            <p className="text-sm font-medium text-blue-900 dark:text-blue-100">✓ Spouse Pension</p>
+                            <p className="text-xs text-blue-700 dark:text-blue-300">Same pension amount to spouse</p>
                           </div>
-                          <div className="p-3 bg-purple-50 rounded-lg border-l-4 border-purple-500">
-                            <p className="text-sm font-medium text-purple-900">✓ Death Benefit</p>
-                            <p className="text-xs text-purple-700">Corpus return to nominee</p>
+                          <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border-l-4 border-purple-500">
+                            <p className="text-sm font-medium text-purple-900 dark:text-purple-100">✓ Death Benefit</p>
+                            <p className="text-xs text-purple-700 dark:text-purple-300">Corpus return to nominee</p>
                           </div>
                         </div>
                       </div>
@@ -2468,17 +2468,17 @@ export default function Portfolio() {
                       <div className="space-y-3">
                         <h5 className="font-medium text-foreground">Government Support</h5>
                         <div className="space-y-2">
-                          <div className="p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-500">
-                            <p className="text-sm font-medium text-yellow-900">✓ Co-contribution</p>
-                            <p className="text-xs text-yellow-700">50% govt support (up to ₹1,000)</p>
+                          <div className="p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border-l-4 border-yellow-500">
+                            <p className="text-sm font-medium text-yellow-900 dark:text-yellow-100">✓ Co-contribution</p>
+                            <p className="text-xs text-yellow-700 dark:text-yellow-300">50% govt support (up to ₹1,000)</p>
                           </div>
-                          <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
-                            <p className="text-sm font-medium text-green-900">✓ Tax Benefits</p>
-                            <p className="text-xs text-green-700">80CCD(1B) deduction up to ₹50,000</p>
+                          <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border-l-4 border-green-500">
+                            <p className="text-sm font-medium text-green-900 dark:text-green-100">✓ Tax Benefits</p>
+                            <p className="text-xs text-green-700 dark:text-green-300">80CCD(1B) deduction up to ₹50,000</p>
                           </div>
-                          <div className="p-3 bg-indigo-50 rounded-lg border-l-4 border-indigo-500">
-                            <p className="text-sm font-medium text-indigo-900">✓ Govt Guarantee</p>
-                            <p className="text-xs text-indigo-700">Returns backed by Government of India</p>
+                          <div className="p-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-lg border-l-4 border-indigo-500">
+                            <p className="text-sm font-medium text-indigo-900 dark:text-indigo-100">✓ Govt Guarantee</p>
+                            <p className="text-xs text-indigo-700 dark:text-indigo-300">Returns backed by Government of India</p>
                           </div>
                         </div>
                       </div>
@@ -2486,17 +2486,17 @@ export default function Portfolio() {
                       <div className="space-y-3">
                         <h5 className="font-medium text-foreground">Account Features</h5>
                         <div className="space-y-2">
-                          <div className="p-3 bg-orange-50 rounded-lg border-l-4 border-orange-500">
-                            <p className="text-sm font-medium text-orange-900">✓ Auto-Debit</p>
-                            <p className="text-xs text-orange-700">Monthly contributions from salary</p>
+                          <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg border-l-4 border-orange-500">
+                            <p className="text-sm font-medium text-orange-900 dark:text-orange-100">✓ Auto-Debit</p>
+                            <p className="text-xs text-orange-700 dark:text-orange-300">Monthly contributions from salary</p>
                           </div>
-                          <div className="p-3 bg-teal-50 rounded-lg border-l-4 border-teal-500">
-                            <p className="text-sm font-medium text-teal-900">✓ Portability</p>
-                            <p className="text-xs text-teal-700">Transfer across banks/employers</p>
+                          <div className="p-3 bg-teal-50 dark:bg-teal-950/30 rounded-lg border-l-4 border-teal-500">
+                            <p className="text-sm font-medium text-teal-900 dark:text-teal-100">✓ Portability</p>
+                            <p className="text-xs text-teal-700 dark:text-teal-300">Transfer across banks/employers</p>
                           </div>
-                          <div className="p-3 bg-red-50 rounded-lg border-l-4 border-red-500">
-                            <p className="text-sm font-medium text-red-900">⚠ Exit Clause</p>
-                            <p className="text-xs text-red-700">Penalties for early exit</p>
+                          <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-lg border-l-4 border-red-500">
+                            <p className="text-sm font-medium text-red-900 dark:text-red-100">⚠ Exit Clause</p>
+                            <p className="text-xs text-red-700 dark:text-red-300">Penalties for early exit</p>
                           </div>
                         </div>
                       </div>
@@ -2507,38 +2507,38 @@ export default function Portfolio() {
                   <div className="mt-6 pt-6 border-t">
                     <h4 className="font-semibold text-foreground mb-4">Your Complete Pension Portfolio</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
                         <div className="flex items-center justify-between mb-2">
-                          <h5 className="font-medium text-blue-900">EPS-95</h5>
+                          <h5 className="font-medium text-blue-900 dark:text-blue-100">EPS-95</h5>
                           <Badge variant="outline" className="text-blue-600 border-blue-600">Government</Badge>
                         </div>
                         <div className="space-y-2">
-                          <p className="text-2xl font-bold text-blue-900">₹6,857</p>
-                          <p className="text-sm text-blue-700">Monthly at age 58</p>
+                          <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">₹6,857</p>
+                          <p className="text-sm text-blue-700 dark:text-blue-300">Monthly at age 58</p>
                           <p className="text-xs text-muted-foreground">Based on salary & service</p>
                         </div>
                       </div>
 
-                      <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                      <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
                         <div className="flex items-center justify-between mb-2">
-                          <h5 className="font-medium text-green-900">APY</h5>
+                          <h5 className="font-medium text-green-900 dark:text-green-100">APY</h5>
                           <Badge variant="outline" className="text-green-600 border-green-600">Government</Badge>
                         </div>
                         <div className="space-y-2">
-                          <p className="text-2xl font-bold text-green-900">₹3,000</p>
-                          <p className="text-sm text-green-700">Monthly at age 60</p>
+                          <p className="text-2xl font-bold text-green-900 dark:text-green-100">₹3,000</p>
+                          <p className="text-sm text-green-700 dark:text-green-300">Monthly at age 60</p>
                           <p className="text-xs text-muted-foreground">Guaranteed pension amount</p>
                         </div>
                       </div>
 
-                      <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                      <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
                         <div className="flex items-center justify-between mb-2">
-                          <h5 className="font-medium text-purple-900">Combined</h5>
+                          <h5 className="font-medium text-purple-900 dark:text-purple-100">Combined</h5>
                           <Badge variant="outline" className="text-purple-600 border-purple-600">Total</Badge>
                         </div>
                         <div className="space-y-2">
-                          <p className="text-2xl font-bold text-purple-900">₹9,857</p>
-                          <p className="text-sm text-purple-700">Monthly pension income</p>
+                          <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">₹9,857</p>
+                          <p className="text-sm text-purple-700 dark:text-purple-300">Monthly pension income</p>
                           <p className="text-xs text-muted-foreground">EPS + APY combined</p>
                         </div>
                       </div>
@@ -2660,7 +2660,7 @@ export default function Portfolio() {
                     <div className="grid grid-cols-10 gap-1">
                       {Array.from({ length: 10 }, (_, i) => (
                         <div key={i} className="text-center">
-                          <div className="bg-blue-100 rounded-lg p-2 mb-2">
+                          <div className="bg-blue-100 dark:bg-blue-900/30 rounded-lg p-2 mb-2">
                             <div className="text-xs text-muted-foreground">{2015 + i}</div>
                             <div className="text-sm font-bold text-blue-600">₹{Math.floor(12000 + i * 1500)}</div>
                           </div>
@@ -2679,24 +2679,24 @@ export default function Portfolio() {
                   <div className="mt-6 pt-6 border-t">
                     <h4 className="font-semibold text-foreground mb-4">Pension Growth Projection</h4>
                     <div className="grid grid-cols-4 gap-4">
-                      <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
+                      <div className="text-center p-4 bg-gradient-to-br from-blue-50 dark:from-blue-950/30 to-blue-100 dark:to-blue-900/30 rounded-lg">
                         <p className="text-sm text-blue-600 font-medium">Year 15</p>
-                        <p className="text-xl font-bold text-blue-800">₹3,214</p>
+                        <p className="text-xl font-bold text-blue-800 dark:text-blue-200">₹3,214</p>
                         <p className="text-xs text-blue-600">Monthly pension</p>
                       </div>
-                      <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
+                      <div className="text-center p-4 bg-gradient-to-br from-green-50 dark:from-green-950/30 to-green-100 dark:to-green-900/30 rounded-lg">
                         <p className="text-sm text-green-600 font-medium">Year 20</p>
-                        <p className="text-xl font-bold text-green-800">₹4,286</p>
+                        <p className="text-xl font-bold text-green-800 dark:text-green-200">₹4,286</p>
                         <p className="text-xs text-green-600">Monthly pension</p>
                       </div>
-                      <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
+                      <div className="text-center p-4 bg-gradient-to-br from-purple-50 dark:from-purple-950/30 to-purple-100 dark:to-purple-900/30 rounded-lg">
                         <p className="text-sm text-purple-600 font-medium">Year 25</p>
-                        <p className="text-xl font-bold text-purple-800">₹5,357</p>
+                        <p className="text-xl font-bold text-purple-800 dark:text-purple-200">₹5,357</p>
                         <p className="text-xs text-purple-600">Monthly pension</p>
                       </div>
-                      <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg">
+                      <div className="text-center p-4 bg-gradient-to-br from-orange-50 dark:from-orange-950/30 to-orange-100 dark:to-orange-900/30 rounded-lg">
                         <p className="text-sm text-orange-600 font-medium">Retirement</p>
-                        <p className="text-xl font-bold text-orange-800">₹6,857</p>
+                        <p className="text-xl font-bold text-orange-800 dark:text-orange-200">₹6,857</p>
                         <p className="text-xs text-orange-600">Monthly pension</p>
                       </div>
                     </div>
@@ -2735,9 +2735,9 @@ export default function Portfolio() {
               schemeType="nps" 
               onRequestConsent={handleRequestConsent}
             >
-              <div className="flex items-center mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center mb-6 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
                 <Shield className="h-4 w-4 text-green-600 mr-2" />
-                <span className="text-sm text-green-700">
+                <span className="text-sm text-green-700 dark:text-green-300">
                   NPS data verified with your PAN and PRAN for secure access
                 </span>
               </div>
@@ -2753,28 +2753,28 @@ export default function Portfolio() {
                   <CardContent>
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-blue-50 rounded-lg">
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">PRAN Number</p>
-                          <p className="font-bold text-blue-900">1100XXXXXXXXXX</p>
+                          <p className="font-bold text-blue-900 dark:text-blue-100">1100XXXXXXXXXX</p>
                         </div>
-                        <div className="p-3 bg-green-50 rounded-lg">
+                        <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Account Type</p>
-                          <p className="font-bold text-green-900">Tier I (Mandatory)</p>
+                          <p className="font-bold text-green-900 dark:text-green-100">Tier I (Mandatory)</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-purple-50 rounded-lg">
+                        <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Total Corpus</p>
-                          <p className="font-bold text-purple-900">₹12,45,678</p>
+                          <p className="font-bold text-purple-900 dark:text-purple-100">₹12,45,678</p>
                         </div>
-                        <div className="p-3 bg-orange-50 rounded-lg">
+                        <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Returns (CAGR)</p>
-                          <p className="font-bold text-orange-900">10.2%</p>
+                          <p className="font-bold text-orange-900 dark:text-orange-100">10.2%</p>
                         </div>
                       </div>
-                      <div className="p-4 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg">
-                        <p className="text-sm text-blue-700 mb-1">Estimated Monthly Pension at 60</p>
-                        <p className="text-2xl font-bold text-blue-800">₹45,000 - ₹55,000</p>
+                      <div className="p-4 bg-gradient-to-br from-blue-100 dark:from-blue-900/30 to-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-700 dark:text-blue-300 mb-1">Estimated Monthly Pension at 60</p>
+                        <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">₹45,000 - ₹55,000</p>
                       </div>
                     </div>
                   </CardContent>
@@ -2789,28 +2789,28 @@ export default function Portfolio() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="p-3 bg-green-50 rounded-lg">
+                      <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                         <div className="flex justify-between items-center">
                           <span className="font-medium">Equity (E)</span>
-                          <span className="font-bold text-green-700">50%</span>
+                          <span className="font-bold text-green-700 dark:text-green-300">50%</span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-2 mt-2">
                           <div className="bg-green-600 h-2 rounded-full" style={{ width: '50%' }}></div>
                         </div>
                       </div>
-                      <div className="p-3 bg-blue-50 rounded-lg">
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                         <div className="flex justify-between items-center">
                           <span className="font-medium">Corporate Bonds (C)</span>
-                          <span className="font-bold text-blue-700">30%</span>
+                          <span className="font-bold text-blue-700 dark:text-blue-300">30%</span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-2 mt-2">
                           <div className="bg-blue-600 h-2 rounded-full" style={{ width: '30%' }}></div>
                         </div>
                       </div>
-                      <div className="p-3 bg-purple-50 rounded-lg">
+                      <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                         <div className="flex justify-between items-center">
                           <span className="font-medium">Government Securities (G)</span>
-                          <span className="font-bold text-purple-700">20%</span>
+                          <span className="font-bold text-purple-700 dark:text-purple-300">20%</span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-2 mt-2">
                           <div className="bg-purple-600 h-2 rounded-full" style={{ width: '20%' }}></div>
@@ -2833,9 +2833,9 @@ export default function Portfolio() {
               schemeType="apy" 
               onRequestConsent={handleRequestConsent}
             >
-              <div className="flex items-center mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center mb-6 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
                 <Shield className="h-4 w-4 text-green-600 mr-2" />
-                <span className="text-sm text-green-700">
+                <span className="text-sm text-green-700 dark:text-green-300">
                   APY data verified with your PAN and Aadhaar for secure access
                 </span>
               </div>
@@ -2851,28 +2851,28 @@ export default function Portfolio() {
                   <CardContent>
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-green-50 rounded-lg">
+                        <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">APY Account</p>
-                          <p className="font-bold text-green-900">APY/SBI/001/789123</p>
+                          <p className="font-bold text-green-900 dark:text-green-100">APY/SBI/001/789123</p>
                         </div>
-                        <div className="p-3 bg-blue-50 rounded-lg">
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Bank Partner</p>
-                          <p className="font-bold text-blue-900">State Bank of India</p>
+                          <p className="font-bold text-blue-900 dark:text-blue-100">State Bank of India</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-purple-50 rounded-lg">
+                        <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Enrollment Date</p>
-                          <p className="font-bold text-purple-900">01-Sep-2018</p>
+                          <p className="font-bold text-purple-900 dark:text-purple-100">01-Sep-2018</p>
                         </div>
-                        <div className="p-3 bg-orange-50 rounded-lg">
+                        <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Current Age</p>
-                          <p className="font-bold text-orange-900">35 Years</p>
+                          <p className="font-bold text-orange-900 dark:text-orange-100">35 Years</p>
                         </div>
                       </div>
-                      <div className="p-4 bg-gradient-to-br from-green-100 to-green-200 rounded-lg text-center">
-                        <p className="text-sm text-green-700">Guaranteed Monthly Pension</p>
-                        <p className="text-3xl font-bold text-green-800">₹3,000</p>
+                      <div className="p-4 bg-gradient-to-br from-green-100 dark:from-green-900/30 to-green-200 rounded-lg text-center">
+                        <p className="text-sm text-green-700 dark:text-green-300">Guaranteed Monthly Pension</p>
+                        <p className="text-3xl font-bold text-green-800 dark:text-green-200">₹3,000</p>
                         <p className="text-xs text-green-600">from age 60</p>
                       </div>
                     </div>
@@ -2889,23 +2889,23 @@ export default function Portfolio() {
                   <CardContent>
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-blue-50 rounded-lg">
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Monthly Contribution</p>
-                          <p className="font-bold text-blue-900">₹376</p>
+                          <p className="font-bold text-blue-900 dark:text-blue-100">₹376</p>
                         </div>
-                        <div className="p-3 bg-green-50 rounded-lg">
+                        <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                           <p className="text-sm text-muted-foreground">Total Contributed</p>
-                          <p className="font-bold text-green-900">₹27,072</p>
+                          <p className="font-bold text-green-900 dark:text-green-100">₹27,072</p>
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
-                          <p className="text-sm font-medium text-green-900">Spouse Pension Benefit</p>
-                          <p className="text-xs text-green-700">100% pension continues to spouse</p>
+                        <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border-l-4 border-green-500">
+                          <p className="text-sm font-medium text-green-900 dark:text-green-100">Spouse Pension Benefit</p>
+                          <p className="text-xs text-green-700 dark:text-green-300">100% pension continues to spouse</p>
                         </div>
-                        <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-                          <p className="text-sm font-medium text-blue-900">Corpus Return</p>
-                          <p className="text-xs text-blue-700">₹1.7 lakh returned to nominee</p>
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border-l-4 border-blue-500">
+                          <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Corpus Return</p>
+                          <p className="text-xs text-blue-700 dark:text-blue-300">₹1.7 lakh returned to nominee</p>
                         </div>
                       </div>
                       <div className="flex gap-4 mt-4">
@@ -2921,9 +2921,9 @@ export default function Portfolio() {
 
           <TabsContent value="rebalance" className="space-y-8">
             {/* PAN Verification Banner */}
-            <div className="flex items-center mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center mb-6 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
               <Shield className="h-4 w-4 text-green-600 mr-2" />
-              <span className="text-sm text-green-700">
+              <span className="text-sm text-green-700 dark:text-green-300">
                 AI rebalancing analysis using your PAN-verified portfolio data for secure recommendations
               </span>
             </div>
@@ -2996,7 +2996,7 @@ export default function Portfolio() {
                 <CardContent>
                   <div className="space-y-6">
                     {/* Equity Rebalancing */}
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-3">
                           <div className="w-4 h-4 bg-blue-600 rounded-full"></div>
@@ -3041,7 +3041,7 @@ export default function Portfolio() {
                     </div>
 
                     {/* Debt Rebalancing */}
-                    <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-3">
                           <div className="w-4 h-4 bg-green-600 rounded-full"></div>
@@ -3087,7 +3087,7 @@ export default function Portfolio() {
 
                     {/* Gold & Alternative Investments */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                      <div className="p-4 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border border-yellow-200 dark:border-yellow-800">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center space-x-2">
                             <div className="w-3 h-3 bg-yellow-600 rounded-full"></div>
@@ -3099,7 +3099,7 @@ export default function Portfolio() {
                         <p className="text-xs text-muted-foreground">No action needed. Maintain current allocation.</p>
                       </div>
 
-                      <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                      <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center space-x-2">
                             <div className="w-3 h-3 bg-purple-600 rounded-full"></div>
@@ -3130,11 +3130,11 @@ export default function Portfolio() {
                     <div>
                       <h4 className="font-semibold text-foreground mb-4">Choose Rebalancing Scenario</h4>
                       <div className="space-y-3">
-                        <div className="p-3 border border-blue-200 rounded-lg bg-blue-50 cursor-pointer">
+                        <div className="p-3 border border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-950/30 cursor-pointer">
                           <div className="flex items-center justify-between">
                             <div>
-                              <h5 className="font-medium text-blue-900">Conservative (Risk Score: 5.5)</h5>
-                              <p className="text-sm text-blue-700">Equity: 55% | Debt: 35% | Gold: 7% | Alt: 3%</p>
+                              <h5 className="font-medium text-blue-900 dark:text-blue-100">Conservative (Risk Score: 5.5)</h5>
+                              <p className="text-sm text-blue-700 dark:text-blue-300">Equity: 55% | Debt: 35% | Gold: 7% | Alt: 3%</p>
                             </div>
                             <input type="radio" name="scenario" className="text-blue-600" defaultChecked />
                           </div>
@@ -3164,33 +3164,33 @@ export default function Portfolio() {
                     <div>
                       <h4 className="font-semibold text-foreground mb-4">Projected Outcomes (Conservative)</h4>
                       <div className="space-y-4">
-                        <div className="p-3 bg-green-50 rounded-lg">
+                        <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-green-900">Expected Annual Return</span>
+                            <span className="text-sm font-medium text-green-900 dark:text-green-100">Expected Annual Return</span>
                             <span className="font-bold text-green-600">10.5%</span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-green-900">Risk Level</span>
+                            <span className="text-sm font-medium text-green-900 dark:text-green-100">Risk Level</span>
                             <span className="font-bold text-green-600">Low-Medium</span>
                           </div>
                         </div>
-                        <div className="p-3 bg-blue-50 rounded-lg">
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-blue-900">Portfolio Value (5 years)</span>
+                            <span className="text-sm font-medium text-blue-900 dark:text-blue-100">Portfolio Value (5 years)</span>
                             <span className="font-bold text-blue-600">₹74.2L</span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-blue-900">Potential Gain</span>
+                            <span className="text-sm font-medium text-blue-900 dark:text-blue-100">Potential Gain</span>
                             <span className="font-bold text-blue-600">+₹28.5L</span>
                           </div>
                         </div>
-                        <div className="p-3 bg-yellow-50 rounded-lg">
+                        <div className="p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-yellow-900">Tax Efficiency</span>
+                            <span className="text-sm font-medium text-yellow-900 dark:text-yellow-100">Tax Efficiency</span>
                             <span className="font-bold text-yellow-600">High</span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-yellow-900">Estimated Tax Savings</span>
+                            <span className="text-sm font-medium text-yellow-900 dark:text-yellow-100">Estimated Tax Savings</span>
                             <span className="font-bold text-yellow-600">₹1.2L/year</span>
                           </div>
                         </div>
@@ -3223,17 +3223,17 @@ export default function Portfolio() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="text-center p-4 bg-red-50 rounded-lg">
+                    <div className="text-center p-4 bg-red-50 dark:bg-red-950/30 rounded-lg">
                       <p className="text-sm text-muted-foreground mb-1">Total Sell Orders</p>
                       <p className="text-2xl font-bold text-red-600">₹3.19L</p>
                       <p className="text-xs text-muted-foreground">2 transactions</p>
                     </div>
-                    <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <div className="text-center p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
                       <p className="text-sm text-muted-foreground mb-1">Total Buy Orders</p>
                       <p className="text-2xl font-bold text-green-600">₹3.19L</p>
                       <p className="text-xs text-muted-foreground">3 transactions</p>
                     </div>
-                    <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                       <p className="text-sm text-muted-foreground mb-1">Estimated Fees</p>
                       <p className="text-2xl font-bold text-blue-600">₹850</p>
                       <p className="text-xs text-muted-foreground">All inclusive</p>

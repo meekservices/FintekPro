@@ -103,11 +103,11 @@ export default function Support() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "open":
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200";
       case "in_progress":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200";
       case "resolved":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200";
       case "closed":
         return "bg-muted text-foreground";
       default:
@@ -217,7 +217,7 @@ export default function Support() {
       icon: SiWhatsapp,
       contact: "9686854321",
       timing: "24/7 Available",
-      bgColor: "bg-green-50",
+      bgColor: "bg-green-50 dark:bg-green-950/30",
       iconColor: "text-green-600"
     },
     {
@@ -226,7 +226,7 @@ export default function Support() {
       icon: Mail,
       contact: "support@fintekpro.com",
       timing: "Response within 4 hours",
-      bgColor: "bg-blue-50",
+      bgColor: "bg-blue-50 dark:bg-blue-950/30",
       iconColor: "text-blue-600"
     }
   ];
@@ -298,7 +298,7 @@ export default function Support() {
 
           {/* Create Support Request Section */}
           <div className="mb-12">
-            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100">
+            <Card className="bg-gradient-to-r from-blue-50 dark:from-blue-950/30 to-indigo-50 dark:to-indigo-950/30 border-blue-100 dark:border-blue-800">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between flex-wrap gap-4">
                   <div className="flex items-center gap-4">
@@ -621,14 +621,14 @@ export default function Support() {
           </Card>
 
           {/* Emergency Contact */}
-          <Card className="mt-6 border-red-200 bg-red-50">
+          <Card className="mt-6 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <AlertTriangle className="h-8 w-8 text-red-600" />
                 <div>
-                  <h3 className="text-lg font-semibold text-red-900">Emergency Support</h3>
-                  <p className="text-red-700">For urgent account issues, unauthorized transactions, or security concerns:</p>
-                  <p className="font-semibold text-red-900 flex items-center gap-1 mt-2">
+                  <h3 className="text-lg font-semibold text-red-900 dark:text-red-100">Emergency Support</h3>
+                  <p className="text-red-700 dark:text-red-300">For urgent account issues, unauthorized transactions, or security concerns:</p>
+                  <p className="font-semibold text-red-900 dark:text-red-100 flex items-center gap-1 mt-2">
                     <SiWhatsapp className="h-4 w-4 text-green-600" />
                     WhatsApp: 9686854321
                   </p>

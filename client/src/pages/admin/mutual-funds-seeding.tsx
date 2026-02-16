@@ -744,7 +744,7 @@ export default function MutualFundsSeeding() {
                                       isPublished: false 
                                     })}
                                     disabled={toggleSchemeMutation.isPending}
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    className="text-red-600 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:bg-red-950/30"
                                     data-testid={`button-unpublish-${scheme.schemeCode}`}
                                   >
                                     <EyeOff className="h-4 w-4 mr-1" />
@@ -759,7 +759,7 @@ export default function MutualFundsSeeding() {
                                       isPublished: true 
                                     })}
                                     disabled={toggleSchemeMutation.isPending || !amcEnabled}
-                                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    className="text-green-600 hover:text-green-700 dark:text-green-300 hover:bg-green-50 dark:bg-green-950/30"
                                     title={!amcEnabled ? "Enable AMC toggle first to publish schemes" : "Publish this scheme"}
                                     data-testid={`button-publish-${scheme.schemeCode}`}
                                   >

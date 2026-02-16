@@ -245,7 +245,7 @@ export default function Cibil() {
                     />
                   </div>
 
-                  <div className="flex items-start space-x-3 p-4 bg-blue-50 rounded-lg">
+                  <div className="flex items-start space-x-3 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                     <input 
                       type="checkbox"
                       checked={consentGiven}
@@ -431,8 +431,8 @@ export default function Cibil() {
                         </div>
                       </div>
                       
-                      <div className="p-3 bg-blue-50 rounded-lg">
-                        <p className="text-sm text-blue-800">
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                        <p className="text-sm text-blue-800 dark:text-blue-200">
                           <strong>Tip:</strong> Keep utilization below 30% for better credit score
                         </p>
                       </div>
@@ -471,8 +471,8 @@ export default function Cibil() {
                         </div>
                       </div>
                       
-                      <div className="p-3 bg-green-50 rounded-lg">
-                        <p className="text-sm text-green-800">
+                      <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                        <p className="text-sm text-green-800 dark:text-green-200">
                           <strong>Excellent!</strong> Your payment history shows consistent on-time payments.
                         </p>
                       </div>
@@ -640,7 +640,7 @@ export default function Cibil() {
                 <CardContent>
                   {loanEligibility?.success ? (
                     <div className="space-y-6">
-                      <div className="text-center p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
+                      <div className="text-center p-6 bg-gradient-to-r from-blue-50 dark:from-blue-950/30 to-indigo-50 dark:to-indigo-950/30 rounded-lg">
                         <div className="mb-2">
                           {loanEligibility.data.eligible ? (
                             <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
@@ -749,11 +749,11 @@ export default function Cibil() {
 
                 {cardEligibility?.success && (
                   <div className="space-y-6">
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <h3 className="font-semibold text-blue-900 mb-2">
+                    <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                      <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
                         {cardEligibility.data.eligible ? "You're Eligible for Credit Cards!" : "Limited Eligibility"}
                       </h3>
-                      <p className="text-sm text-blue-800">
+                      <p className="text-sm text-blue-800 dark:text-blue-200">
                         Estimated Credit Limit: ₹{cardEligibility.data.estimatedLimit.toLocaleString()}
                       </p>
                     </div>
@@ -800,9 +800,9 @@ export default function Cibil() {
                       </div>
                     )}
 
-                    <div className="bg-yellow-50 p-4 rounded-lg">
-                      <h4 className="font-semibold text-yellow-800 mb-2">Credit Improvement Tips</h4>
-                      <ul className="text-sm text-yellow-700 space-y-1">
+                    <div className="bg-yellow-50 dark:bg-yellow-950/30 p-4 rounded-lg">
+                      <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">Credit Improvement Tips</h4>
+                      <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
                         {cardEligibility.data.tips.map((tip: string, idx: number) => (
                           <li key={idx}>• {tip}</li>
                         ))}
@@ -825,9 +825,9 @@ export default function Cibil() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <h3 className="font-semibold text-green-900 mb-2">Monitoring Activated!</h3>
-                      <p className="text-sm text-green-800">
+                    <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                      <h3 className="font-semibold text-green-900 dark:text-green-100 mb-2">Monitoring Activated!</h3>
+                      <p className="text-sm text-green-800 dark:text-green-200">
                         Monitoring ID: {monitoringSetup.data.monitoringId}
                       </p>
                     </div>

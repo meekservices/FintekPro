@@ -128,10 +128,10 @@ function SuitabilityCheckBanner() {
 
   if (suitabilityStatus?.canTrade) {
     return (
-      <Alert className="bg-green-50 border-green-200">
+      <Alert className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
         <CheckCircle2 className="h-4 w-4 text-green-600" />
-        <AlertTitle className="text-green-800">Eligible to Trade</AlertTitle>
-        <AlertDescription className="text-green-700">
+        <AlertTitle className="text-green-800 dark:text-green-200">Eligible to Trade</AlertTitle>
+        <AlertDescription className="text-green-700 dark:text-green-300">
           Your suitability check is valid. Risk Profile: {suitabilityStatus.suitability?.riskProfile || 'Standard'}
         </AlertDescription>
       </Alert>
@@ -151,10 +151,10 @@ function SuitabilityCheckBanner() {
   }
 
   return (
-    <Alert className="bg-amber-50 border-amber-200">
+    <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
       <AlertCircle className="h-4 w-4 text-amber-600" />
-      <AlertTitle className="text-amber-800">Suitability Check Required</AlertTitle>
-      <AlertDescription className="text-amber-700 flex items-center justify-between">
+      <AlertTitle className="text-amber-800 dark:text-amber-200">Suitability Check Required</AlertTitle>
+      <AlertDescription className="text-amber-700 dark:text-amber-300 flex items-center justify-between">
         <span>Complete a suitability assessment to start trading fixed income securities.</span>
         <Button 
           size="sm" 
@@ -196,10 +196,10 @@ function PortfolioSummaryCard() {
 
   if (!summary || summary.holdingsCount === 0) {
     return (
-      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100">
+      <Card className="bg-gradient-to-r from-blue-50 dark:from-blue-950/30 to-indigo-50 dark:to-indigo-950/30 border-blue-100 dark:border-blue-800">
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-full bg-blue-100">
+            <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/30">
               <Briefcase className="h-6 w-6 text-blue-600" />
             </div>
             <div>
@@ -213,7 +213,7 @@ function PortfolioSummaryCard() {
   }
 
   return (
-    <Card className="bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-100">
+    <Card className="bg-gradient-to-r from-emerald-50 dark:from-emerald-950/30 to-teal-50 dark:to-teal-950/30 border-emerald-100 dark:border-emerald-800">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-lg">
           <Wallet className="h-5 w-5 text-emerald-600" />
@@ -242,7 +242,7 @@ function PortfolioSummaryCard() {
             <p className="text-lg font-bold text-emerald-600">{summary.avgYield.toFixed(2)}%</p>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-emerald-200">
+        <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-emerald-200 dark:border-emerald-800">
           <div className="text-center">
             <p className="text-2xl font-bold text-foreground">{summary.holdingsCount}</p>
             <p className="text-xs text-muted-foreground">Holdings</p>
@@ -269,11 +269,11 @@ function BondCard({ bond, onSelect, isWatchlisted, onToggleWatchlist }: {
 }) {
   const getRatingColor = (rating: string | null) => {
     if (!rating) return 'bg-muted text-muted-foreground';
-    if (rating.startsWith('AAA')) return 'bg-green-100 text-green-700';
-    if (rating.startsWith('AA')) return 'bg-emerald-100 text-emerald-700';
-    if (rating.startsWith('A')) return 'bg-blue-100 text-blue-700';
-    if (rating.startsWith('BBB')) return 'bg-amber-100 text-amber-700';
-    return 'bg-red-100 text-red-700';
+    if (rating.startsWith('AAA')) return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300';
+    if (rating.startsWith('AA')) return 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300';
+    if (rating.startsWith('A')) return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
+    if (rating.startsWith('BBB')) return 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300';
+    return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300';
   };
 
   const getBondTypeIcon = () => {
@@ -321,7 +321,7 @@ function BondCard({ bond, onSelect, isWatchlisted, onToggleWatchlist }: {
             {bond.securityType}
           </Badge>
           {bond.taxStatus === 'tax_free' && (
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+            <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">
               Tax Free
             </Badge>
           )}
@@ -397,7 +397,7 @@ function NcdIssueCard({ issue, onApply }: { issue: NcdIssue; onApply: (issue: Nc
           </div>
           <div>
             <p className="text-muted-foreground text-xs">Rating</p>
-            <Badge variant="outline" className="bg-green-50 text-green-700">{issue.creditRating}</Badge>
+            <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300">{issue.creditRating}</Badge>
           </div>
         </div>
         <div className="mt-3 pt-3 border-t flex items-center justify-between">
@@ -424,11 +424,11 @@ function SgbIssueCard({ issue, onApply }: { issue: SgbIssue; onApply: (issue: Sg
   const daysLeft = isOpen ? Math.ceil((new Date(issue.subscriptionCloseDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
 
   return (
-    <Card className="hover:shadow-lg transition-all bg-gradient-to-br from-amber-50 to-yellow-50" data-testid={`sgb-card-${issue.seriesName}`}>
+    <Card className="hover:shadow-lg transition-all bg-gradient-to-br from-amber-50 dark:from-amber-950/30 to-yellow-50 dark:to-yellow-950/30" data-testid={`sgb-card-${issue.seriesName}`}>
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-full bg-amber-100">
+            <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/30">
               <Coins className="h-5 w-5 text-amber-600" />
             </div>
             <div>
@@ -468,7 +468,7 @@ function SgbIssueCard({ issue, onApply }: { issue: SgbIssue; onApply: (issue: Sg
           <Button 
             size="sm"
             variant="outline"
-            className="border-amber-300 text-amber-700 hover:bg-amber-100"
+            className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:bg-amber-900/30"
             disabled={!isOpen}
             onClick={() => onApply(issue)}
             data-testid={`btn-apply-sgb-${issue.seriesName}`}
@@ -871,10 +871,10 @@ function SgbTab() {
         </Select>
       </div>
 
-      <Alert className="bg-amber-50 border-amber-200">
+      <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
         <Coins className="h-4 w-4 text-amber-600" />
-        <AlertTitle className="text-amber-800">About Sovereign Gold Bonds</AlertTitle>
-        <AlertDescription className="text-amber-700 text-sm">
+        <AlertTitle className="text-amber-800 dark:text-amber-200">About Sovereign Gold Bonds</AlertTitle>
+        <AlertDescription className="text-amber-700 dark:text-amber-300 text-sm">
           SGBs are government securities denominated in grams of gold. They offer interest of 2.5% p.a. and capital gains are tax-free on redemption.
         </AlertDescription>
       </Alert>
@@ -1025,7 +1025,7 @@ function SellOrderDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 p-4 bg-red-50 rounded-lg text-sm">
+          <div className="grid grid-cols-2 gap-4 p-4 bg-red-50 dark:bg-red-950/30 rounded-lg text-sm">
             <div>
               <p className="text-muted-foreground">ISIN</p>
               <p className="font-semibold">{holding.isin}</p>
@@ -1128,9 +1128,9 @@ function SellOrderDialog({
             )}
           </div>
 
-          <Alert className="bg-amber-50 border-amber-200">
+          <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
             <AlertCircle className="h-4 w-4 text-amber-600" />
-            <AlertDescription className="text-xs text-amber-700">
+            <AlertDescription className="text-xs text-amber-700 dark:text-amber-300">
               Settlement: T+1. Proceeds will be credited to your bank account post settlement.
             </AlertDescription>
           </Alert>
@@ -1199,7 +1199,7 @@ function HoldingsTab() {
                   <h4 className="font-semibold">{holding.securityName}</h4>
                   <p className="text-sm text-muted-foreground">{holding.isin}</p>
                 </div>
-                <Badge variant="outline" className={holding.unrealizedPnL >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}>
+                <Badge variant="outline" className={holding.unrealizedPnL >= 0 ? 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300' : 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300'}>
                   {holding.unrealizedPnL >= 0 ? '+' : ''}₹{holding.unrealizedPnL.toLocaleString()}
                 </Badge>
               </div>
@@ -1233,7 +1233,7 @@ function HoldingsTab() {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="border-red-300 text-red-600 hover:bg-red-50"
+                  className="border-red-300 dark:border-red-700 text-red-600 hover:bg-red-50 dark:bg-red-950/30"
                   onClick={() => setSelectedHolding(holding)}
                   data-testid={`btn-sell-${holding.isin}`}
                 >
@@ -1379,10 +1379,10 @@ function ReportsTab() {
   return (
     <div className="space-y-6">
       {alerts && ((alerts.couponAlerts?.length ?? 0) > 0 || (alerts.maturityAlerts?.length ?? 0) > 0) && (
-        <Alert className="bg-blue-50 border-blue-200">
+        <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
           <Bell className="h-4 w-4 text-blue-600" />
-          <AlertTitle className="text-blue-800">Upcoming Payments</AlertTitle>
-          <AlertDescription className="text-blue-700">
+          <AlertTitle className="text-blue-800 dark:text-blue-200">Upcoming Payments</AlertTitle>
+          <AlertDescription className="text-blue-700 dark:text-blue-300">
             You have {alerts.couponAlerts?.length || 0} upcoming coupon payments and {alerts.maturityAlerts?.length || 0} bonds maturing soon.
           </AlertDescription>
         </Alert>
@@ -1664,18 +1664,18 @@ function OrdersTab() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'executed': case 'completed': return 'bg-green-100 text-green-800';
-      case 'pending': case 'processing': case 'awaiting_settlement': return 'bg-amber-100 text-amber-800';
-      case 'failed': case 'rejected': case 'cancelled': return 'bg-red-100 text-red-800';
-      case 'pending_payment': return 'bg-blue-100 text-blue-800';
+      case 'executed': case 'completed': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200';
+      case 'pending': case 'processing': case 'awaiting_settlement': return 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200';
+      case 'failed': case 'rejected': case 'cancelled': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200';
+      case 'pending_payment': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200';
       default: return 'bg-muted text-foreground';
     }
   };
 
   const getOrderTypeStyles = (orderType: string) => {
     return orderType === 'buy' 
-      ? { bg: 'bg-emerald-50', border: 'border-emerald-200', icon: TrendingUp, iconColor: 'text-emerald-600', label: 'BUY' }
-      : { bg: 'bg-red-50', border: 'border-red-200', icon: TrendingDown, iconColor: 'text-red-600', label: 'SELL' };
+      ? { bg: 'bg-emerald-50 dark:bg-emerald-950/30', border: 'border-emerald-200 dark:border-emerald-800', icon: TrendingUp, iconColor: 'text-emerald-600', label: 'BUY' }
+      : { bg: 'bg-red-50 dark:bg-red-950/30', border: 'border-red-200 dark:border-red-800', icon: TrendingDown, iconColor: 'text-red-600', label: 'SELL' };
   };
 
   return (
@@ -1695,7 +1695,7 @@ function OrdersTab() {
             variant={orderTypeFilter === 'buy' ? 'default' : 'outline'} 
             size="sm"
             onClick={() => setOrderTypeFilter('buy')}
-            className={orderTypeFilter !== 'buy' ? 'border-emerald-300 text-emerald-700 hover:bg-emerald-50' : ''}
+            className={orderTypeFilter !== 'buy' ? 'border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:bg-emerald-950/30' : ''}
             data-testid="btn-filter-buy"
           >
             <TrendingUp className="h-3 w-3 mr-1" />
@@ -1705,7 +1705,7 @@ function OrdersTab() {
             variant={orderTypeFilter === 'sell' ? 'destructive' : 'outline'} 
             size="sm"
             onClick={() => setOrderTypeFilter('sell')}
-            className={orderTypeFilter !== 'sell' ? 'border-red-300 text-red-700 hover:bg-red-50' : ''}
+            className={orderTypeFilter !== 'sell' ? 'border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 hover:bg-red-50 dark:bg-red-950/30' : ''}
             data-testid="btn-filter-sell"
           >
             <TrendingDown className="h-3 w-3 mr-1" />
@@ -1724,13 +1724,13 @@ function OrdersTab() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${order.orderType === 'buy' ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                    <div className={`p-2 rounded-full ${order.orderType === 'buy' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
                       <OrderIcon className={`h-4 w-4 ${typeStyles.iconColor}`} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-semibold">{order.bondName}</p>
-                        <Badge variant="outline" className={order.orderType === 'buy' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-red-100 text-red-700 border-red-300'}>
+                        <Badge variant="outline" className={order.orderType === 'buy' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700'}>
                           {typeStyles.label}
                         </Badge>
                       </div>
@@ -1766,10 +1766,10 @@ function OrdersTab() {
                 </div>
 
                 {order.orderStatus === 'pending_payment' && order.orderType === 'buy' && (
-                  <div className="mt-3 pt-3 border-t border-emerald-200">
-                    <Alert className="bg-blue-50 border-blue-200">
+                  <div className="mt-3 pt-3 border-t border-emerald-200 dark:border-emerald-800">
+                    <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
                       <Clock className="h-4 w-4 text-blue-600" />
-                      <AlertDescription className="text-blue-700 flex items-center justify-between">
+                      <AlertDescription className="text-blue-700 dark:text-blue-300 flex items-center justify-between">
                         <span>Payment pending for this order</span>
                         <Button size="sm" data-testid={`btn-pay-${order.id}`}>
                           Complete Payment
@@ -1780,10 +1780,10 @@ function OrdersTab() {
                 )}
 
                 {order.orderType === 'sell' && order.orderStatus === 'awaiting_settlement' && (
-                  <div className="mt-3 pt-3 border-t border-red-200">
-                    <Alert className="bg-amber-50 border-amber-200">
+                  <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-800">
+                    <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
                       <Clock className="h-4 w-4 text-amber-600" />
-                      <AlertDescription className="text-amber-700">
+                      <AlertDescription className="text-amber-700 dark:text-amber-300">
                         Sell order awaiting settlement. Proceeds will be credited to your bank account.
                       </AlertDescription>
                     </Alert>

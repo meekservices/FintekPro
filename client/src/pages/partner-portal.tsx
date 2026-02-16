@@ -116,10 +116,10 @@ export default function PartnerPortal() {
 
   const getTicketStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      open: 'bg-blue-100 text-blue-800',
-      in_progress: 'bg-yellow-100 text-yellow-800',
-      pending: 'bg-orange-100 text-orange-800',
-      resolved: 'bg-green-100 text-green-800',
+      open: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200',
+      in_progress: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200',
+      pending: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200',
+      resolved: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200',
       closed: 'bg-muted text-foreground'
     };
     return colors[status] || colors.open;
@@ -127,10 +127,10 @@ export default function PartnerPortal() {
 
   const getPriorityColor = (priority: string) => {
     const colors: Record<string, string> = {
-      low: 'bg-green-100 text-green-800',
-      medium: 'bg-yellow-100 text-yellow-800',
-      high: 'bg-orange-100 text-orange-800',
-      urgent: 'bg-red-100 text-red-800'
+      low: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200',
+      medium: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200',
+      high: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200',
+      urgent: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
     };
     return colors[priority] || colors.medium;
   };
@@ -158,7 +158,7 @@ export default function PartnerPortal() {
               </p>
             </div>
             <div className="flex items-center space-x-4">
-              <Badge variant="outline" className="bg-green-50 text-green-700">
+              <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300">
                 Active Partner
               </Badge>
             </div>
@@ -331,9 +331,9 @@ export default function PartnerPortal() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <a href="/partner/agents" className="block">
-                <Card className="hover:border-blue-300 hover:shadow-md transition-all cursor-pointer">
+                <Card className="hover:border-blue-300 dark:border-blue-700 hover:shadow-md transition-all cursor-pointer">
                   <CardContent className="p-5 flex items-center gap-4">
-                    <div className="p-3 bg-blue-50 rounded-lg">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                       <Users className="h-6 w-6 text-blue-600" />
                     </div>
                     <div>
@@ -345,9 +345,9 @@ export default function PartnerPortal() {
                 </Card>
               </a>
               <a href="/partner/payouts" className="block">
-                <Card className="hover:border-green-300 hover:shadow-md transition-all cursor-pointer">
+                <Card className="hover:border-green-300 dark:border-green-700 hover:shadow-md transition-all cursor-pointer">
                   <CardContent className="p-5 flex items-center gap-4">
-                    <div className="p-3 bg-green-50 rounded-lg">
+                    <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                       <Wallet className="h-6 w-6 text-green-600" />
                     </div>
                     <div>
@@ -359,9 +359,9 @@ export default function PartnerPortal() {
                 </Card>
               </a>
               <a href="/partner/ca-management" className="block">
-                <Card className="hover:border-purple-300 hover:shadow-md transition-all cursor-pointer">
+                <Card className="hover:border-purple-300 dark:border-purple-700 hover:shadow-md transition-all cursor-pointer">
                   <CardContent className="p-5 flex items-center gap-4">
-                    <div className="p-3 bg-purple-50 rounded-lg">
+                    <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                       <UserCheck className="h-6 w-6 text-purple-600" />
                     </div>
                     <div>
@@ -423,7 +423,7 @@ export default function PartnerPortal() {
                   <Card>
                     <CardContent className="p-4 text-center">
                       <p className="text-xs text-muted-foreground">Total Earned</p>
-                      <p className="text-xl font-bold text-green-700" data-testid="statement-total-earned">
+                      <p className="text-xl font-bold text-green-700 dark:text-green-300" data-testid="statement-total-earned">
                         {'\u20B9'}{Number(statementData.summary?.total_earned || 0).toLocaleString()}
                       </p>
                     </CardContent>
@@ -431,7 +431,7 @@ export default function PartnerPortal() {
                   <Card>
                     <CardContent className="p-4 text-center">
                       <p className="text-xs text-muted-foreground">Agent Income</p>
-                      <p className="text-xl font-bold text-blue-700" data-testid="statement-agent-income">
+                      <p className="text-xl font-bold text-blue-700 dark:text-blue-300" data-testid="statement-agent-income">
                         {'\u20B9'}{Number(statementData.summary?.agent_income || 0).toLocaleString()}
                       </p>
                     </CardContent>
@@ -439,7 +439,7 @@ export default function PartnerPortal() {
                   <Card>
                     <CardContent className="p-4 text-center">
                       <p className="text-xs text-muted-foreground">Upline Incentives</p>
-                      <p className="text-xl font-bold text-purple-700" data-testid="statement-upline-income">
+                      <p className="text-xl font-bold text-purple-700 dark:text-purple-300" data-testid="statement-upline-income">
                         {'\u20B9'}{Number(statementData.summary?.upline_income || 0).toLocaleString()}
                       </p>
                     </CardContent>
@@ -447,7 +447,7 @@ export default function PartnerPortal() {
                   <Card>
                     <CardContent className="p-4 text-center">
                       <p className="text-xs text-muted-foreground">Wallet Balance</p>
-                      <p className="text-xl font-bold text-orange-700" data-testid="statement-pending">
+                      <p className="text-xl font-bold text-orange-700 dark:text-orange-300" data-testid="statement-pending">
                         {'\u20B9'}{Number(statementData.summary?.pending_amount || 0).toLocaleString()}
                       </p>
                     </CardContent>
@@ -487,9 +487,9 @@ export default function PartnerPortal() {
                                 <td className="py-2 px-2 text-xs">{entry.payout_type}</td>
                                 <td className="py-2 px-2 text-right font-medium">{'\u20B9'}{Number(entry.net_amount || entry.payout_amount).toLocaleString()}</td>
                                 <td className="py-2 px-2">
-                                  {entry.payout_status === 'CREDITED' && <Badge className="bg-green-100 text-green-800 text-xs"><CheckCircle className="h-3 w-3 mr-1" />Credited</Badge>}
-                                  {entry.payout_status === 'REVERSED' && <Badge className="bg-red-100 text-red-800 text-xs"><XCircle className="h-3 w-3 mr-1" />Reversed</Badge>}
-                                  {entry.payout_status === 'PARTIALLY_REVERSED' && <Badge className="bg-yellow-100 text-yellow-800 text-xs"><AlertTriangle className="h-3 w-3 mr-1" />Partial</Badge>}
+                                  {entry.payout_status === 'CREDITED' && <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 text-xs"><CheckCircle className="h-3 w-3 mr-1" />Credited</Badge>}
+                                  {entry.payout_status === 'REVERSED' && <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 text-xs"><XCircle className="h-3 w-3 mr-1" />Reversed</Badge>}
+                                  {entry.payout_status === 'PARTIALLY_REVERSED' && <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 text-xs"><AlertTriangle className="h-3 w-3 mr-1" />Partial</Badge>}
                                 </td>
                                 <td className="py-2 px-2 text-xs text-muted-foreground">{entry.created_at ? new Date(entry.created_at).toLocaleDateString() : '-'}</td>
                               </tr>
@@ -524,15 +524,15 @@ export default function PartnerPortal() {
                 <h2 className="text-xl font-bold text-foreground">How Your Earnings Are Calculated</h2>
                 <p className="text-sm text-muted-foreground">Transparent, performance-linked incentive model</p>
               </div>
-              <Badge variant="outline" className="bg-green-50 text-green-700">
+              <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300">
                 <Shield className="h-3 w-3 mr-1" /> Regulator Compliant
               </Badge>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="border-blue-200">
+              <Card className="border-blue-200 dark:border-blue-800">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-blue-700">
+                  <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
                     <IndianRupee className="h-5 w-5" />
                     1. Direct Earnings (Agent Income)
                   </CardTitle>
@@ -547,9 +547,9 @@ export default function PartnerPortal() {
                 </CardContent>
               </Card>
 
-              <Card className="border-purple-200">
+              <Card className="border-purple-200 dark:border-purple-800">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-purple-700">
+                  <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-300">
                     <TrendingUp className="h-5 w-5" />
                     2. Upline Incentives (Team Income)
                   </CardTitle>
@@ -566,9 +566,9 @@ export default function PartnerPortal() {
                 </CardContent>
               </Card>
 
-              <Card className="border-red-200">
+              <Card className="border-red-200 dark:border-red-800">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-red-700">
+                  <CardTitle className="flex items-center gap-2 text-red-700 dark:text-red-300">
                     <XCircle className="h-5 w-5" />
                     3. No Income for Recruitment
                   </CardTitle>
@@ -583,9 +583,9 @@ export default function PartnerPortal() {
                 </CardContent>
               </Card>
 
-              <Card className="border-green-200">
+              <Card className="border-green-200 dark:border-green-800">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-green-700">
+                  <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-300">
                     <CheckCircle className="h-5 w-5" />
                     4. Full Transparency
                   </CardTitle>
@@ -600,7 +600,7 @@ export default function PartnerPortal() {
                     <li>How your payout was calculated</li>
                     <li>Final credited amount</li>
                   </ul>
-                  <p className="text-sm font-medium text-green-700 mt-2">
+                  <p className="text-sm font-medium text-green-700 dark:text-green-300 mt-2">
                     No hidden deductions. No manual overrides.
                   </p>
                 </CardContent>
@@ -629,7 +629,7 @@ export default function PartnerPortal() {
                 <h2 className="text-xl font-bold text-foreground">Compliance & Regulatory Disclosures</h2>
                 <p className="text-sm text-muted-foreground">SEBI / RBI compliant commission and incentive disclosure</p>
               </div>
-              <Badge variant="outline" className="bg-blue-50 text-blue-700">
+              <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300">
                 <Shield className="h-3 w-3 mr-1" /> SEBI / RBI Aligned
               </Badge>
             </div>
@@ -683,9 +683,9 @@ export default function PartnerPortal() {
 
                 <div className="border-t pt-4">
                   <h4 className="font-semibold text-sm mb-2">Regulatory Alignment</h4>
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-2">
-                    <p className="text-sm text-green-800">This model:</p>
-                    <ul className="text-sm text-green-800 space-y-1 mt-2">
+                  <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4 mt-2">
+                    <p className="text-sm text-green-800 dark:text-green-200">This model:</p>
+                    <ul className="text-sm text-green-800 dark:text-green-200 space-y-1 mt-2">
                       <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> Does not constitute a money circulation scheme</li>
                       <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> Does not promise fixed or assured returns</li>
                       <li className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> Rewards only real economic activity</li>

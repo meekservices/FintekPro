@@ -70,14 +70,14 @@ interface LoanApplication {
 
 const statusColors: Record<string, string> = {
   draft: "bg-muted text-foreground",
-  submitted: "bg-blue-100 text-blue-800",
-  eligibility_check: "bg-yellow-100 text-yellow-800",
-  routed: "bg-purple-100 text-purple-800",
-  pending_with_banks: "bg-orange-100 text-orange-800",
-  in_review: "bg-cyan-100 text-cyan-800",
-  approved: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-800",
-  disbursed: "bg-emerald-100 text-emerald-800",
+  submitted: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
+  eligibility_check: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200",
+  routed: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200",
+  pending_with_banks: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200",
+  in_review: "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-200",
+  approved: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
+  rejected: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200",
+  disbursed: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200",
 };
 
 const loanTypeLabels: Record<string, string> = {
@@ -244,24 +244,24 @@ export default function AdminDsaLoanDashboard() {
                   <div className="text-2xl font-bold text-muted-foreground">{stats?.funnel.draft || 0}</div>
                   <div className="text-sm text-muted-foreground">Draft</div>
                 </div>
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-700">{stats?.funnel.submitted || 0}</div>
+                <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">{stats?.funnel.submitted || 0}</div>
                   <div className="text-sm text-blue-500">Submitted</div>
                 </div>
-                <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <div className="text-2xl font-bold text-purple-700">{stats?.funnel.routed || 0}</div>
+                <div className="text-center p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
+                  <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">{stats?.funnel.routed || 0}</div>
                   <div className="text-sm text-purple-500">Routed</div>
                 </div>
-                <div className="text-center p-4 bg-orange-50 rounded-lg">
-                  <div className="text-2xl font-bold text-orange-700">{stats?.funnel.pendingWithBanks || 0}</div>
+                <div className="text-center p-4 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
+                  <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">{stats?.funnel.pendingWithBanks || 0}</div>
                   <div className="text-sm text-orange-500">Pending with Banks</div>
                 </div>
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-700">{stats?.funnel.approved || 0}</div>
+                <div className="text-center p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                  <div className="text-2xl font-bold text-green-700 dark:text-green-300">{stats?.funnel.approved || 0}</div>
                   <div className="text-sm text-green-500">Approved</div>
                 </div>
-                <div className="text-center p-4 bg-red-50 rounded-lg">
-                  <div className="text-2xl font-bold text-red-700">{stats?.funnel.rejected || 0}</div>
+                <div className="text-center p-4 bg-red-50 dark:bg-red-950/30 rounded-lg">
+                  <div className="text-2xl font-bold text-red-700 dark:text-red-300">{stats?.funnel.rejected || 0}</div>
                   <div className="text-sm text-red-500">Rejected</div>
                 </div>
               </div>
@@ -500,9 +500,9 @@ export default function AdminDsaLoanDashboard() {
                       </TableCell>
                       <TableCell>
                         {bank.isActive ? (
-                          <Badge className="bg-green-100 text-green-800">Active</Badge>
+                          <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">Active</Badge>
                         ) : (
-                          <Badge className="bg-red-100 text-red-800">Inactive</Badge>
+                          <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200">Inactive</Badge>
                         )}
                       </TableCell>
                       <TableCell>
@@ -551,7 +551,7 @@ export default function AdminDsaLoanDashboard() {
                       </TableCell>
                       <TableCell>
                         {rule.isActive ? (
-                          <Badge className="bg-green-100 text-green-800">Active</Badge>
+                          <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">Active</Badge>
                         ) : (
                           <Badge className="bg-muted text-foreground">Inactive</Badge>
                         )}

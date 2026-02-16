@@ -118,7 +118,7 @@ export default function AgentDSAPerformance() {
                 <p className="text-sm text-muted-foreground">Total Applications</p>
                 <p className="text-2xl font-bold">{stats.overview.totalApplications}</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                 <BarChart3 className="h-5 w-5 text-blue-600" />
               </div>
             </div>
@@ -131,7 +131,7 @@ export default function AgentDSAPerformance() {
                 <p className="text-sm text-muted-foreground">Total Amount</p>
                 <p className="text-2xl font-bold">{formatAmount(stats.overview.totalAmount)}</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                 <IndianRupee className="h-5 w-5 text-purple-600" />
               </div>
             </div>
@@ -144,21 +144,21 @@ export default function AgentDSAPerformance() {
                 <p className="text-sm text-muted-foreground">Disbursed</p>
                 <p className="text-2xl font-bold text-green-600">{formatAmount(stats.overview.disbursedAmount || 0)}</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                 <CheckCircle className="h-5 w-5 text-green-600" />
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200">
+        <Card className="bg-gradient-to-br from-emerald-50 dark:from-emerald-950/30 to-teal-50 dark:to-teal-950/30 border-emerald-200 dark:border-emerald-800">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-emerald-700">Est. Commission</p>
-                <p className="text-2xl font-bold text-emerald-700">{formatAmount(estimatedCommission)}</p>
+                <p className="text-sm text-emerald-700 dark:text-emerald-300">Est. Commission</p>
+                <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{formatAmount(estimatedCommission)}</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-emerald-200 flex items-center justify-center">
-                <Wallet className="h-5 w-5 text-emerald-700" />
+              <div className="h-10 w-10 rounded-full bg-emerald-200 dark:bg-emerald-800/30 flex items-center justify-center">
+                <Wallet className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
               </div>
             </div>
           </CardContent>
@@ -202,7 +202,7 @@ export default function AgentDSAPerformance() {
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                   <ArrowUpRight className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
@@ -216,7 +216,7 @@ export default function AgentDSAPerformance() {
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                   <Building2 className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
@@ -230,7 +230,7 @@ export default function AgentDSAPerformance() {
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                   <Award className="h-5 w-5 text-purple-600" />
                 </div>
                 <div>

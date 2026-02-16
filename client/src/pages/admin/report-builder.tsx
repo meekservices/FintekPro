@@ -112,10 +112,10 @@ export default function ReportBuilder() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'bg-emerald-100 text-emerald-800';
-      case 'generating': return 'bg-blue-100 text-blue-800';
-      case 'pending': return 'bg-amber-100 text-amber-800';
-      case 'failed': return 'bg-red-100 text-red-800';
+      case 'completed': return 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200';
+      case 'generating': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200';
+      case 'pending': return 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200';
+      case 'failed': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200';
       default: return 'bg-muted text-foreground';
     }
   };
@@ -315,8 +315,8 @@ export default function ReportBuilder() {
                     >
                       <div className="flex items-center gap-4">
                         <div className={`p-2 rounded-lg ${
-                          report.format === 'pdf' ? 'bg-red-100' : 
-                          report.format === 'excel' ? 'bg-emerald-100' : 'bg-blue-100'
+                          report.format === 'pdf' ? 'bg-red-100 dark:bg-red-900/30' : 
+                          report.format === 'excel' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-blue-100 dark:bg-blue-900/30'
                         }`}>
                           {report.format === 'pdf' ? <File className="w-5 h-5 text-red-600" /> :
                            report.format === 'excel' ? <FileSpreadsheet className="w-5 h-5 text-emerald-600" /> :

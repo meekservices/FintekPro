@@ -411,7 +411,7 @@ export default function NRIServices() {
           </p>
           
           <div className="flex flex-wrap gap-4">
-            <Button size="lg" className="bg-card text-blue-600 hover:bg-blue-50" data-testid="button-get-started">
+            <Button size="lg" className="bg-card text-blue-600 hover:bg-blue-50 dark:bg-blue-950/30" data-testid="button-get-started">
               Get Started Today
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
@@ -441,7 +441,7 @@ export default function NRIServices() {
                   className={`p-4 rounded-lg border-2 transition-all duration-200 ${
                     selectedCountry === country.code 
                       ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                      : 'border-border hover:border-blue-300'
+                      : 'border-border hover:border-blue-300 dark:border-blue-700'
                   }`}
                   data-testid={`button-country-${country.code}`}
                 >
@@ -524,7 +524,7 @@ export default function NRIServices() {
             {filteredServices.map(service => (
               <Card key={service.id} className="relative overflow-hidden hover:shadow-lg transition-shadow duration-200">
                 {service.isPremium && (
-                  <div className="absolute top-0 right-0 bg-gradient-to-l from-yellow-400 to-yellow-600 text-yellow-900 px-3 py-1 text-xs font-semibold rounded-bl-lg">
+                  <div className="absolute top-0 right-0 bg-gradient-to-l from-yellow-400 to-yellow-600 text-yellow-900 dark:text-yellow-100 px-3 py-1 text-xs font-semibold rounded-bl-lg">
                     <Crown className="h-3 w-3 inline mr-1" />
                     PREMIUM
                   </div>

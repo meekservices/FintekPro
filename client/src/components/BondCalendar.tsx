@@ -72,14 +72,14 @@ interface CalendarStats {
 }
 
 const eventTypeConfig: Record<string, { label: string; icon: typeof Calendar; color: string; bgColor: string }> = {
-  issuance: { label: "New Issue", icon: FileText, color: "text-blue-600", bgColor: "bg-blue-100" },
-  ipo_open: { label: "IPO Opens", icon: TrendingUp, color: "text-green-600", bgColor: "bg-green-100" },
-  ipo_close: { label: "IPO Closes", icon: Clock, color: "text-orange-600", bgColor: "bg-orange-100" },
-  auction: { label: "Auction", icon: Landmark, color: "text-purple-600", bgColor: "bg-purple-100" },
-  maturity: { label: "Maturity", icon: Coins, color: "text-amber-600", bgColor: "bg-amber-100" },
-  coupon_payment: { label: "Coupon", icon: Banknote, color: "text-emerald-600", bgColor: "bg-emerald-100" },
-  listing_date: { label: "Listing", icon: Building2, color: "text-indigo-600", bgColor: "bg-indigo-100" },
-  allotment_date: { label: "Allotment", icon: FileText, color: "text-cyan-600", bgColor: "bg-cyan-100" },
+  issuance: { label: "New Issue", icon: FileText, color: "text-blue-600", bgColor: "bg-blue-100 dark:bg-blue-900/30" },
+  ipo_open: { label: "IPO Opens", icon: TrendingUp, color: "text-green-600", bgColor: "bg-green-100 dark:bg-green-900/30" },
+  ipo_close: { label: "IPO Closes", icon: Clock, color: "text-orange-600", bgColor: "bg-orange-100 dark:bg-orange-900/30" },
+  auction: { label: "Auction", icon: Landmark, color: "text-purple-600", bgColor: "bg-purple-100 dark:bg-purple-900/30" },
+  maturity: { label: "Maturity", icon: Coins, color: "text-amber-600", bgColor: "bg-amber-100 dark:bg-amber-900/30" },
+  coupon_payment: { label: "Coupon", icon: Banknote, color: "text-emerald-600", bgColor: "bg-emerald-100 dark:bg-emerald-900/30" },
+  listing_date: { label: "Listing", icon: Building2, color: "text-indigo-600", bgColor: "bg-indigo-100 dark:bg-indigo-900/30" },
+  allotment_date: { label: "Allotment", icon: FileText, color: "text-cyan-600", bgColor: "bg-cyan-100 dark:bg-cyan-900/30" },
 };
 
 const instrumentTypeConfig: Record<string, { label: string; color: string }> = {
@@ -434,10 +434,10 @@ function HighlightedEventsCard({ events }: { events: BondCalendarEvent[] }) {
 
 function StatsCards({ stats }: { stats: CalendarStats }) {
   const items = [
-    { label: "Upcoming Auctions", value: stats.upcomingAuctions, icon: Landmark, color: "text-purple-600", bg: "bg-purple-100" },
-    { label: "New Issuances", value: stats.upcomingIssuances, icon: TrendingUp, color: "text-green-600", bg: "bg-green-100" },
-    { label: "Maturities", value: stats.upcomingMaturities, icon: Coins, color: "text-amber-600", bg: "bg-amber-100" },
-    { label: "Coupon Payments", value: stats.upcomingCoupons, icon: Banknote, color: "text-emerald-600", bg: "bg-emerald-100" },
+    { label: "Upcoming Auctions", value: stats.upcomingAuctions, icon: Landmark, color: "text-purple-600", bg: "bg-purple-100 dark:bg-purple-900/30" },
+    { label: "New Issuances", value: stats.upcomingIssuances, icon: TrendingUp, color: "text-green-600", bg: "bg-green-100 dark:bg-green-900/30" },
+    { label: "Maturities", value: stats.upcomingMaturities, icon: Coins, color: "text-amber-600", bg: "bg-amber-100 dark:bg-amber-900/30" },
+    { label: "Coupon Payments", value: stats.upcomingCoupons, icon: Banknote, color: "text-emerald-600", bg: "bg-emerald-100 dark:bg-emerald-900/30" },
   ];
 
   return (

@@ -270,10 +270,10 @@ export function OneClickBondInvest({
 
   const getRatingColor = (rating: string) => {
     if (!rating) return "bg-muted text-muted-foreground";
-    if (rating.includes("AAA") || rating === "SOV") return "bg-green-100 text-green-700";
-    if (rating.includes("AA")) return "bg-blue-100 text-blue-700";
-    if (rating.includes("A")) return "bg-yellow-100 text-yellow-700";
-    return "bg-orange-100 text-orange-700";
+    if (rating.includes("AAA") || rating === "SOV") return "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300";
+    if (rating.includes("AA")) return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300";
+    if (rating.includes("A")) return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300";
+    return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300";
   };
 
   return (
@@ -293,7 +293,7 @@ export function OneClickBondInvest({
           onClick={handleQuickInvest}
           size="icon"
           variant="ghost"
-          className={`text-green-600 hover:bg-green-50 ${className}`}
+          className={`text-green-600 hover:bg-green-50 dark:bg-green-950/30 ${className}`}
           data-testid={`quick-invest-icon-${bond.isin}`}
         >
           <Zap className="h-5 w-5" />
@@ -304,7 +304,7 @@ export function OneClickBondInvest({
         <DialogContent className="sm:max-w-[480px]">
           {showSuccess ? (
             <div className="py-8 text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="h-10 w-10 text-green-600" />
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-2">Order Placed Successfully!</h3>
@@ -323,7 +323,7 @@ export function OneClickBondInvest({
               </DialogHeader>
 
               <div className="space-y-4 py-4">
-                <Card className="border-blue-200 bg-blue-50/50">
+                <Card className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30/50">
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
@@ -438,7 +438,7 @@ export function OneClickBondInvest({
                     <span className="text-muted-foreground flex items-center gap-1">
                       Stamp Duty
                       {fees.stampDutyExempt && (
-                        <Badge variant="secondary" className="text-xs px-1 py-0 bg-green-100 text-green-700">
+                        <Badge variant="secondary" className="text-xs px-1 py-0 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
                           Exempt
                         </Badge>
                       )}
@@ -471,9 +471,9 @@ export function OneClickBondInvest({
                 </div>
 
                 {!userProfile?.dematAccountNumber && !addToCartInstead && (
-                  <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
                     <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
-                    <p className="text-sm text-amber-700">
+                    <p className="text-sm text-amber-700 dark:text-amber-300">
                       No demat account linked. Please update your profile to enable direct investment.
                     </p>
                   </div>

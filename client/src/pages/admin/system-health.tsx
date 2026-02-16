@@ -379,9 +379,9 @@ export default function SystemHealthMonitor() {
                           }
                           <span className="font-medium">{alert.service}</span>
                           <Badge className={
-                            alert.severity === 'critical' ? 'bg-red-100 text-red-800' :
-                            alert.severity === 'warning' ? 'bg-amber-100 text-amber-800' :
-                            'bg-blue-100 text-blue-800'
+                            alert.severity === 'critical' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200' :
+                            alert.severity === 'warning' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200' :
+                            'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200'
                           }>
                             {alert.severity}
                           </Badge>

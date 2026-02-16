@@ -844,7 +844,7 @@ const RECOMMENDATION_CATEGORIES = [
         </div>
         <div className="flex gap-2">
           <Link href="/demo-proposal-builder">
-            <Button variant="outline" className="border-purple-600 text-purple-600 hover:bg-purple-50" data-testid="btn-advanced-builder">
+            <Button variant="outline" className="border-purple-600 text-purple-600 hover:bg-purple-50 dark:bg-purple-950/30" data-testid="btn-advanced-builder">
               <Sparkles className="w-4 h-4 mr-2" />
               Advanced Builder
             </Button>
@@ -1607,7 +1607,7 @@ const RECOMMENDATION_CATEGORIES = [
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => removeHolding(holding.id)}
-                                  className="h-9 w-9 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  className="h-9 w-9 p-0 text-red-500 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:bg-red-950/30"
                                   data-testid={`btn-remove-holding-${idx}`}
                                 >
                                   <X className="w-4 h-4" />
@@ -1646,7 +1646,7 @@ const RECOMMENDATION_CATEGORIES = [
                                       </Badge>
                                     )}
                                   </div>
-                                  <div className="font-medium text-blue-700">
+                                  <div className="font-medium text-blue-700 dark:text-blue-300">
                                     Value: ₹{holding.currentValue.toLocaleString('en-IN')}
                                   </div>
                                 </div>
@@ -1697,7 +1697,7 @@ const RECOMMENDATION_CATEGORIES = [
                         <div className="grid grid-cols-3 gap-4">
                           <div>
                             <p className="text-xs text-muted-foreground">Total Value</p>
-                            <p className="text-lg font-bold text-blue-700">
+                            <p className="text-lg font-bold text-blue-700 dark:text-blue-300">
                               ₹{portfolioSummary.totalValue.toLocaleString('en-IN')}
                             </p>
                           </div>
@@ -1824,10 +1824,10 @@ const RECOMMENDATION_CATEGORIES = [
                                   {rec.recommendationType && (
                                     <Badge 
                                       className={`text-xs ${
-                                        rec.recommendationType === 'BUY' ? 'bg-green-100 text-green-700' :
-                                        rec.recommendationType === 'SELL' ? 'bg-red-100 text-red-700' :
-                                        rec.recommendationType === 'SWITCH' ? 'bg-amber-100 text-amber-700' :
-                                        'bg-blue-100 text-blue-700'
+                                        rec.recommendationType === 'BUY' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+                                        rec.recommendationType === 'SELL' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                                        rec.recommendationType === 'SWITCH' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
+                                        'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                                       }`}
                                     >
                                       {rec.recommendationType}
@@ -1953,19 +1953,19 @@ const RECOMMENDATION_CATEGORIES = [
                           </div>
                           <div className="bg-green-50 dark:bg-green-900/30 rounded p-2 text-center">
                             <p className="text-xs text-green-600">BUY</p>
-                            <p className="font-bold text-sm text-green-700">{generatedProposal.existingPortfolioAnalysis.summary?.buyCount || 0}</p>
+                            <p className="font-bold text-sm text-green-700 dark:text-green-300">{generatedProposal.existingPortfolioAnalysis.summary?.buyCount || 0}</p>
                           </div>
                           <div className="bg-blue-50 dark:bg-blue-900/30 rounded p-2 text-center">
                             <p className="text-xs text-blue-600">HOLD</p>
-                            <p className="font-bold text-sm text-blue-700">{generatedProposal.existingPortfolioAnalysis.summary?.holdCount || 0}</p>
+                            <p className="font-bold text-sm text-blue-700 dark:text-blue-300">{generatedProposal.existingPortfolioAnalysis.summary?.holdCount || 0}</p>
                           </div>
                           <div className="bg-red-50 dark:bg-red-900/30 rounded p-2 text-center">
                             <p className="text-xs text-red-600">SELL</p>
-                            <p className="font-bold text-sm text-red-700">{generatedProposal.existingPortfolioAnalysis.summary?.sellCount || 0}</p>
+                            <p className="font-bold text-sm text-red-700 dark:text-red-300">{generatedProposal.existingPortfolioAnalysis.summary?.sellCount || 0}</p>
                           </div>
                           <div className="bg-amber-50 dark:bg-amber-900/30 rounded p-2 text-center">
                             <p className="text-xs text-amber-600">SWITCH</p>
-                            <p className="font-bold text-sm text-amber-700">{generatedProposal.existingPortfolioAnalysis.summary?.switchCount || 0}</p>
+                            <p className="font-bold text-sm text-amber-700 dark:text-amber-300">{generatedProposal.existingPortfolioAnalysis.summary?.switchCount || 0}</p>
                           </div>
                         </div>
 
@@ -1979,10 +1979,10 @@ const RECOMMENDATION_CATEGORIES = [
                                     <p className="font-medium text-xs">{holding.name}</p>
                                     <Badge 
                                       className={`text-[10px] px-1.5 py-0 ${
-                                        holding.recommendationType === 'BUY' ? 'bg-green-100 text-green-700' :
-                                        holding.recommendationType === 'SELL' ? 'bg-red-100 text-red-700' :
-                                        holding.recommendationType === 'SWITCH' ? 'bg-amber-100 text-amber-700' :
-                                        'bg-blue-100 text-blue-700'
+                                        holding.recommendationType === 'BUY' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+                                        holding.recommendationType === 'SELL' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                                        holding.recommendationType === 'SWITCH' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
+                                        'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                                       }`}
                                     >
                                       {holding.recommendationType === 'BUY' && <TrendingUp className="w-2.5 h-2.5 mr-0.5" />}
@@ -2021,7 +2021,7 @@ const RECOMMENDATION_CATEGORIES = [
                                         </span>
                                       )}
                                       {holding.metrics.roe > 0 && (
-                                        <span className={`px-1 py-0.5 rounded ${holding.metrics.roe >= 15 ? 'bg-green-50 text-green-600' : 'bg-muted text-muted-foreground'}`}>
+                                        <span className={`px-1 py-0.5 rounded ${holding.metrics.roe >= 15 ? 'bg-green-50 dark:bg-green-950/30 text-green-600' : 'bg-muted text-muted-foreground'}`}>
                                           ROE: {holding.metrics.roe}%
                                         </span>
                                       )}
@@ -2139,10 +2139,10 @@ const RECOMMENDATION_CATEGORIES = [
                             <TableCell>
                               <Badge 
                                 className={`text-xs ${
-                                  rec.recommendationType === 'BUY' ? 'bg-green-100 text-green-700' :
-                                  rec.recommendationType === 'SELL' ? 'bg-red-100 text-red-700' :
-                                  rec.recommendationType === 'SWITCH' ? 'bg-amber-100 text-amber-700' :
-                                  'bg-blue-100 text-blue-700'
+                                  rec.recommendationType === 'BUY' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+                                  rec.recommendationType === 'SELL' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                                  rec.recommendationType === 'SWITCH' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
+                                  'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                                 }`}
                               >
                                 {rec.recommendationType || 'BUY'}

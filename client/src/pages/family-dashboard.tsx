@@ -1181,7 +1181,7 @@ export default function FamilyDashboard() {
                         </div>
                         <Progress
                           value={budget.progressPercentage || 0}
-                          className={`h-2 ${budget.isOverBudget ? 'bg-red-200' : ''}`}
+                          className={`h-2 ${budget.isOverBudget ? 'bg-red-200 dark:bg-red-800/30' : ''}`}
                           data-testid={`progress-budget-${budget.id}`}
                         />
                         <div className="flex justify-between text-xs text-muted-foreground">

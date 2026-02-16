@@ -254,23 +254,23 @@ export default function TataCapital() {
 
         <Tabs defaultValue="personal-loan" className="space-y-6">
           <ScrollableTabsList className="grid w-full grid-cols-5 bg-card border border-border">
-            <TabsTrigger value="personal-loan" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800">
+            <TabsTrigger value="personal-loan" className="data-[state=active]:bg-blue-100 dark:bg-blue-900/30 data-[state=active]:text-blue-800 dark:text-blue-200">
               <CreditCard className="w-4 h-4 mr-2" />
               Personal Loan
             </TabsTrigger>
-            <TabsTrigger value="home-loan" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-800">
+            <TabsTrigger value="home-loan" className="data-[state=active]:bg-green-100 dark:bg-green-900/30 data-[state=active]:text-green-800 dark:text-green-200">
               <Home className="w-4 h-4 mr-2" />
               Home Loan
             </TabsTrigger>
-            <TabsTrigger value="business-loan" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">
+            <TabsTrigger value="business-loan" className="data-[state=active]:bg-purple-100 dark:bg-purple-900/30 data-[state=active]:text-purple-800 dark:text-purple-200">
               <Building className="w-4 h-4 mr-2" />
               Business Loan
             </TabsTrigger>
-            <TabsTrigger value="car-loan" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-800">
+            <TabsTrigger value="car-loan" className="data-[state=active]:bg-orange-100 dark:bg-orange-900/30 data-[state=active]:text-orange-800 dark:text-orange-200">
               <Car className="w-4 h-4 mr-2" />
               Used Car Loan
             </TabsTrigger>
-            <TabsTrigger value="property-loan" className="data-[state=active]:bg-red-100 data-[state=active]:text-red-800">
+            <TabsTrigger value="property-loan" className="data-[state=active]:bg-red-100 dark:bg-red-900/30 data-[state=active]:text-red-800 dark:text-red-200">
               <Shield className="w-4 h-4 mr-2" />
               Loan Against Property
             </TabsTrigger>

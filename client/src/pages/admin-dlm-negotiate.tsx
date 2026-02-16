@@ -31,21 +31,21 @@ import {
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-muted text-foreground",
-  negotiation: "bg-yellow-100 text-yellow-800",
-  review: "bg-blue-100 text-blue-800",
-  approved: "bg-green-100 text-green-800",
-  signed: "bg-emerald-100 text-emerald-800",
-  legacy: "bg-purple-100 text-purple-800",
-  expired: "bg-red-100 text-red-800",
-  rejected: "bg-red-100 text-red-800",
+  negotiation: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200",
+  review: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
+  approved: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
+  signed: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200",
+  legacy: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200",
+  expired: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200",
+  rejected: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200",
   archived: "bg-muted text-muted-foreground",
 };
 
 const CHANGE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  insert: { bg: "bg-green-50", text: "text-green-800", border: "border-green-300" },
-  delete: { bg: "bg-red-50", text: "text-red-800 line-through", border: "border-red-300" },
-  modify: { bg: "bg-yellow-50", text: "text-yellow-800", border: "border-yellow-300" },
-  comment: { bg: "bg-blue-50", text: "text-blue-800", border: "border-blue-300" },
+  insert: { bg: "bg-green-50 dark:bg-green-950/30", text: "text-green-800 dark:text-green-200", border: "border-green-300 dark:border-green-700" },
+  delete: { bg: "bg-red-50 dark:bg-red-950/30", text: "text-red-800 dark:text-red-200 line-through", border: "border-red-300 dark:border-red-700" },
+  modify: { bg: "bg-yellow-50 dark:bg-yellow-950/30", text: "text-yellow-800 dark:text-yellow-200", border: "border-yellow-300 dark:border-yellow-700" },
+  comment: { bg: "bg-blue-50 dark:bg-blue-950/30", text: "text-blue-800 dark:text-blue-200", border: "border-blue-300 dark:border-blue-700" },
 };
 
 interface TrackedChange {
@@ -144,10 +144,10 @@ function renderDocumentWithDiffs(
     // Style based on operation and status
     const isPending = change.status === "pending";
     const opClass = change.operation === "insert"
-      ? `bg-green-200 text-green-900 ${isPending ? "border-b-2 border-green-500" : ""}`
+      ? `bg-green-200 dark:bg-green-800/30 text-green-900 dark:text-green-100 ${isPending ? "border-b-2 border-green-500" : ""}`
       : change.operation === "delete"
-        ? `bg-red-200 text-red-900 line-through ${isPending ? "border-b-2 border-red-500" : ""}`
-        : `bg-yellow-200 text-yellow-900 ${isPending ? "border-b-2 border-yellow-500" : ""}`;
+        ? `bg-red-200 dark:bg-red-800/30 text-red-900 dark:text-red-100 line-through ${isPending ? "border-b-2 border-red-500" : ""}`
+        : `bg-yellow-200 dark:bg-yellow-800/30 text-yellow-900 dark:text-yellow-100 ${isPending ? "border-b-2 border-yellow-500" : ""}`;
 
     const displayText = change.operation === "delete" 
       ? change.oldText || content.slice(start, end)
@@ -172,13 +172,13 @@ function renderDocumentWithDiffs(
       result.push(
         <span key={`change-${change.id}`}>
           <span 
-            className="bg-red-200 text-red-900 line-through px-1 rounded"
+            className="bg-red-200 dark:bg-red-800/30 text-red-900 dark:text-red-100 line-through px-1 rounded"
             title={`OLD: ${change.oldText}`}
           >
             {change.oldText}
           </span>
           <span 
-            className={`bg-green-200 text-green-900 px-1 rounded ${isPending ? "border-b-2 border-green-500" : ""}`}
+            className={`bg-green-200 dark:bg-green-800/30 text-green-900 dark:text-green-100 px-1 rounded ${isPending ? "border-b-2 border-green-500" : ""}`}
             title={`NEW: ${change.newText}`}
             data-testid={`inline-change-${change.id}`}
           >
@@ -580,13 +580,13 @@ export default function AdminDLMNegotiatePage() {
                   {pendingChanges.length > 0 && (
                     <div className="mt-4 pt-4 border-t flex gap-4 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
-                        <span className="w-3 h-3 bg-green-200 rounded"></span> Insertion
+                        <span className="w-3 h-3 bg-green-200 dark:bg-green-800/30 rounded"></span> Insertion
                       </span>
                       <span className="flex items-center gap-1">
-                        <span className="w-3 h-3 bg-red-200 rounded"></span> Deletion
+                        <span className="w-3 h-3 bg-red-200 dark:bg-red-800/30 rounded"></span> Deletion
                       </span>
                       <span className="flex items-center gap-1">
-                        <span className="w-3 h-3 bg-yellow-200 rounded"></span> Modification
+                        <span className="w-3 h-3 bg-yellow-200 dark:bg-yellow-800/30 rounded"></span> Modification
                       </span>
                     </div>
                   )}
@@ -633,7 +633,7 @@ export default function AdminDLMNegotiatePage() {
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-100"
+                                    className="h-8 w-8 p-0 text-green-600 hover:text-green-700 dark:text-green-300 hover:bg-green-100 dark:bg-green-900/30"
                                     onClick={() => resolveChangeMutation.mutate({ changeId: change.id, resolution: "accepted" })}
                                     disabled={resolveChangeMutation.isPending}
                                     data-testid={`button-accept-change-${change.id}`}
@@ -643,7 +643,7 @@ export default function AdminDLMNegotiatePage() {
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-100"
+                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 dark:text-red-300 hover:bg-red-100 dark:bg-red-900/30"
                                     onClick={() => resolveChangeMutation.mutate({ changeId: change.id, resolution: "rejected" })}
                                     disabled={resolveChangeMutation.isPending}
                                     data-testid={`button-reject-change-${change.id}`}
@@ -696,7 +696,7 @@ export default function AdminDLMNegotiatePage() {
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium">Key Findings</h4>
                       {aiReview.findings.slice(0, 3).map((finding: any, idx: number) => (
-                        <div key={idx} className="text-sm p-2 bg-yellow-50 rounded border-l-2 border-yellow-400">
+                        <div key={idx} className="text-sm p-2 bg-yellow-50 dark:bg-yellow-950/30 rounded border-l-2 border-yellow-400">
                           <span className="font-medium">{finding.clauseRef}:</span> {finding.issue}
                         </div>
                       ))}
@@ -762,7 +762,7 @@ export default function AdminDLMNegotiatePage() {
                               {pendingChanges.map((change) => (
                                 <div 
                                   key={change.id}
-                                  className="p-2 rounded border text-sm bg-yellow-50 border-yellow-200 mb-2"
+                                  className="p-2 rounded border text-sm bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800 mb-2"
                                   data-testid={`change-item-${change.id}`}
                                 >
                                   <div className="flex items-center justify-between mb-1">
@@ -774,10 +774,10 @@ export default function AdminDLMNegotiatePage() {
                                     </span>
                                   </div>
                                   {change.newText && (
-                                    <p className="text-xs truncate text-green-700">+ {change.newText}</p>
+                                    <p className="text-xs truncate text-green-700 dark:text-green-300">+ {change.newText}</p>
                                   )}
                                   {change.oldText && (
-                                    <p className="text-xs truncate text-red-700 line-through">- {change.oldText}</p>
+                                    <p className="text-xs truncate text-red-700 dark:text-red-300 line-through">- {change.oldText}</p>
                                   )}
                                   <div className="flex items-center justify-between mt-1">
                                     <span className="text-xs text-muted-foreground">
@@ -820,8 +820,8 @@ export default function AdminDLMNegotiatePage() {
                                   key={change.id}
                                   className={`p-2 rounded border text-sm mb-2 opacity-70 ${
                                     change.status === "accepted"
-                                      ? "bg-green-50 border-green-200"
-                                      : "bg-red-50 border-red-200"
+                                      ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800"
+                                      : "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800"
                                   }`}
                                   data-testid={`change-resolved-${change.id}`}
                                 >

@@ -147,9 +147,9 @@ export function MSEIData() {
                   <p className="text-sm font-medium text-foreground">{segment.segment}</p>
                   <Badge 
                     className={
-                      segment.status === 'Open' ? 'bg-green-100 text-green-800' : 
-                      segment.status === 'Suspended' ? 'bg-yellow-100 text-yellow-800' : 
-                      'bg-red-100 text-red-800'
+                      segment.status === 'Open' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' : 
+                      segment.status === 'Suspended' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' : 
+                      'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
                     }
                   >
                     {segment.status}
@@ -223,7 +223,7 @@ export function MSEIData() {
                           </div>
                         </td>
                         <td className="py-2">
-                          <Badge className="bg-blue-100 text-blue-800 text-xs">
+                          <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-xs">
                             {equity.sector}
                           </Badge>
                         </td>
@@ -323,7 +323,7 @@ export function MSEIData() {
                           </div>
                         </td>
                         <td className="py-2">
-                          <Badge className={derivative.type === 'Future' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}>
+                          <Badge className={derivative.type === 'Future' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200'}>
                             {derivative.type}
                           </Badge>
                         </td>
@@ -355,7 +355,7 @@ export function MSEIData() {
         <TabsContent value="gainers" data-testid="msei-gainers">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center text-green-700">
+              <CardTitle className="flex items-center text-green-700 dark:text-green-300">
                 <TrendingUp className="h-5 w-5 mr-2" />
                 Top Performing MSEI Stocks
               </CardTitle>
@@ -363,10 +363,10 @@ export function MSEIData() {
             <CardContent>
               <div className="space-y-3">
                 {gainersData.map((stock, index) => (
-                  <div key={stock.symbol} className="flex items-center justify-between p-3 bg-green-50 rounded-lg" data-testid={`gainer-${stock.symbol}`}>
+                  <div key={stock.symbol} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/30 rounded-lg" data-testid={`gainer-${stock.symbol}`}>
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-bold text-green-700">#{index + 1}</span>
+                      <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-bold text-green-700 dark:text-green-300">#{index + 1}</span>
                       </div>
                       <div>
                         <p className="font-medium text-foreground">{stock.name}</p>
@@ -389,7 +389,7 @@ export function MSEIData() {
         <TabsContent value="losers" data-testid="msei-losers">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center text-red-700">
+              <CardTitle className="flex items-center text-red-700 dark:text-red-300">
                 <TrendingDown className="h-5 w-5 mr-2" />
                 Declining MSEI Stocks
               </CardTitle>
@@ -397,10 +397,10 @@ export function MSEIData() {
             <CardContent>
               <div className="space-y-3">
                 {losersData.map((stock, index) => (
-                  <div key={stock.symbol} className="flex items-center justify-between p-3 bg-red-50 rounded-lg" data-testid={`loser-${stock.symbol}`}>
+                  <div key={stock.symbol} className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-950/30 rounded-lg" data-testid={`loser-${stock.symbol}`}>
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-bold text-red-700">#{index + 1}</span>
+                      <div className="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-bold text-red-700 dark:text-red-300">#{index + 1}</span>
                       </div>
                       <div>
                         <p className="font-medium text-foreground">{stock.name}</p>
@@ -431,19 +431,19 @@ export function MSEIData() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
+            <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
               <p className="text-2xl font-bold text-blue-600">{equitiesData.length}</p>
               <p className="text-sm text-muted-foreground">Listed Equities</p>
             </div>
-            <div className="text-center p-4 bg-green-50 rounded-lg">
+            <div className="text-center p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
               <p className="text-2xl font-bold text-green-600">{currenciesData.length}</p>
               <p className="text-sm text-muted-foreground">Currency Pairs</p>
             </div>
-            <div className="text-center p-4 bg-purple-50 rounded-lg">
+            <div className="text-center p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
               <p className="text-2xl font-bold text-purple-600">{derivativesData.length}</p>
               <p className="text-sm text-muted-foreground">Derivatives</p>
             </div>
-            <div className="text-center p-4 bg-orange-50 rounded-lg">
+            <div className="text-center p-4 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
               <p className="text-2xl font-bold text-orange-600">
                 {equitiesData.filter(e => e.change > 0).length}
               </p>

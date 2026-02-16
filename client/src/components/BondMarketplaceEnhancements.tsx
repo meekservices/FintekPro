@@ -130,10 +130,10 @@ export function KYCTierBadge({ tier }: { tier: string }) {
     switch (kycTier) {
       case 'accredited_investor':
       case 'tier_3':
-        return { label: 'Accredited', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: Star };
+        return { label: 'Accredited', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800', icon: Star };
       case 'enhanced':
       case 'tier_2':
-        return { label: 'Enhanced KYC', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Shield };
+        return { label: 'Enhanced KYC', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800', icon: Shield };
       case 'basic':
       case 'tier_1':
       default:
@@ -163,7 +163,7 @@ export function EligibilityBadge({
 }) {
   if (eligible) {
     return (
-      <Badge className="bg-green-100 text-green-700 border-green-200 flex items-center gap-1" variant="outline">
+      <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 flex items-center gap-1" variant="outline">
         <Unlock className="h-3 w-3" />
         Eligible
       </Badge>
@@ -176,7 +176,7 @@ export function EligibilityBadge({
         <TooltipTrigger asChild>
           <span onClick={onUpgradeClick} data-testid="upgrade-kyc-badge" className="cursor-pointer">
             <Badge 
-              className="bg-amber-100 text-amber-700 border-amber-200 flex items-center gap-1 hover:bg-amber-200 transition-colors" 
+              className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 flex items-center gap-1 hover:bg-amber-200 dark:bg-amber-800/30 transition-colors" 
               variant="outline"
             >
               <Lock className="h-3 w-3" />
@@ -203,11 +203,11 @@ export function DataFreshnessIndicator({ lastUpdated, source }: { lastUpdated: D
   const getStatusConfig = () => {
     switch (freshnessStatus) {
       case 'fresh':
-        return { color: 'text-green-600', bgColor: 'bg-green-50', label: 'Live' };
+        return { color: 'text-green-600', bgColor: 'bg-green-50 dark:bg-green-950/30', label: 'Live' };
       case 'stale':
-        return { color: 'text-amber-600', bgColor: 'bg-amber-50', label: 'Updated recently' };
+        return { color: 'text-amber-600', bgColor: 'bg-amber-50 dark:bg-amber-950/30', label: 'Updated recently' };
       case 'outdated':
-        return { color: 'text-red-600', bgColor: 'bg-red-50', label: 'May be outdated' };
+        return { color: 'text-red-600', bgColor: 'bg-red-50 dark:bg-red-950/30', label: 'May be outdated' };
     }
   };
 
@@ -300,7 +300,7 @@ export function NetYieldDisplay({
         <span className="text-sm text-muted-foreground line-through">
           {grossYield.toFixed(2)}%
         </span>
-        <Badge variant="outline" className="text-xs bg-red-50 text-red-600 border-red-200">
+        <Badge variant="outline" className="text-xs bg-red-50 dark:bg-red-950/30 text-red-600 border-red-200 dark:border-red-800">
           -{yieldImpact.toFixed(2)}% fees
         </Badge>
       </div>
@@ -334,7 +334,7 @@ export function SuitabilityScore({
           <span className="font-medium text-foreground">Suitability Match</span>
         </div>
         {recommended && (
-          <Badge className="bg-green-100 text-green-700 border-green-200">
+          <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">
             <Star className="h-3 w-3 mr-1" />
             Recommended
           </Badge>
@@ -394,10 +394,10 @@ export function RiskDisclosureModal({
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'bg-red-100 text-red-700 border-red-300';
-      case 'high': return 'bg-orange-100 text-orange-700 border-orange-300';
-      case 'medium': return 'bg-amber-100 text-amber-700 border-amber-300';
-      default: return 'bg-blue-100 text-blue-700 border-blue-300';
+      case 'critical': return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700';
+      case 'high': return 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-700';
+      case 'medium': return 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700';
+      default: return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700';
     }
   };
 
@@ -411,10 +411,10 @@ export function RiskDisclosureModal({
 
   return (
     <div className="space-y-4">
-      <Alert className="bg-amber-50 border-amber-200">
+      <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
         <AlertCircle className="h-4 w-4 text-amber-600" />
-        <AlertTitle className="text-amber-800">SEBI Mandatory Risk Disclosure</AlertTitle>
-        <AlertDescription className="text-amber-700 text-sm">
+        <AlertTitle className="text-amber-800 dark:text-amber-200">SEBI Mandatory Risk Disclosure</AlertTitle>
+        <AlertDescription className="text-amber-700 dark:text-amber-300 text-sm">
           Before proceeding with your investment in {bondName}, you must acknowledge the following risks as mandated by SEBI regulations.
         </AlertDescription>
       </Alert>
@@ -569,10 +569,10 @@ const getFilterCreditRatingColors = (rating: string, isSelected: boolean): strin
     return 'bg-muted text-foreground border-border hover:bg-muted';
   } else {
     // Unselected state - lighter background with colored text/border
-    if (r === 'SOV' || r === 'AAA') return 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100';
-    if (r.startsWith('AA')) return 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100';
-    if (r.startsWith('A')) return 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100';
-    if (r.startsWith('BBB')) return 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100';
+    if (r === 'SOV' || r === 'AAA') return 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/30';
+    if (r.startsWith('AA')) return 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 hover:bg-green-100 dark:bg-green-900/30';
+    if (r.startsWith('A')) return 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:bg-blue-900/30';
+    if (r.startsWith('BBB')) return 'bg-yellow-50 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900/30';
     return 'bg-muted text-muted-foreground border-border hover:bg-muted';
   }
 };
@@ -620,14 +620,14 @@ const getFilterInstrumentTypeColors = (type: string, isSelected: boolean): strin
     return 'bg-muted text-foreground border-border hover:bg-muted';
   } else {
     // Unselected state - lighter background with colored text/border
-    if (t === 'gsec' || t === 'government') return 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100';
-    if (t === 'sdl' || t === 'state') return 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100';
-    if (t === 'tbill') return 'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100';
-    if (t === 'sgb' || t === 'gold') return 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100';
-    if (t === 'corporate') return 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100';
-    if (t === 'ncd') return 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100';
-    if (t === 'infrastructure') return 'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100';
-    if (t === 'tax_free') return 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100';
+    if (t === 'gsec' || t === 'government') return 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:bg-blue-900/30';
+    if (t === 'sdl' || t === 'state') return 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:bg-indigo-900/30';
+    if (t === 'tbill') return 'bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800 hover:bg-sky-100 dark:bg-sky-900/30';
+    if (t === 'sgb' || t === 'gold') return 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:bg-amber-900/30';
+    if (t === 'corporate') return 'bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:bg-purple-900/30';
+    if (t === 'ncd') return 'bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:bg-orange-900/30';
+    if (t === 'infrastructure') return 'bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:bg-teal-900/30';
+    if (t === 'tax_free') return 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 hover:bg-green-100 dark:bg-green-900/30';
     return 'bg-muted text-muted-foreground border-border hover:bg-muted';
   }
 };

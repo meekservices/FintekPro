@@ -21,13 +21,13 @@ export default function ApiMonitorDemo() {
       case 'healthy':
       case 'configured':
       case 'available':
-        return 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 hover:from-green-100 hover:to-emerald-100';
+        return 'bg-gradient-to-r from-green-50 dark:from-green-950/30 to-emerald-50 dark:to-emerald-950/30 border-green-200 dark:border-green-800 hover:from-green-100 dark:from-green-900/30 hover:to-emerald-100 dark:to-emerald-900/30';
       case 'degraded':
-        return 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200 hover:from-yellow-100 hover:to-orange-100';
+        return 'bg-gradient-to-r from-yellow-50 dark:from-yellow-950/30 to-orange-50 dark:to-orange-950/30 border-yellow-200 dark:border-yellow-800 hover:from-yellow-100 dark:from-yellow-900/30 hover:to-orange-100 dark:to-orange-900/30';
       case 'error':
-        return 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200 hover:from-red-100 hover:to-pink-100';
+        return 'bg-gradient-to-r from-red-50 dark:from-red-950/30 to-pink-50 dark:to-pink-950/30 border-red-200 dark:border-red-800 hover:from-red-100 dark:from-red-900/30 hover:to-pink-100 dark:to-pink-900/30';
       case 'not_configured':
-        return 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200 hover:from-blue-100 hover:to-cyan-100';
+        return 'bg-gradient-to-r from-blue-50 dark:from-blue-950/30 to-cyan-50 dark:to-cyan-950/30 border-blue-200 dark:border-blue-800 hover:from-blue-100 dark:from-blue-900/30 hover:to-cyan-100 dark:to-cyan-900/30';
       default:
         return 'bg-gradient-to-r from-gray-50 to-slate-50 border-border hover:from-gray-100 hover:to-slate-100';
     }
@@ -71,13 +71,13 @@ export default function ApiMonitorDemo() {
       case 'healthy':
       case 'configured':
       case 'available':
-        return 'bg-green-100 text-green-700 border-green-300';
+        return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700';
       case 'degraded':
-        return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+        return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700';
       case 'error':
-        return 'bg-red-100 text-red-700 border-red-300';
+        return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700';
       case 'not_configured':
-        return 'bg-blue-100 text-blue-700 border-blue-300';
+        return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700';
       default:
         return 'bg-muted text-muted-foreground border-border';
     }
@@ -85,10 +85,10 @@ export default function ApiMonitorDemo() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:to-blue-950/30 p-6">
         <div className="max-w-7xl mx-auto">
           <Card className="overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
+            <CardHeader className="bg-gradient-to-r from-blue-50 dark:from-blue-950/30 to-indigo-50 dark:to-indigo-950/30">
               <CardTitle className="flex items-center gap-2">
                 <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
                 API Status Monitor - Loading...
@@ -111,10 +111,10 @@ export default function ApiMonitorDemo() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:to-blue-950/30 p-6">
         <div className="max-w-7xl mx-auto">
-          <Card className="border-red-200">
-            <CardHeader className="bg-gradient-to-r from-red-50 to-pink-50 border-b border-red-200">
+          <Card className="border-red-200 dark:border-red-800">
+            <CardHeader className="bg-gradient-to-r from-red-50 dark:from-red-950/30 to-pink-50 dark:to-pink-950/30 border-b border-red-200 dark:border-red-800">
               <CardTitle className="flex items-center gap-2 text-red-600">
                 <ShieldAlert className="w-6 h-6" />
                 API Status Monitor - Connection Error
@@ -134,7 +134,7 @@ export default function ApiMonitorDemo() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:to-blue-950/30 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center">
@@ -144,7 +144,7 @@ export default function ApiMonitorDemo() {
 
         {/* Overall Status Dashboard */}
         <Card className="overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-blue-200">
+          <CardHeader className="bg-gradient-to-r from-blue-50 dark:from-blue-950/30 to-indigo-50 dark:to-indigo-950/30 border-b-2 border-blue-200 dark:border-blue-800">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="p-2 rounded-full bg-card bg-opacity-50">
@@ -167,25 +167,25 @@ export default function ApiMonitorDemo() {
           </CardHeader>
           <CardContent className="p-4">
             <div className="grid grid-cols-4 gap-4 text-center">
-              <div className="p-3 bg-green-50 rounded-lg">
+              <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                 <div className="text-2xl font-bold text-green-600">
                   {Object.values((apiStatus as ApiStatusData)?.apis || {}).filter((api: any) => api.status === 'healthy' || api.status === 'configured').length}
                 </div>
                 <div className="text-sm text-green-600">Healthy</div>
               </div>
-              <div className="p-3 bg-yellow-50 rounded-lg">
+              <div className="p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
                 <div className="text-2xl font-bold text-yellow-600">
                   {Object.values((apiStatus as ApiStatusData)?.apis || {}).filter((api: any) => api.status === 'degraded').length}
                 </div>
                 <div className="text-sm text-yellow-600">Degraded</div>
               </div>
-              <div className="p-3 bg-red-50 rounded-lg">
+              <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-lg">
                 <div className="text-2xl font-bold text-red-600">
                   {Object.values((apiStatus as ApiStatusData)?.apis || {}).filter((api: any) => api.status === 'error').length}
                 </div>
                 <div className="text-sm text-red-600">Error</div>
               </div>
-              <div className="p-3 bg-blue-50 rounded-lg">
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                 <div className="text-2xl font-bold text-blue-600">
                   {Object.values((apiStatus as ApiStatusData)?.apis || {}).filter((api: any) => api.status === 'not_configured').length}
                 </div>
@@ -269,12 +269,12 @@ export default function ApiMonitorDemo() {
 
                       {/* Error Information */}
                       {api.error && (
-                        <div className="bg-red-50 border border-red-200 p-3 rounded-lg">
+                        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 rounded-lg">
                           <div className="text-xs text-red-500 mb-1 font-medium flex items-center gap-1">
                             <AlertTriangle className="w-3 h-3" />
                             Error Details
                           </div>
-                          <div className="text-sm text-red-700 leading-tight">
+                          <div className="text-sm text-red-700 dark:text-red-300 leading-tight">
                             {api.error}
                           </div>
                         </div>
@@ -282,12 +282,12 @@ export default function ApiMonitorDemo() {
 
                       {/* Status-specific Information */}
                       {api.status === 'not_configured' && (
-                        <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                        <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 rounded-lg">
                           <div className="text-xs text-blue-500 mb-1 font-medium flex items-center gap-1">
                             <Settings className="w-3 h-3" />
                             Configuration Required
                           </div>
-                          <div className="text-sm text-blue-700 leading-tight">
+                          <div className="text-sm text-blue-700 dark:text-blue-300 leading-tight">
                             This API requires configuration. Please check environment variables or settings.
                           </div>
                         </div>
@@ -295,12 +295,12 @@ export default function ApiMonitorDemo() {
 
                       {/* Recommendations */}
                       {api.recommendations && (
-                        <div className="bg-indigo-50 border border-indigo-200 p-3 rounded-lg">
+                        <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 p-3 rounded-lg">
                           <div className="text-xs text-indigo-500 mb-1 font-medium flex items-center gap-1">
                             <Lightbulb className="w-3 h-3" />
                             Recommendations
                           </div>
-                          <div className="text-sm text-indigo-700 leading-tight">
+                          <div className="text-sm text-indigo-700 dark:text-indigo-300 leading-tight">
                             {api.recommendations}
                           </div>
                         </div>

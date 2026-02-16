@@ -163,7 +163,7 @@ export function ProductSuitabilityIndicator({
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Badge variant="outline" className={cn("text-amber-600 border-amber-200", className)}>
+            <Badge variant="outline" className={cn("text-amber-600 border-amber-200 dark:border-amber-800", className)}>
               <AlertTriangle className="h-3 w-3 mr-1" />
               Profile Required
             </Badge>

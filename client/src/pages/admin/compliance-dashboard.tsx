@@ -115,10 +115,10 @@ export default function ComplianceDashboard() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'bg-emerald-100 text-emerald-800';
-      case 'pending': return 'bg-amber-100 text-amber-800';
-      case 'overdue': return 'bg-red-100 text-red-800';
-      case 'upcoming': return 'bg-blue-100 text-blue-800';
+      case 'completed': return 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200';
+      case 'pending': return 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200';
+      case 'overdue': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200';
+      case 'upcoming': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200';
       default: return 'bg-muted text-foreground';
     }
   };

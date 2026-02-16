@@ -138,7 +138,7 @@ export function LoanEligibilityCalculator() {
         </div>
 
         {result && (
-          <Card className={`${result.isEligible ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+          <Card className={`${result.isEligible ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30' : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30'}`}>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 {result.isEligible ? (
@@ -207,8 +207,8 @@ export function LoanEligibilityCalculator() {
               )}
 
               {!result.isEligible && (
-                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">
+                <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
                     <strong>Suggestion:</strong> Try reducing the loan amount or add more securities to your portfolio to increase eligibility.
                   </p>
                 </div>

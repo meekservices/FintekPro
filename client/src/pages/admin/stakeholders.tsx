@@ -1919,8 +1919,8 @@ export default function StakeholdersPage() {
                   <Badge 
                     variant={viewingClient.kycStatus === "approved" ? "default" : "secondary"}
                     className={
-                      viewingClient.kycStatus === "approved" ? "bg-green-100 text-green-800" :
-                      viewingClient.kycStatus === "pending" ? "bg-yellow-100 text-yellow-800" :
+                      viewingClient.kycStatus === "approved" ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200" :
+                      viewingClient.kycStatus === "pending" ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200" :
                       "bg-muted"
                     }
                   >

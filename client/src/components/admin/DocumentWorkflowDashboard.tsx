@@ -325,7 +325,7 @@ export default function DocumentWorkflowDashboard() {
                                             <div className="flex items-center gap-2">
                                               <Badge variant="outline">{p.role}</Badge>
                                               {p.hasSigned && (
-                                                <Badge className="bg-green-100 text-green-800">
+                                                <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                                                   <CheckCircle className="h-3 w-3 mr-1" />
                                                   Signed
                                                 </Badge>

@@ -197,7 +197,7 @@ function DealSettlementCard({ deal, userRole }: { deal: Deal; userRole: string }
               </div>
               <Progress 
                 value={progress.percentage} 
-                className={`h-2 ${progress.status === 'delayed' ? 'bg-red-200' : ''}`}
+                className={`h-2 ${progress.status === 'delayed' ? 'bg-red-200 dark:bg-red-800/30' : ''}`}
               />
             </div>
           )}

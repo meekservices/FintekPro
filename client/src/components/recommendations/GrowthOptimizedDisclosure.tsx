@@ -52,7 +52,7 @@ export function GrowthOptimizedDisclosure({
                 <h4 className="font-semibold text-orange-800 dark:text-orange-200">
                   Growth-Optimized Mode Active
                 </h4>
-                <Badge variant="outline" className="text-xs border-orange-400 text-orange-700">
+                <Badge variant="outline" className="text-xs border-orange-400 text-orange-700 dark:text-orange-300">
                   55% Upside / 45% Suitability
                 </Badge>
               </div>

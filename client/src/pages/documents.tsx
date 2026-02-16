@@ -52,11 +52,11 @@ interface DocumentsResponse {
 function getStatusBadge(status: Document['clientStatus']) {
   switch (status) {
     case 'pending':
-      return <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50"><Clock className="h-3 w-3 mr-1" />Pending Signature</Badge>;
+      return <Badge variant="outline" className="text-amber-600 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30"><Clock className="h-3 w-3 mr-1" />Pending Signature</Badge>;
     case 'completed':
-      return <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50"><CheckCircle2 className="h-3 w-3 mr-1" />Signed</Badge>;
+      return <Badge variant="outline" className="text-green-600 border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/30"><CheckCircle2 className="h-3 w-3 mr-1" />Signed</Badge>;
     case 'declined':
-      return <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50"><XCircle className="h-3 w-3 mr-1" />Declined</Badge>;
+      return <Badge variant="outline" className="text-red-600 border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/30"><XCircle className="h-3 w-3 mr-1" />Declined</Badge>;
     case 'expired':
       return <Badge variant="outline" className="text-muted-foreground border-border bg-muted"><AlertCircle className="h-3 w-3 mr-1" />Expired</Badge>;
     default:
@@ -139,7 +139,7 @@ function DocumentCard({ document, onSign }: { document: Document; onSign: (doc: 
           </div>
         </div>
         {document.declineReason && (
-          <div className="mt-3 p-2 bg-red-50 rounded text-sm text-red-700">
+          <div className="mt-3 p-2 bg-red-50 dark:bg-red-950/30 rounded text-sm text-red-700 dark:text-red-300">
             <strong>Decline reason:</strong> {document.declineReason}
           </div>
         )}

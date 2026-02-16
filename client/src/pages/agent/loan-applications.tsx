@@ -58,14 +58,14 @@ interface Bank {
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
   draft: { label: "Draft", color: "bg-muted text-foreground", icon: FileText },
-  submitted: { label: "Submitted", color: "bg-blue-100 text-blue-800", icon: Clock },
-  eligibility_check: { label: "Eligibility Check", color: "bg-yellow-100 text-yellow-800", icon: AlertCircle },
-  routed: { label: "Routed to Banks", color: "bg-purple-100 text-purple-800", icon: Building2 },
-  pending_with_banks: { label: "Pending with Banks", color: "bg-orange-100 text-orange-800", icon: Clock },
-  in_review: { label: "In Review", color: "bg-cyan-100 text-cyan-800", icon: Eye },
-  approved: { label: "Approved", color: "bg-green-100 text-green-800", icon: CheckCircle },
-  rejected: { label: "Rejected", color: "bg-red-100 text-red-800", icon: XCircle },
-  disbursed: { label: "Disbursed", color: "bg-emerald-100 text-emerald-800", icon: CheckCircle },
+  submitted: { label: "Submitted", color: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200", icon: Clock },
+  eligibility_check: { label: "Eligibility Check", color: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200", icon: AlertCircle },
+  routed: { label: "Routed to Banks", color: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200", icon: Building2 },
+  pending_with_banks: { label: "Pending with Banks", color: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200", icon: Clock },
+  in_review: { label: "In Review", color: "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-200", icon: Eye },
+  approved: { label: "Approved", color: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200", icon: CheckCircle },
+  rejected: { label: "Rejected", color: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200", icon: XCircle },
+  disbursed: { label: "Disbursed", color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200", icon: CheckCircle },
 };
 
 const loanTypeLabels: Record<string, string> = {
@@ -441,7 +441,7 @@ export default function AgentLoanApplications() {
                             variant="ghost" 
                             size="sm" 
                             onClick={() => openDeleteDialog(app)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="text-red-600 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:bg-red-950/30"
                             title="Delete Application"
                           >
                             <Trash2 className="h-4 w-4" />

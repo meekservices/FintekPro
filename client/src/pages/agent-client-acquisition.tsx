@@ -809,7 +809,7 @@ export default function AgentClientAcquisitionPage() {
                           </TableCell>
                           <TableCell>
                             {analysis ? (
-                              <Badge className="bg-green-100 text-green-700">
+                              <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
                                 <CheckCircle2 className="h-3 w-3 mr-1" />
                                 Analyzed
                               </Badge>
@@ -1289,7 +1289,7 @@ export default function AgentClientAcquisitionPage() {
               </Card>
 
               {selectedProspect.portfolioAnalysis.concentrationRisk?.alerts?.length > 0 && (
-                <Card className="border-amber-200">
+                <Card className="border-amber-200 dark:border-amber-800">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
                       <AlertCircle className="h-4 w-4 text-amber-500" />

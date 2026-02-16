@@ -323,9 +323,9 @@ export default function MarketingDashboard() {
                     >
                       <div className="flex items-center gap-4">
                         <div className={`p-2 rounded-full ${
-                          lead.leadQuality === 'hot' ? 'bg-orange-100' :
-                          lead.leadQuality === 'warm' ? 'bg-yellow-100' :
-                          'bg-blue-100'
+                          lead.leadQuality === 'hot' ? 'bg-orange-100 dark:bg-orange-900/30' :
+                          lead.leadQuality === 'warm' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
+                          'bg-blue-100 dark:bg-blue-900/30'
                         }`}>
                           {lead.leadQuality === 'hot' ? (
                             <Star className="h-5 w-5 text-orange-500" />
@@ -347,8 +347,8 @@ export default function MarketingDashboard() {
                       <div className="text-right">
                         <div className="flex items-center gap-2">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            lead.status === 'converted' ? 'bg-green-100 text-green-700' :
-                            lead.status === 'contacted' ? 'bg-blue-100 text-blue-700' :
+                            lead.status === 'converted' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+                            lead.status === 'contacted' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' :
                             'bg-muted text-muted-foreground'
                           }`}>
                             {lead.status}

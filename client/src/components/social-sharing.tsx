@@ -89,10 +89,10 @@ export function SocialSharing({ achievement, userAchievement, userId }: SocialSh
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case 'beginner': return 'bg-green-100 text-green-800';
-      case 'intermediate': return 'bg-blue-100 text-blue-800';
-      case 'advanced': return 'bg-orange-100 text-orange-800';
-      case 'expert': return 'bg-purple-100 text-purple-800';
+      case 'beginner': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200';
+      case 'intermediate': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200';
+      case 'advanced': return 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200';
+      case 'expert': return 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200';
       default: return 'bg-muted text-foreground';
     }
   };

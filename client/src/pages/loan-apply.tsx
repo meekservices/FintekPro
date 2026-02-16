@@ -59,14 +59,14 @@ type LoanApplicationForm = z.infer<typeof loanApplicationSchema>;
 
 const statusColors: Record<string, string> = {
   draft: "bg-muted text-foreground",
-  submitted: "bg-blue-100 text-blue-800",
-  eligibility_check: "bg-purple-100 text-purple-800",
-  routed: "bg-indigo-100 text-indigo-800",
-  pending_with_banks: "bg-yellow-100 text-yellow-800",
-  in_review: "bg-orange-100 text-orange-800",
-  approved: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-800",
-  disbursed: "bg-emerald-100 text-emerald-800",
+  submitted: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
+  eligibility_check: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200",
+  routed: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200",
+  pending_with_banks: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200",
+  in_review: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200",
+  approved: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
+  rejected: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200",
+  disbursed: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200",
 };
 
 const statusIcons: Record<string, any> = {
@@ -563,7 +563,7 @@ export default function LoanApplyPage() {
                       return (
                         <div 
                           key={app.id}
-                          className="border rounded-lg p-4 hover:border-blue-300 transition-colors cursor-pointer"
+                          className="border rounded-lg p-4 hover:border-blue-300 dark:border-blue-700 transition-colors cursor-pointer"
                           onClick={() => setSelectedApplication(app.id)}
                         >
                           <div className="flex items-start justify-between mb-3">

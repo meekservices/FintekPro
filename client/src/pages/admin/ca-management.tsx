@@ -81,16 +81,16 @@ interface PerformanceData {
 }
 
 const VERIFICATION_STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-700',
-  verified: 'bg-green-100 text-green-700',
-  rejected: 'bg-red-100 text-red-700',
+  pending: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+  verified: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+  rejected: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
 };
 
 const AVAILABILITY_COLORS: Record<string, string> = {
-  available: 'bg-green-100 text-green-700',
-  busy: 'bg-yellow-100 text-yellow-700',
-  on_leave: 'bg-orange-100 text-orange-700',
-  unavailable: 'bg-red-100 text-red-700',
+  available: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+  busy: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+  on_leave: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+  unavailable: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
 };
 
 export default function CAManagement() {
@@ -342,7 +342,7 @@ export default function CAManagement() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-green-600 hover:text-green-700"
+                              className="text-green-600 hover:text-green-700 dark:text-green-300"
                               onClick={() => {
                                 setSelectedCA(ca);
                                 setVerifyAction('approve');
@@ -356,7 +356,7 @@ export default function CAManagement() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-red-600 hover:text-red-700"
+                              className="text-red-600 hover:text-red-700 dark:text-red-300"
                               onClick={() => {
                                 setSelectedCA(ca);
                                 setVerifyAction('reject');

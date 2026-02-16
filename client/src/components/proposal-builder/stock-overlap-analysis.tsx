@@ -75,9 +75,9 @@ interface StockOverlapAnalysisProps {
 
 const RiskBadge = ({ risk }: { risk: "HIGH" | "MEDIUM" | "LOW" }) => {
   const config = {
-    HIGH: { color: "bg-red-100 text-red-700 border-red-200", icon: AlertTriangle },
-    MEDIUM: { color: "bg-amber-100 text-amber-700 border-amber-200", icon: ShieldAlert },
-    LOW: { color: "bg-green-100 text-green-700 border-green-200", icon: TrendingUp },
+    HIGH: { color: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800", icon: AlertTriangle },
+    MEDIUM: { color: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800", icon: ShieldAlert },
+    LOW: { color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800", icon: TrendingUp },
   };
   const { color, icon: Icon } = config[risk];
   return (
@@ -430,7 +430,7 @@ export function StockOverlapAnalysis({
                         .filter((s) => s.riskFlag === "HIGH")
                         .slice(0, 5)
                         .map((s) => (
-                          <Badge key={s.stock} variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">
+                          <Badge key={s.stock} variant="outline" className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800">
                             {s.stock}: {s.totalExposure.toFixed(1)}%
                           </Badge>
                         ))}
@@ -454,7 +454,7 @@ export function StockOverlapAnalysis({
                         .filter((s) => s.riskFlag === "MEDIUM")
                         .slice(0, 5)
                         .map((s) => (
-                          <Badge key={s.stock} variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-200">
+                          <Badge key={s.stock} variant="outline" className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800">
                             {s.stock}: {s.totalExposure.toFixed(1)}%
                           </Badge>
                         ))}
@@ -476,7 +476,7 @@ export function StockOverlapAnalysis({
                       {analysis.sectorConcentration
                         .filter((s) => s.riskFlag === "HIGH")
                         .map((s) => (
-                          <Badge key={s.sector} variant="outline" className="text-xs bg-purple-100 text-purple-700 border-purple-200">
+                          <Badge key={s.sector} variant="outline" className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
                             {s.sector}: {s.exposure.toFixed(1)}%
                           </Badge>
                         ))}

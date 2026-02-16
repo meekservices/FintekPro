@@ -127,9 +127,9 @@ function getReturnColor(value: string | null): string {
 
 function getRiskBadge(score: number | null) {
   if (!score) return <Badge variant="outline" className="text-xs">N/A</Badge>;
-  if (score <= 3) return <Badge className="bg-green-100 text-green-800 text-xs">Low</Badge>;
-  if (score <= 6) return <Badge className="bg-yellow-100 text-yellow-800 text-xs">Medium</Badge>;
-  return <Badge className="bg-red-100 text-red-800 text-xs">High</Badge>;
+  if (score <= 3) return <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 text-xs">Low</Badge>;
+  if (score <= 6) return <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 text-xs">Medium</Badge>;
+  return <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 text-xs">High</Badge>;
 }
 
 function getStatusBadge(status: string | null) {
@@ -968,12 +968,12 @@ export default function AdminStoreManager() {
                           <td className="p-3 text-right">₹{Number(pricing.caAssistedFee).toLocaleString()}</td>
                           <td className="p-3 text-right">{pricing.caRevenueSharePercent}%</td>
                           <td className="p-3 text-center">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${pricing.complexityLevel === "simple" ? "bg-green-100 text-green-700" : pricing.complexityLevel === "standard" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${pricing.complexityLevel === "simple" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300" : pricing.complexityLevel === "standard" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300" : "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"}`}>
                               {pricing.complexityLevel}
                             </span>
                           </td>
                           <td className="p-3 text-center">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${pricing.isActive ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${pricing.isActive ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300" : "bg-muted text-muted-foreground"}`}>
                               {pricing.isActive ? "Active" : "Inactive"}
                             </span>
                           </td>
@@ -1058,12 +1058,12 @@ export default function AdminStoreManager() {
                           </td>
                           <td className="p-3 text-center">
                             <span className={`px-2 py-1 rounded text-xs font-medium ${
-                              fee.category === "regulatory" ? "bg-blue-100 text-blue-700" :
-                              fee.category === "platform" ? "bg-purple-100 text-purple-700" :
-                              fee.category === "advisory" ? "bg-green-100 text-green-700" :
-                              fee.category === "document" ? "bg-orange-100 text-orange-700" :
-                              fee.category === "convenience" ? "bg-yellow-100 text-yellow-700" :
-                              "bg-pink-100 text-pink-700"
+                              fee.category === "regulatory" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300" :
+                              fee.category === "platform" ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300" :
+                              fee.category === "advisory" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300" :
+                              fee.category === "document" ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300" :
+                              fee.category === "convenience" ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300" :
+                              "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
                             }`}>
                               {fee.category}
                             </span>
@@ -1075,7 +1075,7 @@ export default function AdminStoreManager() {
                              `${fee.rateValue}%`}
                           </td>
                           <td className="p-3 text-center">
-                            {fee.isGstApplicable ? <Badge className="bg-green-100 text-green-700 text-xs">{fee.gstRate}%</Badge> : <Badge variant="outline" className="text-xs">Exempt</Badge>}
+                            {fee.isGstApplicable ? <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs">{fee.gstRate}%</Badge> : <Badge variant="outline" className="text-xs">Exempt</Badge>}
                           </td>
                           <td className="p-3 text-center">
                             <Switch checked={fee.isActive ?? true} onCheckedChange={() => toggleFeeMutation.mutate(fee.id)} data-testid={`switch-fee-status-${fee.id}`} />

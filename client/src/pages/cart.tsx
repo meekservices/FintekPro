@@ -547,11 +547,11 @@ export default function Cart() {
   const getSourceColor = (source: string) => {
     switch (source) {
       case 'ai':
-        return 'bg-purple-100 text-purple-600';
+        return 'bg-purple-100 dark:bg-purple-900/30 text-purple-600';
       case 'agent':
-        return 'bg-blue-100 text-blue-600';
+        return 'bg-blue-100 dark:bg-blue-900/30 text-blue-600';
       case 'client':
-        return 'bg-green-100 text-green-600';
+        return 'bg-green-100 dark:bg-green-900/30 text-green-600';
       default:
         return 'bg-muted text-muted-foreground';
     }
@@ -573,13 +573,13 @@ export default function Cart() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+        return 'bg-yellow-50 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800';
       case 'accepted':
-        return 'bg-green-50 text-green-700 border-green-200';
+        return 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800';
       case 'in_cart':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
+        return 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800';
       case 'rejected':
-        return 'bg-red-50 text-red-700 border-red-200';
+        return 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800';
       case 'completed':
         return 'bg-muted text-muted-foreground border-border';
       default:
@@ -835,9 +835,9 @@ export default function Cart() {
                                     <Badge variant="outline">{item.product?.category}</Badge>
                                     <span className="text-sm text-muted-foreground">by {item.product?.provider}</span>
                                     <Badge className={
-                                      item.product?.riskLevel === "low" ? "bg-green-100 text-green-700" :
-                                      item.product?.riskLevel === "medium" ? "bg-yellow-100 text-yellow-700" :
-                                      "bg-red-100 text-red-700"
+                                      item.product?.riskLevel === "low" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300" :
+                                      item.product?.riskLevel === "medium" ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300" :
+                                      "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
                                     }>
                                       {item.product?.riskLevel} risk
                                     </Badge>
@@ -1014,7 +1014,7 @@ export default function Cart() {
                           <span>Fee calculation failed. </span>
                           <button 
                             onClick={() => refetchCartFees()}
-                            className="underline hover:text-red-700"
+                            className="underline hover:text-red-700 dark:text-red-300"
                           >
                             Retry
                           </button>
@@ -1134,9 +1134,9 @@ export default function Cart() {
                                   {/* Source Badge */}
                                   <Badge 
                                     className={`text-xs ${
-                                      item.source === 'ai' ? 'bg-purple-100 text-purple-700' :
-                                      item.source === 'agent' ? 'bg-blue-100 text-blue-700' :
-                                      'bg-green-100 text-green-700'
+                                      item.source === 'ai' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' :
+                                      item.source === 'agent' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' :
+                                      'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
                                     }`}
                                     data-testid={`badge-source-${item.id}`}
                                   >
@@ -1149,8 +1149,8 @@ export default function Cart() {
                                   <Badge 
                                     variant={item.status === 'approved' ? 'default' : 'outline'}
                                     className={
-                                      item.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                                      item.status === 'approved' ? 'bg-green-50 text-green-700 border-green-200' :
+                                      item.status === 'pending' ? 'bg-yellow-50 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800' :
+                                      item.status === 'approved' ? 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800' :
                                       ''
                                     }
                                     data-testid={`badge-status-${item.id}`}
@@ -1332,7 +1332,7 @@ export default function Cart() {
                             <span>Fee calculation failed. </span>
                             <button 
                               onClick={() => refetchInvestmentFees()}
-                              className="underline hover:text-red-700"
+                              className="underline hover:text-red-700 dark:text-red-300"
                             >
                               Retry
                             </button>
@@ -1496,71 +1496,71 @@ export default function Cart() {
             
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-              <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+              <Card className="bg-gradient-to-r from-purple-50 dark:from-purple-950/30 to-blue-50 dark:to-blue-950/30 border-purple-200 dark:border-purple-800">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-purple-100 rounded-lg">
+                    <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
                       <Bot className="w-6 h-6 text-purple-600" />
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-purple-600" data-testid="text-ai-count">{aiCount}</p>
-                      <p className="text-sm font-medium text-purple-800">AI Generated</p>
+                      <p className="text-sm font-medium text-purple-800 dark:text-purple-200">AI Generated</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+              <Card className="bg-gradient-to-r from-blue-50 dark:from-blue-950/30 to-indigo-50 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-blue-100 rounded-lg">
+                    <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                       <Users className="w-6 h-6 text-blue-600" />
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-blue-600" data-testid="text-agent-count">{agentCount}</p>
-                      <p className="text-sm font-medium text-blue-800">Agent Created</p>
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Agent Created</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+              <Card className="bg-gradient-to-r from-green-50 dark:from-green-950/30 to-emerald-50 dark:to-emerald-950/30 border-green-200 dark:border-green-800">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-green-100 rounded-lg">
+                    <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
                       <User className="w-6 h-6 text-green-600" />
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-green-600" data-testid="text-client-count">{clientCount}</p>
-                      <p className="text-sm font-medium text-green-800">Client Created</p>
+                      <p className="text-sm font-medium text-green-800 dark:text-green-200">Client Created</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card className="bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200">
+              <Card className="bg-gradient-to-r from-yellow-50 dark:from-yellow-950/30 to-amber-50 dark:to-amber-950/30 border-yellow-200 dark:border-yellow-800">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-yellow-100 rounded-lg">
+                    <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
                       <Clock className="w-6 h-6 text-yellow-600" />
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-yellow-600" data-testid="text-pending-count">{pendingCount}</p>
-                      <p className="text-sm font-medium text-yellow-800">Pending Review</p>
+                      <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Pending Review</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card className="bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
+              <Card className="bg-gradient-to-r from-orange-50 dark:from-orange-950/30 to-red-50 dark:to-red-950/30 border-orange-200 dark:border-orange-800">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-orange-100 rounded-lg">
+                    <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
                       <Zap className="w-6 h-6 text-orange-600" />
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-orange-600" data-testid="text-high-priority-count">{highPriorityCount}</p>
-                      <p className="text-sm font-medium text-orange-800">High Priority</p>
+                      <p className="text-sm font-medium text-orange-800 dark:text-orange-200">High Priority</p>
                     </div>
                   </div>
                 </CardContent>
@@ -1639,7 +1639,7 @@ export default function Cart() {
                 <div className="flex items-center gap-2 mb-4">
                   <CreditCard className="w-5 h-5 text-amber-600" />
                   <h3 className="text-xl font-semibold">Pending Bond Orders</h3>
-                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                  <Badge variant="outline" className="bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800">
                     {pendingBondOrders.length} Awaiting Payment
                   </Badge>
                 </div>
@@ -1683,7 +1683,7 @@ export default function Cart() {
                           </div>
                           <div>
                             <p className="text-muted-foreground">Status</p>
-                            <Badge className="bg-amber-50 text-amber-700 border-amber-200">
+                            <Badge className="bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800">
                               {order.orderStatus?.toUpperCase()}
                             </Badge>
                           </div>

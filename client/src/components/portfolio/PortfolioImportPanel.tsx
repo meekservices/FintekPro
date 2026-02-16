@@ -381,7 +381,7 @@ export function PortfolioImportPanel({
                             Matched
                           </Badge>
                         ) : holding.symbol ? (
-                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 hover:bg-amber-200">
+                          <Badge variant="secondary" className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:bg-amber-800/30">
                             <AlertCircle className="w-3 h-3 mr-1" />
                             Partial
                           </Badge>

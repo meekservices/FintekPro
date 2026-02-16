@@ -16,10 +16,10 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { LoadingState } from "@/components/LoadingState";
 
 const PRODUCT_TYPES = {
-  aif: { label: "AIF", color: "bg-blue-100 text-blue-700", icon: Building2, gradient: "from-blue-500 to-indigo-500" },
-  pms: { label: "PMS", color: "bg-purple-100 text-purple-700", icon: Briefcase, gradient: "from-purple-500 to-pink-500" },
-  mld: { label: "MLD", color: "bg-teal-100 text-teal-700", icon: BarChart3, gradient: "from-teal-500 to-cyan-500" },
-  mutual_fund: { label: "Mutual Fund", color: "bg-orange-100 text-orange-700", icon: TrendingUp, gradient: "from-orange-500 to-amber-500" },
+  aif: { label: "AIF", color: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300", icon: Building2, gradient: "from-blue-500 to-indigo-500" },
+  pms: { label: "PMS", color: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300", icon: Briefcase, gradient: "from-purple-500 to-pink-500" },
+  mld: { label: "MLD", color: "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300", icon: BarChart3, gradient: "from-teal-500 to-cyan-500" },
+  mutual_fund: { label: "Mutual Fund", color: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300", icon: TrendingUp, gradient: "from-orange-500 to-amber-500" },
 };
 
 export default function UnifiedCart() {
@@ -134,45 +134,45 @@ export default function UnifiedCart() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+          <Card className="bg-gradient-to-br from-blue-50 dark:from-blue-950/30 to-indigo-50 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-blue-600">AIF Items</p>
-                  <p className="text-3xl font-bold text-blue-700">{categoryCounts.aif}</p>
+                  <p className="text-3xl font-bold text-blue-700 dark:text-blue-300">{categoryCounts.aif}</p>
                 </div>
                 <Building2 className="w-10 h-10 text-blue-500" />
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
+          <Card className="bg-gradient-to-br from-purple-50 dark:from-purple-950/30 to-pink-50 dark:to-pink-950/30 border-purple-200 dark:border-purple-800">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-purple-600">PMS Items</p>
-                  <p className="text-3xl font-bold text-purple-700">{categoryCounts.pms}</p>
+                  <p className="text-3xl font-bold text-purple-700 dark:text-purple-300">{categoryCounts.pms}</p>
                 </div>
                 <Briefcase className="w-10 h-10 text-purple-500" />
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-teal-50 to-cyan-50 border-teal-200">
+          <Card className="bg-gradient-to-br from-teal-50 dark:from-teal-950/30 to-cyan-50 dark:to-cyan-950/30 border-teal-200 dark:border-teal-800">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-teal-600">MLD Items</p>
-                  <p className="text-3xl font-bold text-teal-700">{categoryCounts.mld}</p>
+                  <p className="text-3xl font-bold text-teal-700 dark:text-teal-300">{categoryCounts.mld}</p>
                 </div>
                 <BarChart3 className="w-10 h-10 text-teal-500" />
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200">
+          <Card className="bg-gradient-to-br from-orange-50 dark:from-orange-950/30 to-amber-50 dark:to-amber-950/30 border-orange-200 dark:border-orange-800">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-orange-600">Total Value</p>
-                  <p className="text-2xl font-bold text-orange-700">₹{totalValue.toLocaleString('en-IN')}</p>
+                  <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">₹{totalValue.toLocaleString('en-IN')}</p>
                 </div>
                 <IndianRupee className="w-10 h-10 text-orange-500" />
               </div>
@@ -258,7 +258,7 @@ export default function UnifiedCart() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="text-red-500 hover:text-red-700 hover:bg-red-50 mt-2"
+                                      className="text-red-500 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:bg-red-950/30 mt-2"
                                       onClick={() => removeFromCartMutation.mutate(item.id)}
                                       disabled={removeFromCartMutation.isPending}
                                       data-testid={`remove-${productType}-${index}`}

@@ -146,9 +146,9 @@ export default function SupplierDashboard() {
 
   const getPriorityBadge = (priority: string) => {
     switch(priority) {
-      case "high": return "bg-red-100 text-red-800";
-      case "medium": return "bg-yellow-100 text-yellow-800";
-      case "low": return "bg-green-100 text-green-800";
+      case "high": return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200";
+      case "medium": return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200";
+      case "low": return "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200";
       default: return "bg-muted text-foreground";
     }
   };
@@ -327,16 +327,16 @@ export default function SupplierDashboard() {
                         <TableCell>₹{product.revenue.toLocaleString()}</TableCell>
                         <TableCell>
                           {product.isPromoted ? (
-                            <Badge className="bg-purple-100 text-purple-800">
+                            <Badge className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200">
                               <Megaphone className="h-3 w-3 mr-1" />
                               Promoted
                             </Badge>
                           ) : product.profitMargin >= 20 ? (
-                            <Badge className="bg-green-100 text-green-800">High Margin</Badge>
+                            <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">High Margin</Badge>
                           ) : product.profitMargin >= 10 ? (
-                            <Badge className="bg-yellow-100 text-yellow-800">Medium Margin</Badge>
+                            <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">Medium Margin</Badge>
                           ) : (
-                            <Badge className="bg-red-100 text-red-800">Low Margin</Badge>
+                            <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200">Low Margin</Badge>
                           )}
                         </TableCell>
                         <TableCell>
@@ -581,9 +581,9 @@ export default function SupplierDashboard() {
                         </TableCell>
                         <TableCell>
                           {supplier.isActive ? (
-                            <Badge className="bg-green-100 text-green-800">Active</Badge>
+                            <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">Active</Badge>
                           ) : (
-                            <Badge className="bg-red-100 text-red-800">Inactive</Badge>
+                            <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200">Inactive</Badge>
                           )}
                         </TableCell>
                         <TableCell>

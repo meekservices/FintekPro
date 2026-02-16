@@ -1471,7 +1471,7 @@ export function PortfolioEditor({
                                 size="icon"
                                 onClick={() => deleteRow(holding.id)}
                                 disabled={readOnly}
-                                className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                className="h-8 w-8 text-red-500 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:bg-red-950/30"
                                 data-testid={`button-delete-${holding.id}`}
                               >
                                 <Trash2 className="w-4 h-4" />

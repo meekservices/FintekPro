@@ -397,7 +397,7 @@ export default function ITRTaxServices() {
           </div>
           
           <div className="flex flex-wrap gap-4">
-            <Button size="lg" className="bg-card text-green-600 hover:bg-blue-50" data-testid="button-file-itr">
+            <Button size="lg" className="bg-card text-green-600 hover:bg-blue-50 dark:bg-blue-950/30" data-testid="button-file-itr">
               File ITR Now
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
@@ -431,7 +431,7 @@ export default function ITRTaxServices() {
             <CardContent>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {itrForms.map(form => (
-                  <Card key={form.id} className="relative border-2 hover:border-green-200 transition-colors cursor-pointer">
+                  <Card key={form.id} className="relative border-2 hover:border-green-200 dark:border-green-800 transition-colors cursor-pointer">
                     <CardHeader className="pb-4">
                       <div className="flex items-center justify-between mb-2">
                         <CardTitle className="text-lg">{form.name}</CardTitle>
@@ -517,7 +517,7 @@ export default function ITRTaxServices() {
             {filteredServices.map(service => (
               <Card key={service.id} className="relative overflow-hidden hover:shadow-lg transition-shadow">
                 {service.isPremium && (
-                  <div className="absolute top-0 right-0 bg-gradient-to-l from-yellow-400 to-yellow-600 text-yellow-900 px-3 py-1 text-xs font-semibold rounded-bl-lg">
+                  <div className="absolute top-0 right-0 bg-gradient-to-l from-yellow-400 to-yellow-600 text-yellow-900 dark:text-yellow-100 px-3 py-1 text-xs font-semibold rounded-bl-lg">
                     <Award className="h-3 w-3 inline mr-1" />
                     PREMIUM
                   </div>
@@ -623,7 +623,7 @@ export default function ITRTaxServices() {
             <CardContent>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {taxPlanningStrategies.map(strategy => (
-                  <Card key={strategy.id} className="border-2 border-blue-100 hover:border-blue-200 transition-colors">
+                  <Card key={strategy.id} className="border-2 border-blue-100 dark:border-blue-800 hover:border-blue-200 dark:border-blue-800 transition-colors">
                     <CardHeader className="pb-4">
                       <div className="flex items-center gap-3 mb-3">
                         <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">

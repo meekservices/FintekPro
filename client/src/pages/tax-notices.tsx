@@ -64,19 +64,19 @@ export default function TaxNoticesPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "pending": return <Badge className="bg-yellow-100 text-yellow-700">Pending</Badge>;
-      case "responded": return <Badge className="bg-blue-100 text-blue-700">Responded</Badge>;
-      case "closed": return <Badge className="bg-green-100 text-green-700">Closed</Badge>;
-      case "escalated": return <Badge className="bg-red-100 text-red-700">Escalated</Badge>;
+      case "pending": return <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300">Pending</Badge>;
+      case "responded": return <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">Responded</Badge>;
+      case "closed": return <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">Closed</Badge>;
+      case "escalated": return <Badge className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">Escalated</Badge>;
       default: return <Badge variant="secondary">{status}</Badge>;
     }
   };
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
-      case "high": return <Badge className="bg-red-100 text-red-700">High</Badge>;
-      case "medium": return <Badge className="bg-yellow-100 text-yellow-700">Medium</Badge>;
-      case "low": return <Badge className="bg-green-100 text-green-700">Low</Badge>;
+      case "high": return <Badge className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">High</Badge>;
+      case "medium": return <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300">Medium</Badge>;
+      case "low": return <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">Low</Badge>;
       default: return null;
     }
   };
@@ -126,7 +126,7 @@ export default function TaxNoticesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Pending</p>
-                <p className="text-2xl font-bold text-yellow-700">{notices.filter(n => n.status === "pending").length}</p>
+                <p className="text-2xl font-bold text-yellow-700 dark:text-yellow-300">{notices.filter(n => n.status === "pending").length}</p>
               </div>
               <Clock className="h-8 w-8 text-yellow-500" />
             </div>
@@ -137,7 +137,7 @@ export default function TaxNoticesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Responded</p>
-                <p className="text-2xl font-bold text-blue-700">{notices.filter(n => n.status === "responded").length}</p>
+                <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{notices.filter(n => n.status === "responded").length}</p>
               </div>
               <MessageSquare className="h-8 w-8 text-blue-500" />
             </div>
@@ -148,7 +148,7 @@ export default function TaxNoticesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Closed</p>
-                <p className="text-2xl font-bold text-green-700">{notices.filter(n => n.status === "closed").length}</p>
+                <p className="text-2xl font-bold text-green-700 dark:text-green-300">{notices.filter(n => n.status === "closed").length}</p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-500" />
             </div>
@@ -159,7 +159,7 @@ export default function TaxNoticesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Escalated</p>
-                <p className="text-2xl font-bold text-red-700">{notices.filter(n => n.status === "escalated").length}</p>
+                <p className="text-2xl font-bold text-red-700 dark:text-red-300">{notices.filter(n => n.status === "escalated").length}</p>
               </div>
               <AlertTriangle className="h-8 w-8 text-red-500" />
             </div>
@@ -201,9 +201,9 @@ export default function TaxNoticesPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4">
                       <div className={`p-3 rounded-lg ${
-                        notice.priority === "high" ? "bg-red-100 text-red-600" :
-                        notice.priority === "medium" ? "bg-yellow-100 text-yellow-600" :
-                        "bg-green-100 text-green-600"
+                        notice.priority === "high" ? "bg-red-100 dark:bg-red-900/30 text-red-600" :
+                        notice.priority === "medium" ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600" :
+                        "bg-green-100 dark:bg-green-900/30 text-green-600"
                       }`}>
                         <Scale className="h-6 w-6" />
                       </div>
@@ -277,9 +277,9 @@ export default function TaxNoticesPage() {
                   <Badge variant="outline">Section {notice.type}</Badge>
                   <Badge className={
                     notice.severity === "critical" ? "bg-red-600 text-white" :
-                    notice.severity === "high" ? "bg-red-100 text-red-700" :
-                    notice.severity === "medium" ? "bg-yellow-100 text-yellow-700" :
-                    "bg-green-100 text-green-700"
+                    notice.severity === "high" ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300" :
+                    notice.severity === "medium" ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300" :
+                    "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
                   }>
                     {notice.severity}
                   </Badge>

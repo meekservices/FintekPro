@@ -195,7 +195,7 @@ export default function CommissionLedgerPage() {
                   {summaryLoading ? <Skeleton className="h-8 w-24" /> : formatCurrency(summaryData?.totalGrossCommission || 0)}
                 </p>
               </div>
-              <div className="p-3 bg-green-100 rounded-lg">
+              <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
                 <IndianRupee className="h-6 w-6 text-green-600" />
               </div>
             </div>
@@ -211,7 +211,7 @@ export default function CommissionLedgerPage() {
                   {summaryLoading ? <Skeleton className="h-8 w-24" /> : formatCurrency(summaryData?.totalNetCommission || 0)}
                 </p>
               </div>
-              <div className="p-3 bg-blue-100 rounded-lg">
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                 <TrendingUp className="h-6 w-6 text-blue-600" />
               </div>
             </div>
@@ -227,7 +227,7 @@ export default function CommissionLedgerPage() {
                   {summaryLoading ? <Skeleton className="h-8 w-24" /> : formatCurrency(summaryData?.totalFintekProShare || 0)}
                 </p>
               </div>
-              <div className="p-3 bg-purple-100 rounded-lg">
+              <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
                 <PiggyBank className="h-6 w-6 text-purple-600" />
               </div>
             </div>
@@ -243,7 +243,7 @@ export default function CommissionLedgerPage() {
                   {summaryLoading ? <Skeleton className="h-8 w-24" /> : summaryData?.pendingCount || 0}
                 </p>
               </div>
-              <div className="p-3 bg-yellow-100 rounded-lg">
+              <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
                 <Clock className="h-6 w-6 text-yellow-600" />
               </div>
             </div>
@@ -384,15 +384,15 @@ export default function CommissionLedgerPage() {
                                   <div className="space-y-2">
                                     <p className="font-medium">Payout Distribution</p>
                                     <div className="grid grid-cols-3 gap-2 text-sm">
-                                      <div className="p-2 bg-purple-50 rounded">
+                                      <div className="p-2 bg-purple-50 dark:bg-purple-950/30 rounded">
                                         <p className="text-muted-foreground">FintekPro</p>
                                         <p className="font-medium">{formatCurrency(entry.fintekProAmount)}</p>
                                       </div>
-                                      <div className="p-2 bg-blue-50 rounded">
+                                      <div className="p-2 bg-blue-50 dark:bg-blue-950/30 rounded">
                                         <p className="text-muted-foreground">Partner</p>
                                         <p className="font-medium">{formatCurrency(entry.partnerAmount)}</p>
                                       </div>
-                                      <div className="p-2 bg-green-50 rounded">
+                                      <div className="p-2 bg-green-50 dark:bg-green-950/30 rounded">
                                         <p className="text-muted-foreground">Agent</p>
                                         <p className="font-medium">{formatCurrency(entry.agentAmount)}</p>
                                       </div>
@@ -538,15 +538,15 @@ export default function CommissionLedgerPage() {
                     </div>
                     <hr />
                     <div className="grid grid-cols-3 gap-2">
-                      <div className="p-2 bg-purple-100 rounded text-center">
+                      <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded text-center">
                         <p className="text-xs text-muted-foreground">FintekPro</p>
                         <p className="font-bold">{formatCurrency(calculatedCommission.data.fintekProAmount)}</p>
                       </div>
-                      <div className="p-2 bg-blue-100 rounded text-center">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded text-center">
                         <p className="text-xs text-muted-foreground">Partner</p>
                         <p className="font-bold">{formatCurrency(calculatedCommission.data.partnerAmount)}</p>
                       </div>
-                      <div className="p-2 bg-green-100 rounded text-center">
+                      <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded text-center">
                         <p className="text-xs text-muted-foreground">Agent</p>
                         <p className="font-bold">{formatCurrency(calculatedCommission.data.agentAmount)}</p>
                       </div>

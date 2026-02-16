@@ -297,12 +297,12 @@ const GOAL_TYPE_LABELS: Record<string, string> = {
 };
 
 const RISK_COLORS: Record<string, string> = {
-  "Very Low": "text-green-600 bg-green-50",
-  "Low": "text-green-600 bg-green-50",
-  "Moderate": "text-yellow-600 bg-yellow-50",
-  "Moderately High": "text-orange-600 bg-orange-50",
-  "High": "text-red-600 bg-red-50",
-  "Very High": "text-red-700 bg-red-50",
+  "Very Low": "text-green-600 bg-green-50 dark:bg-green-950/30",
+  "Low": "text-green-600 bg-green-50 dark:bg-green-950/30",
+  "Moderate": "text-yellow-600 bg-yellow-50 dark:bg-yellow-950/30",
+  "Moderately High": "text-orange-600 bg-orange-50 dark:bg-orange-950/30",
+  "High": "text-red-600 bg-red-50 dark:bg-red-950/30",
+  "Very High": "text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/30",
 };
 
 interface ProposalError extends Error {
@@ -839,7 +839,7 @@ export default function PublicProposalPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-background dark:to-card">
         <Card className="max-w-md">
           <CardContent className="pt-6 text-center">
-            <div className={`w-16 h-16 ${isExpired ? 'bg-amber-100' : 'bg-red-100'} rounded-full flex items-center justify-center mx-auto mb-4`}>
+            <div className={`w-16 h-16 ${isExpired ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-red-100 dark:bg-red-900/30'} rounded-full flex items-center justify-center mx-auto mb-4`}>
               {isExpired ? (
                 <Clock className="w-8 h-8 text-amber-600" />
               ) : (
@@ -916,7 +916,7 @@ export default function PublicProposalPage() {
       {/* Hero Section */}
       <section className="max-w-5xl mx-auto px-4 py-12">
         <div className="text-center mb-8">
-          <Badge className="bg-indigo-100 text-indigo-700 mb-4">
+          <Badge className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 mb-4">
             <Sparkles className="w-3 h-3 mr-1" />
             Personalized for You
           </Badge>
@@ -1097,7 +1097,7 @@ export default function PublicProposalPage() {
                             <div className="flex justify-between text-xs mt-1">
                               <span className="text-green-600">₹{projectedValue.toLocaleString('en-IN')} projected</span>
                               {projectedProgress >= 100 && (
-                                <Badge className="bg-green-100 text-green-700">Goal Achievable!</Badge>
+                                <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">Goal Achievable!</Badge>
                               )}
                             </div>
                           </div>
@@ -1477,7 +1477,7 @@ export default function PublicProposalPage() {
                   {/* Metrics Legend */}
                   <div className="mt-6 pt-6 border-t">
                     <details className="group">
-                      <summary className="cursor-pointer text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-2">
+                      <summary className="cursor-pointer text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
                         <Lightbulb className="w-4 h-4" />
                         Understanding the Metrics
                         <span className="text-xs text-muted-foreground">(click to expand)</span>
@@ -2557,12 +2557,12 @@ export default function PublicProposalPage() {
                               ? 'border-l-amber-500 bg-amber-50 dark:bg-amber-900/10' 
                               : 'border-l-green-500 bg-green-50 dark:bg-green-900/10';
                           const actionColor = rec.action === 'SELL' 
-                            ? 'bg-red-100 text-red-700' 
+                            ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' 
                             : rec.action === 'BUY' 
-                              ? 'bg-green-100 text-green-700' 
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' 
                               : rec.action === 'SWITCH' 
-                                ? 'bg-amber-100 text-amber-700' 
-                                : 'bg-blue-100 text-blue-700';
+                                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' 
+                                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
 
                           return (
                             <div key={idx} className={`p-4 border-l-4 rounded-lg ${priorityColor}`}>
@@ -2755,7 +2755,7 @@ export default function PublicProposalPage() {
                 <div className="flex-1 pt-1">
                   <h4 className="font-semibold text-foreground">Monitor & Grow</h4>
                   <p className="text-sm text-muted-foreground mt-1">Track your portfolio performance and receive regular updates</p>
-                  <Badge variant="outline" className="mt-2 bg-green-50 text-green-700 border-green-200">Ongoing</Badge>
+                  <Badge variant="outline" className="mt-2 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">Ongoing</Badge>
                 </div>
               </div>
             </div>
@@ -2772,7 +2772,7 @@ export default function PublicProposalPage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button 
                 size="lg"
-                className="bg-card text-indigo-600 hover:bg-indigo-50 shadow-lg"
+                className="bg-card text-indigo-600 hover:bg-indigo-50 dark:bg-indigo-950/30 shadow-lg"
                 onClick={handleGetStarted}
                 data-testid="btn-get-started-cta"
               >
@@ -2793,7 +2793,7 @@ export default function PublicProposalPage() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-blue-100 rounded-full flex items-center justify-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 dark:from-indigo-900/30 to-blue-100 dark:to-blue-900/30 rounded-full flex items-center justify-center">
                   <User className="w-8 h-8 text-indigo-600" />
                 </div>
                 <div>
@@ -2819,21 +2819,21 @@ export default function PublicProposalPage() {
         {/* Trust Indicators */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="text-center">
-            <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
               <Shield className="w-6 h-6 text-indigo-600" />
             </div>
             <h4 className="font-semibold mb-1">SEBI Registered</h4>
             <p className="text-sm text-muted-foreground">Fully compliant with regulatory guidelines</p>
           </div>
           <div className="text-center">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
               <CheckCircle2 className="w-6 h-6 text-green-600" />
             </div>
             <h4 className="font-semibold mb-1">Secure Platform</h4>
             <p className="text-sm text-muted-foreground">Bank-grade security for your investments</p>
           </div>
           <div className="text-center">
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
               <TrendingUp className="w-6 h-6 text-purple-600" />
             </div>
             <h4 className="font-semibold mb-1">Expert Guidance</h4>

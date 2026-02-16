@@ -202,7 +202,7 @@ export default function BankingProducts() {
         </Tabs>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100">
+          <Card className="bg-gradient-to-br from-blue-50 dark:from-blue-950/30 to-blue-100 dark:to-blue-900/30">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Shield className="h-6 w-6 text-finance-blue" />
@@ -229,7 +229,7 @@ export default function BankingProducts() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-50 to-green-100">
+          <Card className="bg-gradient-to-br from-green-50 dark:from-green-950/30 to-green-100 dark:to-green-900/30">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-6 w-6 text-finance-green" />

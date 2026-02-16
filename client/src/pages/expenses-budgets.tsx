@@ -671,7 +671,7 @@ export default function ExpensesBudgetsPage() {
                       </div>
                       <Progress 
                         value={percentage} 
-                        className={isOverBudget ? 'bg-red-100' : isNearLimit ? 'bg-orange-100' : ''} 
+                        className={isOverBudget ? 'bg-red-100 dark:bg-red-900/30' : isNearLimit ? 'bg-orange-100 dark:bg-orange-900/30' : ''} 
                       />
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span>{Math.round(percentage)}% used</span>
@@ -718,9 +718,9 @@ export default function ExpensesBudgetsPage() {
                 <div className="space-y-3">
                   {(insights as any[]).map((insight: any) => (
                     <Card key={insight.id} className={`${
-                      insight.priority === 'high' ? 'border-red-200 bg-red-50/50' : 
-                      insight.priority === 'medium' ? 'border-orange-200 bg-orange-50/50' : 
-                      'border-blue-200 bg-blue-50/50'
+                      insight.priority === 'high' ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30/50' : 
+                      insight.priority === 'medium' ? 'border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30/50' : 
+                      'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30/50'
                     }`} data-testid={`insight-card-${insight.id}`}>
                       <CardHeader>
                         <div className="flex items-start justify-between">
@@ -758,7 +758,7 @@ export default function ExpensesBudgetsPage() {
                           </div>
                         )}
                         {insight.potentialSavings && (
-                          <div className="mt-3 p-2 bg-green-100 rounded-md text-sm font-semibold text-green-700">
+                          <div className="mt-3 p-2 bg-green-100 dark:bg-green-900/30 rounded-md text-sm font-semibold text-green-700 dark:text-green-300">
                             Potential Savings: ₹{parseFloat(insight.potentialSavings).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                           </div>
                         )}

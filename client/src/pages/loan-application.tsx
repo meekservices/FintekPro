@@ -266,7 +266,7 @@ export default function LoanApplication() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 dark:from-blue-950/30 to-indigo-100 dark:to-indigo-900/30 py-8">
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Header */}
         <div className="text-center mb-8">
@@ -511,7 +511,7 @@ export default function LoanApplication() {
                           <div className="space-y-2">
                             <h4 className="text-sm font-semibold text-green-600">Special Offers</h4>
                             {offer.specialOffers.map((offerText, idx) => (
-                              <p key={idx} className="text-xs text-green-700 bg-green-50 p-2 rounded">
+                              <p key={idx} className="text-xs text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/30 p-2 rounded">
                                 {offerText}
                               </p>
                             ))}
@@ -591,7 +591,7 @@ export default function LoanApplication() {
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Selected Offer Summary */}
-                <Card className="bg-blue-50 border-blue-200">
+                <Card className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
                   <CardContent className="py-4">
                     <div className="flex items-center justify-between">
                       <div>
@@ -756,13 +756,13 @@ export default function LoanApplication() {
                       </div>
                     </div>
 
-                    <Card className="bg-yellow-50 border-yellow-200">
+                    <Card className="bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800">
                       <CardContent className="py-4">
                         <div className="flex items-start space-x-2">
                           <AlertCircle className="w-5 h-5 text-yellow-600 mt-1" />
                           <div>
-                            <h4 className="font-semibold text-yellow-800">Important Notice</h4>
-                            <p className="text-sm text-yellow-700 mt-1">
+                            <h4 className="font-semibold text-yellow-800 dark:text-yellow-200">Important Notice</h4>
+                            <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
                               By submitting this application, you acknowledge that this is a binding agreement and 
                               any false information may result in rejection of your loan application.
                             </p>
@@ -790,17 +790,17 @@ export default function LoanApplication() {
         {currentStep === 4 && (
           <Card>
             <CardHeader className="text-center">
-              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+              <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
                 <CheckCircle className="w-8 h-8 text-green-600" />
               </div>
-              <CardTitle className="text-2xl text-green-800">Application Submitted Successfully!</CardTitle>
+              <CardTitle className="text-2xl text-green-800 dark:text-green-200">Application Submitted Successfully!</CardTitle>
             </CardHeader>
             <CardContent className="text-center space-y-6">
               <p className="text-lg text-muted-foreground">
                 Your loan application has been submitted to {selectedOffer?.lenderName}
               </p>
               
-              <div className="bg-blue-50 rounded-lg p-6">
+              <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-6">
                 <h3 className="font-semibold mb-4">What happens next?</h3>
                 <div className="space-y-4">
                   <div className="flex items-center space-x-3">

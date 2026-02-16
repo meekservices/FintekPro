@@ -199,11 +199,11 @@ export default function ITRPrefilledPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'connected':
-        return <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Connected</Badge>;
+        return <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200"><CheckCircle className="h-3 w-3 mr-1" />Connected</Badge>;
       case 'syncing':
-        return <Badge className="bg-blue-100 text-blue-800"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Syncing</Badge>;
+        return <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Syncing</Badge>;
       case 'error':
-        return <Badge className="bg-red-100 text-red-800"><AlertCircle className="h-3 w-3 mr-1" />Error</Badge>;
+        return <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200"><AlertCircle className="h-3 w-3 mr-1" />Error</Badge>;
       default:
         return <Badge className="bg-muted text-foreground">Disconnected</Badge>;
     }
@@ -329,7 +329,7 @@ export default function ITRPrefilledPage() {
                   <FileText className="h-8 w-8 text-green-600" />
                 </div>
                 {itrData?.autoSelectedForm && (
-                  <Badge className="mt-2 bg-green-100 text-green-800">Auto-Selected</Badge>
+                  <Badge className="mt-2 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">Auto-Selected</Badge>
                 )}
               </CardContent>
             </Card>
@@ -346,7 +346,7 @@ export default function ITRPrefilledPage() {
                   <Shield className="h-8 w-8 text-purple-600" />
                 </div>
                 {itrData?.readyForFiling && (
-                  <Badge className="mt-2 bg-purple-100 text-purple-800">Ready for Filing</Badge>
+                  <Badge className="mt-2 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200">Ready for Filing</Badge>
                 )}
               </CardContent>
             </Card>
@@ -512,32 +512,32 @@ export default function ITRPrefilledPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <IndianRupee className="h-4 w-4 text-blue-600" />
                         <span className="text-sm font-medium text-blue-600">Salary Income</span>
                       </div>
-                      <p className="text-2xl font-bold text-blue-700">
+                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                         {formatCurrency(itrData.incomeFromSalary?.totalIncome || 0)}
                       </p>
                     </div>
 
-                    <div className="bg-green-50 p-4 rounded-lg">
+                    <div className="bg-green-50 dark:bg-green-950/30 p-4 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <TrendingUp className="h-4 w-4 text-green-600" />
                         <span className="text-sm font-medium text-green-600">Capital Gains</span>
                       </div>
-                      <p className="text-2xl font-bold text-green-700">
+                      <p className="text-2xl font-bold text-green-700 dark:text-green-300">
                         {formatCurrency(itrData.incomeFromCapitalGains?.totalGains || 0)}
                       </p>
                     </div>
 
-                    <div className="bg-purple-50 p-4 rounded-lg">
+                    <div className="bg-purple-50 dark:bg-purple-950/30 p-4 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <Receipt className="h-4 w-4 text-purple-600" />
                         <span className="text-sm font-medium text-purple-600">Other Sources</span>
                       </div>
-                      <p className="text-2xl font-bold text-purple-700">
+                      <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
                         {formatCurrency(itrData.incomeFromOtherSources?.totalIncome || 0)}
                       </p>
                     </div>

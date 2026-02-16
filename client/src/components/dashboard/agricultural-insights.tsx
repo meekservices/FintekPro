@@ -197,7 +197,7 @@ export function AgriculturalInsights() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="p-2 bg-green-100 rounded-lg">
+          <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
             <Wheat className="h-6 w-6 text-green-600" />
           </div>
           <div>
@@ -268,7 +268,7 @@ export function AgriculturalInsights() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center space-x-2">
-                <Badge className={marketMetrics.marketSentiment === 'Bullish' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                <Badge className={marketMetrics.marketSentiment === 'Bullish' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'}>
                   {marketMetrics.marketSentiment}
                 </Badge>
                 <div className="text-sm text-muted-foreground">
@@ -414,7 +414,7 @@ export function AgriculturalInsights() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="border-l-4 border-l-green-500">
                 <CardHeader>
-                  <CardTitle className="flex items-center text-green-700">
+                  <CardTitle className="flex items-center text-green-700 dark:text-green-300">
                     <TrendingUp className="h-5 w-5 mr-2" />
                     Best Performer
                   </CardTitle>
@@ -440,7 +440,7 @@ export function AgriculturalInsights() {
 
               <Card className="border-l-4 border-l-red-500">
                 <CardHeader>
-                  <CardTitle className="flex items-center text-red-700">
+                  <CardTitle className="flex items-center text-red-700 dark:text-red-300">
                     <TrendingDown className="h-5 w-5 mr-2" />
                     Worst Performer
                   </CardTitle>
@@ -588,7 +588,7 @@ export function AgriculturalInsights() {
                   <h4 className="font-semibold mb-3">Peak Season Commodities</h4>
                   <div className="space-y-3">
                     {filteredCommodities.filter(c => c.category === 'Spices').slice(0, 3).map((commodity) => (
-                      <div key={commodity.symbol} className="p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-400">
+                      <div key={commodity.symbol} className="p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border-l-4 border-yellow-400">
                         <div className="flex justify-between">
                           <div>
                             <p className="font-medium">{commodity.name}</p>
@@ -610,7 +610,7 @@ export function AgriculturalInsights() {
                   <h4 className="font-semibold mb-3">Off-Season Opportunities</h4>
                   <div className="space-y-3">
                     {filteredCommodities.filter(c => c.category === 'Grains').slice(0, 3).map((commodity) => (
-                      <div key={commodity.symbol} className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                      <div key={commodity.symbol} className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border-l-4 border-blue-400">
                         <div className="flex justify-between">
                           <div>
                             <p className="font-medium">{commodity.name}</p>
@@ -633,23 +633,23 @@ export function AgriculturalInsights() {
               <div className="mt-6">
                 <h4 className="font-semibold mb-3">Agricultural Market Calendar</h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="p-3 bg-green-50 rounded-lg text-center">
-                    <p className="font-medium text-green-700">Q1 (Jan-Mar)</p>
+                  <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg text-center">
+                    <p className="font-medium text-green-700 dark:text-green-300">Q1 (Jan-Mar)</p>
                     <p className="text-sm text-muted-foreground">Rabi harvest</p>
                     <p className="text-xs text-muted-foreground">Wheat, Mustard</p>
                   </div>
-                  <div className="p-3 bg-yellow-50 rounded-lg text-center">
-                    <p className="font-medium text-yellow-700">Q2 (Apr-Jun)</p>
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg text-center">
+                    <p className="font-medium text-yellow-700 dark:text-yellow-300">Q2 (Apr-Jun)</p>
                     <p className="text-sm text-muted-foreground">Summer crops</p>
                     <p className="text-xs text-muted-foreground">Pulses, Cotton</p>
                   </div>
-                  <div className="p-3 bg-blue-50 rounded-lg text-center">
-                    <p className="font-medium text-blue-700">Q3 (Jul-Sep)</p>
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-center">
+                    <p className="font-medium text-blue-700 dark:text-blue-300">Q3 (Jul-Sep)</p>
                     <p className="text-sm text-muted-foreground">Monsoon sowing</p>
                     <p className="text-xs text-muted-foreground">Rice, Sugarcane</p>
                   </div>
-                  <div className="p-3 bg-orange-50 rounded-lg text-center">
-                    <p className="font-medium text-orange-700">Q4 (Oct-Dec)</p>
+                  <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg text-center">
+                    <p className="font-medium text-orange-700 dark:text-orange-300">Q4 (Oct-Dec)</p>
                     <p className="text-sm text-muted-foreground">Kharif harvest</p>
                     <p className="text-xs text-muted-foreground">Spices, Oilseeds</p>
                   </div>

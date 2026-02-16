@@ -678,7 +678,7 @@ export default function AgentSampleReport() {
                                 <p className="font-medium" data-testid={`text-lumpsum-name-${index}`}>{fund.name}</p>
                                 <Badge variant="outline" data-testid={`badge-lumpsum-category-${index}`}>{fund.category}</Badge>
                               </div>
-                              <Badge className="bg-green-100 text-green-800" data-testid={`badge-lumpsum-match-${index}`}>{fund.matchScore}% Match</Badge>
+                              <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200" data-testid={`badge-lumpsum-match-${index}`}>{fund.matchScore}% Match</Badge>
                             </div>
                             <div className="grid grid-cols-3 gap-2 text-sm mt-2">
                               <div>
@@ -723,7 +723,7 @@ export default function AgentSampleReport() {
                                 <p className="font-medium" data-testid={`text-sip-name-${index}`}>{fund.name}</p>
                                 <Badge variant="outline" data-testid={`badge-sip-category-${index}`}>{fund.category}</Badge>
                               </div>
-                              <Badge className="bg-blue-100 text-blue-800" data-testid={`badge-sip-match-${index}`}>{fund.matchScore}% Match</Badge>
+                              <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200" data-testid={`badge-sip-match-${index}`}>{fund.matchScore}% Match</Badge>
                             </div>
                             <div className="grid grid-cols-3 gap-2 text-sm mt-2">
                               <div>

@@ -182,12 +182,12 @@ export function CkycDeferredDashboard() {
         <Card data-testid="card-breached">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <XCircle className="h-4 w-4 text-red-800" />
+              <XCircle className="h-4 w-4 text-red-800 dark:text-red-200" />
               SLA Breached
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-red-800">{stats?.agingBuckets.breached || 0}</div>
+            <div className="text-3xl font-bold text-red-800 dark:text-red-200">{stats?.agingBuckets.breached || 0}</div>
             <p className="text-xs text-muted-foreground">Escalated cases</p>
           </CardContent>
         </Card>

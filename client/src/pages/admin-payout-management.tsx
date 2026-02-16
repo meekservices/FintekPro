@@ -174,9 +174,9 @@ export default function AdminPayoutManagement() {
 
   const getUserTypeBadge = (type: string) => {
     const colors: Record<string, string> = {
-      agent: 'bg-blue-100 text-blue-700',
-      partner: 'bg-purple-100 text-purple-700',
-      ca: 'bg-emerald-100 text-emerald-700'
+      agent: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+      partner: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+      ca: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
     };
     return colors[type] || 'bg-muted text-muted-foreground';
   };
@@ -344,7 +344,7 @@ export default function AdminPayoutManagement() {
                   variant="outline"
                   disabled={selectedPayouts.length === 0}
                   onClick={() => setShowRejectDialog(true)}
-                  className="text-red-600 border-red-200 hover:bg-red-50"
+                  className="text-red-600 border-red-200 dark:border-red-800 hover:bg-red-50 dark:bg-red-950/30"
                   data-testid="button-bulk-reject"
                 >
                   <X className="w-4 h-4 mr-1" /> Reject
@@ -433,7 +433,7 @@ export default function AdminPayoutManagement() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="text-green-600 hover:bg-green-50"
+                          className="text-green-600 hover:bg-green-50 dark:bg-green-950/30"
                           onClick={() => {
                             setSelectedPayouts([payout.id]);
                             setShowApproveDialog(true);
@@ -445,7 +445,7 @@ export default function AdminPayoutManagement() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="text-red-600 hover:bg-red-50"
+                          className="text-red-600 hover:bg-red-50 dark:bg-red-950/30"
                           onClick={() => {
                             setSelectedPayouts([payout.id]);
                             setShowRejectDialog(true);

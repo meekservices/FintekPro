@@ -271,7 +271,7 @@ export default function DomesticTrading() {
           <p className="text-muted-foreground">NSE & BSE Equity, F&O, and Commodities Trading</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="bg-green-100 text-green-800">
+          <Badge variant="secondary" className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
             <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></div>
             Market Open
           </Badge>
@@ -552,7 +552,7 @@ export default function DomesticTrading() {
                             <td className="text-center p-2">
                               <Badge 
                                 variant={order.type === "BUY" ? "default" : "secondary"}
-                                className={order.type === "BUY" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+                                className={order.type === "BUY" ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200" : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200"}
                               >
                                 {order.type}
                               </Badge>

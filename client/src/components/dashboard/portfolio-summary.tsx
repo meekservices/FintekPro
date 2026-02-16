@@ -181,7 +181,7 @@ export function PortfolioSummary({ userId }: PortfolioSummaryProps) {
           </Dialog>
           <Button 
             variant="outline" 
-            className="w-full border-finance-blue text-finance-blue hover:bg-blue-50"
+            className="w-full border-finance-blue text-finance-blue hover:bg-blue-50 dark:bg-blue-950/30"
             data-testid="add-investment-button"
           >
             Add Investment

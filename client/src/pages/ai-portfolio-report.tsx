@@ -191,28 +191,28 @@ export default function AIPortfolioReport() {
               <CardContent className="pt-6 text-center">
                 <p className="text-sm text-muted-foreground mb-1">Portfolio Health</p>
                 <p className="text-3xl font-bold text-green-600">85/100</p>
-                <Badge className="mt-2 bg-green-100 text-green-800">Excellent</Badge>
+                <Badge className="mt-2 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">Excellent</Badge>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6 text-center">
                 <p className="text-sm text-muted-foreground mb-1">Risk Score</p>
                 <p className="text-3xl font-bold text-yellow-600">62/100</p>
-                <Badge className="mt-2 bg-yellow-100 text-yellow-800">Moderate</Badge>
+                <Badge className="mt-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">Moderate</Badge>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6 text-center">
                 <p className="text-sm text-muted-foreground mb-1">Goal Alignment</p>
                 <p className="text-3xl font-bold text-blue-600">78%</p>
-                <Badge className="mt-2 bg-blue-100 text-blue-800">On Track</Badge>
+                <Badge className="mt-2 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">On Track</Badge>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6 text-center">
                 <p className="text-sm text-muted-foreground mb-1">Tax Efficiency</p>
                 <p className="text-3xl font-bold text-purple-600">91%</p>
-                <Badge className="mt-2 bg-purple-100 text-purple-800">Optimal</Badge>
+                <Badge className="mt-2 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200">Optimal</Badge>
               </CardContent>
             </Card>
           </div>

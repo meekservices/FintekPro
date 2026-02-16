@@ -239,7 +239,7 @@ export function ProposalComparisonView({
             </div>
             
             {Math.abs(riskChange) > 15 && (
-              <Alert className={`mt-4 ${riskChange > 0 ? 'border-amber-200' : 'border-green-200'}`}>
+              <Alert className={`mt-4 ${riskChange > 0 ? 'border-amber-200 dark:border-amber-800' : 'border-green-200 dark:border-green-800'}`}>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   {riskChange > 0 

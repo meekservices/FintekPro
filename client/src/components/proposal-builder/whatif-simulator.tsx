@@ -44,11 +44,11 @@ interface WhatIfSimulatorProps {
 }
 
 const SCENARIO_LABELS: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  base: { label: 'Base Case', color: 'bg-blue-100 text-blue-700', icon: <Minus className="h-3 w-3" /> },
-  bull_10: { label: 'Bull (+10%)', color: 'bg-green-100 text-green-700', icon: <TrendingUp className="h-3 w-3" /> },
-  bear_10: { label: 'Bear (-10%)', color: 'bg-orange-100 text-orange-700', icon: <TrendingDown className="h-3 w-3" /> },
-  bear_20: { label: 'Bear (-20%)', color: 'bg-red-100 text-red-700', icon: <TrendingDown className="h-3 w-3" /> },
-  custom: { label: 'Custom', color: 'bg-purple-100 text-purple-700', icon: <RefreshCw className="h-3 w-3" /> }
+  base: { label: 'Base Case', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300', icon: <Minus className="h-3 w-3" /> },
+  bull_10: { label: 'Bull (+10%)', color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300', icon: <TrendingUp className="h-3 w-3" /> },
+  bear_10: { label: 'Bear (-10%)', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300', icon: <TrendingDown className="h-3 w-3" /> },
+  bear_20: { label: 'Bear (-20%)', color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300', icon: <TrendingDown className="h-3 w-3" /> },
+  custom: { label: 'Custom', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300', icon: <RefreshCw className="h-3 w-3" /> }
 };
 
 export function WhatIfSimulator({ proposalId }: WhatIfSimulatorProps) {

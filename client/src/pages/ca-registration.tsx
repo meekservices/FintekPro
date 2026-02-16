@@ -242,9 +242,9 @@ export default function CARegistrationPage() {
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${
                     step.id === currentStep
-                      ? 'border-blue-600 bg-blue-50'
+                      ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/30'
                       : step.id < currentStep
-                      ? 'border-green-600 bg-green-50'
+                      ? 'border-green-600 bg-green-50 dark:bg-green-950/30'
                       : 'border-border bg-card'
                   }`}
                 >

@@ -45,12 +45,12 @@ interface ProposalInteractionThreadProps {
 }
 
 const INTERACTION_TYPE_BADGES: Record<string, { label: string; color: string; icon: any }> = {
-  question: { label: "Question", color: "bg-blue-100 text-blue-700", icon: MessageSquare },
-  answer: { label: "Answer", color: "bg-green-100 text-green-700", icon: CheckCircle2 },
-  revision_request: { label: "Revision Request", color: "bg-amber-100 text-amber-700", icon: Edit },
-  revision_completed: { label: "Revised", color: "bg-purple-100 text-purple-700", icon: RefreshCw },
-  approval: { label: "Approved", color: "bg-green-100 text-green-700", icon: CheckCircle2 },
-  rejection: { label: "Rejected", color: "bg-red-100 text-red-700", icon: AlertCircle },
+  question: { label: "Question", color: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300", icon: MessageSquare },
+  answer: { label: "Answer", color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300", icon: CheckCircle2 },
+  revision_request: { label: "Revision Request", color: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300", icon: Edit },
+  revision_completed: { label: "Revised", color: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300", icon: RefreshCw },
+  approval: { label: "Approved", color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300", icon: CheckCircle2 },
+  rejection: { label: "Rejected", color: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300", icon: AlertCircle },
 };
 
 export function ProposalInteractionThread({

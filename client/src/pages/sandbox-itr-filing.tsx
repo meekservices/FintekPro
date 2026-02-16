@@ -98,9 +98,9 @@ export default function SandboxITRFiling() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'filed': return 'bg-green-100 text-green-800';
-      case 'generated': return 'bg-blue-100 text-blue-800';
-      case 'validated': return 'bg-yellow-100 text-yellow-800';
+      case 'filed': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200';
+      case 'generated': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200';
+      case 'validated': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200';
       case 'draft': return 'bg-muted text-foreground';
       default: return 'bg-muted text-foreground';
     }
@@ -168,15 +168,15 @@ export default function SandboxITRFiling() {
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <div className="text-center p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
                       <div className="text-2xl font-bold text-green-600">₹{itrData.totalIncome.toLocaleString()}</div>
                       <div className="text-sm text-muted-foreground">Total Income</div>
                     </div>
-                    <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                       <div className="text-2xl font-bold text-blue-600">₹{itrData.taxLiability.toLocaleString()}</div>
                       <div className="text-sm text-muted-foreground">Tax Liability</div>
                     </div>
-                    <div className="text-center p-4 bg-purple-50 rounded-lg">
+                    <div className="text-center p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                       <div className="text-2xl font-bold text-purple-600">₹{itrData.refundAmount.toLocaleString()}</div>
                       <div className="text-sm text-muted-foreground">Refund Due</div>
                     </div>
@@ -323,7 +323,7 @@ export default function SandboxITRFiling() {
                   <CardContent>
                     {validationResults && (
                       <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+                        <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
                           <div className="flex items-center gap-2">
                             <CheckCircle className="h-5 w-5 text-green-600" />
                             <span className="font-medium">Validation Passed</span>
@@ -404,9 +404,9 @@ export default function SandboxITRFiling() {
                       </div>
 
                       {itrData?.status === 'generated' && (
-                        <div className="p-4 bg-blue-50 rounded-lg">
-                          <h4 className="font-medium text-blue-800 mb-2">ITR Generated Successfully!</h4>
-                          <p className="text-sm text-blue-700">
+                        <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                          <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">ITR Generated Successfully!</h4>
+                          <p className="text-sm text-blue-700 dark:text-blue-300">
                             Your ITR-XML file is ready for submission. You can now proceed to file your return.
                           </p>
                         </div>
@@ -430,12 +430,12 @@ export default function SandboxITRFiling() {
                   <CardContent>
                     <div className="space-y-4">
                       {itrData?.status === 'filed' ? (
-                        <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                        <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
                           <div className="flex items-center gap-2 mb-2">
                             <CheckCircle className="h-5 w-5 text-green-600" />
-                            <h4 className="font-medium text-green-800">ITR Filed Successfully!</h4>
+                            <h4 className="font-medium text-green-800 dark:text-green-200">ITR Filed Successfully!</h4>
                           </div>
-                          <p className="text-sm text-green-700 mb-3">
+                          <p className="text-sm text-green-700 dark:text-green-300 mb-3">
                             Your ITR has been successfully submitted to the Income Tax Department.
                           </p>
                           <div className="space-y-2 text-sm">

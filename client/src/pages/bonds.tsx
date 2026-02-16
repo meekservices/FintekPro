@@ -66,12 +66,12 @@ interface FeeBreakdown {
 const getCreditRatingColors = (rating: string | null | undefined): string => {
   if (!rating) return 'bg-muted text-muted-foreground border-border';
   const r = rating.toUpperCase();
-  if (r === 'SOV' || r === 'AAA') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-  if (r.startsWith('AA')) return 'bg-green-100 text-green-700 border-green-200';
-  if (r.startsWith('A')) return 'bg-blue-100 text-blue-700 border-blue-200';
-  if (r.startsWith('BBB')) return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-  if (r.startsWith('BB') || r.startsWith('B')) return 'bg-orange-100 text-orange-700 border-orange-200';
-  if (r.startsWith('C') || r.startsWith('D')) return 'bg-red-100 text-red-700 border-red-200';
+  if (r === 'SOV' || r === 'AAA') return 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800';
+  if (r.startsWith('AA')) return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800';
+  if (r.startsWith('A')) return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800';
+  if (r.startsWith('BBB')) return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800';
+  if (r.startsWith('BB') || r.startsWith('B')) return 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800';
+  if (r.startsWith('C') || r.startsWith('D')) return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800';
   return 'bg-muted text-muted-foreground border-border';
 };
 
@@ -79,16 +79,16 @@ const getCreditRatingColors = (rating: string | null | undefined): string => {
 const getBondTypeColors = (type: string | null | undefined): string => {
   if (!type) return 'bg-muted text-muted-foreground border-border';
   const t = type.toLowerCase();
-  if (t.includes('gsec') || t.includes('government')) return 'bg-blue-100 text-blue-700 border-blue-200';
-  if (t.includes('corporate')) return 'bg-purple-100 text-purple-700 border-purple-200';
-  if (t.includes('ncd')) return 'bg-orange-100 text-orange-700 border-orange-200';
-  if (t.includes('tax') && t.includes('free')) return 'bg-green-100 text-green-700 border-green-200';
-  if (t.includes('infrastructure')) return 'bg-teal-100 text-teal-700 border-teal-200';
-  if (t.includes('sgb') || t.includes('gold')) return 'bg-amber-100 text-amber-700 border-amber-200';
-  if (t.includes('sdl') || t.includes('state')) return 'bg-indigo-100 text-indigo-700 border-indigo-200';
-  if (t.includes('debenture')) return 'bg-purple-100 text-purple-700 border-purple-200';
-  if (t.includes('perpetual')) return 'bg-rose-100 text-rose-700 border-rose-200';
-  if (t.includes('floating')) return 'bg-cyan-100 text-cyan-700 border-cyan-200';
+  if (t.includes('gsec') || t.includes('government')) return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800';
+  if (t.includes('corporate')) return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800';
+  if (t.includes('ncd')) return 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800';
+  if (t.includes('tax') && t.includes('free')) return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800';
+  if (t.includes('infrastructure')) return 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800';
+  if (t.includes('sgb') || t.includes('gold')) return 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800';
+  if (t.includes('sdl') || t.includes('state')) return 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800';
+  if (t.includes('debenture')) return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800';
+  if (t.includes('perpetual')) return 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800';
+  if (t.includes('floating')) return 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800';
   if (t.includes('zero')) return 'bg-muted text-muted-foreground border-border';
   return 'bg-muted text-muted-foreground border-border';
 };
@@ -97,9 +97,9 @@ const getBondTypeColors = (type: string | null | undefined): string => {
 const getRiskLevelColors = (level: string | null | undefined): string => {
   if (!level) return 'bg-muted text-muted-foreground border-border';
   const l = level.toLowerCase();
-  if (l.includes('low') || l === 'conservative') return 'bg-green-100 text-green-700 border-green-200';
-  if (l.includes('medium') || l.includes('moderate') || l === 'balanced') return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-  if (l.includes('high') || l === 'aggressive') return 'bg-red-100 text-red-700 border-red-200';
+  if (l.includes('low') || l === 'conservative') return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800';
+  if (l.includes('medium') || l.includes('moderate') || l === 'balanced') return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800';
+  if (l.includes('high') || l === 'aggressive') return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800';
   return 'bg-muted text-muted-foreground border-border';
 };
 
@@ -291,14 +291,14 @@ function BondCategoriesSection({ onCategoryClick }: { onCategoryClick?: (categor
 
   const getCategoryColors = (color: string) => {
     const colorMap: Record<string, { bg: string; text: string; border: string }> = {
-      blue: { bg: 'bg-blue-100', text: 'text-blue-600', border: 'border-blue-200' },
-      green: { bg: 'bg-green-100', text: 'text-green-600', border: 'border-green-200' },
-      purple: { bg: 'bg-purple-100', text: 'text-purple-600', border: 'border-purple-200' },
-      orange: { bg: 'bg-orange-100', text: 'text-orange-600', border: 'border-orange-200' },
-      indigo: { bg: 'bg-indigo-100', text: 'text-indigo-600', border: 'border-indigo-200' },
-      teal: { bg: 'bg-teal-100', text: 'text-teal-600', border: 'border-teal-200' },
-      amber: { bg: 'bg-amber-100', text: 'text-amber-600', border: 'border-amber-200' },
-      rose: { bg: 'bg-rose-100', text: 'text-rose-600', border: 'border-rose-200' },
+      blue: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600', border: 'border-blue-200 dark:border-blue-800' },
+      green: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-600', border: 'border-green-200 dark:border-green-800' },
+      purple: { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-600', border: 'border-purple-200 dark:border-purple-800' },
+      orange: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-600', border: 'border-orange-200 dark:border-orange-800' },
+      indigo: { bg: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-600', border: 'border-indigo-200 dark:border-indigo-800' },
+      teal: { bg: 'bg-teal-100 dark:bg-teal-900/30', text: 'text-teal-600', border: 'border-teal-200 dark:border-teal-800' },
+      amber: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-600', border: 'border-amber-200 dark:border-amber-800' },
+      rose: { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-600', border: 'border-rose-200 dark:border-rose-800' },
     };
     return colorMap[color] || { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' };
   };
@@ -457,7 +457,7 @@ function GovernmentSecurities() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-foreground">Government Securities</h3>
-        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+        <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
           {bonds.length} Available
         </Badge>
       </div>
@@ -482,7 +482,7 @@ function GovernmentSecurities() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h4 className="font-semibold text-foreground group-hover:text-finance-blue transition-colors">{bond.securityName}</h4>
-                    <Badge variant="outline" className="bg-green-50 text-green-700">
+                    <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300">
                       {bond.securityType}
                     </Badge>
                     <EligibilityBadge 
@@ -606,9 +606,9 @@ function GovernmentSecurities() {
                           )}
                           
                           {riskAcknowledged && (
-                            <Alert className="bg-green-50 border-green-200">
+                            <Alert className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
                               <CheckCircle2 className="h-4 w-4 text-green-600" />
-                              <AlertDescription className="text-green-700 text-sm">
+                              <AlertDescription className="text-green-700 dark:text-green-300 text-sm">
                                 Risk disclosures acknowledged. You can proceed with your order.
                               </AlertDescription>
                             </Alert>
@@ -740,7 +740,7 @@ function CorporateBonds() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-foreground">Corporate Bonds</h3>
-        <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+        <Badge variant="outline" className="bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
           {bonds.length} Available
         </Badge>
       </div>
@@ -902,9 +902,9 @@ function CorporateBonds() {
                           )}
                           
                           {riskAcknowledged && (
-                            <Alert className="bg-green-50 border-green-200">
+                            <Alert className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
                               <CheckCircle2 className="h-4 w-4 text-green-600" />
-                              <AlertDescription className="text-green-700 text-sm">
+                              <AlertDescription className="text-green-700 dark:text-green-300 text-sm">
                                 Risk disclosures acknowledged.
                               </AlertDescription>
                             </Alert>
@@ -1034,7 +1034,7 @@ function NCDBonds() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-foreground">Non-Convertible Debentures (NCDs)</h3>
-        <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+        <Badge variant="outline" className="bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800">
           {bonds.length} Available
         </Badge>
       </div>
@@ -1195,9 +1195,9 @@ function NCDBonds() {
                           )}
                           
                           {riskAcknowledged && (
-                            <Alert className="bg-green-50 border-green-200">
+                            <Alert className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
                               <CheckCircle2 className="h-4 w-4 text-green-600" />
-                              <AlertDescription className="text-green-700 text-sm">
+                              <AlertDescription className="text-green-700 dark:text-green-300 text-sm">
                                 Risk disclosures acknowledged.
                               </AlertDescription>
                             </Alert>
@@ -1326,7 +1326,7 @@ function TaxFreeBonds() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-foreground">Tax Free Bonds</h3>
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+        <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">
           {bonds.length} Available
         </Badge>
       </div>
@@ -1445,7 +1445,7 @@ function TaxFreeBonds() {
                           <span>Tax-Free Yield:</span>
                           <span className="font-medium text-finance-green">{bond.yieldToMaturity || bond.currentYield || 'N/A'}%</span>
                         </div>
-                        <div className="flex items-center gap-1 text-green-700 text-xs">
+                        <div className="flex items-center gap-1 text-green-700 dark:text-green-300 text-xs">
                           <CheckCircle2 className="h-3 w-3" />
                           <span>Interest income is tax-exempt under Section 10(15)</span>
                         </div>
@@ -1491,9 +1491,9 @@ function TaxFreeBonds() {
                           )}
                           
                           {riskAcknowledged && (
-                            <Alert className="bg-green-50 border-green-200">
+                            <Alert className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
                               <CheckCircle2 className="h-4 w-4 text-green-600" />
-                              <AlertDescription className="text-green-700 text-sm">
+                              <AlertDescription className="text-green-700 dark:text-green-300 text-sm">
                                 Risk disclosures acknowledged.
                               </AlertDescription>
                             </Alert>
@@ -1744,7 +1744,7 @@ function BondMarketplace() {
     <div className="space-y-6">
       {/* KYC Eligibility Status Banner */}
       {eligibility && (
-        <Alert className={(eligibility as any)?.eligible ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}>
+        <Alert className={(eligibility as any)?.eligible ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800" : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800"}>
           <Shield className="h-4 w-4" />
           <AlertDescription>
             {(eligibility as any)?.eligible 
@@ -1777,7 +1777,7 @@ function BondMarketplace() {
             <div className="space-y-4 py-4">
               {/* Eligibility Banner */}
               {eligibility && (
-                <Alert className={(eligibility as any)?.eligible ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}>
+                <Alert className={(eligibility as any)?.eligible ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800" : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800"}>
                   <Shield className="h-4 w-4" />
                   <AlertDescription>
                     {(eligibility as any)?.eligible 
@@ -2158,7 +2158,7 @@ function BondHoldings() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-foreground">My Bond Holdings</h3>
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+        <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">
           {bonds.length} Holdings
         </Badge>
       </div>
@@ -2277,9 +2277,9 @@ function OrderProgressTracker({ status, settlementDate }: { status: string; sett
 
   if (isFailed) {
     return (
-      <div className="flex items-center gap-2 p-3 bg-red-50 rounded-lg border border-red-200">
+      <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
         <AlertCircle className="h-5 w-5 text-red-600" />
-        <span className="text-sm font-medium text-red-700">
+        <span className="text-sm font-medium text-red-700 dark:text-red-300">
           Order {status === 'cancelled' ? 'Cancelled' : 'Failed'}
         </span>
       </div>
@@ -2310,7 +2310,7 @@ function OrderProgressTracker({ status, settlementDate }: { status: string; sett
                 <StepIcon className="h-4 w-4" />
               </div>
               <span className={`text-xs mt-2 font-medium ${
-                isCompleted ? 'text-green-700' : 'text-muted-foreground'
+                isCompleted ? 'text-green-700 dark:text-green-300' : 'text-muted-foreground'
               }`}>
                 {step.label}
               </span>
@@ -2378,19 +2378,19 @@ function BondOrders() {
       case 'executed':
       case 'credited':
       case 'allotted':
-        return 'bg-green-50 text-green-700 border-green-200';
+        return 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800';
       case 'pending':
       case 'placed':
-        return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+        return 'bg-yellow-50 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800';
       case 'processing':
       case 'confirmed':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
+        return 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800';
       case 'settlement':
       case 'awaiting_settlement':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
+        return 'bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800';
       case 'rejected':
       case 'failed':
-        return 'bg-red-50 text-red-700 border-red-200';
+        return 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800';
       case 'cancelled':
         return 'bg-muted text-muted-foreground border-border';
       default: return 'bg-muted text-muted-foreground border-border';
@@ -2424,7 +2424,7 @@ function BondOrders() {
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="text-red-600 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:bg-red-950/30"
                       onClick={() => cancelOrderMutation.mutate(order.id)}
                       disabled={cancelOrderMutation.isPending}
                       data-testid={`cancel-order-${order.id}`}
@@ -2752,7 +2752,7 @@ export default function Bonds() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    <div className="text-center p-6 bg-blue-50 rounded-lg">
+                    <div className="text-center p-6 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                       <h3 className="text-sm font-medium text-muted-foreground mb-2">Maturity Amount</h3>
                       <p className="text-3xl font-bold text-finance-blue" data-testid="maturity-amount">
                         ₹{maturityAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -2760,13 +2760,13 @@ export default function Bonds() {
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center p-4 bg-green-50 rounded-lg">
+                      <div className="text-center p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
                         <h4 className="text-sm font-medium text-muted-foreground mb-1">Principal</h4>
                         <p className="text-lg font-bold text-finance-green" data-testid="principal-amount">
                           ₹{parseFloat(investmentAmount || "0").toLocaleString()}
                         </p>
                       </div>
-                      <div className="text-center p-4 bg-purple-50 rounded-lg">
+                      <div className="text-center p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                         <h4 className="text-sm font-medium text-muted-foreground mb-1">Interest Earned</h4>
                         <p className="text-lg font-bold text-purple-600" data-testid="interest-earned">
                           ₹{interestEarned.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -2906,7 +2906,7 @@ export default function Bonds() {
                   size="sm"
                   onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                   data-testid="toggle-advanced-filters"
-                  className="text-blue-600 hover:text-blue-800"
+                  className="text-blue-600 hover:text-blue-800 dark:text-blue-200"
                 >
                   {showAdvancedFilters ? "Hide Advanced Filters" : "Show Advanced Filters"}
                 </Button>

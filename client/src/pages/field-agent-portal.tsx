@@ -456,10 +456,10 @@ export default function FieldAgentPortal() {
                         <div key={item.id || index} className="flex items-center gap-4 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
                           <div className="flex-shrink-0 w-16 text-xs text-muted-foreground">{item.time}</div>
                           <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                            item.type === 'meeting' ? 'bg-blue-100 text-blue-600' :
-                            item.type === 'kyc' ? 'bg-green-100 text-green-600' :
-                            item.type === 'presentation' ? 'bg-purple-100 text-purple-600' :
-                            'bg-amber-100 text-amber-600'
+                            item.type === 'meeting' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' :
+                            item.type === 'kyc' ? 'bg-green-100 dark:bg-green-900/30 text-green-600' :
+                            item.type === 'presentation' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600' :
+                            'bg-amber-100 dark:bg-amber-900/30 text-amber-600'
                           }`}>
                             {item.type === 'meeting' ? <Users className="h-4 w-4" /> :
                              item.type === 'kyc' ? <FileText className="h-4 w-4" /> :
@@ -964,7 +964,7 @@ export default function FieldAgentPortal() {
                     {/* Pending Meeting Requests */}
                     {pendingRequestsData?.requests && pendingRequestsData.requests.length > 0 && (
                       <div className="mb-6">
-                        <h3 className="text-sm font-semibold mb-3 text-orange-700 flex items-center gap-2">
+                        <h3 className="text-sm font-semibold mb-3 text-orange-700 dark:text-orange-300 flex items-center gap-2">
                           <Clock className="h-4 w-4" />
                           Pending Requests ({pendingRequestsData.requests.length})
                         </h3>
@@ -1013,7 +1013,7 @@ export default function FieldAgentPortal() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="text-red-600 hover:bg-red-50"
+                                    className="text-red-600 hover:bg-red-50 dark:bg-red-950/30"
                                     onClick={() => declineMeetingMutation.mutate({ id: request.id })}
                                     disabled={declineMeetingMutation.isPending}
                                     data-testid={`button-decline-${request.id}`}
@@ -1038,7 +1038,7 @@ export default function FieldAgentPortal() {
                       <div className="space-y-4">
                         {/* Upcoming Meetings */}
                         <div>
-                          <h3 className="text-sm font-semibold mb-3 text-green-700 flex items-center gap-2">
+                          <h3 className="text-sm font-semibold mb-3 text-green-700 dark:text-green-300 flex items-center gap-2">
                             <Calendar className="h-4 w-4" />
                             Upcoming Meetings
                           </h3>
@@ -1078,7 +1078,7 @@ export default function FieldAgentPortal() {
                                       <Button
                                         size="sm"
                                         variant="outline"
-                                        className="text-red-600 hover:bg-red-50"
+                                        className="text-red-600 hover:bg-red-50 dark:bg-red-950/30"
                                         onClick={() => cancelMeetingMutation.mutate(meeting.id)}
                                         disabled={cancelMeetingMutation.isPending}
                                         data-testid={`button-cancel-meeting-${meeting.id}`}

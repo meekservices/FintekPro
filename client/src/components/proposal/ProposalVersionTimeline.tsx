@@ -107,7 +107,7 @@ export function ProposalVersionTimeline({
               variant="ghost"
               size="sm"
               onClick={() => setShowTimeline(true)}
-              className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+              className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:bg-indigo-950/30"
             >
               <History className="h-4 w-4 mr-1" />
               View Timeline
@@ -163,7 +163,7 @@ export function ProposalVersionTimeline({
                                   <Badge variant="outline" className="text-xs">Current</Badge>
                                 )}
                                 {version.isLatestVersion && (
-                                  <Badge className="bg-green-100 text-green-700 text-xs">Latest</Badge>
+                                  <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs">Latest</Badge>
                                 )}
                                 {version.lockedAt && (
                                   <Badge variant="secondary" className="text-xs">

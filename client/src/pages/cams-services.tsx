@@ -205,9 +205,9 @@ export default function CamsServices() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'SUCCESS': case 'ACTIVE': return 'bg-green-100 text-green-800';
-      case 'PENDING': return 'bg-yellow-100 text-yellow-800';
-      case 'FAILED': case 'CANCELLED': return 'bg-red-100 text-red-800';
+      case 'SUCCESS': case 'ACTIVE': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200';
+      case 'PENDING': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200';
+      case 'FAILED': case 'CANCELLED': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200';
       default: return 'bg-muted text-foreground';
     }
   };
@@ -286,18 +286,18 @@ export default function CamsServices() {
                   <AlertDescription>Verifying investor details with CAMS</AlertDescription>
                 </Alert>
               ) : investorValidation ? (
-                <Alert className="border-green-200 bg-green-50">
+                <Alert className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30">
                   <CheckCircle className="h-4 w-4 text-green-600" />
-                  <AlertTitle className="text-green-800">Valid Investor</AlertTitle>
-                  <AlertDescription className="text-green-700">
+                  <AlertTitle className="text-green-800 dark:text-green-200">Valid Investor</AlertTitle>
+                  <AlertDescription className="text-green-700 dark:text-green-300">
                     PAN verified with CAMS records
                   </AlertDescription>
                 </Alert>
               ) : (
-                <Alert className="border-red-200 bg-red-50">
+                <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
                   <AlertCircle className="h-4 w-4 text-red-600" />
-                  <AlertTitle className="text-red-800">Invalid PAN</AlertTitle>
-                  <AlertDescription className="text-red-700">
+                  <AlertTitle className="text-red-800 dark:text-red-200">Invalid PAN</AlertTitle>
+                  <AlertDescription className="text-red-700 dark:text-red-300">
                     PAN not found in CAMS records
                   </AlertDescription>
                 </Alert>
@@ -327,10 +327,10 @@ export default function CamsServices() {
                 <span>Loading portfolio...</span>
               </div>
             ) : portfolioError ? (
-              <Alert className="border-red-200 bg-red-50">
+              <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
                 <AlertCircle className="h-4 w-4 text-red-600" />
-                <AlertTitle className="text-red-800">Error Loading Portfolio</AlertTitle>
-                <AlertDescription className="text-red-700">
+                <AlertTitle className="text-red-800 dark:text-red-200">Error Loading Portfolio</AlertTitle>
+                <AlertDescription className="text-red-700 dark:text-red-300">
                   Unable to fetch portfolio data. Please try again.
                 </AlertDescription>
               </Alert>
@@ -919,7 +919,7 @@ export default function CamsServices() {
                           </div>
                         </div>
                         {scheme.sipAvailable && (
-                          <Badge className="mt-2 bg-green-100 text-green-800">SIP Available</Badge>
+                          <Badge className="mt-2 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">SIP Available</Badge>
                         )}
                       </div>
                     ))}

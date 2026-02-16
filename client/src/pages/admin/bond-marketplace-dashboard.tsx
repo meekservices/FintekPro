@@ -57,7 +57,7 @@ export default function BondMarketplaceDashboard() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-100 rounded-lg">
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                 <Store className="h-6 w-6 text-blue-600" />
               </div>
               <div>
@@ -71,7 +71,7 @@ export default function BondMarketplaceDashboard() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-100 rounded-lg">
+              <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
                 <ShoppingCart className="h-6 w-6 text-green-600" />
               </div>
               <div>
@@ -85,7 +85,7 @@ export default function BondMarketplaceDashboard() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-purple-100 rounded-lg">
+              <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
                 <Handshake className="h-6 w-6 text-purple-600" />
               </div>
               <div>
@@ -99,7 +99,7 @@ export default function BondMarketplaceDashboard() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-amber-100 rounded-lg">
+              <div className="p-3 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
                 <TrendingUp className="h-6 w-6 text-amber-600" />
               </div>
               <div>
@@ -125,7 +125,7 @@ export default function BondMarketplaceDashboard() {
           <CardContent>
             <div className="flex items-center justify-between mb-4">
               <Badge variant="outline">{stats?.totalSellListings || 0} Total</Badge>
-              <Badge className="bg-blue-100 text-blue-700">{stats?.activeSellListings || 0} Active</Badge>
+              <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">{stats?.activeSellListings || 0} Active</Badge>
             </div>
             <Link href="/admin/bonds/sell-listings">
               <Button className="w-full" data-testid="btn-go-sell-listings">
@@ -149,7 +149,7 @@ export default function BondMarketplaceDashboard() {
           <CardContent>
             <div className="flex items-center justify-between mb-4">
               <Badge variant="outline">{stats?.totalBuyRequests || 0} Total</Badge>
-              <Badge className="bg-green-100 text-green-700">{stats?.activeBuyRequests || 0} Active</Badge>
+              <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">{stats?.activeBuyRequests || 0} Active</Badge>
             </div>
             <Link href="/admin/bonds/buy-requests">
               <Button className="w-full" variant="outline" data-testid="btn-go-buy-requests">
@@ -173,7 +173,7 @@ export default function BondMarketplaceDashboard() {
           <CardContent>
             <div className="flex items-center justify-between mb-4">
               <Badge variant="outline">{stats?.totalDeals || 0} Total</Badge>
-              <Badge className="bg-purple-100 text-purple-700">{stats?.pendingDeals || 0} Pending</Badge>
+              <Badge className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">{stats?.pendingDeals || 0} Pending</Badge>
             </div>
             <Link href="/admin/bonds/deals">
               <Button className="w-full" variant="outline" data-testid="btn-go-deals">

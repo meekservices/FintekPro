@@ -629,7 +629,7 @@ export default function ProfilePage() {
                           currentStep >= step
                             ? 'bg-blue-600 text-white'
                             : currentStep + 1 === step
-                            ? 'bg-blue-100 text-blue-600'
+                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600'
                             : 'bg-muted text-muted-foreground'
                         }`}
                       >
@@ -780,7 +780,7 @@ export default function ProfilePage() {
                     <div className="space-y-4">
                       <div className="text-center">
                         <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-4" />
-                        <h3 className="font-semibold text-green-800">Profile Successfully Populated!</h3>
+                        <h3 className="font-semibold text-green-800 dark:text-green-200">Profile Successfully Populated!</h3>
                         <p className="text-sm text-muted-foreground mt-2">
                           Your profile has been automatically filled with data from banking and compliance sources
                         </p>

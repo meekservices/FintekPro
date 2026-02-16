@@ -393,23 +393,23 @@ export default function GiftCityIfscSeed() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-emerald-200 bg-emerald-50/50">
+        <Card className="border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30/50">
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <ArrowDownToLine className="h-5 w-5 text-emerald-600" />
               <div>
-                <p className="text-2xl font-bold text-emerald-700">{stats.inbound}</p>
+                <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{stats.inbound}</p>
                 <p className="text-xs text-emerald-600">Inbound (FPI)</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-blue-200 bg-blue-50/50">
+        <Card className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30/50">
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <ArrowUpFromLine className="h-5 w-5 text-blue-600" />
               <div>
-                <p className="text-2xl font-bold text-blue-700">{stats.outbound}</p>
+                <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{stats.outbound}</p>
                 <p className="text-xs text-blue-600">Outbound (LRS)</p>
               </div>
             </div>
@@ -477,7 +477,7 @@ export default function GiftCityIfscSeed() {
               variant="outline"
               onClick={() => bulkSeedMutation.mutate("inbound")}
               disabled={bulkSeedMutation.isPending}
-              className="border-emerald-300 hover:bg-emerald-50"
+              className="border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:bg-emerald-950/30"
             >
               {bulkSeedMutation.isPending ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -490,7 +490,7 @@ export default function GiftCityIfscSeed() {
               variant="outline"
               onClick={() => bulkSeedMutation.mutate("outbound")}
               disabled={bulkSeedMutation.isPending}
-              className="border-blue-300 hover:bg-blue-50"
+              className="border-blue-300 dark:border-blue-700 hover:bg-blue-50 dark:bg-blue-950/30"
             >
               {bulkSeedMutation.isPending ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -503,7 +503,7 @@ export default function GiftCityIfscSeed() {
               variant="outline"
               onClick={() => bulkSeedMutation.mutate("all")}
               disabled={bulkSeedMutation.isPending}
-              className="border-purple-300 hover:bg-purple-50"
+              className="border-purple-300 dark:border-purple-700 hover:bg-purple-50 dark:bg-purple-950/30"
             >
               {bulkSeedMutation.isPending ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -649,11 +649,11 @@ export default function GiftCityIfscSeed() {
                                 variant="secondary" 
                                 className={`text-xs w-fit ${
                                   product.subcategory.includes("Category I") && !product.subcategory.includes("II") && !product.subcategory.includes("III")
-                                    ? "bg-green-100 text-green-700 border-green-300"
+                                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700"
                                     : product.subcategory.includes("Category II") && !product.subcategory.includes("III")
-                                    ? "bg-blue-100 text-blue-700 border-blue-300"
+                                    ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700"
                                     : product.subcategory.includes("Category III")
-                                    ? "bg-purple-100 text-purple-700 border-purple-300"
+                                    ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700"
                                     : ""
                                 }`}
                               >
@@ -666,8 +666,8 @@ export default function GiftCityIfscSeed() {
                           <Badge 
                             variant="outline" 
                             className={product.flowDirection === "inbound" 
-                              ? "border-emerald-300 bg-emerald-50 text-emerald-700" 
-                              : "border-blue-300 bg-blue-50 text-blue-700"}
+                              ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300" 
+                              : "border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300"}
                           >
                             {product.flowDirection === "inbound" ? (
                               <><ArrowDownToLine className="h-3 w-3 mr-1" />Inbound</>

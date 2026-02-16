@@ -613,9 +613,9 @@ export default function LoanComparison() {
 
       {/* Selected Offers Summary */}
       {selectedOffers.length > 0 && (
-        <Card className="border-blue-200 bg-blue-50">
+        <Card className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
           <CardHeader>
-            <CardTitle className="text-blue-800">
+            <CardTitle className="text-blue-800 dark:text-blue-200">
               Selected for Comparison ({selectedOffers.length}/4)
             </CardTitle>
           </CardHeader>
@@ -626,7 +626,7 @@ export default function LoanComparison() {
                   {offer.providerName} - {offer.interestRate}%
                   <button
                     onClick={() => handleOfferSelection(offer.id)}
-                    className="ml-1 text-red-500 hover:text-red-700"
+                    className="ml-1 text-red-500 hover:text-red-700 dark:text-red-300"
                   >
                     ×
                   </button>
@@ -671,7 +671,7 @@ export default function LoanComparison() {
                   key={offer.id} 
                   className={`relative cursor-pointer transition-all duration-200 ${
                     selectedOffers.includes(offer.id) 
-                      ? 'ring-2 ring-blue-500 bg-blue-50' 
+                      ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950/30' 
                       : 'hover:shadow-lg'
                   } ${index === 0 ? 'border-green-500 border-2' : ''}`}
                   onClick={() => handleOfferSelection(offer.id)}
@@ -826,7 +826,7 @@ export default function LoanComparison() {
                                 const isBest = isNumeric && bestValue !== null && value === bestValue;
                                 
                                 return (
-                                  <td key={offer.id} className={`text-center py-3 px-4 ${isBest ? 'bg-green-100 font-bold text-green-800' : ''}`}>
+                                  <td key={offer.id} className={`text-center py-3 px-4 ${isBest ? 'bg-green-100 dark:bg-green-900/30 font-bold text-green-800 dark:text-green-200' : ''}`}>
                                     {param.prefix}{typeof value === 'number' ? value.toLocaleString() : value}{param.suffix}
                                     {isBest && <span className="ml-1">🏆</span>}
                                   </td>

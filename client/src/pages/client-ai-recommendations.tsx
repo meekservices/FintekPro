@@ -53,22 +53,22 @@ interface AIRecommendation {
 
 
 const TYPE_CONFIG = {
-  buy: { label: 'Buy Signal', icon: TrendingUp, color: 'bg-emerald-100 text-emerald-700 border-emerald-200', iconColor: 'text-emerald-600' },
-  sell: { label: 'Sell Signal', icon: TrendingDown, color: 'bg-red-100 text-red-700 border-red-200', iconColor: 'text-red-600' },
-  hold: { label: 'Hold', icon: Target, color: 'bg-blue-100 text-blue-700 border-blue-200', iconColor: 'text-blue-600' },
-  rebalance: { label: 'Rebalance', icon: Scale, color: 'bg-purple-100 text-purple-700 border-purple-200', iconColor: 'text-purple-600' },
-  tax_optimization: { label: 'Tax Optimization', icon: Calculator, color: 'bg-amber-100 text-amber-700 border-amber-200', iconColor: 'text-amber-600' }
+  buy: { label: 'Buy Signal', icon: TrendingUp, color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800', iconColor: 'text-emerald-600' },
+  sell: { label: 'Sell Signal', icon: TrendingDown, color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800', iconColor: 'text-red-600' },
+  hold: { label: 'Hold', icon: Target, color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800', iconColor: 'text-blue-600' },
+  rebalance: { label: 'Rebalance', icon: Scale, color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800', iconColor: 'text-purple-600' },
+  tax_optimization: { label: 'Tax Optimization', icon: Calculator, color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800', iconColor: 'text-amber-600' }
 };
 
 const RISK_CONFIG = {
-  low: { label: 'Low Risk', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  medium: { label: 'Medium Risk', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-  high: { label: 'High Risk', color: 'bg-red-100 text-red-700 border-red-200' }
+  low: { label: 'Low Risk', color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' },
+  medium: { label: 'Medium Risk', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' },
+  high: { label: 'High Risk', color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800' }
 };
 
 const PRIORITY_CONFIG = {
-  high: { label: 'High Priority', color: 'bg-red-100 text-red-700 border-red-200' },
-  medium: { label: 'Medium', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+  high: { label: 'High Priority', color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800' },
+  medium: { label: 'Medium', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' },
   low: { label: 'Low', color: 'bg-muted text-muted-foreground border-border' }
 };
 
@@ -242,7 +242,7 @@ export default function ClientAIRecommendations() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className="bg-blue-100 text-blue-700 border-blue-200" data-testid="badge-ai-powered">
+            <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800" data-testid="badge-ai-powered">
               <Sparkles className="h-3 w-3 mr-1" />
               AI-Powered
             </Badge>
@@ -257,7 +257,7 @@ export default function ClientAIRecommendations() {
           <Card className="bg-card border-border shadow-sm" data-testid="card-total-recommendations">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-100">
+                <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
                   <Zap className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
@@ -271,7 +271,7 @@ export default function ClientAIRecommendations() {
           <Card className="bg-card border-border shadow-sm" data-testid="card-high-priority">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-red-100">
+                <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
                   <Target className="h-5 w-5 text-red-600" />
                 </div>
                 <div>
@@ -285,7 +285,7 @@ export default function ClientAIRecommendations() {
           <Card className="bg-card border-border shadow-sm" data-testid="card-potential-gains">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-emerald-100">
+                <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
                   <ArrowUpRight className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
@@ -427,11 +427,11 @@ export default function ClientAIRecommendations() {
                                   </div>
                                 </div>
 
-                                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 mb-3">
+                                <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-800 mb-3">
                                   <div className="flex items-start gap-2">
                                     <Sparkles className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
                                     <div>
-                                      <p className="text-blue-700 text-xs font-medium">AI Analysis</p>
+                                      <p className="text-blue-700 dark:text-blue-300 text-xs font-medium">AI Analysis</p>
                                       <p className="text-blue-600 text-sm mt-0.5" data-testid={`rec-reasoning-${rec.id}`}>
                                         {rec.reasoning}
                                       </p>
@@ -483,11 +483,11 @@ export default function ClientAIRecommendations() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <Card className="bg-gradient-to-r from-blue-50 dark:from-blue-950/30 to-indigo-50 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                   <Brain className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
@@ -497,7 +497,7 @@ export default function ClientAIRecommendations() {
                   </p>
                 </div>
               </div>
-              <Button variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100" data-testid="button-learn-more">
+              <Button variant="outline" className="border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:bg-blue-900/30" data-testid="button-learn-more">
                 Learn More
               </Button>
             </div>

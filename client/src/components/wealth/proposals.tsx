@@ -104,13 +104,13 @@ export function Proposals({ portfolioId }: ProposalsProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+        return 'bg-yellow-50 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800';
       case 'processing':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
+        return 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800';
       case 'executed':
-        return 'bg-green-50 text-green-700 border-green-200';
+        return 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800';
       case 'failed':
-        return 'bg-red-50 text-red-700 border-red-200';
+        return 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800';
       default:
         return 'bg-muted text-muted-foreground border-border';
     }
@@ -217,18 +217,18 @@ export function Proposals({ portfolioId }: ProposalsProps) {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+            <div className="text-center p-4 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border border-yellow-200 dark:border-yellow-800">
               <div className="text-2xl font-bold text-yellow-600">{pendingProposals.length}</div>
-              <p className="text-sm font-medium text-yellow-800">Pending Proposals</p>
+              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Pending Proposals</p>
               <p className="text-xs text-yellow-600">{formatCurrency(totalPendingAmount)}</p>
             </div>
-            <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+            <div className="text-center p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
               <div className="text-2xl font-bold text-green-600">{executedProposals.length}</div>
-              <p className="text-sm font-medium text-green-800">Executed This Month</p>
+              <p className="text-sm font-medium text-green-800 dark:text-green-200">Executed This Month</p>
             </div>
-            <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
               <div className="text-2xl font-bold text-blue-600">{selectedProposals.length}</div>
-              <p className="text-sm font-medium text-blue-800">Selected for Execution</p>
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Selected for Execution</p>
             </div>
           </div>
           
@@ -267,7 +267,7 @@ export function Proposals({ portfolioId }: ProposalsProps) {
                 key={proposal.id} 
                 className={`border rounded-lg p-4 space-y-3 cursor-pointer transition-colors ${
                   selectedProposals.includes(proposal.id) 
-                    ? 'border-blue-500 bg-blue-50' 
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' 
                     : 'border-border hover:border-border'
                 }`}
                 onClick={() => handleProposalSelect(proposal.id)}
@@ -275,7 +275,7 @@ export function Proposals({ portfolioId }: ProposalsProps) {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded ${selectedProposals.includes(proposal.id) ? 'bg-blue-200' : 'bg-muted'}`}>
+                    <div className={`p-2 rounded ${selectedProposals.includes(proposal.id) ? 'bg-blue-200 dark:bg-blue-800/30' : 'bg-muted'}`}>
                       {getTypeIcon(proposal.type)}
                     </div>
                     <div>
@@ -322,18 +322,18 @@ export function Proposals({ portfolioId }: ProposalsProps) {
                   )}
                 </div>
 
-                <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                   <div className="flex items-start gap-2">
                     <Lightbulb className="w-4 h-4 text-blue-600 mt-0.5" />
                     <div>
-                      <p className="text-sm font-medium text-blue-800">Investment Rationale</p>
-                      <p className="text-sm text-blue-700">{proposal.rationale}</p>
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Investment Rationale</p>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">{proposal.rationale}</p>
                     </div>
                   </div>
                 </div>
 
                 {selectedProposals.includes(proposal.id) && (
-                  <div className="p-2 bg-blue-100 rounded text-sm text-blue-800 text-center">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded text-sm text-blue-800 dark:text-blue-200 text-center">
                     ✓ Selected for execution
                   </div>
                 )}
@@ -359,17 +359,17 @@ export function Proposals({ portfolioId }: ProposalsProps) {
             {executedProposals.slice(0, 5).map((proposal, index) => (
               <div 
                 key={proposal.id} 
-                className="border rounded-lg p-4 bg-green-50 border-green-200"
+                className="border rounded-lg p-4 bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800"
                 data-testid={`executed-proposal-${index}`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-200 rounded">
+                    <div className="p-2 bg-green-200 dark:bg-green-800/30 rounded">
                       {getTypeIcon(proposal.type)}
                     </div>
                     <div>
                       <h4 className="font-medium">{proposal.schemeName}</h4>
-                      <p className="text-sm text-green-700">
+                      <p className="text-sm text-green-700 dark:text-green-300">
                         Executed • {formatCurrency(proposal.amount)}
                       </p>
                     </div>

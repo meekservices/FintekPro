@@ -302,8 +302,8 @@ export default function TaxReminderDashboard() {
                 >
                   <div className="flex items-center gap-4">
                     <div className={`p-2 rounded-full ${
-                      reminder.status === 'paid' ? 'bg-green-100' : 
-                      reminder.status === 'sent' ? 'bg-blue-100' : 'bg-muted'
+                      reminder.status === 'paid' ? 'bg-green-100 dark:bg-green-900/30' : 
+                      reminder.status === 'sent' ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-muted'
                     }`}>
                       {reminder.status === 'paid' ? (
                         <CheckCircle className="h-4 w-4 text-green-600" />

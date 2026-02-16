@@ -312,7 +312,7 @@ export default function AgentMeetings() {
           {pendingRequestsData?.requests && pendingRequestsData.requests.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-orange-700 flex items-center gap-2">
+                <CardTitle className="text-orange-700 dark:text-orange-300 flex items-center gap-2">
                   <Clock className="h-5 w-5" />
                   Pending Requests ({pendingRequestsData.requests.length})
                 </CardTitle>
@@ -363,7 +363,7 @@ export default function AgentMeetings() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-red-600 hover:bg-red-50"
+                          className="text-red-600 hover:bg-red-50 dark:bg-red-950/30"
                           onClick={() => declineMeetingMutation.mutate({ id: request.id })}
                           disabled={declineMeetingMutation.isPending}
                           data-testid={`button-decline-${request.id}`}
@@ -381,7 +381,7 @@ export default function AgentMeetings() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-green-700 flex items-center gap-2">
+              <CardTitle className="text-green-700 dark:text-green-300 flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
                 Upcoming Meetings
               </CardTitle>
@@ -427,7 +427,7 @@ export default function AgentMeetings() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-red-600 hover:bg-red-50"
+                            className="text-red-600 hover:bg-red-50 dark:bg-red-950/30"
                             onClick={() => cancelMeetingMutation.mutate(meeting.id)}
                             disabled={cancelMeetingMutation.isPending}
                             data-testid={`button-cancel-meeting-${meeting.id}`}

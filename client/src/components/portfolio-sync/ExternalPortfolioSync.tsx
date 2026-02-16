@@ -357,9 +357,9 @@ export function ExternalPortfolioSync() {
       <CardContent className="space-y-6">
         {/* Pending Staging Alert */}
         {hasPendingStaging && (
-          <Alert className="bg-blue-50 border-blue-200">
+          <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
             <RefreshCw className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800 flex items-center justify-between">
+            <AlertDescription className="text-blue-800 dark:text-blue-200 flex items-center justify-between">
               <span>
                 You have {pendingStagingSession?.holdings?.length || 0} holdings pending review.
               </span>
@@ -377,9 +377,9 @@ export function ExternalPortfolioSync() {
 
         {/* Status Alert */}
         {!userPAN && (
-          <Alert className="bg-amber-50 border-amber-200">
+          <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
             <AlertCircle className="h-4 w-4 text-amber-600" />
-            <AlertDescription className="text-amber-800">
+            <AlertDescription className="text-amber-800 dark:text-amber-200">
               Complete PAN verification in your KYC dashboard to enable portfolio sync.
             </AlertDescription>
           </Alert>
@@ -442,9 +442,9 @@ export function ExternalPortfolioSync() {
 
         {/* Success Message */}
         {syncStatus === 'complete' && (
-          <Alert className="bg-green-50 border-green-200">
+          <Alert className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
             <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-800">
+            <AlertDescription className="text-green-800 dark:text-green-200">
               Portfolio sync completed successfully! Your holdings have been updated.
             </AlertDescription>
           </Alert>

@@ -69,9 +69,9 @@ const ITR_FORM_TYPES = [
 ];
 
 const COMPLEXITY_LEVELS = [
-  { value: "simple", label: "Simple", color: "bg-green-100 text-green-800" },
-  { value: "standard", label: "Standard", color: "bg-blue-100 text-blue-800" },
-  { value: "complex", label: "Complex", color: "bg-orange-100 text-orange-800" },
+  { value: "simple", label: "Simple", color: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200" },
+  { value: "standard", label: "Standard", color: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200" },
+  { value: "complex", label: "Complex", color: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200" },
 ];
 
 export default function TaxServicesSeed() {

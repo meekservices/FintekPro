@@ -294,7 +294,7 @@ export function QuickAccessToolbar() {
           {/* Quick Add Button */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 px-3 text-green-600 hover:text-green-700 hover:bg-green-50" data-testid="quick-add-button">
+              <Button variant="ghost" size="sm" className="h-8 px-3 text-green-600 hover:text-green-700 dark:text-green-300 hover:bg-green-50 dark:bg-green-950/30" data-testid="quick-add-button">
                 <Plus className="h-4 w-4" />
                 <span className="ml-2 hidden sm:inline">Quick Add</span>
               </Button>
@@ -365,8 +365,8 @@ export function QuickAccessToolbar() {
       </div>
 
       {/* Market Status Bar (optional) */}
-      <div className="bg-green-50 border-t border-green-200 px-4 py-1 hidden lg:block">
-        <div className="flex items-center justify-between text-xs text-green-800">
+      <div className="bg-green-50 dark:bg-green-950/30 border-t border-green-200 dark:border-green-800 px-4 py-1 hidden lg:block">
+        <div className="flex items-center justify-between text-xs text-green-800 dark:text-green-200">
           <div className="flex items-center space-x-4">
             <div className="flex items-center">
               <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>

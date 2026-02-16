@@ -1217,7 +1217,7 @@ export default function TDSCompliancePage() {
                           <h4 className="font-semibold mb-3">Filed Quarters</h4>
                           <div className="flex flex-wrap gap-2">
                             {analytics.data.compliance.filedQuarters.map((q: string) => (
-                              <Badge key={q} variant="outline" className="bg-green-50 text-green-600 border-green-200">
+                              <Badge key={q} variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-600 border-green-200 dark:border-green-800">
                                 <CheckCircle className="h-3 w-3 mr-1" />
                                 {q}
                               </Badge>
@@ -1228,7 +1228,7 @@ export default function TDSCompliancePage() {
                           <h4 className="font-semibold mb-3">Pending Quarters</h4>
                           <div className="flex flex-wrap gap-2">
                             {analytics.data.compliance.pendingQuarters.map((q: string) => (
-                              <Badge key={q} variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
+                              <Badge key={q} variant="outline" className="bg-orange-50 dark:bg-orange-950/30 text-orange-600 border-orange-200 dark:border-orange-800">
                                 <Clock className="h-3 w-3 mr-1" />
                                 {q}
                               </Badge>

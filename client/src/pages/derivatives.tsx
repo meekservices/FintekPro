@@ -526,11 +526,11 @@ export default function DerivativesPage() {
                       <td className="text-center p-2">19,500</td>
                       <td className="p-2 text-right text-red-600">₹210</td>
                     </tr>
-                    <tr className="border-b hover:bg-accent bg-blue-50">
+                    <tr className="border-b hover:bg-accent bg-blue-50 dark:bg-blue-950/30">
                       <td className="p-2 text-green-600 font-bold">₹165</td>
                       <td className="text-center p-2">25,400</td>
                       <td className="text-center p-2">15,800</td>
-                      <td className="text-center p-2 font-bold bg-blue-100">21600 (ATM)</td>
+                      <td className="text-center p-2 font-bold bg-blue-100 dark:bg-blue-900/30">21600 (ATM)</td>
                       <td className="text-center p-2">16,500</td>
                       <td className="text-center p-2">28,200</td>
                       <td className="p-2 text-right text-red-600 font-bold">₹155</td>

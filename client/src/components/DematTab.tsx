@@ -466,13 +466,13 @@ export function DematTab() {
                       <Building2 className="h-5 w-5" />
                       {account.dematDpName}
                       {account.isVerified && (
-                        <Badge variant="secondary" className="text-green-700 bg-green-50">
+                        <Badge variant="secondary" className="text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/30">
                           <CheckCircle className="h-3 w-3 mr-1" />
                           Verified
                         </Badge>
                       )}
                       {!account.isVerified && (
-                        <Badge variant="outline" className="text-amber-700 bg-amber-50">
+                        <Badge variant="outline" className="text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30">
                           <AlertCircle className="h-3 w-3 mr-1" />
                           Pending Verification
                         </Badge>

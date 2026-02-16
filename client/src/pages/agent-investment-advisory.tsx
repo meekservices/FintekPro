@@ -1217,8 +1217,8 @@ export default function AgentInvestmentAdvisory() {
                             variant={holdingPeriodInfo.isLTCG ? "default" : "secondary"}
                             className={cn(
                               holdingPeriodInfo.isLTCG 
-                                ? "bg-green-500/10 text-green-600 border-green-200" 
-                                : "bg-orange-500/10 text-orange-600 border-orange-200"
+                                ? "bg-green-500/10 text-green-600 border-green-200 dark:border-green-800" 
+                                : "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-800"
                             )}
                           >
                             {holdingPeriodInfo.taxType} @ {holdingPeriodInfo.taxRate}
@@ -1255,9 +1255,9 @@ export default function AgentInvestmentAdvisory() {
                           </Alert>
                         )}
                         {holdingPeriodInfo.isVeryOld && (
-                          <Alert className="mt-2 py-2 border-amber-200 bg-amber-50">
+                          <Alert className="mt-2 py-2 border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30">
                             <AlertTriangle className="h-3 w-3 text-amber-600" />
-                            <AlertDescription className="text-xs text-amber-700">
+                            <AlertDescription className="text-xs text-amber-700 dark:text-amber-300">
                               This date is over 20 years ago. Please verify.
                             </AlertDescription>
                           </Alert>
@@ -1366,9 +1366,9 @@ TCS     Tata Consultancy        25      3850.00"
                   )}
                   
                   {duplicateWarnings.length > 0 && (
-                    <Alert className="border-amber-200 bg-amber-50">
+                    <Alert className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30">
                       <AlertTriangle className="h-4 w-4 text-amber-600" />
-                      <AlertTitle className="text-amber-700">Duplicate Holdings Detected</AlertTitle>
+                      <AlertTitle className="text-amber-700 dark:text-amber-300">Duplicate Holdings Detected</AlertTitle>
                       <AlertDescription className="text-amber-600">
                         {duplicateWarnings.length} holding(s) already exist in portfolio: {duplicateWarnings.slice(0, 5).join(', ')}
                         {duplicateWarnings.length > 5 && ` and ${duplicateWarnings.length - 5} more`}.
@@ -1864,8 +1864,8 @@ TCS     Tata Consultancy        25      3850.00"
                                 className={cn(
                                   "text-xs",
                                   holding.taxType === 'LTCG' 
-                                    ? "bg-green-500/10 text-green-600 border-green-200" 
-                                    : "bg-orange-500/10 text-orange-600 border-orange-200"
+                                    ? "bg-green-500/10 text-green-600 border-green-200 dark:border-green-800" 
+                                    : "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-800"
                                 )}
                               >
                                 {holding.taxType}
@@ -2325,10 +2325,10 @@ TCS     Tata Consultancy        25      3850.00"
                     <CardHeader className="pb-2">
                       <div className="flex items-center gap-2">
                         <div className={`p-2 rounded-full ${
-                          point.category === 'STRENGTH' ? 'bg-green-100 text-green-600' :
-                          point.category === 'CONCERN' ? 'bg-red-100 text-red-600' :
-                          point.category === 'OPPORTUNITY' ? 'bg-blue-100 text-blue-600' :
-                          'bg-purple-100 text-purple-600'
+                          point.category === 'STRENGTH' ? 'bg-green-100 dark:bg-green-900/30 text-green-600' :
+                          point.category === 'CONCERN' ? 'bg-red-100 dark:bg-red-900/30 text-red-600' :
+                          point.category === 'OPPORTUNITY' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' :
+                          'bg-purple-100 dark:bg-purple-900/30 text-purple-600'
                         }`}>
                           <Icon className="h-4 w-4" />
                         </div>
@@ -3233,11 +3233,11 @@ function RiskProfilerTab({ clientId, clientName }: { clientId: string; clientNam
   };
 
   const getRiskCategory = (score: number) => {
-    if (score >= 80) return { label: 'Aggressive', color: 'text-red-600', bgColor: 'bg-red-100', description: 'High risk tolerance, seeks maximum returns' };
-    if (score >= 60) return { label: 'Moderately Aggressive', color: 'text-orange-600', bgColor: 'bg-orange-100', description: 'Above average risk tolerance' };
-    if (score >= 40) return { label: 'Moderate', color: 'text-yellow-600', bgColor: 'bg-yellow-100', description: 'Balanced approach to risk and return' };
-    if (score >= 20) return { label: 'Conservative', color: 'text-blue-600', bgColor: 'bg-blue-100', description: 'Prefers stability over high returns' };
-    return { label: 'Very Conservative', color: 'text-green-600', bgColor: 'bg-green-100', description: 'Capital preservation is priority' };
+    if (score >= 80) return { label: 'Aggressive', color: 'text-red-600', bgColor: 'bg-red-100 dark:bg-red-900/30', description: 'High risk tolerance, seeks maximum returns' };
+    if (score >= 60) return { label: 'Moderately Aggressive', color: 'text-orange-600', bgColor: 'bg-orange-100 dark:bg-orange-900/30', description: 'Above average risk tolerance' };
+    if (score >= 40) return { label: 'Moderate', color: 'text-yellow-600', bgColor: 'bg-yellow-100 dark:bg-yellow-900/30', description: 'Balanced approach to risk and return' };
+    if (score >= 20) return { label: 'Conservative', color: 'text-blue-600', bgColor: 'bg-blue-100 dark:bg-blue-900/30', description: 'Prefers stability over high returns' };
+    return { label: 'Very Conservative', color: 'text-green-600', bgColor: 'bg-green-100 dark:bg-green-900/30', description: 'Capital preservation is priority' };
   };
 
   const getRecommendedAllocation = (score: number) => {

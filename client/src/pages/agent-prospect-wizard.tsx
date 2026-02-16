@@ -3496,7 +3496,7 @@ export default function AgentProspectWizard() {
                                       <Button 
                                         variant="ghost" 
                                         size="sm" 
-                                        className="h-6 text-xs text-blue-600 hover:text-blue-800 p-1"
+                                        className="h-6 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-200 p-1"
                                         onClick={(e) => { e.stopPropagation(); toggleExpanded(); }}
                                       >
                                         {lotsCount} {lotsCount === 1 ? 'lot' : 'lots'}
@@ -3509,9 +3509,9 @@ export default function AgentProspectWizard() {
                                   <TableCell className="text-center">
                                     {taxSummary.hasLots ? (
                                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                        taxSummary.taxStatus === 'All LTCG' ? 'bg-green-100 text-green-800' :
-                                        taxSummary.taxStatus === 'All STCG' ? 'bg-amber-100 text-amber-800' :
-                                        taxSummary.taxStatus === 'Mixed' ? 'bg-purple-100 text-purple-800' :
+                                        taxSummary.taxStatus === 'All LTCG' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' :
+                                        taxSummary.taxStatus === 'All STCG' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200' :
+                                        taxSummary.taxStatus === 'Mixed' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200' :
                                         'bg-muted text-foreground'
                                       }`}>
                                         {taxSummary.taxStatus}
@@ -3622,12 +3622,12 @@ export default function AgentProspectWizard() {
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                   <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                                                    lotTax.type === 'LTCG' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                                                    lotTax.type === 'LTCG' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
                                                   }`}>
                                                     {lotTax.type}
                                                   </span>
                                                   {lotExitLoad.hasExitLoad ? (
-                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700">
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300">
                                                       Exit load
                                                     </span>
                                                   ) : (
@@ -4230,7 +4230,7 @@ export default function AgentProspectWizard() {
                       variant="outline" 
                       size="sm" 
                       onClick={addSipLot}
-                      className="text-blue-600 border-blue-300 hover:bg-blue-100"
+                      className="text-blue-600 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:bg-blue-900/30"
                     >
                       <Plus className="h-3 w-3 mr-1" /> Add Lot
                     </Button>
@@ -4276,7 +4276,7 @@ export default function AgentProspectWizard() {
                               variant="ghost"
                               size="sm"
                               onClick={() => removeSipLot(idx)}
-                              className="h-9 w-9 p-0 text-red-500 hover:text-red-700"
+                              className="h-9 w-9 p-0 text-red-500 hover:text-red-700 dark:text-red-300"
                             >
                               <X className="h-4 w-4" />
                             </Button>
@@ -4802,7 +4802,7 @@ export default function AgentProspectWizard() {
                           <p className="text-xs text-muted-foreground">TER: {h.ter}% | Cost: {formatCurrency(h.annualCost)}/yr</p>
                         </div>
                         {h.suggestedAlternative && (
-                          <Badge variant="outline" className="text-green-600 border-green-300 text-xs">
+                          <Badge variant="outline" className="text-green-600 border-green-300 dark:border-green-700 text-xs">
                             Save {formatCurrency(h.suggestedAlternative.savings)}
                           </Badge>
                         )}
@@ -5031,7 +5031,7 @@ export default function AgentProspectWizard() {
                             </p>
                           </div>
                           <div className="text-right ml-2">
-                            <Badge variant="outline" className="text-amber-600 border-amber-300">
+                            <Badge variant="outline" className="text-amber-600 border-amber-300 dark:border-amber-700">
                               {holding.exitLoadPercent.toFixed(2)}% load
                             </Badge>
                             {holding.exitLoadFreeDate && (
@@ -6133,7 +6133,7 @@ export default function AgentProspectWizard() {
                           <p className="text-xs text-muted-foreground">Exit Loads</p>
                           <p className="font-semibold text-red-600">{formatCurrency(taxSummary.totalExitLoad)}</p>
                         </div>
-                        <div className="p-2 bg-card rounded-lg border-2 border-amber-300">
+                        <div className="p-2 bg-card rounded-lg border-2 border-amber-300 dark:border-amber-700">
                           <p className="text-xs text-muted-foreground">Net Rebalancing Cost</p>
                           <p className="font-bold text-lg text-amber-800 dark:text-amber-200">{formatCurrency(taxSummary.netRebalancingCost)}</p>
                           <p className="text-xs text-muted-foreground">(Tax + Cess + Exit Load)</p>
@@ -6219,38 +6219,38 @@ export default function AgentProspectWizard() {
             {taxSummary ? (
               <>
                 <div className="grid md:grid-cols-5 gap-4">
-                  <Card className="border-red-200">
+                  <Card className="border-red-200 dark:border-red-800">
                     <CardContent className="pt-4 text-center">
                       <p className="text-xs text-muted-foreground">Short-Term Gains</p>
                       <p className="text-xl font-bold text-red-600">{formatCurrency(taxSummary.totalSTCG ?? 0)}</p>
                       <p className="text-xs text-muted-foreground">Tax (@20%): {formatCurrency(taxSummary.stcgTax ?? 0)}</p>
                     </CardContent>
                   </Card>
-                  <Card className="border-amber-200">
+                  <Card className="border-amber-200 dark:border-amber-800">
                     <CardContent className="pt-4 text-center">
                       <p className="text-xs text-muted-foreground">Long-Term Gains</p>
                       <p className="text-xl font-bold text-amber-600">{formatCurrency(taxSummary.totalLTCG ?? 0)}</p>
                       <p className="text-xs text-muted-foreground">Tax (@12.5%): {formatCurrency(taxSummary.ltcgTax ?? 0)}</p>
                     </CardContent>
                   </Card>
-                  <Card className="border-purple-200">
+                  <Card className="border-purple-200 dark:border-purple-800">
                     <CardContent className="pt-4 text-center">
                       <p className="text-xs text-muted-foreground">H&E Cess (4%)</p>
                       <p className="text-xl font-bold text-purple-600">{formatCurrency(taxSummary.cess ?? 0)}</p>
                       <p className="text-xs text-muted-foreground">on total tax</p>
                     </CardContent>
                   </Card>
-                  <Card className="border-blue-200">
+                  <Card className="border-blue-200 dark:border-blue-800">
                     <CardContent className="pt-4 text-center">
                       <p className="text-xs text-muted-foreground">Exit Loads</p>
                       <p className="text-xl font-bold text-blue-600">{formatCurrency(taxSummary.totalExitLoad ?? 0)}</p>
                       <p className="text-xs text-muted-foreground">if sold today</p>
                     </CardContent>
                   </Card>
-                  <Card className="border-2 border-amber-300">
+                  <Card className="border-2 border-amber-300 dark:border-amber-700">
                     <CardContent className="pt-4 text-center">
                       <p className="text-xs text-muted-foreground">Net Rebalancing Cost</p>
-                      <p className="text-xl font-bold text-amber-700">{formatCurrency(taxSummary.netRebalancingCost ?? 0)}</p>
+                      <p className="text-xl font-bold text-amber-700 dark:text-amber-300">{formatCurrency(taxSummary.netRebalancingCost ?? 0)}</p>
                       <p className="text-xs text-muted-foreground">(Tax + Cess + Exit Load)</p>
                     </CardContent>
                   </Card>
@@ -6521,7 +6521,7 @@ export default function AgentProspectWizard() {
                     <div key={idx} className="p-3 bg-card rounded-lg border">
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium text-sm">{sip.fundName}</span>
-                        <Badge variant="outline" className="text-cyan-600 border-cyan-300">{formatCurrency(sip.suggestedAmount)}/mo</Badge>
+                        <Badge variant="outline" className="text-cyan-600 border-cyan-300 dark:border-cyan-700">{formatCurrency(sip.suggestedAmount)}/mo</Badge>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span>{sip.category}</span>

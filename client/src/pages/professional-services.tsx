@@ -193,10 +193,10 @@ export default function ProfessionalServicesPage() {
 
       {/* Service Categories Overview */}
       <div className="grid md:grid-cols-3 gap-6 mb-8">
-        <Card className="border-blue-200">
+        <Card className="border-blue-200 dark:border-blue-800">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3 mb-3">
-              <div className="p-3 bg-blue-100 rounded-lg">
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                 <Target className="h-6 w-6 text-blue-600" />
               </div>
               <h3 className="font-semibold text-lg">Advisory Services</h3>
@@ -207,10 +207,10 @@ export default function ProfessionalServicesPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-green-200">
+        <Card className="border-green-200 dark:border-green-800">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3 mb-3">
-              <div className="p-3 bg-green-100 rounded-lg">
+              <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
                 <LineChart className="h-6 w-6 text-green-600" />
               </div>
               <h3 className="font-semibold text-lg">Research Reports</h3>
@@ -221,10 +221,10 @@ export default function ProfessionalServicesPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-purple-200">
+        <Card className="border-purple-200 dark:border-purple-800">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3 mb-3">
-              <div className="p-3 bg-purple-100 rounded-lg">
+              <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
                 <Award className="h-6 w-6 text-purple-600" />
               </div>
               <h3 className="font-semibold text-lg">Specialized Services</h3>

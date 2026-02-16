@@ -17,10 +17,10 @@ export function CommodityTracker({ className }: CommodityTrackerProps) {
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
-      precious_metals: "bg-yellow-100 text-yellow-800",
-      energy: "bg-orange-100 text-orange-800",
-      agricultural: "bg-green-100 text-green-800",
-      industrial: "bg-blue-100 text-blue-800",
+      precious_metals: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200",
+      energy: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200",
+      agricultural: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
+      industrial: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
     };
     return colors[category] || "bg-muted text-foreground";
   };

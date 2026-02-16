@@ -246,11 +246,11 @@ export default function PortfolioRebalancing() {
   const getSourceBadge = (source: string) => {
     switch (source) {
       case 'FINTEKPRO':
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs"><Building2 className="w-3 h-3 mr-1" />FintekPro</Badge>;
+        return <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 text-xs"><Building2 className="w-3 h-3 mr-1" />FintekPro</Badge>;
       case 'CDSL':
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">CDSL</Badge>;
+        return <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 text-xs">CDSL</Badge>;
       case 'NSDL':
-        return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">NSDL</Badge>;
+        return <Badge variant="outline" className="bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-xs">NSDL</Badge>;
       case 'UPLOADED':
         return <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-xs">Uploaded</Badge>;
       default:
@@ -261,9 +261,9 @@ export default function PortfolioRebalancing() {
   const getActionBadge = (actionType: string) => {
     switch (actionType) {
       case 'executable':
-        return <Badge className="bg-green-100 text-green-700 text-xs"><CheckCircle className="w-3 h-3 mr-1" />Execute</Badge>;
+        return <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs"><CheckCircle className="w-3 h-3 mr-1" />Execute</Badge>;
       case 'transfer_suggested':
-        return <Badge className="bg-blue-100 text-blue-700 text-xs"><ArrowRightLeft className="w-3 h-3 mr-1" />Transfer First</Badge>;
+        return <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs"><ArrowRightLeft className="w-3 h-3 mr-1" />Transfer First</Badge>;
       case 'advisory_only':
         return <Badge className="bg-muted text-muted-foreground text-xs"><Info className="w-3 h-3 mr-1" />Advisory</Badge>;
       default:
@@ -373,12 +373,12 @@ export default function PortfolioRebalancing() {
             </div>
 
             <div className="flex items-center gap-4">
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">
                 <Building2 className="w-3 h-3 mr-1" />
                 FintekPro: {internalCount} ({formatCurrency(totalInternalValue)})
               </Badge>
               {includeExternal && externalCount > 0 && (
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
                   <ExternalLink className="w-3 h-3 mr-1" />
                   External: {externalCount} ({formatCurrency(totalExternalValue)})
                 </Badge>
@@ -398,16 +398,16 @@ export default function PortfolioRebalancing() {
                       External holdings (CDSL/NSDL) cannot be traded directly through FintekPro. Recommendations will be tagged as:
                     </p>
                     <div className="flex flex-wrap gap-2 mt-2">
-                      <Badge className="bg-green-100 text-green-700 text-xs"><CheckCircle className="w-3 h-3 mr-1" />Execute</Badge>
-                      <span className="text-xs text-amber-700">- FintekPro holdings, can execute directly</span>
+                      <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs"><CheckCircle className="w-3 h-3 mr-1" />Execute</Badge>
+                      <span className="text-xs text-amber-700 dark:text-amber-300">- FintekPro holdings, can execute directly</span>
                     </div>
                     <div className="flex flex-wrap gap-2 mt-1">
-                      <Badge className="bg-blue-100 text-blue-700 text-xs"><ArrowRightLeft className="w-3 h-3 mr-1" />Transfer First</Badge>
-                      <span className="text-xs text-amber-700">- Transfer to FintekPro before selling</span>
+                      <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs"><ArrowRightLeft className="w-3 h-3 mr-1" />Transfer First</Badge>
+                      <span className="text-xs text-amber-700 dark:text-amber-300">- Transfer to FintekPro before selling</span>
                     </div>
                     <div className="flex flex-wrap gap-2 mt-1">
                       <Badge className="bg-muted text-muted-foreground text-xs"><Info className="w-3 h-3 mr-1" />Advisory</Badge>
-                      <span className="text-xs text-amber-700">- Information only, execute at your broker</span>
+                      <span className="text-xs text-amber-700 dark:text-amber-300">- Information only, execute at your broker</span>
                     </div>
                   </div>
                 </div>
@@ -438,7 +438,7 @@ export default function PortfolioRebalancing() {
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{assetType}</span>
                         {data.external > 0 && includeExternal && (
-                          <Badge variant="outline" className="text-xs bg-blue-50">+External</Badge>
+                          <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950/30">+External</Badge>
                         )}
                       </div>
                       <div className="flex items-center gap-2">

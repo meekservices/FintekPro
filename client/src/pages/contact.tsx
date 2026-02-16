@@ -371,8 +371,8 @@ export default function Contact() {
                       <span className="font-medium">Sunday</span>
                       <span className="text-muted-foreground">Closed</span>
                     </div>
-                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-blue-700">
+                    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
                         <strong>24/7 Emergency Trading Support</strong> available for urgent portfolio matters.
                       </p>
                     </div>

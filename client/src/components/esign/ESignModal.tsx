@@ -370,15 +370,15 @@ export function ESignModal({
             <div className="space-y-4">
               <div className="text-center py-4">
                 <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-green-700">
+                <h3 className="text-lg font-semibold text-green-700 dark:text-green-300">
                   Document Signed Successfully
                 </h3>
               </div>
 
-              <Alert className="bg-green-50 border-green-200">
+              <Alert className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
                 <FileCheck className="h-4 w-4 text-green-600" />
-                <AlertTitle className="text-green-800">eSign Complete</AlertTitle>
-                <AlertDescription className="text-green-700">
+                <AlertTitle className="text-green-800 dark:text-green-200">eSign Complete</AlertTitle>
+                <AlertDescription className="text-green-700 dark:text-green-300">
                   Your document has been digitally signed using Aadhaar authentication.
                 </AlertDescription>
               </Alert>
@@ -412,7 +412,7 @@ export function ESignModal({
             <div className="space-y-4">
               <div className="text-center py-4">
                 <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-red-700">
+                <h3 className="text-lg font-semibold text-red-700 dark:text-red-300">
                   Signing Failed
                 </h3>
               </div>

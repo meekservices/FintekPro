@@ -123,18 +123,18 @@ export default function AIPortfolioRecommendations({ portfolioId }: AIPortfolioR
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'bg-red-100 text-red-800 border-red-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-green-100 text-green-800 border-green-200';
+      case 'high': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800';
+      case 'medium': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border-yellow-200 dark:border-yellow-800';
+      case 'low': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-200 dark:border-green-800';
       default: return 'bg-muted text-foreground border-border';
     }
   };
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
-      case 'high': return 'bg-red-100 text-red-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'low': return 'bg-green-100 text-green-800';
+      case 'high': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200';
+      case 'medium': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200';
+      case 'low': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200';
       default: return 'bg-muted text-foreground';
     }
   };
@@ -267,24 +267,24 @@ export default function AIPortfolioRecommendations({ portfolioId }: AIPortfolioR
                   <CardContent>
                     <div className="space-y-4">
                       <div>
-                        <h4 className="font-medium text-blue-700 mb-2">Recommendation</h4>
+                        <h4 className="font-medium text-blue-700 dark:text-blue-300 mb-2">Recommendation</h4>
                         <p className="text-muted-foreground text-sm">{rec.recommendation}</p>
                       </div>
                       
                       <div>
-                        <h4 className="font-medium text-green-700 mb-2">Reasoning</h4>
+                        <h4 className="font-medium text-green-700 dark:text-green-300 mb-2">Reasoning</h4>
                         <p className="text-muted-foreground text-sm">{rec.reasoning}</p>
                       </div>
                       
                       <div>
-                        <h4 className="font-medium text-purple-700 mb-2">Expected Impact</h4>
+                        <h4 className="font-medium text-purple-700 dark:text-purple-300 mb-2">Expected Impact</h4>
                         <p className="text-muted-foreground text-sm">{rec.expectedImpact}</p>
                       </div>
                       
                       <Separator />
                       
                       <div>
-                        <h4 className="font-medium text-orange-700 mb-2 flex items-center">
+                        <h4 className="font-medium text-orange-700 dark:text-orange-300 mb-2 flex items-center">
                           <CheckCircle className="w-4 h-4 mr-1" />
                           Action Required
                         </h4>

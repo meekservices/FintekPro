@@ -107,14 +107,14 @@ interface ClientOption {
 
 const statusColors: Record<string, string> = {
   draft: "bg-muted text-foreground",
-  submitted: "bg-blue-100 text-blue-800",
-  eligibility_check: "bg-purple-100 text-purple-800",
-  routed: "bg-indigo-100 text-indigo-800",
-  pending_with_banks: "bg-yellow-100 text-yellow-800",
-  in_review: "bg-orange-100 text-orange-800",
-  approved: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-800",
-  disbursed: "bg-emerald-100 text-emerald-800",
+  submitted: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
+  eligibility_check: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200",
+  routed: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200",
+  pending_with_banks: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200",
+  in_review: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200",
+  approved: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
+  rejected: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200",
+  disbursed: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200",
 };
 
 const LEAD_STATUS_FLOW = ["REGISTERED", "LOGGED_IN", "APPROVED", "DISBURSED"];
@@ -213,11 +213,11 @@ interface PayoutClaim {
 }
 
 const bankStatusColors: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800",
-  in_review: "bg-blue-100 text-blue-800",
-  approved: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-800",
-  query_raised: "bg-orange-100 text-orange-800",
+  pending: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200",
+  in_review: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
+  approved: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
+  rejected: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200",
+  query_raised: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200",
 };
 
 const AGENT_ROLES = ["agent", "sub_agent", "master_agent", "associate"];
@@ -2040,10 +2040,10 @@ export default function AgentLoanApplyPage() {
                       <div 
                         key={history.id}
                         className={`p-3 rounded-lg border ${
-                          history.bankStatus === 'approved' ? 'bg-green-50 border-green-200' :
-                          history.bankStatus === 'rejected' ? 'bg-red-50 border-red-200' :
-                          history.bankStatus === 'in_review' ? 'bg-blue-50 border-blue-200' :
-                          'bg-yellow-50 border-yellow-200'
+                          history.bankStatus === 'approved' ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800' :
+                          history.bankStatus === 'rejected' ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800' :
+                          history.bankStatus === 'in_review' ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800' :
+                          'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
@@ -2060,14 +2060,14 @@ export default function AgentLoanApplyPage() {
                         </div>
                         {history.bankStatus === 'approved' && history.offeredInterestRate && (
                           <div className="mt-1 text-xs">
-                            <span className="text-green-700">
+                            <span className="text-green-700 dark:text-green-300">
                               Rate: {history.offeredInterestRate}% p.a.
                               {history.approvedAmount && ` | Amount: ${formatCurrency(history.approvedAmount)}`}
                             </span>
                           </div>
                         )}
                         {history.bankStatus === 'rejected' && history.rejectionReason && (
-                          <div className="mt-1 text-xs text-red-700">
+                          <div className="mt-1 text-xs text-red-700 dark:text-red-300">
                             Reason: {history.rejectionReason}
                           </div>
                         )}
@@ -2121,7 +2121,7 @@ export default function AgentLoanApplyPage() {
             {eligibilityResults.map(result => (
               <div 
                 key={result.bankCode}
-                className={`p-3 rounded-lg border ${result.eligible ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}
+                className={`p-3 rounded-lg border ${result.eligible ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800'}`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

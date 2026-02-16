@@ -185,7 +185,7 @@ export function RebalanceDashboard({ portfolioId, totalValue }: RebalanceDashboa
             
             {rebalanceResults ? (
               <div className="space-y-4" data-testid="rebalance-results">
-                <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg">
                   <h4 className="font-semibold text-foreground mb-3">Required Actions</h4>
                   <div className="space-y-3">
                     {rebalanceResults.rebalanceCalculations?.map((calc: any, index: number) => (
@@ -216,7 +216,7 @@ export function RebalanceDashboard({ portfolioId, totalValue }: RebalanceDashboa
                   </div>
                 </div>
 
-                <div className="bg-green-50 p-4 rounded-lg">
+                <div className="bg-green-50 dark:bg-green-950/30 p-4 rounded-lg">
                   <h4 className="font-semibold text-foreground mb-2">Summary</h4>
                   <div className="text-sm text-muted-foreground">
                     <p>Total portfolio value: ₹{totalValue.toLocaleString()}</p>

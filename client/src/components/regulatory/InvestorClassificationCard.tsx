@@ -77,11 +77,11 @@ const investorTypeIcons: Record<string, typeof User> = {
 };
 
 const investorTypeColors: Record<string, string> = {
-  retail: "bg-blue-100 text-blue-700 border-blue-200",
-  sHNI: "bg-green-100 text-green-700 border-green-200",
-  bHNI: "bg-purple-100 text-purple-700 border-purple-200",
-  qib: "bg-orange-100 text-orange-700 border-orange-200",
-  anchor: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  retail: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+  sHNI: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800",
+  bHNI: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+  qib: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800",
+  anchor: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800",
 };
 
 export function InvestorClassificationCard() {

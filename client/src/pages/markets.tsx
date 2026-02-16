@@ -246,7 +246,7 @@ export default function Markets() {
                       <div className="flex items-center justify-between">
                         <p 
                           className={`text-sm font-semibold px-2 py-1 rounded ${
-                            isPositive ? 'text-green-700 bg-green-100' : 'text-red-700 bg-red-100'
+                            isPositive ? 'text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/30' : 'text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30'
                           }`}
                           data-testid={`index-change-${index.symbol}`}
                         >
@@ -340,7 +340,7 @@ export default function Markets() {
                         ₹{symbolQuote.c?.toFixed(2)}
                       </p>
                       <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
-                        symbolQuote.d >= 0 ? 'text-green-700 bg-green-100' : 'text-red-700 bg-red-100'
+                        symbolQuote.d >= 0 ? 'text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/30' : 'text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30'
                       }`}>
                         {symbolQuote.d >= 0 ? '+' : ''}₹{symbolQuote.d?.toFixed(2)} 
                         ({symbolQuote.dp >= 0 ? '+' : ''}{symbolQuote.dp?.toFixed(2)}%)
@@ -484,11 +484,11 @@ export default function Markets() {
                   <CardContent className="p-6">
                     <div className="space-y-4">
                       {[
-                        { sector: "Technology", change: "+2.8%", color: "text-green-600 bg-green-50" },
-                        { sector: "Banking", change: "+1.2%", color: "text-green-600 bg-green-50" },
-                        { sector: "Pharmaceuticals", change: "-0.5%", color: "text-red-600 bg-red-50" },
-                        { sector: "Automobiles", change: "+0.9%", color: "text-green-600 bg-green-50" },
-                        { sector: "Real Estate", change: "-1.3%", color: "text-red-600 bg-red-50" }
+                        { sector: "Technology", change: "+2.8%", color: "text-green-600 bg-green-50 dark:bg-green-950/30" },
+                        { sector: "Banking", change: "+1.2%", color: "text-green-600 bg-green-50 dark:bg-green-950/30" },
+                        { sector: "Pharmaceuticals", change: "-0.5%", color: "text-red-600 bg-red-50 dark:bg-red-950/30" },
+                        { sector: "Automobiles", change: "+0.9%", color: "text-green-600 bg-green-50 dark:bg-green-950/30" },
+                        { sector: "Real Estate", change: "-1.3%", color: "text-red-600 bg-red-50 dark:bg-red-950/30" }
                       ].map((item, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                           <span className="font-medium text-foreground">{item.sector}</span>

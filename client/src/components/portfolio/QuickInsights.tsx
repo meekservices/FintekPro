@@ -264,7 +264,7 @@ export function QuickInsights({
             <Button
               variant="ghost"
               size="sm"
-              className="w-full mt-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              className="w-full mt-3 text-blue-600 hover:text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:bg-blue-950/30"
               onClick={() => onViewAll?.("sips")}
               data-testid="view-all-sips"
             >
@@ -332,7 +332,7 @@ export function QuickInsights({
             <Button
               variant="ghost"
               size="sm"
-              className="w-full mt-3 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+              className="w-full mt-3 text-purple-600 hover:text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:bg-purple-950/30"
               onClick={() => onViewAll?.("dividends")}
               data-testid="view-all-dividends"
             >
@@ -406,7 +406,7 @@ export function QuickInsights({
             <Button
               variant="ghost"
               size="sm"
-              className="w-full mt-3 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+              className="w-full mt-3 text-amber-600 hover:text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:bg-amber-950/30"
               onClick={() => onViewAll?.("alerts")}
               data-testid="view-all-alerts"
             >

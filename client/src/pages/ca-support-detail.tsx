@@ -511,7 +511,7 @@ export default function CASupportDetail() {
                   <TabsContent value="history" className="mt-0">
                     <div className="space-y-4">
                       <div className="flex items-center gap-3 text-sm">
-                        <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+                        <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                           <CheckCircle2 className="h-4 w-4 text-green-600" />
                         </div>
                         <div>
@@ -521,7 +521,7 @@ export default function CASupportDetail() {
                       </div>
                       {ticket.status !== "open" && (
                         <div className="flex items-center gap-3 text-sm">
-                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                          <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                             <Play className="h-4 w-4 text-blue-600" />
                           </div>
                           <div>
@@ -532,7 +532,7 @@ export default function CASupportDetail() {
                       )}
                       {steps.filter(s => s.completedAt).map((step) => (
                         <div key={step.id} className="flex items-center gap-3 text-sm">
-                          <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+                          <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                             <CheckCircle2 className="h-4 w-4 text-green-600" />
                           </div>
                           <div>

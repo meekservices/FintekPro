@@ -934,10 +934,10 @@ export default function AgentDashboard() {
                       {recentActivity.map((activity) => (
                         <div key={activity.id} className="flex items-center gap-4 p-3 bg-muted rounded-lg" data-testid={`activity-${activity.id}`}>
                           <div className={`p-2 rounded-full ${
-                            activity.type === 'itr_filed' ? 'bg-green-100 text-green-600' :
-                            activity.type === 'kyc_completed' ? 'bg-blue-100 text-blue-600' :
-                            activity.type === 'ca_assigned' ? 'bg-purple-100 text-purple-600' :
-                            activity.type === 'payment_received' ? 'bg-emerald-100 text-emerald-600' :
+                            activity.type === 'itr_filed' ? 'bg-green-100 dark:bg-green-900/30 text-green-600' :
+                            activity.type === 'kyc_completed' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' :
+                            activity.type === 'ca_assigned' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600' :
+                            activity.type === 'payment_received' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' :
                             'bg-muted text-muted-foreground'
                           }`}>
                             {activity.type === 'itr_filed' ? <FileText className="h-4 w-4" /> :
@@ -970,10 +970,10 @@ export default function AgentDashboard() {
             
             const getStatusBadgeColor = (status: string) => {
               switch (status) {
-                case "filed": return "bg-green-100 text-green-700 border-green-200";
-                case "ca_review": return "bg-purple-100 text-purple-700 border-purple-200";
-                case "assigned_to_ca": return "bg-blue-100 text-blue-700 border-blue-200";
-                case "pending_documents": return "bg-orange-100 text-orange-700 border-orange-200";
+                case "filed": return "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800";
+                case "ca_review": return "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800";
+                case "assigned_to_ca": return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800";
+                case "pending_documents": return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800";
                 case "draft": return "bg-muted text-muted-foreground border-border";
                 default: return "bg-muted text-muted-foreground border-border";
               }
@@ -981,8 +981,8 @@ export default function AgentDashboard() {
             
             const getPriorityBadge = (priority: string) => {
               switch (priority) {
-                case "high": return "bg-red-100 text-red-700";
-                case "medium": return "bg-yellow-100 text-yellow-700";
+                case "high": return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300";
+                case "medium": return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300";
                 default: return "bg-muted text-muted-foreground";
               }
             };
@@ -1170,9 +1170,9 @@ export default function AgentDashboard() {
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-3">
                                 <div className={`p-2 rounded-lg ${
-                                  quarter.status === "filed" ? "bg-green-100 text-green-600" :
-                                  quarter.status === "overdue" ? "bg-red-100 text-red-600" :
-                                  "bg-yellow-100 text-yellow-600"
+                                  quarter.status === "filed" ? "bg-green-100 dark:bg-green-900/30 text-green-600" :
+                                  quarter.status === "overdue" ? "bg-red-100 dark:bg-red-900/30 text-red-600" :
+                                  "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600"
                                 }`}>
                                   <Receipt className="h-5 w-5" />
                                 </div>
@@ -1184,9 +1184,9 @@ export default function AgentDashboard() {
                               <div className="text-right">
                                 <div className="font-bold">₹{(quarter.totalTDS ?? 0).toLocaleString()}</div>
                                 <Badge className={`text-xs ${
-                                  quarter.status === "filed" ? "bg-green-100 text-green-700" :
-                                  quarter.status === "overdue" ? "bg-red-100 text-red-700" :
-                                  "bg-yellow-100 text-yellow-700"
+                                  quarter.status === "filed" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300" :
+                                  quarter.status === "overdue" ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300" :
+                                  "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
                                 }`}>
                                   {(quarter.status || 'pending').toUpperCase()}
                                 </Badge>
@@ -1526,7 +1526,7 @@ export default function AgentDashboard() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-full">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
                       <FileText className="h-4 w-4 text-blue-600" />
                     </div>
                     <div>
@@ -1544,7 +1544,7 @@ export default function AgentDashboard() {
 
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 rounded-full">
+                    <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
                       <PieChart className="h-4 w-4 text-green-600" />
                     </div>
                     <div>
@@ -1565,7 +1565,7 @@ export default function AgentDashboard() {
 
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-orange-100 rounded-full">
+                    <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-full">
                       <FileText className="h-4 w-4 text-orange-600" />
                     </div>
                     <div>
@@ -1669,7 +1669,7 @@ export default function AgentDashboard() {
                     <div 
                       key={client.id} 
                       className={`border rounded-lg p-4 hover:bg-muted cursor-pointer transition-colors ${
-                        selectedClient?.id === client.id ? 'border-blue-500 bg-blue-50' : ''
+                        selectedClient?.id === client.id ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' : ''
                       }`}
                       onClick={() => setSelectedClient(selectedClient?.id === client.id ? null : client)}
                     >
@@ -1968,7 +1968,7 @@ export default function AgentDashboard() {
               {/* Pending Meeting Requests Section */}
               {pendingRequestsData?.requests && pendingRequestsData.requests.length > 0 && (
                 <div className="mb-6">
-                  <h3 className="text-sm font-semibold mb-3 text-orange-700 flex items-center gap-2">
+                  <h3 className="text-sm font-semibold mb-3 text-orange-700 dark:text-orange-300 flex items-center gap-2">
                     <Clock className="h-4 w-4" />
                     Pending Meeting Requests ({pendingRequestsData.requests.length})
                   </h3>
@@ -2019,7 +2019,7 @@ export default function AgentDashboard() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-red-600 hover:bg-red-50"
+                              className="text-red-600 hover:bg-red-50 dark:bg-red-950/30"
                               onClick={() => declineMeetingMutation.mutate({ id: request.id })}
                               disabled={declineMeetingMutation.isPending}
                               data-testid={`button-decline-${request.id}`}
@@ -2043,7 +2043,7 @@ export default function AgentDashboard() {
                 <div className="space-y-4">
                   {/* Upcoming Meetings */}
                   <div>
-                    <h3 className="text-sm font-semibold mb-3 text-green-700 flex items-center gap-2">
+                    <h3 className="text-sm font-semibold mb-3 text-green-700 dark:text-green-300 flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
                       Upcoming Meetings
                     </h3>
@@ -2085,7 +2085,7 @@ export default function AgentDashboard() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="text-red-600 hover:bg-red-50"
+                                  className="text-red-600 hover:bg-red-50 dark:bg-red-950/30"
                                   onClick={() => cancelMeetingMutation.mutate(meeting.id)}
                                   disabled={cancelMeetingMutation.isPending}
                                   data-testid={`button-cancel-meeting-${meeting.id}`}

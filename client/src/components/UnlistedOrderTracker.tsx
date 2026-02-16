@@ -71,14 +71,14 @@ export function UnlistedOrderTracker({
     }
     if (currentIndex === 4) {
       return (
-        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+        <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
           <CheckCircle2 className="w-3 h-3 mr-1" />
           Completed
         </Badge>
       );
     }
     return (
-      <Badge variant="outline" className="text-blue-600 border-blue-300">
+      <Badge variant="outline" className="text-blue-600 border-blue-300 dark:border-blue-700">
         <Clock className="w-3 h-3 mr-1" />
         In Progress
       </Badge>

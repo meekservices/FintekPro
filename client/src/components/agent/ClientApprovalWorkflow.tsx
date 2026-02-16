@@ -54,10 +54,10 @@ interface ClientApprovalWorkflowProps {
 }
 
 const STATUS_CONFIG = {
-  pending: { label: "Pending Approval", color: "bg-amber-100 text-amber-700", icon: Clock },
-  approved: { label: "Approved", color: "bg-green-100 text-green-700", icon: CheckCircle2 },
-  rejected: { label: "Rejected", color: "bg-red-100 text-red-700", icon: XCircle },
-  deferred: { label: "Deferred", color: "bg-blue-100 text-blue-700", icon: Calendar },
+  pending: { label: "Pending Approval", color: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300", icon: Clock },
+  approved: { label: "Approved", color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300", icon: CheckCircle2 },
+  rejected: { label: "Rejected", color: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300", icon: XCircle },
+  deferred: { label: "Deferred", color: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300", icon: Calendar },
 };
 
 export function ClientApprovalWorkflow({
@@ -147,9 +147,9 @@ export function ClientApprovalWorkflow({
 
   if (status === 'approved') {
     return (
-      <Card className="border-green-200">
+      <Card className="border-green-200 dark:border-green-800">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-green-700">
+          <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-300">
             <CheckCircle2 className="h-5 w-5" />
             Proposal Approved
           </CardTitle>
@@ -188,9 +188,9 @@ export function ClientApprovalWorkflow({
 
   if (status === 'rejected') {
     return (
-      <Card className="border-red-200">
+      <Card className="border-red-200 dark:border-red-800">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-red-700">
+          <CardTitle className="flex items-center gap-2 text-red-700 dark:text-red-300">
             <XCircle className="h-5 w-5" />
             Proposal Rejected
           </CardTitle>
@@ -246,7 +246,7 @@ export function ClientApprovalWorkflow({
             {completionSteps.map((step, idx) => (
               <div key={idx} className="flex flex-col items-center">
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                  step.completed ? 'bg-green-100 text-green-700' : 'bg-muted'
+                  step.completed ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-muted'
                 }`}>
                   {step.completed ? <CheckCircle2 className="h-4 w-4" /> : <span className="text-xs">{idx + 1}</span>}
                 </div>
@@ -334,7 +334,7 @@ export function ClientApprovalWorkflow({
 
         {showRejectForm && (
           <div className="p-4 border border-red-200 rounded-lg bg-red-50 dark:bg-red-950">
-            <Label htmlFor="rejection" className="text-red-700">Reason for Rejection</Label>
+            <Label htmlFor="rejection" className="text-red-700 dark:text-red-300">Reason for Rejection</Label>
             <Textarea
               id="rejection"
               placeholder="Please explain why you're declining this proposal..."

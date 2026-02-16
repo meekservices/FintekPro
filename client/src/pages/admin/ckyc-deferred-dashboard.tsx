@@ -95,11 +95,11 @@ function getSlaColor(hoursRemaining: number, breached: boolean): string {
 
 function getStatusBadge(status: string) {
   const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; className: string }> = {
-    pending: { variant: "outline", className: "bg-yellow-50 text-yellow-700 border-yellow-300" },
-    in_progress: { variant: "outline", className: "bg-blue-50 text-blue-700 border-blue-300" },
-    manual_kyc_initiated: { variant: "outline", className: "bg-purple-50 text-purple-700 border-purple-300" },
-    vkyc_scheduled: { variant: "outline", className: "bg-indigo-50 text-indigo-700 border-indigo-300" },
-    resolved: { variant: "outline", className: "bg-green-50 text-green-700 border-green-300" },
+    pending: { variant: "outline", className: "bg-yellow-50 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700" },
+    in_progress: { variant: "outline", className: "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700" },
+    manual_kyc_initiated: { variant: "outline", className: "bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700" },
+    vkyc_scheduled: { variant: "outline", className: "bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700" },
+    resolved: { variant: "outline", className: "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700" },
     rejected: { variant: "destructive", className: "" },
   };
   const config = statusConfig[status] || statusConfig.pending;

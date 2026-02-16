@@ -56,11 +56,11 @@ const CATEGORY_ICONS: Record<string, any> = {
 };
 
 const RISK_TIER_COLORS: Record<string, string> = {
-  RP1: "bg-green-100 text-green-800 border-green-200",
-  RP2: "bg-blue-100 text-blue-800 border-blue-200",
-  RP3: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  RP4: "bg-orange-100 text-orange-800 border-orange-200",
-  RP5: "bg-red-100 text-red-800 border-red-200",
+  RP1: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-200 dark:border-green-800",
+  RP2: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800",
+  RP3: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border-yellow-200 dark:border-yellow-800",
+  RP4: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-200 dark:border-orange-800",
+  RP5: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800",
 };
 
 const RISK_TIER_DESCRIPTIONS: Record<string, string> = {
@@ -539,8 +539,8 @@ export default function RiskProfilingPage() {
             {existingProfile.sebiOverrideApplied && (
               <Alert className="max-w-lg mx-auto border-orange-200 bg-orange-50 dark:bg-orange-900/20">
                 <AlertTriangle className="h-4 w-4 text-orange-600" />
-                <AlertTitle className="text-orange-800">SEBI Override Applied</AlertTitle>
-                <AlertDescription className="text-orange-700">
+                <AlertTitle className="text-orange-800 dark:text-orange-200">SEBI Override Applied</AlertTitle>
+                <AlertDescription className="text-orange-700 dark:text-orange-300">
                   {existingProfile.sebiOverrideReason}
                   {existingProfile.originalTier && (
                     <span className="block mt-1">

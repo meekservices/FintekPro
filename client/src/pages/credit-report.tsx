@@ -332,12 +332,12 @@ export default function CreditReportPage() {
                   </div>
                 ))}
               </div>
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-blue-900">Hard Enquiries Impact</p>
-                    <p className="text-sm text-blue-700 mt-1">Multiple hard enquiries in a short period can lower your credit score. Try to space out credit applications.</p>
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Hard Enquiries Impact</p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">Multiple hard enquiries in a short period can lower your credit score. Try to space out credit applications.</p>
                   </div>
                 </div>
               </div>
@@ -409,42 +409,42 @@ export default function CreditReportPage() {
               <CardDescription>Actions to improve your credit score</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 border border-green-200 bg-green-50 rounded-lg">
+              <div className="p-4 border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 rounded-lg">
                 <div className="flex items-start gap-3">
                   <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
                   <div>
-                    <h4 className="font-semibold text-green-900">Continue On-Time Payments</h4>
-                    <p className="text-sm text-green-700 mt-1">Your perfect payment history is the strongest factor. Keep it up!</p>
+                    <h4 className="font-semibold text-green-900 dark:text-green-100">Continue On-Time Payments</h4>
+                    <p className="text-sm text-green-700 dark:text-green-300 mt-1">Your perfect payment history is the strongest factor. Keep it up!</p>
                   </div>
                 </div>
               </div>
 
-              <div className="p-4 border border-blue-200 bg-blue-50 rounded-lg">
+              <div className="p-4 border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                 <div className="flex items-start gap-3">
                   <TrendingUp className="h-5 w-5 text-blue-600 mt-0.5" />
                   <div>
-                    <h4 className="font-semibold text-blue-900">Maintain Low Credit Utilization</h4>
-                    <p className="text-sm text-blue-700 mt-1">Your 8.3% utilization is excellent. Try to keep it below 30% for optimal scores.</p>
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100">Maintain Low Credit Utilization</h4>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">Your 8.3% utilization is excellent. Try to keep it below 30% for optimal scores.</p>
                   </div>
                 </div>
               </div>
 
-              <div className="p-4 border border-yellow-200 bg-yellow-50 rounded-lg">
+              <div className="p-4 border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
                   <div>
-                    <h4 className="font-semibold text-yellow-900">Consider Credit Age</h4>
-                    <p className="text-sm text-yellow-700 mt-1">Avoid closing your oldest credit card (Axis Bank). It helps your credit history length.</p>
+                    <h4 className="font-semibold text-yellow-900 dark:text-yellow-100">Consider Credit Age</h4>
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">Avoid closing your oldest credit card (Axis Bank). It helps your credit history length.</p>
                   </div>
                 </div>
               </div>
 
-              <div className="p-4 border border-purple-200 bg-purple-50 rounded-lg">
+              <div className="p-4 border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                 <div className="flex items-start gap-3">
                   <DollarSign className="h-5 w-5 text-purple-600 mt-0.5" />
                   <div>
-                    <h4 className="font-semibold text-purple-900">Improve Credit Mix</h4>
-                    <p className="text-sm text-purple-700 mt-1">Adding a small installment loan could diversify your credit mix and potentially boost your score.</p>
+                    <h4 className="font-semibold text-purple-900 dark:text-purple-100">Improve Credit Mix</h4>
+                    <p className="text-sm text-purple-700 dark:text-purple-300 mt-1">Adding a small installment loan could diversify your credit mix and potentially boost your score.</p>
                   </div>
                 </div>
               </div>

@@ -163,10 +163,10 @@ export default function BondCategoryPage() {
 
   const getRatingColor = (rating: string) => {
     if (!rating) return "bg-muted text-muted-foreground";
-    if (rating.includes("AAA") || rating === "SOV") return "bg-green-100 text-green-700";
-    if (rating.includes("AA")) return "bg-blue-100 text-blue-700";
-    if (rating.includes("A")) return "bg-yellow-100 text-yellow-700";
-    return "bg-orange-100 text-orange-700";
+    if (rating.includes("AAA") || rating === "SOV") return "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300";
+    if (rating.includes("AA")) return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300";
+    if (rating.includes("A")) return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300";
+    return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300";
   };
 
   return (

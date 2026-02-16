@@ -58,10 +58,10 @@ interface Proposal {
 
 const statusColors = {
   draft: "bg-muted text-foreground",
-  sent: "bg-blue-100 text-blue-800", 
-  viewed: "bg-yellow-100 text-yellow-800",
-  accepted: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-800",
+  sent: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200", 
+  viewed: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200",
+  accepted: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
+  rejected: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200",
   expired: "bg-muted text-muted-foreground"
 };
 

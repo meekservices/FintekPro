@@ -210,12 +210,12 @@ export default function IPO() {
               <LoadingState variant="card" count={3} />
             ) : ongoingIpos.length > 0 ? (
               <div className="space-y-6">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4" data-testid="live-ipo-notice">
+                <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4" data-testid="live-ipo-notice">
                   <div className="flex items-center space-x-2">
                     <Clock className="h-5 w-5 text-green-600" />
-                    <h3 className="font-semibold text-green-800">Live IPO Applications</h3>
+                    <h3 className="font-semibold text-green-800 dark:text-green-200">Live IPO Applications</h3>
                   </div>
-                  <p className="text-green-700 text-sm mt-1">
+                  <p className="text-green-700 dark:text-green-300 text-sm mt-1">
                     These IPOs are currently accepting applications. Apply before the closing date.
                   </p>
                 </div>
@@ -257,12 +257,12 @@ export default function IPO() {
           </TabsContent>
 
           <TabsContent value="sme" className="space-y-6" data-testid="sme-ipos">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6" data-testid="sme-info">
+            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6" data-testid="sme-info">
               <div className="flex items-center space-x-2">
                 <Building2 className="h-5 w-5 text-blue-600" />
-                <h3 className="font-semibold text-blue-800">SME IPO Platform</h3>
+                <h3 className="font-semibold text-blue-800 dark:text-blue-200">SME IPO Platform</h3>
               </div>
-              <p className="text-blue-700 text-sm mt-1">
+              <p className="text-blue-700 dark:text-blue-300 text-sm mt-1">
                 Small and Medium Enterprises (SME) IPOs offer investment opportunities in emerging companies with growth potential.
               </p>
             </div>
@@ -305,7 +305,7 @@ export default function IPO() {
               {/* Active IPO Analysis Section */}
               <div className="space-y-4">
                 {/* Featured Analysis Card */}
-                <Card className="border-blue-200 bg-blue-50">
+                <Card className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
@@ -313,11 +313,11 @@ export default function IPO() {
                           <BookOpen className="h-6 w-6 text-foreground" />
                         </div>
                         <div>
-                          <CardTitle className="text-blue-900">Amanta Healthcare IPO Analysis</CardTitle>
-                          <p className="text-blue-700 text-sm">Price Band: ₹120 - ₹126 | Issue Size: ₹126 Cr</p>
+                          <CardTitle className="text-blue-900 dark:text-blue-100">Amanta Healthcare IPO Analysis</CardTitle>
+                          <p className="text-blue-700 dark:text-blue-300 text-sm">Price Band: ₹120 - ₹126 | Issue Size: ₹126 Cr</p>
                         </div>
                       </div>
-                      <Badge className="bg-green-100 text-green-800">Recommended</Badge>
+                      <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">Recommended</Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -371,7 +371,7 @@ export default function IPO() {
                         <div className="space-y-2">
                           <div className="flex items-center space-x-2">
                             <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                            <span className="text-sm font-medium text-green-700">SUBSCRIBE</span>
+                            <span className="text-sm font-medium text-green-700 dark:text-green-300">SUBSCRIBE</span>
                           </div>
                           <p className="text-sm text-muted-foreground">
                             Strong fundamentals with good growth prospects. Recommended for long-term investors.
@@ -413,7 +413,7 @@ export default function IPO() {
                           <h4 className="font-semibold text-foreground">Anlon Healthcare</h4>
                           <p className="text-sm text-muted-foreground">₹86 - ₹91 | ₹121 Cr</p>
                         </div>
-                        <Badge variant="outline" className="text-orange-600 border-orange-300">Neutral</Badge>
+                        <Badge variant="outline" className="text-orange-600 border-orange-300 dark:border-orange-700">Neutral</Badge>
                       </div>
                       <div className="grid grid-cols-2 gap-3 text-xs">
                         <div className="bg-muted p-2 rounded">
@@ -443,7 +443,7 @@ export default function IPO() {
                           <h4 className="font-semibold text-foreground">Fractal Analytics</h4>
                           <p className="text-sm text-muted-foreground">Price TBA | ₹4,900 Cr</p>
                         </div>
-                        <Badge className="bg-green-100 text-green-800">Subscribe</Badge>
+                        <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">Subscribe</Badge>
                       </div>
                       <div className="grid grid-cols-2 gap-3 text-xs">
                         <div className="bg-muted p-2 rounded">
@@ -522,7 +522,7 @@ export default function IPO() {
 
         {/* Demat Account CTA Section */}
         <section className="mt-12" data-testid="demat-cta-section">
-          <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
+          <Card className="bg-gradient-to-r from-green-50 dark:from-green-950/30 to-blue-50 dark:to-blue-950/30 border-green-200 dark:border-green-800">
             <CardContent className="p-8 text-center">
               <div className="max-w-2xl mx-auto">
                 <h2 className="text-2xl font-bold text-foreground mb-4">Ready to Apply for IPOs?</h2>
@@ -552,7 +552,7 @@ export default function IPO() {
             
             <Card>
               <CardContent className="p-6">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mb-4">
                   <Calendar className="h-6 w-6 text-finance-blue" />
                 </div>
                 <h3 className="font-bold text-foreground mb-2">Check IPO Calendar</h3>
@@ -564,7 +564,7 @@ export default function IPO() {
 
             <Card>
               <CardContent className="p-6">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center mb-4">
                   <IndianRupee className="h-6 w-6 text-finance-green" />
                 </div>
                 <h3 className="font-bold text-foreground mb-2">Apply Online</h3>
@@ -576,7 +576,7 @@ export default function IPO() {
 
             <Card>
               <CardContent className="p-6">
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center mb-4">
                   <TrendingUp className="h-6 w-6 text-purple-600" />
                 </div>
                 <h3 className="font-bold text-foreground mb-2">Track Status</h3>

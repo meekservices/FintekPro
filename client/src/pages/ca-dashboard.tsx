@@ -79,29 +79,29 @@ interface Case {
 }
 
 const AVAILABILITY_OPTIONS = [
-  { value: 'available', label: 'Available', color: 'bg-green-100 text-green-700' },
-  { value: 'busy', label: 'Busy', color: 'bg-yellow-100 text-yellow-700' },
-  { value: 'on_leave', label: 'On Leave', color: 'bg-orange-100 text-orange-700' },
-  { value: 'unavailable', label: 'Unavailable', color: 'bg-red-100 text-red-700' },
+  { value: 'available', label: 'Available', color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
+  { value: 'busy', label: 'Busy', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' },
+  { value: 'on_leave', label: 'On Leave', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
+  { value: 'unavailable', label: 'Unavailable', color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
   initiated: 'bg-muted text-muted-foreground',
-  documents_pending: 'bg-yellow-100 text-yellow-700',
-  documents_received: 'bg-blue-100 text-blue-700',
-  under_review: 'bg-indigo-100 text-indigo-700',
-  ca_assigned: 'bg-purple-100 text-purple-700',
-  processing: 'bg-cyan-100 text-cyan-700',
-  filed: 'bg-emerald-100 text-emerald-700',
-  acknowledged: 'bg-teal-100 text-teal-700',
-  completed: 'bg-green-100 text-green-700',
+  documents_pending: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+  documents_received: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+  under_review: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300',
+  ca_assigned: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+  processing: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300',
+  filed: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+  acknowledged: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300',
+  completed: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
   low: 'bg-muted text-muted-foreground',
-  normal: 'bg-blue-100 text-blue-700',
-  high: 'bg-orange-100 text-orange-700',
-  urgent: 'bg-red-100 text-red-700',
+  normal: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+  high: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+  urgent: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
 };
 
 export default function CADashboard() {
@@ -209,7 +209,7 @@ export default function CADashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Avatar className="h-12 w-12">
-                <AvatarFallback className="bg-blue-100 text-blue-600 font-semibold">
+                <AvatarFallback className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 font-semibold">
                   {profile?.name?.split(' ').map(n => n[0]).join('') || 'CA'}
                 </AvatarFallback>
               </Avatar>
@@ -639,7 +639,7 @@ export default function CADashboard() {
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex items-center gap-3 p-3 border rounded-lg">
-                      <div className="p-2 bg-yellow-100 rounded-full">
+                      <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
                         <Star className="h-5 w-5 text-yellow-600" />
                       </div>
                       <div>
@@ -649,7 +649,7 @@ export default function CADashboard() {
                     </div>
                     
                     <div className="flex items-center gap-3 p-3 border rounded-lg">
-                      <div className="p-2 bg-green-100 rounded-full">
+                      <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
                         <CheckCircle2 className="h-5 w-5 text-green-600" />
                       </div>
                       <div>
@@ -659,7 +659,7 @@ export default function CADashboard() {
                     </div>
                     
                     <div className="flex items-center gap-3 p-3 border rounded-lg">
-                      <div className="p-2 bg-blue-100 rounded-full">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
                         <Target className="h-5 w-5 text-blue-600" />
                       </div>
                       <div>
@@ -669,7 +669,7 @@ export default function CADashboard() {
                     </div>
                     
                     <div className="flex items-center gap-3 p-3 border rounded-lg">
-                      <div className="p-2 bg-purple-100 rounded-full">
+                      <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-full">
                         <Award className="h-5 w-5 text-purple-600" />
                       </div>
                       <div>

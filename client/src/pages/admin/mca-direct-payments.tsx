@@ -55,16 +55,16 @@ interface PaymentSummary {
 }
 
 const statusColors: Record<string, string> = {
-  initiated: "bg-yellow-100 text-yellow-800",
-  confirmed: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-800",
+  initiated: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200",
+  confirmed: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
+  cancelled: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200",
 };
 
 const zohoSyncColors: Record<string, string> = {
   pending: "bg-muted text-foreground",
-  synced: "bg-green-100 text-green-800",
-  failed: "bg-red-100 text-red-800",
-  skipped: "bg-blue-100 text-blue-800",
+  synced: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
+  failed: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200",
+  skipped: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
 };
 
 export default function McaDirectPayments() {

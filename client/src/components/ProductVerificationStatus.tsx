@@ -108,7 +108,7 @@ export function ProductVerificationStatus({
       );
     } else if (required === "enhanced" && currentKYCLevel === "full") {
       return (
-        <Badge variant="outline" className="border-yellow-600 text-yellow-700" data-testid={`badge-upgrade-required`}>
+        <Badge variant="outline" className="border-yellow-600 text-yellow-700 dark:text-yellow-300" data-testid={`badge-upgrade-required`}>
           Enhanced KYC Required
         </Badge>
       );

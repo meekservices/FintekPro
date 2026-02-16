@@ -69,13 +69,13 @@ interface TreasuryProposal {
 
 const statusColors: Record<string, string> = {
   draft: "bg-muted text-foreground",
-  pending_approval: "bg-yellow-100 text-yellow-800",
-  pending_maker: "bg-yellow-100 text-yellow-800",
-  pending_checker: "bg-orange-100 text-orange-800",
-  approved: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-800",
-  executed: "bg-blue-100 text-blue-800",
-  expired: "bg-purple-100 text-purple-800"
+  pending_approval: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200",
+  pending_maker: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200",
+  pending_checker: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200",
+  approved: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
+  rejected: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200",
+  executed: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
+  expired: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200"
 };
 
 const bucketColors: Record<string, string> = {
@@ -339,7 +339,7 @@ export default function AgentTreasuryPage() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <div className="h-12 w-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                       <Building2 className="h-6 w-6 text-blue-600" />
                     </div>
                     <div>
@@ -471,7 +471,7 @@ export default function AgentTreasuryPage() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
+                    <div className="h-12 w-12 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                       <FileText className="h-6 w-6 text-purple-600" />
                     </div>
                     <div>
@@ -585,10 +585,10 @@ export default function AgentTreasuryPage() {
           {pendingApprovals.map((proposal) => {
             const singleMode = isSingleApprovalMode(proposal);
             const statusBadge = singleMode
-              ? { class: "bg-blue-100 text-blue-800", text: "SINGLE APPROVAL" }
+              ? { class: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200", text: "SINGLE APPROVAL" }
               : proposal.status === "pending_maker"
-              ? { class: "bg-yellow-100 text-yellow-800", text: "AWAITING MAKER" }
-              : { class: "bg-orange-100 text-orange-800", text: "AWAITING CHECKER" };
+              ? { class: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200", text: "AWAITING MAKER" }
+              : { class: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200", text: "AWAITING CHECKER" };
             
             return (
               <Card key={proposal.id} className={`border-l-4 ${singleMode ? "border-l-blue-500" : "border-l-orange-500"}`}>
@@ -670,7 +670,7 @@ export default function AgentTreasuryPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                 <Building2 className="h-5 w-5 text-blue-600" />
               </div>
               <div>
@@ -683,7 +683,7 @@ export default function AgentTreasuryPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                 <DollarSign className="h-5 w-5 text-green-600" />
               </div>
               <div>
@@ -698,7 +698,7 @@ export default function AgentTreasuryPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                 <FileText className="h-5 w-5 text-purple-600" />
               </div>
               <div>
@@ -711,7 +711,7 @@ export default function AgentTreasuryPage() {
         <Card className={pendingApprovals.length > 0 ? "border-orange-500" : ""}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className={`h-10 w-10 rounded-lg ${pendingApprovals.length > 0 ? "bg-orange-100" : "bg-muted"} flex items-center justify-center`}>
+              <div className={`h-10 w-10 rounded-lg ${pendingApprovals.length > 0 ? "bg-orange-100 dark:bg-orange-900/30" : "bg-muted"} flex items-center justify-center`}>
                 <AlertTriangle className={`h-5 w-5 ${pendingApprovals.length > 0 ? "text-orange-600" : "text-muted-foreground"}`} />
               </div>
               <div>
@@ -824,11 +824,11 @@ export default function AgentTreasuryPage() {
             {(() => {
               const singleMode = selectedProposal ? isSingleApprovalMode(selectedProposal) : false;
               return (
-                <div className={`p-3 rounded-lg text-sm ${singleMode ? "bg-blue-50 border border-blue-200" : "bg-yellow-50 border border-yellow-200"}`}>
-                  <p className={`font-medium ${singleMode ? "text-blue-800" : "text-yellow-800"}`}>
+                <div className={`p-3 rounded-lg text-sm ${singleMode ? "bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800" : "bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800"}`}>
+                  <p className={`font-medium ${singleMode ? "text-blue-800 dark:text-blue-200" : "text-yellow-800 dark:text-yellow-200"}`}>
                     {singleMode ? "Single Approval Mode" : "Compliance Notice"}
                   </p>
-                  <p className={singleMode ? "text-blue-700" : "text-yellow-700"}>
+                  <p className={singleMode ? "text-blue-700 dark:text-blue-300" : "text-yellow-700 dark:text-yellow-300"}>
                     {singleMode
                       ? "This mandate does not require maker-checker approval. Your approval will immediately execute this treasury allocation."
                       : selectedProposal?.status === "pending_maker" 
@@ -924,8 +924,8 @@ export default function AgentTreasuryPage() {
               </div>
 
               {eligibleClients?.filter(c => !c.hasTreasuryMandate).length === 0 && (
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">
+                <div className="p-4 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
                     No eligible clients available. Clients must have Enhanced or Accredited KYC tier 
                     and not already have an active treasury mandate.
                   </p>
@@ -983,8 +983,8 @@ export default function AgentTreasuryPage() {
                 </p>
               </div>
 
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm font-medium text-blue-800 mb-2">Investment Objectives</p>
+              <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">Investment Objectives</p>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -1098,16 +1098,16 @@ export default function AgentTreasuryPage() {
                   />
                 </div>
                 {!onboardingForm.makerCheckerEnabled && (
-                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                  <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 rounded text-sm text-yellow-800 dark:text-yellow-200">
                     <AlertTriangle className="h-4 w-4 inline mr-1" />
                     Single approval mode: Proposals will be executed immediately upon first approval.
                   </div>
                 )}
               </div>
 
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-sm font-medium text-green-800 mb-2">Summary</p>
-                <div className="grid grid-cols-2 gap-2 text-sm text-green-700">
+              <div className="p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+                <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-2">Summary</p>
+                <div className="grid grid-cols-2 gap-2 text-sm text-green-700 dark:text-green-300">
                   <p>Entity: {onboardingForm.entityName || "Not set"}</p>
                   <p>Corpus: ₹{onboardingForm.totalCashAvailable ? parseFloat(onboardingForm.totalCashAvailable).toLocaleString('en-IN') : "0"}</p>
                   <p>Max Risk: {onboardingForm.maxCreditRisk}</p>

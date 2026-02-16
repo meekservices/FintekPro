@@ -71,10 +71,10 @@ const OBLIGATION_TYPES = [
 ];
 
 const SEGMENT_COLORS = {
-  retail: "bg-blue-100 text-blue-800",
-  hni: "bg-green-100 text-green-800",
-  shni: "bg-purple-100 text-purple-800",
-  bhni: "bg-amber-100 text-amber-800",
+  retail: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
+  hni: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
+  shni: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200",
+  bhni: "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200",
   corporate: "bg-muted text-foreground",
 };
 
@@ -675,7 +675,7 @@ export default function InvestableSurplusPage() {
                 <Card key={stream.id} data-testid={`card-income-${stream.id}`}>
                   <CardContent className="flex items-center justify-between py-4">
                     <div className="flex items-center gap-4">
-                      <div className="p-2 rounded-full bg-green-100">
+                      <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
                         <TrendingUp className="h-5 w-5 text-green-600" />
                       </div>
                       <div>
@@ -806,7 +806,7 @@ export default function InvestableSurplusPage() {
                 <Card key={obligation.id} data-testid={`card-obligation-${obligation.id}`}>
                   <CardContent className="flex items-center justify-between py-4">
                     <div className="flex items-center gap-4">
-                      <div className="p-2 rounded-full bg-red-100">
+                      <div className="p-2 rounded-full bg-red-100 dark:bg-red-900/30">
                         <CreditCard className="h-5 w-5 text-red-600" />
                       </div>
                       <div>
@@ -858,7 +858,7 @@ export default function InvestableSurplusPage() {
                   </h4>
                   <div className="flex flex-wrap gap-2">
                     {segment?.eligibleProducts?.map((product: string) => (
-                      <Badge key={product} variant="secondary" className="bg-green-100 text-green-800">
+                      <Badge key={product} variant="secondary" className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                         {product.replace(/_/g, ' ').toUpperCase()}
                       </Badge>
                     )) || (
@@ -873,7 +873,7 @@ export default function InvestableSurplusPage() {
                   </h4>
                   <div className="flex flex-wrap gap-2">
                     {segment?.restrictedProducts?.map((product: string) => (
-                      <Badge key={product} variant="secondary" className="bg-red-100 text-red-800">
+                      <Badge key={product} variant="secondary" className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200">
                         {product.replace(/_/g, ' ').toUpperCase()}
                       </Badge>
                     )) || (

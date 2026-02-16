@@ -239,9 +239,9 @@ export default function UserManagement() {
       id: "status",
       header: "Status",
       cell: (user) => user.isActive ? (
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200" data-testid={`badge-active-${user.id}`}>Active</Badge>
+        <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800" data-testid={`badge-active-${user.id}`}>Active</Badge>
       ) : (
-        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200" data-testid={`badge-inactive-${user.id}`}>Inactive</Badge>
+        <Badge variant="outline" className="bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800" data-testid={`badge-inactive-${user.id}`}>Inactive</Badge>
       ),
     },
     {
@@ -254,10 +254,10 @@ export default function UserManagement() {
       header: "Actions",
       cell: (user) => (
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" onClick={() => setEditingUser(user)} data-testid={`button-edit-${user.id}`}>
+          <Button variant="ghost" size="sm" className="text-amber-600 hover:text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:bg-amber-950/30" onClick={() => setEditingUser(user)} data-testid={`button-edit-${user.id}`}>
             <Pencil className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-800 hover:bg-red-50" onClick={() => setDeletingUser(user)} data-testid={`button-delete-${user.id}`}>
+          <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-800 dark:text-red-200 hover:bg-red-50 dark:bg-red-950/30" onClick={() => setDeletingUser(user)} data-testid={`button-delete-${user.id}`}>
             <Trash2 className="w-4 h-4" />
           </Button>
         </div>

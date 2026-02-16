@@ -257,7 +257,7 @@ function MarketplaceGrid({ quotes, selectedQuotes, onQuoteSelection }: any) {
 function MarketplaceCard({ quote, isSelected, onSelection }: any) {
   return (
     <Card className={`relative overflow-hidden transition-all duration-200 hover:shadow-lg border-2 ${
-      isSelected ? 'border-finance-blue bg-blue-50' : 'border-border hover:border-border'
+      isSelected ? 'border-finance-blue bg-blue-50 dark:bg-blue-950/30' : 'border-border hover:border-border'
     }`}>
       {/* Provider Header */}
       <CardContent className="p-0">
@@ -298,10 +298,10 @@ function MarketplaceCard({ quote, isSelected, onSelection }: any) {
           </div>
 
           {/* Coverage Amount */}
-          <div className="bg-green-50 p-3 rounded-lg">
+          <div className="bg-green-50 dark:bg-green-950/30 p-3 rounded-lg">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Sum Insured</span>
-              <span className="font-semibold text-green-700">₹{quote.sumInsured?.toLocaleString()}</span>
+              <span className="font-semibold text-green-700 dark:text-green-300">₹{quote.sumInsured?.toLocaleString()}</span>
             </div>
           </div>
 
@@ -332,12 +332,12 @@ function MarketplaceCard({ quote, isSelected, onSelection }: any) {
 
           {/* Special Offers */}
           {quote.specialOffers?.length > 0 && (
-            <div className="bg-orange-50 p-2 rounded border border-orange-200">
+            <div className="bg-orange-50 dark:bg-orange-950/30 p-2 rounded border border-orange-200 dark:border-orange-800">
               <div className="flex items-center gap-1 mb-1">
                 <Award className="h-3 w-3 text-orange-600" />
-                <span className="text-xs font-medium text-orange-800">Special Offer</span>
+                <span className="text-xs font-medium text-orange-800 dark:text-orange-200">Special Offer</span>
               </div>
-              <p className="text-xs text-orange-700">{quote.specialOffers[0]}</p>
+              <p className="text-xs text-orange-700 dark:text-orange-300">{quote.specialOffers[0]}</p>
             </div>
           )}
 
@@ -406,7 +406,7 @@ function ComparisonTable({ quotes, onQuoteSelection }: any) {
                     </div>
                   </td>
                   <td className="p-4">
-                    <Badge variant="secondary" className="bg-green-100 text-green-800">
+                    <Badge variant="secondary" className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                       {quote.claimSettlementRatio}%
                     </Badge>
                   </td>
@@ -433,36 +433,36 @@ function ComparisonMatrix({ data }: any) {
     <div className="space-y-6">
       {/* Quick Insights */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-green-200 bg-green-50">
+        <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="h-4 w-4 text-green-600" />
-              <span className="text-sm font-medium text-green-800">Best Value</span>
+              <span className="text-sm font-medium text-green-800 dark:text-green-200">Best Value</span>
             </div>
-            <p className="font-bold text-green-900">{bestValue?.insurerName}</p>
-            <p className="text-sm text-green-700">₹{bestValue?.premium?.toLocaleString()}</p>
+            <p className="font-bold text-green-900 dark:text-green-100">{bestValue?.insurerName}</p>
+            <p className="text-sm text-green-700 dark:text-green-300">₹{bestValue?.premium?.toLocaleString()}</p>
           </CardContent>
         </Card>
         
-        <Card className="border-blue-200 bg-blue-50">
+        <Card className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <Star className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-800">Top Rated</span>
+              <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Top Rated</span>
             </div>
-            <p className="font-bold text-blue-900">{topRated?.insurerName}</p>
-            <p className="text-sm text-blue-700">{topRated?.rating} ⭐</p>
+            <p className="font-bold text-blue-900 dark:text-blue-100">{topRated?.insurerName}</p>
+            <p className="text-sm text-blue-700 dark:text-blue-300">{topRated?.rating} ⭐</p>
           </CardContent>
         </Card>
         
-        <Card className="border-purple-200 bg-purple-50">
+        <Card className="border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <Award className="h-4 w-4 text-purple-600" />
-              <span className="text-sm font-medium text-purple-800">Best Claims</span>
+              <span className="text-sm font-medium text-purple-800 dark:text-purple-200">Best Claims</span>
             </div>
-            <p className="font-bold text-purple-900">{bestClaims?.insurerName}</p>
-            <p className="text-sm text-purple-700">{bestClaims?.claimSettlementRatio}%</p>
+            <p className="font-bold text-purple-900 dark:text-purple-100">{bestClaims?.insurerName}</p>
+            <p className="text-sm text-purple-700 dark:text-purple-300">{bestClaims?.claimSettlementRatio}%</p>
           </CardContent>
         </Card>
       </div>
@@ -672,7 +672,7 @@ export default function PolicyBazaar() {
               <Card 
                 key={type.value}
                 className={`cursor-pointer transition-all hover:shadow-md ${
-                  selectedInsurance === type.value ? 'ring-2 ring-finance-blue bg-blue-50' : ''
+                  selectedInsurance === type.value ? 'ring-2 ring-finance-blue bg-blue-50 dark:bg-blue-950/30' : ''
                 }`}
                 onClick={() => setSelectedInsurance(type.value)}
                 data-testid={`insurance-type-${type.value}`}
@@ -967,7 +967,7 @@ export default function PolicyBazaar() {
                 <CardContent>
                   {currentCalculation?.success ? (
                     <div className="space-y-6">
-                      <div className="text-center p-6 bg-blue-50 rounded-lg">
+                      <div className="text-center p-6 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                         <h3 className="text-sm font-medium text-muted-foreground mb-2">Estimated Premium</h3>
                         <p className="text-3xl font-bold text-finance-blue" data-testid="estimated-premium">
                           ₹{currentCalculation.data.estimatedPremium?.toLocaleString() || 

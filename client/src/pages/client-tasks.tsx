@@ -43,23 +43,23 @@ interface TaskStats {
 }
 
 const TASK_TYPE_CONFIG = {
-  kyc_renewal: { label: 'KYC Renewal', icon: Shield, color: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
-  document_submission: { label: 'Document Upload', icon: FileText, color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  payment_due: { label: 'Payment Due', icon: CreditCard, color: 'bg-amber-100 text-amber-700 border-amber-200' },
-  review_scheduled: { label: 'Review Meeting', icon: Video, color: 'bg-purple-100 text-purple-700 border-purple-200' },
-  action_required: { label: 'Action Required', icon: Bell, color: 'bg-orange-100 text-orange-700 border-orange-200' }
+  kyc_renewal: { label: 'KYC Renewal', icon: Shield, color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800' },
+  document_submission: { label: 'Document Upload', icon: FileText, color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800' },
+  payment_due: { label: 'Payment Due', icon: CreditCard, color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' },
+  review_scheduled: { label: 'Review Meeting', icon: Video, color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800' },
+  action_required: { label: 'Action Required', icon: Bell, color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800' }
 };
 
 const PRIORITY_CONFIG = {
-  high: { label: 'High', color: 'bg-red-100 text-red-700 border-red-200' },
-  medium: { label: 'Medium', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-  low: { label: 'Low', color: 'bg-blue-100 text-blue-700 border-blue-200' }
+  high: { label: 'High', color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800' },
+  medium: { label: 'Medium', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' },
+  low: { label: 'Low', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800' }
 };
 
 const STATUS_CONFIG = {
   pending: { label: 'Pending', color: 'bg-muted text-muted-foreground border-border' },
-  completed: { label: 'Completed', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  overdue: { label: 'Overdue', color: 'bg-red-100 text-red-700 border-red-200' }
+  completed: { label: 'Completed', color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' },
+  overdue: { label: 'Overdue', color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800' }
 };
 
 export default function ClientTasks() {
@@ -145,7 +145,7 @@ export default function ClientTasks() {
           <Card className="bg-card border-border shadow-sm" data-testid="card-pending-tasks">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-amber-100">
+                <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
                   <Clock className="h-5 w-5 text-amber-600" />
                 </div>
                 <div>
@@ -159,7 +159,7 @@ export default function ClientTasks() {
           <Card className="bg-card border-border shadow-sm" data-testid="card-completed-tasks">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-emerald-100">
+                <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
                   <CheckCircle className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
@@ -173,7 +173,7 @@ export default function ClientTasks() {
           <Card className="bg-card border-border shadow-sm" data-testid="card-overdue-tasks">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-red-100">
+                <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
                   <AlertTriangle className="h-5 w-5 text-red-600" />
                 </div>
                 <div>
@@ -187,7 +187,7 @@ export default function ClientTasks() {
           <Card className="bg-card border-border shadow-sm" data-testid="card-due-week-tasks">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-100">
+                <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
                   <Calendar className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
@@ -291,14 +291,14 @@ export default function ClientTasks() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <Card className="bg-gradient-to-r from-blue-50 dark:from-blue-950/30 to-indigo-50 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold text-foreground mb-1">Need Help?</h3>
                 <p className="text-muted-foreground text-sm">Contact your advisor for assistance with any pending tasks.</p>
               </div>
-              <Button variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100" data-testid="button-contact-advisor">
+              <Button variant="outline" className="border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:bg-blue-900/30" data-testid="button-contact-advisor">
                 Contact Advisor
               </Button>
             </div>

@@ -790,9 +790,9 @@ export function BrokingDashboard() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead colSpan={3} className="text-center bg-green-50">CALLS</TableHead>
+                        <TableHead colSpan={3} className="text-center bg-green-50 dark:bg-green-950/30">CALLS</TableHead>
                         <TableHead className="text-center">STRIKE</TableHead>
-                        <TableHead colSpan={3} className="text-center bg-red-50">PUTS</TableHead>
+                        <TableHead colSpan={3} className="text-center bg-red-50 dark:bg-red-950/30">PUTS</TableHead>
                       </TableRow>
                       <TableRow>
                         <TableHead>OI</TableHead>
@@ -878,9 +878,9 @@ export function BrokingDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead colSpan={3} className="text-center bg-green-50">CALLS</TableHead>
+                      <TableHead colSpan={3} className="text-center bg-green-50 dark:bg-green-950/30">CALLS</TableHead>
                       <TableHead className="text-center">STRIKE</TableHead>
-                      <TableHead colSpan={3} className="text-center bg-red-50">PUTS</TableHead>
+                      <TableHead colSpan={3} className="text-center bg-red-50 dark:bg-red-950/30">PUTS</TableHead>
                     </TableRow>
                     <TableRow>
                       <TableHead>OI</TableHead>
@@ -988,7 +988,7 @@ export function BrokingDashboard() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Overall Market Sentiment</span>
-                    <Badge className="bg-green-100 text-green-800">Bullish</Badge>
+                    <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">Bullish</Badge>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
                     <div className="bg-green-600 h-2 rounded-full" style={{ width: '65%' }}></div>
@@ -1102,14 +1102,14 @@ export function BrokingDashboard() {
               <CardContent>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4 text-center">
-                    <div className="p-3 bg-green-50 rounded-lg">
+                    <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                       <div className="text-sm text-muted-foreground">High Volume + Bullish</div>
                       <div className="text-2xl font-bold text-green-600">
                         {mockSentimentData.filter(item => item.sentiment > 0.3 && item.volume > 5000).length}
                       </div>
                       <div className="text-xs text-muted-foreground">Sectors</div>
                     </div>
-                    <div className="p-3 bg-red-50 rounded-lg">
+                    <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-lg">
                       <div className="text-sm text-muted-foreground">High Volume + Bearish</div>
                       <div className="text-2xl font-bold text-red-600">
                         {mockSentimentData.filter(item => item.sentiment < -0.3 && item.volume > 5000).length}
@@ -1153,7 +1153,7 @@ export function BrokingDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
+                <div className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                   <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
                   <div className="flex-1">
                     <div className="text-sm font-medium">Positive Q3 Earnings Beat</div>
@@ -1162,7 +1162,7 @@ export function BrokingDashboard() {
                   </div>
                 </div>
                 
-                <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                   <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
                   <div className="flex-1">
                     <div className="text-sm font-medium">RBI Policy Decision</div>
@@ -1171,7 +1171,7 @@ export function BrokingDashboard() {
                   </div>
                 </div>
                 
-                <div className="flex items-start gap-3 p-3 bg-yellow-50 rounded-lg">
+                <div className="flex items-start gap-3 p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
                   <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
                   <div className="flex-1">
                     <div className="text-sm font-medium">Global Oil Price Volatility</div>
@@ -1180,7 +1180,7 @@ export function BrokingDashboard() {
                   </div>
                 </div>
                 
-                <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg">
+                <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-950/30 rounded-lg">
                   <div className="w-2 h-2 bg-red-500 rounded-full mt-2"></div>
                   <div className="flex-1">
                     <div className="text-sm font-medium">Pharma Regulatory Concerns</div>

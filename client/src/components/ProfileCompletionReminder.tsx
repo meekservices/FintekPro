@@ -142,10 +142,10 @@ export function ProfileCompletionReminder() {
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-2xl px-4" data-testid="profile-completion-reminder">
       <Card className={`border shadow-lg ${
         priority === 'high' 
-          ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200' 
+          ? 'bg-gradient-to-r from-red-50 dark:from-red-950/30 to-orange-50 dark:to-orange-950/30 border-red-200 dark:border-red-800' 
           : priority === 'medium'
-          ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200'
-          : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
+          ? 'bg-gradient-to-r from-yellow-50 dark:from-yellow-950/30 to-amber-50 dark:to-amber-950/30 border-yellow-200 dark:border-yellow-800'
+          : 'bg-gradient-to-r from-blue-50 dark:from-blue-950/30 to-indigo-50 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800'
       }`}>
         <CardContent className="p-4">
           <div className="flex items-start space-x-3">
@@ -162,10 +162,10 @@ export function ProfileCompletionReminder() {
                   </h3>
                   <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                     priority === 'high' 
-                      ? 'bg-red-100 text-red-800' 
+                      ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200' 
                       : priority === 'medium'
-                      ? 'bg-amber-100 text-amber-800'
-                      : 'bg-blue-100 text-blue-800'
+                      ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200'
+                      : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200'
                   }`}>
                     {completeness}% done
                   </span>

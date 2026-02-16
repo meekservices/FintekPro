@@ -129,11 +129,11 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
     switch (risk.toLowerCase()) {
       case 'very low':
       case 'low':
-        return 'text-green-600 bg-green-50';
+        return 'text-green-600 bg-green-50 dark:bg-green-950/30';
       case 'moderate':
-        return 'text-yellow-600 bg-yellow-50';
+        return 'text-yellow-600 bg-yellow-50 dark:bg-yellow-950/30';
       case 'high':
-        return 'text-red-600 bg-red-50';
+        return 'text-red-600 bg-red-50 dark:bg-red-950/30';
       default:
         return 'text-muted-foreground bg-muted';
     }
@@ -192,19 +192,19 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {aiInsights.summary && (
                   <>
-                    <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                       <div className="text-2xl font-bold text-blue-600">
                         ₹{(aiInsights.summary.monthlySurplus || 0).toLocaleString()}
                       </div>
                       <div className="text-sm text-muted-foreground">Monthly Investment Surplus</div>
                     </div>
-                    <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <div className="text-center p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
                       <div className="text-2xl font-bold text-green-600">
                         {aiInsights.summary.creditScore || 'N/A'}
                       </div>
                       <div className="text-sm text-muted-foreground">Credit Score</div>
                     </div>
-                    <div className="text-center p-4 bg-purple-50 rounded-lg">
+                    <div className="text-center p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                       <div className="text-2xl font-bold text-purple-600">
                         {aiInsights.summary.opportunityCount || 0}
                       </div>
@@ -249,7 +249,7 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
                       className="flex items-start gap-3 p-4 border rounded-lg hover:bg-muted"
                       data-testid={`actionable-${selectedCategory}-${index}`}
                     >
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center flex-shrink-0">
                         <CheckCircle className="w-4 h-4 text-blue-600" />
                       </div>
                       <div className="flex-1">
@@ -490,12 +490,12 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
                   </div>
                 </div>
 
-                <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                   <div className="flex items-start gap-2">
                     <Lightbulb className="w-4 h-4 text-blue-600 mt-0.5" />
                     <div>
-                      <p className="text-sm font-medium text-blue-800">Why this change?</p>
-                      <p className="text-sm text-blue-700">{rec.reasoning}</p>
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Why this change?</p>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">{rec.reasoning}</p>
                     </div>
                   </div>
                 </div>
@@ -540,7 +540,7 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 border rounded-lg space-y-3" data-testid="suggestion-tax-saving">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 text-green-600 rounded-lg">
+                <div className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-lg">
                   <Shield className="w-5 h-5" />
                 </div>
                 <div>
@@ -578,7 +578,7 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
 
             <div className="p-4 border rounded-lg space-y-3" data-testid="suggestion-sip-boost">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-lg">
                   <Calendar className="w-5 h-5" />
                 </div>
                 <div>
@@ -623,18 +623,18 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
               Important Considerations
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="flex items-start gap-2 p-3 bg-orange-50 rounded-lg">
+              <div className="flex items-start gap-2 p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
                 <Calendar className="w-4 h-4 text-orange-600 mt-0.5" />
                 <div>
-                  <p className="font-medium text-orange-800">Market Timing</p>
-                  <p className="text-orange-700">Current market conditions favor systematic investment approach</p>
+                  <p className="font-medium text-orange-800 dark:text-orange-200">Market Timing</p>
+                  <p className="text-orange-700 dark:text-orange-300">Current market conditions favor systematic investment approach</p>
                 </div>
               </div>
-              <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
+              <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                 <Shield className="w-4 h-4 text-blue-600 mt-0.5" />
                 <div>
-                  <p className="font-medium text-blue-800">Risk Management</p>
-                  <p className="text-blue-700">Diversification across asset classes is recommended</p>
+                  <p className="font-medium text-blue-800 dark:text-blue-200">Risk Management</p>
+                  <p className="text-blue-700 dark:text-blue-300">Diversification across asset classes is recommended</p>
                 </div>
               </div>
             </div>
@@ -658,13 +658,13 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
           <CardContent>
             <div className="space-y-3">
               {rebalanceRecommendations && Array.isArray(rebalanceRecommendations) && rebalanceRecommendations.length > 0 && (
-                <div className="flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-center gap-3 p-3 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                   <PieChart className="w-5 h-5 text-yellow-600" />
                   <div className="flex-1">
-                    <p className="font-medium text-yellow-800">
+                    <p className="font-medium text-yellow-800 dark:text-yellow-200">
                       Portfolio Rebalancing Required
                     </p>
-                    <p className="text-sm text-yellow-700">
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300">
                       {rebalanceRecommendations.length} rebalancing suggestions available
                     </p>
                   </div>
@@ -683,13 +683,13 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
               )}
 
               {goalRecommendations && Array.isArray(goalRecommendations) && goalRecommendations.length > 0 && (
-                <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
                   <Target className="w-5 h-5 text-green-600" />
                   <div className="flex-1">
-                    <p className="font-medium text-green-800">
+                    <p className="font-medium text-green-800 dark:text-green-200">
                       Goal-Specific Investment Plan Ready
                     </p>
-                    <p className="text-sm text-green-700">
+                    <p className="text-sm text-green-700 dark:text-green-300">
                       {goalRecommendations.length} investment categories recommended
                     </p>
                   </div>
@@ -707,13 +707,13 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
                 </div>
               )}
 
-              <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <Calendar className="w-5 h-5 text-blue-600" />
                 <div className="flex-1">
-                  <p className="font-medium text-blue-800">
+                  <p className="font-medium text-blue-800 dark:text-blue-200">
                     Schedule Portfolio Review
                   </p>
-                  <p className="text-sm text-blue-700">
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
                     Set up quarterly reviews to track progress and adjust strategies
                   </p>
                 </div>
@@ -735,13 +735,13 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
       )}
 
       {/* Comprehensive AI Asset Allocation */}
-      <Card data-testid="card-comprehensive-ai-allocation" className="bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200">
+      <Card data-testid="card-comprehensive-ai-allocation" className="bg-gradient-to-r from-purple-50 dark:from-purple-950/30 to-indigo-50 dark:to-indigo-950/30 border-purple-200 dark:border-purple-800">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-purple-900">
+          <CardTitle className="flex items-center gap-2 text-purple-900 dark:text-purple-100">
             <Star className="w-5 h-5 text-purple-600" />
             AI-Powered Comprehensive Asset Allocation
           </CardTitle>
-          <CardDescription className="text-purple-700">
+          <CardDescription className="text-purple-700 dark:text-purple-300">
             Intelligent allocation across all asset classes: Core Portfolio (Mutual Funds), Alternative Assets (Commodities & Precious Metals), and Premium Investments - optimized for ₹72,000 monthly surplus
           </CardDescription>
         </CardHeader>
@@ -750,7 +750,7 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">
               <Brain className="w-5 h-5 text-purple-600" />
-              <h4 className="font-semibold text-purple-900">Select Risk Profile</h4>
+              <h4 className="font-semibold text-purple-900 dark:text-purple-100">Select Risk Profile</h4>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <Button 
@@ -791,39 +791,39 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Core Portfolio - Mutual Funds */}
-            <Card className="border-green-200 bg-green-50">
+            <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30">
               <CardContent className="p-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <PieChart className="w-5 h-5 text-green-600" />
-                    <h4 className="font-semibold text-green-900">Core Portfolio</h4>
-                    <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded">{getCurrentAllocation().corePortfolio.total}%</span>
+                    <h4 className="font-semibold text-green-900 dark:text-green-100">Core Portfolio</h4>
+                    <span className="text-xs bg-green-200 dark:bg-green-800/30 text-green-800 dark:text-green-200 px-2 py-1 rounded">{getCurrentAllocation().corePortfolio.total}%</span>
                   </div>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between p-2 bg-green-100 rounded">
+                    <div className="flex items-center justify-between p-2 bg-green-100 dark:bg-green-900/30 rounded">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 bg-green-600 rounded-full"></div>
-                        <span className="text-xs font-medium text-green-800">Equity Funds</span>
+                        <span className="text-xs font-medium text-green-800 dark:text-green-200">Equity Funds</span>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-bold text-green-600">{getCurrentAllocation().corePortfolio.equity}%</div>
                         <div className="text-xs text-green-600">₹{(72000 * getCurrentAllocation().corePortfolio.equity / 100).toLocaleString()}/month</div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between p-2 bg-green-100 rounded">
+                    <div className="flex items-center justify-between p-2 bg-green-100 dark:bg-green-900/30 rounded">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="text-xs font-medium text-green-800">Debt Funds</span>
+                        <span className="text-xs font-medium text-green-800 dark:text-green-200">Debt Funds</span>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-bold text-green-600">{getCurrentAllocation().corePortfolio.debt}%</div>
                         <div className="text-xs text-green-600">₹{(72000 * getCurrentAllocation().corePortfolio.debt / 100).toLocaleString()}/month</div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between p-2 bg-green-100 rounded">
+                    <div className="flex items-center justify-between p-2 bg-green-100 dark:bg-green-900/30 rounded">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                        <span className="text-xs font-medium text-green-800">Hybrid Funds</span>
+                        <span className="text-xs font-medium text-green-800 dark:text-green-200">Hybrid Funds</span>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-bold text-green-600">{getCurrentAllocation().corePortfolio.hybrid}%</div>
@@ -831,8 +831,8 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
                       </div>
                     </div>
                   </div>
-                  <div className="p-2 bg-gradient-to-r from-green-100 to-emerald-100 rounded">
-                    <p className="text-xs text-green-700">
+                  <div className="p-2 bg-gradient-to-r from-green-100 dark:from-green-900/30 to-emerald-100 dark:to-emerald-900/30 rounded">
+                    <p className="text-xs text-green-700 dark:text-green-300">
                       Foundation of diversified portfolio with professional management and liquidity
                     </p>
                   </div>
@@ -841,39 +841,39 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
             </Card>
 
             {/* Alternative Assets */}
-            <Card className="border-amber-200 bg-amber-50">
+            <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30">
               <CardContent className="p-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <Coins className="w-5 h-5 text-amber-600" />
-                    <h4 className="font-semibold text-amber-900">Alternative Assets</h4>
-                    <span className="text-xs bg-amber-200 text-amber-800 px-2 py-1 rounded">{getCurrentAllocation().alternatives.total}%</span>
+                    <h4 className="font-semibold text-amber-900 dark:text-amber-100">Alternative Assets</h4>
+                    <span className="text-xs bg-amber-200 dark:bg-amber-800/30 text-amber-800 dark:text-amber-200 px-2 py-1 rounded">{getCurrentAllocation().alternatives.total}%</span>
                   </div>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between p-2 bg-amber-100 rounded">
+                    <div className="flex items-center justify-between p-2 bg-amber-100 dark:bg-amber-900/30 rounded">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 bg-yellow-600 rounded-full"></div>
-                        <span className="text-xs font-medium text-amber-800">Gold ETF/Digital</span>
+                        <span className="text-xs font-medium text-amber-800 dark:text-amber-200">Gold ETF/Digital</span>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-bold text-amber-600">{getCurrentAllocation().alternatives.gold}%</div>
                         <div className="text-xs text-amber-600">₹{(72000 * getCurrentAllocation().alternatives.gold / 100).toLocaleString()}/month</div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between p-2 bg-amber-100 rounded">
+                    <div className="flex items-center justify-between p-2 bg-amber-100 dark:bg-amber-900/30 rounded">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 bg-muted-foreground rounded-full"></div>
-                        <span className="text-xs font-medium text-amber-800">Silver ETF</span>
+                        <span className="text-xs font-medium text-amber-800 dark:text-amber-200">Silver ETF</span>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-bold text-amber-600">{getCurrentAllocation().alternatives.silver}%</div>
                         <div className="text-xs text-amber-600">₹{(72000 * getCurrentAllocation().alternatives.silver / 100).toLocaleString()}/month</div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between p-2 bg-amber-100 rounded">
+                    <div className="flex items-center justify-between p-2 bg-amber-100 dark:bg-amber-900/30 rounded">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 bg-amber-600 rounded-full"></div>
-                        <span className="text-xs font-medium text-amber-800">Commodities</span>
+                        <span className="text-xs font-medium text-amber-800 dark:text-amber-200">Commodities</span>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-bold text-amber-600">{getCurrentAllocation().alternatives.commodities}%</div>
@@ -881,8 +881,8 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
                       </div>
                     </div>
                   </div>
-                  <div className="p-2 bg-gradient-to-r from-amber-100 to-yellow-100 rounded">
-                    <p className="text-xs text-amber-700">
+                  <div className="p-2 bg-gradient-to-r from-amber-100 dark:from-amber-900/30 to-yellow-100 dark:to-yellow-900/30 rounded">
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
                       Inflation hedge and portfolio diversification through precious metals and commodities
                     </p>
                   </div>
@@ -891,49 +891,49 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
             </Card>
 
             {/* Premium Investments */}
-            <Card className="border-blue-200 bg-blue-50">
+            <Card className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
               <CardContent className="p-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <Crown className="w-5 h-5 text-blue-600" />
-                    <h4 className="font-semibold text-blue-900">Premium Investments</h4>
-                    <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded">{getCurrentAllocation().premium.total}%</span>
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100">Premium Investments</h4>
+                    <span className="text-xs bg-blue-200 dark:bg-blue-800/30 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">{getCurrentAllocation().premium.total}%</span>
                   </div>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between p-2 bg-blue-100 rounded">
+                    <div className="flex items-center justify-between p-2 bg-blue-100 dark:bg-blue-900/30 rounded">
                       <div className="flex items-center gap-2">
                         <Building2 className="w-3 h-3 text-blue-600" />
-                        <span className="text-xs font-medium text-blue-800">REITs/InvITs</span>
+                        <span className="text-xs font-medium text-blue-800 dark:text-blue-200">REITs/InvITs</span>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-bold text-blue-600">{getCurrentAllocation().premium.reits}%</div>
                         <div className="text-xs text-blue-600">₹{(72000 * getCurrentAllocation().premium.reits / 100).toLocaleString()}/month</div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between p-2 bg-purple-100 rounded">
+                    <div className="flex items-center justify-between p-2 bg-purple-100 dark:bg-purple-900/30 rounded">
                       <div className="flex items-center gap-2">
                         <Briefcase className="w-3 h-3 text-purple-600" />
-                        <span className="text-xs font-medium text-purple-800">PMS</span>
+                        <span className="text-xs font-medium text-purple-800 dark:text-purple-200">PMS</span>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-bold text-purple-600">{getCurrentAllocation().premium.pms}%</div>
                         <div className="text-xs text-purple-600">₹{(72000 * getCurrentAllocation().premium.pms / 100).toLocaleString()}/month</div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between p-2 bg-indigo-100 rounded">
+                    <div className="flex items-center justify-between p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded">
                       <div className="flex items-center gap-2">
                         <Star className="w-3 h-3 text-indigo-600" />
-                        <span className="text-xs font-medium text-indigo-800">AIF</span>
+                        <span className="text-xs font-medium text-indigo-800 dark:text-indigo-200">AIF</span>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-bold text-indigo-600">{getCurrentAllocation().premium.aif}%</div>
                         <div className="text-xs text-indigo-600">₹{(72000 * getCurrentAllocation().premium.aif / 100).toLocaleString()}/month</div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between p-2 bg-green-100 rounded">
+                    <div className="flex items-center justify-between p-2 bg-green-100 dark:bg-green-900/30 rounded">
                       <div className="flex items-center gap-2">
                         <Shield className="w-3 h-3 text-green-600" />
-                        <span className="text-xs font-medium text-green-800">Premium Bonds</span>
+                        <span className="text-xs font-medium text-green-800 dark:text-green-200">Premium Bonds</span>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-bold text-green-600">{getCurrentAllocation().premium.bonds}%</div>
@@ -941,8 +941,8 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
                       </div>
                     </div>
                   </div>
-                  <div className="p-2 bg-gradient-to-r from-blue-100 to-purple-100 rounded">
-                    <p className="text-xs text-blue-700">
+                  <div className="p-2 bg-gradient-to-r from-blue-100 dark:from-blue-900/30 to-purple-100 dark:to-purple-900/30 rounded">
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
                       High-ticket investments for enhanced returns and portfolio sophistication
                     </p>
                   </div>
@@ -952,28 +952,28 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
           </div>
 
           {/* AI Analysis Summary */}
-          <div className="mt-6 p-4 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-lg border border-purple-200">
+          <div className="mt-6 p-4 bg-gradient-to-r from-purple-100 dark:from-purple-900/30 to-indigo-100 dark:to-indigo-900/30 rounded-lg border border-purple-200 dark:border-purple-800">
             <div className="flex items-center gap-2 mb-3">
               <Brain className="w-5 h-5 text-purple-600" />
-              <h4 className="font-semibold text-purple-900">AI Portfolio Analysis - {selectedRiskProfile.charAt(0).toUpperCase() + selectedRiskProfile.slice(1)} Profile</h4>
+              <h4 className="font-semibold text-purple-900 dark:text-purple-100">AI Portfolio Analysis - {selectedRiskProfile.charAt(0).toUpperCase() + selectedRiskProfile.slice(1)} Profile</h4>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-purple-700">Expected Annual Return:</span>
-                  <span className="font-semibold text-purple-900">{getCurrentAllocation().analysis.expectedReturn}</span>
+                  <span className="text-purple-700 dark:text-purple-300">Expected Annual Return:</span>
+                  <span className="font-semibold text-purple-900 dark:text-purple-100">{getCurrentAllocation().analysis.expectedReturn}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-purple-700">Risk Level:</span>
-                  <span className="font-semibold text-purple-900">{getCurrentAllocation().analysis.riskLevel}</span>
+                  <span className="text-purple-700 dark:text-purple-300">Risk Level:</span>
+                  <span className="font-semibold text-purple-900 dark:text-purple-100">{getCurrentAllocation().analysis.riskLevel}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-purple-700">Portfolio Maturity:</span>
-                  <span className="font-semibold text-purple-900">{getCurrentAllocation().analysis.maturityPeriod}</span>
+                  <span className="text-purple-700 dark:text-purple-300">Portfolio Maturity:</span>
+                  <span className="font-semibold text-purple-900 dark:text-purple-100">{getCurrentAllocation().analysis.maturityPeriod}</span>
                 </div>
               </div>
               <div className="space-y-2">
-                <p className="text-xs text-purple-700">
+                <p className="text-xs text-purple-700 dark:text-purple-300">
                   {getCurrentAllocation().analysis.recommendation}
                 </p>
               </div>
@@ -983,54 +983,54 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
       </Card>
 
       {/* Goal-Specific AI Recommendations */}
-      <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-orange-200 mt-6">
+      <Card className="bg-gradient-to-r from-orange-50 dark:from-orange-950/30 to-yellow-50 dark:to-yellow-950/30 border-orange-200 dark:border-orange-800 mt-6">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-orange-900">
+          <CardTitle className="flex items-center gap-2 text-orange-900 dark:text-orange-100">
             <Target className="w-5 h-5 text-orange-600" />
             Goal-Specific AI Investment Strategies
           </CardTitle>
-          <CardDescription className="text-orange-700">
+          <CardDescription className="text-orange-700 dark:text-orange-300">
             Tailored allocation recommendations based on specific financial objectives
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <Card className="border-orange-200 bg-orange-50">
+            <Card className="border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30">
               <CardContent className="p-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <Target className="w-5 h-5 text-orange-600" />
-                    <h4 className="font-semibold text-orange-900">Retirement Planning</h4>
+                    <h4 className="font-semibold text-orange-900 dark:text-orange-100">Retirement Planning</h4>
                   </div>
                   <div className="space-y-3">
-                    <div className="p-3 bg-orange-100 rounded-lg">
+                    <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <IndianRupee className="w-4 h-4 text-orange-600" />
-                        <span className="text-sm font-medium text-orange-800">Retirement Planning</span>
+                        <span className="text-sm font-medium text-orange-800 dark:text-orange-200">Retirement Planning</span>
                       </div>
-                      <div className="text-xs text-orange-700 space-y-1">
+                      <div className="text-xs text-orange-700 dark:text-orange-300 space-y-1">
                         <div>• 40% REITs for steady income</div>
                         <div>• 35% Conservative PMS</div>
                         <div>• 25% Premium bonds</div>
                       </div>
                     </div>
-                    <div className="p-3 bg-yellow-100 rounded-lg">
+                    <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <TrendingUp className="w-4 h-4 text-yellow-600" />
-                        <span className="text-sm font-medium text-yellow-800">Wealth Creation</span>
+                        <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Wealth Creation</span>
                       </div>
-                      <div className="text-xs text-yellow-700 space-y-1">
+                      <div className="text-xs text-yellow-700 dark:text-yellow-300 space-y-1">
                         <div>• 50% Growth PMS</div>
                         <div>• 30% AIF Category II</div>
                         <div>• 20% International REITs</div>
                       </div>
                     </div>
-                    <div className="p-3 bg-green-100 rounded-lg">
+                    <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <Calendar className="w-4 h-4 text-green-600" />
-                        <span className="text-sm font-medium text-green-800">Income Generation</span>
+                        <span className="text-sm font-medium text-green-800 dark:text-green-200">Income Generation</span>
                       </div>
-                      <div className="text-xs text-green-700 space-y-1">
+                      <div className="text-xs text-green-700 dark:text-green-300 space-y-1">
                         <div>• 60% High-yield REITs</div>
                         <div>• 25% Infrastructure InvITs</div>
                         <div>• 15% Dividend PMS</div>
@@ -1057,14 +1057,14 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="border-green-200 bg-green-50">
+            <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30">
               <CardContent className="p-4 text-center">
                 <div className="space-y-2">
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                  <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto">
                     <Clock className="w-6 h-6 text-green-600" />
                   </div>
-                  <h5 className="font-semibold text-green-900">Year 1-2</h5>
-                  <div className="text-sm text-green-700 space-y-1">
+                  <h5 className="font-semibold text-green-900 dark:text-green-100">Year 1-2</h5>
+                  <div className="text-sm text-green-700 dark:text-green-300 space-y-1">
                     <div>REITs: ₹4.32L</div>
                     <div>Premium Bonds: ₹1.73L</div>
                     <div>Emergency Buffer: ₹2.40L</div>
@@ -1074,14 +1074,14 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
               </CardContent>
             </Card>
 
-            <Card className="border-blue-200 bg-blue-50">
+            <Card className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
               <CardContent className="p-4 text-center">
                 <div className="space-y-2">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto">
                     <Briefcase className="w-6 h-6 text-blue-600" />
                   </div>
-                  <h5 className="font-semibold text-blue-900">Year 3-6</h5>
-                  <div className="text-sm text-blue-700 space-y-1">
+                  <h5 className="font-semibold text-blue-900 dark:text-blue-100">Year 3-6</h5>
+                  <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
                     <div>PMS Eligibility: ₹50L</div>
                     <div>REITs Portfolio: ₹15L</div>
                     <div>Professional Management</div>
@@ -1091,14 +1091,14 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
               </CardContent>
             </Card>
 
-            <Card className="border-purple-200 bg-purple-50">
+            <Card className="border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30">
               <CardContent className="p-4 text-center">
                 <div className="space-y-2">
-                  <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto">
+                  <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto">
                     <Crown className="w-6 h-6 text-purple-600" />
                   </div>
-                  <h5 className="font-semibold text-purple-900">Year 7+</h5>
-                  <div className="text-sm text-purple-700 space-y-1">
+                  <h5 className="font-semibold text-purple-900 dark:text-purple-100">Year 7+</h5>
+                  <div className="text-sm text-purple-700 dark:text-purple-300 space-y-1">
                     <div>AIF Qualification: ₹1Cr</div>
                     <div>Ultra HNI Status</div>
                     <div>Alternative Strategies</div>
@@ -1110,15 +1110,15 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
           </div>
 
           {/* AI Insights & Actions */}
-          <div className="mt-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200">
-            <h4 className="font-semibold text-amber-900 mb-3 flex items-center gap-2">
+          <div className="mt-6 p-4 bg-gradient-to-r from-amber-50 dark:from-amber-950/30 to-orange-50 dark:to-orange-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+            <h4 className="font-semibold text-amber-900 dark:text-amber-100 mb-3 flex items-center gap-2">
               <Lightbulb className="w-5 h-5" />
               AI-Generated Insights & Next Actions
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div className="space-y-2">
-                <h5 className="font-medium text-amber-800">🎯 Immediate Actions</h5>
-                <div className="space-y-1 text-amber-700">
+                <h5 className="font-medium text-amber-800 dark:text-amber-200">🎯 Immediate Actions</h5>
+                <div className="space-y-1 text-amber-700 dark:text-amber-300">
                   <div className="flex items-start gap-2">
                     <CheckCircle className="w-3 h-3 mt-1 text-amber-600" />
                     <span>Start REITs SIP with ₹18,000/month</span>
@@ -1134,8 +1134,8 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
                 </div>
               </div>
               <div className="space-y-2">
-                <h5 className="font-medium text-amber-800">🔮 AI Predictions</h5>
-                <div className="space-y-1 text-amber-700">
+                <h5 className="font-medium text-amber-800 dark:text-amber-200">🔮 AI Predictions</h5>
+                <div className="space-y-1 text-amber-700 dark:text-amber-300">
                   <div className="flex items-start gap-2">
                     <Activity className="w-3 h-3 mt-1 text-amber-600" />
                     <span>69% probability of PMS access in 69 months</span>

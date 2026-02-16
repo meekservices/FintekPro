@@ -742,10 +742,10 @@ export default function AdminMfBenchmarks() {
                       <TableRow key={idx}>
                         <TableCell className="font-mono text-sm">{item.mfIsin}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="bg-red-50">{item.oldIndexCode || '—'}</Badge>
+                          <Badge variant="outline" className="bg-red-50 dark:bg-red-950/30">{item.oldIndexCode || '—'}</Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="bg-green-50">{item.newIndexCode || '—'}</Badge>
+                          <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30">{item.newIndexCode || '—'}</Badge>
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary">{item.changeSource || '—'}</Badge>
@@ -937,10 +937,10 @@ export default function AdminMfBenchmarks() {
                         </TableCell>
                         <TableCell>{getSourceBadge(item.newSource)}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="bg-red-50">{item.previousIndex || '—'}</Badge>
+                          <Badge variant="outline" className="bg-red-50 dark:bg-red-950/30">{item.previousIndex || '—'}</Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="bg-green-50">{item.newIndex}</Badge>
+                          <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30">{item.newIndex}</Badge>
                         </TableCell>
                         <TableCell className="max-w-[200px] truncate text-sm" title={item.reason || ''}>
                           {item.reason?.substring(0, 40) || '—'}

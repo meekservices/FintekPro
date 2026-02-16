@@ -526,7 +526,7 @@ export default function UnlistedCompanyDetails() {
               <CardTitle className="flex items-center gap-2">
                 <Database className="h-5 w-5 text-green-600" />
                 MCA Official Financial Data
-                <Badge variant="outline" className="text-green-600 border-green-300 ml-2">
+                <Badge variant="outline" className="text-green-600 border-green-300 dark:border-green-700 ml-2">
                   Government Source
                 </Badge>
               </CardTitle>

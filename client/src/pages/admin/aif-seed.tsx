@@ -722,9 +722,9 @@ export default function AifSeedPage() {
                 </p>
               </div>
               <div className="flex gap-4 text-sm text-muted-foreground">
-                <Badge variant="outline" className="text-blue-600 border-blue-300">Category I: ~30</Badge>
-                <Badge variant="outline" className="text-purple-600 border-purple-300">Category II: ~40</Badge>
-                <Badge variant="outline" className="text-orange-600 border-orange-300">Category III: ~30</Badge>
+                <Badge variant="outline" className="text-blue-600 border-blue-300 dark:border-blue-700">Category I: ~30</Badge>
+                <Badge variant="outline" className="text-purple-600 border-purple-300 dark:border-purple-700">Category II: ~40</Badge>
+                <Badge variant="outline" className="text-orange-600 border-orange-300 dark:border-orange-700">Category III: ~30</Badge>
               </div>
               <Button 
                 onClick={() => previewSeedMutation.mutate()}
@@ -753,13 +753,13 @@ export default function AifSeedPage() {
                   </Badge>
                 </div>
                 <div className="flex gap-2">
-                  <Badge variant="outline" className="text-blue-600 border-blue-300">
+                  <Badge variant="outline" className="text-blue-600 border-blue-300 dark:border-blue-700">
                     Cat I: {seedPreview.summary.byCategory["Category I"]}
                   </Badge>
-                  <Badge variant="outline" className="text-purple-600 border-purple-300">
+                  <Badge variant="outline" className="text-purple-600 border-purple-300 dark:border-purple-700">
                     Cat II: {seedPreview.summary.byCategory["Category II"]}
                   </Badge>
-                  <Badge variant="outline" className="text-orange-600 border-orange-300">
+                  <Badge variant="outline" className="text-orange-600 border-orange-300 dark:border-orange-700">
                     Cat III: {seedPreview.summary.byCategory["Category III"]}
                   </Badge>
                 </div>

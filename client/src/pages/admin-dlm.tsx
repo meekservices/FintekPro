@@ -40,13 +40,13 @@ import {
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-muted text-foreground",
-  negotiation: "bg-yellow-100 text-yellow-800",
-  review: "bg-blue-100 text-blue-800",
-  approved: "bg-green-100 text-green-800",
-  signed: "bg-emerald-100 text-emerald-800",
-  legacy: "bg-purple-100 text-purple-800",
-  expired: "bg-red-100 text-red-800",
-  rejected: "bg-red-100 text-red-800",
+  negotiation: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200",
+  review: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
+  approved: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200",
+  signed: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200",
+  legacy: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200",
+  expired: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200",
+  rejected: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200",
   archived: "bg-muted text-muted-foreground",
 };
 
@@ -636,7 +636,7 @@ export default function AdminDLMPage() {
                         <p className="text-sm text-muted-foreground">{doc.entityName}</p>
                       </div>
                       <div className="text-right">
-                        <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                        <Badge variant="outline" className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">
                           Expires: {formatDate(doc.expiryDate)}
                         </Badge>
                       </div>
@@ -662,7 +662,7 @@ export default function AdminDLMPage() {
               {stats?.highRiskDocuments?.length > 0 ? (
                 <div className="space-y-3">
                   {stats.highRiskDocuments.map((doc: any) => (
-                    <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg border-red-200">
+                    <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg border-red-200 dark:border-red-800">
                       <div>
                         <h4 className="font-medium">{doc.title}</h4>
                         <p className="text-sm text-muted-foreground">{doc.entityName}</p>
@@ -692,7 +692,7 @@ export default function AdminDLMPage() {
                   <div className="space-y-3">
                     {stats.recentActivity.map((event: any) => (
                       <div key={event.id} className="flex items-start gap-4 p-3 border rounded-lg">
-                        <div className="p-2 bg-blue-100 rounded-full">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
                           <History className="w-4 h-4 text-blue-600" />
                         </div>
                         <div className="flex-1">

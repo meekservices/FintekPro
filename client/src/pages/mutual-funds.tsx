@@ -84,7 +84,7 @@ function ProposalsTab({ onApprove }: { onApprove: () => void }) {
           <Button 
             variant="outline" 
             onClick={() => refetch()}
-            className="border-purple-300 text-purple-600 hover:bg-purple-50"
+            className="border-purple-300 dark:border-purple-700 text-purple-600 hover:bg-purple-50 dark:bg-purple-950/30"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh Proposals
@@ -108,12 +108,12 @@ function ProposalsTab({ onApprove }: { onApprove: () => void }) {
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       {proposal.proposalSource === 'ai' ? (
-                        <Badge className="bg-purple-100 text-purple-700 border-purple-200">
+                        <Badge className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
                           <Bot className="w-3 h-3 mr-1" />
                           AI Generated
                         </Badge>
                       ) : (
-                        <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                        <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
                           <UserCheck className="w-3 h-3 mr-1" />
                           Agent Recommended
                         </Badge>
@@ -197,7 +197,7 @@ function ProposalsTab({ onApprove }: { onApprove: () => void }) {
                   </Button>
                   <Button 
                     variant="outline"
-                    className="border-red-300 text-red-600 hover:bg-red-50"
+                    className="border-red-300 dark:border-red-700 text-red-600 hover:bg-red-50 dark:bg-red-950/30"
                     onClick={() => rejectMutation.mutate(proposal.id)}
                     disabled={rejectMutation.isPending}
                     data-testid={`reject-${proposal.id}`}
@@ -344,7 +344,7 @@ function MfCartTab({ onCheckout }: { onCheckout: () => void }) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50 mt-2"
+                    className="text-red-500 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:bg-red-950/30 mt-2"
                     onClick={() => removeFromCartMutation.mutate(item.id)}
                     disabled={removeFromCartMutation.isPending}
                     data-testid={`remove-${index}`}
@@ -1867,9 +1867,9 @@ export default function MutualFunds() {
                             <Badge 
                               variant="outline" 
                               className={`text-xs ${
-                                fund.riskLevel === 'low' ? 'text-green-600 border-green-300' :
-                                fund.riskLevel === 'medium' ? 'text-amber-600 border-amber-300' :
-                                'text-red-600 border-red-300'
+                                fund.riskLevel === 'low' ? 'text-green-600 border-green-300 dark:border-green-700' :
+                                fund.riskLevel === 'medium' ? 'text-amber-600 border-amber-300 dark:border-amber-700' :
+                                'text-red-600 border-red-300 dark:border-red-700'
                               }`}
                             >
                               {fund.riskLevel} risk
@@ -2168,7 +2168,7 @@ export default function MutualFunds() {
                                 <Button 
                                   size="sm" 
                                   variant="outline" 
-                                  className="h-7 text-xs px-2 text-emerald-600 border-emerald-300 hover:bg-emerald-50" 
+                                  className="h-7 text-xs px-2 text-emerald-600 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:bg-emerald-950/30" 
                                   onClick={(e) => { e.stopPropagation(); setOrderType('buy'); }}
                                   data-testid={`buy-btn-${idx}`}
                                 >
@@ -2178,7 +2178,7 @@ export default function MutualFunds() {
                                 <Button 
                                   size="sm" 
                                   variant="outline" 
-                                  className="h-7 text-xs px-2 text-red-600 border-red-300 hover:bg-red-50" 
+                                  className="h-7 text-xs px-2 text-red-600 border-red-300 dark:border-red-700 hover:bg-red-50 dark:bg-red-950/30" 
                                   onClick={(e) => { e.stopPropagation(); handleHoldingSelectForSell(holding); }}
                                   data-testid={`sell-btn-${idx}`}
                                 >
@@ -2243,7 +2243,7 @@ export default function MutualFunds() {
                   <div className="p-4 border-b border-border">
                     <div className="flex gap-2">
                       <Button 
-                        className={`flex-1 ${orderType === 'buy' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-transparent text-emerald-600 border-emerald-300 hover:bg-emerald-50'}`}
+                        className={`flex-1 ${orderType === 'buy' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-transparent text-emerald-600 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:bg-emerald-950/30'}`}
                         variant={orderType === 'buy' ? 'default' : 'outline'}
                         onClick={() => { setOrderType('buy'); setSelectedHolding(null); }}
                         data-testid="order-type-buy"
@@ -2252,7 +2252,7 @@ export default function MutualFunds() {
                         Buy / Lumpsum
                       </Button>
                       <Button 
-                        className={`flex-1 ${orderType === 'sell' ? 'bg-red-600 hover:bg-red-700 text-white' : 'text-red-600 border-red-300 hover:bg-red-50'}`}
+                        className={`flex-1 ${orderType === 'sell' ? 'bg-red-600 hover:bg-red-700 text-white' : 'text-red-600 border-red-300 dark:border-red-700 hover:bg-red-50 dark:bg-red-950/30'}`}
                         variant={orderType === 'sell' ? 'default' : 'outline'}
                         onClick={() => setOrderType('sell')}
                         data-testid="order-type-sell"
@@ -2261,7 +2261,7 @@ export default function MutualFunds() {
                         Sell / Redeem
                       </Button>
                       <Button 
-                        className={`flex-1 ${orderType === 'sip' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'text-blue-600 border-blue-300 hover:bg-blue-50'}`}
+                        className={`flex-1 ${orderType === 'sip' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'text-blue-600 border-blue-300 dark:border-blue-700 hover:bg-blue-50 dark:bg-blue-950/30'}`}
                         variant={orderType === 'sip' ? 'default' : 'outline'}
                         onClick={() => { setOrderType('sip'); setSelectedHolding(null); }}
                         data-testid="order-type-sip"
@@ -2296,7 +2296,7 @@ export default function MutualFunds() {
                                       variant="ghost" 
                                       size="sm" 
                                       onClick={() => setSelectedHolding(null)}
-                                      className="text-red-600 hover:text-red-700"
+                                      className="text-red-600 hover:text-red-700 dark:text-red-300"
                                     >
                                       Change
                                     </Button>
@@ -2714,10 +2714,10 @@ export default function MutualFunds() {
               {isLoadingPopular ? (
                 <LoadingState variant="card" count={6} />
               ) : popularError ? (
-                <Card className="border-red-200 bg-red-50">
+                <Card className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
                   <CardContent className="flex flex-col items-center justify-center py-8">
                     <TrendingDown className="h-8 w-8 text-red-500 mb-2" />
-                    <p className="text-red-700 text-center">
+                    <p className="text-red-700 dark:text-red-300 text-center">
                       Unable to load popular funds. Please try refreshing.
                     </p>
                   </CardContent>
@@ -2784,9 +2784,9 @@ export default function MutualFunds() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
                         <div>
-                          <p className="font-medium text-green-800">Registered AMCs</p>
+                          <p className="font-medium text-green-800 dark:text-green-200">Registered AMCs</p>
                           <p className="text-sm text-green-600">SEBI compliant fund houses</p>
                         </div>
                         <div className="text-right">
@@ -2831,12 +2831,12 @@ export default function MutualFunds() {
                       { amcName: 'Axis Mutual Fund', sebiRegistrationNumber: 'INZ000123459', schemes: Array(128) },
                       { amcName: 'Nippon India MF', sebiRegistrationNumber: 'INZ000123460', schemes: Array(115) }
                     ]).map((amc: any, index: number) => (
-                      <div key={index} className="p-3 border border-blue-200 bg-blue-50 rounded-lg">
+                      <div key={index} className="p-3 border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                         <div className="flex justify-between items-start mb-2">
-                          <p className="font-medium text-blue-800 text-sm">{amc.amcName}</p>
+                          <p className="font-medium text-blue-800 dark:text-blue-200 text-sm">{amc.amcName}</p>
                           <span className="text-xs text-blue-600">{amc.schemes?.length || 0} schemes</span>
                         </div>
-                        <p className="text-xs text-blue-700">SEBI Reg: {amc.sebiRegistrationNumber}</p>
+                        <p className="text-xs text-blue-700 dark:text-blue-300">SEBI Reg: {amc.sebiRegistrationNumber}</p>
                         <div className="flex items-center gap-1 mt-1">
                           <Shield className="w-3 h-3 text-green-500" />
                           <span className="text-xs text-green-600">Compliant</span>
@@ -2858,7 +2858,7 @@ export default function MutualFunds() {
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
-                      <h4 className="font-semibold text-purple-700">SEBI Regulations</h4>
+                      <h4 className="font-semibold text-purple-700 dark:text-purple-300">SEBI Regulations</h4>
                       <div className="text-sm text-muted-foreground space-y-2">
                         <div className="flex items-center gap-2">
                           <Shield className="w-4 h-4 text-green-500" />
@@ -2880,7 +2880,7 @@ export default function MutualFunds() {
                     </div>
                     
                     <div className="space-y-4">
-                      <h4 className="font-semibold text-blue-700">Investor Protection</h4>
+                      <h4 className="font-semibold text-blue-700 dark:text-blue-300">Investor Protection</h4>
                       <div className="text-sm text-muted-foreground space-y-2">
                         <div className="flex items-center gap-2">
                           <Shield className="w-4 h-4 text-blue-500" />
@@ -2962,8 +2962,8 @@ export default function MutualFunds() {
                   </Button>
                   
                   {calculatedSip && (
-                    <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <h4 className="font-semibold text-green-800 mb-3">Calculation Results</h4>
+                    <div className="mt-4 p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+                      <h4 className="font-semibold text-green-800 dark:text-green-200 mb-3">Calculation Results</h4>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Total Investment:</span>

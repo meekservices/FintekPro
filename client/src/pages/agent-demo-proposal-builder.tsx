@@ -1070,7 +1070,7 @@ export default function AgentDemoProposalBuilder() {
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2">
                                       <h4 className="font-semibold text-lg">{selectedClient.fullName}</h4>
-                                      <Badge variant="secondary" className={selectedClient.type === 'client' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}>
+                                      <Badge variant="secondary" className={selectedClient.type === 'client' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'}>
                                         {selectedClient.type === 'client' ? 'Client' : 'Prospect'}
                                       </Badge>
                                     </div>
@@ -1707,7 +1707,7 @@ export default function AgentDemoProposalBuilder() {
                                         <SectionIcon className="h-4 w-4" />
                                         <span className="font-medium">{section.name}</span>
                                         {isRequired && (
-                                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">Required</Badge>
+                                          <Badge variant="secondary" className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">Required</Badge>
                                         )}
                                         {!isDataAvailable && (
                                           <Badge variant="secondary" className="text-xs bg-muted text-muted-foreground">Unavailable</Badge>
@@ -1762,7 +1762,7 @@ export default function AgentDemoProposalBuilder() {
                       </div>
 
                       {config.coverPage.enabled && (
-                        <div className="grid md:grid-cols-2 gap-4 pl-4 border-l-2 border-purple-200">
+                        <div className="grid md:grid-cols-2 gap-4 pl-4 border-l-2 border-purple-200 dark:border-purple-800">
                           <div>
                             <Label className="mb-2 block">Proposal Title</Label>
                             <Input
@@ -2031,7 +2031,7 @@ export default function AgentDemoProposalBuilder() {
                                     setShowShareDialog(true);
                                   }
                                 }}
-                                className="border-green-500 text-green-700 hover:bg-green-50"
+                                className="border-green-500 text-green-700 dark:text-green-300 hover:bg-green-50 dark:bg-green-950/30"
                                 data-testid="button-share-proposal"
                               >
                                 <Send className="h-4 w-4 mr-2" />
@@ -2521,10 +2521,10 @@ export default function AgentDemoProposalBuilder() {
                           <TableCell>
                             <Badge 
                               className={`text-xs ${
-                                rec.recommendationType === 'BUY' ? 'bg-green-100 text-green-700' :
-                                rec.recommendationType === 'SELL' ? 'bg-red-100 text-red-700' :
-                                rec.recommendationType === 'SWITCH' ? 'bg-amber-100 text-amber-700' :
-                                'bg-blue-100 text-blue-700'
+                                rec.recommendationType === 'BUY' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+                                rec.recommendationType === 'SELL' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                                rec.recommendationType === 'SWITCH' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
+                                'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                               }`}
                             >
                               {rec.recommendationType || 'BUY'}

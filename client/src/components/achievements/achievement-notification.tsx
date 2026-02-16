@@ -197,10 +197,10 @@ export function AchievementNotification({
                     <div className="flex items-center justify-center space-x-2">
                       {getDifficultyIcon(achievement.difficulty)}
                       <Badge className={`${
-                        achievement.difficulty === 'beginner' ? 'bg-green-100 text-green-800' :
-                        achievement.difficulty === 'intermediate' ? 'bg-blue-100 text-blue-800' :
-                        achievement.difficulty === 'advanced' ? 'bg-orange-100 text-orange-800' :
-                        'bg-purple-100 text-purple-800'
+                        achievement.difficulty === 'beginner' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' :
+                        achievement.difficulty === 'intermediate' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' :
+                        achievement.difficulty === 'advanced' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200' :
+                        'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200'
                       }`}>
                         {achievement.difficulty.charAt(0).toUpperCase() + achievement.difficulty.slice(1)} Level
                       </Badge>
@@ -262,7 +262,7 @@ export function AchievementToast({ achievement, onClose }: {
         <CardContent className="p-4">
           <div className="flex items-start justify-between">
             <div className="flex items-center space-x-3">
-              <div className="p-2 bg-yellow-100 rounded-full">
+              <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
                 <Trophy className="h-4 w-4 text-yellow-600" />
               </div>
               <div>

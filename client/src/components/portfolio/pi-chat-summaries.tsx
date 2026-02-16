@@ -79,10 +79,10 @@ export function PiChatSummaries({ portfolioId }: PiChatSummariesProps) {
 
   const getAssetClassColor = (assetClass: string) => {
     const colors: Record<string, string> = {
-      equity: "bg-blue-100 text-blue-800",
-      debt: "bg-green-100 text-green-800", 
-      commodity: "bg-yellow-100 text-yellow-800",
-      alternative: "bg-purple-100 text-purple-800",
+      equity: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
+      debt: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200", 
+      commodity: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200",
+      alternative: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200",
     };
     return colors[assetClass] || "bg-muted text-foreground";
   };
@@ -168,27 +168,27 @@ export function PiChatSummaries({ portfolioId }: PiChatSummariesProps) {
                 {summary.insights && (
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     {summary.insights.totalValue && (
-                      <div className="bg-blue-50 p-2 rounded">
-                        <div className="font-medium text-blue-900">Total Value</div>
-                        <div className="text-blue-700">₹{summary.insights.totalValue.toLocaleString()}</div>
+                      <div className="bg-blue-50 dark:bg-blue-950/30 p-2 rounded">
+                        <div className="font-medium text-blue-900 dark:text-blue-100">Total Value</div>
+                        <div className="text-blue-700 dark:text-blue-300">₹{summary.insights.totalValue.toLocaleString()}</div>
                       </div>
                     )}
                     {summary.insights.expectedReturn && (
-                      <div className="bg-green-50 p-2 rounded">
-                        <div className="font-medium text-green-900">Expected Return</div>
-                        <div className="text-green-700">{summary.insights.expectedReturn}</div>
+                      <div className="bg-green-50 dark:bg-green-950/30 p-2 rounded">
+                        <div className="font-medium text-green-900 dark:text-green-100">Expected Return</div>
+                        <div className="text-green-700 dark:text-green-300">{summary.insights.expectedReturn}</div>
                       </div>
                     )}
                     {summary.insights.riskLevel && (
-                      <div className="bg-orange-50 p-2 rounded">
-                        <div className="font-medium text-orange-900">Risk Level</div>
-                        <div className="text-orange-700">{summary.insights.riskLevel}</div>
+                      <div className="bg-orange-50 dark:bg-orange-950/30 p-2 rounded">
+                        <div className="font-medium text-orange-900 dark:text-orange-100">Risk Level</div>
+                        <div className="text-orange-700 dark:text-orange-300">{summary.insights.riskLevel}</div>
                       </div>
                     )}
                     {summary.insights.topSectors && (
-                      <div className="bg-purple-50 p-2 rounded">
-                        <div className="font-medium text-purple-900">Top Sectors</div>
-                        <div className="text-purple-700">{summary.insights.topSectors.slice(0, 2).join(', ')}</div>
+                      <div className="bg-purple-50 dark:bg-purple-950/30 p-2 rounded">
+                        <div className="font-medium text-purple-900 dark:text-purple-100">Top Sectors</div>
+                        <div className="text-purple-700 dark:text-purple-300">{summary.insights.topSectors.slice(0, 2).join(', ')}</div>
                       </div>
                     )}
                   </div>

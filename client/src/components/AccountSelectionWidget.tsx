@@ -128,9 +128,9 @@ export function AccountSelectionWidget({
 
   if (!verifiedBankAccounts.length && !verifiedDematAccounts.length) {
     return (
-      <Alert className="bg-yellow-50 border-yellow-200" data-testid="alert-no-verified-accounts">
+      <Alert className="bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800" data-testid="alert-no-verified-accounts">
         <AlertCircle className="h-4 w-4 text-yellow-600" />
-        <AlertDescription className="text-yellow-800">
+        <AlertDescription className="text-yellow-800 dark:text-yellow-200">
           Please add and verify at least one bank account to proceed with this transaction.
         </AlertDescription>
       </Alert>
@@ -226,7 +226,7 @@ export function AccountSelectionWidget({
                   </div>
                 </div>
                 {selectedBank.isVerified && (
-                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">
                     <CheckCircle2 className="h-3 w-3 mr-1" />
                     Verified
                   </Badge>
@@ -272,7 +272,7 @@ export function AccountSelectionWidget({
                     </div>
                   </div>
                   {selectedDemat.isVerified && (
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">
                       <CheckCircle2 className="h-3 w-3 mr-1" />
                       Verified
                     </Badge>

@@ -114,9 +114,9 @@ const getSourceIcon = (source: string) => {
 
 const getSourceColor = (source: string) => {
   switch (source) {
-    case 'fintekpro': return 'bg-blue-100 text-blue-700 border-blue-200';
-    case 'cashfree': return 'bg-purple-100 text-purple-700 border-purple-200';
-    case 'phonepe': return 'bg-green-100 text-green-700 border-green-200';
+    case 'fintekpro': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800';
+    case 'cashfree': return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800';
+    case 'phonepe': return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800';
     default: return 'bg-muted text-muted-foreground border-border';
   }
 };
@@ -124,13 +124,13 @@ const getSourceColor = (source: string) => {
 const getStatusColor = (status: string) => {
   const normalizedStatus = status?.toLowerCase() || '';
   if (normalizedStatus.includes('complet') || normalizedStatus.includes('success') || normalizedStatus === 'paid') {
-    return 'bg-green-100 text-green-700 border-green-200';
+    return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800';
   }
   if (normalizedStatus.includes('pend') || normalizedStatus.includes('process') || normalizedStatus === 'initiated') {
-    return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+    return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800';
   }
   if (normalizedStatus.includes('fail') || normalizedStatus.includes('cancel') || normalizedStatus === 'rejected') {
-    return 'bg-red-100 text-red-700 border-red-200';
+    return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800';
   }
   return 'bg-muted text-muted-foreground border-border';
 };
@@ -563,7 +563,7 @@ export default function TransactionReports() {
         <Card data-testid="stat-total-transactions">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                 <Receipt className="w-5 h-5 text-blue-600" />
               </div>
               <div>
@@ -576,7 +576,7 @@ export default function TransactionReports() {
         <Card data-testid="stat-completed">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
+              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
                 <CheckCircle className="w-5 h-5 text-green-600" />
               </div>
               <div>
@@ -589,7 +589,7 @@ export default function TransactionReports() {
         <Card data-testid="stat-pending">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-100 rounded-lg">
+              <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
                 <Clock className="w-5 h-5 text-yellow-600" />
               </div>
               <div>
@@ -602,7 +602,7 @@ export default function TransactionReports() {
         <Card data-testid="stat-total-amount">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
                 <IndianRupee className="w-5 h-5 text-purple-600" />
               </div>
               <div>

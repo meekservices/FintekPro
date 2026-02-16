@@ -424,8 +424,8 @@ export default function PartnerCAManagement() {
                       <TableCell>{taxCase.caseType}</TableCell>
                       <TableCell>
                         <Badge className={
-                          taxCase.priority === 'high' ? 'bg-red-100 text-red-700' :
-                          taxCase.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                          taxCase.priority === 'high' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                          taxCase.priority === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
                           'bg-muted text-muted-foreground'
                         }>
                           {taxCase.priority}
@@ -485,9 +485,9 @@ export default function PartnerCAManagement() {
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                            index === 0 ? 'bg-yellow-100 text-yellow-700' :
+                            index === 0 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
                             index === 1 ? 'bg-muted text-muted-foreground' :
-                            index === 2 ? 'bg-orange-100 text-orange-700' :
+                            index === 2 ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' :
                             'bg-muted text-muted-foreground'
                           }`}>
                             {index + 1}

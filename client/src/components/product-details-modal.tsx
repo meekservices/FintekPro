@@ -40,9 +40,9 @@ export function ProductDetailsModal({
 
   const getRiskColor = (risk: string) => {
     switch(risk) {
-      case "low": return "text-green-600 bg-green-50 border-green-200";
-      case "medium": return "text-yellow-600 bg-yellow-50 border-yellow-200";
-      case "high": return "text-red-600 bg-red-50 border-red-200";
+      case "low": return "text-green-600 bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800";
+      case "medium": return "text-yellow-600 bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800";
+      case "high": return "text-red-600 bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800";
       default: return "text-muted-foreground bg-muted border-border";
     }
   };
@@ -243,9 +243,9 @@ export function ProductDetailsModal({
                   </Button>
                 </div>
 
-                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-semibold text-sm text-blue-900 mb-2">Investment Advisory</h4>
-                  <p className="text-xs text-blue-800">
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                  <h4 className="font-semibold text-sm text-blue-900 dark:text-blue-100 mb-2">Investment Advisory</h4>
+                  <p className="text-xs text-blue-800 dark:text-blue-200">
                     Our financial advisors are available to help you make informed investment decisions. 
                     Contact us for personalized guidance.
                   </p>

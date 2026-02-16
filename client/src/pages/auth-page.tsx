@@ -1059,7 +1059,7 @@ export default function AuthPage() {
                     size="sm"
                     onClick={handleResendOtp}
                     disabled={otpSending}
-                    className="text-blue-600 hover:text-blue-700"
+                    className="text-blue-600 hover:text-blue-700 dark:text-blue-300"
                     data-testid="button-resend-otp"
                   >
                     {otpSending ? (
@@ -1165,7 +1165,7 @@ export default function AuthPage() {
                     size="sm"
                     onClick={() => resendRegistrationOtpMutation.mutate()}
                     disabled={registrationOtpSending}
-                    className="text-blue-600 hover:text-blue-700"
+                    className="text-blue-600 hover:text-blue-700 dark:text-blue-300"
                     data-testid="button-resend-registration-otp"
                   >
                     {registrationOtpSending ? (

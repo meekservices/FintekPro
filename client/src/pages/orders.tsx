@@ -78,9 +78,9 @@ const getCategoryColor = (cat: ProductCategory) => {
 
 const getStatusColor = (status: CartItemStatus) => {
   switch (status) {
-    case 'active': return 'bg-green-100 text-green-700 border-green-200';
-    case 'pending_approval': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-    case 'removed': return 'bg-red-100 text-red-700 border-red-200';
+    case 'active': return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800';
+    case 'pending_approval': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800';
+    case 'removed': return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800';
     default: return 'bg-muted text-muted-foreground border-border';
   }
 };
@@ -162,7 +162,7 @@ function StatusTimeline({ status, approvedAt, createdAt, source }: {
               <div className={`rounded-full p-1 ${
                 stepStatus === 'completed' ? 'bg-green-500 text-white' :
                 stepStatus === 'current' ? 'bg-blue-500 text-white' :
-                stepStatus === 'cancelled' ? 'bg-red-200 text-red-500' :
+                stepStatus === 'cancelled' ? 'bg-red-200 dark:bg-red-800/30 text-red-500' :
                 'bg-muted text-muted-foreground'
               }`}>
                 <Icon className="w-4 h-4" />
@@ -183,7 +183,7 @@ function StatusTimeline({ status, approvedAt, createdAt, source }: {
             {index < steps.length - 1 && (
               <div className={`w-8 h-0.5 mx-1 ${
                 stepStatus === 'completed' ? 'bg-green-500' :
-                stepStatus === 'cancelled' ? 'bg-red-200' :
+                stepStatus === 'cancelled' ? 'bg-red-200 dark:bg-red-800/30' :
                 'bg-muted'
               }`} />
             )}
@@ -209,9 +209,9 @@ function OrderCard({ item }: { item: UnifiedCartItem }) {
             </h3>
             <Badge 
               className={`text-xs ${
-                item.source === 'ai' ? 'bg-purple-100 text-purple-700' :
-                item.source === 'agent' ? 'bg-blue-100 text-blue-700' :
-                'bg-green-100 text-green-700'
+                item.source === 'ai' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' :
+                item.source === 'agent' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' :
+                'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
               }`}
               data-testid={`badge-source-${item.id}`}
             >
@@ -356,7 +356,7 @@ export default function Orders() {
         <Card data-testid="stat-total-orders">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                 <Package className="w-5 h-5 text-blue-600" />
               </div>
               <div>
@@ -369,7 +369,7 @@ export default function Orders() {
         <Card data-testid="stat-active-orders">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
+              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
                 <CheckCircle className="w-5 h-5 text-green-600" />
               </div>
               <div>
@@ -382,7 +382,7 @@ export default function Orders() {
         <Card data-testid="stat-pending-orders">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-100 rounded-lg">
+              <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
                 <Clock className="w-5 h-5 text-yellow-600" />
               </div>
               <div>
@@ -395,7 +395,7 @@ export default function Orders() {
         <Card data-testid="stat-total-value">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
                 <TrendingUp className="w-5 h-5 text-purple-600" />
               </div>
               <div>

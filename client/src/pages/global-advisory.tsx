@@ -174,7 +174,7 @@ function RecommendationCard({ rec }: { rec: GlobalRecommendation }) {
           </div>
           <div className="flex-1">
             <p className="text-xs text-muted-foreground mb-1">Risk</p>
-            <Progress value={rec.riskScore} className="h-2 bg-red-100" />
+            <Progress value={rec.riskScore} className="h-2 bg-red-100 dark:bg-red-900/30" />
             <p className="text-xs text-right">{rec.riskScore.toFixed(0)}%</p>
           </div>
         </div>

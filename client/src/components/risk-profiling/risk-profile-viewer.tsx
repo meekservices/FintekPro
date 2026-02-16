@@ -62,11 +62,11 @@ interface User {
 }
 
 const getRiskLevel = (score: number) => {
-  if (score <= 30) return { level: "Conservative", color: "bg-green-500", textColor: "text-green-700" };
-  if (score <= 50) return { level: "Moderate", color: "bg-yellow-500", textColor: "text-yellow-700" };
-  if (score <= 70) return { level: "Balanced", color: "bg-blue-500", textColor: "text-blue-700" };
-  if (score <= 85) return { level: "Growth", color: "bg-orange-500", textColor: "text-orange-700" };
-  return { level: "Aggressive", color: "bg-red-500", textColor: "text-red-700" };
+  if (score <= 30) return { level: "Conservative", color: "bg-green-500", textColor: "text-green-700 dark:text-green-300" };
+  if (score <= 50) return { level: "Moderate", color: "bg-yellow-500", textColor: "text-yellow-700 dark:text-yellow-300" };
+  if (score <= 70) return { level: "Balanced", color: "bg-blue-500", textColor: "text-blue-700 dark:text-blue-300" };
+  if (score <= 85) return { level: "Growth", color: "bg-orange-500", textColor: "text-orange-700 dark:text-orange-300" };
+  return { level: "Aggressive", color: "bg-red-500", textColor: "text-red-700 dark:text-red-300" };
 };
 
 const formatCurrency = (amount: string) => {
@@ -432,32 +432,32 @@ export function RiskProfileViewer() {
               <CardContent>
                 <div className="space-y-2 text-sm">
                   {selectedProfile.riskScore <= 30 && (
-                    <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                      <p className="font-medium text-green-800">Conservative Investor</p>
+                    <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                      <p className="font-medium text-green-800 dark:text-green-200">Conservative Investor</p>
                       <p className="text-green-600">Recommend low-risk investments like fixed deposits, government bonds, and conservative mutual funds.</p>
                     </div>
                   )}
                   {selectedProfile.riskScore > 30 && selectedProfile.riskScore <= 50 && (
-                    <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                      <p className="font-medium text-yellow-800">Moderate Investor</p>
+                    <div className="p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                      <p className="font-medium text-yellow-800 dark:text-yellow-200">Moderate Investor</p>
                       <p className="text-yellow-600">Suitable for balanced portfolios with mix of debt and equity investments.</p>
                     </div>
                   )}
                   {selectedProfile.riskScore > 50 && selectedProfile.riskScore <= 70 && (
-                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <p className="font-medium text-blue-800">Balanced Investor</p>
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <p className="font-medium text-blue-800 dark:text-blue-200">Balanced Investor</p>
                       <p className="text-blue-600">Can consider diversified equity funds and balanced asset allocation.</p>
                     </div>
                   )}
                   {selectedProfile.riskScore > 70 && selectedProfile.riskScore <= 85 && (
-                    <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
-                      <p className="font-medium text-orange-800">Growth Investor</p>
+                    <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-200 dark:border-orange-800">
+                      <p className="font-medium text-orange-800 dark:text-orange-200">Growth Investor</p>
                       <p className="text-orange-600">Suitable for growth-oriented equity funds and higher-risk investments.</p>
                     </div>
                   )}
                   {selectedProfile.riskScore > 85 && (
-                    <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-                      <p className="font-medium text-red-800">Aggressive Investor</p>
+                    <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
+                      <p className="font-medium text-red-800 dark:text-red-200">Aggressive Investor</p>
                       <p className="text-red-600">Can handle high-risk, high-reward investments like small-cap funds and sectoral investments.</p>
                     </div>
                   )}

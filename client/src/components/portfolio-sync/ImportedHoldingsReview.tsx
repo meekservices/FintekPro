@@ -327,11 +327,11 @@ export function ImportedHoldingsReview({ userId, onSyncComplete, onCancel }: Imp
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'approved':
-        return <Badge className="bg-green-100 text-green-800"><Check className="w-3 h-3 mr-1" />Approved</Badge>;
+        return <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200"><Check className="w-3 h-3 mr-1" />Approved</Badge>;
       case 'rejected':
-        return <Badge className="bg-red-100 text-red-800"><X className="w-3 h-3 mr-1" />Rejected</Badge>;
+        return <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200"><X className="w-3 h-3 mr-1" />Rejected</Badge>;
       case 'modified':
-        return <Badge className="bg-blue-100 text-blue-800"><Edit2 className="w-3 h-3 mr-1" />Modified</Badge>;
+        return <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"><Edit2 className="w-3 h-3 mr-1" />Modified</Badge>;
       default:
         return <Badge variant="outline" className="text-muted-foreground"><Eye className="w-3 h-3 mr-1" />Pending</Badge>;
     }
@@ -379,9 +379,9 @@ export function ImportedHoldingsReview({ userId, onSyncComplete, onCancel }: Imp
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline">{summary.total} Holdings</Badge>
-            <Badge className="bg-green-100 text-green-800">{summary.approved} Approved</Badge>
+            <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">{summary.approved} Approved</Badge>
             {summary.rejected > 0 && (
-              <Badge className="bg-red-100 text-red-800">{summary.rejected} Rejected</Badge>
+              <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200">{summary.rejected} Rejected</Badge>
             )}
           </div>
         </div>
@@ -445,7 +445,7 @@ export function ImportedHoldingsReview({ userId, onSyncComplete, onCancel }: Imp
               size="sm"
               onClick={handleRejectSelected}
               disabled={selectedHoldings.size === 0 || rejectHoldingsMutation.isPending}
-              className="text-red-600 hover:text-red-700"
+              className="text-red-600 hover:text-red-700 dark:text-red-300"
             >
               <X className="w-4 h-4 mr-1" />
               Reject ({selectedHoldings.size})
@@ -454,9 +454,9 @@ export function ImportedHoldingsReview({ userId, onSyncComplete, onCancel }: Imp
         </div>
 
         {holdings.some(h => h.validationErrors?.length) && (
-          <Alert className="bg-amber-50 border-amber-200">
+          <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
             <AlertCircle className="h-4 w-4 text-amber-600" />
-            <AlertDescription className="text-amber-800">
+            <AlertDescription className="text-amber-800 dark:text-amber-200">
               Some holdings have validation issues. Review and correct before syncing.
             </AlertDescription>
           </Alert>
@@ -665,9 +665,9 @@ export function ImportedHoldingsReview({ userId, onSyncComplete, onCancel }: Imp
               </div>
 
               {editingHolding.validationErrors?.length && (
-                <Alert className="bg-red-50 border-red-200">
+                <Alert className="bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800">
                   <AlertCircle className="h-4 w-4 text-red-600" />
-                  <AlertDescription className="text-red-800">
+                  <AlertDescription className="text-red-800 dark:text-red-200">
                     <ul className="list-disc list-inside">
                       {editingHolding.validationErrors.map((err, i) => (
                         <li key={i}>{err}</li>

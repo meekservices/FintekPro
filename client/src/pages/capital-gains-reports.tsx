@@ -510,42 +510,42 @@ export default function CapitalGainsReports() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div className="bg-green-50 p-4 rounded-lg">
+                    <div className="bg-green-50 dark:bg-green-950/30 p-4 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <TrendingUp className="h-4 w-4 text-green-600" />
                         <span className="text-sm font-medium text-green-600">Long Term Gains</span>
                       </div>
-                      <p className="text-2xl font-bold text-green-700">
+                      <p className="text-2xl font-bold text-green-700 dark:text-green-300">
                         {formatCurrency(currentReport.summary.totalLongTermGains)}
                       </p>
                     </div>
 
-                    <div className="bg-orange-50 p-4 rounded-lg">
+                    <div className="bg-orange-50 dark:bg-orange-950/30 p-4 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <TrendingDown className="h-4 w-4 text-orange-600" />
                         <span className="text-sm font-medium text-orange-600">Short Term Gains</span>
                       </div>
-                      <p className="text-2xl font-bold text-orange-700">
+                      <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                         {formatCurrency(currentReport.summary.totalShortTermGains)}
                       </p>
                     </div>
 
-                    <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <IndianRupee className="h-4 w-4 text-blue-600" />
                         <span className="text-sm font-medium text-blue-600">Total Dividend</span>
                       </div>
-                      <p className="text-2xl font-bold text-blue-700">
+                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                         {formatCurrency(currentReport.summary.totalDividend)}
                       </p>
                     </div>
 
-                    <div className="bg-red-50 p-4 rounded-lg">
+                    <div className="bg-red-50 dark:bg-red-950/30 p-4 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <Receipt className="h-4 w-4 text-red-600" />
                         <span className="text-sm font-medium text-red-600">TDS Deducted</span>
                       </div>
-                      <p className="text-2xl font-bold text-red-700">
+                      <p className="text-2xl font-bold text-red-700 dark:text-red-300">
                         {formatCurrency(currentReport.summary.totalTdsDeducted)}
                       </p>
                     </div>

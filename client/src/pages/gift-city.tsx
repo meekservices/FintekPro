@@ -423,7 +423,7 @@ export default function GiftCity() {
                     <p className="text-sm font-semibold mb-2">IFSC Benefits</p>
                     <div className="flex flex-wrap gap-1">
                       {product.regulatoryBenefits.slice(0, 2).map((benefit, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs bg-green-100 text-green-800">
+                        <Badge key={index} variant="secondary" className="text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                           <CheckCircle className="h-3 w-3 mr-1" />
                           {benefit}
                         </Badge>

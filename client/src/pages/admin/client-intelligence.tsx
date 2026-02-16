@@ -243,8 +243,8 @@ export default function ClientIntelligence() {
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3">
                             <div className={`p-2 rounded-full ${
-                              intel.investmentPotential === 'high' ? 'bg-green-100' :
-                              intel.investmentPotential === 'medium' ? 'bg-yellow-100' :
+                              intel.investmentPotential === 'high' ? 'bg-green-100 dark:bg-green-900/30' :
+                              intel.investmentPotential === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
                               'bg-muted'
                             }`}>
                               {intel.probe42Score && intel.probe42Score >= 4 ? (

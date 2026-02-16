@@ -273,14 +273,14 @@ export default function Home() {
   ];
 
   const colorClasses = {
-    blue: "text-blue-600 bg-blue-50 border-blue-200",
-    green: "text-green-600 bg-green-50 border-green-200", 
-    purple: "text-purple-600 bg-purple-50 border-purple-200",
-    red: "text-red-600 bg-red-50 border-red-200",
-    orange: "text-orange-600 bg-orange-50 border-orange-200",
-    yellow: "text-yellow-600 bg-yellow-50 border-yellow-200",
-    indigo: "text-indigo-600 bg-indigo-50 border-indigo-200",
-    teal: "text-teal-600 bg-teal-50 border-teal-200"
+    blue: "text-blue-600 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800",
+    green: "text-green-600 bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800", 
+    purple: "text-purple-600 bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800",
+    red: "text-red-600 bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800",
+    orange: "text-orange-600 bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800",
+    yellow: "text-yellow-600 bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800",
+    indigo: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800",
+    teal: "text-teal-600 bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-800"
   };
 
   return (
@@ -323,7 +323,7 @@ export default function Home() {
                 )}
                 
                 <div className="space-y-4">
-                  <Badge className="bg-yellow-500 text-yellow-900 text-sm px-4 py-2 font-semibold">
+                  <Badge className="bg-yellow-500 text-yellow-900 dark:text-yellow-100 text-sm px-4 py-2 font-semibold">
                     🚀 Your Complete Financial Platform
                   </Badge>
                   <h1 className="text-5xl lg:text-6xl font-bold leading-tight">
@@ -402,7 +402,7 @@ export default function Home() {
                       id={`feature-tab-${index}`}
                       className={`w-full text-left p-6 rounded-xl border-2 cursor-pointer transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                         activeFeature === index 
-                          ? 'border-blue-500 bg-blue-50 shadow-lg' 
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 shadow-lg' 
                           : 'border-border hover:border-border'
                       }`}
                       onClick={() => setActiveFeature(index)}
@@ -539,7 +539,7 @@ export default function Home() {
                       const ServiceIcon = service.icon;
                       return (
                         <Link key={sIndex} href={service.route}>
-                          <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer border border-border hover:border-blue-300">
+                          <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer border border-border hover:border-blue-300 dark:border-blue-700">
                             <CardContent className="p-4">
                               <div className="flex items-center space-x-3">
                                 <ServiceIcon className="w-5 h-5 text-muted-foreground group-hover:text-blue-600 transition-colors" />
@@ -644,7 +644,7 @@ export default function Home() {
                 }
               ].map((item, index) => (
                 <div key={index} className="text-center p-6">
-                  <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className="bg-blue-100 dark:bg-blue-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                     <item.icon className="w-8 h-8 text-blue-600" />
                   </div>
                   <h3 className="text-lg font-semibold text-foreground mb-2">{item.title}</h3>

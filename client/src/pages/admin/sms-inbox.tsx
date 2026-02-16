@@ -287,9 +287,9 @@ export default function SmsInbox() {
 
   const getCallbackStatusBadge = (status: string | null) => {
     switch (status) {
-      case 'pending': return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Pending</Badge>;
-      case 'scheduled': return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Scheduled</Badge>;
-      case 'completed': return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Completed</Badge>;
+      case 'pending': return <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800">Pending</Badge>;
+      case 'scheduled': return <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">Scheduled</Badge>;
+      case 'completed': return <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">Completed</Badge>;
       case 'cancelled': return <Badge variant="outline" className="bg-muted text-muted-foreground border-border">Cancelled</Badge>;
       default: return <Badge variant="outline">Unknown</Badge>;
     }
@@ -312,8 +312,8 @@ export default function SmsInbox() {
 
   const getChannelBadge = (channel: string) => {
     switch (channel) {
-      case 'whatsapp': return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">WhatsApp</Badge>;
-      case 'sms': return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">SMS</Badge>;
+      case 'whatsapp': return <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">WhatsApp</Badge>;
+      case 'sms': return <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">SMS</Badge>;
       default: return <Badge variant="outline">{channel}</Badge>;
     }
   };
@@ -769,7 +769,7 @@ export default function SmsInbox() {
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Voice Call</Badge>
+                              <Badge variant="outline" className="bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">Voice Call</Badge>
                               {selectedCall.isRead ? (
                                 <Badge variant="outline" className="text-xs">
                                   <CheckCircle2 className="h-3 w-3 mr-1" /> Read
