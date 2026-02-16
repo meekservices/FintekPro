@@ -142,6 +142,7 @@ import derivativesRoutes from "./routes/derivatives-routes";
 import taxServicesRoutes from "./routes/tax-services-routes";
 import listedStocksAdminRoutes from "./routes/listed-stocks-admin";
 import demoProposalsRoutes, { agentDemoRouter } from "./routes/demo-proposals";
+import schemeGovernanceRoutes from "./routes/scheme-governance-routes";
 import stockEnrichmentRoutes from "./routes/stock-enrichment-routes";
 import exchangeStockSyncRoutes from './routes/exchange-stock-sync';
 import unifiedCartRoutes from "./routes/unified-cart";
@@ -729,6 +730,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.use("/api/admin", requireAdmin, listedStocksAdminRoutes);
   app.use("/api/admin/stocks", requireAdmin, stockEnrichmentRoutes);
   app.use("/api/admin/demo-proposals", requireAdmin, demoProposalsRoutes);
+  app.use("/api/admin/scheme-governance", requireAdmin, schemeGovernanceRoutes);
   app.use("/api/agent/demo-proposals", isAuthenticated, agentDemoRouter);
   app.use("/api/agent", portfolioImportRoutes);
   app.use("/api/cas-statement", isAuthenticated, casStatementRoutes);

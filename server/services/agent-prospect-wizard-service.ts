@@ -10,7 +10,7 @@ import {
   listedStocks,
   preIpoCompanies
 } from "@shared/schema";
-import { eq, and, desc, or, isNotNull, sql } from "drizzle-orm";
+import { eq, and, desc, or, isNotNull, sql, ilike } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { aiInvestmentOrchestrator } from "./ai-investment-orchestrator";
 import { aiResponseCacheService } from "./ai-response-cache-service";
@@ -18,10 +18,11 @@ import { proposalCapitalGainsService } from "./proposal-capital-gains-service";
 import { historicalNavService } from "./historical-nav-service";
 import { getRecommendationsByCategory, getAllActiveRecommendations } from "./recommendation-products-service";
 import { mfReturnsSyncService } from "./mf-returns-sync-service";
-import { mutualFunds } from "@shared/schema";
+import { mutualFunds, schemeTransactionRules, proposalAuditLog, proposalVersions } from "@shared/schema";
 import { prospectReadinessService } from "./prospect-readiness-service";
 import { allocationPolicyService } from "./allocation-policy-service";
 import { complianceSnapshotService } from "./compliance-snapshot-service";
+import { schemeGovernanceService } from "./scheme-governance-service";
 
 // Format amount in Indian currency format (₹X.XX L for lakhs, ₹X.XX Cr for crores)
 const formatAmount = (amount: number): string => {
@@ -507,21 +508,75 @@ function findFundInCatalog(fundName: string): any | null {
 }
 
 /**
- * Unified helper: select eligible funds for lumpsum investment from a candidate list.
- * Filters out restricted funds, resolves configured alternatives from the actual master catalog.
- * Returns at most `maxFunds` entries. If all candidates are restricted, resolves alternatives
- * or returns empty (caller should skip the category).
+ * DB-driven eligibility check for a single fund.
+ * Queries scheme_transaction_rules first, falls back to hardcoded registry.
  */
-function selectEligibleFundsForLumpsum(candidateFunds: any[], maxFunds: number = 2): any[] {
+async function checkFundLumpsumEligibility(fundName: string): Promise<{
+  restricted: boolean;
+  reason?: string;
+  alternativeName?: string;
+}> {
+  try {
+    const eligibility = await schemeGovernanceService.checkEligibility(fundName, "name");
+    if (!eligibility.lumpsumAllowed) {
+      return {
+        restricted: true,
+        reason: eligibility.restrictionReason || "Lumpsum not allowed per AMC rules",
+        alternativeName: eligibility.alternativeSchemeName || undefined,
+      };
+    }
+  } catch (err) {
+    // DB unavailable — fall through to hardcoded registry
+  }
+  const hardcoded = isLumpsumRestricted(fundName);
+  return {
+    restricted: hardcoded.restricted,
+    reason: hardcoded.reason,
+    alternativeName: hardcoded.alternative,
+  };
+}
+
+async function checkFundSipEligibility(fundName: string): Promise<{
+  restricted: boolean;
+  reason?: string;
+  alternativeName?: string;
+}> {
+  try {
+    const eligibility = await schemeGovernanceService.checkEligibility(fundName, "name");
+    if (!eligibility.sipAllowed) {
+      return {
+        restricted: true,
+        reason: eligibility.restrictionReason || "SIP not allowed per AMC rules",
+        alternativeName: eligibility.alternativeSchemeName || undefined,
+      };
+    }
+  } catch (err) {
+    // DB unavailable — fall through to hardcoded registry
+  }
+  const hardcoded = isSipRestricted(fundName);
+  return {
+    restricted: hardcoded.restricted,
+    reason: hardcoded.reason,
+    alternativeName: hardcoded.alternative,
+  };
+}
+
+/**
+ * Unified helper: select eligible funds for lumpsum investment from a candidate list.
+ * Uses DB-driven eligibility (scheme_transaction_rules) with hardcoded registry fallback.
+ * Resolves configured alternatives from the actual master catalog.
+ * Returns at most `maxFunds` entries.
+ */
+async function selectEligibleFundsForLumpsum(candidateFunds: any[], maxFunds: number = 2): Promise<any[]> {
   const eligible: any[] = [];
   const alternatives: string[] = [];
 
   for (const fund of candidateFunds) {
-    const restriction = isLumpsumRestricted(fund.name);
+    const restriction = await checkFundLumpsumEligibility(fund.name);
     if (restriction.restricted) {
       console.log(`[FundRestriction] Excluding ${fund.name} from lumpsum: ${restriction.reason}`);
-      if (restriction.alternative) {
-        alternatives.push(restriction.alternative);
+      if (restriction.alternativeName) {
+        alternatives.push(restriction.alternativeName);
       }
     } else {
       eligible.push(fund);
@@ -532,19 +587,21 @@ function selectEligibleFundsForLumpsum(candidateFunds: any[], maxFunds: number =
     return eligible.slice(0, maxFunds);
   }
 
-  // Resolve configured alternatives from actual master catalog entries
   const seenNames = new Set(eligible.map(f => f.name.toLowerCase()));
   for (const altName of alternatives) {
     if (eligible.length >= maxFunds) break;
     if (seenNames.has(altName.toLowerCase())) continue;
 
     const catalogEntry = findFundInCatalog(altName);
-    if (catalogEntry && !isLumpsumRestricted(catalogEntry.name).restricted) {
-      eligible.push(catalogEntry);
-      seenNames.add(catalogEntry.name.toLowerCase());
-      console.log(`[FundRestriction] Resolved alternative from catalog: ${catalogEntry.name} (${catalogEntry.amc})`);
+    if (catalogEntry) {
+      const altRestriction = await checkFundLumpsumEligibility(catalogEntry.name);
+      if (!altRestriction.restricted) {
+        eligible.push(catalogEntry);
+        seenNames.add(catalogEntry.name.toLowerCase());
+        console.log(`[FundRestriction] Resolved alternative from catalog: ${catalogEntry.name} (${catalogEntry.amc})`);
+      }
     } else {
-      console.log(`[FundRestriction] Alternative ${altName} not found in catalog or also restricted, skipping`);
+      console.log(`[FundRestriction] Alternative ${altName} not found in catalog, skipping`);
     }
   }
 
@@ -2918,7 +2975,7 @@ class AgentProspectWizardService {
           }
           // Use async sanitized access with DB fallback for live returns (exclude lumpsum-restricted targets)
           const targetFunds = await getFundsFromCategorySanitizedAsync(category, riskProfile.riskTolerance);
-          const eligibleTargets = selectEligibleFundsForLumpsum(targetFunds, 1);
+          const eligibleTargets = await selectEligibleFundsForLumpsum(targetFunds, 1);
           const targetFund = eligibleTargets[0] || null;
           
           // Calculate tax implications for switch (treated as redemption + purchase)
@@ -3055,7 +3112,7 @@ class AgentProspectWizardService {
         
         // Get recommended fund for this category with async DB lookup (exclude lumpsum-restricted funds)
         const categoryFunds = await getFundsFromCategorySanitizedAsync(category, riskProfile.riskTolerance);
-        const eligibleForLumpsum = selectEligibleFundsForLumpsum(categoryFunds, 1);
+        const eligibleForLumpsum = await selectEligibleFundsForLumpsum(categoryFunds, 1);
         const fundToRecommend = eligibleForLumpsum[0] || null;
         
         if (fundToRecommend) {
@@ -3365,7 +3422,7 @@ class AgentProspectWizardService {
       const categoryAmount = Math.round((allocation / 100) * investmentAmount);
       
       // Filter out lumpsum-restricted funds and resolve alternatives
-      const fundsToUse = selectEligibleFundsForLumpsum(categoryFunds, 2);
+      const fundsToUse = await selectEligibleFundsForLumpsum(categoryFunds, 2);
       if (fundsToUse.length === 0) continue;
       const amountPerFund = Math.round(categoryAmount / fundsToUse.length);
       
@@ -3434,7 +3491,7 @@ class AgentProspectWizardService {
         
         for (const risk of riskLevels) {
           const categoryFunds = await getFundsFromCategorySanitizedAsync(category, risk);
-          const eligible = selectEligibleFundsForLumpsum(categoryFunds, 2);
+          const eligible = await selectEligibleFundsForLumpsum(categoryFunds, 2);
           if (eligible.length > 0) {
             fundsToUse = eligible;
             break;
@@ -3724,6 +3781,61 @@ class AgentProspectWizardService {
       eventType: 'created',
       eventData: { prospectId, agentId }
     });
+
+    try {
+      await db.insert(proposalVersions).values({
+        proposalId: String(proposal.id),
+        versionNumber: 1,
+        payload: {
+          recommendations: [...rebalancing, ...freshInvestments],
+          targetAllocation,
+          riskProfile: riskProfile.riskTolerance,
+          totalInvestmentAmount: netInvestmentRequired,
+          projectedValue: Math.round(projectedValue),
+        },
+        changeReason: 'Initial proposal creation',
+        changedSchemes: null,
+        createdBy: String(agentId),
+      });
+
+      const allFunds = [
+        ...rebalancing.map(r => ({ name: r.productName, type: r.action })),
+        ...freshInvestments.map(f => ({ name: f.productName, type: 'BUY' }))
+      ];
+      for (const fund of allFunds) {
+        try {
+          const eligibility = await schemeGovernanceService.checkEligibility(fund.name, "name");
+          const investmentType = fund.type === 'BUY' ? 'lumpsum' : fund.type.toLowerCase();
+          const isAllowed = investmentType === 'lumpsum' ? eligibility.lumpsumAllowed : eligibility.sipAllowed;
+          await db.insert(proposalAuditLog).values({
+            proposalId: String(proposal.id),
+            eventType: 'fund_eligibility_check',
+            schemeName: fund.name,
+            isin: eligibility.alternativeIsin || null,
+            investmentType,
+            validationStatus: isAllowed ? 'passed' : 'blocked',
+            validationMessage: eligibility.restrictionReason || 'Fund eligible for inclusion',
+            metadata: {
+              eligible: eligibility.eligible,
+              sipAllowed: eligibility.sipAllowed,
+              lumpsumAllowed: eligibility.lumpsumAllowed,
+              subscriptionStatus: eligibility.subscriptionStatus,
+            },
+          });
+        } catch {
+          await db.insert(proposalAuditLog).values({
+            proposalId: String(proposal.id),
+            eventType: 'fund_eligibility_check',
+            schemeName: fund.name,
+            investmentType: fund.type === 'BUY' ? 'lumpsum' : fund.type.toLowerCase(),
+            validationStatus: 'skipped',
+            validationMessage: 'Eligibility check unavailable; using hardcoded fallback',
+          });
+        }
+      }
+    } catch (auditError) {
+      console.error('[ProposalAudit] Non-critical: Failed to write audit/version records:', auditError);
+    }
 
     // Combine all recommendations for PDF detailed view (BUYs from rebalancing + fresh investments)
     const detailedRecommendations = [

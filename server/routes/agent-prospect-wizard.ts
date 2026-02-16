@@ -14,6 +14,7 @@ import {
   populateUnlistedBroadSectors,
   isSipRestricted
 } from "../services/agent-prospect-wizard-service";
+import { schemeGovernanceService } from "../services/scheme-governance-service";
 import { z } from "zod";
 import { ZohoCRMService } from "../zoho/services/crm";
 import { ZohoConnectionResolver } from "../zoho/connection-resolver";
@@ -1015,7 +1016,7 @@ router.post("/proposal-analytics", async (req: Request, res: Response) => {
     }
     if (requestedSections.includes('SIP_RECOMMENDATIONS')) {
       analytics.sipRecommendations = {
-        data: generateSipRecommendations(riskProfile, analysis),
+        data: await generateSipRecommendations(riskProfile, analysis),
         assumptions: { minSipAmount: 500, maxFundsPerCategory: 3 },
         dataSource: 'recommendation_engine'
       };
@@ -1632,7 +1633,7 @@ function generatePriorityRecommendations(holdings: NormalizedHolding[], riskProf
   return recommendations.sort((a, b) => a.priority - b.priority);
 }
 
-function generateSipRecommendations(riskProfile: any, analysis: any) {
+async function generateSipRecommendations(riskProfile: any, analysis: any) {
   const tolerance = riskProfile?.riskTolerance || 'moderate';
   const monthlyAmount = analysis?.totalValue ? Math.round(analysis.totalValue * 0.05 / 12) : 10000;
   
@@ -1664,15 +1665,28 @@ function generateSipRecommendations(riskProfile: any, analysis: any) {
   
   const recommendations = fundsByRisk[tolerance] || fundsByRisk.moderate;
   
-  // Filter out SIP-restricted funds and redistribute their amounts
-  const eligible = recommendations.filter(fund => {
-    const restriction = isSipRestricted(fund.fundName);
-    if (restriction.restricted) {
-      console.log(`[SIP] Excluding ${fund.fundName} from SIP recommendations: ${restriction.reason}`);
-      return false;
+  // Filter out SIP-restricted funds using DB-driven checks with hardcoded fallback
+  const eligible: typeof recommendations = [];
+  for (const fund of recommendations) {
+    let restricted = false;
+    let reason = '';
+    try {
+      const dbResult = await schemeGovernanceService.checkEligibility(fund.fundName, "name");
+      if (!dbResult.sipAllowed) {
+        restricted = true;
+        reason = dbResult.restrictionReason || 'SIP not allowed per AMC rules';
+      }
+    } catch {
+      const hardcoded = isSipRestricted(fund.fundName);
+      restricted = hardcoded.restricted;
+      reason = hardcoded.reason || '';
     }
-    return true;
-  });
+    if (restricted) {
+      console.log(`[SIP] Excluding ${fund.fundName} from SIP recommendations: ${reason}`);
+    } else {
+      eligible.push(fund);
+    }
+  }
   
   // Redistribute excluded fund amounts proportionally among remaining funds
   if (eligible.length > 0 && eligible.length < recommendations.length) {
@@ -1683,7 +1697,6 @@ function generateSipRecommendations(riskProfile: any, analysis: any) {
       eligible.forEach(fund => {
         fund.suggestedAmount = Math.round(fund.suggestedAmount * redistributionFactor);
       });
-      // Fix rounding drift: adjust last fund so total matches exactly
       const redistributedTotal = eligible.reduce((sum, f) => sum + f.suggestedAmount, 0);
       const drift = totalOriginal - redistributedTotal;
       if (drift !== 0 && eligible.length > 0) {

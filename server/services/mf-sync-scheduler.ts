@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { db } from '../db';
-import { mutualFunds } from '@shared/schema';
+import { mutualFunds, schemeRenameLog } from '@shared/schema';
 import { eq, sql, lt } from 'drizzle-orm';
 
 interface AMFIFund {
@@ -9,6 +9,8 @@ interface AMFIFund {
   fundHouse: string;
   nav: string;
   navDate: string;
+  isinDiv: string;
+  isinGrowth: string;
 }
 
 class MFSyncScheduler {
@@ -96,6 +98,7 @@ class MFSyncScheduler {
     let updated = 0;
     let added = 0;
     let errors = 0;
+    let renamed = 0;
 
     try {
       // Fetch AMFI master data
@@ -126,14 +129,39 @@ class MFSyncScheduler {
             const optionType = this.detectOptionType(fund.schemeName);
             const planType = this.detectPlanType(fund.schemeName);
 
+            const isinGrowth = fund.isinGrowth || null;
+            const isinDiv = fund.isinDiv || null;
+            const primaryIsin = isinGrowth || isinDiv || null;
+
             if (existing.length > 0) {
-              // Update existing
+              const existingFund = existing[0];
+              if (existingFund.schemeName && existingFund.schemeName !== fund.schemeName) {
+                try {
+                  await db.insert(schemeRenameLog).values({
+                    isin: primaryIsin,
+                    schemeCode: fund.schemeCode,
+                    oldName: existingFund.schemeName,
+                    newName: fund.schemeName,
+                    syncSource: 'AMFI'
+                  });
+                  renamed++;
+                  if (renamed <= 10) {
+                    console.log(`[MF Sync] Rename detected: "${existingFund.schemeName}" → "${fund.schemeName}" (${fund.schemeCode})`);
+                  }
+                } catch (renameErr) {
+                  // Non-critical, continue sync
+                }
+              }
+
               await db.update(mutualFunds)
                 .set({
                   schemeName: fund.schemeName,
                   fundHouse: fund.fundHouse,
                   nav: fund.nav,
                   amfiCode: fund.schemeCode,
+                  isin: primaryIsin,
+                  isinGrowth: isinGrowth,
+                  isinDividendPayout: isinDiv,
                   optionType,
                   planType,
                   schemeStatus: 'active',
@@ -144,7 +172,6 @@ class MFSyncScheduler {
                 .where(eq(mutualFunds.schemeCode, fund.schemeCode));
               updated++;
             } else {
-              // Insert new
               await db.insert(mutualFunds)
                 .values({
                   schemeCode: fund.schemeCode,
@@ -152,6 +179,9 @@ class MFSyncScheduler {
                   fundHouse: fund.fundHouse,
                   nav: fund.nav,
                   amfiCode: fund.schemeCode,
+                  isin: primaryIsin,
+                  isinGrowth: isinGrowth,
+                  isinDividendPayout: isinDiv,
                   optionType,
                   planType,
                   schemeStatus: 'active',
@@ -171,7 +201,7 @@ class MFSyncScheduler {
       }
 
       const duration = Date.now() - startTime;
-      console.log(`[MF Sync] AMFI sync complete in ${duration}ms: ${updated} updated, ${added} added, ${errors} errors`);
+      console.log(`[MF Sync] AMFI sync complete in ${duration}ms: ${updated} updated, ${added} added, ${renamed} renames detected, ${errors} errors`);
 
       // Mark schemes not in AMFI as potentially wound up
       await this.markStaleSchemes();
@@ -376,13 +406,12 @@ class MFSyncScheduler {
         continue;
       }
 
-      // Parse fund data: Scheme Code;ISIN Div;ISIN Growth;Scheme Name;Net Asset Value;Date
+      // Parse fund data: Scheme Code;ISIN Div Payout/Reinvest;ISIN Growth;Scheme Name;Net Asset Value;Date
       const parts = trimmed.split(';');
       if (parts.length < 6) continue;
 
-      const [schemeCode, , , schemeName, nav, navDate] = parts;
+      const [schemeCode, isinDiv, isinGrowth, schemeName, nav, navDate] = parts;
       
-      // Validate
       if (!schemeCode?.trim() || !schemeName?.trim()) continue;
       if (!/^\d+$/.test(schemeCode.trim())) continue;
       if (isNaN(parseFloat(nav?.trim()))) continue;
@@ -392,7 +421,9 @@ class MFSyncScheduler {
         schemeName: schemeName.trim(),
         fundHouse: currentFundHouse,
         nav: nav.trim(),
-        navDate: navDate?.trim() || ''
+        navDate: navDate?.trim() || '',
+        isinDiv: isinDiv?.trim() || '',
+        isinGrowth: isinGrowth?.trim() || ''
       });
     }
 

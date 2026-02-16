@@ -4293,6 +4293,95 @@ export const mutualFunds = pgTable("mutual_funds", {
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
+// Scheme Rename Log - Tracks scheme name changes detected during AMFI sync for audit trail
+export const schemeRenameLog = pgTable("scheme_rename_log", {
+  id: serial("id").primaryKey(),
+  isin: varchar("isin"),
+  schemeCode: text("scheme_code").notNull(),
+  oldName: text("old_name").notNull(),
+  newName: text("new_name").notNull(),
+  detectedAt: timestamp("detected_at").defaultNow(),
+  syncSource: varchar("sync_source").default("AMFI"),
+}, (table) => ({
+  isinIdx: index("idx_scheme_rename_log_isin").on(table.isin),
+  schemeCodeIdx: index("idx_scheme_rename_log_scheme_code").on(table.schemeCode),
+  detectedAtIdx: index("idx_scheme_rename_log_detected_at").on(table.detectedAt),
+}));
+
+export const insertSchemeRenameLogSchema = createInsertSchema(schemeRenameLog).omit({ id: true, detectedAt: true });
+export type SchemeRenameLog = typeof schemeRenameLog.$inferSelect;
+export type InsertSchemeRenameLog = z.infer<typeof insertSchemeRenameLogSchema>;
+
+// Scheme Transaction Rules - AMC-level eligibility flags for lumpsum/SIP per scheme
+export const schemeTransactionRules = pgTable("scheme_transaction_rules", {
+  id: serial("id").primaryKey(),
+  isin: varchar("isin"),
+  schemeCode: text("scheme_code").notNull(),
+  schemeName: text("scheme_name"),
+  lumpsumAllowed: boolean("lumpsum_allowed").default(true),
+  sipAllowed: boolean("sip_allowed").default(true),
+  minLumpsumAmount: decimal("min_lumpsum_amount", { precision: 15, scale: 2 }),
+  maxLumpsumAmount: decimal("max_lumpsum_amount", { precision: 15, scale: 2 }),
+  minSipAmount: decimal("min_sip_amount", { precision: 15, scale: 2 }),
+  subscriptionStatus: varchar("subscription_status").default("OPEN"),
+  restrictionReason: text("restriction_reason"),
+  alternativeIsin: varchar("alternative_isin"),
+  alternativeSchemeName: text("alternative_scheme_name"),
+  effectiveFrom: date("effective_from"),
+  lastCheckedAt: timestamp("last_checked_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  isinIdx: index("idx_scheme_txn_rules_isin").on(table.isin),
+  schemeCodeIdx: index("idx_scheme_txn_rules_scheme_code").on(table.schemeCode),
+  subscriptionStatusIdx: index("idx_scheme_txn_rules_status").on(table.subscriptionStatus),
+}));
+
+export const insertSchemeTransactionRuleSchema = createInsertSchema(schemeTransactionRules).omit({ id: true, lastCheckedAt: true, updatedAt: true });
+export type SchemeTransactionRule = typeof schemeTransactionRules.$inferSelect;
+export type InsertSchemeTransactionRule = z.infer<typeof insertSchemeTransactionRuleSchema>;
+
+// Proposal Audit Log - Immutable event log for proposal compliance tracking
+export const proposalAuditLog = pgTable("proposal_audit_log", {
+  id: serial("id").primaryKey(),
+  proposalId: varchar("proposal_id").notNull(),
+  eventType: varchar("event_type").notNull(),
+  isin: varchar("isin"),
+  schemeCode: text("scheme_code"),
+  schemeName: text("scheme_name"),
+  investmentType: varchar("investment_type"),
+  validationStatus: varchar("validation_status").notNull(),
+  validationMessage: text("validation_message"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  proposalIdIdx: index("idx_proposal_audit_log_proposal").on(table.proposalId),
+  eventTypeIdx: index("idx_proposal_audit_log_event").on(table.eventType),
+  createdAtIdx: index("idx_proposal_audit_log_created").on(table.createdAt),
+}));
+
+export const insertProposalAuditLogSchema = createInsertSchema(proposalAuditLog).omit({ id: true, createdAt: true });
+export type ProposalAuditLog = typeof proposalAuditLog.$inferSelect;
+export type InsertProposalAuditLog = z.infer<typeof insertProposalAuditLogSchema>;
+
+// Proposal Versions - Tracks proposal changes when schemes are auto-replaced
+export const proposalVersions = pgTable("proposal_versions", {
+  id: serial("id").primaryKey(),
+  proposalId: varchar("proposal_id").notNull(),
+  versionNumber: integer("version_number").notNull().default(1),
+  payload: jsonb("payload").notNull(),
+  changeReason: text("change_reason"),
+  changedSchemes: jsonb("changed_schemes"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  proposalIdIdx: index("idx_proposal_versions_proposal").on(table.proposalId),
+  versionIdx: index("idx_proposal_versions_version").on(table.proposalId, table.versionNumber),
+}));
+
+export const insertProposalVersionSchema = createInsertSchema(proposalVersions).omit({ id: true, createdAt: true });
+export type ProposalVersion = typeof proposalVersions.$inferSelect;
+export type InsertProposalVersion = z.infer<typeof insertProposalVersionSchema>;
+
 // NAV History table for storing daily NAV data from MFapi.in
 export const mfNavHistory = pgTable("mf_nav_history", {
   id: serial("id").primaryKey(),
