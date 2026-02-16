@@ -9,6 +9,7 @@ I prefer detailed explanations.
 Ask before making major changes.
 Do not make changes to the folder `Z`.
 Do not make changes to the file `Y`.
+Never build duplicate engines — always upgrade existing ones in place. No parallel systems doing the same work.
 
 ## System Architecture
 
