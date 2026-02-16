@@ -52,11 +52,13 @@ const FUND_RECOMMENDATIONS_BY_CATEGORY = {
     aggressive: [
       { name: 'Quant Small Cap Fund - Regular (G)', amc: 'Quant', category: 'Equity - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
       { name: 'Nippon India Small Cap Fund - Regular (G)', amc: 'Nippon India', category: 'Equity - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+      { name: 'HDFC Small Cap Fund - Regular (G)', amc: 'HDFC', category: 'Equity - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+      { name: 'Kotak Small Cap Fund - Regular (G)', amc: 'Kotak', category: 'Equity - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
       { name: 'Axis Midcap Fund - Regular (G)', amc: 'Axis', category: 'Equity - Mid Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
       { name: 'HDFC Flexi Cap Fund - Regular (G)', amc: 'HDFC', category: 'Equity - Flexi Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderately High' },
     ],
     very_aggressive: [
-      { name: 'Quant Active Fund - Regular (G)', amc: 'Quant', category: 'Equity - Multi Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+      { name: 'Quant Multi Cap Fund - Regular (G)', amc: 'Quant', category: 'Equity - Multi Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
       { name: 'Tata Small Cap Fund - Regular (G)', amc: 'Tata', category: 'Equity - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
       { name: 'SBI Small Cap Fund - Regular (G)', amc: 'SBI', category: 'Equity - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
       { name: 'Motilal Oswal Midcap Fund - Regular (G)', amc: 'Motilal Oswal', category: 'Equity - Mid Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
@@ -411,7 +413,7 @@ const REAL_FUND_RECOMMENDATIONS = {
     { name: 'Kotak Gold Fund - Regular (G)', amc: 'Kotak', category: 'FOF - Gold', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
   ],
   very_aggressive: [
-    { name: 'Quant Active Fund - Regular (G)', amc: 'Quant', category: 'Equity - Multi Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+    { name: 'Quant Multi Cap Fund - Regular (G)', amc: 'Quant', category: 'Equity - Multi Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
     { name: 'Tata Small Cap Fund - Regular (G)', amc: 'Tata', category: 'Equity - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
     { name: 'SBI Small Cap Fund - Regular (G)', amc: 'SBI', category: 'Equity - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
     { name: 'Motilal Oswal Midcap Fund - Regular (G)', amc: 'Motilal Oswal', category: 'Equity - Mid Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
@@ -419,6 +421,135 @@ const REAL_FUND_RECOMMENDATIONS = {
     { name: 'ICICI Pru Regular Gold Savings Fund - Regular (G)', amc: 'ICICI Prudential', category: 'FOF - Gold', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
   ]
 };
+
+/**
+ * PURCHASE RESTRICTION REGISTRY
+ * Funds that are currently not accepting certain types of investments.
+ * This list should be updated periodically based on AMC circulars.
+ * 
+ * restrictionType: 'lumpsum' = not accepting one-time purchases, 'sip' = not accepting new SIPs, 'both' = fully closed
+ * reason: Human-readable reason for the restriction
+ * effectiveFrom: When the restriction started (for audit trail)
+ * alternativeFund: Suggested replacement fund when this fund is excluded
+ */
+export const PURCHASE_RESTRICTED_FUNDS: Array<{
+  fundNamePattern: string;
+  restrictionType: 'lumpsum' | 'sip' | 'both';
+  reason: string;
+  effectiveFrom: string;
+  alternativeFund?: string;
+}> = [
+  {
+    fundNamePattern: 'Nippon India Small Cap Fund',
+    restrictionType: 'lumpsum',
+    reason: 'AMC has temporarily suspended lumpsum investments due to fund size management',
+    effectiveFrom: '2024-10-01',
+    alternativeFund: 'HDFC Small Cap Fund - Regular (G)'
+  },
+  {
+    fundNamePattern: 'SBI Small Cap Fund',
+    restrictionType: 'lumpsum',
+    reason: 'AMC has restricted lumpsum investments to protect existing investors',
+    effectiveFrom: '2024-06-01',
+    alternativeFund: 'Kotak Small Cap Fund - Regular (G)'
+  },
+  {
+    fundNamePattern: 'Tata Small Cap Fund',
+    restrictionType: 'lumpsum',
+    reason: 'AMC has suspended lumpsum purchases in this scheme',
+    effectiveFrom: '2024-09-01',
+    alternativeFund: 'HDFC Small Cap Fund - Regular (G)'
+  }
+];
+
+export function isLumpsumRestricted(fundName: string): { restricted: boolean; reason?: string; alternative?: string } {
+  const match = PURCHASE_RESTRICTED_FUNDS.find(
+    r => fundName.toLowerCase().includes(r.fundNamePattern.toLowerCase()) && 
+         (r.restrictionType === 'lumpsum' || r.restrictionType === 'both')
+  );
+  if (match) {
+    return { restricted: true, reason: match.reason, alternative: match.alternativeFund };
+  }
+  return { restricted: false };
+}
+
+export function isSipRestricted(fundName: string): { restricted: boolean; reason?: string; alternative?: string } {
+  const match = PURCHASE_RESTRICTED_FUNDS.find(
+    r => fundName.toLowerCase().includes(r.fundNamePattern.toLowerCase()) && 
+         (r.restrictionType === 'sip' || r.restrictionType === 'both')
+  );
+  if (match) {
+    return { restricted: true, reason: match.reason, alternative: match.alternativeFund };
+  }
+  return { restricted: false };
+}
+
+/**
+ * Look up a fund by name from all catalogs (FUND_RECOMMENDATIONS_BY_CATEGORY + REAL_FUND_RECOMMENDATIONS).
+ * Returns the actual catalog entry if found, null otherwise.
+ */
+function findFundInCatalog(fundName: string): any | null {
+  const searchName = fundName.toLowerCase();
+  
+  for (const category of Object.values(FUND_RECOMMENDATIONS_BY_CATEGORY)) {
+    for (const riskFunds of Object.values(category)) {
+      const found = (riskFunds as any[]).find((f: any) => f.name.toLowerCase() === searchName);
+      if (found) return { ...found };
+    }
+  }
+  
+  for (const riskFunds of Object.values(REAL_FUND_RECOMMENDATIONS)) {
+    const found = (riskFunds as any[]).find((f: any) => f.name.toLowerCase() === searchName);
+    if (found) return { ...found };
+  }
+  
+  return null;
+}
+
+/**
+ * Unified helper: select eligible funds for lumpsum investment from a candidate list.
+ * Filters out restricted funds, resolves configured alternatives from the actual master catalog.
+ * Returns at most `maxFunds` entries. If all candidates are restricted, resolves alternatives
+ * or returns empty (caller should skip the category).
+ */
+function selectEligibleFundsForLumpsum(candidateFunds: any[], maxFunds: number = 2): any[] {
+  const eligible: any[] = [];
+  const alternatives: string[] = [];
+
+  for (const fund of candidateFunds) {
+    const restriction = isLumpsumRestricted(fund.name);
+    if (restriction.restricted) {
+      console.log(`[FundRestriction] Excluding ${fund.name} from lumpsum: ${restriction.reason}`);
+      if (restriction.alternative) {
+        alternatives.push(restriction.alternative);
+      }
+    } else {
+      eligible.push(fund);
+    }
+  }
+
+  if (eligible.length >= maxFunds) {
+    return eligible.slice(0, maxFunds);
+  }
+
+  // Resolve configured alternatives from actual master catalog entries
+  const seenNames = new Set(eligible.map(f => f.name.toLowerCase()));
+  for (const altName of alternatives) {
+    if (eligible.length >= maxFunds) break;
+    if (seenNames.has(altName.toLowerCase())) continue;
+
+    const catalogEntry = findFundInCatalog(altName);
+    if (catalogEntry && !isLumpsumRestricted(catalogEntry.name).restricted) {
+      eligible.push(catalogEntry);
+      seenNames.add(catalogEntry.name.toLowerCase());
+      console.log(`[FundRestriction] Resolved alternative from catalog: ${catalogEntry.name} (${catalogEntry.amc})`);
+    } else {
+      console.log(`[FundRestriction] Alternative ${altName} not found in catalog or also restricted, skipping`);
+    }
+  }
+
+  return eligible.slice(0, maxFunds);
+}
 
 /**
  * Enrich fund recommendations with live returns from database/MFAPI
@@ -2785,9 +2916,10 @@ class AgentProspectWizardService {
             console.log(`[Rebalancing] Skipping SWITCH for ${upName} - category ${category} not in selected categories`);
             continue;
           }
-          // Use async sanitized access with DB fallback for live returns
+          // Use async sanitized access with DB fallback for live returns (exclude lumpsum-restricted targets)
           const targetFunds = await getFundsFromCategorySanitizedAsync(category, riskProfile.riskTolerance);
-          const targetFund = targetFunds[0] || null;
+          const eligibleTargets = selectEligibleFundsForLumpsum(targetFunds, 1);
+          const targetFund = eligibleTargets[0] || null;
           
           // Calculate tax implications for switch (treated as redemption + purchase)
           // Uses async method with Sandbox API for accurate rates
@@ -2921,9 +3053,10 @@ class AgentProspectWizardService {
         // Lower minimum threshold to ₹2000 to ensure funds get allocated
         if (actualAmount < 2000) continue;
         
-        // Get recommended fund for this category with async DB lookup
+        // Get recommended fund for this category with async DB lookup (exclude lumpsum-restricted funds)
         const categoryFunds = await getFundsFromCategorySanitizedAsync(category, riskProfile.riskTolerance);
-        const fundToRecommend = categoryFunds[0];
+        const eligibleForLumpsum = selectEligibleFundsForLumpsum(categoryFunds, 1);
+        const fundToRecommend = eligibleForLumpsum[0] || null;
         
         if (fundToRecommend) {
           // Format the sell amount appropriately
@@ -3231,8 +3364,9 @@ class AgentProspectWizardService {
       // Calculate amount for this category
       const categoryAmount = Math.round((allocation / 100) * investmentAmount);
       
-      // Distribute among funds in this category
-      const fundsToUse = categoryFunds.slice(0, 2); // Max 2 funds per category
+      // Filter out lumpsum-restricted funds and resolve alternatives
+      const fundsToUse = selectEligibleFundsForLumpsum(categoryFunds, 2);
+      if (fundsToUse.length === 0) continue;
       const amountPerFund = Math.round(categoryAmount / fundsToUse.length);
       
       fundsToUse.forEach((fund: any, index: number) => {
@@ -3300,8 +3434,9 @@ class AgentProspectWizardService {
         
         for (const risk of riskLevels) {
           const categoryFunds = await getFundsFromCategorySanitizedAsync(category, risk);
-          if (categoryFunds.length > 0) {
-            fundsToUse = categoryFunds.slice(0, 2);
+          const eligible = selectEligibleFundsForLumpsum(categoryFunds, 2);
+          if (eligible.length > 0) {
+            fundsToUse = eligible;
             break;
           }
         }

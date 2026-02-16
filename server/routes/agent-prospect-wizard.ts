@@ -11,7 +11,8 @@ import {
   getUnlistedStocksBySector,
   getAvailableUnlistedSectors,
   getUnlistedStockRecommendations,
-  populateUnlistedBroadSectors
+  populateUnlistedBroadSectors,
+  isSipRestricted
 } from "../services/agent-prospect-wizard-service";
 import { z } from "zod";
 import { ZohoCRMService } from "../zoho/services/crm";
@@ -1650,7 +1651,7 @@ function generateSipRecommendations(riskProfile: any, analysis: any) {
     aggressive: [
       { fundName: 'Nippon India Small Cap', category: 'Equity - Small Cap', suggestedAmount: Math.round(monthlyAmount * 0.30), expectedReturn: 18, riskLevel: 'Very High', rationale: 'High growth small cap exposure' },
       { fundName: 'Axis Midcap Fund', category: 'Equity - Mid Cap', suggestedAmount: Math.round(monthlyAmount * 0.30), expectedReturn: 16, riskLevel: 'High', rationale: 'Quality mid caps for alpha' },
-      { fundName: 'Quant Active Fund', category: 'Equity - Multi Cap', suggestedAmount: Math.round(monthlyAmount * 0.25), expectedReturn: 17, riskLevel: 'High', rationale: 'Momentum-based strategy' },
+      { fundName: 'Quant Multi Cap Fund', category: 'Equity - Multi Cap', suggestedAmount: Math.round(monthlyAmount * 0.25), expectedReturn: 17, riskLevel: 'High', rationale: 'Momentum-based multi cap strategy' },
       { fundName: 'UTI Nifty 50 Index', category: 'Equity - Index', suggestedAmount: Math.round(monthlyAmount * 0.15), expectedReturn: 12, riskLevel: 'Moderate', rationale: 'Low-cost market returns' }
     ],
     very_aggressive: [
@@ -1661,7 +1662,37 @@ function generateSipRecommendations(riskProfile: any, analysis: any) {
     ]
   };
   
-  return fundsByRisk[tolerance] || fundsByRisk.moderate;
+  const recommendations = fundsByRisk[tolerance] || fundsByRisk.moderate;
+  
+  // Filter out SIP-restricted funds and redistribute their amounts
+  const eligible = recommendations.filter(fund => {
+    const restriction = isSipRestricted(fund.fundName);
+    if (restriction.restricted) {
+      console.log(`[SIP] Excluding ${fund.fundName} from SIP recommendations: ${restriction.reason}`);
+      return false;
+    }
+    return true;
+  });
+  
+  // Redistribute excluded fund amounts proportionally among remaining funds
+  if (eligible.length > 0 && eligible.length < recommendations.length) {
+    const totalOriginal = recommendations.reduce((sum, f) => sum + f.suggestedAmount, 0);
+    const totalEligible = eligible.reduce((sum, f) => sum + f.suggestedAmount, 0);
+    if (totalEligible > 0) {
+      const redistributionFactor = totalOriginal / totalEligible;
+      eligible.forEach(fund => {
+        fund.suggestedAmount = Math.round(fund.suggestedAmount * redistributionFactor);
+      });
+      // Fix rounding drift: adjust last fund so total matches exactly
+      const redistributedTotal = eligible.reduce((sum, f) => sum + f.suggestedAmount, 0);
+      const drift = totalOriginal - redistributedTotal;
+      if (drift !== 0 && eligible.length > 0) {
+        eligible[eligible.length - 1].suggestedAmount += drift;
+      }
+    }
+  }
+  
+  return eligible.length > 0 ? eligible : recommendations;
 }
 
 router.get("/public/proposal/:token", async (req: Request, res: Response) => {
