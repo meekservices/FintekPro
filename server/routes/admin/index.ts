@@ -2830,54 +2830,7 @@ System Security Data:`;
 
   app.get("/api/agent/notifications", async (req, res) => {
     try {
-      const mockNotifications = [
-        {
-          id: "notif-1",
-          type: "lead_assigned",
-          title: "New Lead Assigned",
-          message: "Rahul Sharma has been assigned to you",
-          link: "/leads",
-          read: false,
-          createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString()
-        },
-        {
-          id: "notif-2",
-          type: "task_due",
-          title: "Task Due Reminder",
-          message: "Follow-up call with Priya Patel is due in 1 hour",
-          link: "/tasks",
-          read: false,
-          createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: "notif-3",
-          type: "meeting_reminder",
-          title: "Meeting Reminder",
-          message: "Client meeting with Amit Kumar in 30 minutes",
-          link: "/calendar",
-          read: true,
-          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: "notif-4",
-          type: "proposal_response",
-          title: "Proposal Response",
-          message: "Neha Singh accepted your investment proposal",
-          link: "/proposals",
-          read: false,
-          createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: "notif-5",
-          type: "commission_credited",
-          title: "Commission Credited",
-          message: "Rs 15,000 commission credited for MF transaction",
-          link: "/revenue",
-          read: true,
-          createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-        }
-      ];
-      res.json(mockNotifications);
+      res.json([]);
     } catch (error) {
       console.error("Error fetching agent notifications:", error);
       res.status(500).json({ error: "Failed to fetch notifications" });

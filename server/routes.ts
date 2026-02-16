@@ -18324,22 +18324,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.get("/api/agent/partners", requireAgent, async (req, res) => {
     try {
 
-      // For now, return mock data. In production, implement partner storage
-      const mockPartners = [
-        {
-          id: "1",
-          companyName: "Example Financial Services",
-          contactEmail: "contact@example.com",
-          contactPhone: "+91 9876543210",
-          partnerType: "product_provider",
-          euinNumber: null,
-          arnCode: null,
-          masterAgentEuin: req.user.euinNumber || "EUIN123456",
-          website: "https://example.com"
-        }
-      ];
-
-      res.json(mockPartners);
+      res.json([]);
     } catch (error) {
       console.error("Error fetching agent partners:", error);
       res.status(500).json({ error: "Failed to fetch partners" });
@@ -18810,85 +18795,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      const mockLeaderboard = [
-        {
-          id: "agent-001",
-          name: "Rajesh Kumar",
-          avatar: null,
-          rank: 1,
-          previousRank: 2,
-          aum: 15000000,
-          commissionMTD: 125000,
-          commissionYTD: 1450000,
-          activeClients: 45,
-          dealsClosed: 12,
-          conversionRate: 68,
-          streak: 5,
-          achievements: ["Top Performer Q4", "100 Clients Club", "Million Dollar AUM"]
-        },
-        {
-          id: "agent-002",
-          name: "Priya Sharma",
-          avatar: null,
-          rank: 2,
-          previousRank: 1,
-          aum: 12500000,
-          commissionMTD: 98000,
-          commissionYTD: 1280000,
-          activeClients: 38,
-          dealsClosed: 10,
-          conversionRate: 72,
-          streak: 3,
-          achievements: ["Rising Star", "Best Conversion Rate"]
-        },
-        {
-          id: "agent-003",
-          name: "Amit Patel",
-          avatar: null,
-          rank: 3,
-          previousRank: 4,
-          aum: 9800000,
-          commissionMTD: 78000,
-          commissionYTD: 980000,
-          activeClients: 32,
-          dealsClosed: 8,
-          conversionRate: 55,
-          streak: 2,
-          achievements: ["Consistent Performer"]
-        },
-        {
-          id: "agent-004",
-          name: "Sneha Reddy",
-          avatar: null,
-          rank: 4,
-          previousRank: 3,
-          aum: 8500000,
-          commissionMTD: 65000,
-          commissionYTD: 850000,
-          activeClients: 28,
-          dealsClosed: 7,
-          conversionRate: 62,
-          streak: 0,
-          achievements: ["New Client Champion"]
-        },
-        {
-          id: "agent-005",
-          name: "Vikram Singh",
-          avatar: null,
-          rank: 5,
-          previousRank: 6,
-          aum: 7200000,
-          commissionMTD: 52000,
-          commissionYTD: 720000,
-          activeClients: 25,
-          dealsClosed: 6,
-          conversionRate: 58,
-          streak: 1,
-          achievements: []
-        }
-      ];
-
-      res.json({ leaderboard: mockLeaderboard });
+      res.json({ leaderboard: [] });
     } catch (error) {
       console.error("Error fetching leaderboard:", error);
       res.status(500).json({ error: "Failed to fetch leaderboard" });
@@ -18949,49 +18856,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      const mockCampaigns = [
-        {
-          id: "camp-001",
-          name: "Q4 Investment Drive",
-          channel: "email" as const,
-          status: "sent" as const,
-          recipientCount: 150,
-          sentCount: 150,
-          deliveredCount: 145,
-          readCount: 61,
-          failedCount: 5,
-          createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-          sentAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: "camp-002",
-          name: "New Fund Launch Alert",
-          channel: "sms" as const,
-          status: "sent" as const,
-          recipientCount: 200,
-          sentCount: 200,
-          deliveredCount: 195,
-          readCount: 0,
-          failedCount: 5,
-          createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-          sentAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: "camp-003",
-          name: "Portfolio Review Reminder",
-          channel: "whatsapp" as const,
-          status: "sent" as const,
-          recipientCount: 80,
-          sentCount: 80,
-          deliveredCount: 78,
-          readCount: 66,
-          failedCount: 2,
-          createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          sentAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
-        }
-      ];
-
-      res.json(mockCampaigns);
+      res.json([]);
     } catch (error) {
       console.error("Error fetching campaigns:", error);
       res.status(500).json({ error: "Failed to fetch campaigns" });
@@ -20855,73 +20720,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       
       const { portfolioId } = req.params;
       
-      // Mock proposals data - in real implementation, this would come from MF Central API
-      const mockProposals = [
-        {
-          id: "proposal-1",
-          type: "sip",
-          schemeName: "Axis Bluechip Fund - Regular Plan - Growth",
-          schemeCode: "120503",
-          amount: 25000,
-          recommendedBy: "smart_system",
-          priority: "high",
-          rationale: "Based on your investment capacity of ₹72,000/month, this large-cap fund provides stable returns with lower volatility. Perfect for building a strong portfolio foundation.",
-          expectedReturns: "12-15% p.a.",
-          riskLevel: "Moderate",
-          investmentHorizon: "5+ years",
-          taxBenefits: "None",
-          status: "pending",
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: "proposal-2",
-          type: "sip",
-          schemeName: "ICICI Prudential ELSS Tax Saver Fund - Growth",
-          schemeCode: "120716",
-          amount: 12500,
-          recommendedBy: "agent",
-          priority: "high",
-          rationale: "Maximizes your Section 80C tax benefits while providing equity exposure. With your high income bracket, this can save ₹46,800 in taxes annually.",
-          expectedReturns: "13-16% p.a.",
-          riskLevel: "Moderate to High",
-          investmentHorizon: "3+ years",
-          taxBenefits: "₹46,800 annual saving under 80C",
-          status: "pending",
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: "proposal-3",
-          type: "lumpsum",
-          schemeName: "SBI Gold Fund - Regular Plan - Growth",
-          schemeCode: "125497",
-          amount: 150000,
-          recommendedBy: "smart_system",
-          priority: "medium",
-          rationale: "Diversification into gold provides portfolio stability during market volatility. Your current portfolio lacks commodity exposure.",
-          expectedReturns: "8-12% p.a.",
-          riskLevel: "Moderate",
-          investmentHorizon: "3-5 years",
-          status: "pending",
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: "proposal-4",
-          type: "sip",
-          schemeName: "Mirae Asset Emerging Bluechip Fund - Growth",
-          schemeCode: "125497",
-          amount: 20000,
-          recommendedBy: "agent",
-          priority: "medium",
-          rationale: "Mid-cap exposure for higher growth potential. Your risk tolerance and long investment horizon make this suitable for wealth creation.",
-          expectedReturns: "15-20% p.a.",
-          riskLevel: "High",
-          investmentHorizon: "7+ years",
-          status: "pending",
-          createdAt: new Date().toISOString()
-        }
-      ];
-
-      res.json(mockProposals);
+      res.json([]);
     } catch (error) {
       console.error("Error fetching proposals:", error);
       res.status(500).json({
