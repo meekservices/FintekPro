@@ -7,7 +7,7 @@ import {
   CorporateBond
 } from "@shared/schema";
 import { eq, and, desc, gte, lte, or, sql, inArray } from "drizzle-orm";
-import { GoogleGenAI } from "@google/genai";
+import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 
 export interface BondRecommendationParams {
   investmentAmount: number;
@@ -90,16 +90,9 @@ const RATING_SCORES: Record<string, number> = {
 const RATING_ORDER = ['AAA', 'AA+', 'AA', 'AA-', 'A+', 'A', 'A-', 'BBB+', 'BBB', 'BBB-', 'BB+', 'BB', 'BB-', 'B+', 'B', 'B-', 'C', 'D'];
 
 class AIBondRecommendationService {
-  private genAI: GoogleGenAI | null = null;
-
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_INTEGRATIONS_GOOGLE_API_KEY;
-    if (apiKey) {
-      this.genAI = new GoogleGenAI({ apiKey });
-      console.log("✅ AI Bond Recommendation Service initialized with Gemini");
-    } else {
-      console.log("⚠️ AI Bond Recommendation Service running in rule-based mode");
-    }
+    const status = unifiedAIRecommendationEngine.getStatus();
+    console.log(`✅ AI Bond Recommendation Service initialized via Unified Engine (primary: ${status.primary})`);
   }
 
   async generateRecommendations(params: BondRecommendationParams): Promise<BondPortfolioSummary> {
@@ -377,7 +370,7 @@ class AIBondRecommendationService {
     bonds: BondRecommendation[], 
     params: BondRecommendationParams
   ): Promise<BondRecommendation[]> {
-    if (!this.genAI || bonds.length === 0) {
+    if (bonds.length === 0) {
       return bonds.map(bond => this.addRuleBasedRationale(bond, params));
     }
 
@@ -405,18 +398,20 @@ For each bond, provide:
 Format your response as JSON array matching this structure:
 [{"bondIndex": 0, "rationale": "...", "pros": ["..."], "cons": ["..."], "taxImplications": "..."}]`;
 
-      const model = this.genAI.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      const { result } = await unifiedAIRecommendationEngine.runPrompt({
+        prompt,
+        category: 'bonds',
+        cacheKey: `bond_rationale:${params.riskTolerance}:${bonds.length}`,
+        responseParser: (text: string) => {
+          const jsonMatch = text.match(/\[[\s\S]*\]/);
+          if (jsonMatch) return JSON.parse(jsonMatch[0]);
+          throw new Error('Could not parse bond AI response');
+        },
+        fallback: () => [],
       });
 
-      const result = await model;
-      const responseText = (result as any).response?.text?.() || '';
-      
-      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const analyses = JSON.parse(jsonMatch[0]);
-        analyses.forEach((analysis: any) => {
+      if (Array.isArray(result) && result.length > 0) {
+        result.forEach((analysis: any) => {
           const bond = bonds[analysis.bondIndex];
           if (bond) {
             bond.aiRationale = analysis.rationale || '';

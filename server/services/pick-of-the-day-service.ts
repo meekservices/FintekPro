@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, globalInstruments, instrumentMaster, sgbPrimaryIssues, stockFinancialMetrics, reits, invits, pickWatchlist, userNotifications } from "@shared/schema";
 import { eq, and, desc, gte, sql, ilike, or } from "drizzle-orm";
-import { GoogleGenAI } from "@google/genai";
+import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 import { FinancialMetricsCalculator } from "./financial-metrics-calculator";
 import { 
   isFundInvestable, 
@@ -74,16 +74,13 @@ interface StockCandidate {
 }
 
 class PickOfTheDayService {
-  private genAI: GoogleGenAI | null = null;
   private readonly DEFAULT_VALIDITY_DAYS = 30;
   private readonly ROTATION_DAYS = 7;
   private recentPicksCache: Map<string, Set<string>> = new Map();
 
   constructor() {
-    if (process.env.GEMINI_API_KEY) {
-      this.genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    }
-    console.log("✅ Pick of the Day Service initialized");
+    const status = unifiedAIRecommendationEngine.getStatus();
+    console.log(`✅ Pick of the Day Service initialized via Unified Engine (primary: ${status.primary})`);
     
     setTimeout(() => {
       this.refreshLivePicks()
@@ -1556,26 +1553,24 @@ class PickOfTheDayService {
       );
 
       let rationale = '';
-      if (this.genAI) {
-        try {
-          rationale = await this.generateRationale({
-            type: 'derivatives',
-            name: `${selectedSymbol} ${strategy.name}`,
-            strategy: strategy.name,
-            symbol: selectedSymbol,
-            spotPrice,
-            strikePrice: atmStrike,
-            expiry: nearestExpiry,
-            iv,
-            outlook: strategy.outlook,
-            lotSize,
-            entryPrice: Math.round(entryPrice),
-            maxProfit: maxProfit === -1 ? 'Unlimited' : `₹${Math.round(typeof maxProfit === 'number' ? maxProfit : 0).toLocaleString()}`,
-            maxLoss: `₹${Math.round(typeof maxLoss === 'number' ? maxLoss : 0).toLocaleString()}`,
-          });
-        } catch (e) {
-          console.error("[PickOfTheDay] AI rationale failed for derivatives:", e);
-        }
+      try {
+        rationale = await this.generateRationale({
+          type: 'derivatives',
+          name: `${selectedSymbol} ${strategy.name}`,
+          strategy: strategy.name,
+          symbol: selectedSymbol,
+          spotPrice,
+          strikePrice: atmStrike,
+          expiry: nearestExpiry,
+          iv,
+          outlook: strategy.outlook,
+          lotSize,
+          entryPrice: Math.round(entryPrice),
+          maxProfit: maxProfit === -1 ? 'Unlimited' : `₹${Math.round(typeof maxProfit === 'number' ? maxProfit : 0).toLocaleString()}`,
+          maxLoss: `₹${Math.round(typeof maxLoss === 'number' ? maxLoss : 0).toLocaleString()}`,
+        });
+      } catch (e) {
+        console.error("[PickOfTheDay] AI rationale failed for derivatives:", e);
       }
 
       if (!rationale) {
@@ -1982,19 +1977,16 @@ class PickOfTheDayService {
   }
 
   private async generateRationale(params: any): Promise<string> {
-    if (!this.genAI) {
-      return this.generateFallbackRationale(params);
-    }
-
     try {
       const prompt = this.buildRationalePrompt(params);
-      const model = this.genAI.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
+      const category = params.category || params.type || 'stocks';
+      const { result } = await unifiedAIRecommendationEngine.runPrompt<string>({
+        prompt,
+        category,
+        responseParser: (text: string) => text,
+        fallback: () => this.generateFallbackRationale(params),
       });
-      
-      const response = await model;
-      return response.text || this.generateFallbackRationale(params);
+      return result || this.generateFallbackRationale(params);
     } catch (error) {
       console.error("[PickOfTheDay] AI rationale generation failed:", error);
       return this.generateFallbackRationale(params);

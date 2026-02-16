@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 import { currencyExchangeService } from "./currency-exchange-service";
 import yahooFinance from "yahoo-finance2";
 import { FinancialMetricsCalculator } from "./financial-metrics-calculator";
@@ -179,18 +179,12 @@ export interface GlobalAdvisoryFilters {
 }
 
 class AIGlobalAdvisoryService {
-  private genAI: GoogleGenAI | null = null;
   private recommendationCache = new Map<string, { data: GlobalRecommendation[], timestamp: Date }>();
   private readonly CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_INTEGRATIONS_GOOGLE_API_KEY;
-    if (apiKey) {
-      this.genAI = new GoogleGenAI({ apiKey });
-      console.log("✅ AI Global Advisory Service initialized with Gemini");
-    } else {
-      console.warn("⚠️ AI Global Advisory Service: No API key configured");
-    }
+    const status = unifiedAIRecommendationEngine.getStatus();
+    console.log(`✅ AI Global Advisory Service initialized via Unified Engine (primary: ${status.primary})`);
   }
 
   private async fetchWithRetry<T>(
@@ -1024,14 +1018,11 @@ class AIGlobalAdvisoryService {
     driftByAsset: Record<string, number>,
     needsRebalancing: boolean
   ): Promise<string> {
-    if (!this.genAI) {
-      return needsRebalancing 
-        ? `Your portfolio has drifted from target allocations. Consider executing the recommended ${actions.filter(a => a.action !== 'hold').length} trades to realign.`
-        : 'Your portfolio is well-balanced and aligned with your target allocations.';
-    }
+    const fallbackResult = needsRebalancing 
+      ? `Your portfolio has drifted from target allocations. Consider executing the recommended ${actions.filter(a => a.action !== 'hold').length} trades to realign.`
+      : 'Your portfolio is well-balanced and aligned with your target allocations.';
 
     try {
-      const model = this.genAI.models.generateContent;
       const prompt = `As a financial advisor, provide a brief 2-3 sentence insight about this portfolio rebalancing situation:
 - Needs rebalancing: ${needsRebalancing}
 - Number of buy actions: ${actions.filter(a => a.action === 'buy').length}
@@ -1039,17 +1030,17 @@ class AIGlobalAdvisoryService {
 - Maximum drift: ${Math.max(...Object.values(driftByAsset).map(Math.abs)).toFixed(1)}%
 Focus on actionable advice for an Indian investor investing globally.`;
 
-      const result = await this.genAI.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
+      const { result } = await unifiedAIRecommendationEngine.runPrompt<string>({
+        prompt,
+        category: 'global_advisory',
+        responseParser: (text: string) => text || 'Portfolio analysis complete. Review the recommended actions.',
+        fallback: () => fallbackResult,
       });
 
-      return result.text || 'Portfolio analysis complete. Review the recommended actions.';
+      return result;
     } catch (error) {
       console.error('[GlobalAdvisory] AI insights generation failed:', error);
-      return needsRebalancing 
-        ? 'Your portfolio requires rebalancing. Review the recommended trades.'
-        : 'Your portfolio is well-balanced.';
+      return fallbackResult;
     }
   }
 }

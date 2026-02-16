@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 
 export interface UnlistedStockAsset {
   id: string;
@@ -48,28 +48,15 @@ export interface AIUnlistedRecommendation {
 }
 
 class AIUnlistedRecommendationService {
-  private genAI: GoogleGenAI | null = null;
-  private isInitialized: boolean = false;
-
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_INTEGRATIONS_GOOGLE_API_KEY;
-    if (apiKey) {
-      this.genAI = new GoogleGenAI({ apiKey });
-      this.isInitialized = true;
-      console.log('✅ AI Unlisted Stock Recommendation Service initialized with Gemini');
-    } else {
-      console.warn('⚠️ AI Unlisted Stock Recommendation Service: No Gemini API key configured. Using fallback recommendations.');
-    }
+    const status = unifiedAIRecommendationEngine.getStatus();
+    console.log(`✅ AI Unlisted Stock Recommendation Service initialized via Unified Engine (primary: ${status.primary})`);
   }
 
   async generatePersonalizedRecommendations(
     assets: UnlistedStockAsset[],
     userProfile: UserProfile
   ): Promise<AIUnlistedRecommendation[]> {
-    if (!this.isInitialized) {
-      return this.getDefaultRecommendations(assets, userProfile);
-    }
-
     if (!assets || assets.length === 0) {
       return [];
     }
@@ -109,47 +96,25 @@ Consider:
 
 Return JSON array sorted by suitabilityScore (highest first).`;
 
-      const response = await this.genAI!.models.generateContent({
-        model: "gemini-2.5-flash",
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                companyId: { type: "string" },
-                name: { type: "string" },
-                sector: { type: "string" },
-                listingStage: { type: "string" },
-                currentPrice: { type: "string" },
-                aiSignal: { type: "string" },
-                aiConfidence: { type: "string" },
-                aiRationale: { type: "string" },
-                aiTargetPrice: { type: "string" },
-                riskLevel: { type: "string" },
-                suitabilityScore: { type: "number" },
-                potentialUpside: { type: "string" },
-                keyRisks: { type: "array", items: { type: "string" } },
-                keyStrengths: { type: "array", items: { type: "string" } }
-              },
-              required: ["companyId", "name", "aiSignal", "aiConfidence", "aiRationale", "suitabilityScore", "riskLevel"]
-            }
-          }
+      const { result } = await unifiedAIRecommendationEngine.runPrompt<AIUnlistedRecommendation[]>({
+        prompt,
+        category: 'unlisted',
+        cacheKey: `unlisted_recs:${userProfile.riskProfile}:${assets.length}`,
+        responseParser: (text: string) => {
+          const parsed = typeof text === 'object' ? text : JSON.parse(text);
+          if (Array.isArray(parsed)) return parsed;
+          const jsonMatch = text.match(/\[[\s\S]*\]/);
+          if (jsonMatch) return JSON.parse(jsonMatch[0]);
+          throw new Error('Could not parse unlisted AI response');
         },
-        contents: prompt,
+        fallback: () => this.getDefaultRecommendations(assets, userProfile),
       });
 
-      const responseText = response.text || "[]";
-      // Handle both string and object responses to prevent "[object Object]" JSON parsing errors
-      const recommendations = typeof responseText === 'object' ? responseText : JSON.parse(responseText);
-      
-      if (!Array.isArray(recommendations) || recommendations.length === 0) {
-        console.warn('AI returned empty unlisted recommendations, using fallback');
+      if (!Array.isArray(result) || result.length === 0) {
         return this.getDefaultRecommendations(assets, userProfile);
       }
       
-      return recommendations.slice(0, 5);
+      return result.slice(0, 5);
     } catch (error) {
       console.error('AI Unlisted Stock recommendation error:', error);
       return this.getDefaultRecommendations(assets, userProfile);

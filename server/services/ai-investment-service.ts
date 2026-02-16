@@ -33,7 +33,7 @@ import type {
   InsertAiTalkingPoint
 } from "@shared/schema";
 import { eq, and, desc, asc, gte, lte, sql, inArray, ilike, or } from "drizzle-orm";
-import { GoogleGenAI } from "@google/genai";
+import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 
 interface PortfolioHolding {
   id: string;
@@ -83,16 +83,9 @@ interface PortfolioMetrics {
 }
 
 class AIInvestmentService {
-  private genAI: GoogleGenAI | null = null;
-
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_INTEGRATIONS_GOOGLE_API_KEY;
-    if (apiKey) {
-      this.genAI = new GoogleGenAI({ apiKey });
-      console.log("✅ AI Investment Service initialized with Gemini");
-    } else {
-      console.log("⚠️ AI Investment Service running without Gemini (using rule-based analysis)");
-    }
+    const status = unifiedAIRecommendationEngine.getStatus();
+    console.log(`✅ AI Investment Service initialized via Unified Engine (primary: ${status.primary})`);
   }
 
   /**
@@ -809,19 +802,11 @@ class AIInvestmentService {
     let keyWeaknesses: string[] = [];
     let recommendations: string[] = [];
 
-    if (this.genAI) {
-      const aiInsights = await this.generateAIInsights(holdings, metrics, clientRiskProfile);
-      aiSummary = aiInsights.summary;
-      keyStrengths = aiInsights.strengths;
-      keyWeaknesses = aiInsights.weaknesses;
-      recommendations = aiInsights.recommendations;
-    } else {
-      const ruleBasedInsights = this.generateRuleBasedInsights(holdings, metrics, clientRiskProfile);
-      aiSummary = ruleBasedInsights.summary;
-      keyStrengths = ruleBasedInsights.strengths;
-      keyWeaknesses = ruleBasedInsights.weaknesses;
-      recommendations = ruleBasedInsights.recommendations;
-    }
+    const aiInsights = await this.generateAIInsights(holdings, metrics, clientRiskProfile);
+    aiSummary = aiInsights.summary;
+    keyStrengths = aiInsights.strengths;
+    keyWeaknesses = aiInsights.weaknesses;
+    recommendations = aiInsights.recommendations;
 
     const overallHealthScore = this.calculateHealthScore(metrics, portfolioRiskAlignment);
 
@@ -958,12 +943,7 @@ class AIInvestmentService {
     metrics: PortfolioMetrics,
     clientRiskProfile: string
   ): Promise<{ summary: string; strengths: string[]; weaknesses: string[]; recommendations: string[] }> {
-    if (!this.genAI) {
-      return this.generateRuleBasedInsights(holdings, metrics, clientRiskProfile);
-    }
-
-    try {
-      const prompt = `Analyze this investment portfolio and provide insights:
+    const prompt = `Analyze this investment portfolio and provide insights:
 
 Portfolio Summary:
 - Total Value: ₹${metrics.totalValue.toLocaleString('en-IN')}
@@ -988,27 +968,28 @@ Provide a JSON response with:
   "recommendations": ["recommendation1", "recommendation2", "recommendation3"]
 }`;
 
-      const result = await this.genAI.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-      });
-      const text = result.text || "";
-      
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          summary: parsed.summary || "Portfolio analysis completed.",
-          strengths: parsed.strengths || [],
-          weaknesses: parsed.weaknesses || [],
-          recommendations: parsed.recommendations || []
-        };
-      }
-    } catch (error) {
-      console.error("AI insights generation failed:", error);
-    }
+    const fallbackResult = this.generateRuleBasedInsights(holdings, metrics, clientRiskProfile);
 
-    return this.generateRuleBasedInsights(holdings, metrics, clientRiskProfile);
+    const { result } = await unifiedAIRecommendationEngine.runPrompt<{ summary: string; strengths: string[]; weaknesses: string[]; recommendations: string[] }>({
+      prompt,
+      category: 'stocks',
+      fallback: () => fallbackResult,
+      responseParser: (text: string) => {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          return {
+            summary: parsed.summary || "Portfolio analysis completed.",
+            strengths: parsed.strengths || [],
+            weaknesses: parsed.weaknesses || [],
+            recommendations: parsed.recommendations || []
+          };
+        }
+        throw new Error('Could not parse portfolio insights JSON');
+      },
+    });
+
+    return result;
   }
 
   private generateRuleBasedInsights(

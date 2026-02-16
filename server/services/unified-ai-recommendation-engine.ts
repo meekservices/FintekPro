@@ -1098,6 +1098,127 @@ Provide analysis as JSON with these fields:
   }
 
   /**
+   * Public delegated AI call for asset-specific services.
+   * Routes all AI calls through the unified engine for caching, model fallback,
+   * and tracking — while letting each service keep its own prompts and parsers.
+   */
+  async runPrompt<T = any>(options: {
+    prompt: string;
+    category: ProductCategory | string;
+    cacheKey?: string;
+    cacheTtlMinutes?: number;
+    systemPrompt?: string;
+    responseParser?: (text: string) => T;
+    fallback?: () => T;
+  }): Promise<{ result: T; modelUsed: 'gemini' | 'openai' | 'fallback'; cacheHit: boolean }> {
+    const { prompt, category, systemPrompt, responseParser, fallback } = options;
+
+    const cacheKey = options.cacheKey || `runPrompt:${category}:${this.hashPrompt(prompt)}`;
+    const cacheNamespace = `${category}_delegated`;
+
+    const cached = aiResponseCacheService.get(cacheKey, cacheNamespace);
+    if (cached) {
+      return { result: cached as T, modelUsed: 'gemini', cacheHit: true };
+    }
+
+    const defaultParser = (text: string): T => {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) return JSON.parse(jsonMatch[0]) as T;
+      throw new Error('Could not parse AI JSON response');
+    };
+
+    const parse = responseParser || defaultParser;
+
+    let result: T;
+    let modelUsed: 'gemini' | 'openai' | 'fallback' = 'fallback';
+
+    try {
+      if (this.gemini) {
+        const response = await this.gemini.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+        });
+        const text = response.text || '';
+        result = parse(text);
+        modelUsed = 'gemini';
+      } else if (this.openai) {
+        const response = await this.openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: systemPrompt || 'You are a SEBI-registered investment advisor. Respond with valid JSON only.' },
+            { role: 'user', content: prompt },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.3,
+        });
+        const text = response.choices[0]?.message?.content || '{}';
+        result = parse(text);
+        modelUsed = 'openai';
+      } else if (fallback) {
+        result = fallback();
+        modelUsed = 'fallback';
+      } else {
+        throw new Error('No AI model available and no fallback provided');
+      }
+    } catch (error: any) {
+      console.error(`[UnifiedAI:runPrompt] Primary model failed for ${category}:`, error.message);
+
+      if (modelUsed === 'gemini' || (!this.gemini && !this.openai)) {
+        if (this.openai && modelUsed !== 'openai') {
+          try {
+            const response = await this.openai.chat.completions.create({
+              model: 'gpt-4o',
+              messages: [
+                { role: 'system', content: systemPrompt || 'You are a SEBI-registered investment advisor. Respond with valid JSON only.' },
+                { role: 'user', content: prompt },
+              ],
+              response_format: { type: 'json_object' },
+              temperature: 0.3,
+            });
+            const text = response.choices[0]?.message?.content || '{}';
+            result = parse(text);
+            modelUsed = 'openai';
+          } catch (fallbackError: any) {
+            console.error(`[UnifiedAI:runPrompt] OpenAI fallback failed:`, fallbackError.message);
+            if (fallback) {
+              result = fallback();
+              modelUsed = 'fallback';
+            } else {
+              throw fallbackError;
+            }
+          }
+        } else if (fallback) {
+          result = fallback();
+          modelUsed = 'fallback';
+        } else {
+          throw error;
+        }
+      } else if (fallback) {
+        result = fallback();
+        modelUsed = 'fallback';
+      } else {
+        throw error;
+      }
+    }
+
+    if (modelUsed !== 'fallback') {
+      aiResponseCacheService.set(cacheKey, result, cacheNamespace);
+    }
+
+    return { result, modelUsed, cacheHit: false };
+  }
+
+  private hashPrompt(prompt: string): string {
+    let hash = 0;
+    for (let i = 0; i < Math.min(prompt.length, 500); i++) {
+      const char = prompt.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash |= 0;
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  /**
    * Check AI service availability
    */
   getStatus(): { gemini: boolean; openai: boolean; primary: string } {

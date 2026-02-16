@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 
 export interface ReitInvitAsset {
   type: 'reit' | 'invit';
@@ -39,28 +39,15 @@ export interface AIRecommendation {
 }
 
 class AIReitInvitService {
-  private genAI: GoogleGenAI | null = null;
-  private isInitialized: boolean = false;
-
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_INTEGRATIONS_GOOGLE_API_KEY;
-    if (apiKey) {
-      this.genAI = new GoogleGenAI({ apiKey });
-      this.isInitialized = true;
-      console.log('✅ AI REIT/InvIT Recommendation Service initialized with Gemini');
-    } else {
-      console.warn('⚠️ AI REIT/InvIT Recommendation Service: No Gemini API key configured. Using fallback recommendations.');
-    }
+    const status = unifiedAIRecommendationEngine.getStatus();
+    console.log(`✅ AI REIT/InvIT Recommendation Service initialized via Unified Engine (primary: ${status.primary})`);
   }
 
   async generatePersonalizedRecommendations(
     assets: ReitInvitAsset[],
     userProfile: UserProfile
   ): Promise<AIRecommendation[]> {
-    if (!this.isInitialized) {
-      return this.getDefaultRecommendations(assets, userProfile);
-    }
-
     try {
       const prompt = `You are a SEBI-compliant investment advisor specializing in REITs and InvITs in India.
 
@@ -90,45 +77,25 @@ Consider:
 
 Return JSON array sorted by suitabilityScore (highest first).`;
 
-      const response = await this.genAI!.models.generateContent({
-        model: "gemini-2.5-flash",
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                symbol: { type: "string" },
-                name: { type: "string" },
-                type: { type: "string" },
-                sector: { type: "string" },
-                currentPrice: { type: "string" },
-                distributionYield: { type: "string" },
-                aiSignal: { type: "string" },
-                aiConfidence: { type: "string" },
-                aiRationale: { type: "string" },
-                aiTargetPrice: { type: "string" },
-                riskLevel: { type: "string" },
-                suitabilityScore: { type: "number" }
-              },
-              required: ["symbol", "name", "type", "aiSignal", "aiConfidence", "aiRationale", "suitabilityScore"]
-            }
-          }
+      const { result } = await unifiedAIRecommendationEngine.runPrompt<AIRecommendation[]>({
+        prompt,
+        category: 'reits',
+        cacheKey: `reit_recs:${userProfile.riskProfile}:${assets.length}`,
+        responseParser: (text: string) => {
+          const parsed = typeof text === 'object' ? text : JSON.parse(text);
+          if (Array.isArray(parsed)) return parsed;
+          const jsonMatch = text.match(/\[[\s\S]*\]/);
+          if (jsonMatch) return JSON.parse(jsonMatch[0]);
+          throw new Error('Could not parse REIT AI response');
         },
-        contents: prompt,
+        fallback: () => this.getDefaultRecommendations(assets, userProfile),
       });
 
-      const responseText = response.text || "[]";
-      // Handle both string and object responses to prevent "[object Object]" JSON parsing errors
-      const recommendations = typeof responseText === 'object' ? responseText : JSON.parse(responseText);
-      
-      if (!Array.isArray(recommendations) || recommendations.length === 0) {
-        console.warn('AI returned empty recommendations, using fallback');
+      if (!Array.isArray(result) || result.length === 0) {
         return this.getDefaultRecommendations(assets, userProfile);
       }
       
-      return recommendations.slice(0, 5);
+      return result.slice(0, 5);
     } catch (error) {
       console.error('AI REIT/InvIT recommendation error:', error);
       return this.getDefaultRecommendations(assets, userProfile);
@@ -186,14 +153,12 @@ Return JSON array sorted by suitabilityScore (highest first).`;
     risks: string[];
     outlook: string;
   }> {
-    if (!this.isInitialized) {
-      return {
-        analysis: `${asset.name} is a ${asset.type.toUpperCase()} in the ${asset.sector} sector offering ${asset.distributionYield}% yield.`,
-        strengths: ['Strong distribution yield', 'Quality sponsor backing', 'Diversified portfolio'],
-        risks: ['Market volatility', 'Interest rate sensitivity', 'Sector-specific risks'],
-        outlook: 'Stable outlook with potential for yield improvement.'
-      };
-    }
+    const defaultAnalysis = {
+      analysis: `${asset.name} is a ${asset.type.toUpperCase()} in the ${asset.sector} sector offering ${asset.distributionYield}% yield.`,
+      strengths: ['Strong distribution yield', 'Quality sponsor backing', 'Diversified portfolio'],
+      risks: ['Market volatility', 'Interest rate sensitivity', 'Sector-specific risks'],
+      outlook: 'Stable outlook with potential for yield improvement.'
+    };
 
     try {
       const prompt = `Analyze this ${asset.type === 'reit' ? 'Real Estate Investment Trust' : 'Infrastructure Investment Trust'}:
@@ -208,33 +173,17 @@ Provide:
 
 Return as JSON object.`;
 
-      const response = await this.genAI!.models.generateContent({
-        model: "gemini-2.5-flash",
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "object",
-            properties: {
-              analysis: { type: "string" },
-              strengths: { type: "array", items: { type: "string" } },
-              risks: { type: "array", items: { type: "string" } },
-              outlook: { type: "string" }
-            },
-            required: ["analysis", "strengths", "risks", "outlook"]
-          }
-        },
-        contents: prompt,
+      const { result } = await unifiedAIRecommendationEngine.runPrompt({
+        prompt,
+        category: 'reits',
+        cacheKey: `reit_analysis:${asset.symbol}`,
+        fallback: () => defaultAnalysis,
       });
 
-      return JSON.parse(response.text || "{}");
+      return result;
     } catch (error) {
       console.error('AI asset analysis error:', error);
-      return {
-        analysis: `${asset.name} is a ${asset.type.toUpperCase()} offering ${asset.distributionYield}% distribution yield.`,
-        strengths: ['Consistent yield distribution', 'Quality asset portfolio', 'Strong sponsor'],
-        risks: ['Market conditions', 'Interest rate changes', 'Sector headwinds'],
-        outlook: 'Stable outlook with growth potential.'
-      };
+      return defaultAnalysis;
     }
   }
 }

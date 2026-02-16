@@ -1,9 +1,9 @@
 import { db } from "../db";
 import { listedStocks, stockFinancialMetrics } from "@shared/schema";
 import { eq, and, desc, asc, gte, lte, sql, inArray, ilike, or, isNotNull } from "drizzle-orm";
-import { GoogleGenAI } from "@google/genai";
 import { financialMetricsCalculator } from "./financial-metrics-calculator";
 import { getEnrichedStockSnapshot, type EnrichedStockSnapshot } from './screener/enriched-stock-data';
+import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 
 export interface StockRecommendation {
   id: string;
@@ -104,7 +104,6 @@ interface ScoredStock {
 }
 
 class AIStockRecommendationService {
-  private genAI: GoogleGenAI | null = null;
   private recommendationCache = new Map<string, { recommendations: StockRecommendation[], timestamp: Date }>();
   private readonly CACHE_TTL_MS = 15 * 60 * 1000;
   private readonly BUDGET_2024_STCG_RATE = 20;
@@ -112,13 +111,8 @@ class AIStockRecommendationService {
   private readonly LTCG_EXEMPTION_LIMIT = 125000;
 
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_INTEGRATIONS_GOOGLE_API_KEY;
-    if (apiKey) {
-      this.genAI = new GoogleGenAI({ apiKey });
-      console.log("✅ AI Stock Recommendation Service initialized with Gemini AI");
-    } else {
-      console.log("⚠️ AI Stock Recommendation Service running without Gemini (using rule-based analysis)");
-    }
+    const status = unifiedAIRecommendationEngine.getStatus();
+    console.log(`✅ AI Stock Recommendation Service initialized via Unified Engine (primary: ${status.primary})`);
   }
 
   async getSmartRecommendations(filters: StockRecommendationFilters = {}): Promise<StockRecommendation[]> {
@@ -670,10 +664,6 @@ class AIStockRecommendationService {
   }
 
   private async getGeminiAnalysis(scored: ScoredStock, filters: StockRecommendationFilters): Promise<any> {
-    if (!this.genAI) {
-      throw new Error('Gemini AI not initialized');
-    }
-
     const stock = scored.stock;
     const live = scored.liveData || {};
     
@@ -720,25 +710,14 @@ Provide analysis in JSON format:
   "fintekproRating": (1-5, where 5 is best)
 }`;
 
-    try {
-      const model = this.genAI.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt
-      });
-      
-      const response = await model;
-      const text = response.text || '';
-      
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
-      }
-      
-      throw new Error('Could not parse AI response');
-    } catch (error) {
-      console.warn('Gemini analysis error:', error);
-      return this.generateRuleBasedAnalysis(scored, filters);
-    }
+    const { result } = await unifiedAIRecommendationEngine.runPrompt({
+      prompt,
+      category: 'stocks',
+      cacheKey: `stock_analysis:${stock.symbol}:${filters.riskLevel || 'moderate'}`,
+      fallback: () => this.generateRuleBasedAnalysis(scored, filters),
+    });
+
+    return result;
   }
 
   private generateRuleBasedAnalysis(scored: ScoredStock, filters: StockRecommendationFilters): any {

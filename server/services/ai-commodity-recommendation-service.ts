@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { commodities, userProfiles, Commodity } from "@shared/schema";
 import { eq, and, desc, gte, lte, or, sql, inArray } from "drizzle-orm";
-import { GoogleGenAI } from "@google/genai";
+import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 
 export interface CommodityRecommendationParams {
   investmentAmount: number;
@@ -71,16 +71,9 @@ const COMMODITY_TYPE_SCORES: Record<string, number> = {
 };
 
 class AICommodityRecommendationService {
-  private genAI: GoogleGenAI | null = null;
-
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_INTEGRATIONS_GOOGLE_API_KEY;
-    if (apiKey) {
-      this.genAI = new GoogleGenAI({ apiKey });
-      console.log("✅ AI Commodity Recommendation Service initialized with Gemini");
-    } else {
-      console.log("⚠️ AI Commodity Recommendation Service running in rule-based mode");
-    }
+    const status = unifiedAIRecommendationEngine.getStatus();
+    console.log(`✅ AI Commodity Recommendation Service initialized via Unified Engine (primary: ${status.primary})`);
   }
 
   async generateRecommendations(params: CommodityRecommendationParams): Promise<CommodityPortfolioSummary> {
@@ -283,13 +276,6 @@ class AICommodityRecommendationService {
     recommendations: CommodityRecommendation[],
     params: CommodityRecommendationParams
   ): Promise<CommodityRecommendation[]> {
-    if (!this.genAI) {
-      return recommendations.map(rec => ({
-        ...rec,
-        aiRationale: this.generateRuleBasedRationale(rec, params)
-      }));
-    }
-
     try {
       const prompt = `You are an expert commodity investment advisor. Analyze these commodity recommendations for a client with the following profile:
       - Investment Amount: ₹${params.investmentAmount.toLocaleString()}
@@ -305,18 +291,21 @@ class AICommodityRecommendationService {
 
       Return JSON array with format: [{"symbol": "GOLD", "rationale": "..."}]`;
 
-      const result = await this.genAI.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt
+      const { result } = await unifiedAIRecommendationEngine.runPrompt({
+        prompt,
+        category: 'commodities',
+        cacheKey: `commodity_rationale:${params.riskTolerance}:${recommendations.length}`,
+        responseParser: (text: string) => {
+          const jsonMatch = text.match(/\[[\s\S]*\]/);
+          if (jsonMatch) return JSON.parse(jsonMatch[0]);
+          throw new Error('Could not parse commodity AI response');
+        },
+        fallback: () => [] as any[],
       });
 
-      const responseText = result.text || '';
-      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-      
-      if (jsonMatch) {
-        const rationales = JSON.parse(jsonMatch[0]);
+      if (Array.isArray(result) && result.length > 0) {
         return recommendations.map(rec => {
-          const aiData = rationales.find((r: any) => r.symbol === rec.symbol);
+          const aiData = result.find((r: any) => r.symbol === rec.symbol);
           return {
             ...rec,
             aiRationale: aiData?.rationale || this.generateRuleBasedRationale(rec, params)

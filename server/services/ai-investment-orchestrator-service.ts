@@ -12,7 +12,7 @@ import {
   userProfiles
 } from "@shared/schema";
 import { eq, and, desc, gte, lte, inArray, isNotNull, or, ilike } from "drizzle-orm";
-import { GoogleGenAI } from "@google/genai";
+import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 import { aiService, getComplexAnalysisModel, isGpt52Available } from "./ai-service";
 import { 
   InvestmentProduct, 
@@ -109,7 +109,6 @@ const AI_RATIONALE_TTL: Record<UnifiedProductType, number> = {
 };
 
 class AIInvestmentOrchestratorService {
-  private genAI: GoogleGenAI | null = null;
   private rationaleCache = new Map<string, CachedRationale>();
   private productCache = new Map<UnifiedProductType, { products: InvestmentProduct[], timestamp: Date }>();
   private readonly PRODUCT_CACHE_TTL = 15 * 60 * 1000;
@@ -121,13 +120,8 @@ class AIInvestmentOrchestratorService {
   };
 
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_INTEGRATIONS_GOOGLE_API_KEY;
-    if (apiKey) {
-      this.genAI = new GoogleGenAI({ apiKey });
-      console.log("✅ AI Investment Orchestrator initialized with Gemini AI");
-    } else {
-      console.log("⚠️ AI Investment Orchestrator running without AI (rule-based rationales)");
-    }
+    const status = unifiedAIRecommendationEngine.getStatus();
+    console.log(`✅ AI Investment Orchestrator initialized via Unified Engine (primary: ${status.primary})`);
   }
 
   async generateRecommendationBasket(
@@ -147,7 +141,7 @@ class AIInvestmentOrchestratorService {
     
     const basket = await this.optimizeBasket(evaluatedProducts, clientProfile, investmentAmount);
     
-    if (this.config.aiRationaleEnabled && this.genAI) {
+    if (this.config.aiRationaleEnabled) {
       await this.enrichWithAIRationales(basket, clientProfile);
     }
     
@@ -625,8 +619,6 @@ class AIInvestmentOrchestratorService {
   }
 
   private async enrichWithAIRationales(basket: RecommendationBasket, clientProfile: ClientProfile): Promise<void> {
-    // Allow AI rationales if either GPT-5.2 or Gemini is available
-    if (!this.genAI && !isGpt52Available()) return;
     
     const itemsNeedingRationale: BasketItem[] = [];
     
@@ -687,9 +679,7 @@ class AIInvestmentOrchestratorService {
   }
 
   private async generateAIRationale(item: BasketItem, clientProfile: ClientProfile): Promise<void> {
-    // Use GPT-5.2 Thinking for complex financial analysis if available, otherwise Gemini
     const useGpt52 = isGpt52Available();
-    if (!this.genAI && !useGpt52) return;
     
     const startTime = Date.now();
     
@@ -709,37 +699,38 @@ Provide:
 
 Format response as JSON: {"rationale": "...", "pros": ["...", "...", "..."], "cons": ["...", "...", "..."]}`;
 
-      let text = '';
+      let parsed: { rationale: string; pros: string[]; cons: string[] } | null = null;
       let modelUsed = '';
       
       if (useGpt52) {
-        // Use GPT-5.2 Thinking for enhanced reasoning on complex financial analysis
         const { provider, model } = getComplexAnalysisModel();
         modelUsed = model;
         const response = await aiService.chat(
           [{ role: 'user', content: prompt }],
           { provider, model, maxTokens: 1024, reasoningEffort: 'high' }
         );
-        text = response.content;
+        const text = response.content;
         console.log(`📊 Investment rationale generated using ${model}`);
-      } else if (this.genAI) {
-        // Fallback to Gemini
-        modelUsed = 'gemini-2.5-flash';
-        const response = await this.genAI.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: prompt,
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsed = JSON.parse(jsonMatch[0]);
+        }
+      } else {
+        const fallbackResult = { rationale: this.generateRuleBasedRationale(item.product, clientProfile), pros: item.product.rationale_inputs?.key_factors || [], cons: item.product.rationale_inputs?.risk_factors || [] };
+        const { result, modelUsed: usedModel } = await unifiedAIRecommendationEngine.runPrompt<{ rationale: string; pros: string[]; cons: string[] }>({
+          prompt,
+          category: 'investment_analysis',
+          fallback: () => fallbackResult,
         });
-        text = response.text || '';
+        parsed = result;
+        modelUsed = usedModel;
       }
       
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed) {
         item.ai_explanation = parsed.rationale;
         if (parsed.pros?.length) item.pros = parsed.pros;
         if (parsed.cons?.length) item.cons = parsed.cons;
         
-        // Store in in-memory cache
         const cacheKey = this.getRationaleCacheKey(item.product, clientProfile);
         this.rationaleCache.set(cacheKey, {
           rationale: parsed.rationale,
@@ -748,7 +739,6 @@ Format response as JSON: {"rationale": "...", "pros": ["...", "...", "..."], "co
           timestamp: new Date(),
         });
         
-        // Store in database cache for cross-session persistence
         const inputParams = {
           productId: item.product.product_id,
           productType: item.product.product_type,

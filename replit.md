@@ -44,6 +44,39 @@ FintekPro uses a subdomain-based portal architecture for Admin, Partner, and Cli
 
 A Production Bootstrap & Self-Healing Data System provides automated, idempotent reference data seeding on every server startup, covering Market Indices, Feature Flags, Commodities, REITs, InvITs, Screener Stocks, and Bond Catalog. Zoho CRM Auto-Bootstrap provides `ZohoConnectionResolver.bootstrapFromEnvVars()` to auto-create Zoho CRM connections from environment variables.
 
+### Central Engine Registry — MANDATORY for All Future Features
+
+**RULE: Never build new engines — always upgrade existing ones in place. All AI calls must go through the Unified AI Recommendation Engine's `runPrompt()` method.**
+
+| Domain | Central Engine | File | Use For |
+|--------|---------------|------|---------|
+| AI Recommendations | Unified AI Recommendation Engine | `unified-ai-recommendation-engine.ts` | ALL AI-powered analysis, scoring, rationale generation across all asset classes. Provides `runPrompt()` for delegated AI calls with caching, model fallback (Gemini→OpenAI→rules), tracking, and A/B testing. |
+| AI Alpha / Pick of Day | AI Alpha Engine Cluster | `ai-analytics-engine.ts` + `ai-ml-scoring-engine.ts` + `ai-regime-detection-engine.ts` + `ai-backtesting-engine.ts` + `ai-feedback-engine.ts` + `ai-xai-engine.ts` | Quantitative scoring, market regime detection, backtesting, explainability |
+| Profit-Optimized Scoring | Profit-Optimized Scoring Engine | `profit-optimized-scoring-engine.ts` | Revenue-optimized product ranking |
+| Commission | Commission Waterfall Engine | `commission-waterfall-engine.ts` | ALL commission calculations across partner hierarchy |
+| Tax | Tax Orchestrator | `tax-orchestrator.ts` | ALL tax calculations, capital gains, harvest optimization |
+| Risk | Risk Suitability Engine | `risk-suitability-engine.ts` | ALL risk assessment, client-product suitability matching |
+| KYC | KYC Orchestration Engine | `kyc-orchestration-engine.ts` | ALL KYC verification with priority-based provider selection and fallback |
+| Rebalancing | Rebalancing Engine | `rebalancing-engine.ts` | Indian market portfolio rebalancing |
+| US Rebalancing | US Rebalancing Engine | `us-rebalancing-engine.ts` | US market portfolio rebalancing |
+| Portfolio Import | Unified Portfolio Import Service | `unified-portfolio-import-service.ts` | ALL portfolio import/parsing from any source |
+| Financial Metrics | Financial Metrics Calculator | `financial-metrics-calculator.ts` | ALL derived financial ratios (40+ metrics) |
+| Proposals | Proposal Execution Engine + Proposal Orchestrator | `proposal-execution-engine.ts` + `proposal-orchestrator.ts` | Proposal generation, execution, what-if analysis |
+| Goal Planning | Goal Planning Engine | `goal-planning-engine.ts` | Financial goal modeling |
+| SIP Simulation | SIP Simulator Engine | `sip-simulator-engine.ts` | SIP projection and analysis |
+| Return Forecasting | Return Forecasting Engine | `return-forecasting-engine.ts` | Return projection across asset classes |
+| Investable Surplus | Investable Surplus Engine | `investable-surplus-engine.ts` | Client investable surplus calculation |
+| Overlap Analysis | Overlap Intelligence Engine | `overlap-intelligence-engine.ts` | Portfolio overlap detection across MF holdings |
+| Fund Classification | MF SEBI Category Engine | `mf-sebi-category-engine.ts` | SEBI category classification for mutual funds |
+| Screener | Screener Query Engine + Derived Metrics Engine | `screener/screener-query-engine.ts` + `screener/derived-metrics-engine.ts` | Stock screening with derived scoring |
+| Fixed Income | Fixed Income Status Engine | `fixed-income-status-engine.ts` | Bond/NCD status tracking and lifecycle |
+| Corporate Treasury | Corporate Treasury Engine | `corporate-treasury-engine.ts` | Corporate treasury management |
+| Explainability | Explainability Engine | `explainability-engine.ts` | AI decision explainability |
+
+**Future Consolidation Notes:**
+- KYC: `sandbox-kyc-service.ts` is the API client for Sandbox.co.in provider. The `kyc-orchestration-engine.ts` has stub provider calls that should be wired to the actual sandbox client.
+- AI Service: `ai-service.ts` provides `aiService.chat()` for general-purpose AI calls (used by orchestrator's GPT-5.2 path). Consider merging into unified engine if GPT-5.2 support is needed broadly.
+
 ## External Dependencies
 
 ### Third-Party APIs
