@@ -1591,6 +1591,141 @@ router.get('/sign/documents/:requestId/download', async (req, res) => {
   }
 });
 
+// ==================== ZOHO BIDIRECTIONAL SYNC ROUTES ====================
+
+/**
+ * POST /api/zoho/admin/sync/full
+ * Trigger a full bidirectional sync (production only)
+ */
+router.post('/admin/sync/full', async (req, res) => {
+  try {
+    if (process.env.NODE_ENV !== 'production') {
+      return res.json({
+        message: 'Full sync is disabled in development. Only the production database syncs with Zoho.',
+        environment: process.env.NODE_ENV,
+        syncExecuted: false
+      });
+    }
+
+    const { ZohoSyncOrchestrator } = await import('./services/sync-orchestrator');
+    const orchestrator = new ZohoSyncOrchestrator();
+    const report = await orchestrator.runFullSync();
+
+    res.json({
+      message: 'Full sync completed',
+      environment: 'production',
+      syncExecuted: true,
+      report
+    });
+  } catch (error: any) {
+    console.error('[Zoho Sync] Full sync error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * POST /api/zoho/admin/sync/incremental
+ * Trigger an incremental sync (production only)
+ */
+router.post('/admin/sync/incremental', async (req, res) => {
+  try {
+    if (process.env.NODE_ENV !== 'production') {
+      return res.json({
+        message: 'Incremental sync is disabled in development. Only the production database syncs with Zoho.',
+        environment: process.env.NODE_ENV,
+        syncExecuted: false
+      });
+    }
+
+    const { ZohoSyncOrchestrator } = await import('./services/sync-orchestrator');
+    const orchestrator = new ZohoSyncOrchestrator();
+    const report = await orchestrator.runIncrementalSync();
+
+    res.json({
+      message: 'Incremental sync completed',
+      environment: 'production',
+      syncExecuted: true,
+      report
+    });
+  } catch (error: any) {
+    console.error('[Zoho Sync] Incremental sync error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * POST /api/zoho/admin/sync/webhooks
+ * Process pending webhook events (production only)
+ */
+router.post('/admin/sync/webhooks', async (req, res) => {
+  try {
+    if (process.env.NODE_ENV !== 'production') {
+      return res.json({
+        message: 'Webhook processing is disabled in development. Only the production database syncs with Zoho.',
+        environment: process.env.NODE_ENV,
+        syncExecuted: false
+      });
+    }
+
+    const { ZohoWebhookProcessor } = await import('./services/webhook-processor');
+    const processor = new ZohoWebhookProcessor();
+    const limit = parseInt(req.body.limit || '50');
+    const result = await processor.processPendingEvents(limit);
+
+    res.json({
+      message: 'Webhook processing completed',
+      environment: 'production',
+      syncExecuted: true,
+      result
+    });
+  } catch (error: any) {
+    console.error('[Zoho Sync] Webhook processing error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * GET /api/zoho/admin/sync/health
+ * Get sync health status (works in all environments for monitoring)
+ */
+router.get('/admin/sync/health', async (req, res) => {
+  try {
+    const { ZohoSyncOrchestrator } = await import('./services/sync-orchestrator');
+    const orchestrator = new ZohoSyncOrchestrator();
+    const health = await orchestrator.getSyncHealth();
+
+    res.json({
+      environment: process.env.NODE_ENV,
+      syncEnabled: process.env.NODE_ENV === 'production',
+      health
+    });
+  } catch (error: any) {
+    console.error('[Zoho Sync] Health check error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * GET /api/zoho/admin/sync/webhook-stats
+ * Get webhook processing statistics (works in all environments)
+ */
+router.get('/admin/sync/webhook-stats', async (req, res) => {
+  try {
+    const { ZohoWebhookProcessor } = await import('./services/webhook-processor');
+    const processor = new ZohoWebhookProcessor();
+    const stats = await processor.getProcessingStats();
+
+    res.json({
+      environment: process.env.NODE_ENV,
+      syncEnabled: process.env.NODE_ENV === 'production',
+      stats
+    });
+  } catch (error: any) {
+    console.error('[Zoho Sync] Webhook stats error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // ==================== ZOHO INTEGRATION STATUS ====================
 
 /**

@@ -26,6 +26,7 @@ import { dataEnrichmentScheduler } from './services/data-enrichment-scheduler';
 import { financialMetricsRefreshScheduler } from './services/financial-metrics-refresh-scheduler';
 import { historicalNavRefreshJob } from './services/historical-nav-refresh-job';
 import { isProductionEnvironment, isEnrichmentWindow, logEnrichmentSkip } from './utils/enrichment-guard';
+import { startZohoSyncScheduler } from './zoho/sync-scheduler';
 
 const STAGGER_DELAY_MS = 120000;
 
@@ -78,6 +79,11 @@ export function initializeCronJobs(): void {
     staggeredStart('Exit Load sync', () => {
       exitLoadSyncScheduler.start();
       console.log('📊 [ExitLoad Sync] Exit load sync scheduler started (monthly refresh on 1st at 3 AM IST)');
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+
+    staggeredStart('Zoho bidirectional sync', () => {
+      startZohoSyncScheduler();
     }, delay);
     delay += STAGGER_DELAY_MS;
     
