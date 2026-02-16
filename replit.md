@@ -18,48 +18,23 @@ The frontend uses React 18, TypeScript, shadcn/ui (Radix UI), Tailwind CSS, and 
 ### Technical Implementations
 The frontend leverages Vite, Wouter for routing, TanStack Query for state management, and React Hook Form with Zod for validation. The backend is an Express.js application with TypeScript, using PostgreSQL via Drizzle ORM, exposed through a RESTful API. Authentication includes mandatory two-factor OTP, unified login via Passport.js, and comprehensive KYC with PAN verification. An Admin portal is also part of the system.
 
-The platform includes a SEBI/RBI-compliant Unlisted Marketplace with a multi-methodology price suggestion engine. A Multi-Source Financial Data Enrichment System integrates providers with priority-based source selection. An API cost optimization system minimizes external calls via request deduplication and AI response caching. A Centralized Portfolio Import System supports diverse import sources with a unified type system and AI fallback for parsing, including a `unified-pdf-parser.ts` for financial documents and `cas-statement-service.ts` for CAMS/KFintech CAS PDF parsing. A Unified Portfolio Storage System consolidates portfolio data, and a `unified-holdings-reader-service.ts` provides a single entry point for reading holdings. The platform includes a Capital Gains & Tax Optimization System.
+The platform includes a SEBI/RBI-compliant Unlisted Marketplace with a multi-methodology price suggestion engine. A Multi-Source Financial Data Enrichment System integrates providers with priority-based source selection, and an API cost optimization system minimizes external calls via request deduplication and AI response caching. A Centralized Portfolio Import System supports diverse import sources with a unified type system and AI fallback for parsing financial documents. A Unified Portfolio Storage System consolidates portfolio data, and a `unified-holdings-reader-service.ts` provides a single entry point for reading holdings. The platform includes a Capital Gains & Tax Optimization System.
 
-FintekPro integrates a Comprehensive Zoho Ecosystem (CRM, Books, Campaigns, Meeting, Sign). It features a Profit-Optimized AI Recommendation Engine and a Unified AI Recommendation Engine. A Stock Enrichment System consolidates listed stocks, and an ISIN Intelligence Layer provides automatic instrument classification. The Agent Knowledge Hub provides market intelligence and a Gemini-powered Daily AI Market Brief Engine. A DB-First Stock Screener uses a Multi-Provider Data Registry (FMP primary, Alpha Vantage fallback) with a 4-Tier Priority Queue Enrichment System, automatic provider fallback with health tracking, and a derived metrics scoring engine. The Data Provider Registry (`data-provider-registry.ts`) manages provider health, metrics, cooldown, and fallback chain. An Admin Provider Health Dashboard at `/admin/data-providers` monitors provider status, API usage, latency, and enables live testing.
+FintekPro integrates a Comprehensive Zoho Ecosystem (CRM, Books, Campaigns, Meeting, Sign) with a production-ready two-way sync system featuring per-field authority conflict resolution, distributed sync locks, idempotency guards, a dead-letter queue, and configurable sync controls. Admin endpoints provide health monitoring, reconciliation reports, dead-letter management, and manual sync triggers. It features a Profit-Optimized AI Recommendation Engine and a Unified AI Recommendation Engine. A Stock Enrichment System consolidates listed stocks, and an ISIN Intelligence Layer provides automatic instrument classification. The Agent Knowledge Hub provides market intelligence and a Gemini-powered Daily AI Market Brief Engine. A DB-First Stock Screener uses a Multi-Provider Data Registry with a 4-Tier Priority Queue Enrichment System, automatic provider fallback, and a derived metrics scoring engine. An Admin Provider Health Dashboard monitors provider status and API usage.
 
 The system supports SEBI/RBI-compliant payment handling, FEMA compliance, and international transaction management. It offers Offline & Slow-Internet Resilience via PWA capabilities. A DSA Multi-Financier Loan Routing System ensures RBI Digital Lending Directions 2025 compliance. A Bank OAuth Integration Infrastructure provides secure bank API connectivity. An MCA Integration System manages company financial data, and a Database-First Data Enrichment System optimizes access for unlisted shares.
 
-A Builder Funding & Project Finance Module extends the DSA loan system with a DEVELOPER vertical and 8 sub-types, featuring a 10-step Project Finance Wizard and an Intelligent Lender Matching Engine.
+A Builder Funding & Project Finance Module extends the DSA loan system with a DEVELOPER vertical, 8 sub-types, a 10-step Project Finance Wizard, and an Intelligent Lender Matching Engine.
 
-A Multi-Level Partner Hierarchy System enables hierarchical partner onboarding with controlled delegation, commission waterfall, client ownership protection, and audit-ready compliance. A Partner Payout Statement Service provides transaction-level, auditable payout statements. A Commission Dispute & Reversal Engine handles disputes and reversals with full audit trails. The Partner Portal UI includes "Payout Statement," "How Earnings Work," and "Compliance & Disclosures" tabs.
+A Multi-Level Partner Hierarchy System enables hierarchical partner onboarding with controlled delegation, commission waterfall, client ownership protection, and audit-ready compliance. A Partner Payout Statement Service provides transaction-level, auditable payout statements, and a Commission Dispute & Reversal Engine handles disputes and reversals with full audit trails. The Partner Portal UI includes "Payout Statement," "How Earnings Work," and "Compliance & Disclosures" tabs.
 
-A Multi-Bank Account System supports up to 5 bank accounts per user (SEBI Circular SEBI/HO/MIRSD/POD-1/P/CIR/2024/37 & AMFI Best Practices Circular No. 135/BP/108/2023-24). Features include: `isPrimary` flag for settlement designation, auto-primary for first account, soft-delete with auto-promotion, penny-drop verification (3 attempts max, 80% name match threshold), KYC engine integration (bank_verification step auto-creates/updates bank accounts), regulatory info endpoint with SEBI/AMFI/RBI citations, and active-only account counting for limit enforcement.
+A Multi-Bank Account System supports up to 5 bank accounts per user, compliant with SEBI/AMFI circulars. Features include: `isPrimary` flag, auto-primary for first account, soft-delete with auto-promotion, penny-drop verification, KYC engine integration, regulatory info endpoint, and active-only account counting for limit enforcement.
 
-The platform is undergoing service consolidation, including: UnifiedOrderNotificationService, Unified AI Recommendation Engine, Cache Services, MF Live Returns System, Benchmark Data Infrastructure (with AMFI and BSE parsers), and KYC Orchestrators (three-layer architecture with CKYC, Onboarding, and Workflow Orchestrators, extended with KYC Wizard v2). Enhancements include Proposal Builder enhancements, a Regulator-Grade PDF System, a Proposal Audit Trail System, a Database Enrichment Infrastructure, a MF Comprehensive Enrichment Pipeline, and a Lead Leakage Prevention & Detection System.
+The platform is undergoing service consolidation, including: UnifiedOrderNotificationService, Unified AI Recommendation Engine, Cache Services, MF Live Returns System, Benchmark Data Infrastructure, and KYC Orchestrators (three-layer architecture with CKYC, Onboarding, and Workflow Orchestrators, extended with KYC Wizard v2). Enhancements include Proposal Builder enhancements, a Regulator-Grade PDF System, a Proposal Audit Trail System, a Database Enrichment Infrastructure, a MF Comprehensive Enrichment Pipeline, and a Lead Leakage Prevention & Detection System.
 
-### AI Alpha Engine — Batch 1 (Feb 2026)
-A regime-aware, backtest-validated, Sharpe-optimized AI engine for the Pick of the Day system. Native TypeScript implementation (no Python/MLflow/Redis). Key components:
+An AI Alpha Engine, implemented natively in TypeScript, provides a regime-aware, backtest-validated, Sharpe-optimized system for "Pick of the Day." It includes a Core Analytics Module with 24 quantitative methods, a Walk-Forward Backtesting Engine, a Market Regime Detection Engine, and a Portfolio Optimization Engine.
 
-- **Core Analytics Module** (`server/services/ai-analytics-engine.ts`) - 24 quantitative methods using `simple-statistics`: Sharpe/Sortino/Calmar ratios, CAGR, Max Drawdown, rolling stats, z-scores, EMA, covariance/correlation matrices, portfolio variance, volatility clustering, trend strength, momentum, Indian market transaction cost modeling (brokerage, STT, exchange charges, GST, SEBI charges, stamp duty, slippage)
-- **Walk-Forward Backtesting Engine** (`server/services/ai-backtesting-engine.ts`) - Rolling window backtest with configurable 3M/6M/12M windows, transaction cost simulation, equity curve generation, monthly returns, per-asset-class and per-regime breakdown. Feature snapshot persistence for reproducibility (`ai_feature_snapshots` table)
-- **Market Regime Detection Engine** (`server/services/ai-regime-detection-engine.ts`) - Statistical regime classifier (bull/bear/sideways/high_vol) using 6 weighted signals: volatility clustering (0.25), trend strength (0.25), momentum (0.20), moving average crossover (0.15), VIX proxy (0.10), market breadth (0.05). Runs daily at 8:30 AM IST via node-cron before pick generation at 9:00 AM. Persists to `ai_regime_history` table
-- **Portfolio Optimization Engine** (`server/services/ai-portfolio-optimizer.ts`) - Mean-variance optimizer using gradient-ascent Sharpe maximization (100 iterations, 0.001 convergence). Constraints: max 25% per asset, min 2%, max 40% per asset class. Includes min-variance and equal-weight alternative portfolios, diversification scoring (0-100)
-- **AI Alpha Engine API** (`server/routes/ai-alpha-engine.ts`) - 12 endpoints at `/api/ai/*`: backtest, walk-forward, history, regime current/detect/history/distribution, optimized picks, diversification, model registry, health status
-- **Integration Flow**: 8:30 AM regime detection → 9:00 AM pick generation references regime → regime-based confidence adjustments (bear: -10 equity/+5 fixed income; high_vol: -15 equity/+10 fixed income; bull: +5 equity) → feature snapshots saved for backtesting
-- **Database Tables**: `ai_feature_snapshots`, `ai_price_history` (OHLCV all asset classes), `ai_regime_history`, `ai_model_registry` (model versioning)
-- **Planned Batch 2**: ML Scoring Engine, Explainable AI (SHAP), User Feedback Learning Loop, Model Governance & Drift Monitoring
-
-### Formalized KYC Engine (Feb 2026)
-A rule-based KYC Orchestration Engine (`server/services/kyc-orchestration-engine.ts`) provides priority-based provider selection with automatic fallback routing. Key components:
-
-- **KYC Providers Registry** (13 providers across PAN/Aadhaar/CKYC/Bank types) stored in `kyc_providers` DB table with health metrics, cost tracking, and env var configuration
-- **Provider Priority System** (`kyc_provider_priority` table) - ordered fallback chains per KYC step with error-code-based routing and product scope filtering (LOAN/MF/DEMAT/INSURANCE/BUILDER/AIF/PMS/UNLISTED)
-- **Product Configuration Engine** (`product_configurations` table) - 8 product types with required KYC levels (NONE/BASIC/FULL/ENHANCED) and step requirements mapped to SEBI/RBI/IRDAI regulatory guidelines
-- **Identity Token Service** (`server/services/identity-token-service.ts`) - unified identity profiles with IDT-prefixed tokens, verification status tracking across PAN/Aadhaar/CKYC/Bank/Address, automatic KYC level calculation, and eligibility checking per product type
-- **DPDP Consent Layer** (`server/services/dpdp-consent-service.ts`) - Digital Personal Data Protection Act 2023 compliant consent management with 8 purpose types, retention policy enforcement, withdrawal tracking, and regulatory basis tagging
-- **Immutable Audit Trail** (`platform_audit_logs` table) - append-only audit events with regulatory tags (SEBI/RBI/PMLA/DPDP), severity levels, and actor tracking
-- **Provider Metrics** (`provider_metrics` table) - daily per-provider performance tracking with P95 latency, error codes, cost in INR, and fallback trigger counts
-- **Conversion Funnels** (`conversion_funnels` table) - step-by-step funnel tracking for KYC onboarding, loan application, MF purchase, and demat opening flows
-- **Broker Configurations** (`broker_configurations` table) - stock broker, NBFC, insurance company, and AMC integration configs
-
-API routes at `/api/kyc-engine/*` (22 endpoints) covering verification execution, identity management, consent capture/withdrawal, admin provider management, product configuration, broker configuration, audit logs, and provider health dashboard.
-
-KYC vs CKYC distinction: KYC = broad identity verification (PAN, Aadhaar, bank). CKYC = Central KYC via CERSAI registry, required specifically for MF/PMS/AIF regulated products.
+A Formalized KYC Engine (`server/services/kyc-orchestration-engine.ts`) provides priority-based provider selection with automatic fallback routing. Key components include a KYC Providers Registry, a Provider Priority System, a Product Configuration Engine, an Identity Token Service, a DPDP Consent Layer, an Immutable Audit Trail, Provider Metrics, Conversion Funnels, and Broker Configurations. The engine distinguishes between general KYC and CKYC (Central KYC via CERSAI).
 
 ### System Design Choices
 FintekPro uses a subdomain-based portal architecture for Admin, Partner, and Client portals with role-based access control. A Financial Metrics Engine provides 40+ derived ratios. It utilizes a Centralized Service Registry pattern for singleton management. A Staggered Startup System prevents resource contention, and Fast Boot Optimization ensures quick server responsiveness. A Regulatory Gaps Tracker monitors compliance across various regulators.
@@ -69,37 +44,37 @@ A Production Bootstrap & Self-Healing Data System provides automated, idempotent
 ## External Dependencies
 
 ### Third-Party APIs
-- FMP (Financial Modeling Prep) - 41+ endpoints for stock fundamentals, ratios, DCF, analyst data, earnings, technical indicators
-- Probe42 - Company intelligence and corporate data
-- Finnhub - Real-time market data and news
-- Yahoo Finance - Stock quotes and historical data
-- BSE Star MFD API - Mutual fund transactions
-- NSE NCB & BSE Bond API - Bond catalog and trading
-- Bajaj Finance Integration - Loan processing
-- Tata Capital Integration - Loan processing
-- exchangerate-api.com - Currency exchange rates
-- Google Gemini API - AI recommendations, market briefs, analysis
-- OpenAI API - AI fallback for recommendations
-- Cashfree Verification Suite API - KYC verification
-- Sandbox.co.in API (MCA) - Company filings and MCA data
-- AuthBridge CKYC API - Central KYC integration
-- AuthBridge Aadhaar eSign API - Electronic signatures
-- Protean (NSDL) Aadhaar eSign API - Electronic signatures
-- Protean KRA API - KYC Registration Agency
-- Cashfree (Payment Gateway, Payout API) - Payment processing
-- PhonePe (Payment Gateway) - UPI payments
-- Twilio - SMS, WhatsApp messaging
-- Nodemailer - Email service
-- AMFI Registry API - Mutual fund scheme data
-- Turtlefin Insurance API - Insurance products
-- CIBIL - Credit scoring
-- Zoho CRM - Customer relationship management (auto-bootstrap)
-- Zoho Books - Accounting and invoicing
-- Zoho Campaigns - Email marketing
-- Zoho Meeting - Video conferencing
-- Zoho Sign - Digital signatures
-- Alpha Vantage - Market data
-- Polygon.io - US market data (flat files via S3)
+- FMP (Financial Modeling Prep)
+- Probe42
+- Finnhub
+- Yahoo Finance
+- BSE Star MFD API
+- NSE NCB & BSE Bond API
+- Bajaj Finance Integration
+- Tata Capital Integration
+- exchangerate-api.com
+- Google Gemini API
+- OpenAI API
+- Cashfree Verification Suite API
+- Sandbox.co.in API (MCA)
+- AuthBridge CKYC API
+- AuthBridge Aadhaar eSign API
+- Protean (NSDL) Aadhaar eSign API
+- Protean KRA API
+- Cashfree (Payment Gateway, Payout API)
+- PhonePe (Payment Gateway)
+- Twilio
+- Nodemailer
+- AMFI Registry API
+- Turtlefin Insurance API
+- CIBIL
+- Zoho CRM
+- Zoho Books
+- Zoho Campaigns
+- Zoho Meeting
+- Zoho Sign
+- Alpha Vantage
+- Polygon.io
 
 ### Database Services
 - Neon Database (PostgreSQL)

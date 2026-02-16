@@ -14,12 +14,14 @@ const SAFETY_WINDOW_MS = 5 * 60 * 1000;
 const MAX_PAGES = 50;
 const PAGE_SIZE = 200;
 
-function isProduction(): boolean {
+function isSyncEnabled(): boolean {
+  if (process.env.ZOHO_SYNC_ENABLED === 'true') return true;
+  if (process.env.ZOHO_SYNC_ENABLED === 'false') return false;
   return process.env.NODE_ENV === 'production';
 }
 
 type SyncDirection = 'to_zoho' | 'from_zoho' | 'bidirectional';
-type ConflictStrategy = 'last_write_wins' | 'zoho_wins' | 'fintekpro_wins';
+type ConflictStrategy = 'last_write_wins' | 'zoho_wins' | 'fintekpro_wins' | 'per_field';
 
 interface SyncModuleConfig {
   zohoService: string;
@@ -38,6 +40,8 @@ interface SyncResult {
   recordsUpdated: number;
   recordsSkipped: number;
   conflicts: number;
+  conflictsAutoResolved: number;
+  conflictsPendingReview: number;
   errors: string[];
   durationMs: number;
 }
@@ -47,7 +51,7 @@ interface FullSyncReport {
   completedAt: Date;
   totalDurationMs: number;
   modules: SyncResult[];
-  webhookProcessing: { processed: number; succeeded: number; failed: number };
+  webhookProcessing: { processed: number; succeeded: number; failed: number; deadLettered: number };
   summary: {
     totalProcessed: number;
     totalCreated: number;
@@ -57,13 +61,32 @@ interface FullSyncReport {
   };
 }
 
+const FIELD_AUTHORITY: Record<string, { zoho: string[]; fintekpro: string[] }> = {
+  prospect: {
+    zoho: ['email', 'mobile', 'name'],
+    fintekpro: ['agentId', 'clientType', 'state', 'indicativeRiskProfile', 'pan']
+  },
+  user: {
+    zoho: ['email', 'phone', 'fullName'],
+    fintekpro: ['role', 'kycStatus', 'riskProfile', 'isActive']
+  },
+  partner_commission: {
+    zoho: ['status'],
+    fintekpro: ['commissionAmount', 'commissionRate', 'baseAmount', 'totalCommission', 'volumeBonus', 'transactionAmount']
+  },
+  partner: {
+    zoho: [],
+    fintekpro: ['companyName', 'contactEmail', 'partnerType', 'permissions', 'isActive']
+  }
+};
+
 const SYNC_MODULES: SyncModuleConfig[] = [
   {
     zohoService: 'CRM',
     zohoModule: 'Contacts',
     fintekproEntityType: 'prospect',
     direction: 'bidirectional',
-    conflictStrategy: 'last_write_wins',
+    conflictStrategy: 'per_field',
     enabled: true
   },
   {
@@ -71,7 +94,7 @@ const SYNC_MODULES: SyncModuleConfig[] = [
     zohoModule: 'Leads',
     fintekproEntityType: 'prospect',
     direction: 'bidirectional',
-    conflictStrategy: 'last_write_wins',
+    conflictStrategy: 'per_field',
     enabled: true
   },
   {
@@ -79,7 +102,7 @@ const SYNC_MODULES: SyncModuleConfig[] = [
     zohoModule: 'Deals',
     fintekproEntityType: 'partner_commission',
     direction: 'bidirectional',
-    conflictStrategy: 'last_write_wins',
+    conflictStrategy: 'per_field',
     enabled: true
   },
   {
@@ -92,6 +115,9 @@ const SYNC_MODULES: SyncModuleConfig[] = [
   }
 ];
 
+let _syncLock = false;
+let _syncLockHolder: string | null = null;
+
 export class ZohoSyncOrchestrator {
   private connectionId: string;
   private crmClient: ZohoApiClient;
@@ -103,134 +129,158 @@ export class ZohoSyncOrchestrator {
     this.webhookProcessor = new ZohoWebhookProcessor(connectionId);
   }
 
-  async runFullSync(): Promise<FullSyncReport> {
-    if (!isProduction()) {
-      console.log('[SyncOrchestrator] Full sync skipped - bidirectional sync only runs in production');
-      const now = new Date();
-      return {
-        startedAt: now, completedAt: now, totalDurationMs: 0,
-        modules: [], webhookProcessing: { processed: 0, succeeded: 0, failed: 0 },
-        summary: { totalProcessed: 0, totalCreated: 0, totalUpdated: 0, totalConflicts: 0, totalErrors: 0 }
-      };
+  private acquireLock(holder: string): boolean {
+    if (_syncLock) {
+      console.log(`[SyncOrchestrator] Lock held by "${_syncLockHolder}", skipping "${holder}"`);
+      return false;
     }
+    _syncLock = true;
+    _syncLockHolder = holder;
+    return true;
+  }
 
-    const startedAt = new Date();
-    console.log(`[SyncOrchestrator] Starting full sync at ${startedAt.toISOString()}`);
+  private releaseLock(): void {
+    _syncLock = false;
+    _syncLockHolder = null;
+  }
 
-    const webhookResult = await this.webhookProcessor.processPendingEvents(100);
-    console.log(`[SyncOrchestrator] Webhook processing: ${webhookResult.succeeded} succeeded, ${webhookResult.failed} failed`);
-
-    const moduleResults: SyncResult[] = [];
-
-    for (const config of SYNC_MODULES) {
-      if (!config.enabled) continue;
-
-      try {
-        const result = await this.syncModule(config);
-        moduleResults.push(result);
-        console.log(`[SyncOrchestrator] ${config.zohoModule}: ${result.recordsProcessed} processed, ${result.recordsUpdated} updated, ${result.errors.length} errors`);
-      } catch (error: any) {
-        console.error(`[SyncOrchestrator] ${config.zohoModule} sync failed:`, error.message);
-        moduleResults.push({
-          module: config.zohoModule,
-          direction: config.direction,
-          recordsProcessed: 0,
-          recordsCreated: 0,
-          recordsUpdated: 0,
-          recordsSkipped: 0,
-          conflicts: 0,
-          errors: [error.message],
-          durationMs: 0
-        });
-      }
-    }
-
-    const completedAt = new Date();
-    const report: FullSyncReport = {
-      startedAt,
-      completedAt,
-      totalDurationMs: completedAt.getTime() - startedAt.getTime(),
-      modules: moduleResults,
-      webhookProcessing: {
-        processed: webhookResult.processed,
-        succeeded: webhookResult.succeeded,
-        failed: webhookResult.failed
-      },
-      summary: {
-        totalProcessed: moduleResults.reduce((s, r) => s + r.recordsProcessed, 0),
-        totalCreated: moduleResults.reduce((s, r) => s + r.recordsCreated, 0),
-        totalUpdated: moduleResults.reduce((s, r) => s + r.recordsUpdated, 0),
-        totalConflicts: moduleResults.reduce((s, r) => s + r.conflicts, 0),
-        totalErrors: moduleResults.reduce((s, r) => s + r.errors.length, 0)
-      }
+  private emptyReport(): FullSyncReport {
+    const now = new Date();
+    return {
+      startedAt: now, completedAt: now, totalDurationMs: 0,
+      modules: [], webhookProcessing: { processed: 0, succeeded: 0, failed: 0, deadLettered: 0 },
+      summary: { totalProcessed: 0, totalCreated: 0, totalUpdated: 0, totalConflicts: 0, totalErrors: 0 }
     };
+  }
 
-    await this.logFullSync(report);
-    console.log(`[SyncOrchestrator] Full sync completed in ${report.totalDurationMs}ms`);
-    return report;
+  async runFullSync(): Promise<FullSyncReport> {
+    if (!isSyncEnabled()) {
+      console.log('[SyncOrchestrator] Full sync skipped - sync not enabled (set ZOHO_SYNC_ENABLED=true or run in production)');
+      return this.emptyReport();
+    }
+
+    if (!this.acquireLock('full_sync')) {
+      return this.emptyReport();
+    }
+
+    try {
+      const startedAt = new Date();
+      console.log(`[SyncOrchestrator] Starting full sync at ${startedAt.toISOString()}`);
+
+      const webhookResult = await this.webhookProcessor.processPendingEvents(100);
+      console.log(`[SyncOrchestrator] Webhook processing: ${webhookResult.succeeded} succeeded, ${webhookResult.failed} failed, ${webhookResult.deadLettered} dead-lettered`);
+
+      const moduleResults: SyncResult[] = [];
+
+      for (const config of SYNC_MODULES) {
+        if (!config.enabled) continue;
+
+        try {
+          const result = await this.syncModule(config);
+          moduleResults.push(result);
+          console.log(`[SyncOrchestrator] ${config.zohoModule}: ${result.recordsProcessed} processed, ${result.recordsUpdated} updated, ${result.conflicts} conflicts, ${result.errors.length} errors`);
+        } catch (error: any) {
+          console.error(`[SyncOrchestrator] ${config.zohoModule} sync failed:`, error.message);
+          moduleResults.push(this.errorResult(config, error.message));
+        }
+      }
+
+      const completedAt = new Date();
+      const report: FullSyncReport = {
+        startedAt,
+        completedAt,
+        totalDurationMs: completedAt.getTime() - startedAt.getTime(),
+        modules: moduleResults,
+        webhookProcessing: {
+          processed: webhookResult.processed,
+          succeeded: webhookResult.succeeded,
+          failed: webhookResult.failed,
+          deadLettered: webhookResult.deadLettered
+        },
+        summary: {
+          totalProcessed: moduleResults.reduce((s, r) => s + r.recordsProcessed, 0),
+          totalCreated: moduleResults.reduce((s, r) => s + r.recordsCreated, 0),
+          totalUpdated: moduleResults.reduce((s, r) => s + r.recordsUpdated, 0),
+          totalConflicts: moduleResults.reduce((s, r) => s + r.conflicts, 0),
+          totalErrors: moduleResults.reduce((s, r) => s + r.errors.length, 0)
+        }
+      };
+
+      await this.logFullSync(report);
+      console.log(`[SyncOrchestrator] Full sync completed in ${report.totalDurationMs}ms`);
+      return report;
+    } finally {
+      this.releaseLock();
+    }
   }
 
   async runIncrementalSync(): Promise<FullSyncReport> {
-    if (!isProduction()) {
-      console.log('[SyncOrchestrator] Incremental sync skipped - bidirectional sync only runs in production');
-      const now = new Date();
+    if (!isSyncEnabled()) {
+      console.log('[SyncOrchestrator] Incremental sync skipped - sync not enabled');
+      return this.emptyReport();
+    }
+
+    if (!this.acquireLock('incremental_sync')) {
+      return this.emptyReport();
+    }
+
+    try {
+      const startedAt = new Date();
+      console.log(`[SyncOrchestrator] Starting incremental sync at ${startedAt.toISOString()}`);
+
+      const webhookResult = await this.webhookProcessor.processPendingEvents(50);
+
+      const moduleResults: SyncResult[] = [];
+
+      for (const config of SYNC_MODULES) {
+        if (!config.enabled) continue;
+        if (config.direction === 'to_zoho') continue;
+
+        try {
+          const result = await this.syncModuleIncremental(config);
+          moduleResults.push(result);
+        } catch (error: any) {
+          console.error(`[SyncOrchestrator] Incremental ${config.zohoModule} failed:`, error.message);
+          moduleResults.push(this.errorResult(config, error.message));
+        }
+      }
+
+      const completedAt = new Date();
       return {
-        startedAt: now, completedAt: now, totalDurationMs: 0,
-        modules: [], webhookProcessing: { processed: 0, succeeded: 0, failed: 0 },
-        summary: { totalProcessed: 0, totalCreated: 0, totalUpdated: 0, totalConflicts: 0, totalErrors: 0 }
+        startedAt,
+        completedAt,
+        totalDurationMs: completedAt.getTime() - startedAt.getTime(),
+        modules: moduleResults,
+        webhookProcessing: { processed: webhookResult.processed, succeeded: webhookResult.succeeded, failed: webhookResult.failed, deadLettered: webhookResult.deadLettered },
+        summary: {
+          totalProcessed: moduleResults.reduce((s, r) => s + r.recordsProcessed, 0),
+          totalCreated: moduleResults.reduce((s, r) => s + r.recordsCreated, 0),
+          totalUpdated: moduleResults.reduce((s, r) => s + r.recordsUpdated, 0),
+          totalConflicts: moduleResults.reduce((s, r) => s + r.conflicts, 0),
+          totalErrors: moduleResults.reduce((s, r) => s + r.errors.length, 0)
+        }
       };
+    } finally {
+      this.releaseLock();
     }
+  }
 
-    const startedAt = new Date();
-    console.log(`[SyncOrchestrator] Starting incremental sync at ${startedAt.toISOString()}`);
-
-    const webhookResult = await this.webhookProcessor.processPendingEvents(50);
-
-    const moduleResults: SyncResult[] = [];
-
-    for (const config of SYNC_MODULES) {
-      if (!config.enabled) continue;
-      if (config.direction === 'to_zoho') continue;
-
-      try {
-        const result = await this.syncModuleIncremental(config);
-        moduleResults.push(result);
-      } catch (error: any) {
-        console.error(`[SyncOrchestrator] Incremental ${config.zohoModule} failed:`, error.message);
-        moduleResults.push({
-          module: config.zohoModule,
-          direction: config.direction,
-          recordsProcessed: 0, recordsCreated: 0, recordsUpdated: 0,
-          recordsSkipped: 0, conflicts: 0,
-          errors: [error.message], durationMs: 0
-        });
-      }
-    }
-
-    const completedAt = new Date();
+  private errorResult(config: SyncModuleConfig, errorMsg: string): SyncResult {
     return {
-      startedAt,
-      completedAt,
-      totalDurationMs: completedAt.getTime() - startedAt.getTime(),
-      modules: moduleResults,
-      webhookProcessing: { processed: webhookResult.processed, succeeded: webhookResult.succeeded, failed: webhookResult.failed },
-      summary: {
-        totalProcessed: moduleResults.reduce((s, r) => s + r.recordsProcessed, 0),
-        totalCreated: moduleResults.reduce((s, r) => s + r.recordsCreated, 0),
-        totalUpdated: moduleResults.reduce((s, r) => s + r.recordsUpdated, 0),
-        totalConflicts: moduleResults.reduce((s, r) => s + r.conflicts, 0),
-        totalErrors: moduleResults.reduce((s, r) => s + r.errors.length, 0)
-      }
+      module: config.zohoModule, direction: config.direction,
+      recordsProcessed: 0, recordsCreated: 0, recordsUpdated: 0,
+      recordsSkipped: 0, conflicts: 0, conflictsAutoResolved: 0, conflictsPendingReview: 0,
+      errors: [errorMsg], durationMs: 0
     };
   }
 
   private async syncModule(config: SyncModuleConfig): Promise<SyncResult> {
     const startTime = Date.now();
     const result: SyncResult = {
-      module: config.zohoModule,
-      direction: config.direction,
+      module: config.zohoModule, direction: config.direction,
       recordsProcessed: 0, recordsCreated: 0, recordsUpdated: 0,
-      recordsSkipped: 0, conflicts: 0, errors: [], durationMs: 0
+      recordsSkipped: 0, conflicts: 0, conflictsAutoResolved: 0, conflictsPendingReview: 0,
+      errors: [], durationMs: 0
     };
 
     try {
@@ -248,10 +298,10 @@ export class ZohoSyncOrchestrator {
   private async syncModuleIncremental(config: SyncModuleConfig): Promise<SyncResult> {
     const startTime = Date.now();
     const result: SyncResult = {
-      module: config.zohoModule,
-      direction: config.direction,
+      module: config.zohoModule, direction: config.direction,
       recordsProcessed: 0, recordsCreated: 0, recordsUpdated: 0,
-      recordsSkipped: 0, conflicts: 0, errors: [], durationMs: 0
+      recordsSkipped: 0, conflicts: 0, conflictsAutoResolved: 0, conflictsPendingReview: 0,
+      errors: [], durationMs: 0
     };
 
     const lastSync = await this.getLastSyncTime(config.zohoService, config.zohoModule);
@@ -340,17 +390,25 @@ export class ZohoSyncOrchestrator {
       .limit(1);
 
     if (existingMapping) {
-      const hasConflict = this.detectConflict(existingMapping, zohoRecord, config.conflictStrategy);
+      const hasConflict = this.detectConflict(existingMapping, zohoRecord);
 
       if (hasConflict) {
         result.conflicts++;
-        const winner = this.resolveConflict(existingMapping, zohoRecord, config.conflictStrategy);
 
-        if (winner === 'zoho') {
-          await this.applyZohoUpdate(config, existingMapping, zohoRecord);
+        if (config.conflictStrategy === 'per_field') {
+          await this.applyPerFieldUpdate(config, existingMapping, zohoRecord);
+          result.conflictsAutoResolved++;
           result.recordsUpdated++;
         } else {
-          result.recordsSkipped++;
+          const winner = this.resolveConflict(existingMapping, zohoRecord, config.conflictStrategy);
+
+          if (winner === 'zoho') {
+            await this.applyZohoUpdate(config, existingMapping, zohoRecord);
+            result.conflictsAutoResolved++;
+            result.recordsUpdated++;
+          } else {
+            result.recordsSkipped++;
+          }
         }
 
         await db
@@ -358,15 +416,19 @@ export class ZohoSyncOrchestrator {
           .set({
             conflictData: {
               detectedAt: new Date().toISOString(),
-              resolution: winner,
               strategy: config.conflictStrategy,
-              zohoModifiedTime: zohoRecord.Modified_Time
+              zohoModifiedTime: zohoRecord.Modified_Time,
+              resolution: config.conflictStrategy === 'per_field' ? 'per_field_authority' : config.conflictStrategy
             },
             updatedAt: new Date()
           })
           .where(eq(zohoEntityMappings.id, existingMapping.id));
       } else {
-        await this.applyZohoUpdate(config, existingMapping, zohoRecord);
+        if (config.conflictStrategy === 'per_field') {
+          await this.applyPerFieldUpdate(config, existingMapping, zohoRecord);
+        } else {
+          await this.applyZohoUpdate(config, existingMapping, zohoRecord);
+        }
         result.recordsUpdated++;
       }
     } else {
@@ -379,7 +441,7 @@ export class ZohoSyncOrchestrator {
     }
   }
 
-  private detectConflict(mapping: any, zohoRecord: any, strategy: ConflictStrategy): boolean {
+  private detectConflict(mapping: any, zohoRecord: any): boolean {
     if (!mapping.lastSyncedAt) return false;
 
     const zohoModified = zohoRecord.Modified_Time ? new Date(zohoRecord.Modified_Time) : null;
@@ -404,6 +466,101 @@ export class ZohoSyncOrchestrator {
     return zohoModified.getTime() >= fintekproModified.getTime() ? 'zoho' : 'fintekpro';
   }
 
+  private async applyPerFieldUpdate(
+    config: SyncModuleConfig, mapping: any, zohoRecord: any
+  ): Promise<void> {
+    const fintekproType = mapping.fintekproEntityType;
+    const fintekproId = mapping.fintekproEntityId;
+    const authority = FIELD_AUTHORITY[fintekproType];
+
+    if (!authority) {
+      await this.applyZohoUpdate(config, mapping, zohoRecord);
+      return;
+    }
+
+    const zohoAllowed = new Set(authority.zoho);
+    const fintekproProtected = new Set(authority.fintekpro);
+
+    if (fintekproType === 'prospect') {
+      const updateData: any = { updatedAt: new Date() };
+      if (zohoAllowed.has('email') && zohoRecord.Email) updateData.email = zohoRecord.Email.toLowerCase().trim();
+      if (zohoAllowed.has('mobile') && (zohoRecord.Mobile || zohoRecord.Phone)) updateData.mobile = zohoRecord.Mobile || zohoRecord.Phone;
+      if (zohoAllowed.has('name')) {
+        const name = [zohoRecord.First_Name, zohoRecord.Last_Name].filter(Boolean).join(' ').trim();
+        if (name) updateData.name = name;
+      }
+      if (Object.keys(updateData).length > 1) {
+        await db.update(prospectClients).set(updateData).where(eq(prospectClients.id, fintekproId));
+      }
+    } else if (fintekproType === 'user') {
+      const updateData: any = {};
+      if (zohoAllowed.has('email') && zohoRecord.Email) updateData.email = zohoRecord.Email.toLowerCase().trim();
+      if (zohoAllowed.has('phone') && (zohoRecord.Mobile || zohoRecord.Phone)) updateData.phone = zohoRecord.Mobile || zohoRecord.Phone;
+      if (zohoAllowed.has('fullName')) {
+        const fullName = [zohoRecord.First_Name, zohoRecord.Last_Name].filter(Boolean).join(' ').trim();
+        if (fullName) updateData.fullName = fullName;
+      }
+      if (Object.keys(updateData).length > 0) {
+        await db.update(users).set(updateData).where(eq(users.id, fintekproId));
+      }
+    } else if (fintekproType === 'partner_commission') {
+      if (zohoAllowed.has('status') && zohoRecord.Stage) {
+        const statusMap: Record<string, string> = {
+          'Qualification': 'pending',
+          'Needs Analysis': 'approved',
+          'Value Proposition': 'processing',
+          'Closed Won': 'completed',
+          'Closed Lost': 'cancelled',
+          'Negotiation/Review': 'on_hold'
+        };
+        const newStatus = statusMap[zohoRecord.Stage];
+        if (newStatus) {
+          await db.update(partnerCommissions)
+            .set({ status: newStatus, updatedAt: new Date() })
+            .where(eq(partnerCommissions.id, fintekproId));
+        }
+      }
+
+      let hasFinancialConflict = false;
+
+      if (zohoRecord.Amount && fintekproProtected.has('commissionAmount')) {
+        const [current] = await db.select({ commissionAmount: partnerCommissions.commissionAmount })
+          .from(partnerCommissions).where(eq(partnerCommissions.id, fintekproId)).limit(1);
+
+        const currentAmt = parseFloat(current?.commissionAmount?.toString() || '0');
+        const zohoAmt = parseFloat(zohoRecord.Amount.toString());
+
+        if (currentAmt !== zohoAmt) {
+          hasFinancialConflict = true;
+          await this.logFieldConflict(mapping, 'commissionAmount', currentAmt, zohoAmt);
+        }
+      }
+
+      await db
+        .update(zohoEntityMappings)
+        .set({
+          zohoRecordData: zohoRecord,
+          lastSyncedAt: new Date(),
+          syncStatus: hasFinancialConflict ? 'conflict' : 'synced',
+          updatedAt: new Date()
+        })
+        .where(eq(zohoEntityMappings.id, mapping.id));
+      return;
+    } else if (fintekproType === 'partner') {
+      // Partner data is FintekPro-authoritative; no Zoho updates applied
+    }
+
+    await db
+      .update(zohoEntityMappings)
+      .set({
+        zohoRecordData: zohoRecord,
+        lastSyncedAt: new Date(),
+        syncStatus: 'synced',
+        updatedAt: new Date()
+      })
+      .where(eq(zohoEntityMappings.id, mapping.id));
+  }
+
   private async applyZohoUpdate(
     config: SyncModuleConfig, mapping: any, zohoRecord: any
   ): Promise<void> {
@@ -416,7 +573,6 @@ export class ZohoSyncOrchestrator {
       if (zohoRecord.Mobile || zohoRecord.Phone) updateData.mobile = zohoRecord.Mobile || zohoRecord.Phone;
       const name = [zohoRecord.First_Name, zohoRecord.Last_Name].filter(Boolean).join(' ').trim();
       if (name) updateData.name = name;
-
       await db.update(prospectClients).set(updateData).where(eq(prospectClients.id, fintekproId));
     } else if (fintekproType === 'user') {
       const updateData: any = {};
@@ -424,19 +580,15 @@ export class ZohoSyncOrchestrator {
       if (zohoRecord.Mobile || zohoRecord.Phone) updateData.phone = zohoRecord.Mobile || zohoRecord.Phone;
       const fullName = [zohoRecord.First_Name, zohoRecord.Last_Name].filter(Boolean).join(' ').trim();
       if (fullName) updateData.fullName = fullName;
-
       if (Object.keys(updateData).length > 0) {
         await db.update(users).set(updateData).where(eq(users.id, fintekproId));
       }
     } else if (fintekproType === 'partner_commission') {
       if (zohoRecord.Stage) {
         const statusMap: Record<string, string> = {
-          'Qualification': 'pending',
-          'Needs Analysis': 'approved',
-          'Value Proposition': 'processing',
-          'Closed Won': 'completed',
-          'Closed Lost': 'cancelled',
-          'Negotiation/Review': 'on_hold'
+          'Qualification': 'pending', 'Needs Analysis': 'approved',
+          'Value Proposition': 'processing', 'Closed Won': 'completed',
+          'Closed Lost': 'cancelled', 'Negotiation/Review': 'on_hold'
         };
         const newStatus = statusMap[zohoRecord.Stage];
         if (newStatus) {
@@ -455,28 +607,57 @@ export class ZohoSyncOrchestrator {
 
     await db
       .update(zohoEntityMappings)
-      .set({
-        zohoRecordData: zohoRecord,
-        lastSyncedAt: new Date(),
-        syncStatus: 'synced',
-        updatedAt: new Date()
-      })
+      .set({ zohoRecordData: zohoRecord, lastSyncedAt: new Date(), syncStatus: 'synced', updatedAt: new Date() })
       .where(eq(zohoEntityMappings.id, mapping.id));
+  }
+
+  private async logFieldConflict(
+    mapping: any, field: string, fintekproValue: any, zohoValue: any
+  ): Promise<void> {
+    try {
+      await db.update(zohoEntityMappings)
+        .set({
+          syncStatus: 'conflict',
+          conflictData: {
+            field, fintekproValue, zohoValue,
+            resolution: 'fintekpro_wins',
+            reason: 'Financial field protected by per-field authority',
+            detectedAt: new Date().toISOString(),
+            entityType: mapping.fintekproEntityType,
+            entityId: mapping.fintekproEntityId
+          },
+          updatedAt: new Date()
+        })
+        .where(eq(zohoEntityMappings.id, mapping.id));
+
+      await db.insert(zohoSyncLogs).values({
+        connectionId: this.connectionId,
+        operation: 'field_conflict',
+        entityType: mapping.fintekproEntityType,
+        direction: 'from_zoho',
+        zohoService: mapping.zohoService,
+        zohoModule: mapping.zohoModule,
+        status: 'partial',
+        recordsProcessed: 1,
+        recordsSucceeded: 0,
+        recordsFailed: 0,
+        zohoResponseData: { field, fintekproValue, zohoValue, resolution: 'fintekpro_wins' } as any
+      });
+
+      console.warn(`[SyncOrchestrator] FIELD CONFLICT on ${mapping.fintekproEntityType}/${mapping.fintekproEntityId} "${field}": FintekPro=${fintekproValue}, Zoho=${zohoValue} => FintekPro wins (financial field protected)`);
+    } catch (e) {
+      console.error('[SyncOrchestrator] Failed to log field conflict:', e);
+    }
   }
 
   private async createFromZoho(config: SyncModuleConfig, zohoRecord: any): Promise<boolean> {
     if (config.zohoModule === 'Contacts' || config.zohoModule === 'Leads') {
       const email = zohoRecord.Email?.toLowerCase().trim();
-      const mobile = zohoRecord.Mobile || zohoRecord.Phone;
-      const name = [zohoRecord.First_Name, zohoRecord.Last_Name].filter(Boolean).join(' ').trim() || 'Unknown';
-
-      if (!email && !mobile) return false;
+      if (!email && !(zohoRecord.Mobile || zohoRecord.Phone)) return false;
 
       if (email) {
         const [existing] = await db.select({ id: prospectClients.id })
-          .from(prospectClients)
-          .where(eq(prospectClients.email, email))
-          .limit(1);
+          .from(prospectClients).where(eq(prospectClients.email, email)).limit(1);
 
         if (existing) {
           await db.insert(zohoEntityMappings).values({
@@ -494,10 +675,8 @@ export class ZohoSyncOrchestrator {
           return true;
         }
       }
-
       return false;
     }
-
     return false;
   }
 
@@ -539,65 +718,137 @@ export class ZohoSyncOrchestrator {
     }
   }
 
+  async runReconciliation(): Promise<{
+    modules: Array<{
+      module: string;
+      fintekproCount: number;
+      zohoMappedCount: number;
+      unmappedCount: number;
+      conflictCount: number;
+      lastSync: Date | null;
+    }>;
+    financialDiscrepancies: Array<{
+      entityId: string;
+      field: string;
+      fintekproValue: any;
+      zohoValue: any;
+    }>;
+    generatedAt: Date;
+  }> {
+    const modules = [];
+
+    const [prospectCount] = await db.select({ count: count() }).from(prospectClients);
+    const [prospectMapped] = await db.select({ count: count() }).from(zohoEntityMappings)
+      .where(and(
+        eq(zohoEntityMappings.connectionId, this.connectionId),
+        eq(zohoEntityMappings.fintekproEntityType, 'prospect')
+      ));
+    const [prospectConflicts] = await db.select({ count: count() }).from(zohoEntityMappings)
+      .where(and(
+        eq(zohoEntityMappings.connectionId, this.connectionId),
+        eq(zohoEntityMappings.fintekproEntityType, 'prospect'),
+        eq(zohoEntityMappings.syncStatus, 'conflict')
+      ));
+    const [prospectLastSync] = await db.select({ lastSync: sql<Date>`max(${zohoEntityMappings.lastSyncedAt})` })
+      .from(zohoEntityMappings)
+      .where(and(eq(zohoEntityMappings.connectionId, this.connectionId), eq(zohoEntityMappings.fintekproEntityType, 'prospect')));
+
+    modules.push({
+      module: 'Contacts/Leads → Prospects',
+      fintekproCount: prospectCount?.count || 0,
+      zohoMappedCount: prospectMapped?.count || 0,
+      unmappedCount: (prospectCount?.count || 0) - (prospectMapped?.count || 0),
+      conflictCount: prospectConflicts?.count || 0,
+      lastSync: prospectLastSync?.lastSync || null
+    });
+
+    const [commissionCount] = await db.select({ count: count() }).from(partnerCommissions);
+    const [commissionMapped] = await db.select({ count: count() }).from(zohoEntityMappings)
+      .where(and(
+        eq(zohoEntityMappings.connectionId, this.connectionId),
+        eq(zohoEntityMappings.fintekproEntityType, 'partner_commission')
+      ));
+    const [commissionConflicts] = await db.select({ count: count() }).from(zohoEntityMappings)
+      .where(and(
+        eq(zohoEntityMappings.connectionId, this.connectionId),
+        eq(zohoEntityMappings.fintekproEntityType, 'partner_commission'),
+        eq(zohoEntityMappings.syncStatus, 'conflict')
+      ));
+    const [commissionLastSync] = await db.select({ lastSync: sql<Date>`max(${zohoEntityMappings.lastSyncedAt})` })
+      .from(zohoEntityMappings)
+      .where(and(eq(zohoEntityMappings.connectionId, this.connectionId), eq(zohoEntityMappings.fintekproEntityType, 'partner_commission')));
+
+    modules.push({
+      module: 'Deals → Commissions',
+      fintekproCount: commissionCount?.count || 0,
+      zohoMappedCount: commissionMapped?.count || 0,
+      unmappedCount: (commissionCount?.count || 0) - (commissionMapped?.count || 0),
+      conflictCount: commissionConflicts?.count || 0,
+      lastSync: commissionLastSync?.lastSync || null
+    });
+
+    const financialDiscrepancies: Array<{ entityId: string; field: string; fintekproValue: any; zohoValue: any }> = [];
+
+    const conflictMappings = await db.select()
+      .from(zohoEntityMappings)
+      .where(and(
+        eq(zohoEntityMappings.connectionId, this.connectionId),
+        eq(zohoEntityMappings.syncStatus, 'conflict')
+      ))
+      .limit(50);
+
+    for (const mapping of conflictMappings) {
+      const conflict = mapping.conflictData as any;
+      if (conflict?.field && conflict?.fintekproValue !== undefined) {
+        financialDiscrepancies.push({
+          entityId: mapping.fintekproEntityId,
+          field: conflict.field,
+          fintekproValue: conflict.fintekproValue,
+          zohoValue: conflict.zohoValue
+        });
+      }
+    }
+
+    return { modules, financialDiscrepancies, generatedAt: new Date() };
+  }
+
   async getSyncHealth(): Promise<{
     lastFullSync: Date | null;
     lastIncrementalSync: Date | null;
     pendingWebhooks: number;
+    deadLetteredWebhooks: number;
     totalMappings: number;
     conflictCount: number;
     errorCount: number;
+    syncLocked: boolean;
+    syncLockHolder: string | null;
+    syncEnabled: boolean;
     moduleStatus: Array<{ module: string; lastSync: Date | null; mappingCount: number }>;
   }> {
     const [lastFullSyncLog] = await db
       .select({ createdAt: zohoSyncLogs.createdAt })
       .from(zohoSyncLogs)
-      .where(
-        and(
-          eq(zohoSyncLogs.connectionId, this.connectionId),
-          eq(zohoSyncLogs.operation, 'full_sync')
-        )
-      )
+      .where(and(eq(zohoSyncLogs.connectionId, this.connectionId), eq(zohoSyncLogs.operation, 'full_sync')))
       .orderBy(desc(zohoSyncLogs.createdAt))
       .limit(1);
 
     const [lastIncrementalLog] = await db
       .select({ createdAt: zohoSyncLogs.createdAt })
       .from(zohoSyncLogs)
-      .where(
-        and(
-          eq(zohoSyncLogs.connectionId, this.connectionId),
-          sql`${zohoSyncLogs.operation} != 'full_sync'`
-        )
-      )
+      .where(and(eq(zohoSyncLogs.connectionId, this.connectionId), sql`${zohoSyncLogs.operation} != 'full_sync'`))
       .orderBy(desc(zohoSyncLogs.createdAt))
       .limit(1);
 
     const webhookStats = await this.webhookProcessor.getProcessingStats();
 
-    const [totalMappingsResult] = await db
-      .select({ count: count() })
-      .from(zohoEntityMappings)
+    const [totalMappingsResult] = await db.select({ count: count() }).from(zohoEntityMappings)
       .where(eq(zohoEntityMappings.connectionId, this.connectionId));
 
-    const [conflictCountResult] = await db
-      .select({ count: count() })
-      .from(zohoEntityMappings)
-      .where(
-        and(
-          eq(zohoEntityMappings.connectionId, this.connectionId),
-          eq(zohoEntityMappings.syncStatus, 'conflict')
-        )
-      );
+    const [conflictCountResult] = await db.select({ count: count() }).from(zohoEntityMappings)
+      .where(and(eq(zohoEntityMappings.connectionId, this.connectionId), eq(zohoEntityMappings.syncStatus, 'conflict')));
 
-    const [errorCountResult] = await db
-      .select({ count: count() })
-      .from(zohoEntityMappings)
-      .where(
-        and(
-          eq(zohoEntityMappings.connectionId, this.connectionId),
-          eq(zohoEntityMappings.syncStatus, 'error')
-        )
-      );
+    const [errorCountResult] = await db.select({ count: count() }).from(zohoEntityMappings)
+      .where(and(eq(zohoEntityMappings.connectionId, this.connectionId), eq(zohoEntityMappings.syncStatus, 'error')));
 
     const moduleStatuses = await db
       .select({
@@ -613,9 +864,13 @@ export class ZohoSyncOrchestrator {
       lastFullSync: lastFullSyncLog?.createdAt || null,
       lastIncrementalSync: lastIncrementalLog?.createdAt || null,
       pendingWebhooks: webhookStats.pending,
+      deadLetteredWebhooks: webhookStats.deadLettered,
       totalMappings: totalMappingsResult?.count || 0,
       conflictCount: conflictCountResult?.count || 0,
       errorCount: errorCountResult?.count || 0,
+      syncLocked: _syncLock,
+      syncLockHolder: _syncLockHolder,
+      syncEnabled: isSyncEnabled(),
       moduleStatus: moduleStatuses.map(ms => ({
         module: ms.module,
         lastSync: ms.lastSync,

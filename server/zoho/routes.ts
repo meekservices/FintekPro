@@ -1696,7 +1696,7 @@ router.get('/admin/sync/health', async (req, res) => {
 
     res.json({
       environment: process.env.NODE_ENV,
-      syncEnabled: process.env.NODE_ENV === 'production',
+      syncEnabled: health.syncEnabled,
       health
     });
   } catch (error: any) {
@@ -1705,10 +1705,6 @@ router.get('/admin/sync/health', async (req, res) => {
   }
 });
 
-/**
- * GET /api/zoho/admin/sync/webhook-stats
- * Get webhook processing statistics (works in all environments)
- */
 router.get('/admin/sync/webhook-stats', async (req, res) => {
   try {
     const { ZohoWebhookProcessor } = await import('./services/webhook-processor');
@@ -1717,11 +1713,60 @@ router.get('/admin/sync/webhook-stats', async (req, res) => {
 
     res.json({
       environment: process.env.NODE_ENV,
-      syncEnabled: process.env.NODE_ENV === 'production',
       stats
     });
   } catch (error: any) {
     console.error('[Zoho Sync] Webhook stats error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get('/admin/sync/reconciliation', async (req, res) => {
+  try {
+    const { ZohoSyncOrchestrator } = await import('./services/sync-orchestrator');
+    const orchestrator = new ZohoSyncOrchestrator();
+    const report = await orchestrator.runReconciliation();
+
+    res.json({
+      environment: process.env.NODE_ENV,
+      reconciliation: report
+    });
+  } catch (error: any) {
+    console.error('[Zoho Sync] Reconciliation error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get('/admin/sync/dead-letter', async (req, res) => {
+  try {
+    const { ZohoWebhookProcessor } = await import('./services/webhook-processor');
+    const processor = new ZohoWebhookProcessor();
+    const events = await processor.getDeadLetterEvents(20);
+
+    res.json({
+      environment: process.env.NODE_ENV,
+      count: events.length,
+      events
+    });
+  } catch (error: any) {
+    console.error('[Zoho Sync] Dead letter query error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.post('/admin/sync/dead-letter/:eventId/retry', async (req, res) => {
+  try {
+    const { ZohoWebhookProcessor } = await import('./services/webhook-processor');
+    const processor = new ZohoWebhookProcessor();
+    const success = await processor.retryDeadLetterEvent(req.params.eventId);
+
+    if (success) {
+      res.json({ message: 'Event reset for retry', eventId: req.params.eventId });
+    } else {
+      res.status(404).json({ message: 'Dead letter event not found' });
+    }
+  } catch (error: any) {
+    console.error('[Zoho Sync] Dead letter retry error:', error);
     res.status(500).json({ message: error.message });
   }
 });
