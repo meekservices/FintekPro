@@ -218,6 +218,10 @@ export interface ImportedHolding {
   folioNumber?: string;
   amcName?: string;
   schemeName?: string;
+  lots?: any[];
+  lotCount?: number;
+  lotSummary?: string;
+  broker?: string;
 }
 
 export interface ImportResult {
@@ -237,6 +241,13 @@ export interface ImportResult {
   };
   errors?: string[];
   warnings?: string[];
+  brokerDetected?: string;
+  confidenceScore?: number;
+  source?: string;
+  tierBreakdown?: any;
+  lotCounts?: any;
+  reconciliation?: any;
+  portfolioSummary?: any;
 }
 
 export interface ParseOptions {
@@ -313,6 +324,29 @@ export function useParseCASStatement() {
       if (!res.ok) {
         const error = await res.json().catch(() => ({ message: 'Failed to parse CAS statement' }));
         throw new Error(error.message || 'Failed to parse CAS statement');
+      }
+      return res.json();
+    },
+  });
+}
+
+export function useSmartImport() {
+  return useMutation<ImportResult, Error, { file?: File; url?: string; prospectId?: string }>({
+    mutationFn: async ({ file, url, prospectId }) => {
+      const formData = new FormData();
+      if (file) formData.append('portfolio', file);
+      if (url) formData.append('url', url);
+      if (prospectId) formData.append('prospectId', prospectId);
+
+      const res = await fetch('/api/portfolio/import/smart', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: 'Failed to import portfolio' }));
+        throw new Error(error.message || error.error || 'Failed to import portfolio');
       }
       return res.json();
     },

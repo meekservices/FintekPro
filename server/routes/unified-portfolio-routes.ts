@@ -12,8 +12,17 @@ import {
 } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { requireAuth, requireRole } from '../middleware/roleMiddleware';
+import { unifiedPortfolioImportService } from '../services/unified-portfolio-import-service';
+import { portfolioStorageService } from '../services/portfolio-storage-service';
+import { assertLotsNotDropped } from '../services/holding-transformer';
+import multer from 'multer';
 
 const router = Router();
+
+const smartUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 },
+});
 
 interface UnifiedHolding {
   id: string;
@@ -441,12 +450,10 @@ router.post('/api/portfolio/import-wealthy', requireAuth, async (req: Request, r
 
     const { url, replaceExisting } = wealthyImportSchema.parse(req.body);
 
-    const { wealthyImportService } = await import('../services/wealthy-import-service');
+    console.log(`[Wealthy Import] Using unified service for user ${userId}`);
+    const importResult = await unifiedPortfolioImportService.importFromWealthyURL(url);
 
-    console.log(`[Wealthy Import] Fetching portfolio for user ${userId}`);
-    const portfolio = await wealthyImportService.fetchAndParsePortfolio(url);
-
-    if (portfolio.holdings.length === 0) {
+    if (!importResult.success || importResult.holdings.length === 0) {
       return res.status(400).json({
         error: 'No holdings found in the portfolio',
         message: 'The Wealthy.in report did not contain any mutual fund holdings.',
@@ -454,7 +461,7 @@ router.post('/api/portfolio/import-wealthy', requireAuth, async (req: Request, r
     }
 
     if (replaceExisting) {
-      const deleted = await db.delete(externalHoldings).where(
+      await db.delete(externalHoldings).where(
         and(
           eq(externalHoldings.userId, userId),
           eq(externalHoldings.source, 'WEALTHY_IN')
@@ -463,17 +470,23 @@ router.post('/api/portfolio/import-wealthy', requireAuth, async (req: Request, r
       console.log(`[Wealthy Import] Deleted existing holdings for user ${userId}`);
     }
 
-    const result = await wealthyImportService.importToExternalHoldings(userId, portfolio);
+    const { wealthyImportService } = await import('../services/wealthy-import-service');
+    const wealthyPortfolio = await wealthyImportService.fetchAndParsePortfolio(url);
+    const storageResult = await wealthyImportService.importToExternalHoldings(userId, wealthyPortfolio);
 
-    console.log(`[Wealthy Import] Imported ${result.imported} holdings for user ${userId}`);
+    console.log(`[Wealthy Import] Imported ${storageResult.imported} holdings for user ${userId}`);
 
     res.json({
       success: true,
-      investor: portfolio.investor,
-      summary: portfolio.summary,
-      imported: result.imported,
-      skipped: result.skipped,
-      holdings: result.holdings,
+      investor: importResult.investor,
+      summary: {
+        totalHoldings: importResult.holdings.length,
+        totalCurrentValue: importResult.summary.totalCurrentValue,
+        totalInvestedValue: importResult.summary.totalInvestedValue,
+      },
+      imported: storageResult.imported,
+      skipped: storageResult.skipped,
+      holdings: storageResult.holdings,
     });
   } catch (error: any) {
     console.error('[Wealthy Import] Error:', error);
@@ -481,6 +494,212 @@ router.post('/api/portfolio/import-wealthy', requireAuth, async (req: Request, r
       return res.status(400).json({ error: 'Invalid request', details: error.errors });
     }
     res.status(500).json({ error: error.message || 'Failed to import portfolio' });
+  }
+});
+
+router.post('/api/portfolio/import/smart', requireAuth, smartUpload.single('portfolio'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const url = req.body?.url;
+    if (!req.file && !url) {
+      return res.status(400).json({ error: 'Please upload a file or provide a URL' });
+    }
+
+    let importResult;
+    if (url) {
+      const isWealthy = /wealthy\.in/i.test(url);
+      importResult = isWealthy
+        ? await unifiedPortfolioImportService.importFromWealthyURL(url)
+        : await unifiedPortfolioImportService.importFromURL(url);
+    } else if (req.file) {
+      const filename = req.file.originalname.toLowerCase();
+      const mimetype = req.file.mimetype;
+      if (filename.endsWith('.csv') || mimetype === 'text/csv') {
+        importResult = await unifiedPortfolioImportService.importFromCSV(req.file.buffer.toString('utf-8'), req.file.originalname);
+      } else if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) {
+        importResult = await unifiedPortfolioImportService.importFromExcel(req.file.buffer, req.file.originalname);
+      } else if (filename.endsWith('.html') || filename.endsWith('.htm')) {
+        importResult = await unifiedPortfolioImportService.importFromHTML(req.file.buffer.toString('utf-8'), req.file.originalname);
+      } else {
+        importResult = await unifiedPortfolioImportService.importFromPDF(req.file.buffer, req.file.originalname);
+      }
+    }
+
+    if (!importResult || !importResult.success || importResult.holdings.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No holdings found in the uploaded file',
+        errors: importResult?.errors || ['Failed to parse portfolio']
+      });
+    }
+
+    res.json({
+      success: true,
+      holdings: importResult.holdings,
+      investor: importResult.investor,
+      summary: importResult.summary,
+      brokerDetected: importResult.brokerDetected,
+      confidenceScore: importResult.confidenceScore,
+      source: importResult.source,
+      warnings: importResult.warnings || [],
+      errors: importResult.errors,
+      tierBreakdown: importResult.tierBreakdown,
+      lotCounts: importResult.lotCounts,
+      reconciliation: importResult.reconciliation,
+      portfolioSummary: importResult.portfolioSummary,
+    });
+  } catch (error: any) {
+    console.error('[Smart Import] Error:', error);
+    res.status(500).json({ error: error.message || 'Failed to import portfolio' });
+  }
+});
+
+router.post('/api/portfolio/import/pdf', requireAuth, smartUpload.single('portfolio'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const filename = req.file.originalname.toLowerCase();
+    const mimetype = req.file.mimetype;
+    let importResult;
+    if (filename.endsWith('.csv') || mimetype === 'text/csv') {
+      importResult = await unifiedPortfolioImportService.importFromCSV(req.file.buffer.toString('utf-8'), req.file.originalname);
+    } else if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) {
+      importResult = await unifiedPortfolioImportService.importFromExcel(req.file.buffer, req.file.originalname);
+    } else if (filename.endsWith('.html') || filename.endsWith('.htm')) {
+      importResult = await unifiedPortfolioImportService.importFromHTML(req.file.buffer.toString('utf-8'), req.file.originalname);
+    } else {
+      importResult = await unifiedPortfolioImportService.importFromPDF(req.file.buffer, req.file.originalname);
+    }
+
+    if (!importResult.success || importResult.holdings.length === 0) {
+      return res.status(400).json({ success: false, error: 'No holdings found', errors: importResult.errors });
+    }
+
+    res.json({
+      success: true,
+      holdings: importResult.holdings,
+      investor: importResult.investor,
+      summary: importResult.summary,
+      brokerDetected: importResult.brokerDetected,
+      confidenceScore: importResult.confidenceScore,
+      source: importResult.source,
+      warnings: importResult.warnings || [],
+      errors: importResult.errors,
+    });
+  } catch (error: any) {
+    console.error('[Portfolio PDF Import] Error:', error);
+    res.status(500).json({ error: error.message || 'Failed to parse portfolio' });
+  }
+});
+
+router.post('/api/portfolio/import/url', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: 'URL is required' });
+
+    const isWealthy = /wealthy\.in/i.test(url);
+    const importResult = isWealthy
+      ? await unifiedPortfolioImportService.importFromWealthyURL(url)
+      : await unifiedPortfolioImportService.importFromURL(url);
+
+    if (!importResult.success || importResult.holdings.length === 0) {
+      return res.status(400).json({ success: false, error: 'No holdings found from URL', errors: importResult.errors });
+    }
+
+    res.json({
+      success: true,
+      holdings: importResult.holdings,
+      investor: importResult.investor,
+      summary: importResult.summary,
+      brokerDetected: importResult.brokerDetected,
+      confidenceScore: importResult.confidenceScore,
+      source: importResult.source,
+      warnings: importResult.warnings || [],
+    });
+  } catch (error: any) {
+    console.error('[Portfolio URL Import] Error:', error);
+    res.status(500).json({ error: error.message || 'Failed to import from URL' });
+  }
+});
+
+router.post('/api/portfolio/import/cas', requireAuth, smartUpload.single('file'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const importResult = await unifiedPortfolioImportService.importFromPDF(
+      req.file.buffer, req.file.originalname, { detectCAS: true }
+    );
+
+    if (!importResult.success || importResult.holdings.length === 0) {
+      return res.status(400).json({ success: false, error: 'No holdings found in CAS statement', errors: importResult.errors });
+    }
+
+    res.json({
+      success: true,
+      holdings: importResult.holdings,
+      investor: importResult.investor,
+      summary: importResult.summary,
+      brokerDetected: importResult.brokerDetected,
+      confidenceScore: importResult.confidenceScore,
+      source: importResult.source,
+      warnings: importResult.warnings || [],
+      errors: importResult.errors,
+      tierBreakdown: importResult.tierBreakdown,
+      lotCounts: importResult.lotCounts,
+      reconciliation: importResult.reconciliation,
+    });
+  } catch (error: any) {
+    console.error('[CAS Import] Error:', error);
+    res.status(500).json({ error: error.message || 'Failed to parse CAS statement' });
+  }
+});
+
+router.post('/api/portfolio/import/save', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { holdings, source, replaceExisting } = req.body;
+    if (!holdings || !Array.isArray(holdings) || holdings.length === 0) {
+      return res.status(400).json({ error: 'No holdings to save' });
+    }
+
+    const unifiedHoldings = holdings.map((h: any) => ({
+      name: h.name || h.schemeName || 'Unknown',
+      isin: h.isin,
+      symbol: h.symbol,
+      folioNumber: h.folioNumber,
+      assetType: h.assetType || 'mutual_fund',
+      quantity: parseFloat(h.quantity || h.units || '0'),
+      avgCostPerUnit: parseFloat(h.avgPrice || h.averagePrice || '0'),
+      investedValue: parseFloat(h.investedValue || '0'),
+      currentValue: parseFloat(h.currentValue || '0'),
+      broker: h.broker,
+      purchaseDate: h.purchaseDate,
+    }));
+
+    const storageResult = await portfolioStorageService.upsertUserPortfolio(
+      userId,
+      unifiedHoldings,
+      { source: source || 'broker_pdf', confidenceScore: 85, replaceExisting: replaceExisting || false }
+    );
+
+    res.json({
+      success: true,
+      savedCount: unifiedHoldings.length,
+      portfolioId: storageResult.portfolioId,
+    });
+  } catch (error: any) {
+    console.error('[Portfolio Save] Error:', error);
+    res.status(500).json({ error: error.message || 'Failed to save holdings' });
   }
 });
 

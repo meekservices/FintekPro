@@ -165,7 +165,6 @@ class UnifiedPortfolioImportService {
 
       result.holdings = this.convertCASHoldings(casResult.holdings);
       
-      // Enrich CAS holdings with ISIN-based metadata
       result.holdings = await this.enrichCASHoldingsWithIsin(result.holdings);
       
       result.summary = holdingNormalizationService.computeSummary(result.holdings);
@@ -178,9 +177,44 @@ class UnifiedPortfolioImportService {
       
       result.success = true;
       result.parsingStatus = 'completed';
-      result.confidenceScore = 95;
+      result.confidenceScore = casResult.confidenceScore || 95;
+      result.brokerDetected = 'CAMS/KFintech CAS';
       result.importedCount = result.holdings.length;
       result.capturedAt = new Date().toISOString();
+      result.warnings = casResult.warnings;
+
+      if (casResult.reconciliation) {
+        result.reconciliation = {
+          passed: casResult.reconciliation.passed,
+          parsedTotal: casResult.reconciliation.parsedTotal,
+          expectedTotal: casResult.reconciliation.expectedTotal,
+          delta: casResult.reconciliation.delta,
+          deltaPercent: casResult.reconciliation.deltaPercent,
+          message: casResult.reconciliation.message,
+        };
+      }
+
+      if (casResult.portfolioSummary) {
+        result.portfolioSummary = {
+          entries: casResult.portfolioSummary.entries,
+          totalCostValue: casResult.portfolioSummary.totalCostValue,
+          totalMarketValue: casResult.portfolioSummary.totalMarketValue,
+        };
+      }
+
+      const tierCounts = { FULL: 0, VALUATION_ONLY: 0, SUMMARY_PLACEHOLDER: 0 };
+      result.holdings.forEach(h => {
+        const tier = h.holdingTier || 'FULL';
+        tierCounts[tier as keyof typeof tierCounts]++;
+      });
+      result.tierBreakdown = tierCounts;
+
+      const holdingsWithLots = result.holdings.filter(h => h.lots && h.lots.length > 0);
+      result.lotCounts = {
+        withLots: holdingsWithLots.length,
+        withMultipleLots: result.holdings.filter(h => h.lots && h.lots.length > 1).length,
+        withoutLots: result.holdings.length - holdingsWithLots.length,
+      };
 
       return result;
     } catch (error: any) {
@@ -425,7 +459,43 @@ class UnifiedPortfolioImportService {
         planType: h.planType,
         optionType: h.optionType,
         isDemat: h.isDemat,
-        purchaseDate: h.firstPurchaseDate
+        purchaseDate: h.firstPurchaseDate,
+        confidenceScore: (h as any).confidenceScore || 90,
+        broker: 'CAMS/KFintech CAS',
+        firstPurchaseDate: h.firstPurchaseDate,
+        holdingTier: h.holdingTier,
+        eligibleForTax: h.eligibleForTax,
+        tierWarnings: h.tierWarnings,
+        lotCount: h.lotCount || h.lots?.length || 0,
+        lotSummary: h.lotSummary || `${h.lots?.length || 0} lot${(h.lots?.length || 0) !== 1 ? 's' : ''}`,
+        lots: h.lots?.map(lot => ({
+          transactionDate: lot.transactionDate instanceof Date 
+            ? lot.transactionDate.toISOString() 
+            : String(lot.transactionDate || ''),
+          transactionDateStr: lot.transactionDate instanceof Date 
+            ? lot.transactionDate.toISOString().split('T')[0]
+            : (typeof lot.transactionDate === 'string' ? lot.transactionDate.split('T')[0] : ''),
+          transactionType: lot.transactionType,
+          amount: lot.amount,
+          units: lot.units,
+          nav: lot.nav,
+          cost: lot.amount,
+          remainingUnits: lot.units,
+          description: lot.description || '',
+          purchaseDate: lot.transactionDate instanceof Date 
+            ? lot.transactionDate.toISOString().split('T')[0]
+            : String(lot.transactionDate || ''),
+        })) || [],
+        transactions: h.transactions?.map(t => ({
+          date: t.transactionDate,
+          transactionType: t.transactionType,
+          amount: t.amount,
+          units: t.units,
+          nav: t.nav,
+          balance: t.balance,
+          description: t.description,
+          isCredit: t.isCredit,
+        })) || [],
       };
       return unified;
     });

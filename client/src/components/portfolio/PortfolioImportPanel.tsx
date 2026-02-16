@@ -1,26 +1,20 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  Upload, FileText, Link2, Edit2, Trash2, Plus, Save, X, 
-  CheckCircle2, AlertCircle, Loader2, RefreshCw, ArrowLeft
+  Upload, FileText, Link2, Edit2, Trash2, Plus, Save, 
+  CheckCircle2, AlertCircle, Loader2, RefreshCw, ArrowLeft, Sparkles, PenLine
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
-  useParsePortfolioPDF,
-  useParsePortfolioURL,
-  useParseCASStatement,
-  useImportWealthyURL,
+  useSmartImport,
   useSaveImportedHoldings,
   useImportHistory,
   useRecordImportHistory,
@@ -73,30 +67,26 @@ export function PortfolioImportPanel({
   compact = false,
 }: PortfolioImportPanelProps) {
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const [activeTab, setActiveTab] = useState<string>('pdf');
+  const [mode, setMode] = useState<'choose' | 'smart' | 'manual'>('choose');
   const [previewMode, setPreviewMode] = useState(false);
   const [previewHoldings, setPreviewHoldings] = useState<ImportedHolding[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [replaceExisting, setReplaceExisting] = useState(false);
   const [importSource, setImportSource] = useState<ImportSource>('broker_pdf');
   
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [casFile, setCasFile] = useState<File | null>(null);
-  const [casType, setCasType] = useState<'cas' | 'demat'>('cas');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [urlInput, setUrlInput] = useState('');
-  const [wealthyUrl, setWealthyUrl] = useState('');
+  const [dragActive, setDragActive] = useState(false);
   
-  const parsePDF = useParsePortfolioPDF();
-  const parseURL = useParsePortfolioURL();
-  const parseCAS = useParseCASStatement();
-  const importWealthy = useImportWealthyURL();
+  const smartImport = useSmartImport();
   const saveHoldings = useSaveImportedHoldings();
   const importHistory = useImportHistory(prospectId);
   const recordHistory = useRecordImportHistory();
   const [showHistory, setShowHistory] = useState(false);
 
-  const isLoading = parsePDF.isPending || parseURL.isPending || parseCAS.isPending || importWealthy.isPending || saveHoldings.isPending;
+  const isLoading = smartImport.isPending || saveHoldings.isPending;
 
   const handleParseSuccess = useCallback((result: ImportResult, source: ImportSource) => {
     if (result.success && result.holdings?.length > 0) {
@@ -157,61 +147,39 @@ export function PortfolioImportPanel({
     }
   }, [onImportComplete, toast]);
 
-  const handlePDFUpload = useCallback(async () => {
-    if (!pdfFile) return;
-    
-    parsePDF.mutate(
-      { file: pdfFile, options: { prospectId } },
-      {
-        onSuccess: (result) => handleParseSuccess(result, 'broker_pdf'),
-        onError: (error) => {
-          toast({ title: "Parse Failed", description: error.message, variant: "destructive" });
-        },
-      }
-    );
-  }, [pdfFile, prospectId, parsePDF, handleParseSuccess, toast]);
+  const handleSmartImport = useCallback(async () => {
+    if (!selectedFile && !urlInput.trim()) return;
 
-  const handleCASUpload = useCallback(async () => {
-    if (!casFile) return;
-    
-    parseCAS.mutate(
-      { file: casFile, type: casType, options: { prospectId } },
-      {
-        onSuccess: (result) => handleParseSuccess(result, 'cas_statement'),
-        onError: (error) => {
-          toast({ title: "Parse Failed", description: error.message, variant: "destructive" });
-        },
-      }
-    );
-  }, [casFile, casType, prospectId, parseCAS, handleParseSuccess, toast]);
+    const source: ImportSource = urlInput.trim()
+      ? (/wealthy\.in/i.test(urlInput) ? 'wealthy_url' : 'url_import')
+      : 'broker_pdf';
 
-  const handleURLImport = useCallback(async () => {
-    if (!urlInput.trim()) return;
-    
-    parseURL.mutate(
-      { url: urlInput, options: { prospectId, replaceExisting } },
+    smartImport.mutate(
+      { file: selectedFile || undefined, url: urlInput.trim() || undefined, prospectId },
       {
-        onSuccess: (result) => handleParseSuccess(result, 'url_import'),
+        onSuccess: (result) => handleParseSuccess(result, source),
         onError: (error) => {
           toast({ title: "Import Failed", description: error.message, variant: "destructive" });
         },
       }
     );
-  }, [urlInput, prospectId, replaceExisting, parseURL, handleParseSuccess, toast]);
+  }, [selectedFile, urlInput, prospectId, smartImport, handleParseSuccess, toast]);
 
-  const handleWealthyImport = useCallback(async () => {
-    if (!wealthyUrl.trim()) return;
-    
-    importWealthy.mutate(
-      { url: wealthyUrl, replaceExisting },
-      {
-        onSuccess: (result) => handleParseSuccess(result, 'wealthy_url'),
-        onError: (error) => {
-          toast({ title: "Import Failed", description: error.message, variant: "destructive" });
-        },
-      }
-    );
-  }, [wealthyUrl, replaceExisting, importWealthy, handleParseSuccess, toast]);
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
+    else if (e.type === 'dragleave') setDragActive(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files?.[0]) {
+      setSelectedFile(e.dataTransfer.files[0]);
+    }
+  }, []);
 
   const handleSaveHoldings = useCallback(async () => {
     const holdingsWithIsin = previewHoldings.filter(h => h.isin);
@@ -277,10 +245,9 @@ export function PortfolioImportPanel({
     setPreviewMode(false);
     setPreviewHoldings([]);
     setEditingIndex(null);
-    setPdfFile(null);
-    setCasFile(null);
+    setSelectedFile(null);
     setUrlInput('');
-    setWealthyUrl('');
+    setMode('choose');
   }, []);
 
   const formatCurrency = (amount: number) => {
@@ -544,13 +511,9 @@ export function PortfolioImportPanel({
     );
   }
 
-  const availableTabs = [
-    showPDFImport && 'pdf',
-    showCASImport && 'cas',
-    showURLImport && 'url',
-    showWealthyImport && 'wealthy',
-    showManualEntry && 'manual',
-  ].filter(Boolean) as string[];
+  const fileExtLabel = selectedFile
+    ? selectedFile.name.split('.').pop()?.toUpperCase() || 'FILE'
+    : null;
 
   return (
     <Card>
@@ -561,164 +524,171 @@ export function PortfolioImportPanel({
         </CardTitle>
         {!compact && (
           <CardDescription>
-            Import holdings from PDF statements, CAS, URLs, or enter manually
+            Upload a file or paste a URL to instantly import your holdings
           </CardDescription>
         )}
       </CardHeader>
       <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)` }}>
-            {showPDFImport && <TabsTrigger value="pdf"><FileText className="w-4 h-4 mr-1" /> PDF</TabsTrigger>}
-            {showCASImport && <TabsTrigger value="cas"><FileText className="w-4 h-4 mr-1" /> CAS</TabsTrigger>}
-            {showURLImport && <TabsTrigger value="url"><Link2 className="w-4 h-4 mr-1" /> URL</TabsTrigger>}
-            {showWealthyImport && <TabsTrigger value="wealthy">Wealthy.in</TabsTrigger>}
-            {showManualEntry && <TabsTrigger value="manual"><Plus className="w-4 h-4 mr-1" /> Manual</TabsTrigger>}
-          </TabsList>
-
-          {showPDFImport && (
-            <TabsContent value="pdf" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label>Upload Statement (PDF or HTML)</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="file"
-                    accept=".pdf,.html,.htm"
-                    onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
-                    className="flex-1"
-                  />
-                  <Button onClick={handlePDFUpload} disabled={!pdfFile || parsePDF.isPending}>
-                    {parsePDF.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Supports Zerodha, Groww, ICICI Direct, HDFC Securities, Kotak, and other broker statements
+        {mode === 'choose' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <button
+              onClick={() => setMode('smart')}
+              className="group relative flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer text-center"
+            >
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                <Sparkles className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-base">Smart Import</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Auto-detects PDF, CAS, CSV, Excel, HTML, or URL
                 </p>
               </div>
-            </TabsContent>
-          )}
-
-          {showCASImport && (
-            <TabsContent value="cas" className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                <Button
-                  variant={casType === 'cas' ? 'default' : 'outline'}
-                  onClick={() => setCasType('cas')}
-                  className="w-full"
-                >
-                  CAMS/KFintech CAS
-                </Button>
-                <Button
-                  variant={casType === 'demat' ? 'default' : 'outline'}
-                  onClick={() => setCasType('demat')}
-                  className="w-full"
-                >
-                  NSDL/CDSL Statement
-                </Button>
+              <div className="flex flex-wrap justify-center gap-1 mt-1">
+                {['PDF', 'CAS', 'CSV', 'Excel', 'HTML', 'URL'].map(fmt => (
+                  <Badge key={fmt} variant="secondary" className="text-[10px] px-1.5 py-0">{fmt}</Badge>
+                ))}
               </div>
-              <div className="space-y-2">
-                <Label>Upload {casType === 'cas' ? 'CAS' : 'Demat'} Statement</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) => setCasFile(e.target.files?.[0] || null)}
-                    className="flex-1"
-                  />
-                  <Button onClick={handleCASUpload} disabled={!casFile || parseCAS.isPending}>
-                    {parseCAS.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                  </Button>
+            </button>
+
+            {showManualEntry && (
+              <button
+                onClick={() => {
+                  setPreviewHoldings([{
+                    id: `temp-new-${Date.now()}`,
+                    name: '',
+                    assetType: 'mutual_fund',
+                    quantity: '0',
+                    avgPrice: '0',
+                  }]);
+                  setPreviewMode(true);
+                  setImportSource('manual_entry');
+                  setEditingIndex(0);
+                  setMode('manual');
+                }}
+                className="group relative flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer text-center"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <PenLine className="w-6 h-6 text-primary" />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {casType === 'cas' 
-                    ? 'Download your CAS from MFCentral, CAMSOnline, or KFintech portal'
-                    : 'Download your statement from NSDL or CDSL portal'
-                  }
-                </p>
-              </div>
-            </TabsContent>
-          )}
-
-          {showURLImport && (
-            <TabsContent value="url" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label>Portfolio Report URL</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="https://..."
-                    value={urlInput}
-                    onChange={(e) => setUrlInput(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button onClick={handleURLImport} disabled={!urlInput.trim() || parseURL.isPending}>
-                    {parseURL.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-                  </Button>
+                <div>
+                  <p className="font-semibold text-base">Manual Entry</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Add holdings one by one with full edit capability
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Paste a shareable portfolio report URL from any supported platform
-                </p>
-              </div>
-            </TabsContent>
-          )}
+              </button>
+            )}
+          </div>
+        )}
 
-          {showWealthyImport && (
-            <TabsContent value="wealthy" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label>Wealthy.in Portfolio URL</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="https://reports.wealthy.in/?token=..."
-                    value={wealthyUrl}
-                    onChange={(e) => setWealthyUrl(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button onClick={handleWealthyImport} disabled={!wealthyUrl.trim() || importWealthy.isPending}>
-                    {importWealthy.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Get this URL from your Wealthy.in account by sharing the portfolio report
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="replace-wealthy"
-                  checked={replaceExisting}
-                  onCheckedChange={setReplaceExisting}
-                />
-                <Label htmlFor="replace-wealthy" className="text-sm">
-                  Replace existing Wealthy.in holdings
-                </Label>
-              </div>
-            </TabsContent>
-          )}
-
-          {showManualEntry && (
-            <TabsContent value="manual" className="space-y-4 mt-4">
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Click the button below to add holdings manually. You can add multiple entries and edit them before saving.
-                </AlertDescription>
-              </Alert>
-              <Button onClick={() => {
-                setPreviewHoldings([{
-                  id: `temp-new-${Date.now()}`,
-                  name: '',
-                  assetType: 'mutual_fund',
-                  quantity: '0',
-                  avgPrice: '0',
-                }]);
-                setPreviewMode(true);
-                setImportSource('manual_entry');
-                setEditingIndex(0);
-              }}>
-                <Plus className="w-4 h-4 mr-2" /> Start Manual Entry
+        {mode === 'smart' && (
+          <div className="space-y-5">
+            <div className="flex items-center gap-2 mb-2">
+              <Button variant="ghost" size="sm" onClick={() => { setMode('choose'); setSelectedFile(null); setUrlInput(''); }}>
+                <ArrowLeft className="w-4 h-4 mr-1" /> Back
               </Button>
-            </TabsContent>
-          )}
-        </Tabs>
+              <span className="text-sm font-medium text-muted-foreground">Smart Import</span>
+            </div>
 
-        {/* Import History Section */}
+            <div
+              className={`relative flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed transition-all cursor-pointer ${
+                dragActive
+                  ? 'border-primary bg-primary/10'
+                  : selectedFile
+                    ? 'border-green-500/50 bg-green-50 dark:bg-green-950/20'
+                    : 'border-muted-foreground/25 hover:border-primary/40 hover:bg-muted/50'
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.csv,.xlsx,.xls,.html,.htm"
+                className="hidden"
+                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+              />
+              {selectedFile ? (
+                <>
+                  <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-medium text-sm">{selectedFile.name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {(selectedFile.size / 1024).toFixed(1)} KB
+                      {fileExtLabel && <Badge variant="outline" className="ml-2 text-[10px]">{fileExtLabel}</Badge>}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-muted-foreground"
+                    onClick={(e) => { e.stopPropagation(); setSelectedFile(null); }}
+                  >
+                    Choose a different file
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Upload className={`w-8 h-8 ${dragActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <div className="text-center">
+                    <p className="font-medium text-sm">Drop your file here or click to browse</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      PDF, CAS, CSV, Excel, HTML statements from any broker
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-muted-foreground font-medium">OR</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm">Import from URL</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="https://reports.wealthy.in/... or any portfolio URL"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  className="flex-1"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Supports Wealthy.in reports and other shareable portfolio URLs
+              </p>
+            </div>
+
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={handleSmartImport}
+              disabled={(!selectedFile && !urlInput.trim()) || smartImport.isPending}
+            >
+              {smartImport.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing...</>
+              ) : (
+                <><Sparkles className="w-4 h-4 mr-2" /> Import Portfolio</>
+              )}
+            </Button>
+
+            {smartImport.isError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{smartImport.error.message}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+        )}
+
         {prospectId && (
           <div className="mt-6 pt-4 border-t">
             <Button

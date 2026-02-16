@@ -1,13 +1,12 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { isAuthenticated } from '../replitAuth';
-import { casStatementService, CASStatementResult } from '../services/cas-statement-service';
+import { casStatementService } from '../services/cas-statement-service';
 import { unifiedPDFParser } from '../services/unified-pdf-parser';
 import { unifiedPortfolioImportService } from '../services/unified-portfolio-import-service';
 import { portfolioStorageService } from '../services/portfolio-storage-service';
 import { holdingNormalizationService } from '../services/holding-normalization-service';
 import { lotTaxCalculatorService } from '../services/lot-tax-calculator-service';
-import { fifoLotLedgerService } from '../services/fifo-lot-ledger-service';
 import { assertLotsNotDropped } from '../services/holding-transformer';
 import type { UnifiedHolding } from '../services/unified-portfolio-types';
 import { db } from '../db';
@@ -37,43 +36,50 @@ router.post(
       if (!req.file) {
         return res.status(400).json({ success: false, error: 'No file uploaded' });
       }
-      
-      console.log('[CAS Routes] Parsing CAS statement:', req.file.originalname);
-      
-      const parseResult = await unifiedPDFParser.extractTextSafe(req.file.buffer);
-      if (!parseResult.success || !parseResult.result) {
-        return res.status(400).json({ 
-          success: false, 
-          error: parseResult.error || 'Failed to parse PDF file'
+
+      console.log('[CAS Routes] Using unified service for parse:', req.file.originalname);
+      const importResult = await unifiedPortfolioImportService.importFromPDF(
+        req.file.buffer, req.file.originalname, { detectCAS: true }
+      );
+
+      if (!importResult.success || importResult.holdings.length === 0) {
+        return res.json({
+          success: false,
+          error: 'No holdings found in CAS statement',
+          errors: importResult.errors.length > 0 ? importResult.errors : ['Failed to parse CAS statement']
         });
       }
-      const text = parseResult.result.text;
-      
-      const result = await casStatementService.parseStatement(text);
-      
-      // DIFF 5 (AUTHORITATIVE FIX): HARD FAIL if lots are dropped
-      // This ensures silent failure is impossible
+
       try {
-        assertLotsNotDropped(result.holdings);
+        assertLotsNotDropped(importResult.holdings);
       } catch (lotsError: any) {
         console.error('[CAS Routes] CRITICAL:', lotsError.message);
         return res.status(500).json({
           success: false,
           error: 'CAS_LOTS_DROPPED',
           message: 'Transaction rows found in CAS but lost during processing. This is a critical parsing error.',
-          holdingsCount: result.holdings.length
+          holdingsCount: importResult.holdings.length
         });
       }
-      
+
       res.json({
-        success: result.success,
+        success: true,
         fileName: req.file.originalname,
-        ...result
+        holdings: importResult.holdings,
+        investor: importResult.investor,
+        summary: importResult.summary,
+        reconciliation: importResult.reconciliation,
+        portfolioSummary: importResult.portfolioSummary,
+        confidenceScore: importResult.confidenceScore,
+        warnings: importResult.warnings || [],
+        errors: importResult.errors,
+        tierBreakdown: importResult.tierBreakdown,
+        lotCounts: importResult.lotCounts,
       });
     } catch (error: any) {
       console.error('[CAS Routes] Parse error:', error);
-      res.status(500).json({ 
-        success: false, 
+      res.status(500).json({
+        success: false,
         error: error.message || 'Failed to parse CAS statement'
       });
     }
@@ -88,75 +94,49 @@ router.post(
     try {
       const { prospectId } = req.params;
       const agentId = req.user?.id;
-      
+
       if (!agentId) {
         return res.status(401).json({ success: false, error: 'Authentication required' });
       }
-      
       if (!req.file) {
         return res.status(400).json({ success: false, error: 'No file uploaded' });
       }
-      
+
       const [prospect] = await db
         .select()
         .from(prospectClients)
         .where(eq(prospectClients.id, prospectId))
         .limit(1);
-      
+
       if (!prospect) {
         return res.status(404).json({ success: false, error: 'Prospect not found' });
       }
-      
-      console.log('[CAS Routes] Importing CAS for prospect:', prospect.name);
-      
-      const parseResult = await unifiedPDFParser.extractTextSafe(req.file.buffer);
-      if (!parseResult.success || !parseResult.result) {
-        return res.status(400).json({
-          success: false,
-          error: parseResult.error || 'Failed to parse PDF file'
-        });
-      }
-      const result = await casStatementService.parseStatement(parseResult.result.text);
-      
-      if (!result.success || result.holdings.length === 0) {
+
+      console.log('[CAS Routes] Using unified service for import:', prospect.name);
+      const importResult = await unifiedPortfolioImportService.importFromPDF(
+        req.file.buffer, req.file.originalname, { detectCAS: true }
+      );
+
+      if (!importResult.success || importResult.holdings.length === 0) {
         return res.status(400).json({
           success: false,
           error: 'No holdings found in CAS statement',
-          errors: result.errors
+          errors: importResult.errors
         });
       }
-      
-      const portfolioHoldingsData = casStatementService.convertToPortfolioHoldingsWithDates(result.holdings, result.transactions);
-      const totalValue = result.summary.totalCurrentValue;
-      
-      // Convert to UnifiedHolding format and use centralized storage
-      const unifiedHoldings: UnifiedHolding[] = portfolioHoldingsData.map(h => ({
-        name: h.name,
-        isin: h.isin,
-        symbol: h.symbol,
-        folioNumber: h.folioNumber,
-        assetType: holdingNormalizationService.normalizeAssetType(h.assetType),
-        quantity: h.quantity,
-        avgCostPerUnit: h.averageCost,
-        investedValue: h.investedValue,
-        currentValue: h.currentValue,
-        broker: h.broker,
-        purchaseDate: h.purchaseDate
-      }));
-      
+
       const storageResult = await portfolioStorageService.upsertProspectPortfolio(
         prospectId,
-        unifiedHoldings,
+        importResult.holdings,
         {
           source: 'cas_statement',
           sourceFileName: req.file.originalname,
-          confidenceScore: result.confidenceScore,
+          confidenceScore: importResult.confidenceScore,
           replaceExisting: true
         }
       );
-      
-      const portfolioId = storageResult.portfolioId;
-      
+
+      const totalValue = importResult.summary.totalCurrentValue;
       await db.update(prospectClients)
         .set({
           uploadedPortfolio: {
@@ -164,32 +144,32 @@ router.post(
             fileName: req.file.originalname,
             fileType: 'pdf',
             source: 'cas_statement',
-            parsedHoldings: portfolioHoldingsData.map(h => ({
+            parsedHoldings: importResult.holdings.map(h => ({
               name: h.name,
               isin: h.isin,
               quantity: h.quantity,
               value: h.currentValue,
               type: h.assetType
             })),
-            totalValue: totalValue,
-            totalInvested: result.summary.totalInvestedValue,
-            unrealizedGain: result.summary.totalUnrealizedGain,
+            totalValue,
+            totalInvested: importResult.summary.totalInvestedValue,
+            unrealizedGain: importResult.summary.totalUnrealizedGain,
             parsingStatus: 'completed',
-            brokerDetected: 'CAMS/KFintech CAS',
-            confidenceScore: result.confidenceScore
+            brokerDetected: importResult.brokerDetected || 'CAMS/KFintech CAS',
+            confidenceScore: importResult.confidenceScore
           },
           updatedAt: new Date()
         })
         .where(eq(prospectClients.id, prospectId));
-      
+
       res.json({
         success: true,
-        message: `Successfully imported ${result.holdings.length} holdings from CAS statement`,
-        portfolioId,
-        holdings: portfolioHoldingsData,
-        summary: result.summary,
-        investor: result.investor,
-        confidenceScore: result.confidenceScore
+        message: `Successfully imported ${importResult.holdings.length} holdings from CAS statement`,
+        portfolioId: storageResult.portfolioId,
+        holdings: importResult.holdings,
+        summary: importResult.summary,
+        investor: importResult.investor,
+        confidenceScore: importResult.confidenceScore
       });
     } catch (error: any) {
       console.error('[CAS Routes] Import error:', error);

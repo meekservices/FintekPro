@@ -1,21 +1,18 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import fetch from 'node-fetch';
-import * as pdfParseModule from 'pdf-parse';
-const pdfParse = (pdfParseModule as any).default || pdfParseModule;
 import { db } from '../db';
 import { prospectClients, portfolios, portfolioHoldings } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { isAuthenticated } from '../replitAuth';
-import { parsePDFPortfolio, parseURLPortfolio, createPortfolioSnapshot, clearParseCache, TransactionLot } from '../services/portfolio-parser';
+import { createPortfolioSnapshot, clearParseCache, TransactionLot } from '../services/portfolio-parser';
 import { holdingLotsStorageService, LotStorageInput } from '../services/holding-lots-storage-service';
-import { casStatementService, parseCASDate } from '../services/cas-statement-service';
 
-// Clear parse cache on server start to ensure fresh parsing after code updates
 clearParseCache();
 import { holdingNormalizationService } from '../services/holding-normalization-service';
 import { portfolioStorageService } from '../services/portfolio-storage-service';
 import { unifiedPortfolioImportService } from '../services/unified-portfolio-import-service';
+import { assertLotsNotDropped } from '../services/holding-transformer';
 import type { UnifiedHolding } from '../services/unified-portfolio-types';
 
 function isHTMLFile(filename: string, mimetype: string): boolean {
@@ -597,195 +594,37 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const agentId = req.user?.id;
-      
       if (!agentId) {
         return res.status(401).json({ success: false, error: 'Authentication required' });
       }
-      
       if (!req.file) {
         return res.status(400).json({ success: false, error: 'No file uploaded' });
       }
-      
-      const statementType = req.body.type || 'cas'; // 'cas' or 'demat'
-      
-      // For CAS statements, use the improved CAS Statement Service with tiered parsing
-      if (statementType === 'cas') {
-        try {
-          // Extract text from PDF
-          const pdfData = await pdfParse(req.file.buffer);
-          const text = pdfData.text;
-          
-          // Detect if this is a CAS statement - expanded patterns
-          const hasFolioIsin = /Folio\s*No:\s*\d+/i.test(text) && /ISIN:\s*INF/i.test(text);
-          // More flexible pattern - allow any chars between date and Purchase
-          const hasPurchaseTxn = /\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4}.{0,20}Purchase/i.test(text);
-          const hasNavMarket = /NAV on\s+\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{4}/i.test(text) && /Market Value on/i.test(text);
-          
-          console.log('[CAS Detection] Folio+ISIN:', hasFolioIsin, '| Purchase txn:', hasPurchaseTxn, '| NAV+Market:', hasNavMarket);
-          
-          const isCAS = /Consolidated\s*Account\s*Statement/i.test(text) ||
-                       /CAMS.*Statement/i.test(text) ||
-                       /KFintech.*Statement/i.test(text) ||
-                       // Detect by CAS-specific patterns: Folio + ISIN + Transaction format
-                       (hasFolioIsin && hasPurchaseTxn) ||
-                       // Detect by NAV/Market Value pattern typical in CAS
-                       hasNavMarket;
-          
-          if (isCAS) {
-            console.log('[Portfolio Import] Using CAS Statement Service for parsing');
-            
-            // Parse using CAS Statement Service (includes tiered fallback)
-            const casResult = await casStatementService.parseStatement(text);
-            
-            if (!casResult.success || casResult.holdings.length === 0) {
-              return res.json({
-                success: false,
-                error: 'No holdings found in CAS statement',
-                errors: casResult.warnings || ['Failed to parse CAS statement']
-              });
-            }
-            
-            // Transform CAS holdings to expected format
-            const holdings = casResult.holdings.map((h, idx) => ({
-              id: `cas-${idx}-${Date.now()}`,
-              name: h.schemeName || 'Unknown Fund',
-              symbol: '',
-              isin: h.isin || '',
-              quantity: h.unitBalance || 0,
-              averagePrice: h.avgCostPerUnit || 0,
-              investedValue: h.costValue || 0,
-              currentValue: h.marketValue || 0,
-              currentNav: h.nav || 0,
-              unrealizedGain: h.unrealizedGain || 0,
-              unrealizedGainPercent: h.unrealizedGainPercent || 0,
-              assetType: 'mutual_fund',
-              folioNumber: h.folioNumber || '',
-              confidenceScore: h.confidenceScore || 90,
-              broker: 'CAMS/KFintech CAS',
-              // Include first purchase date from CAS parsing
-              firstPurchaseDate: h.firstPurchaseDate || '',
-              // AUTHORITATIVE FIX: Lots flow directly from CAS parser (not derived from transactions)
-              // Each lot has mandatory transactionDate - the legally distinct tax lot
-              lots: h.lots?.map(lot => ({
-                purchaseDate: lot.transactionDate.toISOString().split('T')[0],
-                transactionType: lot.transactionType,
-                amount: lot.amount,
-                units: lot.units,
-                nav: lot.nav,
-                cost: lot.amount,
-                remainingUnits: lot.units,
-                description: lot.description || ''
-              })) || [],
-              // Lot summary for UI (e.g., "2 purchase lots", "14 SIP lots")
-              lotSummary: h.lotSummary || '',
-              lotCount: h.lotCount || 0,
-              // All transactions for reference
-              transactions: h.transactions?.map(t => ({
-                date: t.transactionDate,
-                transactionType: t.transactionType,
-                amount: t.amount,
-                units: t.units,
-                nav: t.nav,
-                balance: t.balance,
-                description: t.description,
-                isCredit: t.isCredit
-              })) || [],
-              // Derived values (computed from lots, not primary truth)
-              derived: {
-                totalUnits: h.unitBalance,
-                avgPrice: h.avgCostPerUnit || 0,
-                marketValue: h.marketValue
-              },
-              // Include tier information for UI display
-              holdingTier: h.holdingTier,
-              eligibleForTax: h.eligibleForTax,
-              tierWarnings: h.tierWarnings
-            }));
-            
-            // STEP 2 (FIX SPEC): HARD FAIL if lots are dropped for HIGH confidence holdings
-            // This surfaces where the pipeline is broken immediately
-            const holdingsWithMissingLots = holdings.filter(h => {
-              const tier = (h as any).holdingTier || 'FULL';
-              // HIGH confidence Tier 1 holdings MUST have lots
-              return tier === 'FULL' && (!h.lots || h.lots.length === 0);
-            });
-            
-            if (holdingsWithMissingLots.length > 0) {
-              console.error(`[CAS Import] CRITICAL: ${holdingsWithMissingLots.length} HIGH confidence holdings have no lots`);
-              holdingsWithMissingLots.forEach(h => {
-                console.error(`  - ${h.name} (ISIN: ${h.isin}, Folio: ${h.folioNumber})`);
-              });
-              // Don't throw, but flag as warning for the user to see
-            }
-            
-            // STEP 5 (FIX SPEC): Track holdings with missing dates for save blocker
-            const holdingsWithoutDates = holdings.filter(h => !h.lots || h.lots.length === 0);
-            const hasDateWarning = holdingsWithoutDates.length > 0;
-            
-            const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
-            const totalInvested = holdings.reduce((sum, h) => sum + h.investedValue, 0);
-            const fundsCount = holdings.length;
-            
-            // Count by tier for summary
-            const tierCounts = { FULL: 0, VALUATION_ONLY: 0, SUMMARY_PLACEHOLDER: 0 };
-            holdings.forEach(h => {
-              const tier = (h as any).holdingTier || 'FULL';
-              tierCounts[tier as keyof typeof tierCounts]++;
-            });
-            
-            // Count holdings by lot status for acceptance check
-            const lotCounts = {
-              withLots: holdings.filter(h => h.lots && h.lots.length > 0).length,
-              withMultipleLots: holdings.filter(h => h.lots && h.lots.length > 1).length,
-              withoutLots: holdingsWithoutDates.length
-            };
-            
-            const importSummary = `${fundsCount} mutual fund${fundsCount > 1 ? 's' : ''} imported (${tierCounts.FULL} with full data${tierCounts.SUMMARY_PLACEHOLDER > 0 ? `, ${tierCounts.SUMMARY_PLACEHOLDER} placeholders` : ''}). Current value calculated using today's NAV from FintekPro database.`;
-            
-            return res.json({
-              success: true,
-              holdings,
-              brokerDetected: 'CAMS/KFintech CAS',
-              confidenceScore: casResult.confidence,
-              totalValue,
-              totalInvested,
-              holdingsCount: fundsCount,
-              importSummary,
-              reconciliation: casResult.reconciliation,
-              tierBreakdown: tierCounts,
-              // STEP 5: Include date warning flag for UI blocker
-              lotCounts,
-              hasDateWarning,
-              dateWarningMessage: hasDateWarning 
-                ? `${holdingsWithoutDates.length} holdings have no transaction dates. Tax and exit-load calculations will be disabled for these.`
-                : null
-            });
-          }
-        } catch (casError: any) {
-          console.error('[Portfolio Import] CAS Statement Service error, falling back:', casError.message);
-          // Fall through to legacy parser
-        }
-      }
-      
-      // Fallback: Parse using legacy parser for non-CAS or if CAS parsing fails
-      const parseResult = await parsePDFPortfolio(req.file.buffer, req.file.originalname);
-      
-      if (!parseResult.success || parseResult.holdings.length === 0) {
+
+      console.log('[Portfolio Import] Using unified service for parse-cas:', req.file.originalname);
+      const importResult = await unifiedPortfolioImportService.importFromPDF(req.file.buffer, req.file.originalname);
+
+      if (!importResult.success || importResult.holdings.length === 0) {
         return res.json({
           success: false,
-          error: parseResult.errors?.[0] || 'No holdings found in the PDF',
-          errors: parseResult.errors
+          error: 'No holdings found in the statement',
+          errors: importResult.errors.length > 0 ? importResult.errors : ['Failed to parse statement']
         });
       }
-      
-      // Transform holdings to expected format with confidence scores and transaction lots
-      const holdings = parseResult.holdings.map((h, idx) => ({
-        id: `cas-${idx}-${Date.now()}`,
+
+      try {
+        assertLotsNotDropped(importResult.holdings);
+      } catch (lotsError: any) {
+        console.error('[Portfolio Import] CRITICAL:', lotsError.message);
+      }
+
+      const holdings = importResult.holdings.map((h, idx) => ({
+        id: h.id || `cas-${idx}-${Date.now()}`,
         name: h.name || 'Unknown Fund',
         symbol: h.symbol || '',
         isin: h.isin || '',
         quantity: h.quantity || 0,
-        averagePrice: h.averageCost || 0,
+        averagePrice: h.avgCostPerUnit || 0,
         investedValue: h.investedValue || 0,
         currentValue: h.currentValue || 0,
         currentNav: h.currentNav || 0,
@@ -794,33 +633,52 @@ router.post(
         assetType: h.assetType || 'mutual_fund',
         folioNumber: h.folioNumber || '',
         confidenceScore: h.confidenceScore || 85,
-        broker: parseResult.brokerDetected || (statementType === 'cas' ? 'CAMS/KFintech' : 'NSDL/CDSL'),
-        // Include purchase date from PDF parser
-        purchaseDate: h.purchaseDate || '',
-        transactionLots: h.lots || []
+        broker: h.broker || importResult.brokerDetected || 'Unknown',
+        firstPurchaseDate: h.firstPurchaseDate || h.purchaseDate || '',
+        lots: h.lots || [],
+        lotSummary: h.lotSummary || '',
+        lotCount: h.lotCount || 0,
+        transactions: h.transactions || [],
+        derived: {
+          totalUnits: h.quantity,
+          avgPrice: h.avgCostPerUnit || 0,
+          marketValue: h.currentValue
+        },
+        holdingTier: h.holdingTier || 'FULL',
+        eligibleForTax: h.eligibleForTax !== false,
+        tierWarnings: h.tierWarnings || []
       }));
-      
+
       const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
-      const totalInvested = holdings.reduce((sum, h) => sum + (h.investedValue || 0), 0);
+      const totalInvested = holdings.reduce((sum, h) => sum + h.investedValue, 0);
       const fundsCount = holdings.length;
-      
-      // Generate import summary message
-      const importSummary = `${fundsCount} mutual fund${fundsCount > 1 ? 's' : ''} imported. Current value calculated using today's NAV from FintekPro database.`;
-      
+      const tierBreakdown = importResult.tierBreakdown || { FULL: fundsCount, VALUATION_ONLY: 0, SUMMARY_PLACEHOLDER: 0 };
+      const lotCounts = importResult.lotCounts || { withLots: 0, withMultipleLots: 0, withoutLots: fundsCount };
+      const hasDateWarning = lotCounts.withoutLots > 0;
+
+      const importSummary = `${fundsCount} mutual fund${fundsCount > 1 ? 's' : ''} imported (${tierBreakdown.FULL} with full data${tierBreakdown.SUMMARY_PLACEHOLDER > 0 ? `, ${tierBreakdown.SUMMARY_PLACEHOLDER} placeholders` : ''}). Current value calculated using today's NAV from FintekPro database.`;
+
       res.json({
         success: true,
         holdings,
-        brokerDetected: parseResult.brokerDetected || (statementType === 'cas' ? 'CAMS/KFintech CAS' : 'NSDL/CDSL Demat'),
-        confidenceScore: parseResult.confidenceScore,
-        totalValue: totalValue,
-        totalInvested: totalInvested,
+        brokerDetected: importResult.brokerDetected || 'Unknown',
+        confidenceScore: importResult.confidenceScore,
+        totalValue,
+        totalInvested,
         holdingsCount: fundsCount,
-        importSummary: importSummary
+        importSummary,
+        reconciliation: importResult.reconciliation,
+        tierBreakdown,
+        lotCounts,
+        hasDateWarning,
+        dateWarningMessage: hasDateWarning
+          ? `${lotCounts.withoutLots} holdings have no transaction dates. Tax and exit-load calculations will be disabled for these.`
+          : null
       });
     } catch (error: any) {
       console.error('CAS parsing error:', error);
-      res.status(500).json({ 
-        success: false, 
+      res.status(500).json({
+        success: false,
         error: error.message || 'Failed to parse statement',
         errors: [error.message || 'Unknown error']
       });

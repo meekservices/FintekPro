@@ -89,6 +89,42 @@ export interface UnifiedHolding {
   instrumentType?: string;
   regulator?: string;
   isEdgeCase?: boolean;
+
+  lots?: Array<{
+    transactionDate?: string;
+    transactionDateStr?: string;
+    transactionType?: string;
+    amount?: number;
+    units?: number;
+    nav?: number;
+    cost?: number;
+    remainingUnits?: number;
+    description?: string;
+    purchaseDate?: string;
+    quantity?: number;
+    purchaseNav?: number;
+    purchaseValue?: number;
+    source?: string;
+    status?: string;
+  }>;
+  lotCount?: number;
+  lotSummary?: string;
+
+  transactions?: Array<{
+    date?: string;
+    transactionType?: string;
+    amount?: number;
+    units?: number;
+    nav?: number;
+    balance?: number;
+    description?: string;
+    isCredit?: boolean;
+  }>;
+
+  holdingTier?: 'FULL' | 'VALUATION_ONLY' | 'SUMMARY_PLACEHOLDER';
+  eligibleForTax?: boolean;
+  tierWarnings?: string[];
+  firstPurchaseDate?: string;
 }
 
 export interface UnifiedTransaction {
@@ -174,6 +210,22 @@ export interface UnifiedImportResult {
   needsManualReview?: boolean;
   
   capturedAt: string;
+
+  reconciliation?: {
+    passed: boolean;
+    parsedTotal: number;
+    expectedTotal: number;
+    delta: number;
+    deltaPercent: number;
+    message: string;
+  };
+  portfolioSummary?: {
+    entries: Array<{ amcName: string; costValue: number; marketValue: number }>;
+    totalCostValue: number;
+    totalMarketValue: number;
+  };
+  tierBreakdown?: { FULL: number; VALUATION_ONLY: number; SUMMARY_PLACEHOLDER: number };
+  lotCounts?: { withLots: number; withMultipleLots: number; withoutLots: number };
 }
 
 export interface PortfolioStorageOptions {

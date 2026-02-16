@@ -18,8 +18,7 @@ import { schemeGovernanceService } from "../services/scheme-governance-service";
 import { z } from "zod";
 import { ZohoCRMService } from "../zoho/services/crm";
 import { ZohoConnectionResolver } from "../zoho/connection-resolver";
-import { casStatementService } from "../services/cas-statement-service";
-import { unifiedPDFParser } from "../services/unified-pdf-parser";
+import { unifiedPortfolioImportService } from "../services/unified-portfolio-import-service";
 import { assertLotsNotDropped } from "../services/holding-transformer";
 import { requireAuth, requireRole } from "../middleware/roleMiddleware";
 import { prospectReadinessService } from "../services/prospect-readiness-service";
@@ -2734,58 +2733,32 @@ router.post("/unlisted-stocks/populate-sectors", async (req: Request, res: Respo
 });
 
 /**
- * CRITICAL FIX: Add missing /portfolio/parse-cas endpoint
- * This endpoint was being called by the UI but didn't exist!
- * This is the root cause of all CAS import failures.
- * 
- * This endpoint:
- * 1. Parses CAS PDF using casStatementService
- * 2. Returns holdings with LOTS as first-class entities
- * 3. Includes transactionDate/transactionDateStr for each lot
- * 4. Hard fails if lots are dropped (prevents silent data loss)
+ * Unified CAS/PDF parsing endpoint
+ * Routes through UnifiedPortfolioImportService which auto-detects CAS vs broker PDF
+ * Returns holdings with LOTS as first-class entities for proposal builder
  */
 router.post(
   "/portfolio/parse-cas",
   upload.single('file'),
   async (req: Request, res: Response) => {
     try {
-      console.log('[Agent CAS Parse] LOT-FIRST endpoint hit');
-      
       if (!req.file) {
         return res.status(400).json({ success: false, error: 'No file uploaded' });
       }
-      
-      const type = req.body.type || 'cas';
-      console.log(`[Agent CAS Parse] Parsing ${type} statement:`, req.file.originalname);
-      
-      // Extract text from PDF
-      const parseResult = await unifiedPDFParser.extractTextSafe(req.file.buffer);
-      if (!parseResult.success || !parseResult.result) {
-        return res.status(400).json({ 
-          success: false, 
-          error: parseResult.error || 'Failed to parse PDF file'
-        });
-      }
-      
-      const text = parseResult.result.text;
-      console.log(`[Agent CAS Parse] Extracted ${text.length} chars from PDF`);
-      
-      // Parse using CAS Statement Service
-      const casResult = await casStatementService.parseStatement(text);
-      
-      if (!casResult.success || casResult.holdings.length === 0) {
+
+      console.log('[Agent CAS Parse] Using unified service:', req.file.originalname);
+      const importResult = await unifiedPortfolioImportService.importFromPDF(req.file.buffer, req.file.originalname);
+
+      if (!importResult.success || importResult.holdings.length === 0) {
         return res.json({
           success: false,
-          error: 'No holdings found in CAS statement',
-          errors: casResult.warnings || ['Failed to parse CAS statement']
+          error: 'No holdings found in the statement',
+          errors: importResult.errors.length > 0 ? importResult.errors : ['Failed to parse statement']
         });
       }
-      
-      console.log(`[Agent CAS Parse] Found ${casResult.holdings.length} holdings`);
-      
-      // HARD FAIL if lots are dropped for FULL tier holdings
+
       try {
-        assertLotsNotDropped(casResult.holdings);
+        assertLotsNotDropped(importResult.holdings);
       } catch (lotsError: any) {
         console.error('[Agent CAS Parse] CRITICAL:', lotsError.message);
         return res.status(500).json({
@@ -2794,110 +2767,48 @@ router.post(
           message: 'Transaction rows found in CAS but lost during processing.'
         });
       }
-      
-      // Transform CAS holdings to UI format with LOTS as first-class entities
-      const holdings = casResult.holdings.map((h, idx) => {
-        // Log lot details for debugging
-        if (h.lots && h.lots.length > 0) {
-          console.log(`[Agent CAS Parse] ${h.schemeName}: ${h.lots.length} lots`);
-          h.lots.forEach((lot, i) => {
-            console.log(`  Lot ${i + 1}: ${lot.transactionDate?.toISOString?.() || 'NO DATE'}, ${lot.units} units, ${lot.transactionType}`);
-          });
-        }
-        
-        return {
-          id: `cas-${idx}-${Date.now()}`,
-          name: h.schemeName || 'Unknown Fund',
-          productName: h.schemeName || 'Unknown Fund',
-          symbol: '',
-          isin: h.isin || '',
-          quantity: h.unitBalance || 0,
-          units: h.unitBalance || 0,
-          averagePrice: h.avgCostPerUnit || 0,
-          averageCost: h.avgCostPerUnit || 0,
-          investedValue: h.costValue || 0,
-          currentValue: h.marketValue || 0,
-          currentNav: h.nav || 0,
-          nav: h.nav || 0,
-          unrealizedGain: h.unrealizedGain || 0,
-          unrealizedGainPercent: h.unrealizedGainPercent || 0,
-          assetType: 'mutual_fund',
-          productType: 'mutual_fund',
-          folioNumber: h.folioNumber || '',
-          folio: h.folioNumber || '',
-          amc: h.amc || '',
-          confidenceScore: h.confidenceScore || 90,
-          broker: 'CAMS/KFintech CAS',
-          
-          // AUTHORITATIVE FIX: Lots with transactionDate as first-class field
-          lots: h.lots?.map(lot => ({
-            transactionDate: lot.transactionDate instanceof Date 
-              ? lot.transactionDate.toISOString() 
-              : lot.transactionDate,
-            transactionDateStr: lot.transactionDate instanceof Date 
-              ? lot.transactionDate.toISOString().split('T')[0]
-              : (typeof lot.transactionDate === 'string' ? lot.transactionDate.split('T')[0] : ''),
-            transactionType: lot.transactionType,
-            amount: lot.amount,
-            units: lot.units,
-            nav: lot.nav,
-            cost: lot.amount,
-            remainingUnits: lot.units,
-            description: lot.description || '',
-            // Legacy field for backward compatibility
-            purchaseDate: lot.transactionDate instanceof Date 
-              ? lot.transactionDate.toISOString().split('T')[0]
-              : lot.transactionDate
-          })) || [],
-          
-          // Lot summary for UI display
-          lotSummary: h.lotSummary || `${h.lots?.length || 0} lot${(h.lots?.length || 0) !== 1 ? 's' : ''}`,
-          lotCount: h.lotCount || h.lots?.length || 0,
-          
-          // Tier information
-          holdingTier: h.holdingTier || 'FULL',
-          eligibleForTax: h.eligibleForTax !== false,
-          tierWarnings: h.tierWarnings || [],
-          
-          // First purchase date (for display only, NOT for tax)
-          firstPurchaseDate: h.firstPurchaseDate || '',
-          
-          // All transactions for reference
-          transactions: h.transactions?.map(t => ({
-            date: t.transactionDate,
-            transactionType: t.transactionType,
-            amount: t.amount,
-            units: t.units,
-            nav: t.nav,
-            balance: t.balance,
-            description: t.description,
-            isCredit: t.isCredit
-          })) || []
-        };
-      });
-      
-      // Summary stats - USE CAS PORTFOLIO SUMMARY as authoritative source
-      // Recalculated values can be inflated due to parsing issues, so trust the PDF's stated totals
+
+      const holdings = importResult.holdings.map((h, idx) => ({
+        id: h.id || `cas-${idx}-${Date.now()}`,
+        name: h.name || 'Unknown Fund',
+        productName: h.name || 'Unknown Fund',
+        symbol: h.symbol || '',
+        isin: h.isin || '',
+        quantity: h.quantity || 0,
+        units: h.quantity || 0,
+        averagePrice: h.avgCostPerUnit || 0,
+        averageCost: h.avgCostPerUnit || 0,
+        investedValue: h.investedValue || 0,
+        currentValue: h.currentValue || 0,
+        currentNav: h.currentNav || 0,
+        nav: h.currentNav || 0,
+        unrealizedGain: h.unrealizedGain || 0,
+        unrealizedGainPercent: h.unrealizedGainPercent || 0,
+        assetType: h.assetType || 'mutual_fund',
+        productType: h.assetType || 'mutual_fund',
+        folioNumber: h.folioNumber || '',
+        folio: h.folioNumber || '',
+        amc: h.amcName || '',
+        confidenceScore: h.confidenceScore || 90,
+        broker: h.broker || importResult.brokerDetected || 'Unknown',
+        lots: h.lots || [],
+        lotSummary: h.lotSummary || `${h.lotCount || 0} lot${(h.lotCount || 0) !== 1 ? 's' : ''}`,
+        lotCount: h.lotCount || 0,
+        holdingTier: h.holdingTier || 'FULL',
+        eligibleForTax: h.eligibleForTax !== false,
+        tierWarnings: h.tierWarnings || [],
+        firstPurchaseDate: h.firstPurchaseDate || h.purchaseDate || '',
+        transactions: h.transactions || []
+      }));
+
       const calculatedValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
       const calculatedInvested = holdings.reduce((sum, h) => sum + h.investedValue, 0);
       const totalLots = holdings.reduce((sum, h) => sum + (h.lots?.length || 0), 0);
-      
-      // Use authoritative values from CAS Portfolio Summary (the actual PDF totals)
-      const authoritativeMarketValue = casResult.portfolioSummary?.totalMarketValue || calculatedValue;
-      const authoritativeCostValue = casResult.portfolioSummary?.totalCostValue || calculatedInvested;
-      
-      // Log discrepancy for debugging
-      if (casResult.portfolioSummary) {
-        const valueDelta = Math.abs(calculatedValue - authoritativeMarketValue);
-        const deltaPercent = (valueDelta / authoritativeMarketValue) * 100;
-        if (deltaPercent > 0.5) {
-          console.log(`[Agent CAS Parse] VALUE DISCREPANCY: Calculated ₹${(calculatedValue / 100000).toFixed(2)} L vs CAS Summary ₹${(authoritativeMarketValue / 100000).toFixed(2)} L (${deltaPercent.toFixed(2)}% delta)`);
-          console.log(`[Agent CAS Parse] Using authoritative CAS Portfolio Summary value for display`);
-        }
-      }
-      
-      console.log(`[Agent CAS Parse] SUCCESS: ${holdings.length} holdings, ${totalLots} lots total, Value: ₹${(authoritativeMarketValue / 100000).toFixed(2)} L`);
-      
+      const authoritativeMarketValue = importResult.portfolioSummary?.totalMarketValue || calculatedValue;
+      const authoritativeCostValue = importResult.portfolioSummary?.totalCostValue || calculatedInvested;
+
+      console.log(`[Agent CAS Parse] SUCCESS: ${holdings.length} holdings, ${totalLots} lots, Value: ₹${(authoritativeMarketValue / 100000).toFixed(2)} L`);
+
       res.json({
         success: true,
         fileName: req.file.originalname,
@@ -2908,20 +2819,18 @@ router.post(
           totalInvested: authoritativeCostValue,
           totalLots,
           unrealizedGain: authoritativeMarketValue - authoritativeCostValue,
-          // Include both for transparency
           calculatedValue,
           calculatedInvested,
           hasReconciliationDelta: Math.abs(calculatedValue - authoritativeMarketValue) > (authoritativeMarketValue * 0.005)
         },
-        investor: casResult.investor,
-        brokerDetected: 'CAMS/KFintech CAS',
-        warnings: casResult.warnings || []
+        investor: importResult.investor,
+        brokerDetected: importResult.brokerDetected || 'Unknown',
+        warnings: importResult.warnings || []
       });
-      
     } catch (error: any) {
       console.error('[Agent CAS Parse] Error:', error);
-      res.status(500).json({ 
-        success: false, 
+      res.status(500).json({
+        success: false,
         error: error.message || 'Failed to parse CAS statement'
       });
     }
