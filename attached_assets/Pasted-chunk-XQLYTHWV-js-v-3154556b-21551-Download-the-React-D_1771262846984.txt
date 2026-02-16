@@ -1,0 +1,57 @@
+chunk-XQLYTHWV.js?v=3154556b:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:42 [PWA] Service Worker registered: https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/
+(index):1 Unchecked runtime.lastError: The message port closed before a response was received.
+queryClient.ts:268  GET https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/portfolios/by-pan 400 (Bad Request)
+(anonymous) @ queryClient.ts:268
+fetchFn @ @tanstack_react-query.js?v=3154556b:840
+run @ @tanstack_react-query.js?v=3154556b:494
+start @ @tanstack_react-query.js?v=3154556b:536
+fetch @ @tanstack_react-query.js?v=3154556b:926
+executeFetch_fn @ @tanstack_react-query.js?v=3154556b:2211
+onSubscribe @ @tanstack_react-query.js?v=3154556b:1898
+subscribe @ @tanstack_react-query.js?v=3154556b:24
+(anonymous) @ @tanstack_react-query.js?v=3154556b:3022
+subscribeToStore @ chunk-XQLYTHWV.js?v=3154556b:11984
+commitHookEffectListMount @ chunk-XQLYTHWV.js?v=3154556b:16915
+commitPassiveMountOnFiber @ chunk-XQLYTHWV.js?v=3154556b:18156
+commitPassiveMountEffects_complete @ chunk-XQLYTHWV.js?v=3154556b:18129
+commitPassiveMountEffects_begin @ chunk-XQLYTHWV.js?v=3154556b:18119
+commitPassiveMountEffects @ chunk-XQLYTHWV.js?v=3154556b:18109
+flushPassiveEffectsImpl @ chunk-XQLYTHWV.js?v=3154556b:19490
+flushPassiveEffects @ chunk-XQLYTHWV.js?v=3154556b:19447
+(anonymous) @ chunk-XQLYTHWV.js?v=3154556b:19328
+workLoop @ chunk-XQLYTHWV.js?v=3154556b:197
+flushWork @ chunk-XQLYTHWV.js?v=3154556b:176
+performWorkUntilDeadline @ chunk-XQLYTHWV.js?v=3154556b:384
+queryClient.ts:268  GET https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/portfolios/by-pan 400 (Bad Request)
+(anonymous) @ queryClient.ts:268
+fetchFn @ @tanstack_react-query.js?v=3154556b:840
+run @ @tanstack_react-query.js?v=3154556b:494
+start @ @tanstack_react-query.js?v=3154556b:536
+fetch @ @tanstack_react-query.js?v=3154556b:926
+executeFetch_fn @ @tanstack_react-query.js?v=3154556b:2211
+onSubscribe @ @tanstack_react-query.js?v=3154556b:1898
+subscribe @ @tanstack_react-query.js?v=3154556b:24
+(anonymous) @ @tanstack_react-query.js?v=3154556b:3022
+subscribeToStore @ chunk-XQLYTHWV.js?v=3154556b:11984
+commitHookEffectListMount @ chunk-XQLYTHWV.js?v=3154556b:16915
+commitPassiveMountOnFiber @ chunk-XQLYTHWV.js?v=3154556b:18156
+commitPassiveMountEffects_complete @ chunk-XQLYTHWV.js?v=3154556b:18129
+commitPassiveMountEffects_begin @ chunk-XQLYTHWV.js?v=3154556b:18119
+commitPassiveMountEffects @ chunk-XQLYTHWV.js?v=3154556b:18109
+flushPassiveEffectsImpl @ chunk-XQLYTHWV.js?v=3154556b:19490
+flushPassiveEffects @ chunk-XQLYTHWV.js?v=3154556b:19447
+commitRootImpl @ chunk-XQLYTHWV.js?v=3154556b:19416
+commitRoot @ chunk-XQLYTHWV.js?v=3154556b:19277
+performSyncWorkOnRoot @ chunk-XQLYTHWV.js?v=3154556b:18895
+flushSyncCallbacks @ chunk-XQLYTHWV.js?v=3154556b:9119
+(anonymous) @ chunk-XQLYTHWV.js?v=3154556b:18627
+holdings:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+holdings:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+holdings:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+holdings:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+holdings:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+holdings:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+holdings:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+holdings:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+holdings:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
