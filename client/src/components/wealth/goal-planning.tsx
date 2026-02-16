@@ -488,9 +488,9 @@ export function GoalPlanning() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${
-                      goal.priority === 'high' ? 'bg-red-100 text-red-600' :
-                      goal.priority === 'medium' ? 'bg-yellow-100 text-yellow-600' :
-                      'bg-green-100 text-green-600'
+                      goal.priority === 'high' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
+                      goal.priority === 'medium' ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                      'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
                     }`}>
                       <Icon className="w-5 h-5" />
                     </div>
@@ -548,18 +548,18 @@ export function GoalPlanning() {
 
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-blue-600" />
+                    <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     <span className="text-sm font-medium">Recommended Monthly SIP</span>
                   </div>
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <p className="text-lg font-bold text-blue-600">{formatCurrency(goal.monthlyContribution)}</p>
-                    <p className="text-xs text-blue-600">Based on 12% expected returns</p>
+                  <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg">
+                    <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{formatCurrency(goal.monthlyContribution)}</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400">Based on 12% expected returns</p>
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <PieChart className="w-4 h-4 text-green-600" />
+                    <PieChart className="w-4 h-4 text-green-600 dark:text-green-400" />
                     <span className="text-sm font-medium">Investment Recommendations</span>
                   </div>
                   <div className="flex flex-wrap gap-1">
@@ -585,24 +585,24 @@ export function GoalPlanning() {
       <Card data-testid="card-goal-summary">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Target className="w-5 h-5 text-blue-600" />
+            <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             Goal Planning Summary
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center">
-              <p className="text-2xl font-bold text-blue-600">{goals.length}</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{goals.length}</p>
               <p className="text-sm text-muted-foreground">Total Goals</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {formatCurrency(goals.reduce((sum, goal) => sum + goal.targetAmount, 0))}
               </p>
               <p className="text-sm text-muted-foreground">Total Target Amount</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-orange-600">
+              <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                 {formatCurrency(goals.reduce((sum, goal) => sum + goal.monthlyContribution, 0))}
               </p>
               <p className="text-sm text-muted-foreground">Monthly Investment Needed</p>
@@ -612,38 +612,38 @@ export function GoalPlanning() {
       </Card>
 
       {/* Premium Investment Allocation Guidance */}
-      <Card data-testid="card-premium-allocation-guidance" className="bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200">
+      <Card data-testid="card-premium-allocation-guidance" className="bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200 dark:from-purple-950/30 dark:to-indigo-950/30 dark:border-purple-800">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-purple-900">
-            <Star className="w-5 h-5 text-purple-600" />
+          <CardTitle className="flex items-center gap-2 text-purple-900 dark:text-purple-100">
+            <Star className="w-5 h-5 text-purple-600 dark:text-purple-400" />
             Premium Investment Allocation by Objective
           </CardTitle>
-          <CardDescription className="text-purple-700">
+          <CardDescription className="text-purple-700 dark:text-purple-300">
             Optimize your goal achievement with strategic premium investment allocations
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Retirement Planning */}
-            <Card className="border-green-200 bg-green-50">
+            <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
               <CardContent className="p-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-green-600" />
-                    <h4 className="font-semibold text-green-900">Retirement Planning</h4>
+                    <Shield className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <h4 className="font-semibold text-green-900 dark:text-green-100">Retirement Planning</h4>
                   </div>
                   <div className="space-y-2">
                     <div className="text-sm">
-                      <p className="font-medium text-green-800">Optimal Allocation:</p>
-                      <ul className="text-green-700 space-y-1 ml-4">
+                      <p className="font-medium text-green-800 dark:text-green-200">Optimal Allocation:</p>
+                      <ul className="text-green-700 dark:text-green-300 space-y-1 ml-4">
                         <li>• 40% REITs/InvITs (steady income)</li>
                         <li>• 30% PMS Conservative</li>
                         <li>• 20% Premium Bonds</li>
                         <li>• 10% Equity Funds</li>
                       </ul>
                     </div>
-                    <div className="bg-green-100 p-3 rounded-lg">
-                      <p className="text-xs text-green-800">
+                    <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-lg">
+                      <p className="text-xs text-green-800 dark:text-green-200">
                         <strong>Target:</strong> ₹2Cr+ corpus<br/>
                         <strong>Timeline:</strong> 15-20 years<br/>
                         <strong>Monthly:</strong> ₹45,000-60,000
@@ -655,25 +655,25 @@ export function GoalPlanning() {
             </Card>
 
             {/* Wealth Creation */}
-            <Card className="border-blue-200 bg-blue-50">
+            <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
               <CardContent className="p-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-blue-600" />
-                    <h4 className="font-semibold text-blue-900">Wealth Creation</h4>
+                    <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100">Wealth Creation</h4>
                   </div>
                   <div className="space-y-2">
                     <div className="text-sm">
-                      <p className="font-medium text-blue-800">Optimal Allocation:</p>
-                      <ul className="text-blue-700 space-y-1 ml-4">
+                      <p className="font-medium text-blue-800 dark:text-blue-200">Optimal Allocation:</p>
+                      <ul className="text-blue-700 dark:text-blue-300 space-y-1 ml-4">
                         <li>• 50% Growth PMS</li>
                         <li>• 25% AIF Category II</li>
                         <li>• 15% International REITs</li>
                         <li>• 10% Tech/Innovation Funds</li>
                       </ul>
                     </div>
-                    <div className="bg-blue-100 p-3 rounded-lg">
-                      <p className="text-xs text-blue-800">
+                    <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
+                      <p className="text-xs text-blue-800 dark:text-blue-200">
                         <strong>Target:</strong> ₹5Cr+ corpus<br/>
                         <strong>Timeline:</strong> 10-15 years<br/>
                         <strong>Monthly:</strong> ₹72,000 (current surplus)
@@ -685,25 +685,25 @@ export function GoalPlanning() {
             </Card>
 
             {/* Income Generation */}
-            <Card className="border-orange-200 bg-orange-50">
+            <Card className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/30">
               <CardContent className="p-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <IndianRupee className="w-5 h-5 text-orange-600" />
-                    <h4 className="font-semibold text-orange-900">Income Generation</h4>
+                    <IndianRupee className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                    <h4 className="font-semibold text-orange-900 dark:text-orange-100">Income Generation</h4>
                   </div>
                   <div className="space-y-2">
                     <div className="text-sm">
-                      <p className="font-medium text-orange-800">Optimal Allocation:</p>
-                      <ul className="text-orange-700 space-y-1 ml-4">
+                      <p className="font-medium text-orange-800 dark:text-orange-200">Optimal Allocation:</p>
+                      <ul className="text-orange-700 dark:text-orange-300 space-y-1 ml-4">
                         <li>• 60% REITs (dividend yield)</li>
                         <li>• 25% Infrastructure InvITs</li>
                         <li>• 10% Premium Corporate Bonds</li>
                         <li>• 5% Dividend-focused PMS</li>
                       </ul>
                     </div>
-                    <div className="bg-orange-100 p-3 rounded-lg">
-                      <p className="text-xs text-orange-800">
+                    <div className="bg-orange-100 dark:bg-orange-900/30 p-3 rounded-lg">
+                      <p className="text-xs text-orange-800 dark:text-orange-200">
                         <strong>Target:</strong> ₹50L-1Cr corpus<br/>
                         <strong>Yield:</strong> 7-9% annually<br/>
                         <strong>Monthly Income:</strong> ₹30,000-75,000
@@ -715,25 +715,25 @@ export function GoalPlanning() {
             </Card>
 
             {/* Real Estate Goals */}
-            <Card className="border-amber-200 bg-amber-50">
+            <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
               <CardContent className="p-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-amber-600" />
-                    <h4 className="font-semibold text-amber-900">Property Purchase</h4>
+                    <Building2 className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                    <h4 className="font-semibold text-amber-900 dark:text-amber-100">Property Purchase</h4>
                   </div>
                   <div className="space-y-2">
                     <div className="text-sm">
-                      <p className="font-medium text-amber-800">Optimal Allocation:</p>
-                      <ul className="text-amber-700 space-y-1 ml-4">
+                      <p className="font-medium text-amber-800 dark:text-amber-200">Optimal Allocation:</p>
+                      <ul className="text-amber-700 dark:text-amber-300 space-y-1 ml-4">
                         <li>• 40% Commercial REITs</li>
                         <li>• 30% Real Estate PMS</li>
                         <li>• 20% Infrastructure InvITs</li>
                         <li>• 10% Large Cap Funds</li>
                       </ul>
                     </div>
-                    <div className="bg-amber-100 p-3 rounded-lg">
-                      <p className="text-xs text-amber-800">
+                    <div className="bg-amber-100 dark:bg-amber-900/30 p-3 rounded-lg">
+                      <p className="text-xs text-amber-800 dark:text-amber-200">
                         <strong>Target:</strong> ₹1Cr+ property<br/>
                         <strong>Timeline:</strong> 7-10 years<br/>
                         <strong>Leverage:</strong> Real estate expertise
@@ -745,25 +745,25 @@ export function GoalPlanning() {
             </Card>
 
             {/* Education Planning */}
-            <Card className="border-purple-200 bg-purple-50">
+            <Card className="border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-950/30">
               <CardContent className="p-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <GraduationCap className="w-5 h-5 text-purple-600" />
-                    <h4 className="font-semibold text-purple-900">Education Planning</h4>
+                    <GraduationCap className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                    <h4 className="font-semibold text-purple-900 dark:text-purple-100">Education Planning</h4>
                   </div>
                   <div className="space-y-2">
                     <div className="text-sm">
-                      <p className="font-medium text-purple-800">Optimal Allocation:</p>
-                      <ul className="text-purple-700 space-y-1 ml-4">
+                      <p className="font-medium text-purple-800 dark:text-purple-200">Optimal Allocation:</p>
+                      <ul className="text-purple-700 dark:text-purple-300 space-y-1 ml-4">
                         <li>• 40% Education-focused PMS</li>
                         <li>• 30% International Funds</li>
                         <li>• 20% REITs (stability)</li>
                         <li>• 10% Child Education Plans</li>
                       </ul>
                     </div>
-                    <div className="bg-purple-100 p-3 rounded-lg">
-                      <p className="text-xs text-purple-800">
+                    <div className="bg-purple-100 dark:bg-purple-900/30 p-3 rounded-lg">
+                      <p className="text-xs text-purple-800 dark:text-purple-200">
                         <strong>Target:</strong> ₹50L-1Cr corpus<br/>
                         <strong>Timeline:</strong> 10-18 years<br/>
                         <strong>Focus:</strong> Global education access
@@ -775,25 +775,25 @@ export function GoalPlanning() {
             </Card>
 
             {/* Ultra HNI Goals */}
-            <Card className="border-indigo-200 bg-indigo-50">
+            <Card className="border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-950/30">
               <CardContent className="p-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <Crown className="w-5 h-5 text-indigo-600" />
-                    <h4 className="font-semibold text-indigo-900">Ultra HNI Portfolio</h4>
+                    <Crown className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    <h4 className="font-semibold text-indigo-900 dark:text-indigo-100">Ultra HNI Portfolio</h4>
                   </div>
                   <div className="space-y-2">
                     <div className="text-sm">
-                      <p className="font-medium text-indigo-800">Optimal Allocation:</p>
-                      <ul className="text-indigo-700 space-y-1 ml-4">
+                      <p className="font-medium text-indigo-800 dark:text-indigo-200">Optimal Allocation:</p>
+                      <ul className="text-indigo-700 dark:text-indigo-300 space-y-1 ml-4">
                         <li>• 40% AIF Category III</li>
                         <li>• 30% Multi-Manager PMS</li>
                         <li>• 20% Global REITs/InvITs</li>
                         <li>• 10% Alternative Investments</li>
                       </ul>
                     </div>
-                    <div className="bg-indigo-100 p-3 rounded-lg">
-                      <p className="text-xs text-indigo-800">
+                    <div className="bg-indigo-100 dark:bg-indigo-900/30 p-3 rounded-lg">
+                      <p className="text-xs text-indigo-800 dark:text-indigo-200">
                         <strong>Target:</strong> ₹10Cr+ portfolio<br/>
                         <strong>Timeline:</strong> Path to ₹1Cr first<br/>
                         <strong>Strategy:</strong> Aggressive wealth multiplication
@@ -806,31 +806,31 @@ export function GoalPlanning() {
           </div>
 
           {/* Current Surplus Integration */}
-          <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
-            <h4 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
+          <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/30 dark:to-blue-950/30 rounded-lg border border-green-200 dark:border-green-800">
+            <h4 className="font-semibold text-green-900 dark:text-green-100 mb-3 flex items-center gap-2">
               <Briefcase className="w-5 h-5" />
               Your ₹72,000 Monthly Surplus Optimization
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               <div className="space-y-2">
-                <h5 className="font-medium text-green-800">🎯 Immediate (0-2 years)</h5>
-                <div className="space-y-1 text-green-700">
+                <h5 className="font-medium text-green-800 dark:text-green-200">🎯 Immediate (0-2 years)</h5>
+                <div className="space-y-1 text-green-700 dark:text-green-300">
                   <div>• ₹20,000 → REITs/InvITs</div>
                   <div>• ₹15,000 → Premium Bonds</div>
                   <div>• ₹10,000 → Emergency fund top-up</div>
                 </div>
               </div>
               <div className="space-y-2">
-                <h5 className="font-medium text-blue-800">📈 Medium-term (2-6 years)</h5>
-                <div className="space-y-1 text-blue-700">
+                <h5 className="font-medium text-blue-800 dark:text-blue-200">📈 Medium-term (2-6 years)</h5>
+                <div className="space-y-1 text-blue-700 dark:text-blue-300">
                   <div>• ₹72,000 → PMS eligibility path</div>
                   <div>• Build ₹50L corpus systematically</div>
                   <div>• Professional portfolio management</div>
                 </div>
               </div>
               <div className="space-y-2">
-                <h5 className="font-medium text-purple-800">🏆 Long-term (6+ years)</h5>
-                <div className="space-y-1 text-purple-700">
+                <h5 className="font-medium text-purple-800 dark:text-purple-200">🏆 Long-term (6+ years)</h5>
+                <div className="space-y-1 text-purple-700 dark:text-purple-300">
                   <div>• ₹72,000 → AIF qualification (₹1Cr)</div>
                   <div>• Alternative investment strategies</div>
                   <div>• Ultra HNI wealth creation</div>
