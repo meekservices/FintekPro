@@ -29,7 +29,7 @@ const SEVERITY_BADGE_VARIANT: Record<string, "destructive" | "secondary" | "outl
 const SEVERITY_COLORS: Record<string, string> = {
   critical: "bg-red-600 text-white",
   error: "bg-orange-500 text-white",
-  warning: "bg-yellow-500 text-black",
+  warning: "bg-yellow-500 text-black dark:text-black",
   info: "bg-blue-500 text-white",
 };
 

@@ -169,7 +169,7 @@ function MarketCapBadge({ category }: { category: string | null }) {
   };
   const displayName = category.includes('Cap') ? category : `${category.charAt(0).toUpperCase() + category.slice(1)} Cap`;
   return (
-    <Badge className={`text-[10px] font-medium border-0 ${colors[category] || 'bg-gray-100 text-gray-700'}`}>
+    <Badge className={`text-[10px] font-medium border-0 ${colors[category] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
       {displayName}
     </Badge>
   );

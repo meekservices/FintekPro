@@ -138,7 +138,7 @@ export default function AIStockPicks() {
     switch (signal) {
       case 'strong_buy': return 'bg-green-600 text-white';
       case 'buy': return 'bg-green-500 text-white';
-      case 'hold': return 'bg-yellow-500 text-black';
+      case 'hold': return 'bg-yellow-500 text-black dark:text-black';
       case 'sell': return 'bg-red-500 text-white';
       case 'strong_sell': return 'bg-red-700 text-white';
       default: return 'bg-muted text-foreground';

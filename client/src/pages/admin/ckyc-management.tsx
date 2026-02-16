@@ -932,7 +932,7 @@ function CkycProviderSettings() {
       case 'digilocker': return <FileText className="h-5 w-5 text-indigo-600" />;
       case 'cersai_reference': return <FileText className="h-5 w-5 text-purple-600" />;
       case 'vkyc': return <Eye className="h-5 w-5 text-indigo-600" />;
-      case 'manual': return <Users className="h-5 w-5 text-gray-600" />;
+      case 'manual': return <Users className="h-5 w-5 text-gray-600 dark:text-gray-400" />;
       default: return <Settings className="h-5 w-5" />;
     }
   };

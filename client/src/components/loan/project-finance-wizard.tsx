@@ -1520,7 +1520,7 @@ export default function ProjectFinanceWizard({ applicationId, loanSubType, onCom
                       NBFC: { label: "NBFCs - RE Specialists", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300" },
                       AIF_PLATFORM: { label: "Private Credit / AIF", color: "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300" },
                     };
-                    const cat = catLabels[category] || { label: category, color: "bg-gray-100 text-gray-800" };
+                    const cat = catLabels[category] || { label: category, color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200" };
                     return (
                       <div key={category} className="space-y-2">
                         <div className="flex items-center gap-2">

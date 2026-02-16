@@ -319,7 +319,7 @@ export default function AdminMfBenchmarks() {
     if (source === 'manual') return <Badge className="bg-red-500" title="Manually overridden by admin">🔴 Manual</Badge>;
     if (source === 'amfi') return <Badge className="bg-green-500" title="AMFI explicit benchmark">🟢 AMFI</Badge>;
     if (source === 'bse') return <Badge className="bg-blue-500" title="BSE explicit benchmark">🔵 BSE</Badge>;
-    if (source === 'category') return <Badge className="bg-yellow-500 text-black" title="Category default fallback">🟡 Category</Badge>;
+    if (source === 'category') return <Badge className="bg-yellow-500 text-black dark:text-black" title="Category default fallback">🟡 Category</Badge>;
     return <Badge variant="secondary">{source || 'Auto'}</Badge>;
   };
 

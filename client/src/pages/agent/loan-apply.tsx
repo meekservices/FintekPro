@@ -120,7 +120,7 @@ const statusColors: Record<string, string> = {
 const LEAD_STATUS_FLOW = ["REGISTERED", "LOGGED_IN", "APPROVED", "DISBURSED"];
 
 const LEAD_STATUS_COLORS: Record<string, string> = {
-  REGISTERED: "bg-gray-500/20 text-gray-600 border-gray-500/30",
+  REGISTERED: "bg-gray-500/20 text-gray-600 dark:text-gray-400 border-gray-500/30",
   LOGGED_IN: "bg-blue-500/20 text-blue-600 border-blue-500/30",
   APPROVED: "bg-yellow-500/20 text-yellow-600 border-yellow-500/30",
   DISBURSED: "bg-emerald-500/20 text-emerald-600 border-emerald-500/30",

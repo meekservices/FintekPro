@@ -55,7 +55,7 @@ export function BottomNavLayout({ children }: BottomNavLayoutProps) {
   const [location] = useLocation();
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const { totalItems } = useCart();
 
   const handleLogout = async () => {
@@ -83,10 +83,10 @@ export function BottomNavLayout({ children }: BottomNavLayoutProps) {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
               data-testid="button-theme-toggle"
             >
-              {theme === "dark" ? (
+              {resolvedTheme === "dark" ? (
                 <Sun className="h-5 w-5" />
               ) : (
                 <Moon className="h-5 w-5" />

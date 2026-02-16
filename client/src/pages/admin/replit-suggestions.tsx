@@ -434,7 +434,7 @@ export default function ReplitSuggestions() {
     switch (priority) {
       case "critical": return "bg-red-500 text-white";
       case "high": return "bg-orange-500 text-white";
-      case "medium": return "bg-yellow-500 text-black";
+      case "medium": return "bg-yellow-500 text-black dark:text-black";
       case "low": return "bg-muted text-foreground";
     }
   };
@@ -452,7 +452,7 @@ export default function ReplitSuggestions() {
     switch (level) {
       case "critical": return "bg-red-500 text-white";
       case "high": return "bg-orange-500 text-white";
-      case "medium": return "bg-yellow-500 text-black";
+      case "medium": return "bg-yellow-500 text-black dark:text-black";
       case "low": return "bg-blue-500 text-white";
     }
   };
