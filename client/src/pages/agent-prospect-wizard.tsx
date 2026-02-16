@@ -2392,6 +2392,7 @@ export default function AgentProspectWizard() {
           freshInvestmentAmount,
           customAllocations,
           selectedCategories,
+          investmentGoals: Array.isArray(investmentGoals) ? investmentGoals : [],
           globalAdvisorySelections: hasGlobalAdvisorySelections ? globalAdvisorySelections : undefined,
           globalAdvisoryBudget: hasGlobalAdvisorySelections ? effectiveGlobalBudget : undefined,
           proposalSections,
@@ -6438,22 +6439,22 @@ export default function AgentProspectWizard() {
               <div className="space-y-4">
                 <h4 className="font-medium">Recommended Monthly SIP</h4>
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <p className="text-3xl font-bold text-blue-600">{formatCurrency((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000)}</p>
-                  <p className="text-sm text-muted-foreground">Based on goals & timeline</p>
+                  <p className="text-3xl font-bold text-blue-600">{formatCurrency((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) || 25000)}</p>
+                  <p className="text-sm text-muted-foreground">Based on your goal contributions</p>
                 </div>
                 
                 <div className="space-y-3">
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                     <span className="text-sm">Equity Funds SIP</span>
-                    <span className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 0.6)}</span>
+                    <span className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) || 25000) * 0.6)}</span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                     <span className="text-sm">Debt Funds SIP</span>
-                    <span className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 0.3)}</span>
+                    <span className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) || 25000) * 0.3)}</span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                     <span className="text-sm">Gold/Hybrid SIP</span>
-                    <span className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 0.1)}</span>
+                    <span className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) || 25000) * 0.1)}</span>
                   </div>
                 </div>
               </div>
@@ -6492,15 +6493,15 @@ export default function AgentProspectWizard() {
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div>
                       <p className="text-xs text-muted-foreground">5 Years</p>
-                      <p className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 60 * 1.5)}</p>
+                      <p className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) || 25000) * 60 * 1.5)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">10 Years</p>
-                      <p className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 120 * 2.2)}</p>
+                      <p className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) || 25000) * 120 * 2.2)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">15 Years</p>
-                      <p className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.targetAmount / (g.timelineYears * 12)), 0) || 25000) * 180 * 3.5)}</p>
+                      <p className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) || 25000) * 180 * 3.5)}</p>
                     </div>
                   </div>
                 </div>
@@ -6905,9 +6906,9 @@ export default function AgentProspectWizard() {
             </Button>
             <Button 
               onClick={() => generateProposalMutation.mutate()}
-              disabled={generateProposalMutation.isPending || !readinessData?.readiness?.completedSteps?.includes('Holdings Imported')}
+              disabled={generateProposalMutation.isPending || (!readinessData?.readiness?.completedSteps?.includes('Holdings Imported') && holdings.length === 0)}
               data-testid="generate-proposal-btn"
-              title={!readinessData?.readiness?.completedSteps?.includes('Holdings Imported') ? 'Import holdings to generate proposal' : ''}
+              title={(!readinessData?.readiness?.completedSteps?.includes('Holdings Imported') && holdings.length === 0) ? 'Import holdings to generate proposal' : ''}
             >
               {generateProposalMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               <Sparkles className="h-4 w-4 mr-2" /> Generate Proposal

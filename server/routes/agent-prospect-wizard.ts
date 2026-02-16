@@ -208,6 +208,13 @@ const generateProposalSchema = z.object({
   freshInvestmentAmount: z.number().min(0),
   customAllocations: customAllocationsSchema.optional(),
   selectedCategories: z.array(z.string()).optional(),
+  investmentGoals: z.array(z.object({
+    goalType: z.string(),
+    targetAmount: z.number(),
+    timelineYears: z.number(),
+    monthlyContribution: z.number(),
+    priority: z.string().optional()
+  })).optional(),
   globalAdvisorySelections: globalAdvisorySelectionsSchema,
   proposalSections: proposalSectionsSchema,
   analyticsData: z.any().optional()
@@ -635,7 +642,9 @@ router.post("/generate-proposal", async (req: Request, res: Response) => {
     const data = generateProposalSchema.parse(req.body);
     
     // Gate proposal generation with readiness check
-    if (data.prospectId) {
+    // Allow if holdings are present in the request body (wizard flow) even if DB status hasn't advanced
+    const hasHoldingsInRequest = Array.isArray(data.holdings) && data.holdings.length > 0;
+    if (data.prospectId && !hasHoldingsInRequest) {
       const readinessCheck = await prospectReadinessService.canGenerateProposal(data.prospectId);
       if (!readinessCheck.allowed) {
         return res.status(400).json({ 
@@ -660,7 +669,8 @@ router.post("/generate-proposal", async (req: Request, res: Response) => {
       data.selectedCategories,
       data.globalAdvisorySelections,
       data.proposalSections,
-      data.analyticsData
+      data.analyticsData,
+      data.investmentGoals
     );
     
     res.json({ success: true, proposal });

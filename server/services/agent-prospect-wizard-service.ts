@@ -3401,7 +3401,8 @@ class AgentProspectWizardService {
     selectedCategories?: string[],
     globalAdvisorySelections?: Record<string, string[]>,
     proposalSections?: Record<string, boolean>,
-    analyticsData?: any
+    analyticsData?: any,
+    investmentGoalsInput?: Array<{ goalType: string; targetAmount: number; timelineYears: number; monthlyContribution: number; priority?: string }>
   ): Promise<CombinedProposal> {
     const analysis = this.analyzePortfolio(holdings, riskProfile);
     const rebalancingResult = await this.generateRebalancingRecommendations(
@@ -3543,11 +3544,19 @@ class AgentProspectWizardService {
       projectedValue: String(Math.round(projectedValue)),
       projectedReturns: String(avgReturn),
       riskProfile: riskProfile.riskTolerance,
-      investmentGoals: { 
-        goalType: riskProfile.primaryGoal, 
-        timeHorizon: riskProfile.investmentHorizon,
-        riskTolerance: riskProfile.riskTolerance
-      },
+      investmentGoals: investmentGoalsInput && investmentGoalsInput.length > 0 
+        ? { 
+            goals: investmentGoalsInput,
+            totalMonthlySIP: investmentGoalsInput.reduce((sum, g) => sum + (g.monthlyContribution || 0), 0),
+            goalType: riskProfile.primaryGoal, 
+            timeHorizon: riskProfile.investmentHorizon,
+            riskTolerance: riskProfile.riskTolerance
+          }
+        : { 
+            goalType: riskProfile.primaryGoal, 
+            timeHorizon: riskProfile.investmentHorizon,
+            riskTolerance: riskProfile.riskTolerance
+          },
       globalAdvisorySelections: globalAdvisorySelections || undefined,
       targetAllocation,
       agentName,
