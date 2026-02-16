@@ -23,6 +23,9 @@ import { unifiedPDFParser, type SemanticHolding } from './unified-pdf-parser';
 import { casStatementService, type CASHolding } from './cas-statement-service';
 import { parsePDFPortfolio, parseURLPortfolio, type ImportedHolding } from './portfolio-parser';
 import { WealthyImportService, type WealthyHolding } from './wealthy-import-service';
+import { db } from '../db';
+import { clientAgentRelationships, userNotifications, users } from '@shared/schema';
+import { eq, and } from 'drizzle-orm';
 
 class UnifiedPortfolioImportService {
   private wealthyService: WealthyImportService;
@@ -1148,6 +1151,53 @@ class UnifiedPortfolioImportService {
       ...importResult,
       storageResult
     };
+  }
+
+  async notifyLinkedAgents(userId: string, holdingsCount: number, source: string): Promise<void> {
+    try {
+      const activeRelationships = await db
+        .select({ agentId: clientAgentRelationships.agentId })
+        .from(clientAgentRelationships)
+        .where(and(
+          eq(clientAgentRelationships.clientId, userId),
+          eq(clientAgentRelationships.isActive, true)
+        ));
+
+      if (activeRelationships.length === 0) return;
+
+      const [client] = await db
+        .select({ firstName: users.firstName, lastName: users.lastName })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      const clientName = client
+        ? [client.firstName, client.lastName].filter(Boolean).join(' ') || 'A client'
+        : 'A client';
+
+      const sourceLabel = source === 'cas_statement' ? 'CAS statement'
+        : source === 'wealthy_url' ? 'Wealthy.in'
+        : source === 'broker_pdf' ? 'broker statement'
+        : 'external file';
+
+      for (const rel of activeRelationships) {
+        await db.insert(userNotifications).values({
+          id: crypto.randomUUID(),
+          userId: rel.agentId,
+          type: 'portfolio_import',
+          title: `${clientName} imported a portfolio`,
+          message: `${clientName} uploaded ${holdingsCount} holding${holdingsCount !== 1 ? 's' : ''} from a ${sourceLabel}. Review their portfolio for advisory opportunities.`,
+          actionUrl: `/agent/clients`,
+          priority: 'medium',
+          isRead: false,
+          createdAt: new Date(),
+        });
+      }
+
+      console.log(`[Portfolio Notification] Notified ${activeRelationships.length} agent(s) about ${clientName}'s portfolio import (${holdingsCount} holdings)`);
+    } catch (error) {
+      console.error('[Portfolio Notification] Failed to notify agents:', error);
+    }
   }
 }
 

@@ -476,6 +476,8 @@ router.post('/api/portfolio/import-wealthy', requireAuth, async (req: Request, r
 
     console.log(`[Wealthy Import] Imported ${storageResult.imported} holdings for user ${userId}`);
 
+    unifiedPortfolioImportService.notifyLinkedAgents(userId, storageResult.imported, 'wealthy_url').catch(() => {});
+
     res.json({
       success: true,
       investor: importResult.investor,
@@ -691,6 +693,8 @@ router.post('/api/portfolio/import/save', requireAuth, async (req: Request, res:
       unifiedHoldings,
       { source: source || 'broker_pdf', confidenceScore: 85, replaceExisting: replaceExisting || false }
     );
+
+    unifiedPortfolioImportService.notifyLinkedAgents(userId, unifiedHoldings.length, source || 'broker_pdf').catch(() => {});
 
     res.json({
       success: true,
