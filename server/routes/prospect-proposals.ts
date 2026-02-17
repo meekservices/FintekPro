@@ -16,6 +16,9 @@ import {
 } from "@shared/schema";
 import { eq, desc, and, sql, ilike, or } from "drizzle-orm";
 import { aiRecommendationTrackingService } from "../services/ai-recommendation-tracking-service";
+import { unifiedAIRecommendationEngine } from "../services/unified-ai-recommendation-engine";
+import { riskSuitabilityEngine } from "../services/risk-suitability-engine";
+import { returnForecastingEngine } from "../services/return-forecasting-engine";
 
 async function resolveAgentName(agentId: string | null, agentEmail: string | null): Promise<string | null> {
   if (!agentId) return agentEmail?.split('@')[0] || null;
@@ -420,7 +423,36 @@ function deriveValuationMetrics(product: any, productType: string, returns1Y: nu
   };
 }
 
-// Helper function to generate analytical rationale with metrics
+async function generateAIEnhancedRationale(product: any, productType: string, recommendationType: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH' = 'BUY') {
+  const baseResult = generateAnalyticalRationale(product, productType, recommendationType);
+  
+  try {
+    const productName = product.schemeName || product.name || product.companyName || 'Investment';
+    const returns1Y = parseFloat(product.returns1y || product.return1Y || '0');
+    const category = product.category || productType;
+    
+    const prompt = `Generate a concise 2-sentence investment rationale for ${recommendationType} action on "${productName}" (${productType}, ${category}). 1Y return: ${returns1Y}%, Sharpe: ${baseResult.metrics.sharpeRatio}, Alpha: ${baseResult.metrics.alpha}%, Expense Ratio: ${baseResult.metrics.expenseRatio}%. Keep it professional and SEBI-compliant. No disclaimers.`;
+    
+    const { result, modelUsed } = await unifiedAIRecommendationEngine.runPrompt<string>({
+      prompt,
+      category: productType as any,
+      cacheKey: `proposal-rationale:${productType}:${productName}:${recommendationType}`,
+      cacheTtlMinutes: 60,
+      systemPrompt: 'You are an Indian SEBI-registered investment advisor generating brief, data-driven rationales.',
+      responseParser: (text: string) => text.trim(),
+      fallback: () => baseResult.rationale,
+    });
+    
+    return {
+      ...baseResult,
+      rationale: result || baseResult.rationale,
+      aiModelUsed: modelUsed,
+    };
+  } catch {
+    return baseResult;
+  }
+}
+
 function generateAnalyticalRationale(product: any, productType: string, recommendationType: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH' = 'BUY'): {
   rationale: string;
   metrics: {
@@ -838,10 +870,12 @@ async function buildDynamicRecommendations(options: {
   includeDebt?: boolean;
   includePremium?: boolean;
   includeStocks?: boolean;
-  selectedCategories?: string[]; // Filter by product categories
-  allocations: Record<string, number>; // e.g., { 'Large Cap': 25, 'Mid Cap': 20, 'Debt': 25, 'Stocks': 15 }
+  selectedCategories?: string[];
+  allocations: Record<string, number>;
+  monthlyInvestment?: number;
 }): Promise<any[]> {
-  const { totalAmount, clientType, riskTolerance = 'moderate', includePremium = false, includeStocks = true, selectedCategories, allocations } = options;
+  const { totalAmount, clientType, riskTolerance = 'moderate', includePremium = false, includeStocks = true, selectedCategories, allocations, monthlyInvestment } = options;
+  const hasSIP = typeof monthlyInvestment === 'number' && monthlyInvestment > 0;
   
   // Filter allocations based on selected categories if provided
   const categoryMapping: Record<string, string[]> = {
@@ -934,8 +968,8 @@ async function buildDynamicRecommendations(options: {
       category: fund.category,
       recommendedAmount: Math.round(totalAmount * filteredAllocations['Mid Cap'] / 100),
       allocationPercentage: filteredAllocations['Mid Cap'],
-      investmentType: 'sip',
-      sipAmount: Math.round(totalAmount * filteredAllocations['Mid Cap'] / 100 / 12),
+      investmentType: hasSIP ? 'sip' : 'lumpsum',
+      ...(hasSIP ? { sipAmount: Math.round(monthlyInvestment! * filteredAllocations['Mid Cap'] / 100) } : {}),
       returns1Y: parseFloat(fund.returns1y || '0'),
       returns3Y: parseFloat(fund.returns3y || '0'),
       returns5Y: parseFloat(fund.returns5y || '0'),
@@ -960,8 +994,8 @@ async function buildDynamicRecommendations(options: {
       category: fund.category,
       recommendedAmount: Math.round(totalAmount * filteredAllocations['Flexi Cap'] / 100),
       allocationPercentage: filteredAllocations['Flexi Cap'],
-      investmentType: 'sip',
-      sipAmount: Math.round(totalAmount * filteredAllocations['Flexi Cap'] / 100 / 12),
+      investmentType: hasSIP ? 'sip' : 'lumpsum',
+      ...(hasSIP ? { sipAmount: Math.round(monthlyInvestment! * filteredAllocations['Flexi Cap'] / 100) } : {}),
       returns1Y: parseFloat(fund.returns1y || '0'),
       returns3Y: parseFloat(fund.returns3y || '0'),
       returns5Y: parseFloat(fund.returns5y || '0'),
@@ -1807,24 +1841,20 @@ async function generateExistingPortfolioAnalysis(
       const moderateLoss = gainLossPercent < -5 && gainLossPercent >= -15;
       const strongGain = gainLossPercent > 25;
       
+      const isMutualFund = holding.type === 'mutual_fund' || holding.type === 'mf';
+      
       if (underperforming && significantLoss) {
-        // Severely underperforming with big losses - SELL
         recommendationType = 'SELL';
       } else if (underperforming && moderateLoss) {
-        // Underperforming with moderate loss - consider switching
-        recommendationType = 'SWITCH';
+        recommendationType = isMutualFund ? 'SWITCH' : 'SELL';
       } else if (outperforming && strongGain) {
-        // Strong performer with gains - accumulate more
         recommendationType = 'BUY';
       } else if (outperforming) {
-        // Outperforming - keep holding
         recommendationType = 'HOLD';
       } else if (returns1Y >= benchmarkReturn - 2) {
-        // Meeting benchmark - HOLD
         recommendationType = 'HOLD';
       } else {
-        // Slightly below benchmark - consider switching
-        recommendationType = 'SWITCH';
+        recommendationType = isMutualFund ? 'SWITCH' : 'SELL';
       }
       
       // Create a product-like object for generateAnalyticalRationale
@@ -2004,7 +2034,9 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
         projectedReturns = Math.round(13.5 * config.riskModifier * 10) / 10;
       }
       
-      projectedValue = Math.round(totalValue * Math.pow(1 + projectedReturns/100, 5));
+      const portfolioAsset = { assetId: 'portfolio', assetType: 'mutual_fund' as const, assetName: 'Portfolio', currentValue: totalValue, investedAmount: totalValue, inceptionDate: new Date() };
+      const projections = returnForecastingEngine.generateProjections(portfolioAsset, [5]);
+      projectedValue = projections[0]?.projectedValue || Math.round(totalValue * Math.pow(1 + projectedReturns/100, 5));
 
     } else if (proposalType === 'fresh_investment' && investmentGoals) {
       // Generate recommendations for fresh investment
@@ -2027,9 +2059,16 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
 
       currentAnalysis = `For ${targetAmount ? `a target of ₹${targetAmount.toLocaleString('en-IN')}` : 'your investment goal'}, we recommend a ${riskTolerance === 'aggressive' ? 'growth-oriented' : riskTolerance === 'conservative' ? 'stability-focused' : 'balanced'} approach ${config.toneSuffix}. ${monthlyInvestment ? `Your monthly SIP of ₹${monthlyInvestment.toLocaleString('en-IN')} combined with ` : ''}${lumpsum ? `a lumpsum of ₹${lumpsum.toLocaleString('en-IN')}` : ''} positions you well for long-term wealth creation.`;
 
-      // Different allocations based on risk tolerance with client type modifier
       const adjustedReturns = config.riskModifier;
-      if (riskTolerance === 'aggressive') {
+      const riskScoreMap: Record<string, number> = { conservative: 20, moderate: 45, aggressive: 65, very_aggressive: 85 };
+      const prospectRiskScore = riskScoreMap[riskTolerance || 'moderate'] || 45;
+      
+      const allocationByRisk = riskSuitabilityEngine.getAssetAllocationForRiskScore(prospectRiskScore);
+      
+      if (allocationByRisk) {
+        targetAllocation = allocationByRisk;
+        projectedReturns = Math.round((riskTolerance === 'aggressive' ? 14 : riskTolerance === 'conservative' ? 9 : 11.5) * adjustedReturns * 10) / 10;
+      } else if (riskTolerance === 'aggressive') {
         targetAllocation = { 'Equity': 80, 'Debt': 15, 'Gold': 5 };
         projectedReturns = Math.round(14 * adjustedReturns * 10) / 10;
       } else if (riskTolerance === 'conservative') {
@@ -2054,7 +2093,8 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
           riskTolerance: 'aggressive',
           includePremium: true,
           selectedCategories,
-          allocations: targetAllocation
+          allocations: targetAllocation,
+          monthlyInvestment
         });
         projectedReturns = Math.round(16.5 * adjustedReturns * 10) / 10;
       } else if (clientType === 'corporate') {
@@ -2068,7 +2108,8 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
           riskTolerance: 'conservative',
           includePremium: false,
           selectedCategories,
-          allocations: targetAllocation
+          allocations: targetAllocation,
+          monthlyInvestment
         });
         projectedReturns = Math.round(7.5 * adjustedReturns * 10) / 10;
       } else if (clientType === 'nri') {
@@ -2082,7 +2123,8 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
           riskTolerance: 'moderate',
           includePremium: false,
           selectedCategories,
-          allocations: targetAllocation
+          allocations: targetAllocation,
+          monthlyInvestment
         });
         projectedReturns = Math.round(12.5 * adjustedReturns * 10) / 10;
       } else {
@@ -2102,14 +2144,18 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
           includePremium: false,
           includeStocks: true,
           selectedCategories,
-          allocations: targetAllocation
+          allocations: targetAllocation,
+          monthlyInvestment
         });
         projectedReturns = Math.round((riskTolerance === 'aggressive' ? 14 : riskTolerance === 'conservative' ? 9 : 11.5) * adjustedReturns * 10) / 10;
       }
 
       const yearsMap: Record<string, number> = { short_term: 3, medium_term: 5, long_term: 10 };
       const years = yearsMap[timeHorizon] || 5;
-      projectedValue = Math.round(totalAmount * Math.pow(1 + projectedReturns/100, years));
+      const assetType = riskTolerance === 'aggressive' ? 'equity' as const : riskTolerance === 'conservative' ? 'bond' as const : 'mutual_fund' as const;
+      const freshAsset = { assetId: 'fresh', assetType, assetName: 'Investment', currentValue: totalAmount, investedAmount: totalAmount, inceptionDate: new Date() };
+      const freshProjections = returnForecastingEngine.generateProjections(freshAsset, [years]);
+      projectedValue = freshProjections[0]?.projectedValue || Math.round(totalAmount * Math.pow(1 + projectedReturns/100, years));
     }
 
     // Generate existing portfolio analysis if requested
@@ -2117,6 +2163,20 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
     if (includeExistingPortfolio) {
       existingPortfolioAnalysis = await generateExistingPortfolioAnalysis(prospectPan, prospectEmail, samplePortfolio);
     }
+
+    try {
+      const enriched = await Promise.all(
+        recommendations.slice(0, 5).map(async (rec: any) => {
+          const enhanced = await generateAIEnhancedRationale(
+            { schemeName: rec.productName, name: rec.productName, category: rec.category, returns1y: rec.returns1Y, returns3y: rec.returns3Y, ter: rec.expenseRatio },
+            rec.productType,
+            rec.recommendationType || 'BUY'
+          );
+          return { ...rec, rationale: enhanced.rationale, aiModelUsed: enhanced.aiModelUsed };
+        })
+      );
+      recommendations = [...enriched, ...recommendations.slice(5)];
+    } catch {}
 
     res.json({
       success: true,

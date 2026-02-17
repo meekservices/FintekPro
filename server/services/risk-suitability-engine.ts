@@ -544,6 +544,17 @@ class RiskSuitabilityEngine {
       },
     ];
   }
+  getAssetAllocationForRiskScore(riskScore: number): Record<string, number> {
+    if (riskScore <= 25) {
+      return { 'Debt': 50, 'Large Cap': 15, 'Bonds': 25, 'Gold': 10 };
+    } else if (riskScore <= 50) {
+      return { 'Large Cap': 25, 'Mid Cap': 15, 'Flexi Cap': 10, 'Debt': 25, 'Bonds': 15, 'Gold': 10 };
+    } else if (riskScore <= 75) {
+      return { 'Large Cap': 30, 'Mid Cap': 20, 'Flexi Cap': 15, 'Stocks': 15, 'Debt': 15, 'Bonds': 5 };
+    } else {
+      return { 'Large Cap': 20, 'Mid Cap': 25, 'Flexi Cap': 15, 'Stocks': 25, 'Debt': 10, 'Bonds': 5 };
+    }
+  }
 }
 
 export const riskSuitabilityEngine = RiskSuitabilityEngine.getInstance();
