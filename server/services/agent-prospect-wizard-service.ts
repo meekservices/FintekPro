@@ -3235,8 +3235,31 @@ class AgentProspectWizardService {
     try {
       const potdPicks = await pickOfTheDayService.getLivePicks();
       if (potdPicks && potdPicks.length > 0) {
-        const orchestrated = signalOrchestrator.resolveSignals(recommendations, potdPicks);
-        console.log(`[Signal Orchestrator] Resolved ${orchestrated.length} signals from ${recommendations.length} rebalance + ${potdPicks.length} POTD picks`);
+        // Filter POTD picks to only include selected categories before orchestration
+        let filteredPotdPicks = potdPicks;
+        if (selectedCategories && selectedCategories.length > 0) {
+          const potdCategoryToSelected: Record<string, string[]> = {
+            'listed_stocks': ['listed_stocks'],
+            'mutual_funds': ['equity', 'debt', 'hybrid', 'index_fund'],
+            'bonds': ['bonds'],
+            'unlisted': ['unlisted_stocks'],
+            'global_stocks': ['international', 'us_markets', 'europe_markets', 'asia_pacific_markets', 'emerging_markets'],
+            'etfs': ['etf'],
+            'reits_invits': ['reit', 'invit'],
+            'fixed_deposits': ['debt'],
+            'sgb': ['gold_fof'],
+            'derivatives': ['listed_stocks']
+          };
+          
+          filteredPotdPicks = potdPicks.filter(pick => {
+            const matchingSelectedCats = potdCategoryToSelected[pick.category] || [];
+            return matchingSelectedCats.some(cat => selectedCategories.includes(cat));
+          });
+          console.log(`[Signal Orchestrator] Filtered POTD picks: ${filteredPotdPicks.length}/${potdPicks.length} match selected categories [${selectedCategories.join(', ')}]`);
+        }
+
+        const orchestrated = signalOrchestrator.resolveSignals(recommendations, filteredPotdPicks);
+        console.log(`[Signal Orchestrator] Resolved ${orchestrated.length} signals from ${recommendations.length} rebalance + ${filteredPotdPicks.length} POTD picks`);
         
         const auditEntries = signalOrchestrator.getAuditLog();
         if (auditEntries.length > 0) {
