@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import agentLogoImg from "@assets/fintekpro_agent_1771385897174.png";
 
 interface PortalMeta {
   portal_type: string;
@@ -52,13 +53,51 @@ export function PortalLogo({ className, size = "md", showTagline = false, iconOn
 
   const s = sizeMap[size];
 
+  const customLogoMap: Record<string, string> = {
+    agent: agentLogoImg,
+  };
+  const customLogo = customLogoMap[config.portal_type];
+
   if (iconOnly) {
+    if (customLogo) {
+      return (
+        <img
+          src={customLogo}
+          alt={config.label}
+          className={cn("object-contain rounded-lg", s.icon, className)}
+        />
+      );
+    }
     return (
       <div
         className={cn("rounded-lg flex items-center justify-center font-bold text-white", s.icon, className)}
         style={{ background: `linear-gradient(135deg, ${config.primary_color}, ${config.accent_color})` }}
       >
         <span className={size === "sm" ? "text-xs" : size === "md" ? "text-sm" : "text-base"}>FP</span>
+      </div>
+    );
+  }
+
+  if (customLogo) {
+    const imgSizeMap = {
+      sm: "h-8",
+      md: "h-10",
+      lg: "h-14",
+    };
+    return (
+      <div className={cn("flex items-center gap-2", className)}>
+        <img
+          src={customLogo}
+          alt={config.label}
+          className={cn("object-contain shrink-0", imgSizeMap[size])}
+        />
+        {showTagline && (
+          <div className="flex flex-col min-w-0">
+            <span className={cn("text-muted-foreground leading-tight truncate", s.tagline)}>
+              {config.tagline}
+            </span>
+          </div>
+        )}
       </div>
     );
   }
@@ -92,9 +131,14 @@ export function PortalSvgLogo({ className, size = "md" }: { className?: string; 
   const sizeMap = { sm: { w: 140, h: 32 }, md: { w: 200, h: 46 }, lg: { w: 280, h: 64 } };
   const s = sizeMap[size];
 
+  const customLogoMap: Record<string, string> = {
+    agent: agentLogoImg,
+  };
+  const customLogo = customLogoMap[config.portal_type];
+
   return (
     <img
-      src={config.logo_path}
+      src={customLogo || config.logo_path}
       alt={config.label}
       width={s.w}
       height={s.h}
