@@ -277,10 +277,10 @@ interface GlobalAdvisorySelection {
 const LRS_ANNUAL_LIMIT_USD = 250000;
 
 const DEFAULT_ALLOCATIONS = {
-  conservative: { equity: 18, debt: 32, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 5, unlisted_stocks: 0, pms: 0, aif: 0, global_advisory: 0, us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0 },
-  moderate: { equity: 25, debt: 18, hybrid: 10, gold: 7, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 8, unlisted_stocks: 2, pms: 0, aif: 0, global_advisory: 0, us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0 },
-  aggressive: { equity: 26, debt: 6, hybrid: 6, gold: 5, silver: 2, index: 8, international: 0, reit: 5, invit: 5, bonds: 4, mld: 2, listed_stocks: 10, unlisted_stocks: 5, pms: 0, aif: 0, global_advisory: 0, us_markets: 6, europe_markets: 4, asia_pacific_markets: 4, emerging_markets: 2 },
-  very_aggressive: { equity: 22, debt: 4, hybrid: 4, gold: 4, silver: 2, index: 6, international: 0, reit: 4, invit: 4, bonds: 4, mld: 3, listed_stocks: 12, unlisted_stocks: 8, pms: 0, aif: 0, global_advisory: 0, us_markets: 8, europe_markets: 5, asia_pacific_markets: 6, emerging_markets: 4 }
+  conservative: { equity: 18, debt: 32, hybrid: 15, gold: 8, silver: 0, index: 2, etf: 3, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 5, unlisted_stocks: 0, pms: 0, aif: 0, global_advisory: 0, us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0 },
+  moderate: { equity: 25, debt: 18, hybrid: 10, gold: 7, silver: 0, index: 3, etf: 5, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 8, unlisted_stocks: 2, pms: 0, aif: 0, global_advisory: 0, us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0 },
+  aggressive: { equity: 26, debt: 6, hybrid: 6, gold: 5, silver: 2, index: 1, etf: 7, international: 0, reit: 5, invit: 5, bonds: 4, mld: 2, listed_stocks: 10, unlisted_stocks: 5, pms: 0, aif: 0, global_advisory: 0, us_markets: 6, europe_markets: 4, asia_pacific_markets: 4, emerging_markets: 2 },
+  very_aggressive: { equity: 22, debt: 4, hybrid: 4, gold: 4, silver: 2, index: 0, etf: 6, international: 0, reit: 4, invit: 4, bonds: 4, mld: 3, listed_stocks: 12, unlisted_stocks: 8, pms: 0, aif: 0, global_advisory: 0, us_markets: 8, europe_markets: 5, asia_pacific_markets: 6, emerging_markets: 4 }
 };
 
 const CATEGORY_TO_ALLOCATION_MAP: Record<string, keyof typeof DEFAULT_ALLOCATIONS.moderate> = {
@@ -290,6 +290,7 @@ const CATEGORY_TO_ALLOCATION_MAP: Record<string, keyof typeof DEFAULT_ALLOCATION
   gold_fof: 'gold',
   silver_fof: 'silver',
   index_fund: 'index',
+  etf: 'etf',
   international: 'international',
   reit: 'reit',
   invit: 'invit',
@@ -313,6 +314,7 @@ const ALLOCATION_TO_CATEGORY_MAP: Record<string, string> = {
   gold: 'gold_fof',
   silver: 'silver_fof',
   index: 'index_fund',
+  etf: 'etf',
   international: 'international',
   reit: 'reit',
   invit: 'invit',
@@ -598,7 +600,7 @@ export default function AgentProspectWizard() {
   // Asset Allocation & Category Selection State
   const [categorySelectionMode, setCategorySelectionMode] = useState<'ai_default' | 'manual'>('ai_default');
   const [customAllocations, setCustomAllocations] = useState<{
-    equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number;
+    equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number; etf: number;
     international: number; reit: number; invit: number; bonds: number; mld: number; 
     listed_stocks: number; unlisted_stocks: number; pms: number; aif: number; global_advisory: number;
     us_markets: number; europe_markets: number; asia_pacific_markets: number; emerging_markets: number;
@@ -5500,6 +5502,7 @@ export default function AgentProspectWizard() {
                   { key: 'gold', label: 'Gold', color: 'bg-yellow-500' },
                   { key: 'silver', label: 'Silver', color: 'bg-muted-foreground' },
                   { key: 'index', label: 'Index', color: 'bg-indigo-500' },
+                  { key: 'etf', label: 'ETFs', color: 'bg-lime-500' },
                   { key: 'international', label: 'International', color: 'bg-cyan-500' },
                   { key: 'reit', label: 'REITs', color: 'bg-orange-500' },
                   { key: 'invit', label: 'InvITs', color: 'bg-teal-500' },
@@ -5583,6 +5586,7 @@ export default function AgentProspectWizard() {
                       { key: 'gold', label: 'Gold', color: 'bg-yellow-500' },
                       { key: 'silver', label: 'Silver', color: 'bg-muted-foreground' },
                       { key: 'index', label: 'Index', color: 'bg-indigo-500' },
+                      { key: 'etf', label: 'ETFs', color: 'bg-lime-500' },
                       { key: 'international', label: 'International', color: 'bg-cyan-500' },
                       { key: 'reit', label: 'REITs', color: 'bg-orange-500' },
                       { key: 'invit', label: 'InvITs', color: 'bg-teal-500' },
@@ -5612,6 +5616,7 @@ export default function AgentProspectWizard() {
                       { key: 'gold', color: 'bg-yellow-500' },
                       { key: 'silver', color: 'bg-muted-foreground' },
                       { key: 'index', color: 'bg-indigo-500' },
+                      { key: 'etf', color: 'bg-lime-500' },
                       { key: 'international', color: 'bg-cyan-500' },
                       { key: 'reit', color: 'bg-orange-500' },
                       { key: 'invit', color: 'bg-teal-500' },
