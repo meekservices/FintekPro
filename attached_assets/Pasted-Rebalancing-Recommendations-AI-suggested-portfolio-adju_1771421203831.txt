@@ -1,0 +1,85 @@
+Rebalancing Recommendations
+AI-suggested portfolio adjustments based on aggressive risk profile
+HOLD
+The Federal Bank Limited
+low
+₹2,89,300
+[HOLD] Existing portfolio position retained. listed_stocks overweight by 99.0% but position is protected as it is already in your portfolio.
+
+HOLD
+Axis Bank Ltd
+low
+₹2,31,830
+[HOLD] Existing portfolio position retained. listed_stocks overweight by 99.0% but position is protected as it is already in your portfolio.
+
+HOLD
+Infosys Limited
+low
+₹1,36,450
+[HOLD] Existing portfolio position retained. listed_stocks overweight by 99.0% but position is protected as it is already in your portfolio.
+
+HOLD
+Aurobindo Pharma Limited
+low
+₹1,18,600
+[HOLD] Existing portfolio position retained. listed_stocks overweight by 99.0% but position is protected as it is already in your portfolio.
+
+HOLD
+GMR AIRPORTS LIMITED
+low
+₹1,00,500
+[HOLD] Existing portfolio position retained. listed_stocks overweight by 99.0% but position is protected as it is already in your portfolio.
+
+HOLD
+HDFC Bank Limited
+low
+₹92,550
+[HOLD] Existing portfolio position retained. listed_stocks overweight by 99.0% but position is protected as it is already in your portfolio.
+
+HOLD
+Tata Motors Passenger Vehicles Limited
+low
+₹38,035
+[HOLD] Existing portfolio position retained. listed_stocks overweight by 99.0% but position is protected as it is already in your portfolio.
+
+HOLD
+ITC Limited
+low
+₹318
+[HOLD] Existing portfolio position retained. listed_stocks overweight by 99.0% but position is protected as it is already in your portfolio.
+
+BUY
+HDFC Gold ETF - Growth Option
+medium
++₹110
+POTD recommendation: HDFC Gold ETF is our top pick, offering a compelling 2:1 risk-reward profile with a 10% upside to ₹121.13 from its current price. Global geopolitical tensions and persistent inflation concerns enhance gold's traditional safe-haven appeal, positioning it as an excellent portfolio diversifier and a timely investment for today.
+
+BUY
+Brookfield India Real Estate Trust
+medium
++₹275
+POTD recommendation: Brookfield India Real Estate Trust is selected as today's top pick based on comprehensive analysis of fundamentals, technicals, and market conditions. Target upside of 12% with defined risk management.
+
+BUY
+Jindal Stainless Limited
+medium
++₹758
+POTD recommendation: Jindal Stainless (JSL) is a compelling pick, trading at an attractive P/E of 8.5, indicating significant undervaluation relative to its growth potential in the robust domestic steel sector. We anticipate strong performance driven by increasing stainless steel demand and government infrastructure push. The setup offers a favorable risk-reward profile, targeting an 15% upside to ₹871.47 with a defined stop loss at ₹697.18.
+
+BUY
+Ambuja Cements Limited
+medium
++₹524
+POTD recommendation: Ambuja Cements, a key player under the Adani Group, is poised for growth driven by India's infrastructure boom and strong housing demand, reflected in its attractive P/E of 20. This presents a favorable risk-reward profile for today's pick, targeting a 15% upside to ₹602.48 with a disciplined stop-loss at ₹481.99.
+
+BUY
+Groww Silver ETF
+medium
++₹184
+POTD recommendation: Groww Silver ETF (current: ₹184.4559) is our top pick today, poised for a potential breakout driven by increasing industrial demand and its role as an inflation hedge amidst global economic uncertainties. We project a compelling 10% upside to our target of ₹202.9, offering a favorable risk-reward profile with a defined stop-loss at ₹175.23.
+
+BUY
+National Highways Infra Trust
+medium
++₹153
+POTD recommendation: National Highways Infra Trust is selected as today's top pick based on comprehensive analysis of fundamentals, technicals, and market conditions. Target upside of 12% with defined risk management.

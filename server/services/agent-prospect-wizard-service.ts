@@ -3396,98 +3396,10 @@ class AgentProspectWizardService {
     console.log('[Rebalancing] Generated', recommendations.length, 'recommendations:', 
       recommendations.map(r => `${r.action}: ${r.productName} (${r.changeAmount})`).join(', '));
 
-    // Signal Orchestration: cross-reference with POTD signals
-    try {
-      const potdPicks = await pickOfTheDayService.getLivePicks();
-      if (potdPicks && potdPicks.length > 0) {
-        // Step 1: Deduplicate POTD picks - keep only the most recent pick per instrument
-        const deduplicatedPotdMap = new Map<string, typeof potdPicks[0]>();
-        for (const pick of potdPicks) {
-          const key = pick.instrumentName.toLowerCase().trim();
-          if (!deduplicatedPotdMap.has(key)) {
-            deduplicatedPotdMap.set(key, pick);
-          }
-        }
-        let dedupedPicks = Array.from(deduplicatedPotdMap.values());
-        console.log(`[Signal Orchestrator] Deduplicated POTD: ${dedupedPicks.length} unique from ${potdPicks.length} total`);
-
-        // Step 2: Filter by selected categories (derivatives require explicit selection)
-        let filteredPotdPicks = dedupedPicks;
-        if (selectedCategories && selectedCategories.length > 0) {
-          const potdCategoryToSelected: Record<string, string[]> = {
-            'listed_stocks': ['listed_stocks'],
-            'mutual_funds': ['equity', 'debt', 'hybrid', 'index_fund'],
-            'bonds': ['bonds'],
-            'unlisted': ['unlisted_stocks'],
-            'global_stocks': ['international', 'us_markets', 'europe_markets', 'asia_pacific_markets', 'emerging_markets'],
-            'etfs': ['etf'],
-            'reits_invits': ['reit', 'invit'],
-            'fixed_deposits': ['debt'],
-            'sgb': ['gold_fof'],
-            'derivatives': ['derivatives']
-          };
-          
-          filteredPotdPicks = dedupedPicks.filter(pick => {
-            const matchingSelectedCats = potdCategoryToSelected[pick.category] || [];
-            return matchingSelectedCats.some(cat => selectedCategories.includes(cat));
-          });
-          console.log(`[Signal Orchestrator] Category-filtered POTD: ${filteredPotdPicks.length}/${dedupedPicks.length} match selected categories [${selectedCategories.join(', ')}]`);
-        }
-
-        // Step 3: Limit POTD picks per category to prevent over-diversification (max 2 per category)
-        const MAX_POTD_PER_CATEGORY = 2;
-        const categoryCount: Record<string, number> = {};
-        filteredPotdPicks = filteredPotdPicks.filter(pick => {
-          const cat = pick.category || 'unknown';
-          categoryCount[cat] = (categoryCount[cat] || 0) + 1;
-          return categoryCount[cat] <= MAX_POTD_PER_CATEGORY;
-        });
-        console.log(`[Signal Orchestrator] After per-category cap (${MAX_POTD_PER_CATEGORY}/cat): ${filteredPotdPicks.length} POTD picks`);
-
-        // Step 4: Tactical Budget Cap — limit total POTD exposure to maxTacticalWeightPct of portfolio
-        const maxTacticalPct = policy.maxTacticalWeightPct || 10;
-        const maxTacticalValue = (maxTacticalPct / 100) * totalPortfolioValue;
-        let cumulativeTacticalValue = 0;
-        filteredPotdPicks = filteredPotdPicks.filter(pick => {
-          const pickValue = pick.recoPrice || 0;
-          if (cumulativeTacticalValue + pickValue > maxTacticalValue) {
-            console.log(`[Signal Orchestrator] Tactical budget cap: skipping ${pick.instrumentName} (would exceed ${maxTacticalPct}% tactical limit)`);
-            return false;
-          }
-          cumulativeTacticalValue += pickValue;
-          return true;
-        });
-        console.log(`[Signal Orchestrator] After tactical budget cap (${maxTacticalPct}%): ${filteredPotdPicks.length} POTD picks, tactical exposure: ₹${cumulativeTacticalValue.toLocaleString('en-IN')} / ₹${maxTacticalValue.toLocaleString('en-IN')}`);
-
-        const orchestrated = signalOrchestrator.resolveSignals(recommendations, filteredPotdPicks);
-        console.log(`[Signal Orchestrator] Resolved ${orchestrated.length} signals from ${recommendations.length} rebalance + ${filteredPotdPicks.length} POTD picks`);
-        
-        const auditEntries = signalOrchestrator.getAuditLog();
-        if (auditEntries.length > 0) {
-          try {
-            await db.insert(signalResolutionLog).values(
-              auditEntries.map(entry => ({
-                instrumentName: entry.instrumentName,
-                isin: entry.isin || null,
-                potdSignal: entry.potdSignal || null,
-                rebalanceSignal: entry.rebalanceSignal || null,
-                resolvedAction: entry.resolvedAction,
-                reasoningCode: entry.reasoningCode,
-                governanceRuleId: entry.governanceRuleId,
-                confidenceScore: entry.confidenceScore || null,
-              }))
-            );
-            signalOrchestrator.clearAuditLog();
-          } catch (logErr) {
-            console.warn('[Signal Orchestrator] Failed to log audit entries:', logErr);
-          }
-        }
-        
-        return orchestrated as any as RebalanceRecommendation[];
-      }
-    } catch (err) {
-      console.warn('[Signal Orchestrator] POTD cross-reference failed, using raw rebalance recommendations:', err);
-    }
+    // Signal Orchestration: POTD picks excluded from rebalancing proposals
+    // POTD micro-investments (Rs. 110-757 range) are no longer merged into rebalancing
+    // to keep proposals focused on portfolio-level adjustments only
+    console.log('[Signal Orchestrator] POTD cross-reference skipped — POTD excluded from rebalancing proposals');
 
     // Calculate comprehensive tax summary for SELL/SWITCH recommendations
     const sellSwitchRecs = recommendations.filter(r => r.action === 'SELL' || r.action === 'SWITCH');
