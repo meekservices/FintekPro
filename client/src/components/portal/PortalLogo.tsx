@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import agentLogoImg from "@assets/fintekpro_agent_1771385897174.png";
 import partnerLogoImg from "@assets/fintekpro_partners_1771386089261.png";
+import adminLogoImg from "@assets/fintekpro_admin_1771386297119.png";
 
 interface PortalMeta {
   portal_type: string;
@@ -57,6 +58,7 @@ export function PortalLogo({ className, size = "md", showTagline = false, iconOn
   const customLogoMap: Record<string, string> = {
     agent: agentLogoImg,
     partner: partnerLogoImg,
+    admin: adminLogoImg,
   };
   const customLogo = customLogoMap[config.portal_type];
 
@@ -136,6 +138,7 @@ export function PortalSvgLogo({ className, size = "md" }: { className?: string; 
   const customLogoMap: Record<string, string> = {
     agent: agentLogoImg,
     partner: partnerLogoImg,
+    admin: adminLogoImg,
   };
   const customLogo = customLogoMap[config.portal_type];
 
