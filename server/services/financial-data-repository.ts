@@ -3,29 +3,28 @@ import yahooFinance from 'yahoo-finance2';
 import axios from 'axios';
 import { executeWithRetry } from '../utils/retry';
 
-// Retry configuration for Yahoo Finance API
 const YAHOO_RETRY_OPTIONS = {
-  maxAttempts: 3,
-  baseDelay: 1000,
-  maxDelay: 8000,
+  maxAttempts: 2,
+  baseDelay: 2000,
+  maxDelay: 10000,
   jitter: true,
   timeoutMs: 15000,
   shouldRetry: (error: Error): boolean => {
     const errorStr = error.message.toLowerCase();
-    // Retry on transient network errors, socket issues, and rate limits
+    if (errorStr.includes('429') || errorStr.includes('too many') || errorStr.includes("unexpected token 't'")) {
+      return false;
+    }
     return errorStr.includes('socket') ||
            errorStr.includes('econnreset') ||
            errorStr.includes('etimedout') ||
            errorStr.includes('enotfound') ||
            errorStr.includes('other side closed') ||
-           errorStr.includes('429') ||
-           errorStr.includes('too many') ||
            errorStr.includes('network') ||
            errorStr.includes('fetch failed');
   },
   onRetry: (error: Error, attempt: number) => {
-    if (attempt >= 3) {
-      console.log(`🔄 [FinancialDataRepository] Request failed after 3 retries: ${error.message}`);
+    if (attempt >= 2) {
+      console.log(`🔄 [FinancialDataRepository] Retry failed: ${error.message}`);
     }
   },
 };
@@ -288,9 +287,84 @@ class FinancialDataRepository {
     }
   }
 
+  private async fetchBatchFromFMP(symbols: string[], instrumentType: 'global_stock' | 'etf'): Promise<Map<string, InstrumentData>> {
+    const apiKey = process.env.FMP_API_KEY;
+    const results = new Map<string, InstrumentData>();
+    if (!apiKey || symbols.length === 0) return results;
+
+    try {
+      const symbolList = symbols.join(',');
+      const url = `https://financialmodelingprep.com/api/v3/quote/${encodeURIComponent(symbolList)}?apikey=${apiKey}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: { 'Accept': 'application/json', 'User-Agent': 'FintekPro/2.5' },
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.log(`[FMP Batch] HTTP ${response.status} for ${symbols.length} symbols`);
+        return results;
+      }
+
+      const quotes: any[] = await response.json();
+      if (!Array.isArray(quotes)) return results;
+
+      const safeFloat = (v: any): number | undefined => {
+        if (v == null) return undefined;
+        const n = typeof v === 'string' ? parseFloat(v.replace(/[()%$,\s]/g, '')) : Number(v);
+        return isFinite(n) ? n : undefined;
+      };
+
+      for (const q of quotes) {
+        if (!q.symbol || !safeFloat(q.price)) continue;
+        const data: InstrumentData = {
+          instrumentType,
+          symbol: q.symbol,
+          name: q.name || q.symbol,
+          exchange: q.exchange || 'US',
+          currency: 'USD',
+          country: 'US',
+          currentPrice: safeFloat(q.price),
+          previousClose: safeFloat(q.previousClose),
+          dayChange: safeFloat(q.change),
+          dayChangePercent: safeFloat(q.changesPercentage),
+          dayHigh: safeFloat(q.dayHigh),
+          dayLow: safeFloat(q.dayLow),
+          openPrice: safeFloat(q.open),
+          volume: safeFloat(q.volume),
+          marketCap: safeFloat(q.marketCap),
+          peRatio: safeFloat(q.pe),
+          dividendYield: safeFloat(q.avgVolume) ? undefined : undefined,
+          sector: instrumentType === 'etf' ? undefined : undefined,
+          category: instrumentType === 'etf' ? (q.sector || undefined) : undefined,
+          expenseRatio: instrumentType === 'etf' ? undefined : undefined,
+          aum: instrumentType === 'etf' ? safeFloat(q.marketCap) : undefined,
+          dataSource: 'fmp',
+          confidenceScore: 93,
+        };
+        results.set(q.symbol, data);
+      }
+
+      console.log(`✅ [FMP Batch] Fetched ${results.size}/${symbols.length} ${instrumentType} quotes`);
+    } catch (error: any) {
+      console.log(`⚠️ [FMP Batch] Error: ${error.message}`);
+    }
+
+    return results;
+  }
+
   async fetchGlobalStock(symbol: string): Promise<FetchResult> {
     const isIndianSymbol = symbol.includes('.NS') || symbol.includes('.BO');
     
+    if (!isIndianSymbol && process.env.FMP_API_KEY) {
+      const fmpResults = await this.fetchBatchFromFMP([symbol], 'global_stock');
+      const fmpData = fmpResults.get(symbol);
+      if (fmpData) return { success: true, data: fmpData };
+    }
+
     if (!isIndianSymbol && process.env.POLYGON_API_KEY) {
       const massiveResult = await this.fetchFromMassive(symbol);
       if (massiveResult.success && massiveResult.data?.currentPrice) {
@@ -635,36 +709,31 @@ class FinancialDataRepository {
   async refreshGlobalStocks(symbols: string[]): Promise<{ success: number; failed: number }> {
     let success = 0;
     let failed = 0;
-    let consecutiveRateLimits = 0;
-    let delay = 3000; // Start with 3 second delay
 
-    for (const symbol of symbols) {
-      // If we hit too many consecutive rate limits, stop and wait for next scheduled refresh
-      if (consecutiveRateLimits >= 3) {
-        console.log(`[FinancialDataRepository] Rate limit detected, skipping remaining ${symbols.length - (success + failed)} symbols`);
-        failed += symbols.length - (success + failed);
-        break;
-      }
-      
-      try {
-        const result = await this.fetchGlobalStock(symbol);
-        if (result.success && result.data) {
-          await this.saveToDatabase(result.data);
+    if (process.env.FMP_API_KEY) {
+      const fmpResults = await this.fetchBatchFromFMP(symbols, 'global_stock');
+      const savedSymbols = new Set<string>();
+      for (const [sym, data] of fmpResults) {
+        try {
+          await this.saveToDatabase(data);
           success++;
-          consecutiveRateLimits = 0; // Reset on success
-          delay = 3000; // Reset delay on success
-        } else {
-          failed++;
-          if (result.error?.includes('Rate limited') || result.error?.includes('Too Many')) {
-            consecutiveRateLimits++;
-            delay = Math.min(delay * 1.5, 15000); // Exponential backoff, max 15 seconds
-          }
+          savedSymbols.add(sym);
+        } catch (err: any) {
+          console.log(`⚠️ [FMP] Save failed for ${sym}: ${err.message}`);
         }
-        await new Promise(resolve => setTimeout(resolve, delay));
-      } catch (error) {
-        failed++;
-        consecutiveRateLimits++;
       }
+
+      const remaining = symbols.filter(s => !savedSymbols.has(s));
+      if (remaining.length > 0) {
+        console.log(`[FinancialDataRepository] ${remaining.length} stocks need Yahoo fallback...`);
+        const yahooResult = await this.refreshViaYahoo(remaining, 'global_stock');
+        success += yahooResult.success;
+        failed += yahooResult.failed;
+      }
+    } else {
+      const yahooResult = await this.refreshViaYahoo(symbols, 'global_stock');
+      success = yahooResult.success;
+      failed = yahooResult.failed;
     }
 
     console.log(`📊 [FinancialDataRepository] Refreshed global stocks: ${success} success, ${failed} failed`);
@@ -674,29 +743,62 @@ class FinancialDataRepository {
   async refreshETFs(symbols: string[]): Promise<{ success: number; failed: number }> {
     let success = 0;
     let failed = 0;
+
+    if (process.env.FMP_API_KEY) {
+      const fmpResults = await this.fetchBatchFromFMP(symbols, 'etf');
+      const savedSymbols = new Set<string>();
+      for (const [sym, data] of fmpResults) {
+        try {
+          await this.saveToDatabase(data);
+          success++;
+          savedSymbols.add(sym);
+        } catch (err: any) {
+          console.log(`⚠️ [FMP] Save failed for ETF ${sym}: ${err.message}`);
+        }
+      }
+
+      const remaining = symbols.filter(s => !savedSymbols.has(s));
+      if (remaining.length > 0) {
+        console.log(`[FinancialDataRepository] ${remaining.length} ETFs need Yahoo fallback...`);
+        const yahooResult = await this.refreshViaYahoo(remaining, 'etf');
+        success += yahooResult.success;
+        failed += yahooResult.failed;
+      }
+    } else {
+      const yahooResult = await this.refreshViaYahoo(symbols, 'etf');
+      success = yahooResult.success;
+      failed = yahooResult.failed;
+    }
+
+    console.log(`📊 [FinancialDataRepository] Refreshed ETFs: ${success} success, ${failed} failed`);
+    return { success, failed };
+  }
+
+  private async refreshViaYahoo(symbols: string[], type: 'global_stock' | 'etf'): Promise<{ success: number; failed: number }> {
+    let success = 0;
+    let failed = 0;
     let consecutiveRateLimits = 0;
-    let delay = 3000; // Start with 3 second delay
+    let delay = 5000;
 
     for (const symbol of symbols) {
-      // If we hit too many consecutive rate limits, stop and wait for next scheduled refresh
-      if (consecutiveRateLimits >= 3) {
-        console.log(`[FinancialDataRepository] Rate limit detected, skipping remaining ${symbols.length - (success + failed)} ETFs`);
+      if (consecutiveRateLimits >= 2) {
+        console.log(`[FinancialDataRepository] Yahoo rate limit hit, skipping remaining ${symbols.length - (success + failed)} ${type}s`);
         failed += symbols.length - (success + failed);
         break;
       }
-      
+
       try {
-        const result = await this.fetchETF(symbol);
+        const result = type === 'etf' ? await this.fetchETF(symbol) : await this.fetchGlobalStock(symbol);
         if (result.success && result.data) {
           await this.saveToDatabase(result.data);
           success++;
           consecutiveRateLimits = 0;
-          delay = 3000;
+          delay = 5000;
         } else {
           failed++;
           if (result.error?.includes('Rate limited') || result.error?.includes('Too Many')) {
             consecutiveRateLimits++;
-            delay = Math.min(delay * 1.5, 15000);
+            delay = Math.min(delay * 2, 30000);
           }
         }
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -706,7 +808,6 @@ class FinancialDataRepository {
       }
     }
 
-    console.log(`📊 [FinancialDataRepository] Refreshed ETFs: ${success} success, ${failed} failed`);
     return { success, failed };
   }
 

@@ -35,8 +35,8 @@ interface SchedulerConfig {
 }
 
 const DEFAULT_CONFIG: SchedulerConfig = {
-  globalStocksIntervalMinutes: 30,
-  etfsIntervalMinutes: 30,
+  globalStocksIntervalMinutes: 60,
+  etfsIntervalMinutes: 60,
   mutualFundsIntervalMinutes: 60,
   debtIntervalMinutes: 120,
   cleanupIntervalHours: 24,
@@ -78,15 +78,12 @@ class FinancialDataScheduler {
     console.log('📊 [FinancialDataScheduler] Running initial data refresh...');
 
     try {
-      // Run Yahoo Finance calls sequentially to avoid rate limiting
-      // (refreshGlobalStocks and refreshETFs both use Yahoo Finance API)
-      console.log('📊 [FinancialDataScheduler] Refreshing global stocks...');
+      console.log('📊 [FinancialDataScheduler] Refreshing global stocks (FMP primary, Yahoo fallback)...');
       await this.refreshGlobalStocks();
       
-      // Wait before next Yahoo API batch to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 5000));
       
-      console.log('📊 [FinancialDataScheduler] Refreshing ETFs...');
+      console.log('📊 [FinancialDataScheduler] Refreshing ETFs (FMP primary, Yahoo fallback)...');
       await this.refreshETFs();
       
       // Mutual funds and debt don't use Yahoo Finance, can run in parallel
