@@ -32238,3 +32238,55 @@ export const strategicTargetWeights = pgTable("strategic_target_weights", {
 export const insertStrategicTargetWeightsSchema = createInsertSchema(strategicTargetWeights).omit({ id: true, generatedAt: true });
 export type InsertStrategicTargetWeights = z.infer<typeof insertStrategicTargetWeightsSchema>;
 export type StrategicTargetWeights = typeof strategicTargetWeights.$inferSelect;
+
+// ── Quant Model Registry (Retraining Pipeline) ──
+
+export const quantModelRegistry = pgTable("quant_model_registry", {
+  id: serial("id").primaryKey(),
+  modelName: text("model_name").notNull(),
+  version: text("version").notNull(),
+  modelType: text("model_type").notNull(),
+  trainingDate: timestamp("training_date").defaultNow().notNull(),
+  validationScore: real("validation_score"),
+  backtestSharpe: real("backtest_sharpe"),
+  status: text("status").notNull().default("candidate"),
+  artifactData: jsonb("artifact_data"),
+  trainingConfig: jsonb("training_config"),
+  performanceMetrics: jsonb("performance_metrics"),
+  promotedAt: timestamp("promoted_at"),
+  archivedAt: timestamp("archived_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_quant_model_registry_name_version").on(table.modelName, table.version),
+  index("idx_quant_model_registry_status").on(table.status),
+  index("idx_quant_model_registry_type").on(table.modelType),
+]);
+
+export const insertQuantModelRegistrySchema = createInsertSchema(quantModelRegistry).omit({ id: true, createdAt: true });
+export type InsertQuantModelRegistry = z.infer<typeof insertQuantModelRegistrySchema>;
+export type QuantModelRegistry = typeof quantModelRegistry.$inferSelect;
+
+// ── Quant Retraining Log (Audit Trail) ──
+
+export const quantRetrainingLog = pgTable("quant_retraining_log", {
+  id: serial("id").primaryKey(),
+  modelName: text("model_name").notNull(),
+  oldVersion: text("old_version"),
+  newVersion: text("new_version"),
+  status: text("status").notNull(),
+  validationScore: real("validation_score"),
+  backtestSharpe: real("backtest_sharpe"),
+  promotionStatus: text("promotion_status"),
+  trainingDurationMs: integer("training_duration_ms"),
+  errorMessage: text("error_message"),
+  metrics: jsonb("metrics"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_quant_retraining_log_model").on(table.modelName),
+  index("idx_quant_retraining_log_status").on(table.status),
+  index("idx_quant_retraining_log_created").on(table.createdAt),
+]);
+
+export const insertQuantRetrainingLogSchema = createInsertSchema(quantRetrainingLog).omit({ id: true, createdAt: true });
+export type InsertQuantRetrainingLog = z.infer<typeof insertQuantRetrainingLogSchema>;
+export type QuantRetrainingLog = typeof quantRetrainingLog.$inferSelect;

@@ -204,6 +204,7 @@ import proposalBuilderRoutes from "./routes/proposal-builder-routes";
 import globalAdvisoryRoutes from "./routes/global-advisory";
 import feeModeRoutes from "./routes/fee-mode";
 import cacheAdminRoutes from "./routes/cache-admin";
+import quantAdminRoutes from "./routes/quant-admin-routes";
 import parserAdminRoutes from "./routes/parser-admin";
 import historicalNavRoutes from "./routes/historical-nav";
 import { historicalNavRefreshJob } from "./services/historical-nav-refresh-job";
@@ -814,6 +815,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.use("/api/kyc-engine", kycEngineRoutes);
   console.log("✅ KYC Engine routes registered");
 
+  // Quant Infrastructure Admin Routes
+  app.use("/api/admin/quant", requireAdmin, quantAdminRoutes);
+  console.log("✅ Quant Admin routes registered");
+
   // Cache Admin Routes (Data Caching & Cost Optimization)
   app.use("/api/admin/cache", requireAdmin, cacheAdminRoutes);
   app.use("/api/admin/parser", requireAdmin, parserAdminRoutes);
@@ -860,6 +865,11 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   console.log("✅ MCA Financial Backfill routes registered");
   mcaFinancialRefreshScheduler.start();
   console.log("✅ MCA Financial Refresh Scheduler started (daily auto-refresh)");
+
+  // Start Quant Retraining Scheduler (automated model retraining)
+  const { quantRetrainingScheduler } = await import('./services/quant/quant-retraining-scheduler');
+  quantRetrainingScheduler.start();
+  console.log("✅ Quant Retraining Scheduler started (automated model lifecycle)");
   console.log("✅ MCA Intelligence routes registered");
 
   app.use("/api/admin/recommendation-products", recommendationProductsRoutes);

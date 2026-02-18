@@ -25,6 +25,7 @@ import { complianceSnapshotService } from "./compliance-snapshot-service";
 import { schemeGovernanceService } from "./scheme-governance-service";
 import { signalOrchestrator, OrchestratedRecommendation } from './signal-orchestrator';
 import { pickOfTheDayService } from './pick-of-the-day-service';
+import { quantOrchestrator } from './quant/quant-orchestrator';
 
 // Format amount in Indian currency format (₹X.XX L for lakhs, ₹X.XX Cr for crores)
 const formatAmount = (amount: number): string => {
@@ -2904,6 +2905,60 @@ class AgentProspectWizardService {
     }
 
     console.log('[Rebalancing] Drift Engine results:', driftMetrics.filter(dm => dm.driftStatus === 'DRIFT_BREACH').map(dm => `${dm.category}: drift=${dm.drift.toFixed(2)}% (${dm.driftStatus})`).join(', '));
+
+    // ── Step 2.5: Quant Orchestrator (feature-flag gated) ──
+    try {
+      const quantInput = {
+        assetsData: driftMetrics.filter(dm => dm.targetPercent > 0).map(dm => ({
+          category: dm.category,
+          returns: [] as number[],
+          currentWeight: dm.currentPercent / 100,
+        })),
+        driftMetrics: driftMetrics.map(dm => ({
+          category: dm.category,
+          currentPercent: dm.currentPercent,
+          targetPercent: dm.targetPercent,
+          drift: dm.drift,
+        })),
+        riskProfile: riskProfile.riskTolerance,
+        toleranceBandPct: policy.toleranceBandPct ?? 5,
+        portfolioId: `prospect-${prospectId}`,
+      };
+
+      const quantResult = await quantOrchestrator.run(quantInput);
+
+      if (quantResult.usedMvo && Object.keys(quantResult.optimizedWeights).length > 0) {
+        const quantAllocations = quantOrchestrator.convertWeightsToAllocations(
+          quantResult.optimizedWeights, categories
+        );
+        for (const dm of driftMetrics) {
+          if (quantAllocations[dm.category] !== undefined) {
+            const newTarget = quantAllocations[dm.category];
+            if (newTarget !== dm.targetPercent) {
+              console.log(`[Rebalancing][Quant] ${dm.category}: target ${dm.targetPercent}% → ${newTarget}% (quant-optimized)`);
+              dm.targetPercent = newTarget;
+              dm.targetValue = (newTarget / 100) * totalPortfolioValue;
+              dm.drift = dm.currentPercent - newTarget;
+              dm.driftPercent = newTarget > 0 ? dm.drift / newTarget : 0;
+              dm.driftStatus = Math.abs(dm.drift) > (policy.toleranceBandPct ?? 5) ? 'DRIFT_BREACH' : 'WITHIN_BAND';
+            }
+          }
+        }
+        console.log('[Rebalancing] Quant-optimized targets applied. Models:', quantResult.modelVersions.join(', '));
+      }
+
+      if (quantResult.preemptiveRebalanceRecommended) {
+        console.log('[Rebalancing] Quant preemptive rebalance triggered for:', quantResult.highRiskCategories.join(', '));
+        for (const dm of driftMetrics) {
+          if (quantResult.highRiskCategories.includes(dm.category) && dm.driftStatus === 'WITHIN_BAND') {
+            dm.driftStatus = 'DRIFT_BREACH';
+            console.log(`[Rebalancing][Quant] ${dm.category}: preemptive drift breach triggered`);
+          }
+        }
+      }
+    } catch (quantError: any) {
+      console.warn('[Rebalancing] Quant orchestrator error (non-fatal, using deterministic pipeline):', quantError.message);
+    }
 
     // ── Step 3: Risk Engine ──
     const categoryRiskMap: Record<string, number> = {
