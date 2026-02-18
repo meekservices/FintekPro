@@ -4517,18 +4517,25 @@ System Security Data:`;
     }
   });
   
-  // Stock Financial Enrichment - run enrichment
   app.post("/api/admin/enrichment/stocks/run", requireAdmin, async (req, res) => {
     try {
       const { stockFinancialEnrichmentService } = await import("../../services/stock-financial-enrichment-service");
-      const { useYahoo = false, batchSize = 100, maxYahooRequests = 50 } = req.body;
-      
-      // Start async enrichment
-      stockFinancialEnrichmentService.enrichAllStocks({ useYahoo, batchSize, maxYahooRequests }).catch(err => {
+      const {
+        useYahoo = false,
+        batchSize = 50,
+        maxYahooRequests = 50,
+        useFmp = true,
+        maxFmpStocks = 40,
+        includeReturns = true,
+      } = req.body;
+
+      stockFinancialEnrichmentService.enrichAllStocks({
+        useYahoo, batchSize, maxYahooRequests, useFmp, maxFmpStocks, includeReturns
+      }).catch(err => {
         console.error('[Stock Enrichment Admin] Enrichment failed:', err.message);
       });
-      
-      res.json({ success: true, message: 'Enrichment started', status: 'running' });
+
+      res.json({ success: true, message: 'FMP enrichment started', status: 'running', config: { useFmp, maxFmpStocks, includeReturns } });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }
@@ -4594,7 +4601,7 @@ System Security Data:`;
       
       Promise.all([
         mfExtendedEnrichmentService.enrichAllFunds({ forceRefresh: false }).then(() => console.log('[Enrichment All] MF TER/AUM done')),
-        stockFinancialEnrichmentService.enrichAllStocks({ useYahoo: false }).then(() => console.log('[Enrichment All] Stock PE/EPS done')),
+        stockFinancialEnrichmentService.enrichAllStocks({ useFmp: true, maxFmpStocks: 40, includeReturns: true }).then(() => console.log('[Enrichment All] Stock FMP enrichment done')),
         mfReturnsSyncService.runBatchSync(200).then(() => console.log('[Enrichment All] MF Returns done')),
       ]).catch(err => {
         console.error('[Enrichment All] Failed:', err.message);

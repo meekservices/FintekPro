@@ -217,7 +217,7 @@ async function runStockEnrichment() {
   
   const { stockFinancialEnrichmentService } = await import('../services/stock-financial-enrichment-service');
   
-  const result = await stockFinancialEnrichmentService.enrichAllStocks({ useYahoo: true });
+  const result = await stockFinancialEnrichmentService.enrichAllStocks({ useFmp: true, maxFmpStocks: 40, includeReturns: true });
   console.log(`✅ Stock Enrichment Complete:`, result);
   
   return result;

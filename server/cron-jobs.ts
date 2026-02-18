@@ -169,7 +169,7 @@ export function initializeCronJobs(): void {
         console.log('[CRON] Starting daily stock financial enrichment (6 PM IST)...');
         try {
           const { stockFinancialEnrichmentService } = await import('./services/stock-financial-enrichment-service');
-          await stockFinancialEnrichmentService.enrichAllStocks({ batchSize: 100, useYahoo: true, maxYahooRequests: 100 });
+          await stockFinancialEnrichmentService.enrichAllStocks({ useFmp: true, maxFmpStocks: 40, includeReturns: true, batchSize: 50 });
           console.log('[CRON] Stock financial enrichment completed');
         } catch (error: any) {
           console.error('[CRON] Stock financial enrichment failed:', error.message);

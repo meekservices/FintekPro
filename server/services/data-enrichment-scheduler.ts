@@ -130,8 +130,10 @@ class DataEnrichmentScheduler {
       try {
         const { stockFinancialEnrichmentService } = await import('./stock-financial-enrichment-service');
         const stockResult = await stockFinancialEnrichmentService.enrichAllStocks({
-          useYahoo: false, // Use sector-based inference (faster)
-          batchSize: 100,
+          useFmp: true,
+          maxFmpStocks: 40,
+          includeReturns: true,
+          batchSize: 50,
         });
         stats.stocksEnriched = stockResult.stocksEnriched;
         console.log(`[DataEnrichmentScheduler] Stock enrichment: ${stats.stocksEnriched} stocks enriched`);
