@@ -3235,8 +3235,19 @@ class AgentProspectWizardService {
     try {
       const potdPicks = await pickOfTheDayService.getLivePicks();
       if (potdPicks && potdPicks.length > 0) {
-        // Filter POTD picks to only include selected categories before orchestration
-        let filteredPotdPicks = potdPicks;
+        // Step 1: Deduplicate POTD picks - keep only the most recent pick per instrument
+        const deduplicatedPotdMap = new Map<string, typeof potdPicks[0]>();
+        for (const pick of potdPicks) {
+          const key = pick.instrumentName.toLowerCase().trim();
+          if (!deduplicatedPotdMap.has(key)) {
+            deduplicatedPotdMap.set(key, pick);
+          }
+        }
+        let dedupedPicks = Array.from(deduplicatedPotdMap.values());
+        console.log(`[Signal Orchestrator] Deduplicated POTD: ${dedupedPicks.length} unique from ${potdPicks.length} total`);
+
+        // Step 2: Filter by selected categories (derivatives require explicit selection)
+        let filteredPotdPicks = dedupedPicks;
         if (selectedCategories && selectedCategories.length > 0) {
           const potdCategoryToSelected: Record<string, string[]> = {
             'listed_stocks': ['listed_stocks'],
@@ -3248,15 +3259,25 @@ class AgentProspectWizardService {
             'reits_invits': ['reit', 'invit'],
             'fixed_deposits': ['debt'],
             'sgb': ['gold_fof'],
-            'derivatives': ['listed_stocks']
+            'derivatives': ['derivatives']
           };
           
-          filteredPotdPicks = potdPicks.filter(pick => {
+          filteredPotdPicks = dedupedPicks.filter(pick => {
             const matchingSelectedCats = potdCategoryToSelected[pick.category] || [];
             return matchingSelectedCats.some(cat => selectedCategories.includes(cat));
           });
-          console.log(`[Signal Orchestrator] Filtered POTD picks: ${filteredPotdPicks.length}/${potdPicks.length} match selected categories [${selectedCategories.join(', ')}]`);
+          console.log(`[Signal Orchestrator] Category-filtered POTD: ${filteredPotdPicks.length}/${dedupedPicks.length} match selected categories [${selectedCategories.join(', ')}]`);
         }
+
+        // Step 3: Limit POTD picks per category to prevent over-diversification (max 2 per category)
+        const MAX_POTD_PER_CATEGORY = 2;
+        const categoryCount: Record<string, number> = {};
+        filteredPotdPicks = filteredPotdPicks.filter(pick => {
+          const cat = pick.category || 'unknown';
+          categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+          return categoryCount[cat] <= MAX_POTD_PER_CATEGORY;
+        });
+        console.log(`[Signal Orchestrator] After per-category cap (${MAX_POTD_PER_CATEGORY}/cat): ${filteredPotdPicks.length} POTD picks`);
 
         const orchestrated = signalOrchestrator.resolveSignals(recommendations, filteredPotdPicks);
         console.log(`[Signal Orchestrator] Resolved ${orchestrated.length} signals from ${recommendations.length} rebalance + ${filteredPotdPicks.length} POTD picks`);
