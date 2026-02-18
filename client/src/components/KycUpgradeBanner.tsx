@@ -16,14 +16,6 @@ interface KycNotificationData {
   notifications: any[];
 }
 
-const STEP_LABELS: Record<string, string> = {
-  pan_verification: 'PAN Verification',
-  aadhaar_verification: 'Aadhaar Verification',
-  bank_verification: 'Bank Verification',
-  address_proof: 'Address Proof',
-  ckyc_registration: 'CKYC Registration',
-};
-
 export function KycUpgradeBanner() {
   const [, setLocation] = useLocation();
   const [isDismissed, setIsDismissed] = useState(false);
@@ -125,7 +117,7 @@ export function KycUpgradeBanner() {
 
               {missingSteps.length > 0 && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Next: {STEP_LABELS[missingSteps[0]] || missingSteps[0]}
+                  Next: {missingSteps[0]}
                 </p>
               )}
             </div>
@@ -259,7 +251,7 @@ export function KycProgressWidget() {
               <div className="w-5 h-5 rounded-full border-2 border-border flex items-center justify-center text-xs">
                 {index + 1}
               </div>
-              {STEP_LABELS[step] || step}
+              {step}
             </div>
           ))}
           {missingSteps.length > 3 && (
