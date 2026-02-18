@@ -2774,26 +2774,26 @@ export default function AgentProspectWizard() {
         </p>
       </div>
 
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-2">
+      <div className="mb-8 overflow-x-auto pb-2">
+        <div className="flex items-center min-w-max px-1">
           {steps.map((step, idx) => (
-            <div key={step.num} className="flex items-center">
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors ${
-                currentStep >= step.num 
-                  ? 'bg-primary border-primary text-primary-foreground' 
-                  : 'border-muted-foreground/30 text-muted-foreground'
-              }`}>
-                {currentStep > step.num ? <Check className="h-5 w-5" /> : <step.icon className="h-5 w-5" />}
+            <div key={step.num} className="flex flex-col items-center">
+              <div className="flex items-center">
+                <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition-colors flex-shrink-0 ${
+                  currentStep >= step.num 
+                    ? 'bg-primary border-primary text-primary-foreground' 
+                    : 'border-muted-foreground/30 text-muted-foreground'
+                }`}>
+                  {currentStep > step.num ? <Check className="h-4 w-4" /> : <step.icon className="h-4 w-4" />}
+                </div>
+                {idx < steps.length - 1 && (
+                  <div className={`w-6 lg:w-10 h-0.5 ${currentStep > step.num ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
+                )}
               </div>
-              {idx < steps.length - 1 && (
-                <div className={`w-8 md:w-16 h-0.5 mx-1 ${currentStep > step.num ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
-              )}
+              <span className={`text-[10px] mt-1 w-14 text-center leading-tight ${
+                currentStep === step.num ? 'text-primary font-semibold' : 'text-muted-foreground'
+              }`}>{step.title}</span>
             </div>
-          ))}
-        </div>
-        <div className="flex justify-between text-xs text-muted-foreground">
-          {steps.map(step => (
-            <span key={step.num} className="w-12 md:w-20 text-center">{step.title}</span>
           ))}
         </div>
       </div>
