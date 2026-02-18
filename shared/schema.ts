@@ -32316,3 +32316,29 @@ export const quantSchedulerState = pgTable("quant_scheduler_state", {
 }, (table) => [
   index("idx_quant_scheduler_state_key").on(table.lockKey),
 ]);
+
+// ── Quant Transition Log (Transition Optimizer Audit Trail) ──
+
+export const quantTransitionLog = pgTable("quant_transition_log", {
+  id: serial("id").primaryKey(),
+  portfolioId: text("portfolio_id"),
+  turnover: real("turnover").notNull(),
+  maxWeight: real("max_weight").notNull(),
+  sectorExposure: jsonb("sector_exposure").$type<Record<string, number>>(),
+  categoryExposure: jsonb("category_exposure").$type<Record<string, number>>(),
+  gammaUsed: real("gamma_used").notNull(),
+  lambdaUsed: real("lambda_used"),
+  filteredCount: integer("filtered_count").default(0),
+  constraintsApplied: text("constraints_applied").array(),
+  weightsSnapshot: jsonb("weights_snapshot").$type<Record<string, number>>(),
+  previousWeights: jsonb("previous_weights").$type<Record<string, number>>(),
+  sharpeRatio: real("sharpe_ratio"),
+  portfolioReturn: real("portfolio_return"),
+  portfolioVolatility: real("portfolio_volatility"),
+  escalationRounds: integer("escalation_rounds").default(0),
+  modelVersion: text("model_version"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_quant_transition_log_portfolio").on(table.portfolioId),
+  index("idx_quant_transition_log_created").on(table.createdAt),
+]);

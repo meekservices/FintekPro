@@ -5,6 +5,18 @@ export interface AssetData {
   category: string;
   returns: number[];
   currentWeight: number;
+  sector?: string;
+  instrumentType?: string;
+}
+
+export interface TransitionConstraints {
+  gamma: number;
+  maxPosition: number;
+  turnoverCap: number;
+  minWeight: number;
+  categoryBindings?: Record<string, number>;
+  sectorCaps?: Record<string, number>;
+  maxGammaEscalation?: number;
 }
 
 export interface MVOConfig {
@@ -18,6 +30,16 @@ export interface MVOConfig {
   solverTolerance: number;
 }
 
+export interface TransitionMetrics {
+  turnover: number;
+  maxWeight: number;
+  sectorExposure: Record<string, number>;
+  categoryExposure: Record<string, number>;
+  gammaUsed: number;
+  filteredCount: number;
+  constraintsApplied: string[];
+}
+
 export interface MVOResult {
   weights: Record<string, number>;
   expectedReturn: number;
@@ -27,6 +49,7 @@ export interface MVOResult {
   expectedReturns: number[];
   categories: string[];
   modelVersion: string;
+  transitionMetrics?: TransitionMetrics;
 }
 
 const DEFAULT_CONFIG: MVOConfig = {
@@ -38,6 +61,14 @@ const DEFAULT_CONFIG: MVOConfig = {
   minAssetWeight: 0.0,
   solverMaxIterations: 1000,
   solverTolerance: 1e-8,
+};
+
+const DEFAULT_TRANSITION: TransitionConstraints = {
+  gamma: 5.0,
+  maxPosition: 0.20,
+  turnoverCap: 0.40,
+  minWeight: 0.01,
+  maxGammaEscalation: 50.0,
 };
 
 class MVOEngine {
@@ -123,38 +154,122 @@ class MVOEngine {
     expectedReturns: number[],
     covarianceMatrix: number[][],
     config: MVOConfig,
-    currentWeights?: number[]
-  ): number[] {
+    currentWeights?: number[],
+    transitionConstraints?: TransitionConstraints,
+    assetsData?: AssetData[]
+  ): { weights: number[]; metrics: TransitionMetrics } {
     const n = expectedReturns.length;
-    let weights = currentWeights
-      ? [...currentWeights]
-      : Array(n).fill(1 / n);
-
-    weights = this.normalizeWeights(weights);
-
+    const w0 = currentWeights ? [...currentWeights] : Array(n).fill(1 / n);
+    const tc = transitionConstraints || DEFAULT_TRANSITION;
     const lambda = config.riskAversion;
     const maxIter = config.solverMaxIterations;
     const tol = config.solverTolerance;
-    const minW = config.minAssetWeight;
-    const maxW = config.maxAssetWeight;
+
+    const categoryMap = this.buildGroupMap(assetsData, 'instrumentType');
+    const sectorMap = this.buildGroupMap(assetsData, 'sector');
+
+    let gamma = tc.gamma;
+    let weights = this.solveConstrainedQP(
+      expectedReturns, covarianceMatrix, w0, lambda, gamma, tc, categoryMap, sectorMap, maxIter, tol
+    );
+
+    let turnover = this.computeTurnover(weights, w0);
+    let escalationRounds = 0;
+    const maxGamma = tc.maxGammaEscalation || 50.0;
+
+    while (turnover > tc.turnoverCap && gamma < maxGamma && escalationRounds < 10) {
+      gamma = Math.min(gamma * 1.5, maxGamma);
+      escalationRounds++;
+      console.log(`[MVO] Turnover ${(turnover * 100).toFixed(1)}% > cap ${(tc.turnoverCap * 100).toFixed(0)}%, escalating gamma to ${gamma.toFixed(1)}`);
+
+      weights = this.solveConstrainedQP(
+        expectedReturns, covarianceMatrix, w0, lambda, gamma, tc, categoryMap, sectorMap, maxIter, tol
+      );
+      turnover = this.computeTurnover(weights, w0);
+    }
+
+    const { filtered, filteredCount } = this.applyMinWeightFilter(
+      weights, tc.minWeight, w0, tc, categoryMap, sectorMap, tc.maxPosition
+    );
+    weights = filtered;
+    turnover = this.computeTurnover(weights, w0);
+
+    const constraintsApplied: string[] = ['sum_to_one', 'box_bounds'];
+    if (tc.gamma > 0) constraintsApplied.push('turnover_penalty');
+    if (tc.categoryBindings && Object.keys(tc.categoryBindings).length > 0) constraintsApplied.push('category_binding');
+    if (tc.sectorCaps && Object.keys(tc.sectorCaps).length > 0) constraintsApplied.push('sector_caps');
+    if (tc.maxPosition < 1.0) constraintsApplied.push('max_position');
+    if (escalationRounds > 0) constraintsApplied.push(`gamma_escalation_x${escalationRounds}`);
+    if (filteredCount > 0) constraintsApplied.push(`min_weight_filter_removed_${filteredCount}`);
+
+    const sectorExposure: Record<string, number> = {};
+    for (const [sector, indices] of Object.entries(sectorMap)) {
+      sectorExposure[sector] = indices.reduce((s, i) => s + weights[i], 0);
+    }
+
+    const categoryExposure: Record<string, number> = {};
+    for (const [cat, indices] of Object.entries(categoryMap)) {
+      categoryExposure[cat] = indices.reduce((s, i) => s + weights[i], 0);
+    }
+
+    const metrics: TransitionMetrics = {
+      turnover,
+      maxWeight: Math.max(...weights),
+      sectorExposure,
+      categoryExposure,
+      gammaUsed: gamma,
+      filteredCount,
+      constraintsApplied,
+    };
+
+    return { weights, metrics };
+  }
+
+  private solveConstrainedQP(
+    mu: number[],
+    sigma: number[][],
+    w0: number[],
+    lambda: number,
+    gamma: number,
+    tc: TransitionConstraints,
+    categoryMap: Record<string, number[]>,
+    sectorMap: Record<string, number[]>,
+    maxIter: number,
+    tol: number
+  ): number[] {
+    const n = mu.length;
+    let weights = [...w0];
+    const sum = weights.reduce((s, w) => s + w, 0);
+    if (Math.abs(sum - 1) > 0.01) {
+      weights = sum > 0 ? weights.map(w => w / sum) : Array(n).fill(1 / n);
+    }
+
+    const maxPos = tc.maxPosition;
 
     for (let iter = 0; iter < maxIter; iter++) {
-      const gradient = this.computeGradient(expectedReturns, covarianceMatrix, weights, lambda);
+      const grad = new Array(n);
+      for (let i = 0; i < n; i++) {
+        let sigmaW = 0;
+        for (let j = 0; j < n; j++) {
+          sigmaW += sigma[i][j] * weights[j];
+        }
+        grad[i] = mu[i] - 2 * lambda * sigmaW - 2 * gamma * (weights[i] - w0[i]);
+      }
 
-      const learningRate = 0.01 / (1 + iter * 0.001);
+      const learningRate = 0.005 / (1 + iter * 0.0005);
 
       const newWeights = weights.map((w, i) => {
-        let updated = w + learningRate * gradient[i];
-        return Math.max(minW, Math.min(maxW, updated));
+        let updated = w + learningRate * grad[i];
+        return Math.max(0, Math.min(maxPos, updated));
       });
 
-      const normalized = this.normalizeWeights(newWeights);
+      this.projectAllConstraints(newWeights, w0, tc, categoryMap, sectorMap, maxPos);
 
-      const maxDiff = Math.max(...normalized.map((w, i) => Math.abs(w - weights[i])));
-      weights = normalized;
+      const maxDiff = Math.max(...newWeights.map((w, i) => Math.abs(w - weights[i])));
+      weights = newWeights;
 
       if (maxDiff < tol) {
-        console.log(`[MVO] Converged at iteration ${iter}`);
+        console.log(`[MVO] Transition QP converged at iteration ${iter}`);
         break;
       }
     }
@@ -162,21 +277,293 @@ class MVOEngine {
     return weights;
   }
 
-  private computeGradient(
-    mu: number[], sigma: number[][], weights: number[], lambda: number
-  ): number[] {
-    const n = mu.length;
-    const gradient = new Array(n);
+  private projectAllConstraints(
+    weights: number[],
+    w0: number[],
+    tc: TransitionConstraints,
+    categoryMap: Record<string, number[]>,
+    sectorMap: Record<string, number[]>,
+    maxPos: number
+  ): void {
+    const MAX_ALTERNATING = 50;
+    const FEASIBILITY_TOL = 1e-4;
 
-    for (let i = 0; i < n; i++) {
-      let sigmaW = 0;
-      for (let j = 0; j < n; j++) {
-        sigmaW += sigma[i][j] * weights[j];
+    for (let round = 0; round < MAX_ALTERNATING; round++) {
+      this.projectBoxBounds(weights, maxPos);
+      this.projectSimplex(weights);
+
+      if (tc.categoryBindings && Object.keys(tc.categoryBindings).length > 0) {
+        this.projectCategoryBindings(weights, categoryMap, tc.categoryBindings, maxPos);
       }
-      gradient[i] = mu[i] - lambda * sigmaW;
+
+      if (tc.sectorCaps && Object.keys(tc.sectorCaps).length > 0) {
+        this.projectSectorCaps(weights, sectorMap, tc.sectorCaps);
+      }
+
+      this.projectTurnoverBall(weights, w0, tc.turnoverCap);
+
+      this.projectBoxBounds(weights, maxPos);
+      this.projectSimplex(weights);
+
+      if (this.checkFeasibility(weights, w0, tc, categoryMap, sectorMap, maxPos, FEASIBILITY_TOL)) {
+        return;
+      }
     }
 
-    return gradient;
+    const violations = this.getConstraintViolations(weights, w0, tc, categoryMap, sectorMap, maxPos);
+    if (violations.length > 0) {
+      console.warn(`[MVO] Constraint projection did not fully converge after ${MAX_ALTERNATING} rounds. Violations: ${violations.join(', ')}`);
+    }
+  }
+
+  private getConstraintViolations(
+    weights: number[],
+    w0: number[],
+    tc: TransitionConstraints,
+    categoryMap: Record<string, number[]>,
+    sectorMap: Record<string, number[]>,
+    maxPos: number
+  ): string[] {
+    const violations: string[] = [];
+    const tol = 1e-4;
+
+    const sum = weights.reduce((s, w) => s + w, 0);
+    if (Math.abs(sum - 1) > tol) violations.push(`sum=${sum.toFixed(4)}`);
+
+    const maxW = Math.max(...weights);
+    if (maxW > maxPos + tol) violations.push(`maxWeight=${maxW.toFixed(4)}>${maxPos}`);
+
+    const turnover = this.computeTurnover(weights, w0);
+    if (turnover > tc.turnoverCap + tol) violations.push(`turnover=${(turnover*100).toFixed(1)}%>${(tc.turnoverCap*100).toFixed(0)}%`);
+
+    if (tc.categoryBindings) {
+      for (const [cat, target] of Object.entries(tc.categoryBindings)) {
+        const indices = categoryMap[cat];
+        if (!indices) continue;
+        const catSum = indices.reduce((s, i) => s + weights[i], 0);
+        if (Math.abs(catSum - target) > tol) violations.push(`cat:${cat}=${catSum.toFixed(4)}!=${target}`);
+      }
+    }
+
+    if (tc.sectorCaps) {
+      for (const [sector, cap] of Object.entries(tc.sectorCaps)) {
+        const indices = sectorMap[sector];
+        if (!indices) continue;
+        const sectorSum = indices.reduce((s, i) => s + weights[i], 0);
+        if (sectorSum > cap + tol) violations.push(`sector:${sector}=${(sectorSum*100).toFixed(1)}%>${(cap*100).toFixed(0)}%`);
+      }
+    }
+
+    return violations;
+  }
+
+  private checkFeasibility(
+    weights: number[],
+    w0: number[],
+    tc: TransitionConstraints,
+    categoryMap: Record<string, number[]>,
+    sectorMap: Record<string, number[]>,
+    maxPos: number,
+    tol: number
+  ): boolean {
+    const sum = weights.reduce((s, w) => s + w, 0);
+    if (Math.abs(sum - 1) > tol) return false;
+
+    for (const w of weights) {
+      if (w < -tol || w > maxPos + tol) return false;
+    }
+
+    const turnover = this.computeTurnover(weights, w0);
+    if (turnover > tc.turnoverCap + tol) return false;
+
+    if (tc.categoryBindings) {
+      for (const [cat, target] of Object.entries(tc.categoryBindings)) {
+        const indices = categoryMap[cat];
+        if (!indices || indices.length === 0) continue;
+        const catSum = indices.reduce((s, i) => s + weights[i], 0);
+        if (Math.abs(catSum - target) > tol) return false;
+      }
+    }
+
+    if (tc.sectorCaps) {
+      for (const [sector, cap] of Object.entries(tc.sectorCaps)) {
+        const indices = sectorMap[sector];
+        if (!indices || indices.length === 0) continue;
+        const sectorSum = indices.reduce((s, i) => s + weights[i], 0);
+        if (sectorSum > cap + tol) return false;
+      }
+    }
+
+    return true;
+  }
+
+  private projectBoxBounds(weights: number[], maxPos: number): void {
+    for (let i = 0; i < weights.length; i++) {
+      weights[i] = Math.max(0, Math.min(maxPos, weights[i]));
+    }
+  }
+
+  private projectSimplex(weights: number[]): void {
+    const n = weights.length;
+    const sorted = weights.map((w, i) => ({ w, i })).sort((a, b) => b.w - a.w);
+    let tmpSum = 0;
+    let tMax = 0;
+    for (let j = 0; j < n; j++) {
+      tmpSum += sorted[j].w;
+      const t = (tmpSum - 1) / (j + 1);
+      if (sorted[j].w - t > 0) {
+        tMax = t;
+      }
+    }
+    for (let i = 0; i < n; i++) {
+      weights[i] = Math.max(0, weights[i] - tMax);
+    }
+  }
+
+  private projectTurnoverBall(weights: number[], w0: number[], turnoverCap: number): void {
+    const n = weights.length;
+    const diff = weights.map((w, i) => w - (w0[i] || 0));
+    const l1Norm = diff.reduce((s, d) => s + Math.abs(d), 0);
+
+    if (l1Norm <= turnoverCap + 1e-8) return;
+
+    const absDiff = diff.map(d => Math.abs(d));
+    const sorted = [...absDiff].sort((a, b) => b - a);
+
+    let rho = 0;
+    let cumSum = 0;
+    for (let j = 0; j < n; j++) {
+      cumSum += sorted[j];
+      const testTheta = (cumSum - turnoverCap) / (j + 1);
+      if (sorted[j] > testTheta) {
+        rho = j;
+      }
+    }
+
+    let rhoSum = 0;
+    for (let j = 0; j <= rho; j++) {
+      rhoSum += sorted[j];
+    }
+    const theta = Math.max(0, (rhoSum - turnoverCap) / (rho + 1));
+
+    for (let i = 0; i < n; i++) {
+      const shrunk = Math.max(0, absDiff[i] - theta);
+      weights[i] = (w0[i] || 0) + (diff[i] >= 0 ? 1 : -1) * shrunk;
+    }
+  }
+
+  private projectCategoryBindings(
+    weights: number[],
+    categoryMap: Record<string, number[]>,
+    bindings: Record<string, number>,
+    maxPos: number
+  ): void {
+    for (const [category, targetSum] of Object.entries(bindings)) {
+      const indices = categoryMap[category];
+      if (!indices || indices.length === 0) continue;
+
+      const currentSum = indices.reduce((s, i) => s + weights[i], 0);
+      if (Math.abs(currentSum - targetSum) < 1e-8) continue;
+
+      if (currentSum > 1e-12) {
+        const scale = targetSum / currentSum;
+        for (const i of indices) {
+          weights[i] = Math.min(weights[i] * scale, maxPos);
+        }
+        const afterCap = indices.reduce((s, i) => s + weights[i], 0);
+        if (Math.abs(afterCap - targetSum) > 1e-8) {
+          const uncapped = indices.filter(i => weights[i] < maxPos);
+          const deficit = targetSum - afterCap;
+          if (uncapped.length > 0) {
+            const add = deficit / uncapped.length;
+            for (const i of uncapped) {
+              weights[i] = Math.max(0, Math.min(maxPos, weights[i] + add));
+            }
+          }
+        }
+      } else if (targetSum > 0) {
+        const share = Math.min(targetSum / indices.length, maxPos);
+        for (const i of indices) {
+          weights[i] = share;
+        }
+        const afterShare = indices.reduce((s, i) => s + weights[i], 0);
+        if (afterShare > 0 && Math.abs(afterShare - targetSum) > 1e-8) {
+          const correction = targetSum / afterShare;
+          for (const i of indices) {
+            weights[i] *= correction;
+          }
+        }
+      }
+    }
+  }
+
+  private projectSectorCaps(
+    weights: number[],
+    sectorMap: Record<string, number[]>,
+    sectorCaps: Record<string, number>
+  ): void {
+    for (const [sector, cap] of Object.entries(sectorCaps)) {
+      const indices = sectorMap[sector];
+      if (!indices || indices.length === 0) continue;
+
+      const sectorSum = indices.reduce((s, i) => s + weights[i], 0);
+      if (sectorSum <= cap + 1e-8) continue;
+
+      const scale = cap / sectorSum;
+      for (const i of indices) {
+        weights[i] *= scale;
+      }
+    }
+  }
+
+  private computeTurnover(weights: number[], w0: number[]): number {
+    return weights.reduce((sum, w, i) => sum + Math.abs(w - (w0[i] || 0)), 0);
+  }
+
+  private applyMinWeightFilter(
+    weights: number[],
+    minWeight: number,
+    w0?: number[],
+    tc?: TransitionConstraints,
+    categoryMap?: Record<string, number[]>,
+    sectorMap?: Record<string, number[]>,
+    maxPos?: number
+  ): { filtered: number[]; filteredCount: number } {
+    let filteredCount = 0;
+    const filtered = weights.map(w => {
+      if (w > 0 && w < minWeight) {
+        filteredCount++;
+        return 0;
+      }
+      return w;
+    });
+
+    if (filteredCount > 0 && w0 && tc && categoryMap && sectorMap && maxPos) {
+      this.projectAllConstraints(filtered, w0, tc, categoryMap, sectorMap, maxPos);
+    } else {
+      const total = filtered.reduce((s, w) => s + w, 0);
+      if (total > 0 && Math.abs(total - 1) > 1e-6) {
+        for (let i = 0; i < filtered.length; i++) {
+          filtered[i] /= total;
+        }
+      }
+    }
+
+    return { filtered, filteredCount };
+  }
+
+  private buildGroupMap(assetsData: AssetData[] | undefined, field: 'sector' | 'instrumentType'): Record<string, number[]> {
+    const map: Record<string, number[]> = {};
+    if (!assetsData) return map;
+
+    for (let i = 0; i < assetsData.length; i++) {
+      const key = field === 'sector' ? assetsData[i].sector : assetsData[i].instrumentType;
+      if (key) {
+        if (!map[key]) map[key] = [];
+        map[key].push(i);
+      }
+    }
+    return map;
   }
 
   private normalizeWeights(weights: number[]): number[] {
@@ -188,19 +575,22 @@ class MVOEngine {
   async run(
     assetsData: AssetData[],
     config: Partial<MVOConfig> = {},
-    portfolioId?: string
+    portfolioId?: string,
+    transitionConstraints?: Partial<TransitionConstraints>,
+    expectedReturnsOverride?: number[]
   ): Promise<MVOResult> {
     const startTime = Date.now();
     const fullConfig = { ...DEFAULT_CONFIG, ...config };
+    const tc = { ...DEFAULT_TRANSITION, ...transitionConstraints };
     const categories = assetsData.map(a => a.category);
 
     try {
       const covarianceMatrix = this.computeCovarianceMatrix(assetsData, fullConfig);
-      const expectedReturns = this.computeExpectedReturns(assetsData, fullConfig);
+      const expectedReturns = expectedReturnsOverride || this.computeExpectedReturns(assetsData, fullConfig);
       const currentWeights = assetsData.map(a => a.currentWeight);
 
-      const optimalWeights = this.optimize(
-        expectedReturns, covarianceMatrix, fullConfig, currentWeights
+      const { weights: optimalWeights, metrics } = this.optimize(
+        expectedReturns, covarianceMatrix, fullConfig, currentWeights, tc, assetsData
       );
 
       let portfolioReturn = 0;
@@ -220,23 +610,29 @@ class MVOEngine {
       });
 
       const runTimeMs = Date.now() - startTime;
-      const modelVersion = `mvo-v1.0-lw${fullConfig.shrinkageIntensity}-ra${fullConfig.riskAversion}`;
+      const modelVersion = `mvo-v2.0-transition-lw${fullConfig.shrinkageIntensity}-ra${fullConfig.riskAversion}-g${tc.gamma}`;
 
       try {
         await db.insert(quantRunLog).values({
           portfolioId: portfolioId || null,
-          modelType: 'MVO',
+          modelType: 'MVO_TRANSITION',
           runTimeMs,
           status: 'SUCCESS',
           inputHash: this.hashInput(categories, fullConfig),
-          outputSummary: { weights, portfolioReturn, portfolioVolatility, sharpeRatio },
+          outputSummary: {
+            weights,
+            portfolioReturn,
+            portfolioVolatility,
+            sharpeRatio,
+            transitionMetrics: metrics,
+          },
           fallbackUsed: false,
         });
       } catch (e) {
         console.warn('[MVO] Failed to log run:', e);
       }
 
-      console.log(`[MVO] Optimization complete in ${runTimeMs}ms. Sharpe: ${sharpeRatio.toFixed(3)}, Vol: ${(portfolioVolatility * 100).toFixed(1)}%`);
+      console.log(`[MVO] Transition optimization complete in ${runTimeMs}ms. Sharpe: ${sharpeRatio.toFixed(3)}, Vol: ${(portfolioVolatility * 100).toFixed(1)}%, Turnover: ${(metrics.turnover * 100).toFixed(1)}%, Gamma: ${metrics.gammaUsed.toFixed(1)}`);
 
       return {
         weights,
@@ -247,13 +643,14 @@ class MVOEngine {
         expectedReturns,
         categories,
         modelVersion,
+        transitionMetrics: metrics,
       };
     } catch (error: any) {
       const runTimeMs = Date.now() - startTime;
       try {
         await db.insert(quantRunLog).values({
           portfolioId: portfolioId || null,
-          modelType: 'MVO',
+          modelType: 'MVO_TRANSITION',
           runTimeMs,
           status: 'ERROR',
           errorMessage: error.message,
@@ -261,7 +658,7 @@ class MVOEngine {
         });
       } catch (_) {}
 
-      console.error('[MVO] Optimization failed:', error.message);
+      console.error('[MVO] Transition optimization failed:', error.message);
       throw error;
     }
   }
