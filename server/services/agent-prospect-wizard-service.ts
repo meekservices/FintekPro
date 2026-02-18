@@ -3023,7 +3023,15 @@ class AgentProspectWizardService {
 
     console.log('[Rebalancing] Action determination:', driftMetrics.map(dm => `${dm.category}=${dm.rawAction}`).join(', '));
 
-    // ── Step 6: Generate REDUCE recommendations (overweight positions) ──
+    // ── Step 6: Protect existing holdings — skip REDUCE for positions user already owns ──
+    // User's existing portfolio positions should be retained (HOLD), not recommended for sell/reduce
+    const existingHoldingNames = new Set(
+      normalizedHoldings.map(h => (h.name || h.productName || '').toLowerCase().trim()).filter(Boolean)
+    );
+    const existingHoldingIsins = new Set(
+      normalizedHoldings.map(h => (h.isin || '').toUpperCase().trim()).filter(Boolean)
+    );
+
     for (const dm of driftMetrics) {
       if (dm.finalAction !== 'REDUCE') continue;
 
@@ -3035,6 +3043,29 @@ class AgentProspectWizardService {
 
       for (const holding of holdingsToReduce) {
         if (remainingToReduce <= 0) continue;
+
+        const holdingName = (holding.name || holding.productName || '').toLowerCase().trim();
+        const holdingIsin = (holding.isin || '').toUpperCase().trim();
+        const isExistingHolding = (holdingName && existingHoldingNames.has(holdingName)) ||
+                                  (holdingIsin && existingHoldingIsins.has(holdingIsin));
+
+        if (isExistingHolding) {
+          const alreadyRecommended = recommendations.find(r => r.productName === (holding.name || holding.productName || 'Unknown'));
+          if (!alreadyRecommended) {
+            recommendations.push({
+              action: 'HOLD',
+              productType: holding.productType || holding.assetType || 'other',
+              productName: holding.name || holding.productName || 'Unknown',
+              currentValue: holding.currentValue,
+              suggestedValue: holding.currentValue,
+              changeAmount: 0,
+              rationale: `[HOLD] Existing portfolio position retained. ${dm.category} overweight by ${dm.drift.toFixed(1)}% but position is protected as it is already in your portfolio.`,
+              priority: 'low',
+            });
+          }
+          console.log(`[Rebalancing] Protected existing holding: ${holding.name || holding.productName} — REDUCE suppressed, HOLD retained`);
+          continue;
+        }
 
         const reduceAmount = Math.min(holding.currentValue, remainingToReduce);
         if (reduceAmount < 1000) continue;
@@ -3117,43 +3148,21 @@ class AgentProspectWizardService {
       }
     }
 
-    // ── Handle non-standard/illiquid assets (full SELL exits) ──
+    // ── Handle non-standard/illiquid assets — protect existing holdings from SELL ──
     for (const h of normalizedHoldings) {
       const type = (h.productType || h.assetType || '').toLowerCase();
       if (!['equity', 'mutual_fund', 'mf', 'bond', 'fd', 'gold', 'etf', 'stock', 'debt'].includes(type)) {
         const existing = recommendations.find(r => r.productName === (h.name || h.productName));
         if (!existing && h.currentValue > 1000) {
-          const taxInfo = await proposalCapitalGainsService.calculateHoldingTaxAsync({
-            name: h.name || h.productName || 'Unknown',
-            productType: h.productType || h.assetType || 'other',
-            category: h.category,
-            isin: h.isin,
-            schemeCode: (h as any).schemeCode,
-            currentValue: h.currentValue,
-            investedAmount: (h as any).investedAmount || (h.currentValue * 0.85),
-            purchaseDate: h.purchaseDate || (h as any).firstPurchaseDate,
-            quantity: h.quantity
-          });
-
           recommendations.push({
-            action: 'SELL',
+            action: 'HOLD',
             productType: h.productType || h.assetType || 'other',
             productName: h.name || h.productName || 'Unknown',
             currentValue: h.currentValue,
-            changeAmount: -h.currentValue,
-            rationale: 'Consider switching to regulated products (mutual funds, bonds) for better liquidity, transparency, and professional management.',
+            suggestedValue: h.currentValue,
+            changeAmount: 0,
+            rationale: `[HOLD] Existing portfolio position retained. Non-standard asset protected — no sell recommendation for positions already in your portfolio.`,
             priority: 'low',
-            taxImplications: {
-              taxType: taxInfo.taxType,
-              holdingPeriodDays: taxInfo.holdingPeriodDays,
-              estimatedGain: taxInfo.unrealizedGain,
-              estimatedTax: taxInfo.estimatedTaxWithCess,
-              exitLoad: taxInfo.exitLoad,
-              totalCost: taxInfo.totalCost,
-              taxRate: `${(taxInfo.applicableTaxRate * 100).toFixed(1)}%`,
-              alerts: taxInfo.alerts,
-              summary: `Estimated tax: ₹${taxInfo.estimatedTaxWithCess.toLocaleString('en-IN')} (${taxInfo.taxType})`
-            }
           });
         }
       }
@@ -3992,8 +4001,7 @@ class AgentProspectWizardService {
       .filter(r => r.action === 'SELL')
       .reduce((sum, r) => sum + Math.abs(r.changeAmount), 0);
     
-    const totalBuyAmount = freshInvestments.reduce((sum, s) => sum + s.suggestedAmount, 0) +
-      rebalancing.filter(r => r.action === 'BUY').reduce((sum, r) => sum + r.changeAmount, 0);
+    const totalBuyAmount = rebalancing.filter(r => r.action === 'BUY').reduce((sum, r) => sum + r.changeAmount, 0);
     
     const netInvestmentRequired = totalBuyAmount - totalSellAmount;
     
@@ -4061,7 +4069,7 @@ class AgentProspectWizardService {
       // EPIC 6: Compliance snapshot
       complianceSnapshot,
       currentAnalysis: JSON.stringify({ ...analysis, portfolioComparison }),
-      recommendations: [...rebalancing, ...freshInvestments],
+      recommendations: [...rebalancing],
       totalInvestmentAmount: String(netInvestmentRequired),
       projectedValue: String(Math.round(projectedValue)),
       projectedReturns: String(avgReturn),
@@ -4085,7 +4093,7 @@ class AgentProspectWizardService {
       agentEmail,
       agentMobile,
       referralCode,
-      executiveSummary: this.generateExecutiveSummary(analysis, rebalancing, freshInvestments, riskProfile, globalAdvisorySelections),
+      executiveSummary: this.generateExecutiveSummary(analysis, rebalancing, [], riskProfile, globalAdvisorySelections),
       proposalSections: proposalSections || {
         exitLoadCalendar: true,
         capitalGainsSummary: true,
@@ -4117,7 +4125,7 @@ class AgentProspectWizardService {
         proposalId: String(proposal.id),
         versionNumber: 1,
         payload: {
-          recommendations: [...rebalancing, ...freshInvestments],
+          recommendations: [...rebalancing],
           targetAllocation,
           riskProfile: riskProfile.riskTolerance,
           totalInvestmentAmount: netInvestmentRequired,
@@ -4130,7 +4138,6 @@ class AgentProspectWizardService {
 
       const allFunds = [
         ...rebalancing.map(r => ({ name: r.productName, type: r.action })),
-        ...freshInvestments.map(f => ({ name: f.productName, type: 'BUY' }))
       ];
       for (const fund of allFunds) {
         try {
@@ -4167,7 +4174,6 @@ class AgentProspectWizardService {
       console.error('[ProposalAudit] Non-critical: Failed to write audit/version records:', auditError);
     }
 
-    // Combine all recommendations for PDF detailed view (BUYs from rebalancing + fresh investments)
     const detailedRecommendations = [
       ...rebalancing.filter(r => r.action === 'BUY').map(r => ({
         action: 'BUY',
@@ -4178,15 +4184,6 @@ class AgentProspectWizardService {
         rationale: r.rationale,
         selectionReason: (r as any).selectionReason
       })),
-      ...freshInvestments.map(f => ({
-        action: 'BUY',
-        productName: f.productName,
-        suggestedAmount: f.suggestedAmount,
-        fundedBy: 'fresh_investment',
-        fundMetrics: (f as any).fundMetrics,
-        rationale: f.rationale,
-        selectionReason: (f as any).selectionReason
-      }))
     ];
 
     return {
@@ -4195,13 +4192,13 @@ class AgentProspectWizardService {
       shareToken,
       analysis,
       rebalancing,
-      freshInvestments,
+      freshInvestments: [],
       totalSellAmount,
       totalBuyAmount,
       netInvestmentRequired,
       projectedValue: Math.round(projectedValue),
       projectedReturn: `${avgReturn}% p.a.`,
-      executiveSummary: this.generateExecutiveSummary(analysis, rebalancing, freshInvestments, riskProfile, globalAdvisorySelections),
+      executiveSummary: this.generateExecutiveSummary(analysis, rebalancing, [], riskProfile, globalAdvisorySelections),
       portfolioComparison,
       fundingSummary,
       detailedRecommendations,
