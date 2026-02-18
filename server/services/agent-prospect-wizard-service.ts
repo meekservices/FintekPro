@@ -3256,7 +3256,7 @@ class AgentProspectWizardService {
       }
     }
 
-    // ── Step 7: Trade Netting — aggregate REDUCE proceeds and allocate to INCREASE categories ──
+    // ── Step 7: Trade Netting — aggregate REDUCE proceeds + fresh investment and allocate to INCREASE categories ──
     const netFlows: Record<string, number> = {};
     const totalReduceAmount = recommendations
       .filter(r => r.action === 'REDUCE')
@@ -3266,7 +3266,10 @@ class AgentProspectWizardService {
       .filter(r => r.action === 'SELL' || r.action === 'REDUCE')
       .reduce((sum, r) => sum + Math.abs(r.changeAmount), 0);
 
-    console.log('[Rebalancing] Trade Netting: totalReduceAmount=', totalReduceAmount, ', totalSellAmount=', totalSellAmount);
+    // Total deployable = sell/reduce proceeds + fresh investment amount
+    const totalDeployableBudget = totalSellAmount + freshInvestmentAmount;
+
+    console.log('[Rebalancing] Trade Netting: totalReduceAmount=', totalReduceAmount, ', totalSellAmount=', totalSellAmount, ', freshInvestmentAmount=', freshInvestmentAmount, ', totalDeployable=', totalDeployableBudget);
 
     const increaseMetrics = driftMetrics.filter(dm => dm.finalAction === 'INCREASE');
     const totalIncreaseGap = increaseMetrics.reduce((sum, dm) => sum + Math.abs(dm.drift), 0);
@@ -3278,7 +3281,7 @@ class AgentProspectWizardService {
 
     console.log('[Rebalancing] Net flows by category:', JSON.stringify(netFlows));
 
-    if (totalSellAmount > 2000) {
+    if (totalDeployableBudget > 2000) {
       const categoryMapping: Record<string, string[]> = {
         'equity': ['equity'], 'debt': ['debt'], 'hybrid': ['hybrid'],
         'gold_fof': ['gold'], 'silver_fof': ['silver'], 'index_fund': ['index'],
@@ -3311,7 +3314,7 @@ class AgentProspectWizardService {
 
       underweightCategories.sort((a, b) => b.gap - a.gap);
 
-      let remainingToAllocate = totalSellAmount;
+      let remainingToAllocate = totalDeployableBudget;
       const numCategoriesToFund = Math.min(underweightCategories.length, policy.maxCategoriesInBuy ?? 3);
       const categoriesToFund = underweightCategories.slice(0, numCategoriesToFund);
       const totalGap = categoriesToFund.reduce((sum, c) => sum + c.gap, 0);
@@ -3320,7 +3323,7 @@ class AgentProspectWizardService {
         if (remainingToAllocate <= 1000) break;
 
         const proportion = totalGap > 0 ? gap / totalGap : 1 / numCategoriesToFund;
-        const buyAmount = Math.round(totalSellAmount * proportion);
+        const buyAmount = Math.round(totalDeployableBudget * proportion);
         const nettedAmount = netFlows[category] || 0;
         const actualAmount = Math.min(Math.max(buyAmount, nettedAmount), remainingToAllocate);
 
@@ -3331,11 +3334,12 @@ class AgentProspectWizardService {
         const fundToRecommend = eligibleForLumpsum[0] || null;
 
         if (fundToRecommend) {
-          const formattedSellAmount = totalSellAmount >= 10000000
-            ? `₹${(totalSellAmount / 10000000).toFixed(2)} Cr`
-            : totalSellAmount >= 100000
-              ? `₹${(totalSellAmount / 100000).toFixed(2)} L`
-              : `₹${totalSellAmount.toLocaleString('en-IN')}`;
+          const fundingSource = totalSellAmount > 0 ? 'sell_proceeds' : 'fresh_investment';
+          const fundingDescription = totalSellAmount > 0 && freshInvestmentAmount > 0
+            ? `Funded by sell proceeds + ₹${freshInvestmentAmount.toLocaleString('en-IN')} fresh investment`
+            : totalSellAmount > 0
+              ? `Funded by ${formatAmount(totalSellAmount)} from REDUCE/SELL recommendations`
+              : `Funded by ₹${freshInvestmentAmount.toLocaleString('en-IN')} fresh investment`;
 
           recommendations.push({
             action: 'INCREASE',
@@ -3343,8 +3347,8 @@ class AgentProspectWizardService {
             productName: fundToRecommend.name,
             suggestedValue: actualAmount,
             changeAmount: actualAmount,
-            fundedBy: 'sell_proceeds',
-            fundedByDescription: `Funded by ${formattedSellAmount} from REDUCE/SELL recommendations`,
+            fundedBy: fundingSource,
+            fundedByDescription: fundingDescription,
             fundMetrics: {
               amc: fundToRecommend.amc,
               category: fundToRecommend.category,
@@ -3353,7 +3357,7 @@ class AgentProspectWizardService {
               returns5Y: fundToRecommend.returns5Y,
               risk: fundToRecommend.risk
             },
-            rationale: `[INCREASE] Deploy ${formatAmount(actualAmount)} from rebalancing proceeds into ${fundToRecommend.category}. ${fundToRecommend.name} (${fundToRecommend.amc}) offers strong historical performance with ${fundToRecommend.returns3Y}% 3-year CAGR returns and ${fundToRecommend.risk} risk level. This helps achieve your target ${targetPercent}% ${category} allocation, currently underweight by ${gap.toFixed(1)}%. Net flow after trade netting: ${formatAmount(nettedAmount)}.`,
+            rationale: `[INCREASE] Deploy ${formatAmount(actualAmount)} ${totalSellAmount > 0 ? 'from rebalancing proceeds' : 'from fresh investment'} into ${fundToRecommend.category}. ${fundToRecommend.name} (${fundToRecommend.amc}) offers strong historical performance with ${fundToRecommend.returns3Y}% 3-year CAGR returns and ${fundToRecommend.risk} risk level. This helps achieve your target ${targetPercent}% ${category} allocation, currently underweight by ${gap.toFixed(1)}%.`,
             selectionReason: `Selected based on: (1) ${fundToRecommend.returns3Y}% 3Y returns vs category avg, (2) ${fundToRecommend.risk} risk suitable for ${riskProfile.riskTolerance} profile, (3) Fills ${category} allocation gap of ${gap.toFixed(1)}%`,
             priority: gap > 10 ? 'high' : 'medium'
           });
