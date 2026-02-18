@@ -21,13 +21,13 @@ export interface OrchestratedRecommendation {
     targetPrice: number;
     confidenceScore?: number;
   };
-  originalRebalanceAction?: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH';
+  originalRebalanceAction?: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH' | 'REDUCE' | 'INCREASE' | 'HOLD_COST_FILTER' | 'HOLD_RISK_LIMIT';
 }
 
 export interface GovernanceRule {
   id: string;
   potdSignal: 'BUY' | 'NONE';
-  rebalanceSignal: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH' | 'NONE';
+  rebalanceSignal: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH' | 'REDUCE' | 'INCREASE' | 'NONE';
   resolvedAction: OrchestratedAction;
   priority: 'high' | 'medium' | 'low';
   description: string;
@@ -140,6 +140,42 @@ const DEFAULT_GOVERNANCE_RULES: GovernanceRule[] = [
     resolvedAction: 'BUY',
     priority: 'medium',
     description: 'POTD BUY with no Rebalance signal — fresh investment suggestion',
+    enabled: true,
+  },
+  {
+    id: 'POTD_BUY_REBAL_REDUCE',
+    potdSignal: 'BUY',
+    rebalanceSignal: 'REDUCE',
+    resolvedAction: 'REDUCE',
+    priority: 'high',
+    description: 'POTD BUY conflicts with Rebalance REDUCE — partial reduction preserving POTD upside',
+    enabled: true,
+  },
+  {
+    id: 'POTD_BUY_REBAL_INCREASE',
+    potdSignal: 'BUY',
+    rebalanceSignal: 'INCREASE',
+    resolvedAction: 'BUY',
+    priority: 'high',
+    description: 'POTD BUY reinforced by Rebalance INCREASE — stronger buy signal',
+    enabled: true,
+  },
+  {
+    id: 'NONE_REBAL_REDUCE',
+    potdSignal: 'NONE',
+    rebalanceSignal: 'REDUCE',
+    resolvedAction: 'REDUCE',
+    priority: 'medium',
+    description: 'No POTD conflict — Rebalance REDUCE proceeds as-is',
+    enabled: true,
+  },
+  {
+    id: 'NONE_REBAL_INCREASE',
+    potdSignal: 'NONE',
+    rebalanceSignal: 'INCREASE',
+    resolvedAction: 'INCREASE',
+    priority: 'medium',
+    description: 'No POTD conflict — Rebalance INCREASE proceeds as-is',
     enabled: true,
   },
 ];
@@ -356,14 +392,17 @@ class SignalOrchestrator {
 
   private findRule(
     potdSignal: 'BUY' | 'NONE',
-    rebalanceSignal: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH' | 'NONE'
+    rebalanceSignal: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH' | 'REDUCE' | 'INCREASE' | 'HOLD_COST_FILTER' | 'HOLD_RISK_LIMIT' | 'NONE'
   ): GovernanceRule | null {
+    const mappedSignal = rebalanceSignal === 'HOLD_COST_FILTER' ? 'HOLD'
+      : rebalanceSignal === 'HOLD_RISK_LIMIT' ? 'HOLD'
+      : rebalanceSignal;
     return (
       this.governanceRules.find(
         r =>
           r.enabled &&
           r.potdSignal === potdSignal &&
-          r.rebalanceSignal === rebalanceSignal
+          (r.rebalanceSignal === rebalanceSignal || r.rebalanceSignal === mappedSignal)
       ) || null
     );
   }
@@ -379,7 +418,7 @@ class SignalOrchestrator {
     const reasoningCode = `POTD_BUY_REBAL_${rec.action}_${resolvedAction}`;
 
     let changeAmount = rec.changeAmount;
-    if (resolvedAction === 'REDUCE' && rec.action === 'SELL') {
+    if (resolvedAction === 'REDUCE' && (rec.action === 'REDUCE' || rec.action === 'SELL')) {
       changeAmount = Math.round(rec.changeAmount * 0.5);
     }
 

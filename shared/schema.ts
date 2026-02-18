@@ -32119,3 +32119,55 @@ export const governancePolicy = pgTable("governance_policy", {
 export const insertGovernancePolicySchema = createInsertSchema(governancePolicy).omit({ id: true, updatedAt: true });
 export type InsertGovernancePolicy = z.infer<typeof insertGovernancePolicySchema>;
 export type GovernancePolicy = typeof governancePolicy.$inferSelect;
+
+export const rebalanceGovernanceConfig = pgTable("rebalance_governance_config", {
+  id: serial("id").primaryKey(),
+  riskProfile: text("risk_profile").notNull().unique(),
+  toleranceBandPct: real("tolerance_band_pct").notNull().default(5),
+  minTradeValueInr: real("min_trade_value_inr").notNull().default(5000),
+  brokerageRatePct: real("brokerage_rate_pct").notNull().default(0.03),
+  maxTacticalWeightPct: real("max_tactical_weight_pct").notNull().default(10),
+  targetVolatilityPct: real("target_volatility_pct").notNull().default(15),
+  riskToleranceBandPct: real("risk_tolerance_band_pct").notNull().default(3),
+  maxCategoriesInBuy: integer("max_categories_in_buy").notNull().default(3),
+  reviewFrequencyDays: integer("review_frequency_days").notNull().default(90),
+  adaptiveToleranceEnabled: boolean("adaptive_tolerance_enabled").notNull().default(false),
+  highVolToleranceBandPct: real("high_vol_tolerance_band_pct").default(3),
+  vixThreshold: real("vix_threshold").default(25),
+  updatedBy: text("updated_by"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertRebalanceGovernanceConfigSchema = createInsertSchema(rebalanceGovernanceConfig).omit({ id: true, updatedAt: true });
+export type InsertRebalanceGovernanceConfig = z.infer<typeof insertRebalanceGovernanceConfigSchema>;
+export type RebalanceGovernanceConfig = typeof rebalanceGovernanceConfig.$inferSelect;
+
+export const rebalanceDecisionLog = pgTable("rebalance_decision_log", {
+  id: serial("id").primaryKey(),
+  proposalId: text("proposal_id"),
+  portfolioValue: real("portfolio_value"),
+  instrumentName: text("instrument_name").notNull(),
+  assetCategory: text("asset_category").notNull(),
+  currentWeightPct: real("current_weight_pct"),
+  targetWeightPct: real("target_weight_pct"),
+  driftPct: real("drift_pct"),
+  driftStatus: text("drift_status"),
+  riskFlag: text("risk_flag"),
+  costEstimate: real("cost_estimate"),
+  costFlag: text("cost_flag"),
+  tacticalFlag: text("tactical_flag"),
+  rawAction: text("raw_action").notNull(),
+  finalAction: text("final_action").notNull(),
+  changeAmount: real("change_amount"),
+  rationaleCode: text("rationale_code").notNull(),
+  rationaleDetail: text("rationale_detail"),
+  governanceConfigId: integer("governance_config_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_rebalance_log_proposal").on(table.proposalId),
+  index("idx_rebalance_log_created").on(table.createdAt),
+]);
+
+export const insertRebalanceDecisionLogSchema = createInsertSchema(rebalanceDecisionLog).omit({ id: true, createdAt: true });
+export type InsertRebalanceDecisionLog = z.infer<typeof insertRebalanceDecisionLogSchema>;
+export type RebalanceDecisionLog = typeof rebalanceDecisionLog.$inferSelect;

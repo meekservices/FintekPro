@@ -18,7 +18,7 @@ import { proposalCapitalGainsService } from "./proposal-capital-gains-service";
 import { historicalNavService } from "./historical-nav-service";
 import { getRecommendationsByCategory, getAllActiveRecommendations } from "./recommendation-products-service";
 import { mfReturnsSyncService } from "./mf-returns-sync-service";
-import { mutualFunds, schemeTransactionRules, proposalAuditLog, proposalVersions, signalResolutionLog } from "@shared/schema";
+import { mutualFunds, schemeTransactionRules, proposalAuditLog, proposalVersions, signalResolutionLog, rebalanceGovernanceConfig, rebalanceDecisionLog } from "@shared/schema";
 import { prospectReadinessService } from "./prospect-readiness-service";
 import { allocationPolicyService } from "./allocation-policy-service";
 import { complianceSnapshotService } from "./compliance-snapshot-service";
@@ -1618,7 +1618,7 @@ export interface PortfolioAnalysis {
 }
 
 export interface RebalanceRecommendation {
-  action: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH';
+  action: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH' | 'REDUCE' | 'INCREASE' | 'HOLD_COST_FILTER' | 'HOLD_RISK_LIMIT';
   productType: string;
   productName: string;
   currentValue?: number;
@@ -2850,136 +2850,236 @@ class AgentProspectWizardService {
     
     console.log('[Rebalancing] Current by category:', Object.entries(currentByCategory).map(([k, v]) => `${k}: ${v.value}`).join(', '));
     
-    // Calculate total portfolio after fresh investment
+    // ── Step 0: Fetch governance config from DB ──
+    const governanceConfig = await db.select().from(rebalanceGovernanceConfig).where(eq(rebalanceGovernanceConfig.riskProfile, riskProfile.riskTolerance)).limit(1);
+    const policy = governanceConfig[0] || { toleranceBandPct: 5, minTradeValueInr: 5000, brokerageRatePct: 0.03, maxTacticalWeightPct: 10, targetVolatilityPct: 15, riskToleranceBandPct: 3, maxCategoriesInBuy: 3 };
+    console.log('[Rebalancing] Governance policy loaded:', JSON.stringify({ toleranceBandPct: policy.toleranceBandPct, minTradeValueInr: policy.minTradeValueInr, brokerageRatePct: policy.brokerageRatePct, targetVolatilityPct: policy.targetVolatilityPct }));
+
     const totalPortfolioValue = totalValue + freshInvestmentAmount;
-    
-    // Calculate target values and compare with current (expanded categories including stocks)
     const categories = ['equity', 'debt', 'hybrid', 'gold', 'silver', 'index', 'etf', 'international', 'reit', 'invit', 'bonds', 'mld', 'listed_stocks', 'unlisted_stocks', 'pms', 'aif'];
-    
+
+    // ── Step 2: Drift Engine ──
+    interface DriftMetric {
+      category: string;
+      currentValue: number;
+      currentPercent: number;
+      targetPercent: number;
+      targetValue: number;
+      drift: number;
+      driftPercent: number;
+      driftStatus: 'DRIFT_BREACH' | 'WITHIN_BAND';
+      holdings: ProspectPortfolioHolding[];
+      riskFlag?: string;
+      costEstimate?: number;
+      costFlag?: string;
+      rawAction?: string;
+      finalAction?: string;
+      changeAmount?: number;
+      rationaleCode?: string;
+      rationaleDetail?: string;
+    }
+
+    const driftMetrics: DriftMetric[] = [];
+
     for (const category of categories) {
       const targetPercent = targetAllocations[category as keyof typeof targetAllocations] || 0;
       const targetValue = (targetPercent / 100) * totalPortfolioValue;
       const currentValue = currentByCategory[category]?.value || 0;
-      const currentPercent = (currentValue / totalValue) * 100;
-      
-      const difference = currentValue - targetValue;
-      const percentDiff = currentPercent - targetPercent;
-      
-      // Only generate sell if overweight by more than 5% AND the excess is significant (>5000)
-      if (percentDiff > 5 && difference > 5000) {
-        const holdingsToSell = currentByCategory[category]?.holdings || [];
-        
-        // Sort by value (largest first) for selling
-        holdingsToSell.sort((a, b) => b.currentValue - a.currentValue);
-        
-        let remainingToSell = difference;
-        
-        for (const holding of holdingsToSell) {
-          if (remainingToSell <= 0) continue;
-          
-          // Don't sell more than the holding value or what we need
-          const sellAmount = Math.min(holding.currentValue, remainingToSell);
-          
-          // Only suggest sell if it's a meaningful amount (>1000)
-          if (sellAmount > 1000) {
-            const isPartialSell = sellAmount < holding.currentValue;
-            
-            // Calculate detailed tax implications using async method with Sandbox API
-            // Uses purchaseDate (already normalized from firstPurchaseDate/lots) as primary source
-            const taxInfo = await proposalCapitalGainsService.calculateHoldingTaxAsync({
-              name: holding.name || holding.productName || 'Unknown',
-              productType: holding.productType || holding.assetType || 'mutual_fund',
-              category: holding.category,
-              isin: holding.isin,
-              schemeCode: holding.schemeCode,
-              currentValue: sellAmount,
-              investedAmount: holding.investedAmount || (sellAmount * 0.85),
-              purchaseDate: holding.purchaseDate || (holding as any).firstPurchaseDate,
-              quantity: holding.quantity
-            });
-            
-            recommendations.push({
-              action: 'SELL',
-              productType: holding.productType || holding.assetType || 'other',
-              productName: holding.name || holding.productName || 'Unknown',
-              currentValue: holding.currentValue,
-              suggestedValue: isPartialSell ? holding.currentValue - sellAmount : 0,
-              changeAmount: -sellAmount,
-              rationale: `Reduce ${category} allocation from ${currentPercent.toFixed(1)}% to target ${targetPercent}%. ${isPartialSell ? 'Partial redemption recommended.' : 'Full redemption recommended.'}`,
-              priority: percentDiff > 15 ? 'high' : 'medium',
-              taxImplications: {
-                taxType: taxInfo.taxType,
-                holdingPeriodDays: taxInfo.holdingPeriodDays,
-                estimatedGain: taxInfo.unrealizedGain,
-                estimatedTax: taxInfo.estimatedTaxWithCess,
-                exitLoad: taxInfo.exitLoad,
-                totalCost: taxInfo.totalCost,
-                taxRate: `${(taxInfo.applicableTaxRate * 100).toFixed(1)}%`,
-                grandfatheringApplied: taxInfo.grandfatheringApplied,
-                grandfatheringBenefit: taxInfo.grandfatheringBenefit,
-                alerts: taxInfo.alerts,
-                summary: taxInfo.taxType === 'STCG' 
-                  ? `STCG @${(taxInfo.applicableTaxRate * 100).toFixed(0)}% + 4% cess = ₹${taxInfo.estimatedTaxWithCess.toLocaleString('en-IN')}`
-                  : `LTCG @${(taxInfo.applicableTaxRate * 100).toFixed(1)}% + 4% cess = ₹${taxInfo.estimatedTaxWithCess.toLocaleString('en-IN')}`
-              }
-            });
-            
-            remainingToSell -= sellAmount;
-          }
-        }
-      }
-    }
-    
-    for (const category of categories) {
-      const targetPercent = targetAllocations[category as keyof typeof targetAllocations] || 0;
-      const currentValue = currentByCategory[category]?.value || 0;
-      if (currentValue === 0 || targetPercent === 0) continue;
-      const currentPercent = (currentValue / totalValue) * 100;
-      const percentDiff = currentPercent - targetPercent;
-      const absDiff = Math.abs(percentDiff);
-      const alreadyHasRec = recommendations.some(r => {
-        const holdingsInCat = currentByCategory[category]?.holdings || [];
-        return holdingsInCat.some(h => r.productName === (h.name || h.productName));
+      const currentPercent = totalValue > 0 ? (currentValue / totalValue) * 100 : 0;
+      const drift = currentPercent - targetPercent;
+      const driftPercent = targetPercent > 0 ? drift / targetPercent : 0;
+      const driftStatus: 'DRIFT_BREACH' | 'WITHIN_BAND' = Math.abs(drift) > (policy.toleranceBandPct ?? 5) ? 'DRIFT_BREACH' : 'WITHIN_BAND';
+
+      driftMetrics.push({
+        category,
+        currentValue,
+        currentPercent,
+        targetPercent,
+        targetValue,
+        drift,
+        driftPercent,
+        driftStatus,
+        holdings: currentByCategory[category]?.holdings || [],
       });
-      if (!alreadyHasRec && absDiff <= 5) {
-        const holdingsInCat = currentByCategory[category]?.holdings || [];
-        for (const holding of holdingsInCat) {
-          if (holding.currentValue < 1000) continue;
-          recommendations.push({
-            action: 'HOLD',
-            productType: holding.productType || holding.assetType || 'mutual_fund',
-            productName: holding.name || holding.productName || 'Unknown',
-            currentValue: holding.currentValue,
-            suggestedValue: holding.currentValue,
-            changeAmount: 0,
-            rationale: `${category} allocation is at ${currentPercent.toFixed(1)}% (target: ${targetPercent}%) — within tolerance band. No action needed.`,
-            priority: 'low',
-          });
-        }
+    }
+
+    console.log('[Rebalancing] Drift Engine results:', driftMetrics.filter(dm => dm.driftStatus === 'DRIFT_BREACH').map(dm => `${dm.category}: drift=${dm.drift.toFixed(2)}% (${dm.driftStatus})`).join(', '));
+
+    // ── Step 3: Risk Engine ──
+    const categoryRiskMap: Record<string, number> = {
+      equity: 20, listed_stocks: 22, unlisted_stocks: 25, etf: 15,
+      hybrid: 12, gold: 10, silver: 14, index: 13,
+      debt: 6, bonds: 7, mld: 8, international: 18,
+      reit: 14, invit: 13, pms: 20, aif: 22
+    };
+
+    const currentPortfolioVolatility = totalValue > 0
+      ? driftMetrics.reduce((sum, dm) => sum + (dm.currentPercent / 100) * (categoryRiskMap[dm.category] || 15), 0)
+      : 0;
+    console.log('[Rebalancing] Risk Engine: current portfolio volatility estimate =', currentPortfolioVolatility.toFixed(2), '%');
+
+    for (const dm of driftMetrics) {
+      const catVol = categoryRiskMap[dm.category] || 15;
+      if (dm.drift < 0 && dm.driftStatus === 'DRIFT_BREACH') {
+        const additionalWeight = Math.abs(dm.drift) / 100;
+        const projectedVol = currentPortfolioVolatility + additionalWeight * catVol;
+        dm.riskFlag = projectedVol > ((policy.targetVolatilityPct ?? 15) + (policy.riskToleranceBandPct ?? 3)) ? 'VOL_BREACH' : 'OK';
+      } else {
+        dm.riskFlag = 'OK';
       }
     }
 
-    // Handle non-standard/illiquid assets
+    console.log('[Rebalancing] Risk flags:', driftMetrics.filter(dm => dm.riskFlag === 'VOL_BREACH').map(dm => `${dm.category}: VOL_BREACH`).join(', ') || 'none');
+
+    // ── Step 4: Transaction Cost Filter ──
+    for (const dm of driftMetrics) {
+      const changeAmount = Math.abs(dm.currentValue - dm.targetValue);
+      const estimatedCost = changeAmount * ((policy.brokerageRatePct ?? 0.03) / 100);
+      dm.costEstimate = estimatedCost;
+      dm.costFlag = (changeAmount < (policy.minTradeValueInr ?? 5000) || estimatedCost > changeAmount * 0.02) ? 'TOO_EXPENSIVE' : 'ACCEPTABLE';
+    }
+
+    console.log('[Rebalancing] Cost filter:', driftMetrics.filter(dm => dm.costFlag === 'TOO_EXPENSIVE').map(dm => `${dm.category}: TOO_EXPENSIVE (change=${Math.abs(dm.currentValue - dm.targetValue).toFixed(0)})`).join(', ') || 'all acceptable');
+
+    // ── Step 5: Action Determination ──
+    function determineAction(drift: number, driftStatus: string, riskFlag: string, costFlag: string): string {
+      if (costFlag === 'TOO_EXPENSIVE') return 'HOLD_COST_FILTER';
+      if (riskFlag === 'VOL_BREACH') return drift > 0 ? 'REDUCE' : 'HOLD_RISK_LIMIT';
+      if (driftStatus === 'DRIFT_BREACH') return drift > 0 ? 'REDUCE' : 'INCREASE';
+      return 'HOLD';
+    }
+
+    for (const dm of driftMetrics) {
+      dm.rawAction = determineAction(dm.drift, dm.driftStatus, dm.riskFlag || 'OK', dm.costFlag || 'ACCEPTABLE');
+      dm.finalAction = dm.rawAction;
+      dm.changeAmount = dm.currentValue - dm.targetValue;
+
+      if (dm.rawAction === 'HOLD' || dm.rawAction === 'HOLD_COST_FILTER' || dm.rawAction === 'HOLD_RISK_LIMIT') {
+        dm.rationaleCode = dm.rawAction === 'HOLD_COST_FILTER' ? 'COST_FILTER' : dm.rawAction === 'HOLD_RISK_LIMIT' ? 'RISK_LIMIT' : 'WITHIN_BAND';
+      } else if (dm.rawAction === 'REDUCE') {
+        dm.rationaleCode = 'OVERWEIGHT_BREACH';
+      } else if (dm.rawAction === 'INCREASE') {
+        dm.rationaleCode = 'UNDERWEIGHT_BREACH';
+      } else {
+        dm.rationaleCode = 'NO_ACTION';
+      }
+      dm.rationaleDetail = `${dm.category}: drift=${dm.drift.toFixed(2)}%, action=${dm.rawAction}, risk=${dm.riskFlag}, cost=${dm.costFlag}`;
+    }
+
+    console.log('[Rebalancing] Action determination:', driftMetrics.map(dm => `${dm.category}=${dm.rawAction}`).join(', '));
+
+    // ── Step 6: Generate REDUCE recommendations (overweight positions) ──
+    for (const dm of driftMetrics) {
+      if (dm.finalAction !== 'REDUCE') continue;
+
+      const excessAmount = dm.currentValue - dm.targetValue;
+      if (excessAmount <= 0) continue;
+
+      const holdingsToReduce = [...dm.holdings].sort((a, b) => b.currentValue - a.currentValue);
+      let remainingToReduce = excessAmount;
+
+      for (const holding of holdingsToReduce) {
+        if (remainingToReduce <= 0) continue;
+
+        const reduceAmount = Math.min(holding.currentValue, remainingToReduce);
+        if (reduceAmount < 1000) continue;
+
+        const isPartialReduce = reduceAmount < holding.currentValue;
+
+        const taxInfo = await proposalCapitalGainsService.calculateHoldingTaxAsync({
+          name: holding.name || holding.productName || 'Unknown',
+          productType: holding.productType || holding.assetType || 'mutual_fund',
+          category: holding.category,
+          isin: holding.isin,
+          schemeCode: (holding as any).schemeCode,
+          currentValue: reduceAmount,
+          investedAmount: (holding as any).investedAmount || (reduceAmount * 0.85),
+          purchaseDate: holding.purchaseDate || (holding as any).firstPurchaseDate,
+          quantity: holding.quantity
+        });
+
+        recommendations.push({
+          action: 'REDUCE',
+          productType: holding.productType || holding.assetType || 'other',
+          productName: holding.name || holding.productName || 'Unknown',
+          currentValue: holding.currentValue,
+          suggestedValue: isPartialReduce ? holding.currentValue - reduceAmount : 0,
+          changeAmount: -reduceAmount,
+          rationale: `[REDUCE] ${dm.category} overweight by ${dm.drift.toFixed(1)}% (current: ${dm.currentPercent.toFixed(1)}%, target: ${dm.targetPercent}%). ${isPartialReduce ? 'Partial redemption' : 'Full redemption'} recommended. Drift status: ${dm.driftStatus}, Risk: ${dm.riskFlag}, Cost: ${dm.costFlag}.`,
+          priority: Math.abs(dm.drift) > 15 ? 'high' : 'medium',
+          taxImplications: {
+            taxType: taxInfo.taxType,
+            holdingPeriodDays: taxInfo.holdingPeriodDays,
+            estimatedGain: taxInfo.unrealizedGain,
+            estimatedTax: taxInfo.estimatedTaxWithCess,
+            exitLoad: taxInfo.exitLoad,
+            totalCost: taxInfo.totalCost,
+            taxRate: `${(taxInfo.applicableTaxRate * 100).toFixed(1)}%`,
+            grandfatheringApplied: taxInfo.grandfatheringApplied,
+            grandfatheringBenefit: taxInfo.grandfatheringBenefit,
+            alerts: taxInfo.alerts,
+            summary: taxInfo.taxType === 'STCG'
+              ? `STCG @${(taxInfo.applicableTaxRate * 100).toFixed(0)}% + 4% cess = ₹${taxInfo.estimatedTaxWithCess.toLocaleString('en-IN')}`
+              : `LTCG @${(taxInfo.applicableTaxRate * 100).toFixed(1)}% + 4% cess = ₹${taxInfo.estimatedTaxWithCess.toLocaleString('en-IN')}`
+          }
+        });
+
+        remainingToReduce -= reduceAmount;
+      }
+    }
+
+    // ── Generate HOLD recommendations (within-band or filtered) ──
+    for (const dm of driftMetrics) {
+      if (dm.finalAction !== 'HOLD' && dm.finalAction !== 'HOLD_COST_FILTER' && dm.finalAction !== 'HOLD_RISK_LIMIT') continue;
+      if (dm.currentValue === 0 || dm.targetPercent === 0) continue;
+
+      const alreadyHasRec = recommendations.some(r => {
+        return dm.holdings.some(h => r.productName === (h.name || h.productName));
+      });
+      if (alreadyHasRec) continue;
+
+      for (const holding of dm.holdings) {
+        if (holding.currentValue < 1000) continue;
+
+        let holdRationale = `${dm.category} allocation is at ${dm.currentPercent.toFixed(1)}% (target: ${dm.targetPercent}%) — within tolerance band (±${policy.toleranceBandPct ?? 5}%). No action needed.`;
+        const holdAction: 'HOLD' | 'HOLD_COST_FILTER' | 'HOLD_RISK_LIMIT' = dm.finalAction as any;
+        if (dm.finalAction === 'HOLD_COST_FILTER') {
+          holdRationale = `${dm.category} drift of ${dm.drift.toFixed(1)}% detected but trade filtered: change amount below ₹${policy.minTradeValueInr ?? 5000} minimum or cost exceeds 2% threshold. Holding position.`;
+        } else if (dm.finalAction === 'HOLD_RISK_LIMIT') {
+          holdRationale = `${dm.category} is underweight by ${Math.abs(dm.drift).toFixed(1)}% but increasing allocation would breach portfolio volatility limit (${policy.targetVolatilityPct ?? 15}% + ${policy.riskToleranceBandPct ?? 3}% band). Holding position.`;
+        }
+
+        recommendations.push({
+          action: holdAction,
+          productType: holding.productType || holding.assetType || 'mutual_fund',
+          productName: holding.name || holding.productName || 'Unknown',
+          currentValue: holding.currentValue,
+          suggestedValue: holding.currentValue,
+          changeAmount: 0,
+          rationale: holdRationale,
+          priority: 'low',
+        });
+      }
+    }
+
+    // ── Handle non-standard/illiquid assets (full SELL exits) ──
     for (const h of normalizedHoldings) {
       const type = (h.productType || h.assetType || '').toLowerCase();
       if (!['equity', 'mutual_fund', 'mf', 'bond', 'fd', 'gold', 'etf', 'stock', 'debt'].includes(type)) {
-        // Check if we already have a recommendation for this holding
         const existing = recommendations.find(r => r.productName === (h.name || h.productName));
         if (!existing && h.currentValue > 1000) {
-          // Calculate tax implications using async method with Sandbox API
-          // Uses purchaseDate (already normalized from firstPurchaseDate/lots) as primary source
           const taxInfo = await proposalCapitalGainsService.calculateHoldingTaxAsync({
             name: h.name || h.productName || 'Unknown',
             productType: h.productType || h.assetType || 'other',
             category: h.category,
             isin: h.isin,
-            schemeCode: h.schemeCode,
+            schemeCode: (h as any).schemeCode,
             currentValue: h.currentValue,
-            investedAmount: h.investedAmount || (h.currentValue * 0.85),
+            investedAmount: (h as any).investedAmount || (h.currentValue * 0.85),
             purchaseDate: h.purchaseDate || (h as any).firstPurchaseDate,
             quantity: h.quantity
           });
-          
+
           recommendations.push({
             action: 'SELL',
             productType: h.productType || h.assetType || 'other',
@@ -3003,32 +3103,20 @@ class AgentProspectWizardService {
         }
       }
     }
-    
-    // Add SWITCH recommendations for underperformers (if analysis has them)
+
+    // ── Step 9: SWITCH recommendations for underperformers (preserved) ──
     if (analysis.underperformers && analysis.underperformers.length > 0) {
-      // Normalize underperformers for consistent field access
       const normalizedUnderperformers = normalizeHoldings(analysis.underperformers);
-      
-      // Build allowed categories set for SWITCH filtering
+
       const switchCategoryMapping: Record<string, string[]> = {
-        'equity': ['equity'],
-        'debt': ['debt'],
-        'hybrid': ['hybrid'],
-        'gold_fof': ['gold'],
-        'silver_fof': ['silver'],
-        'index_fund': ['index'],
-        'etf': ['etf'],
-        'international': ['international'],
-        'reit': ['reit'],
-        'invit': ['invit'],
-        'bonds': ['bonds'],
-        'mld': ['mld'],
-        'listed_stocks': ['listed_stocks'],
-        'unlisted_stocks': ['unlisted_stocks'],
-        'pms': ['pms'],
-        'aif': ['aif']
+        'equity': ['equity'], 'debt': ['debt'], 'hybrid': ['hybrid'],
+        'gold_fof': ['gold'], 'silver_fof': ['silver'], 'index_fund': ['index'],
+        'etf': ['etf'], 'international': ['international'], 'reit': ['reit'],
+        'invit': ['invit'], 'bonds': ['bonds'], 'mld': ['mld'],
+        'listed_stocks': ['listed_stocks'], 'unlisted_stocks': ['unlisted_stocks'],
+        'pms': ['pms'], 'aif': ['aif']
       };
-      
+
       const allowedSwitchCategories = new Set<string>();
       if (selectedCategories && selectedCategories.length > 0) {
         selectedCategories.forEach(cat => {
@@ -3037,48 +3125,42 @@ class AgentProspectWizardService {
         });
         console.log('[Rebalancing] Filtering SWITCH recs to categories:', Array.from(allowedSwitchCategories));
       }
-      
+
       for (const underperformer of normalizedUnderperformers.slice(0, 3)) {
-        // Check if not already in recommendations
         const upName = underperformer.name || underperformer.productName || '';
         const existing = recommendations.find(r => r.productName === upName);
         if (!existing && underperformer.currentValue > 5000) {
-          // Find a better performing fund in the same category
           const category = categorizeHolding(underperformer);
-          
-          // Skip SWITCH if category is not in selectedCategories
+
           if (selectedCategories && selectedCategories.length > 0 && !allowedSwitchCategories.has(category)) {
             console.log(`[Rebalancing] Skipping SWITCH for ${upName} - category ${category} not in selected categories`);
             continue;
           }
-          // Use async sanitized access with DB fallback for live returns (exclude lumpsum-restricted targets)
+
           const targetFunds = await getFundsFromCategorySanitizedAsync(category, riskProfile.riskTolerance);
           const eligibleTargets = await selectEligibleFundsForLumpsum(targetFunds, 1);
           const targetFund = eligibleTargets[0] || null;
-          
-          // Calculate tax implications for switch (treated as redemption + purchase)
-          // Uses async method with Sandbox API for accurate rates
-          // Uses purchaseDate (already normalized from firstPurchaseDate/lots) as primary source
+
           const taxInfo = await proposalCapitalGainsService.calculateHoldingTaxAsync({
             name: underperformer.name || underperformer.productName || 'Unknown',
             productType: underperformer.productType || underperformer.assetType || 'mutual_fund',
             category: underperformer.category,
             isin: underperformer.isin,
-            schemeCode: underperformer.schemeCode,
+            schemeCode: (underperformer as any).schemeCode,
             currentValue: underperformer.currentValue,
-            investedAmount: underperformer.investedAmount || (underperformer.currentValue * 0.85),
+            investedAmount: (underperformer as any).investedAmount || (underperformer.currentValue * 0.85),
             purchaseDate: underperformer.purchaseDate || (underperformer as any).firstPurchaseDate,
             quantity: underperformer.quantity
           });
-          
+
           recommendations.push({
             action: 'SWITCH',
             productType: underperformer.productType || underperformer.assetType || 'other',
             productName: underperformer.name || underperformer.productName || 'Unknown',
             currentValue: underperformer.currentValue,
-            suggestedValue: underperformer.currentValue, // Switch maintains the value
-            changeAmount: 0, // Net zero - switch is value-neutral
-            switchAmount: underperformer.currentValue, // Track actual switch value for display
+            suggestedValue: underperformer.currentValue,
+            changeAmount: 0,
+            switchAmount: underperformer.currentValue,
             targetFund: targetFund ? {
               name: targetFund.name,
               amc: targetFund.amc,
@@ -3087,7 +3169,7 @@ class AgentProspectWizardService {
               returns3Y: targetFund.returns3Y,
               risk: targetFund.risk
             } : undefined,
-            rationale: targetFund 
+            rationale: targetFund
               ? `Switch to ${targetFund.name} (${targetFund.amc}) with ${targetFund.returns3Y}% 3-year returns. Current fund has underperformed peers by 2-5% annually.`
               : `Consider switching to a better-performing fund in the same category. This fund has underperformed relative to peers.`,
             priority: 'medium',
@@ -3109,39 +3191,39 @@ class AgentProspectWizardService {
         }
       }
     }
-    
-    // Add BUY recommendations for underweight categories using freed capital from sells
-    const totalSellAmount = recommendations
-      .filter(r => r.action === 'SELL')
+
+    // ── Step 7: Trade Netting — aggregate REDUCE proceeds and allocate to INCREASE categories ──
+    const netFlows: Record<string, number> = {};
+    const totalReduceAmount = recommendations
+      .filter(r => r.action === 'REDUCE')
       .reduce((sum, r) => sum + Math.abs(r.changeAmount), 0);
-    
-    // Add BUY recommendations for underweight categories using freed capital from sells
-    // Only if we have meaningful sell proceeds (>2000)
+
+    const totalSellAmount = recommendations
+      .filter(r => r.action === 'SELL' || r.action === 'REDUCE')
+      .reduce((sum, r) => sum + Math.abs(r.changeAmount), 0);
+
+    console.log('[Rebalancing] Trade Netting: totalReduceAmount=', totalReduceAmount, ', totalSellAmount=', totalSellAmount);
+
+    const increaseMetrics = driftMetrics.filter(dm => dm.finalAction === 'INCREASE');
+    const totalIncreaseGap = increaseMetrics.reduce((sum, dm) => sum + Math.abs(dm.drift), 0);
+
+    for (const dm of increaseMetrics) {
+      const proportion = totalIncreaseGap > 0 ? Math.abs(dm.drift) / totalIncreaseGap : 0;
+      netFlows[dm.category] = totalReduceAmount * proportion;
+    }
+
+    console.log('[Rebalancing] Net flows by category:', JSON.stringify(netFlows));
+
     if (totalSellAmount > 2000) {
-      // Find underweight categories
-      const underweightCategories: { category: string; gap: number; targetPercent: number }[] = [];
-      
-      // Map frontend category names to rebalancing category names for filtering
       const categoryMapping: Record<string, string[]> = {
-        'equity': ['equity'],
-        'debt': ['debt'],
-        'hybrid': ['hybrid'],
-        'gold_fof': ['gold'],
-        'silver_fof': ['silver'],
-        'index_fund': ['index'],
-        'etf': ['etf'],
-        'international': ['international'],
-        'reit': ['reit'],
-        'invit': ['invit'],
-        'bonds': ['bonds'],
-        'mld': ['mld'],
-        'listed_stocks': ['listed_stocks'],
-        'unlisted_stocks': ['unlisted_stocks'],
-        'pms': ['pms'],
-        'aif': ['aif']
+        'equity': ['equity'], 'debt': ['debt'], 'hybrid': ['hybrid'],
+        'gold_fof': ['gold'], 'silver_fof': ['silver'], 'index_fund': ['index'],
+        'etf': ['etf'], 'international': ['international'], 'reit': ['reit'],
+        'invit': ['invit'], 'bonds': ['bonds'], 'mld': ['mld'],
+        'listed_stocks': ['listed_stocks'], 'unlisted_stocks': ['unlisted_stocks'],
+        'pms': ['pms'], 'aif': ['aif']
       };
-      
-      // Build list of allowed rebalancing categories based on selectedCategories
+
       const allowedCategories = new Set<string>();
       if (selectedCategories && selectedCategories.length > 0) {
         selectedCategories.forEach(cat => {
@@ -3150,66 +3232,55 @@ class AgentProspectWizardService {
         });
         console.log('[Rebalancing] Filtering BUY recs to selected categories:', Array.from(allowedCategories));
       }
-      
+
+      const underweightCategories: { category: string; gap: number; targetPercent: number }[] = [];
       categories.forEach(category => {
-        // Skip if selectedCategories is provided and this category isn't in it
-        if (selectedCategories && selectedCategories.length > 0 && !allowedCategories.has(category)) {
-          return;
-        }
-        
+        if (selectedCategories && selectedCategories.length > 0 && !allowedCategories.has(category)) return;
         const targetPercent = targetAllocations[category as keyof typeof targetAllocations] || 0;
         const currentValue = currentByCategory[category]?.value || 0;
-        const currentPercent = (currentValue / totalValue) * 100;
+        const currentPercent = totalValue > 0 ? (currentValue / totalValue) * 100 : 0;
         const gap = targetPercent - currentPercent;
-        
-        // Only add if underweight by more than 2%
         if (gap > 2 && targetPercent > 0) {
           underweightCategories.push({ category, gap, targetPercent });
         }
       });
-      
-      // Sort by gap (largest first) and allocate sell proceeds
+
       underweightCategories.sort((a, b) => b.gap - a.gap);
-      
+
       let remainingToAllocate = totalSellAmount;
-      const numCategoriesToFund = Math.min(underweightCategories.length, 3);
-      
-      // Ensure at least one category gets funded if we have underweight categories
+      const numCategoriesToFund = Math.min(underweightCategories.length, policy.maxCategoriesInBuy ?? 3);
       const categoriesToFund = underweightCategories.slice(0, numCategoriesToFund);
       const totalGap = categoriesToFund.reduce((sum, c) => sum + c.gap, 0);
-      
+
       for (const { category, gap, targetPercent } of categoriesToFund) {
-        if (remainingToAllocate <= 1000) break; // Lower threshold to ensure deployment
-        
-        // Allocate proportionally to gap
+        if (remainingToAllocate <= 1000) break;
+
         const proportion = totalGap > 0 ? gap / totalGap : 1 / numCategoriesToFund;
         const buyAmount = Math.round(totalSellAmount * proportion);
-        const actualAmount = Math.min(buyAmount, remainingToAllocate);
-        
-        // Lower minimum threshold to ₹2000 to ensure funds get allocated
+        const nettedAmount = netFlows[category] || 0;
+        const actualAmount = Math.min(Math.max(buyAmount, nettedAmount), remainingToAllocate);
+
         if (actualAmount < 2000) continue;
-        
-        // Get recommended fund for this category with async DB lookup (exclude lumpsum-restricted funds)
+
         const categoryFunds = await getFundsFromCategorySanitizedAsync(category, riskProfile.riskTolerance);
         const eligibleForLumpsum = await selectEligibleFundsForLumpsum(categoryFunds, 1);
         const fundToRecommend = eligibleForLumpsum[0] || null;
-        
+
         if (fundToRecommend) {
-          // Format the sell amount appropriately
-          const formattedSellAmount = totalSellAmount >= 10000000 
+          const formattedSellAmount = totalSellAmount >= 10000000
             ? `₹${(totalSellAmount / 10000000).toFixed(2)} Cr`
-            : totalSellAmount >= 100000 
+            : totalSellAmount >= 100000
               ? `₹${(totalSellAmount / 100000).toFixed(2)} L`
               : `₹${totalSellAmount.toLocaleString('en-IN')}`;
-          
+
           recommendations.push({
-            action: 'BUY',
+            action: 'INCREASE',
             productType: fundToRecommend.productType || 'mutual_fund',
             productName: fundToRecommend.name,
             suggestedValue: actualAmount,
             changeAmount: actualAmount,
             fundedBy: 'sell_proceeds',
-            fundedByDescription: `Funded by ${formattedSellAmount} from SELL recommendations`,
+            fundedByDescription: `Funded by ${formattedSellAmount} from REDUCE/SELL recommendations`,
             fundMetrics: {
               amc: fundToRecommend.amc,
               category: fundToRecommend.category,
@@ -3218,16 +3289,46 @@ class AgentProspectWizardService {
               returns5Y: fundToRecommend.returns5Y,
               risk: fundToRecommend.risk
             },
-            rationale: `Deploy ${formatAmount(actualAmount)} from rebalancing proceeds into ${fundToRecommend.category}. ${fundToRecommend.name} (${fundToRecommend.amc}) offers strong historical performance with ${fundToRecommend.returns3Y}% 3-year CAGR returns and ${fundToRecommend.risk} risk level. This helps achieve your target ${targetPercent}% ${category} allocation, currently underweight by ${gap.toFixed(1)}%.`,
+            rationale: `[INCREASE] Deploy ${formatAmount(actualAmount)} from rebalancing proceeds into ${fundToRecommend.category}. ${fundToRecommend.name} (${fundToRecommend.amc}) offers strong historical performance with ${fundToRecommend.returns3Y}% 3-year CAGR returns and ${fundToRecommend.risk} risk level. This helps achieve your target ${targetPercent}% ${category} allocation, currently underweight by ${gap.toFixed(1)}%. Net flow after trade netting: ${formatAmount(nettedAmount)}.`,
             selectionReason: `Selected based on: (1) ${fundToRecommend.returns3Y}% 3Y returns vs category avg, (2) ${fundToRecommend.risk} risk suitable for ${riskProfile.riskTolerance} profile, (3) Fills ${category} allocation gap of ${gap.toFixed(1)}%`,
             priority: gap > 10 ? 'high' : 'medium'
           });
-          
+
           remainingToAllocate -= actualAmount;
         }
       }
     }
-    
+
+    // ── Step 8: Audit Log — persist decision trail to rebalance_decision_log ──
+    const auditEntries = driftMetrics.map(dm => ({
+      proposalId: null as string | null,
+      portfolioValue: totalValue,
+      instrumentName: dm.category,
+      assetCategory: dm.category,
+      currentWeightPct: dm.currentPercent,
+      targetWeightPct: dm.targetPercent,
+      driftPct: dm.drift,
+      driftStatus: dm.driftStatus,
+      riskFlag: dm.riskFlag || 'OK',
+      costEstimate: dm.costEstimate || 0,
+      costFlag: dm.costFlag || 'ACCEPTABLE',
+      tacticalFlag: null as string | null,
+      rawAction: dm.rawAction || 'HOLD',
+      finalAction: dm.finalAction || 'HOLD',
+      changeAmount: dm.changeAmount || 0,
+      rationaleCode: dm.rationaleCode || 'NO_ACTION',
+      rationaleDetail: dm.rationaleDetail || null,
+      governanceConfigId: governanceConfig[0]?.id || null,
+    }));
+    try {
+      if (auditEntries.length > 0) {
+        await db.insert(rebalanceDecisionLog).values(auditEntries);
+        console.log('[Rebalancing] Audit log: persisted', auditEntries.length, 'decision entries');
+      }
+    } catch (e) {
+      console.warn('[Rebalancing] Audit log failed:', e);
+    }
+
     console.log('[Rebalancing] Generated', recommendations.length, 'recommendations:', 
       recommendations.map(r => `${r.action}: ${r.productName} (${r.changeAmount})`).join(', '));
 
@@ -3278,6 +3379,21 @@ class AgentProspectWizardService {
           return categoryCount[cat] <= MAX_POTD_PER_CATEGORY;
         });
         console.log(`[Signal Orchestrator] After per-category cap (${MAX_POTD_PER_CATEGORY}/cat): ${filteredPotdPicks.length} POTD picks`);
+
+        // Step 4: Tactical Budget Cap — limit total POTD exposure to maxTacticalWeightPct of portfolio
+        const maxTacticalPct = policy.maxTacticalWeightPct || 10;
+        const maxTacticalValue = (maxTacticalPct / 100) * totalPortfolioValue;
+        let cumulativeTacticalValue = 0;
+        filteredPotdPicks = filteredPotdPicks.filter(pick => {
+          const pickValue = pick.recoPrice || 0;
+          if (cumulativeTacticalValue + pickValue > maxTacticalValue) {
+            console.log(`[Signal Orchestrator] Tactical budget cap: skipping ${pick.instrumentName} (would exceed ${maxTacticalPct}% tactical limit)`);
+            return false;
+          }
+          cumulativeTacticalValue += pickValue;
+          return true;
+        });
+        console.log(`[Signal Orchestrator] After tactical budget cap (${maxTacticalPct}%): ${filteredPotdPicks.length} POTD picks, tactical exposure: ₹${cumulativeTacticalValue.toLocaleString('en-IN')} / ₹${maxTacticalValue.toLocaleString('en-IN')}`);
 
         const orchestrated = signalOrchestrator.resolveSignals(recommendations, filteredPotdPicks);
         console.log(`[Signal Orchestrator] Resolved ${orchestrated.length} signals from ${recommendations.length} rebalance + ${filteredPotdPicks.length} POTD picks`);
