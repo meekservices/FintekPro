@@ -185,10 +185,12 @@ app.use(helmet({
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
-      frameAncestors: ["'none'"],
+      frameAncestors: ["'self'", "https://*.replit.dev", "https://*.replit.com"],
     },
   },
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  frameguard: process.env.NODE_ENV === 'development' ? false : { action: "sameorigin" }
 }));
 
 // Gzip/Brotli compression for API responses
