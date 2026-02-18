@@ -1,0 +1,214 @@
+Below is a production-grade Replit backend ticket structure (Epic → Tasks JSON) to resolve:
+Signal conflict (POTD vs Rebalancing)
+Introduce Signal Orchestrator layer
+Add HOLD visibility in proposal engine
+Add audit logging (SEBI/RIA defensibility)
+Enable governance configuration
+This is written assuming:
+Node.js + TypeScript backend
+REST API architecture
+PostgreSQL database
+Existing POTD + Rebalancing services live
+EPIC 1: Signal Governance & Orchestrator Layer
+{
+  "epic_id": "EPIC-SIGNAL-001",
+  "epic_name": "Signal Governance & Orchestrator Engine",
+  "description": "Introduce arbitration layer between Pick of the Day (POTD) and Rebalancing Engine to eliminate contradictory signals and ensure deterministic final action generation.",
+  "priority": "HIGH",
+  "owner": "Backend Team",
+  "tasks": [
+    {
+      "task_id": "SIG-001",
+      "title": "Create signal_orchestrator service",
+      "description": "Create /services/signalOrchestrator.ts to resolve conflicts between POTD and Rebalancing signals.",
+      "acceptance_criteria": [
+        "Service exposes resolveSignal() function",
+        "Handles BUY/SELL/HOLD conflicts deterministically",
+        "Returns finalAction + reasoningCode"
+      ]
+    },
+    {
+      "task_id": "SIG-002",
+      "title": "Implement governance matrix logic",
+      "description": "Implement hybrid governance resolution logic (SELL+BUY=REDUCE, HOLD+BUY=BUY within band, etc).",
+      "acceptance_criteria": [
+        "Matrix rules configurable",
+        "Weight tolerance band applied",
+        "No direct conflict output allowed"
+      ]
+    },
+    {
+      "task_id": "SIG-003",
+      "title": "Add tolerance band configuration",
+      "description": "Add config file /config/governance.ts with weight tolerance (default 5%).",
+      "acceptance_criteria": [
+        "Tolerance band editable without redeploy",
+        "Used inside orchestrator logic"
+      ]
+    },
+    {
+      "task_id": "SIG-004",
+      "title": "Integrate orchestrator into proposal pipeline",
+      "description": "Replace direct engine signal calls with orchestrator output inside proposal generator.",
+      "acceptance_criteria": [
+        "Proposal uses finalAction only",
+        "Raw signals still stored for audit"
+      ]
+    }
+  ]
+}
+EPIC 2: HOLD Visibility & Proposal Engine Upgrade
+{
+  "epic_id": "EPIC-PROPOSAL-002",
+  "epic_name": "Proposal Engine Transparency Upgrade",
+  "description": "Ensure proposal includes BUY, SELL, REDUCE, INCREASE, HOLD actions for all portfolio instruments.",
+  "priority": "HIGH",
+  "owner": "Backend + API Team",
+  "tasks": [
+    {
+      "task_id": "PROP-001",
+      "title": "Remove HOLD filter logic",
+      "description": "Modify proposal service to include HOLD instruments in response payload.",
+      "acceptance_criteria": [
+        "All instruments appear in proposal",
+        "HOLD action visible",
+        "No silent filtering"
+      ]
+    },
+    {
+      "task_id": "PROP-002",
+      "title": "Add action_type enum upgrade",
+      "description": "Extend action enum to include BUY, SELL, HOLD, REDUCE, INCREASE.",
+      "acceptance_criteria": [
+        "Database enum updated",
+        "Backward compatible migration"
+      ]
+    },
+    {
+      "task_id": "PROP-003",
+      "title": "Add rationale field in proposal API",
+      "description": "Return reasoningCode and human-readable rationale for each instrument.",
+      "acceptance_criteria": [
+        "API returns rationale field",
+        "Mapped from orchestrator reasoningCode"
+      ]
+    }
+  ]
+}
+EPIC 3: Signal Audit & Compliance Logging
+{
+  "epic_id": "EPIC-AUDIT-003",
+  "epic_name": "Signal Resolution Audit Log",
+  "description": "Create immutable audit log for raw signals and final resolved signal for regulatory defensibility.",
+  "priority": "HIGH",
+  "owner": "Backend + Compliance",
+  "tasks": [
+    {
+      "task_id": "AUD-001",
+      "title": "Create signal_resolution_log table",
+      "description": "Add new table with raw signals and final resolved action.",
+      "schema": {
+        "id": "UUID",
+        "instrument_id": "UUID",
+        "potd_signal": "VARCHAR",
+        "rebalance_signal": "VARCHAR",
+        "final_signal": "VARCHAR",
+        "current_weight": "DECIMAL",
+        "target_weight": "DECIMAL",
+        "reasoning_code": "VARCHAR",
+        "created_at": "TIMESTAMP"
+      }
+    },
+    {
+      "task_id": "AUD-002",
+      "title": "Insert audit record on each proposal generation",
+      "description": "Log signal resolution whenever proposal API is executed.",
+      "acceptance_criteria": [
+        "Every instrument logged",
+        "No proposal generated without audit entry"
+      ]
+    },
+    {
+      "task_id": "AUD-003",
+      "title": "Create admin audit retrieval API",
+      "description": "Add /admin/signal-audit endpoint with filters by date/instrument/client.",
+      "acceptance_criteria": [
+        "Pagination enabled",
+        "RBAC restricted to admin"
+      ]
+    }
+  ]
+}
+EPIC 4: Governance Policy Configuration Layer
+{
+  "epic_id": "EPIC-GOV-004",
+  "epic_name": "Dynamic Governance Policy Configuration",
+  "description": "Allow switching governance hierarchy (Allocation-first, Alpha-first, Hybrid).",
+  "priority": "MEDIUM",
+  "owner": "Backend",
+  "tasks": [
+    {
+      "task_id": "GOV-001",
+      "title": "Create governance_policy table",
+      "schema": {
+        "policy_mode": "VARCHAR (ALLOCATION_FIRST, ALPHA_FIRST, HYBRID)",
+        "tolerance_band": "DECIMAL",
+        "max_tactical_weight": "DECIMAL",
+        "updated_at": "TIMESTAMP"
+      }
+    },
+    {
+      "task_id": "GOV-002",
+      "title": "Connect orchestrator to policy table",
+      "description": "Fetch governance mode dynamically before resolving signals."
+    },
+    {
+      "task_id": "GOV-003",
+      "title": "Add admin endpoint to update governance mode",
+      "description": "Create PATCH /admin/governance-policy endpoint."
+    }
+  ]
+}
+EPIC 5: Unit Testing & Edge Case Validation
+{
+  "epic_id": "EPIC-TEST-005",
+  "epic_name": "Signal Resolution Testing Suite",
+  "description": "Ensure deterministic signal resolution and eliminate contradictory outputs.",
+  "priority": "HIGH",
+  "owner": "Backend QA",
+  "tasks": [
+    {
+      "task_id": "TEST-001",
+      "title": "Write unit tests for signalOrchestrator",
+      "cases": [
+        "SELL + BUY",
+        "HOLD + BUY",
+        "BUY + SELL",
+        "Overweight condition",
+        "Within tolerance band"
+      ]
+    },
+    {
+      "task_id": "TEST-002",
+      "title": "Integration test with proposal API",
+      "description": "Validate finalAction only appears in client payload."
+    }
+  ]
+}
+Expected System After Implementation
+Flow becomes:
+POTD Engine
+        +
+Rebalancing Engine
+        ↓
+Signal Orchestrator
+        ↓
+Audit Log Entry
+        ↓
+Proposal Generator
+        ↓
+Client Response (BUY / SELL / REDUCE / INCREASE / HOLD)
+No contradictory signals.
+Full transparency.
+Compliance defensible.
+IC-ready architecture.
