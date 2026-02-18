@@ -21,6 +21,7 @@ import { useSubdomain } from "@/hooks/useSubdomain";
 import { SessionConflictDialog } from "@/components/SessionConflictDialog";
 import { useSession } from "@/contexts/session-context";
 import { Loader2, Eye, EyeOff, Shield, TrendingUp, BarChart3, MessageSquare, CheckCircle2, Mail, Smartphone, User, Info, Clock, RefreshCw, AlertCircle, Phone, LogIn, Users } from "lucide-react";
+import { usePortalMeta, PortalLogo } from "@/components/portal/PortalLogo";
 
 const loginSchema = z.object({
   identifier: z.string().min(1, "Email, mobile, or User ID is required"),
@@ -62,12 +63,57 @@ type OtpVerificationFormData = z.infer<typeof otpVerificationSchema>;
 type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 
+const PORTAL_DESCRIPTIONS: Record<string, { hero: string; features: { icon: string; title: string; desc: string }[] }> = {
+  main: {
+    hero: "Your intelligent financial services platform with AI-powered tax filing, portfolio management, and comprehensive investment tools.",
+    features: [
+      { icon: "shield", title: "Secure Authentication", desc: "Multiple sign-in options for your convenience" },
+      { icon: "trending", title: "ITR & Tax Services", desc: "AI-powered tax filing with expert assistance" },
+      { icon: "chart", title: "Portfolio Management", desc: "Track and manage your investments" },
+      { icon: "message", title: "Real-time Insights", desc: "Live market data and AI recommendations" },
+    ],
+  },
+  partner: {
+    hero: "Your dedicated partner portal for managing commissions, client relationships, and growing your financial advisory business.",
+    features: [
+      { icon: "shield", title: "Partner Dashboard", desc: "Track commissions, payouts, and performance" },
+      { icon: "trending", title: "Client Management", desc: "Manage your client portfolio efficiently" },
+      { icon: "chart", title: "Commission Tracking", desc: "Real-time earnings and payout statements" },
+      { icon: "message", title: "Growth Tools", desc: "Marketing and lead management resources" },
+    ],
+  },
+  agent: {
+    hero: "Empower your clients with expert financial advice. Access portfolio tools, KYC management, and comprehensive advisory features.",
+    features: [
+      { icon: "shield", title: "Client Advisory", desc: "Comprehensive tools for client management" },
+      { icon: "trending", title: "KYC & Onboarding", desc: "Streamlined client verification workflows" },
+      { icon: "chart", title: "Portfolio Analysis", desc: "Deep insights into client portfolios" },
+      { icon: "message", title: "AI Recommendations", desc: "Smart suggestions for client investments" },
+    ],
+  },
+  admin: {
+    hero: "Platform administration and control center. Manage users, monitor compliance, and oversee all system operations.",
+    features: [
+      { icon: "shield", title: "User Management", desc: "Control access and manage platform users" },
+      { icon: "trending", title: "Compliance Monitor", desc: "SEBI/RBI regulatory compliance tracking" },
+      { icon: "chart", title: "System Analytics", desc: "Platform health and performance metrics" },
+      { icon: "message", title: "Audit Logs", desc: "Complete audit trail for all operations" },
+    ],
+  },
+};
+
 export default function AuthPage() {
   const [, navigate] = useLocation();
   const { user, isLoading: isAuthLoading } = useAuth();
   const { isAdminPortal, withPortalParams } = useSubdomain();
   const { toast } = useToast();
   const { clearSessionExpired } = useSession();
+  const { data: portalMeta } = usePortalMeta();
+  const portalType = portalMeta?.portal_type || "main";
+  const portalLabel = portalMeta?.label || "FintekPro";
+  const portalTagline = portalMeta?.tagline || "Your Financial Future, Simplified";
+  const portalColor = portalMeta?.primary_color || "#2563EB";
+  const portalDesc = PORTAL_DESCRIPTIONS[portalType] || PORTAL_DESCRIPTIONS.main;
   const [showPassword, setShowPassword] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
@@ -632,49 +678,43 @@ export default function AuthPage() {
     resendOtpMutation.mutate();
   };
 
+  const featureIcons = {
+    shield: Shield,
+    trending: TrendingUp,
+    chart: BarChart3,
+    message: MessageSquare,
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-100/30 dark:from-background dark:to-card">
+    <div className="min-h-screen" style={{ background: `linear-gradient(135deg, ${portalColor}08 0%, ${portalColor}15 100%)` }}>
       <div className="container mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-2 gap-8 items-center">
           {/* Hero Section */}
           <div className="lg:pr-8">
             <div className="text-center lg:text-left">
-              <h1 className="text-4xl font-bold text-foreground mb-4">
-                Welcome to <span className="text-blue-600">FintekPro</span>
+              <div className="mb-6">
+                <PortalLogo size="lg" showTagline={false} />
+              </div>
+              <h1 className="text-4xl font-bold text-foreground mb-2">
+                Welcome to <span style={{ color: portalColor }}>{portalLabel}</span>
               </h1>
+              <p className="text-sm font-medium mb-4" style={{ color: portalColor }}>{portalTagline}</p>
               <p className="text-xl text-muted-foreground mb-8">
-                Your intelligent financial services platform with AI-powered tax filing, 
-                portfolio management, and comprehensive investment tools.
+                {portalDesc.hero}
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                <div className="flex items-start space-x-3">
-                  <Shield className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <h3 className="font-semibold text-foreground">Secure Authentication</h3>
-                    <p className="text-sm text-muted-foreground">Multiple sign-in options for your convenience</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <TrendingUp className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <h3 className="font-semibold text-foreground">ITR & Tax Services</h3>
-                    <p className="text-sm text-muted-foreground">AI-powered tax filing with expert assistance</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <BarChart3 className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <h3 className="font-semibold text-foreground">Portfolio Management</h3>
-                    <p className="text-sm text-muted-foreground">Track and manage your investments</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <MessageSquare className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <h3 className="font-semibold text-foreground">Real-time Insights</h3>
-                    <p className="text-sm text-muted-foreground">Live market data and AI recommendations</p>
-                  </div>
-                </div>
+                {portalDesc.features.map((feature, index) => {
+                  const IconComponent = featureIcons[feature.icon as keyof typeof featureIcons] || Shield;
+                  return (
+                    <div key={index} className="flex items-start space-x-3">
+                      <IconComponent className="h-6 w-6 mt-1 flex-shrink-0" style={{ color: portalColor }} />
+                      <div>
+                        <h3 className="font-semibold text-foreground">{feature.title}</h3>
+                        <p className="text-sm text-muted-foreground">{feature.desc}</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -684,11 +724,14 @@ export default function AuthPage() {
             <Card className="w-full max-w-md shadow-lg">
               <CardHeader className="space-y-1 text-center">
                 <div className="flex items-center justify-center mb-4">
-                  <Shield className="h-12 w-12 text-blue-600" />
+                  <Shield className="h-12 w-12" style={{ color: portalColor }} />
                 </div>
-                <CardTitle className="text-2xl">Sign In to FintekPro</CardTitle>
+                <CardTitle className="text-2xl">Sign In to {portalLabel}</CardTitle>
                 <CardDescription>
-                  Access your financial services platform
+                  {portalType === 'admin' ? 'Access the platform control center' :
+                   portalType === 'partner' ? 'Access your partner dashboard' :
+                   portalType === 'agent' ? 'Access your agent workspace' :
+                   'Access your financial services platform'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -702,13 +745,13 @@ export default function AuthPage() {
                       <TabsContent value="login" className="space-y-4">
                         {/* Progress Indicator */}
                         {loginStep !== "credentials" && (
-                          <div className="space-y-2 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                          <div className="space-y-2 p-3 rounded-lg border" style={{ backgroundColor: `${portalColor}08`, borderColor: `${portalColor}30` }}>
                             <div className="flex items-center justify-between text-sm">
                               <span className="flex items-center gap-1 text-green-600">
                                 <CheckCircle2 className="h-4 w-4" />
                                 Credentials
                               </span>
-                              <span className={`flex items-center gap-1 ${loginStep === "otp" ? "text-blue-600 font-medium" : loginStep === "complete" ? "text-green-600" : "text-muted-foreground"}`}>
+                              <span className="flex items-center gap-1 font-medium" style={{ color: loginStep === "complete" ? '#16a34a' : portalColor }}>
                                 {loginStep === "complete" ? <CheckCircle2 className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
                                 OTP Verification
                               </span>
@@ -779,9 +822,9 @@ export default function AuthPage() {
                             )}
                           </div>
 
-                          <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-                            <Shield className="h-4 w-4 text-blue-600" />
-                            <AlertDescription className="text-sm text-blue-700 dark:text-blue-400">
+                          <Alert className="border" style={{ backgroundColor: `${portalColor}08`, borderColor: `${portalColor}30` }}>
+                            <Shield className="h-4 w-4" style={{ color: portalColor }} />
+                            <AlertDescription className="text-sm" style={{ color: portalColor }}>
                               After entering credentials, you'll receive a 6-digit OTP via email/SMS for verification.
                             </AlertDescription>
                           </Alert>
@@ -802,7 +845,8 @@ export default function AuthPage() {
                               <DialogTrigger asChild>
                                 <Button 
                                   variant="link" 
-                                  className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                  className="text-sm"
+                                  style={{ color: portalColor }}
                                   data-testid="button-forgot-password"
                                 >
                                   Forgot Password?
@@ -933,9 +977,9 @@ export default function AuthPage() {
 
                       {/* Register Form */}
                       <TabsContent value="register" className="space-y-4">
-                        <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-                          <Info className="h-4 w-4 text-blue-600" />
-                          <AlertDescription className="text-sm text-blue-700 dark:text-blue-400">
+                        <Alert className="border" style={{ backgroundColor: `${portalColor}08`, borderColor: `${portalColor}30` }}>
+                          <Info className="h-4 w-4" style={{ color: portalColor }} />
+                          <AlertDescription className="text-sm" style={{ color: portalColor }}>
                             Upon registration, you'll receive a unique User ID in the format <strong>FTP001234</strong>. Save it for future logins!
                           </AlertDescription>
                         </Alert>
@@ -1034,7 +1078,7 @@ export default function AuthPage() {
         <DialogContent className="sm:max-w-md" data-testid="dialog-otp-verification">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-blue-600" />
+              <Shield className="h-5 w-5" style={{ color: portalColor }} />
               Enter Verification Code
             </DialogTitle>
             <DialogDescription>
@@ -1044,11 +1088,11 @@ export default function AuthPage() {
 
           <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-4">
             {/* Timer Display */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="p-3 rounded-lg border" style={{ backgroundColor: `${portalColor}08`, borderColor: `${portalColor}30` }}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                  <Clock className="h-4 w-4" style={{ color: portalColor }} />
+                  <span className="text-sm font-medium" style={{ color: portalColor }}>
                     {otpTimer > 0 ? `Code expires in ${formatTime(otpTimer)}` : "Code expired"}
                   </span>
                 </div>
@@ -1059,7 +1103,7 @@ export default function AuthPage() {
                     size="sm"
                     onClick={handleResendOtp}
                     disabled={otpSending}
-                    className="text-blue-600 hover:text-blue-700 dark:text-blue-300"
+                    style={{ color: portalColor }}
                     data-testid="button-resend-otp"
                   >
                     {otpSending ? (
@@ -1133,7 +1177,7 @@ export default function AuthPage() {
         <DialogContent className="sm:max-w-md" data-testid="dialog-registration-otp">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-blue-600" />
+              <Shield className="h-5 w-5" style={{ color: portalColor }} />
               Verify Your Email & Mobile
             </DialogTitle>
             <DialogDescription>
@@ -1150,11 +1194,11 @@ export default function AuthPage() {
             }
           }} className="space-y-4">
             {/* Timer Display */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="p-3 rounded-lg border" style={{ backgroundColor: `${portalColor}08`, borderColor: `${portalColor}30` }}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                  <Clock className="h-4 w-4" style={{ color: portalColor }} />
+                  <span className="text-sm font-medium" style={{ color: portalColor }}>
                     {registrationOtpTimer > 0 ? `Code expires in ${formatTime(registrationOtpTimer)}` : "Code expired"}
                   </span>
                 </div>
@@ -1165,7 +1209,7 @@ export default function AuthPage() {
                     size="sm"
                     onClick={() => resendRegistrationOtpMutation.mutate()}
                     disabled={registrationOtpSending}
-                    className="text-blue-600 hover:text-blue-700 dark:text-blue-300"
+                    style={{ color: portalColor }}
                     data-testid="button-resend-registration-otp"
                   >
                     {registrationOtpSending ? (
@@ -1240,15 +1284,15 @@ export default function AuthPage() {
             </div>
             <DialogTitle className="text-center">Registration Successful!</DialogTitle>
             <DialogDescription className="text-center">
-              Welcome to FintekPro! Your account has been created.
+              Welcome to {portalLabel}! Your account has been created.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border-2 border-blue-300 dark:border-blue-700">
+            <div className="p-4 rounded-lg border-2" style={{ backgroundColor: `${portalColor}08`, borderColor: `${portalColor}40` }}>
               <p className="text-sm text-muted-foreground mb-2 text-center">Your unique User ID:</p>
               <div className="flex items-center justify-center gap-2">
-                <Badge className="text-lg px-4 py-2 bg-blue-600 hover:bg-blue-700">
+                <Badge className="text-lg px-4 py-2 text-white" style={{ backgroundColor: portalColor }}>
                   {registeredUserId}
                 </Badge>
               </div>
