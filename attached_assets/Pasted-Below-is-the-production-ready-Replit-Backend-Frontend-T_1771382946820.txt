@@ -1,0 +1,156 @@
+Below is the production-ready Replit Backend + Frontend Ticket Structure (Epic → Tasks JSON) to implement portal-specific logos for FintekPro main app and subdomains in a clean, scalable, audit-safe way.
+This assumes:
+app.fintekpro.com → Main
+partner.fintekpro.com
+agent.fintekpro.com
+admin.fintekpro.com
+📦 EPIC: MULTI-PORTAL BRAND SEGREGATION
+{
+  "epic": "MULTI_PORTAL_BRAND_SEGREGATION",
+  "description": "Implement separate but controlled logo system for Main, Partner, Agent, and Admin portals with environment-based loading and subdomain detection",
+  "priority": "HIGH",
+  "owner": "Frontend + Backend Team",
+  "compliance_tag": "ACCESS_SEGREGATION_SIGNALING",
+  "tasks": [
+    {
+      "task_id": "MBS-1",
+      "title": "Create Portal Type Enum",
+      "description": "Define centralized portal type enum to avoid hardcoding strings",
+      "deliverables": [
+        "Enum: PORTAL_TYPE = MAIN | PARTNER | AGENT | ADMIN",
+        "Shared config file: /config/portal.ts"
+      ]
+    },
+    {
+      "task_id": "MBS-2",
+      "title": "Implement Subdomain Detection Middleware",
+      "description": "Detect portal type based on subdomain at runtime",
+      "logic": [
+        "Extract hostname",
+        "If hostname starts with partner → PORTAL_TYPE=PARTNER",
+        "If hostname starts with agent → PORTAL_TYPE=AGENT",
+        "If hostname starts with admin → PORTAL_TYPE=ADMIN",
+        "Else → PORTAL_TYPE=MAIN"
+      ],
+      "location": "Backend middleware layer"
+    },
+    {
+      "task_id": "MBS-3",
+      "title": "Expose Portal Metadata Endpoint",
+      "endpoint": "/api/system/portal-meta",
+      "description": "Return portal-specific branding configuration to frontend",
+      "response_example": {
+        "portal_type": "PARTNER",
+        "logo_path": "/assets/logos/partner.svg",
+        "primary_color": "#6B46C1",
+        "tagline": "Grow With Us"
+      }
+    },
+    {
+      "task_id": "MBS-4",
+      "title": "Create Portal-Specific Logo Assets",
+      "description": "Create standardized SVG logos derived from master FintekPro logo",
+      "asset_structure": [
+        "/assets/logos/main.svg",
+        "/assets/logos/partner.svg",
+        "/assets/logos/agent.svg",
+        "/assets/logos/admin.svg"
+      ],
+      "rules": [
+        "Keep typography consistent",
+        "Only change accent color + suffix label",
+        "Do not alter core logo geometry"
+      ]
+    },
+    {
+      "task_id": "MBS-5",
+      "title": "Implement Dynamic Logo Loader Component",
+      "description": "Frontend component that loads logo based on portal meta",
+      "component_name": "PortalLogo.tsx",
+      "logic": [
+        "Call /api/system/portal-meta on app init",
+        "Store portal config in global state",
+        "Load logo dynamically"
+      ]
+    },
+    {
+      "task_id": "MBS-6",
+      "title": "Implement Portal-Specific Theme Config",
+      "description": "Load CSS variables dynamically based on portal type",
+      "deliverables": [
+        "theme-main.css",
+        "theme-partner.css",
+        "theme-agent.css",
+        "theme-admin.css"
+      ]
+    },
+    {
+      "task_id": "MBS-7",
+      "title": "Enforce Portal-Bound JWT Validation",
+      "description": "Ensure JWT portal claim matches active subdomain",
+      "logic": [
+        "JWT payload must include portal field",
+        "If token.portal != detectedPortal → force logout"
+      ]
+    },
+    {
+      "task_id": "MBS-8",
+      "title": "Add Admin Audit Log for Portal Access",
+      "description": "Log which portal user accessed for compliance",
+      "table": "portal_access_log",
+      "columns": [
+        "user_id",
+        "portal_type",
+        "ip_address",
+        "timestamp"
+      ]
+    },
+    {
+      "task_id": "MBS-9",
+      "title": "Add Fallback Protection",
+      "description": "If portal metadata API fails, default to MAIN with safe theme"
+    },
+    {
+      "task_id": "MBS-10",
+      "title": "QA & Security Testing",
+      "description": "Test cross-portal login attempt and branding integrity",
+      "test_cases": [
+        "Login as partner user on admin portal → must fail",
+        "Logo must change when switching subdomains",
+        "Token invalid if portal mismatch",
+        "Brand consistency across mobile and desktop"
+      ]
+    }
+  ]
+}
+🏗 Recommended Folder Structure
+/apps
+   /main
+   /partner
+   /agent
+   /admin
+
+/assets/logos
+   main.svg
+   partner.svg
+   agent.svg
+   admin.svg
+
+/config
+   portal.ts
+
+/middleware
+   portalDetector.ts
+🔐 Compliance Benefits for FintekPro
+This implementation:
+Visually segregates privileged access
+Supports RBI / SEBI audit defensibility
+Prevents cross-portal token misuse
+Improves phishing resistance
+Aligns with multi-tenant SaaS architecture best practices
+🚀 Implementation Timeline
+Backend detection + API: 1–2 days
+Frontend dynamic loading: 1–2 days
+JWT validation hardening: 1 day
+QA + regression testing: 1 day
+Total: ~5 working days
