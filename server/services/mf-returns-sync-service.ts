@@ -1,4 +1,5 @@
 import { db } from "../db";
+import { getProductionDb, hasProductionDb } from '../db-production';
 import { mutualFunds, historicalNavData } from "@shared/schema";
 import { eq, and, sql, desc, isNull, or, lt } from "drizzle-orm";
 import axios from "axios";
@@ -348,7 +349,8 @@ class MFReturnsSyncService {
     for (let i = 0; i < records.length; i += 200) {
       const batch = records.slice(i, i + 200);
       try {
-        await db.execute(sql`
+        const writeDb = hasProductionDb() ? getProductionDb() : db;
+        await writeDb.execute(sql`
           INSERT INTO historical_nav_data (id, identifier, identifier_type, date, nav, source, fetched_at, created_at)
           SELECT * FROM (
             VALUES ${sql.join(
@@ -407,7 +409,8 @@ class MFReturnsSyncService {
         updateData.informationRatio = ratios.informationRatio?.toString() || null;
       }
 
-      await db.update(mutualFunds)
+      const writeDb = hasProductionDb() ? getProductionDb() : db;
+      await writeDb.update(mutualFunds)
         .set(updateData)
         .where(eq(mutualFunds.schemeCode, schemeCode));
       
@@ -445,7 +448,8 @@ class MFReturnsSyncService {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
     // Get funds without returns OR stale returns
-    const fundsNeedingSync = await db.select({
+    const readDb = hasProductionDb() ? getProductionDb() : db;
+    const fundsNeedingSync = await readDb.select({
       schemeCode: mutualFunds.schemeCode
     })
     .from(mutualFunds)
@@ -455,7 +459,7 @@ class MFReturnsSyncService {
         lt(mutualFunds.lastUpdated, oneDayAgo)
       )
     )
-    .orderBy(desc(mutualFunds.nav)) // Prioritize funds with higher NAV (more popular)
+    .orderBy(desc(mutualFunds.nav))
     .limit(limit);
     
     return fundsNeedingSync.map(f => f.schemeCode);
@@ -524,7 +528,8 @@ class MFReturnsSyncService {
    */
   async getReturnsForFund(schemeCode: string): Promise<CalculatedReturns | null> {
     // First check database
-    const fund = await db.select({
+    const readDb = hasProductionDb() ? getProductionDb() : db;
+    const fund = await readDb.select({
       returns1y: mutualFunds.returns1y,
       returns3y: mutualFunds.returns3y,
       returns5y: mutualFunds.returns5y,

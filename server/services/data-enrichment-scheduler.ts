@@ -6,6 +6,7 @@
  */
 
 import { db } from '../db';
+import { getProductionDb, hasProductionDb } from '../db-production';
 import { sql } from 'drizzle-orm';
 
 interface SchedulerStatus {
@@ -100,10 +101,15 @@ class DataEnrichmentScheduler {
       console.log('[DataEnrichmentScheduler] Already running, skipping');
       return;
     }
+
+    if (!hasProductionDb()) {
+      console.warn('[DataEnrichmentScheduler] PRODUCTION_DATABASE_URL not set. Enrichment runs on production only. Skipping.');
+      return;
+    }
     
     this.isRunning = true;
     const startTime = Date.now();
-    console.log('[DataEnrichmentScheduler] Starting scheduled enrichment run...');
+    console.log('[DataEnrichmentScheduler] Starting scheduled enrichment run (targeting PRODUCTION DB)...');
     
     const stats = {
       mfEnriched: 0,

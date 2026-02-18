@@ -10,6 +10,7 @@
 
 import axios from 'axios';
 import { db } from '../db';
+import { getProductionDb, hasProductionDb } from '../db-production';
 import { mutualFunds } from '@shared/schema';
 import { eq, sql, isNull, and, or } from 'drizzle-orm';
 
@@ -385,11 +386,19 @@ class MFExtendedEnrichmentService {
   } = {}): Promise<EnrichmentStats> {
     const startTime = Date.now();
     const { forceRefresh = false, batchSize = 500, onlyNulls = true } = options;
+
+    if (!hasProductionDb()) {
+      console.warn('[MF Enrichment] PRODUCTION_DATABASE_URL not set. Enrichment runs on production only. Aborting.');
+      return { totalFunds: 0, fundsWithNullTer: 0, fundsWithNullAum: 0, fundsEnriched: 0, terUpdated: 0, aumUpdated: 0, errors: ['PRODUCTION_DATABASE_URL not configured'], duration: 0 };
+    }
+
+    const targetDb = getProductionDb();
+    console.log('[MF Enrichment] ✅ Connected to PRODUCTION database for enrichment');
     
     this.resetProgress();
     enrichmentProgress.status = 'fetching';
     enrichmentProgress.startedAt = new Date();
-    enrichmentProgress.currentStep = 'Fetching external data sources...';
+    enrichmentProgress.currentStep = 'Fetching external data sources (production DB)...';
     
     const stats: EnrichmentStats = {
       totalFunds: 0,
@@ -403,8 +412,7 @@ class MFExtendedEnrichmentService {
     };
     
     try {
-      // Pre-clean: clear invalid ISIN values so they can be re-enriched
-      await db.execute(sql`UPDATE mutual_funds SET isin = NULL WHERE isin = '-' OR isin = 'N/A' OR isin = ''`);
+      await targetDb.execute(sql`UPDATE mutual_funds SET isin = NULL WHERE isin = '-' OR isin = 'N/A' OR isin = ''`);
       
       // Fetch GitHub AUM data
       const githubData = await this.fetchGitHubAumData();
@@ -413,7 +421,7 @@ class MFExtendedEnrichmentService {
       enrichmentProgress.currentStep = 'Querying funds needing enrichment...';
       
       // Get funds needing enrichment
-      let fundsQuery = db.select({
+      let fundsQuery = targetDb.select({
         id: mutualFunds.id,
         schemeCode: mutualFunds.schemeCode,
         schemeName: mutualFunds.schemeName,
@@ -500,10 +508,9 @@ class MFExtendedEnrichmentService {
               }
             }
             
-            // Update database if we have changes
             if (Object.keys(updates).length > 0) {
               updates.lastVerifiedAt = new Date();
-              await db.update(mutualFunds)
+              await targetDb.update(mutualFunds)
                 .set(updates)
                 .where(eq(mutualFunds.id, fund.id));
               
@@ -548,7 +555,12 @@ class MFExtendedEnrichmentService {
    */
   async enrichSingleFund(schemeCode: string): Promise<{ success: boolean; updates: Record<string, any>; error?: string }> {
     try {
-      const [fund] = await db.select({
+      if (!hasProductionDb()) {
+        return { success: false, updates: {}, error: 'PRODUCTION_DATABASE_URL not configured' };
+      }
+      const targetDb = getProductionDb();
+
+      const [fund] = await targetDb.select({
         id: mutualFunds.id,
         schemeCode: mutualFunds.schemeCode,
         schemeName: mutualFunds.schemeName,
@@ -567,7 +579,6 @@ class MFExtendedEnrichmentService {
       
       const updates: Record<string, any> = {};
       
-      // Try GitHub data for AUM
       const githubData = await this.fetchGitHubAumData();
       const githubScheme = githubData.get(schemeCode);
       if (githubScheme?.aum) {
@@ -577,7 +588,6 @@ class MFExtendedEnrichmentService {
         }
       }
       
-      // Infer TER
       if (!fund.expenseRatio) {
         const inferredTer = this.inferTER(fund.category, fund.planType);
         if (inferredTer !== null) {
@@ -587,7 +597,7 @@ class MFExtendedEnrichmentService {
       
       if (Object.keys(updates).length > 0) {
         updates.lastUpdated = new Date();
-        await db.update(mutualFunds)
+        await targetDb.update(mutualFunds)
           .set(updates)
           .where(eq(mutualFunds.id, fund.id));
       }
@@ -608,7 +618,8 @@ class MFExtendedEnrichmentService {
     withBothNull: number;
     percentEnriched: number;
   }> {
-    const [stats] = await db.select({
+    const statsDb = hasProductionDb() ? getProductionDb() : db;
+    const [stats] = await statsDb.select({
       total: sql<number>`COUNT(*)`,
       withTer: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.expenseRatio} IS NOT NULL)`,
       withAum: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.aum} IS NOT NULL)`,

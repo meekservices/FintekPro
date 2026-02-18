@@ -7,6 +7,7 @@
 
 import axios from 'axios';
 import { db } from '../db';
+import { getProductionDb, hasProductionDb } from '../db-production';
 import { listedStocks } from '@shared/schema';
 import { eq, sql, isNull, or, and, desc, asc } from 'drizzle-orm';
 
@@ -586,11 +587,19 @@ class StockFinancialEnrichmentService {
       includeReturns = true,
     } = options;
 
+    if (!hasProductionDb()) {
+      console.warn('[Stock Enrichment] PRODUCTION_DATABASE_URL not set. Enrichment runs on production only. Aborting.');
+      return { totalStocks: 0, stocksWithNullPe: 0, stocksWithNullEps: 0, stocksEnriched: 0, errors: ['PRODUCTION_DATABASE_URL not configured'], duration: 0, fmpCalls: 0 };
+    }
+
+    const targetDb = getProductionDb();
+    console.log('[Stock Enrichment] ✅ Connected to PRODUCTION database for enrichment');
+
     this.resetProgress();
     this.fmpCallCount = 0;
     enrichmentProgress.status = 'fetching';
     enrichmentProgress.startedAt = new Date();
-    enrichmentProgress.currentStep = 'Querying stocks needing enrichment...';
+    enrichmentProgress.currentStep = 'Querying stocks needing enrichment (production DB)...';
 
     const stats: EnrichmentStats = {
       totalStocks: 0,
@@ -603,7 +612,7 @@ class StockFinancialEnrichmentService {
     };
 
     try {
-      const stocks = await db.select({
+      const stocks = await targetDb.select({
         id: listedStocks.id,
         symbol: listedStocks.symbol,
         companyName: listedStocks.companyName,
@@ -794,7 +803,7 @@ class StockFinancialEnrichmentService {
                 updates.lastEnrichedAt = new Date();
                 updates.enrichmentSource = 'fmp';
                 updates.enrichmentStatus = 'complete';
-                await db.update(listedStocks)
+                await targetDb.update(listedStocks)
                   .set(updates)
                   .where(eq(listedStocks.id, stock.id));
                 stats.stocksEnriched++;
@@ -848,7 +857,8 @@ class StockFinancialEnrichmentService {
     allNull: number;
     percentEnriched: number;
   }> {
-    const [stats] = await db.select({
+    const statsDb = hasProductionDb() ? getProductionDb() : db;
+    const [stats] = await statsDb.select({
       total: sql<number>`COUNT(*)`,
       withPe: sql<number>`COUNT(*) FILTER (WHERE ${listedStocks.peRatio} IS NOT NULL)`,
       withEps: sql<number>`COUNT(*) FILTER (WHERE ${listedStocks.eps} IS NOT NULL)`,

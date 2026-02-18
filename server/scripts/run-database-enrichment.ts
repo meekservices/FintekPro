@@ -1,20 +1,27 @@
 /**
- * Database Enrichment Script
+ * Database Enrichment Script (PRODUCTION ONLY)
  * 
  * Run with: npx tsx server/scripts/run-database-enrichment.ts
  * 
- * This script runs batch enrichment jobs to fill in missing data:
+ * All enrichment commands (mf, stocks, unlisted, all) target PRODUCTION database.
+ * The 'report' command uses production DB when available, dev DB as fallback.
+ * 
+ * Enrichment jobs:
  * 1. Mutual Fund returns from MFAPI historical NAV data
- * 2. Stock PE/Dividend from Yahoo Finance
+ * 2. Stock PE/Dividend from FMP (primary), Yahoo Finance, Finnhub
  * 3. Unlisted company pricing from price suggestion engine
  */
 
 import { db } from '../db';
+import { getProductionDb, hasProductionDb } from '../db-production';
 import { sql } from 'drizzle-orm';
 
 async function runEnrichmentReport() {
+  const reportDb = hasProductionDb() ? getProductionDb() : db;
+  const dbTarget = hasProductionDb() ? 'PRODUCTION' : 'DEVELOPMENT';
+  
   console.log('='.repeat(60));
-  console.log('FintekPro Database Enrichment Report');
+  console.log(`FintekPro Database Enrichment Report (${dbTarget})`);
   console.log('='.repeat(60));
   console.log(`Generated at: ${new Date().toISOString()}\n`);
 
@@ -22,7 +29,7 @@ async function runEnrichmentReport() {
   console.log('📊 MUTUAL FUNDS STATUS');
   console.log('-'.repeat(40));
   
-  const mfStats = await db.execute(sql`
+  const mfStats = await reportDb.execute(sql`
     SELECT 
       COUNT(*) as total,
       SUM(CASE WHEN returns_1y IS NULL THEN 1 ELSE 0 END) as missing_1y,
@@ -49,7 +56,7 @@ async function runEnrichmentReport() {
   console.log('\n📈 LISTED STOCKS STATUS');
   console.log('-'.repeat(40));
   
-  const stockStats = await db.execute(sql`
+  const stockStats = await reportDb.execute(sql`
     SELECT 
       COUNT(*) as total,
       SUM(CASE WHEN pe_ratio IS NULL THEN 1 ELSE 0 END) as missing_pe,
@@ -71,7 +78,7 @@ async function runEnrichmentReport() {
   console.log('\n🏢 UNLISTED COMPANIES STATUS');
   console.log('-'.repeat(40));
   
-  const unlistedStats = await db.execute(sql`
+  const unlistedStats = await reportDb.execute(sql`
     SELECT 
       COUNT(*) as total,
       SUM(CASE WHEN cin IS NULL OR cin = '' THEN 1 ELSE 0 END) as missing_cin,
@@ -93,7 +100,7 @@ async function runEnrichmentReport() {
   console.log('\n📉 HISTORICAL NAV DATA STATUS');
   console.log('-'.repeat(40));
   
-  const navStats = await db.execute(sql`
+  const navStats = await reportDb.execute(sql`
     SELECT 
       COUNT(*) as total_records,
       COUNT(DISTINCT identifier) as unique_schemes,
@@ -111,7 +118,7 @@ async function runEnrichmentReport() {
   console.log('\n🏛️ ALTERNATIVE INVESTMENTS STATUS');
   console.log('-'.repeat(40));
   
-  const altStats = await db.execute(sql`
+  const altStats = await reportDb.execute(sql`
     SELECT 
       (SELECT COUNT(*) FROM reits) as reits,
       (SELECT COUNT(*) FROM invits) as invits,
@@ -135,7 +142,7 @@ async function runEnrichmentReport() {
   console.log('\n⚙️ OPERATIONAL TABLES STATUS');
   console.log('-'.repeat(40));
   
-  const opStats = await db.execute(sql`
+  const opStats = await reportDb.execute(sql`
     SELECT 
       (SELECT COUNT(*) FROM portfolio_holdings) as portfolio_holdings,
       (SELECT COUNT(*) FROM comprehensive_holdings) as comprehensive_holdings,
@@ -224,9 +231,14 @@ async function runStockEnrichment() {
 }
 
 async function runUnlistedPricingEnrichment() {
-  console.log('\n🔄 Starting Unlisted Company Pricing Enrichment...');
+  if (!hasProductionDb()) {
+    console.error('❌ PRODUCTION_DATABASE_URL not set. Enrichment runs on production only.');
+    return { enriched: 0, total: 0 };
+  }
+  const targetDb = getProductionDb();
+  console.log('[Unlisted Enrichment] ✅ Connected to PRODUCTION database');
   
-  const results = await db.execute(sql`
+  const results = await targetDb.execute(sql`
     SELECT 
       uc.id,
       uc.name,
@@ -288,7 +300,7 @@ async function runUnlistedPricingEnrichment() {
     sellPrice = Math.round(buyPrice * 1.05);
     
     if (buyPrice > 0) {
-      await db.execute(sql`
+      await targetDb.execute(sql`
         UPDATE unlisted_companies 
         SET 
           published_buy_price = ${buyPrice.toString()},
