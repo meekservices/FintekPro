@@ -133,7 +133,7 @@ router.post('/retrain', async (req, res) => {
 
 router.get('/scheduler-status', async (req, res) => {
   try {
-    const status = quantRetrainingScheduler.getStatus();
+    const status = await quantRetrainingScheduler.getDetailedStatus();
     res.json(status);
   } catch (e: any) {
     res.status(500).json({ error: e.message });

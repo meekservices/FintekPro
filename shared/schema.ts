@@ -32290,3 +32290,29 @@ export const quantRetrainingLog = pgTable("quant_retraining_log", {
 export const insertQuantRetrainingLogSchema = createInsertSchema(quantRetrainingLog).omit({ id: true, createdAt: true });
 export type InsertQuantRetrainingLog = z.infer<typeof insertQuantRetrainingLogSchema>;
 export type QuantRetrainingLog = typeof quantRetrainingLog.$inferSelect;
+
+// ── Quant Scheduler Distributed Locks ──
+
+export const quantSchedulerLocks = pgTable("quant_scheduler_locks", {
+  lockKey: text("lock_key").primaryKey(),
+  lockedBy: text("locked_by").notNull(),
+  acquiredAt: timestamp("acquired_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  heartbeatAt: timestamp("heartbeat_at").defaultNow().notNull(),
+});
+
+// ── Quant Scheduler State (Daily Cap, Backoff, Observability) ──
+
+export const quantSchedulerState = pgTable("quant_scheduler_state", {
+  id: serial("id").primaryKey(),
+  lockKey: text("lock_key").notNull().unique(),
+  dailyCount: integer("daily_count").default(0).notNull(),
+  dailyCountDate: text("daily_count_date").notNull(),
+  consecutiveFailures: integer("consecutive_failures").default(0).notNull(),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  lastSuccessAt: timestamp("last_success_at"),
+  backoffUntil: timestamp("backoff_until"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_quant_scheduler_state_key").on(table.lockKey),
+]);
