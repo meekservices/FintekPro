@@ -190,7 +190,7 @@ class UnifiedStockPriceService {
 
     console.log(`[StockPrice] Batch fetching ${toFetch.length} symbols (${result.fromCache} from cache)`);
 
-    const batchSize = 10;
+    const batchSize = 5;
     for (let i = 0; i < toFetch.length; i += batchSize) {
       const batch = toFetch.slice(i, i + batchSize);
       
@@ -211,7 +211,7 @@ class UnifiedStockPriceService {
       await Promise.all(promises);
 
       if (i + batchSize < toFetch.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
 
@@ -232,15 +232,22 @@ class UnifiedStockPriceService {
     });
   }
 
-  private recordFailure(provider: string): void {
+  private recordFailure(provider: string, isRateLimit: boolean = false): void {
     const health = this.providerHealth.get(provider) || { consecutiveFailures: 0, lastFailure: 0, cooldownUntil: 0 };
     health.consecutiveFailures++;
     health.lastFailure = Date.now();
-    if (health.consecutiveFailures >= 3) {
-      health.cooldownUntil = Date.now() + 10 * 60 * 1000;
-      console.warn(`[StockPrice] Provider ${provider} put on 10-minute cooldown after ${health.consecutiveFailures} consecutive failures`);
+    const threshold = isRateLimit ? 1 : 3;
+    if (health.consecutiveFailures >= threshold) {
+      const cooldownMs = isRateLimit ? 15 * 60 * 1000 : 10 * 60 * 1000;
+      health.cooldownUntil = Date.now() + cooldownMs;
+      console.warn(`[StockPrice] Provider ${provider} put on ${cooldownMs / 60000}-minute cooldown after ${health.consecutiveFailures} consecutive failures${isRateLimit ? ' (rate limited)' : ''}`);
     }
     this.providerHealth.set(provider, health);
+  }
+
+  private isRateLimitError(error: any): boolean {
+    const msg = String(error?.message || '').toLowerCase();
+    return msg.includes('too many requests') || msg.includes('429') || msg.includes('rate limit');
   }
 
   private async fetchFromYahoo(symbol: string): Promise<StockPrice | null> {
@@ -263,6 +270,10 @@ class UnifiedStockPriceService {
         };
       }
     } catch (error: any) {
+      if (this.isRateLimitError(error)) {
+        this.recordFailure('yahoo', true);
+        throw new Error('RATE_LIMITED:yahoo');
+      }
       console.warn(`[StockPrice] Yahoo fetch failed for ${symbol}: ${error.message}`);
     }
     return null;
@@ -301,18 +312,19 @@ class UnifiedStockPriceService {
 
   /**
    * Fetch from available sources with fallback
+   * Priority: NSE (direct exchange) → FMP (reliable API) → BSE → Yahoo (most rate-limited, last resort)
    */
   private async fetchFromSource(symbol: string, exchange?: 'NSE' | 'BSE'): Promise<StockPrice | null> {
-    if (!this.isProviderCoolingDown('yahoo')) {
-      const yahooPrice = await this.fetchFromYahoo(symbol);
-      if (yahooPrice) { this.recordSuccess('yahoo'); return yahooPrice; }
-      this.recordFailure('yahoo');
-    }
-
     if ((exchange === 'NSE' || !exchange) && !this.isProviderCoolingDown('nse')) {
       const nsePrice = await this.fetchFromNSE(symbol);
       if (nsePrice) { this.recordSuccess('nse'); return nsePrice; }
       this.recordFailure('nse');
+    }
+
+    if (!this.isProviderCoolingDown('fmp')) {
+      const fmpPrice = await this.fetchFromFMP(symbol);
+      if (fmpPrice) { this.recordSuccess('fmp'); return fmpPrice; }
+      this.recordFailure('fmp');
     }
 
     if ((exchange === 'BSE' || !exchange) && !this.isProviderCoolingDown('bse')) {
@@ -321,10 +333,16 @@ class UnifiedStockPriceService {
       this.recordFailure('bse');
     }
 
-    if (!this.isProviderCoolingDown('fmp')) {
-      const fmpPrice = await this.fetchFromFMP(symbol);
-      if (fmpPrice) { this.recordSuccess('fmp'); return fmpPrice; }
-      this.recordFailure('fmp');
+    if (!this.isProviderCoolingDown('yahoo')) {
+      try {
+        const yahooPrice = await this.fetchFromYahoo(symbol);
+        if (yahooPrice) { this.recordSuccess('yahoo'); return yahooPrice; }
+        this.recordFailure('yahoo');
+      } catch (err: any) {
+        if (!String(err?.message).startsWith('RATE_LIMITED:')) {
+          this.recordFailure('yahoo');
+        }
+      }
     }
 
     return null;

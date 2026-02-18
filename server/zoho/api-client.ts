@@ -243,6 +243,11 @@ export class ZohoApiClient {
       status: error.response?.status
     };
 
+    if (!this.connectionId) {
+      console.error(`[Zoho API] Error (no connection): ${this.service} - ${error.message}`);
+      return;
+    }
+
     try {
       await db.insert(zohoSyncLogs).values({
         connectionId: this.connectionId,
@@ -255,8 +260,13 @@ export class ZohoApiClient {
         errorDetails,
         triggeredBy: 'api_client'
       });
-    } catch (logError) {
-      console.error('Failed to log Zoho API error:', logError);
+    } catch (logError: any) {
+      const msg = String(logError?.message || '');
+      if (msg.includes('foreign key constraint')) {
+        console.error(`[Zoho API] Error (connection ${this.connectionId} not in DB): ${this.service} - ${error.message}`);
+      } else {
+        console.error('Failed to log Zoho API error:', logError);
+      }
     }
   }
 
