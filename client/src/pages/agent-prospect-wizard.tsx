@@ -719,13 +719,19 @@ export default function AgentProspectWizard() {
   
   // Reset both categories and allocations to AI defaults for risk profile
   const handleUseDefaultAllocations = () => {
-    const defaultCategories = deriveDefaultCategories(riskProfile.riskTolerance);
-    const defaultAllocations = DEFAULT_ALLOCATIONS[riskProfile.riskTolerance];
+    if (categorySelectionMode === 'manual' && selectedCategories.length > 0) {
+      const redistributed = computeAllocationsForSelectedCategories(
+        selectedCategories,
+        riskProfile.riskTolerance as keyof typeof DEFAULT_ALLOCATIONS
+      );
+      setCustomAllocations(redistributed);
+    } else {
+      const defaultCategories = deriveDefaultCategories(riskProfile.riskTolerance);
+      const defaultAllocations = DEFAULT_ALLOCATIONS[riskProfile.riskTolerance];
+      setSelectedCategories(defaultCategories);
+      setCustomAllocations(defaultAllocations);
+    }
     
-    setSelectedCategories(defaultCategories);
-    setCustomAllocations(defaultAllocations);
-    
-    // Also reset global advisory selections when using defaults
     setGlobalAdvisorySelections({});
     setGlobalAdvisoryBudget(0);
   };
@@ -758,12 +764,22 @@ export default function AgentProspectWizard() {
   // Apply AI defaults when entering Step 6 (Categories) in AI mode or when risk profile changes
   useEffect(() => {
     if (currentStep === 6 && categorySelectionMode === 'ai_default') {
-      // Apply AI defaults based on current risk profile
       const aiCategories = getAIDefaultCategories(riskProfile.riskTolerance);
       setSelectedCategories(aiCategories);
       setCustomAllocations(DEFAULT_ALLOCATIONS[riskProfile.riskTolerance as keyof typeof DEFAULT_ALLOCATIONS] || DEFAULT_ALLOCATIONS.moderate);
     }
   }, [currentStep, categorySelectionMode, riskProfile.riskTolerance]);
+
+  // Redistribute allocations proportionally when entering Step 7 in manual mode
+  useEffect(() => {
+    if (currentStep === 7 && categorySelectionMode === 'manual' && selectedCategories.length > 0) {
+      const redistributed = computeAllocationsForSelectedCategories(
+        selectedCategories,
+        riskProfile.riskTolerance as keyof typeof DEFAULT_ALLOCATIONS
+      );
+      setCustomAllocations(redistributed);
+    }
+  }, [currentStep, categorySelectionMode, selectedCategories.length, riskProfile.riskTolerance]);
   
   // Portfolio Import State
   const [importMode, setImportMode] = useState<'manual' | 'upload' | 'url'>('manual');
@@ -5642,6 +5658,7 @@ export default function AgentProspectWizard() {
                   </div>
                 </div>
 
+                {categorySelectionMode === 'ai_default' && (
                 <div className="p-4 bg-muted/30 rounded-lg">
                   <h4 className="text-sm font-medium mb-3">Default for {riskProfile.riskTolerance.replace('_', ' ')} Profile</h4>
                   <div className="grid grid-cols-3 gap-2 text-sm">
@@ -5653,6 +5670,7 @@ export default function AgentProspectWizard() {
                     ))}
                   </div>
                 </div>
+                )}
               </div>
             </div>
 
