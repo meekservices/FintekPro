@@ -32171,3 +32171,70 @@ export const rebalanceDecisionLog = pgTable("rebalance_decision_log", {
 export const insertRebalanceDecisionLogSchema = createInsertSchema(rebalanceDecisionLog).omit({ id: true, createdAt: true });
 export type InsertRebalanceDecisionLog = z.infer<typeof insertRebalanceDecisionLogSchema>;
 export type RebalanceDecisionLog = typeof rebalanceDecisionLog.$inferSelect;
+
+// ── Quant Infrastructure Tables ──
+
+export const quantGovernancePolicy = pgTable("quant_governance_policy", {
+  id: serial("id").primaryKey(),
+  riskProfile: text("risk_profile").notNull().unique(),
+  useMvo: boolean("use_mvo").notNull().default(false),
+  useBlackLitterman: boolean("use_black_litterman").notNull().default(false),
+  useAiDriftPrediction: boolean("use_ai_drift_prediction").notNull().default(false),
+  riskAversion: real("risk_aversion").notNull().default(2.5),
+  tau: real("tau").notNull().default(0.05),
+  tacticalBudget: real("tactical_budget").notNull().default(0.10),
+  driftProbabilityTrigger: real("drift_probability_trigger").notNull().default(0.7),
+  maxAssetWeight: real("max_asset_weight").notNull().default(0.40),
+  minAssetWeight: real("min_asset_weight").notNull().default(0.0),
+  covarianceLookbackDays: integer("covariance_lookback_days").notNull().default(250),
+  ewmaSpan: integer("ewma_span").notNull().default(60),
+  shrinkageIntensity: real("shrinkage_intensity").notNull().default(0.5),
+  solverMaxIterations: integer("solver_max_iterations").notNull().default(1000),
+  solverTolerance: real("solver_tolerance").notNull().default(1e-8),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertQuantGovernancePolicySchema = createInsertSchema(quantGovernancePolicy).omit({ id: true, updatedAt: true });
+export type InsertQuantGovernancePolicy = z.infer<typeof insertQuantGovernancePolicySchema>;
+export type QuantGovernancePolicy = typeof quantGovernancePolicy.$inferSelect;
+
+export const quantRunLog = pgTable("quant_run_log", {
+  id: serial("id").primaryKey(),
+  portfolioId: text("portfolio_id"),
+  modelType: text("model_type").notNull(),
+  runTimeMs: integer("run_time_ms"),
+  status: text("status").notNull(),
+  inputHash: text("input_hash"),
+  outputSummary: jsonb("output_summary"),
+  errorMessage: text("error_message"),
+  fallbackUsed: boolean("fallback_used").default(false),
+  governancePolicyId: integer("governance_policy_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_quant_run_log_model").on(table.modelType),
+  index("idx_quant_run_log_created").on(table.createdAt),
+  index("idx_quant_run_log_portfolio").on(table.portfolioId),
+]);
+
+export const insertQuantRunLogSchema = createInsertSchema(quantRunLog).omit({ id: true, createdAt: true });
+export type InsertQuantRunLog = z.infer<typeof insertQuantRunLogSchema>;
+export type QuantRunLog = typeof quantRunLog.$inferSelect;
+
+export const strategicTargetWeights = pgTable("strategic_target_weights", {
+  id: serial("id").primaryKey(),
+  portfolioId: text("portfolio_id").notNull(),
+  category: text("category").notNull(),
+  weight: real("weight").notNull(),
+  modelVersion: text("model_version").notNull(),
+  expectedReturn: real("expected_return"),
+  volatility: real("volatility"),
+  sharpeContribution: real("sharpe_contribution"),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_strategic_weights_portfolio").on(table.portfolioId),
+  index("idx_strategic_weights_generated").on(table.generatedAt),
+]);
+
+export const insertStrategicTargetWeightsSchema = createInsertSchema(strategicTargetWeights).omit({ id: true, generatedAt: true });
+export type InsertStrategicTargetWeights = z.infer<typeof insertStrategicTargetWeightsSchema>;
+export type StrategicTargetWeights = typeof strategicTargetWeights.$inferSelect;

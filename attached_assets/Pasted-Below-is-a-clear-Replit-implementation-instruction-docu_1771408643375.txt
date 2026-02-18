@@ -1,0 +1,169 @@
+Below is a clear Replit implementation instruction document to enforce:
+✅ Fully autonomous Quant Engine (MVO + Black-Litterman + AI Drift)
+❌ No Admin interference in portfolio decisions
+✅ Admin only allowed feature toggle (enable/disable)
+❌ No parameter editing
+❌ No manual overrides
+This converts your system into a model-driven governance architecture.
+🎯 OBJECTIVE
+Lock the Quant Engine so that:
+MVO generates strategic weights
+Black-Litterman integrates tactical views
+AI predicts drift and influences rebalance timing
+No human can modify optimization outputs
+No parameter manipulation in production
+🧱 CORE ARCHITECTURE RULE
+The Quant Engine must operate in:
+AUTONOMOUS_MODE = true
+When enabled:
+Governance parameters are read-only
+No PATCH endpoints allowed
+No manual trade overrides allowed
+No admin tuning of lambda, tau, tactical budget
+📌 REPLIT IMPLEMENTATION INSTRUCTIONS
+Below is exact instruction format to give your backend team.
+🔵 EPIC — Quant Engine Autonomy Enforcement
+{
+  "epic_id": "EPIC-QUANT-AUTONOMY-001",
+  "epic_name": "Quant Engine Autonomous Mode Enforcement",
+  "priority": "CRITICAL",
+  "owner": "Backend + DevOps",
+  "tasks": [
+    {
+      "task_id": "AUTO-001",
+      "title": "Create AUTONOMOUS_MODE environment variable",
+      "description": "Add AUTONOMOUS_MODE=true in production environment. When true, disable all quant parameter modification endpoints."
+    },
+    {
+      "task_id": "AUTO-002",
+      "title": "Remove PATCH /admin/quant-policy endpoint",
+      "description": "Disable or delete any endpoint that modifies risk_aversion, tau, tactical_budget, or drift_probability_trigger."
+    },
+    {
+      "task_id": "AUTO-003",
+      "title": "Freeze quant_governance_policy table",
+      "description": "Make quant_governance_policy read-only when AUTONOMOUS_MODE=true."
+    },
+    {
+      "task_id": "AUTO-004",
+      "title": "Block manual override logic",
+      "description": "Disable any manual_override_log or trade edit functionality when quant engine enabled."
+    },
+    {
+      "task_id": "AUTO-005",
+      "title": "Enforce server-side parameter hardcoding",
+      "description": "Move risk_aversion, tau, tactical_budget constants into quantConfig.ts with no runtime mutation."
+    }
+  ]
+}
+🧠 REQUIRED CODE CHANGES
+1️⃣ Create quantConfig.ts
+export const QUANT_CONFIG = {
+   AUTONOMOUS_MODE: process.env.AUTONOMOUS_MODE === "true",
+
+   RISK_AVERSION: 3,
+   TAU: 0.025,
+   TACTICAL_BUDGET: 0.10,
+   DRIFT_PROBABILITY_TRIGGER: 0.70
+}
+No DB dependency for these parameters.
+2️⃣ Lock Governance Middleware
+Create:
+/middleware/autonomousGuard.ts
+export function autonomousGuard(req, res, next) {
+   if (QUANT_CONFIG.AUTONOMOUS_MODE) {
+       return res.status(403).json({
+           error: "Quant Engine is in Autonomous Mode. Parameter modification is disabled."
+       })
+   }
+   next()
+}
+Attach to all admin modification routes.
+3️⃣ Remove Admin Parameter Control
+Delete:
+PATCH /admin/quant-policy
+PATCH /admin/risk-aversion
+PATCH /admin/tau
+Replace with:
+GET /admin/quant-status
+(Admin can view — not modify.)
+4️⃣ Remove Manual Trade Override
+In rebalancing service:
+Remove logic:
+if (manualOverride) {
+   applyManualTrade()
+}
+Replace with:
+if (QUANT_CONFIG.AUTONOMOUS_MODE) {
+   ignoreManualOverride()
+}
+5️⃣ Lock Model Registry
+Admin can:
+View model versions
+Approve model upgrade (offline process only)
+Admin cannot:
+Adjust model weights
+Tune parameters
+Change confidence mapping
+🔐 PROTECTED FLOW (Final System)
+Market Data
+     ↓
+Covariance Engine
+     ↓
+Black-Litterman
+     ↓
+MVO Optimization
+     ↓
+AI Drift Prediction
+     ↓
+Rebalancing Engine
+     ↓
+Proposal Engine
+     ↓
+Audit Logs
+No human intervention in middle.
+🛡 SAFETY MECHANISM
+Admin retains only one control:
+POST /admin/quant-engine/disable
+Which sets:
+QUANT_ENGINE_ENABLED = false
+System falls back to:
+Static allocation model
+Manual advisory mode
+Admin cannot tweak model logic — only disable entire engine.
+📊 RBAC UPDATE
+Role	Allowed
+Admin	View logs, enable/disable engine
+Advisor	Generate proposals
+Ops	Execute trades
+No one	Modify quant parameters
+📌 DATABASE CLEANUP
+Remove fields:
+risk_aversion
+tau
+tactical_budget
+drift_probability_trigger
+From dynamic DB tables.
+Keep them only in:
+quantConfig.ts
+⚖ GOVERNANCE BENEFITS
+✔ No parameter manipulation risk
+✔ No emotional market reaction
+✔ No tactical bias
+✔ Full model integrity
+✔ Institutional credibility
+⚠ IMPORTANT
+Before enforcing autonomy:
+Backtest MVO + BL + AI over 5 years
+Stress test 2020 crash scenario
+Compare turnover vs static baseline
+Validate AI drift false positive rate
+After production → model changes require:
+Code change
+Deployment
+Version log entry
+No runtime tuning.
+FINAL STRUCTURE
+Quant Engine = Deterministic + Autonomous
+Admin = Kill Switch Only
+Advisor = Client Interface Only
