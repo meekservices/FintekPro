@@ -1,7 +1,8 @@
 import { Express, Response } from 'express';
 import { db } from '../../db';
-import { sql } from 'drizzle-orm';
-import { mutualFunds } from '@shared/schema';
+import { sql, desc, eq } from 'drizzle-orm';
+import { mutualFunds, signalResolutionLog, governancePolicy } from '@shared/schema';
+import { signalOrchestrator } from '../../services/signal-orchestrator';
 import { storage } from '../../storage';
 import { adminService } from '../../admin-service';
 import ckycDeferredRoutes from './ckyc-deferred-routes';
@@ -4818,6 +4819,77 @@ System Security Data:`;
   });
 
   console.log("✅ Data Provider Health routes registered");
+
+  app.get("/api/admin/signal-audit", requireAdmin, async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const entries = await db.select()
+        .from(signalResolutionLog)
+        .orderBy(desc(signalResolutionLog.createdAt))
+        .limit(limit);
+
+      res.json({
+        success: true,
+        count: entries.length,
+        entries
+      });
+    } catch (err) {
+      console.error('[Admin] Signal audit fetch failed:', err);
+      res.status(500).json({ success: false, error: 'Failed to fetch signal audit log' });
+    }
+  });
+
+  app.get("/api/admin/governance-policy", requireAdmin, async (_req, res) => {
+    try {
+      const matrix = signalOrchestrator.getGovernanceMatrix();
+      res.json({ success: true, matrix });
+    } catch (err) {
+      console.error('[Admin] Governance policy fetch failed:', err);
+      res.status(500).json({ success: false, error: 'Failed to fetch governance policy' });
+    }
+  });
+
+  app.patch("/api/admin/governance-policy", requireAdmin, async (req, res) => {
+    try {
+      const { ruleId, updates } = req.body;
+      if (!ruleId) {
+        return res.status(400).json({ success: false, error: 'ruleId is required' });
+      }
+
+      signalOrchestrator.updateGovernanceRule(ruleId, updates);
+
+      const existing = await db.select().from(governancePolicy).where(eq(governancePolicy.ruleId, ruleId));
+      if (existing.length > 0) {
+        await db.update(governancePolicy)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(governancePolicy.ruleId, ruleId));
+      } else {
+        const rule = signalOrchestrator.getGovernanceMatrix().find(r => r.id === ruleId);
+        if (rule) {
+          await db.insert(governancePolicy).values({
+            ruleId: rule.id,
+            potdSignal: rule.potdSignal,
+            rebalanceSignal: rule.rebalanceSignal,
+            resolvedAction: rule.resolvedAction,
+            priority: rule.priority,
+            description: rule.description,
+            enabled: rule.enabled,
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Governance rule ${ruleId} updated`,
+        currentMatrix: signalOrchestrator.getGovernanceMatrix()
+      });
+    } catch (err) {
+      console.error('[Admin] Governance policy update failed:', err);
+      res.status(500).json({ success: false, error: 'Failed to update governance policy' });
+    }
+  });
+
+  console.log("✅ Signal Orchestrator admin routes registered");
 
   console.log("✅ Admin Panel routes registered");
 }

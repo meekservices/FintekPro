@@ -18,11 +18,13 @@ import { proposalCapitalGainsService } from "./proposal-capital-gains-service";
 import { historicalNavService } from "./historical-nav-service";
 import { getRecommendationsByCategory, getAllActiveRecommendations } from "./recommendation-products-service";
 import { mfReturnsSyncService } from "./mf-returns-sync-service";
-import { mutualFunds, schemeTransactionRules, proposalAuditLog, proposalVersions } from "@shared/schema";
+import { mutualFunds, schemeTransactionRules, proposalAuditLog, proposalVersions, signalResolutionLog } from "@shared/schema";
 import { prospectReadinessService } from "./prospect-readiness-service";
 import { allocationPolicyService } from "./allocation-policy-service";
 import { complianceSnapshotService } from "./compliance-snapshot-service";
 import { schemeGovernanceService } from "./scheme-governance-service";
+import { signalOrchestrator, OrchestratedRecommendation } from './signal-orchestrator';
+import { pickOfTheDayService } from './pick-of-the-day-service';
 
 // Format amount in Indian currency format (₹X.XX L for lakhs, ₹X.XX Cr for crores)
 const formatAmount = (amount: number): string => {
@@ -142,6 +144,25 @@ const FUND_RECOMMENDATIONS_BY_CATEGORY = {
     ],
     very_aggressive: [
       { name: 'Nippon India Nifty Smallcap 250 Index Fund - Regular (G)', amc: 'Nippon India', category: 'Index Fund - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+    ]
+  },
+  etf: {
+    conservative: [
+      { name: 'Nippon India ETF Nifty BeES', amc: 'Nippon India', category: 'ETF - Large Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
+      { name: 'SBI ETF Nifty 50', amc: 'SBI', category: 'ETF - Large Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
+    ],
+    moderate: [
+      { name: 'ICICI Pru Nifty Next 50 ETF', amc: 'ICICI Prudential', category: 'ETF - Large & Mid Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderately High' },
+      { name: 'Nippon India ETF Bank BeES', amc: 'Nippon India', category: 'ETF - Banking', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
+      { name: 'Kotak Nifty ETF', amc: 'Kotak', category: 'ETF - Large Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Moderate' },
+    ],
+    aggressive: [
+      { name: 'Motilal Oswal Midcap 100 ETF', amc: 'Motilal Oswal', category: 'ETF - Mid Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
+      { name: 'Nippon India ETF Nifty IT', amc: 'Nippon India', category: 'ETF - Sectoral IT', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
+    ],
+    very_aggressive: [
+      { name: 'Motilal Oswal Nifty Smallcap 250 ETF', amc: 'Motilal Oswal', category: 'ETF - Small Cap', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High' },
+      { name: 'ICICI Pru Nifty Pharma ETF', amc: 'ICICI Prudential', category: 'ETF - Sectoral Pharma', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High' },
     ]
   },
   international: {
@@ -989,6 +1010,7 @@ export const PRODUCT_CATEGORIES = [
   { id: 'gold_fof', label: 'Gold FOF', description: 'Gold Fund of Funds for portfolio hedging' },
   { id: 'silver_fof', label: 'Silver FOF', description: 'Silver ETF Fund of Funds' },
   { id: 'index_fund', label: 'Index Funds', description: 'Passive funds tracking Nifty, Sensex indices' },
+  { id: 'etf', label: 'ETFs', description: 'Exchange Traded Funds on NSE/BSE (Nifty Bees, Bank Bees, etc.)' },
   { id: 'international', label: 'International FOF', description: 'US equity, global tech, emerging markets funds' },
   { id: 'reit', label: 'REITs', description: 'Embassy, Mindspace, Brookfield real estate trusts' },
   { id: 'invit', label: 'InvITs', description: 'IndiGrid, IRB, PowerGrid infrastructure trusts' },
@@ -2638,15 +2660,15 @@ class AgentProspectWizardService {
     
     // Default allocations by risk profile (expanded with new asset classes and global regions)
     const defaultAllocations: Record<string, { 
-      equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number;
+      equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number; etf: number;
       international: number; us_markets: number; europe_markets: number; asia_pacific_markets: number; emerging_markets: number;
       reit: number; invit: number; bonds: number; mld: number; pms: number; aif: number;
       listed_stocks: number; unlisted_stocks: number;
     }> = {
-      conservative: { equity: 20, debt: 35, hybrid: 15, gold: 10, silver: 0, index: 5, international: 0, us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
-      moderate: { equity: 25, debt: 20, hybrid: 10, gold: 5, silver: 0, index: 8, international: 0, us_markets: 5, europe_markets: 2, asia_pacific_markets: 3, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
-      aggressive: { equity: 30, debt: 10, hybrid: 5, gold: 3, silver: 2, index: 10, international: 0, us_markets: 8, europe_markets: 4, asia_pacific_markets: 5, emerging_markets: 3, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
-      very_aggressive: { equity: 25, debt: 5, hybrid: 5, gold: 2, silver: 3, index: 10, international: 0, us_markets: 10, europe_markets: 5, asia_pacific_markets: 7, emerging_markets: 6, reit: 5, invit: 3, bonds: 2, mld: 0, pms: 0, aif: 0, listed_stocks: 7, unlisted_stocks: 5 }
+      conservative: { equity: 20, debt: 35, hybrid: 15, gold: 10, silver: 0, index: 5, etf: 0, international: 0, us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
+      moderate: { equity: 25, debt: 20, hybrid: 10, gold: 5, silver: 0, index: 8, etf: 0, international: 0, us_markets: 5, europe_markets: 2, asia_pacific_markets: 3, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
+      aggressive: { equity: 30, debt: 10, hybrid: 5, gold: 3, silver: 2, index: 10, etf: 0, international: 0, us_markets: 8, europe_markets: 4, asia_pacific_markets: 5, emerging_markets: 3, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
+      very_aggressive: { equity: 25, debt: 5, hybrid: 5, gold: 2, silver: 3, index: 10, etf: 0, international: 0, us_markets: 10, europe_markets: 5, asia_pacific_markets: 7, emerging_markets: 6, reit: 5, invit: 3, bonds: 2, mld: 0, pms: 0, aif: 0, listed_stocks: 7, unlisted_stocks: 5 }
     };
     
     // Use custom allocations if provided
@@ -2663,6 +2685,7 @@ class AgentProspectWizardService {
       gold_fof: 'gold',
       silver_fof: 'silver',
       index_fund: 'index',
+      etf: 'etf',
       international: 'international',
       us_markets: 'us_markets',
       europe_markets: 'europe_markets',
@@ -2779,6 +2802,7 @@ class AgentProspectWizardService {
       gold: { value: 0, holdings: [] },
       silver: { value: 0, holdings: [] },
       index: { value: 0, holdings: [] },
+      etf: { value: 0, holdings: [] },
       international: { value: 0, holdings: [] },
       reit: { value: 0, holdings: [] },
       invit: { value: 0, holdings: [] },
@@ -2806,7 +2830,7 @@ class AgentProspectWizardService {
     const totalPortfolioValue = totalValue + freshInvestmentAmount;
     
     // Calculate target values and compare with current (expanded categories including stocks)
-    const categories = ['equity', 'debt', 'hybrid', 'gold', 'silver', 'index', 'international', 'reit', 'invit', 'bonds', 'mld', 'listed_stocks', 'unlisted_stocks', 'pms', 'aif'];
+    const categories = ['equity', 'debt', 'hybrid', 'gold', 'silver', 'index', 'etf', 'international', 'reit', 'invit', 'bonds', 'mld', 'listed_stocks', 'unlisted_stocks', 'pms', 'aif'];
     
     for (const category of categories) {
       const targetPercent = targetAllocations[category as keyof typeof targetAllocations] || 0;
@@ -2882,6 +2906,35 @@ class AgentProspectWizardService {
       }
     }
     
+    for (const category of categories) {
+      const targetPercent = targetAllocations[category as keyof typeof targetAllocations] || 0;
+      const currentValue = currentByCategory[category]?.value || 0;
+      if (currentValue === 0 || targetPercent === 0) continue;
+      const currentPercent = (currentValue / totalValue) * 100;
+      const percentDiff = currentPercent - targetPercent;
+      const absDiff = Math.abs(percentDiff);
+      const alreadyHasRec = recommendations.some(r => {
+        const holdingsInCat = currentByCategory[category]?.holdings || [];
+        return holdingsInCat.some(h => r.productName === (h.name || h.productName));
+      });
+      if (!alreadyHasRec && absDiff <= 5) {
+        const holdingsInCat = currentByCategory[category]?.holdings || [];
+        for (const holding of holdingsInCat) {
+          if (holding.currentValue < 1000) continue;
+          recommendations.push({
+            action: 'HOLD',
+            productType: holding.productType || holding.assetType || 'mutual_fund',
+            productName: holding.name || holding.productName || 'Unknown',
+            currentValue: holding.currentValue,
+            suggestedValue: holding.currentValue,
+            changeAmount: 0,
+            rationale: `${category} allocation is at ${currentPercent.toFixed(1)}% (target: ${targetPercent}%) — within tolerance band. No action needed.`,
+            priority: 'low',
+          });
+        }
+      }
+    }
+
     // Handle non-standard/illiquid assets
     for (const h of normalizedHoldings) {
       const type = (h.productType || h.assetType || '').toLowerCase();
@@ -2940,6 +2993,7 @@ class AgentProspectWizardService {
         'gold_fof': ['gold'],
         'silver_fof': ['silver'],
         'index_fund': ['index'],
+        'etf': ['etf'],
         'international': ['international'],
         'reit': ['reit'],
         'invit': ['invit'],
@@ -3051,6 +3105,7 @@ class AgentProspectWizardService {
         'gold_fof': ['gold'],
         'silver_fof': ['silver'],
         'index_fund': ['index'],
+        'etf': ['etf'],
         'international': ['international'],
         'reit': ['reit'],
         'invit': ['invit'],
@@ -3151,6 +3206,40 @@ class AgentProspectWizardService {
     
     console.log('[Rebalancing] Generated', recommendations.length, 'recommendations:', 
       recommendations.map(r => `${r.action}: ${r.productName} (${r.changeAmount})`).join(', '));
+
+    // Signal Orchestration: cross-reference with POTD signals
+    try {
+      const potdPicks = await pickOfTheDayService.getLivePicks();
+      if (potdPicks && potdPicks.length > 0) {
+        const orchestrated = signalOrchestrator.resolveSignals(recommendations, potdPicks);
+        console.log(`[Signal Orchestrator] Resolved ${orchestrated.length} signals from ${recommendations.length} rebalance + ${potdPicks.length} POTD picks`);
+        
+        const auditEntries = signalOrchestrator.getAuditLog();
+        if (auditEntries.length > 0) {
+          try {
+            await db.insert(signalResolutionLog).values(
+              auditEntries.map(entry => ({
+                instrumentName: entry.instrumentName,
+                isin: entry.isin || null,
+                potdSignal: entry.potdSignal || null,
+                rebalanceSignal: entry.rebalanceSignal || null,
+                resolvedAction: entry.resolvedAction,
+                reasoningCode: entry.reasoningCode,
+                governanceRuleId: entry.governanceRuleId,
+                confidenceScore: entry.confidenceScore || null,
+              }))
+            );
+            signalOrchestrator.clearAuditLog();
+          } catch (logErr) {
+            console.warn('[Signal Orchestrator] Failed to log audit entries:', logErr);
+          }
+        }
+        
+        return orchestrated as any as RebalanceRecommendation[];
+      }
+    } catch (err) {
+      console.warn('[Signal Orchestrator] POTD cross-reference failed, using raw rebalance recommendations:', err);
+    }
 
     // Calculate comprehensive tax summary for SELL/SWITCH recommendations
     const sellSwitchRecs = recommendations.filter(r => r.action === 'SELL' || r.action === 'SWITCH');
@@ -3356,6 +3445,7 @@ class AgentProspectWizardService {
       gold_fof: 'gold',
       silver_fof: 'silver',
       index_fund: 'index',
+      etf: 'etf',
       international: 'international',
       us_markets: 'us_markets',
       europe_markets: 'europe_markets',

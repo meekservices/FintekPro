@@ -32083,3 +32083,39 @@ export const portalAccessLog = pgTable("portal_access_log", {
 export const insertPortalAccessLogSchema = createInsertSchema(portalAccessLog).omit({ id: true, accessedAt: true });
 export type PortalAccessLog = typeof portalAccessLog.$inferSelect;
 export type InsertPortalAccessLog = z.infer<typeof insertPortalAccessLogSchema>;
+
+export const signalResolutionLog = pgTable("signal_resolution_log", {
+  id: serial("id").primaryKey(),
+  prospectId: text("prospect_id"),
+  instrumentName: text("instrument_name").notNull(),
+  isin: text("isin"),
+  potdSignal: text("potd_signal"),
+  rebalanceSignal: text("rebalance_signal"),
+  resolvedAction: text("resolved_action").notNull(),
+  reasoningCode: text("reasoning_code").notNull(),
+  governanceRuleId: text("governance_rule_id"),
+  confidenceScore: real("confidence_score"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSignalResolutionLogSchema = createInsertSchema(signalResolutionLog).omit({ id: true, createdAt: true });
+export type InsertSignalResolutionLog = z.infer<typeof insertSignalResolutionLogSchema>;
+export type SignalResolutionLog = typeof signalResolutionLog.$inferSelect;
+
+export const governancePolicy = pgTable("governance_policy", {
+  id: serial("id").primaryKey(),
+  ruleId: text("rule_id").notNull().unique(),
+  potdSignal: text("potd_signal").notNull(),
+  rebalanceSignal: text("rebalance_signal").notNull(),
+  resolvedAction: text("resolved_action").notNull(),
+  priority: text("priority").notNull().default('medium'),
+  description: text("description").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  updatedBy: text("updated_by"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertGovernancePolicySchema = createInsertSchema(governancePolicy).omit({ id: true, updatedAt: true });
+export type InsertGovernancePolicy = z.infer<typeof insertGovernancePolicySchema>;
+export type GovernancePolicy = typeof governancePolicy.$inferSelect;

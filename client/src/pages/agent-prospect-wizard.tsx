@@ -145,7 +145,7 @@ interface TaxImplicationsObject {
 }
 
 interface RebalanceRecommendation {
-  action: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH';
+  action: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH' | 'REDUCE' | 'INCREASE';
   productType: string;
   productName: string;
   currentValue?: number;
@@ -238,6 +238,7 @@ const PRODUCT_CATEGORY_OPTIONS = [
   { id: 'gold_fof', label: 'Gold FOF', description: 'Gold Fund of Funds for portfolio hedging', defaultSelected: true },
   { id: 'silver_fof', label: 'Silver FOF', description: 'Silver ETF Fund of Funds', defaultSelected: false },
   { id: 'index_fund', label: 'Index Funds', description: 'Passive funds tracking Nifty, Sensex indices', defaultSelected: true },
+  { id: 'etf', label: 'ETFs', description: 'Exchange Traded Funds on NSE/BSE (Nifty Bees, Bank Bees, etc.)', defaultSelected: false },
   { id: 'international', label: 'International FOF', description: 'US equity, global tech, emerging markets funds', defaultSelected: false },
   { id: 'reit', label: 'REITs', description: 'Embassy, Mindspace, Brookfield real estate trusts', defaultSelected: false },
   { id: 'invit', label: 'InvITs', description: 'IndiGrid, IRB, PowerGrid infrastructure trusts', defaultSelected: false },
@@ -1265,7 +1266,7 @@ export default function AgentProspectWizard() {
       
       // Recommendations
       const recommendations = storedProposal.recommendations || [];
-      const rebalancingRecs = recommendations.filter((r: any) => r.action === 'SELL' || r.action === 'BUY' || r.action === 'SWITCH' || r.action === 'HOLD');
+      const rebalancingRecs = recommendations.filter((r: any) => r.action === 'SELL' || r.action === 'BUY' || r.action === 'SWITCH' || r.action === 'HOLD' || r.action === 'REDUCE' || r.action === 'INCREASE');
       const freshInvestmentRecs = recommendations.filter((r: any) => r.suggestedAmount !== undefined && !r.action);
       
       // Rebalancing Section
@@ -1292,7 +1293,7 @@ export default function AgentProspectWizard() {
           pdf.roundedRect(margin, yPos, pageWidth - (margin * 2), boxHeight, 2, 2, 'F');
           
           // Action indicator
-          const actionColor = rec.action === 'SELL' ? [220, 38, 38] : rec.action === 'BUY' ? [22, 163, 74] : [234, 88, 12];
+          const actionColor = rec.action === 'SELL' ? [220, 38, 38] : rec.action === 'BUY' ? [22, 163, 74] : rec.action === 'HOLD' ? [107, 114, 128] : rec.action === 'REDUCE' ? [217, 119, 6] : rec.action === 'INCREASE' ? [20, 184, 166] : [234, 88, 12];
           pdf.setFillColor(actionColor[0], actionColor[1], actionColor[2]);
           pdf.rect(margin, yPos, 4, boxHeight, 'F');
           
@@ -5975,12 +5976,23 @@ export default function AgentProspectWizard() {
                   <Card key={idx} className={`${
                     rec.action === 'SELL' ? 'border-l-4 border-l-red-500' :
                     rec.action === 'BUY' ? 'border-l-4 border-l-green-500' :
+                    rec.action === 'HOLD' ? 'border-l-4 border-l-gray-400' :
+                    rec.action === 'REDUCE' ? 'border-l-4 border-l-amber-500' :
+                    rec.action === 'INCREASE' ? 'border-l-4 border-l-teal-500' :
                     'border-l-4 border-l-amber-500'
                   }`}>
                     <CardContent className="py-3">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <Badge variant={rec.action === 'SELL' ? 'destructive' : rec.action === 'BUY' ? 'default' : 'secondary'}>
+                          <Badge
+                            variant={rec.action === 'SELL' ? 'destructive' : rec.action === 'BUY' ? 'default' : 'secondary'}
+                            className={
+                              rec.action === 'HOLD' ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' :
+                              rec.action === 'REDUCE' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300' :
+                              rec.action === 'INCREASE' ? 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300' :
+                              ''
+                            }
+                          >
                             {rec.action}
                           </Badge>
                           <span className="font-medium">{rec.productName}</span>
@@ -5992,8 +6004,12 @@ export default function AgentProspectWizard() {
                             }} />
                           )}
                         </div>
-                        <span className={`font-bold ${rec.changeAmount < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {rec.changeAmount < 0 ? '-' : '+'}{formatCurrency(Math.abs(rec.changeAmount))}
+                        <span className={`font-bold ${
+                          rec.action === 'HOLD' ? 'text-gray-500' :
+                          rec.changeAmount < 0 ? 'text-red-600' : 'text-green-600'
+                        }`}>
+                          {rec.action === 'HOLD' ? (rec.currentValue ? formatCurrency(rec.currentValue) : 'No action needed') :
+                            `${rec.changeAmount < 0 ? '-' : '+'}${formatCurrency(Math.abs(rec.changeAmount))}`}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">{rec.rationale}</p>
@@ -6069,7 +6085,7 @@ export default function AgentProspectWizard() {
                           <AdvisorOverrideSystem
                             recommendation={{
                               productName: rec.productName,
-                              action: rec.action as 'BUY' | 'SELL' | 'HOLD' | 'SWITCH',
+                              action: rec.action as 'BUY' | 'SELL' | 'HOLD' | 'SWITCH' | 'REDUCE' | 'INCREASE',
                               changeAmount: rec.changeAmount,
                               category: rec.productType,
                               isOverridden: rec.isOverridden,
@@ -6658,7 +6674,7 @@ export default function AgentProspectWizard() {
                 <Info className="h-4 w-4 text-blue-600" />
                 Portfolio Composition After Implementation
               </h4>
-              <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-3 md:grid-cols-6 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Holdings to Keep (HOLD)</p>
                   <p className="font-semibold">{rebalancing?.filter(r => r.action === 'HOLD').length || holdings.length} instruments</p>
@@ -6671,6 +6687,24 @@ export default function AgentProspectWizard() {
                   <p className="text-muted-foreground">New Investments</p>
                   <p className="font-semibold text-green-600">{(rebalancing?.filter(r => r.action === 'BUY').length || 0) + (Array.isArray(sipRecommendations) ? sipRecommendations.length : 0)} instruments</p>
                 </div>
+                {(rebalancing?.filter(r => r.action === 'REDUCE').length || 0) > 0 && (
+                  <div>
+                    <p className="text-muted-foreground">Reduce Allocation</p>
+                    <p className="font-semibold text-amber-600">{rebalancing?.filter(r => r.action === 'REDUCE').length} instruments</p>
+                  </div>
+                )}
+                {(rebalancing?.filter(r => r.action === 'INCREASE').length || 0) > 0 && (
+                  <div>
+                    <p className="text-muted-foreground">Increase Allocation</p>
+                    <p className="font-semibold text-teal-600">{rebalancing?.filter(r => r.action === 'INCREASE').length} instruments</p>
+                  </div>
+                )}
+                {(rebalancing?.filter(r => r.action === 'SWITCH').length || 0) > 0 && (
+                  <div>
+                    <p className="text-muted-foreground">Switch Funds</p>
+                    <p className="font-semibold text-orange-600">{rebalancing?.filter(r => r.action === 'SWITCH').length} instruments</p>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>

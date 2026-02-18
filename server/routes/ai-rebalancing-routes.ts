@@ -16,11 +16,10 @@ import { nanoid } from 'nanoid';
 
 const router = Router();
 
-const TARGET_ALLOCATION: Record<string, number> = {
-  'Equity': 60,
-  'Debt': 25,
-  'Gold': 10,
-  'Other': 5,
+const DEFAULT_TARGET_ALLOCATION: Record<string, Record<string, number>> = {
+  conservative: { Equity: 30, Debt: 40, Gold: 15, Other: 15 },
+  moderate:     { Equity: 50, Debt: 30, Gold: 10, Other: 10 },
+  aggressive:   { Equity: 70, Debt: 15, Gold: 10, Other: 5 },
 };
 
 interface HoldingForRebalance {
@@ -32,7 +31,7 @@ interface HoldingForRebalance {
 
 interface RebalanceRecommendation {
   assetType: string;
-  action: 'buy' | 'sell' | 'hold';
+  action: 'buy' | 'sell' | 'hold' | 'reduce' | 'increase';
   amount: number;
   currentPercent: number;
   targetPercent: number;
@@ -52,6 +51,9 @@ async function generateRebalanceRecommendations(
   const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
   if (totalValue === 0) return [];
 
+  const profileKey = (riskProfile?.riskCategory || riskProfile?.riskTolerance || 'moderate').toLowerCase();
+  const targetAllocation = DEFAULT_TARGET_ALLOCATION[profileKey] || DEFAULT_TARGET_ALLOCATION.moderate;
+
   const allocationByType: Record<string, { internal: number; external: number; holdings: HoldingForRebalance[] }> = {};
   
   holdings.forEach(h => {
@@ -69,45 +71,52 @@ async function generateRebalanceRecommendations(
 
   const recommendations: RebalanceRecommendation[] = [];
 
-  Object.entries(allocationByType).forEach(([assetType, data]) => {
+  const allTypes = new Set([...Object.keys(allocationByType), ...Object.keys(targetAllocation)]);
+
+  allTypes.forEach(assetType => {
+    const data = allocationByType[assetType] || { internal: 0, external: 0, holdings: [] };
     const total = data.internal + data.external;
     const currentPercent = (total / totalValue) * 100;
-    const targetPercent = TARGET_ALLOCATION[assetType] || 0;
+    const targetPercent = targetAllocation[assetType] || 0;
     const drift = currentPercent - targetPercent;
-    const amountChange = (drift / 100) * totalValue;
+    const amountChange = Math.abs(drift / 100) * totalValue;
 
-    if (Math.abs(drift) >= 2) {
-      const holdingRecommendations = data.holdings.map(h => {
-        const proportion = total > 0 ? h.currentValue / total : 0;
-        const suggestedChange = proportion * amountChange;
-        
-        let actionType: 'executable' | 'transfer_suggested' | 'advisory_only';
-        if (h.source === 'FINTEKPRO') {
-          actionType = 'executable';
-        } else if (drift > 0) {
-          actionType = 'transfer_suggested';
-        } else {
-          actionType = 'advisory_only';
-        }
-        
-        return {
-          symbol: h.symbol,
-          source: h.source,
-          suggestedChange,
-          actionType,
-        };
-      });
+    const holdingRecommendations = data.holdings.map(h => {
+      const proportion = total > 0 ? h.currentValue / total : 0;
+      const suggestedChange = proportion * amountChange;
+      
+      let actionType: 'executable' | 'transfer_suggested' | 'advisory_only';
+      if (h.source === 'FINTEKPRO') {
+        actionType = 'executable';
+      } else if (drift > 0) {
+        actionType = 'transfer_suggested';
+      } else {
+        actionType = 'advisory_only';
+      }
+      
+      return {
+        symbol: h.symbol,
+        source: h.source,
+        suggestedChange,
+        actionType,
+      };
+    });
 
-      recommendations.push({
-        assetType,
-        action: drift > 0 ? 'sell' : 'buy',
-        amount: Math.abs(amountChange),
-        currentPercent,
-        targetPercent,
-        drift,
-        holdings: holdingRecommendations,
-      });
-    }
+    let action: RebalanceRecommendation['action'] = 'hold';
+    if (drift > 5) action = 'sell';
+    else if (drift > 0 && drift <= 5) action = 'reduce';
+    else if (drift < -5) action = 'buy';
+    else if (drift < 0 && drift >= -5) action = 'increase';
+
+    recommendations.push({
+      assetType,
+      action,
+      amount: amountChange,
+      currentPercent,
+      targetPercent,
+      drift,
+      holdings: holdingRecommendations,
+    });
   });
 
   return recommendations;

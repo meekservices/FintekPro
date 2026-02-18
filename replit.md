@@ -72,6 +72,7 @@ A Production Bootstrap & Self-Healing Data System provides automated, idempotent
 | Fixed Income | Fixed Income Status Engine | `fixed-income-status-engine.ts` | Bond/NCD status tracking and lifecycle |
 | Corporate Treasury | Corporate Treasury Engine | `corporate-treasury-engine.ts` | Corporate treasury management |
 | Explainability | Explainability Engine | `explainability-engine.ts` | AI decision explainability |
+| Signal Orchestration | Signal Orchestrator | `signal-orchestrator.ts` | POTD vs Rebalancing signal conflict resolution with governance matrix, tolerance bands, audit trail |
 
 **Future Consolidation Notes:**
 - KYC: `sandbox-kyc-service.ts` is the API client for Sandbox.co.in provider. The `kyc-orchestration-engine.ts` has stub provider calls that should be wired to the actual sandbox client.

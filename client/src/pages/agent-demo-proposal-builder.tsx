@@ -258,6 +258,7 @@ const ASSET_CATEGORIES = [
   { id: 'hybrid', name: 'Hybrid Funds', color: 'bg-teal-500', description: 'Balanced & Multi-Asset Funds', group: 'domestic' },
   { id: 'gold', name: 'Gold', color: 'bg-yellow-500', description: 'Gold ETFs & Funds', group: 'commodities' },
   { id: 'index', name: 'Index Funds', color: 'bg-indigo-500', description: 'Nifty, Sensex Trackers', group: 'domestic' },
+  { id: 'etf', name: 'ETFs', color: 'bg-lime-500', description: 'Exchange Traded Funds (NSE/BSE)', group: 'domestic' },
   { id: 'international', name: 'Global Diversified', color: 'bg-cyan-500', description: 'Multi-Region International Funds', group: 'global' },
   { id: 'us_markets', name: 'US Markets', color: 'bg-blue-600', description: 'S&P 500, Nasdaq, US Equity', group: 'global' },
   { id: 'europe_markets', name: 'Europe Markets', color: 'bg-sky-500', description: 'Euro Stoxx, UK, German Funds', group: 'global' },
@@ -273,22 +274,22 @@ const ASSET_CATEGORIES = [
 
 const DEFAULT_ALLOCATIONS: Record<string, AssetAllocation> = {
   conservative: {
-    equity: 20, debt: 35, hybrid: 15, gold: 10, index: 5, international: 0,
+    equity: 20, debt: 35, hybrid: 15, gold: 10, index: 5, etf: 0, international: 0,
     us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0,
     reit: 5, invit: 5, bonds: 5, listed_stocks: 0, unlisted_stocks: 0, cash: 0
   },
   moderate: {
-    equity: 25, debt: 20, hybrid: 10, gold: 5, index: 8, international: 0,
+    equity: 25, debt: 20, hybrid: 10, gold: 5, index: 8, etf: 0, international: 0,
     us_markets: 5, europe_markets: 2, asia_pacific_markets: 3, emerging_markets: 0,
     reit: 5, invit: 5, bonds: 5, listed_stocks: 0, unlisted_stocks: 0, cash: 7
   },
   aggressive: {
-    equity: 30, debt: 10, hybrid: 5, gold: 3, index: 10, international: 0,
+    equity: 30, debt: 10, hybrid: 5, gold: 3, index: 10, etf: 0, international: 0,
     us_markets: 8, europe_markets: 4, asia_pacific_markets: 5, emerging_markets: 3,
     reit: 5, invit: 5, bonds: 5, listed_stocks: 0, unlisted_stocks: 0, cash: 7
   },
   very_aggressive: {
-    equity: 25, debt: 5, hybrid: 5, gold: 2, index: 10, international: 0,
+    equity: 25, debt: 5, hybrid: 5, gold: 2, index: 10, etf: 0, international: 0,
     us_markets: 10, europe_markets: 5, asia_pacific_markets: 7, emerging_markets: 6,
     reit: 5, invit: 3, bonds: 2, listed_stocks: 7, unlisted_stocks: 5, cash: 3
   }
