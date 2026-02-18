@@ -4544,6 +4544,7 @@ System Security Data:`;
   // Combined enrichment stats
   app.get("/api/admin/enrichment/stats", requireAdmin, async (req, res) => {
     try {
+      const { hasProductionDb: hasProd } = await import("../../db-production");
       const { mfExtendedEnrichmentService } = await import("../../services/mf-extended-enrichment-service");
       const { stockFinancialEnrichmentService } = await import("../../services/stock-financial-enrichment-service");
       
@@ -4554,6 +4555,8 @@ System Security Data:`;
       
       res.json({ 
         success: true, 
+        productionDbConfigured: hasProd(),
+        dataSource: hasProd() ? 'production' : 'development',
         mutualFunds: mfStats,
         stocks: stockStats,
       });
@@ -4593,6 +4596,15 @@ System Security Data:`;
   // Run all enrichment jobs
   app.post("/api/admin/enrichment/run-all", requireAdmin, async (req, res) => {
     try {
+      const { hasProductionDb: hasProd } = await import("../../db-production");
+      if (!hasProd()) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'PRODUCTION_DATABASE_URL not configured. Enrichment writes require production database.',
+          hint: 'Set PRODUCTION_DATABASE_URL in environment secrets to enable enrichment.'
+        });
+      }
+
       const { mfExtendedEnrichmentService } = await import("../../services/mf-extended-enrichment-service");
       const { stockFinancialEnrichmentService } = await import("../../services/stock-financial-enrichment-service");
       const { mfReturnsSyncService } = await import("../../services/mf-returns-sync-service");
@@ -4640,7 +4652,13 @@ System Security Data:`;
 
   app.get("/api/admin/enrichment/full-status", requireAdmin, async (req, res) => {
     try {
+      const { hasProductionDb, getProductionDb } = await import("../../db-production");
       const statuses: Record<string, any> = {};
+
+      statuses.productionDb = {
+        configured: hasProductionDb(),
+        message: hasProductionDb() ? 'Production database connected - enrichment will write to production' : 'PRODUCTION_DATABASE_URL not set - enrichment writes will be blocked',
+      };
       
       try {
         const { dataEnrichmentScheduler } = await import("../../services/data-enrichment-scheduler");
@@ -4666,8 +4684,9 @@ System Security Data:`;
         const { historicalNavRefreshJob } = await import("../../services/historical-nav-refresh-job");
         statuses.historicalNav = await historicalNavRefreshJob.getStatus();
       } catch (e) { statuses.historicalNav = { error: 'not loaded' }; }
-      
-      const dbGaps = await db.execute(sql`
+
+      const statsDb = hasProductionDb() ? getProductionDb() : db;
+      const dbGaps = await statsDb.execute(sql`
         SELECT 
           (SELECT COUNT(*) FROM mutual_funds) as total_mf,
           (SELECT SUM(CASE WHEN returns_1y IS NULL THEN 1 ELSE 0 END) FROM mutual_funds) as mf_missing_returns,
@@ -4681,6 +4700,7 @@ System Security Data:`;
       `);
       
       statuses.databaseGaps = dbGaps.rows[0];
+      statuses.databaseGaps.dataSource = hasProductionDb() ? 'production' : 'development';
       
       res.json({ success: true, statuses });
     } catch (error: any) {

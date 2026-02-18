@@ -532,7 +532,7 @@ class StockFinancialEnrichmentService {
   }
 
   private inferFromSector(sector: string | null, currentPrice: number | null): Partial<StockFinancials> {
-    if (!sector || !currentPrice) return {};
+    if (!sector || !currentPrice || currentPrice <= 0 || !isFinite(currentPrice)) return {};
 
     const sectorLower = sector.toLowerCase();
     let averages = null;
@@ -544,17 +544,37 @@ class StockFinancialEnrichmentService {
       }
     }
 
+    const broadSector = this.mapBroadSector(sector);
+    if (!averages && broadSector) {
+      const broadSectorMap: Record<string, { pe: number; pb: number; eps: number }> = {
+        'Technology': { pe: 25.5, pb: 5.2, eps: 45 },
+        'Banking & Finance': { pe: 15.8, pb: 2.1, eps: 38 },
+        'Insurance': { pe: 18.0, pb: 2.5, eps: 25 },
+        'Healthcare & Pharma': { pe: 28.5, pb: 4.5, eps: 22 },
+        'Automobile': { pe: 22.5, pb: 3.5, eps: 85 },
+        'Consumer': { pe: 42.5, pb: 8.5, eps: 32 },
+        'Energy & Utilities': { pe: 11.2, pb: 1.4, eps: 65 },
+        'Materials': { pe: 15.0, pb: 1.8, eps: 55 },
+        'Industrials': { pe: 28.0, pb: 3.5, eps: 32 },
+        'Real Estate': { pe: 28.5, pb: 2.2, eps: 22 },
+        'Telecom & Media': { pe: 35.0, pb: 3.5, eps: 10 },
+        'Services': { pe: 30.0, pb: 4.0, eps: 20 },
+        'Agriculture': { pe: 15.0, pb: 1.5, eps: 25 },
+      };
+      averages = broadSectorMap[broadSector] || null;
+    }
+
     if (!averages) {
       averages = { pe: 20, pb: 2.5, eps: 30 };
     }
 
-    const inferredEps = currentPrice / averages.pe;
-    const inferredBookValue = currentPrice / averages.pb;
+    const inferredEps = averages.pe > 0 ? currentPrice / averages.pe : null;
+    const inferredBookValue = averages.pb > 0 ? currentPrice / averages.pb : null;
 
     return {
       peRatio: averages.pe,
-      eps: Math.round(inferredEps * 100) / 100,
-      bookValue: Math.round(inferredBookValue * 100) / 100,
+      eps: inferredEps != null ? Math.round(inferredEps * 100) / 100 : null,
+      bookValue: inferredBookValue != null ? Math.round(inferredBookValue * 100) / 100 : null,
       priceToBook: averages.pb,
     };
   }
@@ -731,32 +751,37 @@ class StockFinancialEnrichmentService {
             if (financials && Object.keys(financials).length > 0) {
               const updates: Record<string, any> = {};
 
+              const safeNum = (v: number | null | undefined): string | null => {
+                if (v == null || !isFinite(v)) return null;
+                return v.toString();
+              };
+
               if (stock.peRatio === null && financials.peRatio != null) {
-                updates.peRatio = financials.peRatio.toString();
+                updates.peRatio = safeNum(financials.peRatio);
               }
               if (stock.eps === null && financials.eps != null) {
-                updates.eps = financials.eps.toString();
+                updates.eps = safeNum(financials.eps);
               }
               if (stock.bookValue === null && financials.bookValue != null) {
-                updates.bookValue = financials.bookValue.toString();
+                updates.bookValue = safeNum(financials.bookValue);
               }
               if (stock.dividendYield === null && financials.dividendYield != null) {
-                updates.dividendYield = financials.dividendYield.toString();
+                updates.dividendYield = safeNum(financials.dividendYield);
               }
               if (stock.pbRatio === null && financials.priceToBook != null) {
-                updates.pbRatio = financials.priceToBook.toString();
+                updates.pbRatio = safeNum(financials.priceToBook);
               }
               if (stock.roe === null && financials.roe != null) {
-                updates.roe = financials.roe.toString();
+                updates.roe = safeNum(financials.roe);
               }
               if (stock.roce === null && financials.roce != null) {
-                updates.roce = financials.roce.toString();
+                updates.roce = safeNum(financials.roce);
               }
               if (stock.beta === null && financials.beta != null) {
-                updates.beta = financials.beta.toString();
+                updates.beta = safeNum(financials.beta);
               }
               if (stock.volatility === null && financials.volatility != null) {
-                updates.volatility = financials.volatility.toString();
+                updates.volatility = safeNum(financials.volatility);
               }
               if (stock.riskLevel === null && financials.riskLevel != null) {
                 updates.riskLevel = financials.riskLevel;
@@ -765,37 +790,43 @@ class StockFinancialEnrichmentService {
                 updates.analystRating = financials.analystRating;
               }
               if (stock.targetPrice === null && financials.targetPrice != null) {
-                updates.targetPrice = financials.targetPrice.toString();
+                updates.targetPrice = safeNum(financials.targetPrice);
               }
-              if (stock.numberOfAnalysts === null && financials.numberOfAnalysts != null) {
+              if (stock.numberOfAnalysts === null && financials.numberOfAnalysts != null && isFinite(financials.numberOfAnalysts)) {
                 updates.numberOfAnalysts = Math.round(financials.numberOfAnalysts);
               }
-              if (stock.averageVolume === null && financials.averageVolume != null) {
+              if (stock.averageVolume === null && financials.averageVolume != null && isFinite(financials.averageVolume)) {
                 updates.averageVolume = Math.round(financials.averageVolume).toString();
               }
               if (stock.returns1M === null && financials.returns1M != null) {
-                updates.returns1M = financials.returns1M.toString();
+                updates.returns1M = safeNum(financials.returns1M);
               }
               if (stock.returns1Y === null && financials.returns1Y != null) {
-                updates.returns1Y = financials.returns1Y.toString();
+                updates.returns1Y = safeNum(financials.returns1Y);
               }
               if (financials.returns3M != null) {
-                updates.returns3M = financials.returns3M.toString();
+                updates.returns3M = safeNum(financials.returns3M);
               }
               if (financials.returns6M != null) {
-                updates.returns6M = financials.returns6M.toString();
+                updates.returns6M = safeNum(financials.returns6M);
               }
               if (financials.returns3Y != null) {
-                updates.returns3Y = financials.returns3Y.toString();
+                updates.returns3Y = safeNum(financials.returns3Y);
               }
               if (financials.returns5Y != null) {
-                updates.returns5Y = financials.returns5Y.toString();
+                updates.returns5Y = safeNum(financials.returns5Y);
               }
               if (stock.broadSector === null && financials.broadSector != null) {
                 updates.broadSector = financials.broadSector;
               }
               if (stock.region === null && financials.region != null) {
                 updates.region = financials.region;
+              }
+
+              for (const key of Object.keys(updates)) {
+                if (updates[key] === null || updates[key] === undefined) {
+                  delete updates[key];
+                }
               }
 
               if (Object.keys(updates).length > 0) {
