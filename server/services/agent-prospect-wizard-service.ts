@@ -3267,9 +3267,49 @@ class AgentProspectWizardService {
       .reduce((sum, r) => sum + Math.abs(r.changeAmount), 0);
 
     // Total deployable = sell/reduce proceeds + fresh investment amount
-    const totalDeployableBudget = totalSellAmount + freshInvestmentAmount;
+    let effectiveFreshInvestment = freshInvestmentAmount;
 
-    console.log('[Rebalancing] Trade Netting: totalReduceAmount=', totalReduceAmount, ', totalSellAmount=', totalSellAmount, ', freshInvestmentAmount=', freshInvestmentAmount, ', totalDeployable=', totalDeployableBudget);
+    // Auto-calculate suggested fresh investment when:
+    // 1. No sell proceeds (all holdings protected as HOLD)
+    // 2. No explicit fresh investment specified
+    // 3. Selected categories exist (agent wants diversification into new asset classes)
+    if (totalSellAmount === 0 && freshInvestmentAmount === 0 && selectedCategories && selectedCategories.length > 0) {
+      // Calculate suggested amount: sum of target allocation gaps × total portfolio value
+      // This ensures each selected underweight category gets a meaningful allocation
+      const suggestedAmounts: { category: string; amount: number }[] = [];
+      categories.forEach(category => {
+        const isSelected = selectedCategories.some(sc => {
+          const mappings: Record<string, string[]> = {
+            'equity': ['equity'], 'debt': ['debt'], 'hybrid': ['hybrid'],
+            'gold_fof': ['gold'], 'silver_fof': ['silver'], 'index_fund': ['index'],
+            'etf': ['etf'], 'international': ['international'], 'reit': ['reit'],
+            'invit': ['invit'], 'bonds': ['bonds'], 'mld': ['mld'],
+            'pms': ['pms'], 'aif': ['aif']
+          };
+          return (mappings[sc] || [sc]).includes(category);
+        });
+        if (!isSelected) return;
+        const targetPercent = targetAllocations[category as keyof typeof targetAllocations] || 0;
+        const currentValue = currentByCategory[category]?.value || 0;
+        const currentPercent = totalValue > 0 ? (currentValue / totalValue) * 100 : 0;
+        const gap = targetPercent - currentPercent;
+        if (gap > 2 && targetPercent > 0) {
+          const suggestedForCategory = Math.round((gap / 100) * totalValue);
+          suggestedAmounts.push({ category, amount: Math.max(suggestedForCategory, 5000) });
+        }
+      });
+      if (suggestedAmounts.length > 0) {
+        effectiveFreshInvestment = suggestedAmounts.reduce((sum, s) => sum + s.amount, 0);
+        // Minimum ₹10,000 total, maximum 30% of portfolio value
+        effectiveFreshInvestment = Math.max(effectiveFreshInvestment, 10000);
+        effectiveFreshInvestment = Math.min(effectiveFreshInvestment, totalValue * 0.3);
+        console.log('[Rebalancing] Auto-calculated fresh investment for selected categories:', effectiveFreshInvestment, 'from gaps:', JSON.stringify(suggestedAmounts));
+      }
+    }
+
+    const totalDeployableBudget = totalSellAmount + effectiveFreshInvestment;
+
+    console.log('[Rebalancing] Trade Netting: totalReduceAmount=', totalReduceAmount, ', totalSellAmount=', totalSellAmount, ', freshInvestmentAmount=', freshInvestmentAmount, ', effectiveFresh=', effectiveFreshInvestment, ', totalDeployable=', totalDeployableBudget);
 
     const increaseMetrics = driftMetrics.filter(dm => dm.finalAction === 'INCREASE');
     const totalIncreaseGap = increaseMetrics.reduce((sum, dm) => sum + Math.abs(dm.drift), 0);
@@ -3334,12 +3374,15 @@ class AgentProspectWizardService {
         const fundToRecommend = eligibleForLumpsum[0] || null;
 
         if (fundToRecommend) {
+          const isAutoCalculated = freshInvestmentAmount === 0 && effectiveFreshInvestment > 0;
           const fundingSource = totalSellAmount > 0 ? 'sell_proceeds' : 'fresh_investment';
-          const fundingDescription = totalSellAmount > 0 && freshInvestmentAmount > 0
-            ? `Funded by sell proceeds + ₹${freshInvestmentAmount.toLocaleString('en-IN')} fresh investment`
+          const fundingDescription = totalSellAmount > 0 && effectiveFreshInvestment > 0
+            ? `Funded by sell proceeds + ₹${effectiveFreshInvestment.toLocaleString('en-IN')} fresh investment`
             : totalSellAmount > 0
               ? `Funded by ${formatAmount(totalSellAmount)} from REDUCE/SELL recommendations`
-              : `Funded by ₹${freshInvestmentAmount.toLocaleString('en-IN')} fresh investment`;
+              : isAutoCalculated
+                ? `Suggested fresh investment of ₹${effectiveFreshInvestment.toLocaleString('en-IN')} to diversify into underweight categories`
+                : `Funded by ₹${effectiveFreshInvestment.toLocaleString('en-IN')} fresh investment`;
 
           recommendations.push({
             action: 'INCREASE',
@@ -3357,7 +3400,7 @@ class AgentProspectWizardService {
               returns5Y: fundToRecommend.returns5Y,
               risk: fundToRecommend.risk
             },
-            rationale: `[INCREASE] Deploy ${formatAmount(actualAmount)} ${totalSellAmount > 0 ? 'from rebalancing proceeds' : 'from fresh investment'} into ${fundToRecommend.category}. ${fundToRecommend.name} (${fundToRecommend.amc}) offers strong historical performance with ${fundToRecommend.returns3Y}% 3-year CAGR returns and ${fundToRecommend.risk} risk level. This helps achieve your target ${targetPercent}% ${category} allocation, currently underweight by ${gap.toFixed(1)}%.`,
+            rationale: `[INCREASE] Deploy ${formatAmount(actualAmount)} ${isAutoCalculated ? 'as suggested fresh investment' : totalSellAmount > 0 ? 'from rebalancing proceeds' : 'from fresh investment'} into ${fundToRecommend.category}. ${fundToRecommend.name} (${fundToRecommend.amc}) offers strong historical performance with ${fundToRecommend.returns3Y}% 3-year CAGR returns and ${fundToRecommend.risk} risk level. This helps achieve your target ${targetPercent}% ${category} allocation, currently underweight by ${gap.toFixed(1)}%.`,
             selectionReason: `Selected based on: (1) ${fundToRecommend.returns3Y}% 3Y returns vs category avg, (2) ${fundToRecommend.risk} risk suitable for ${riskProfile.riskTolerance} profile, (3) Fills ${category} allocation gap of ${gap.toFixed(1)}%`,
             priority: gap > 10 ? 'high' : 'medium'
           });
@@ -3412,7 +3455,8 @@ class AgentProspectWizardService {
     // Add tax summary to each recommendation object (for frontend display)
     return {
       recommendations,
-      taxSummary
+      taxSummary,
+      effectiveFreshInvestment
     };
   }
 
@@ -3864,28 +3908,36 @@ class AgentProspectWizardService {
     // Handle both old array format and new object format for backwards compatibility
     const rebalancing = Array.isArray(rebalancingResult) ? rebalancingResult : rebalancingResult.recommendations;
     const taxSummary = Array.isArray(rebalancingResult) ? null : rebalancingResult.taxSummary;
+    // Use auto-calculated fresh investment if engine determined one (e.g. when all holdings are HOLD)
+    const effectiveFresh = (!Array.isArray(rebalancingResult) && rebalancingResult.effectiveFreshInvestment)
+      ? rebalancingResult.effectiveFreshInvestment : freshInvestmentAmount;
     
-    // Calculate sell proceeds and how much was already allocated to rebalancing BUY recommendations
+    // Calculate sell proceeds and how much was already allocated to rebalancing BUY/INCREASE recommendations
     const sellProceeds = rebalancing
       .filter(r => r.action === 'SELL')
       .reduce((sum, r) => sum + Math.abs(r.changeAmount), 0);
     
-    const rebalancingBuyAllocated = rebalancing
+    // BUY recs consume sell proceeds; INCREASE recs consume fresh investment
+    const buyAllocatedFromSellProceeds = rebalancing
       .filter(r => r.action === 'BUY')
       .reduce((sum, r) => sum + r.changeAmount, 0);
+    const increaseAllocatedFromFresh = rebalancing
+      .filter(r => r.action === 'INCREASE')
+      .reduce((sum, r) => sum + r.changeAmount, 0);
     
-    // Only include UNALLOCATED sell proceeds in fresh investment budget
-    // Rebalancing BUY recommendations already consumed part of the sell proceeds
-    const remainingSellProceeds = Math.max(0, sellProceeds - rebalancingBuyAllocated);
-    const totalDeployableAmount = freshInvestmentAmount + remainingSellProceeds;
+    // Remaining unallocated amounts
+    const remainingSellProceeds = Math.max(0, sellProceeds - buyAllocatedFromSellProceeds);
+    const remainingFreshInvestment = Math.max(0, effectiveFresh - increaseAllocatedFromFresh);
+    const totalDeployableAmount = remainingFreshInvestment + remainingSellProceeds;
     
-    console.log(`[Proposal] Fresh: ${freshInvestmentAmount}, Sell proceeds: ${sellProceeds}, Rebalancing BUYs: ${rebalancingBuyAllocated}, Remaining: ${remainingSellProceeds}, Total deployable: ${totalDeployableAmount}`);
+    console.log(`[Proposal] Fresh: ${freshInvestmentAmount}, EffectiveFresh: ${effectiveFresh}, Sell proceeds: ${sellProceeds}, BUY from sells: ${buyAllocatedFromSellProceeds}, INCREASE from fresh: ${increaseAllocatedFromFresh}, Remaining fresh: ${remainingFreshInvestment}, Remaining sells: ${remainingSellProceeds}, Total deployable for fresh suggestions: ${totalDeployableAmount}`);
     
     // Create funding summary for PDF
+    const rebalancingBuyAllocated = buyAllocatedFromSellProceeds + increaseAllocatedFromFresh;
     const fundingSummary = {
       totalSellAmount: sellProceeds,
       rebalancingBuyAmount: rebalancingBuyAllocated,
-      freshInvestmentAmount,
+      freshInvestmentAmount: effectiveFresh,
       remainingSellProceeds,
       totalDeployableAmount
     };
@@ -3917,7 +3969,9 @@ class AgentProspectWizardService {
       .filter(r => r.action === 'SELL')
       .reduce((sum, r) => sum + Math.abs(r.changeAmount), 0);
     
-    const totalBuyAmount = rebalancing.filter(r => r.action === 'BUY').reduce((sum, r) => sum + r.changeAmount, 0);
+    const totalBuyAmount = rebalancing
+      .filter(r => r.action === 'BUY' || r.action === 'INCREASE')
+      .reduce((sum, r) => sum + r.changeAmount, 0);
     
     const netInvestmentRequired = totalBuyAmount - totalSellAmount;
     
@@ -4130,13 +4184,14 @@ class AgentProspectWizardService {
     globalAdvisorySelections?: Record<string, string[]>
   ): string {
     const sellCount = rebalancing.filter(r => r.action === 'SELL').length;
-    const buyCount = rebalancing.filter(r => r.action === 'BUY').length;
+    const buyCount = rebalancing.filter(r => r.action === 'BUY' || r.action === 'INCREASE').length;
+    const totalOpportunities = freshInvestments.length + buyCount;
     
     let summary = `Based on your ${riskProfile.riskTolerance} risk profile and ${riskProfile.investmentHorizon.replace('_', ' ')} investment horizon, ` +
       `we have analyzed your portfolio worth ₹${(analysis.totalValue / 100000).toFixed(1)}L. ` +
       `Your current diversification score is ${analysis.diversificationScore}/100 with a risk score of ${analysis.riskScore}/100. ` +
       `We recommend ${sellCount > 0 ? `rebalancing ${sellCount} positions` : 'no immediate rebalancing'} ` +
-      `and ${freshInvestments.length} fresh investment opportunities aligned with your ${riskProfile.primaryGoal} goal.`;
+      `and ${totalOpportunities} fresh investment opportunities aligned with your ${riskProfile.primaryGoal} goal.`;
     
     if (globalAdvisorySelections && Object.keys(globalAdvisorySelections).length > 0) {
       const marketLabels: Record<string, string> = {
