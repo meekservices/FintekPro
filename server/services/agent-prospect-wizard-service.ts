@@ -2665,10 +2665,10 @@ class AgentProspectWizardService {
       reit: number; invit: number; bonds: number; mld: number; pms: number; aif: number;
       listed_stocks: number; unlisted_stocks: number;
     }> = {
-      conservative: { equity: 20, debt: 35, hybrid: 15, gold: 10, silver: 0, index: 5, etf: 0, international: 0, us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
-      moderate: { equity: 25, debt: 20, hybrid: 10, gold: 5, silver: 0, index: 8, etf: 0, international: 0, us_markets: 5, europe_markets: 2, asia_pacific_markets: 3, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
-      aggressive: { equity: 30, debt: 10, hybrid: 5, gold: 3, silver: 2, index: 10, etf: 0, international: 0, us_markets: 8, europe_markets: 4, asia_pacific_markets: 5, emerging_markets: 3, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
-      very_aggressive: { equity: 25, debt: 5, hybrid: 5, gold: 2, silver: 3, index: 10, etf: 0, international: 0, us_markets: 10, europe_markets: 5, asia_pacific_markets: 7, emerging_markets: 6, reit: 5, invit: 3, bonds: 2, mld: 0, pms: 0, aif: 0, listed_stocks: 7, unlisted_stocks: 5 }
+      conservative: { equity: 20, debt: 32, hybrid: 15, gold: 10, silver: 0, index: 3, etf: 3, international: 0, us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
+      moderate: { equity: 25, debt: 20, hybrid: 10, gold: 5, silver: 2, index: 5, etf: 5, international: 0, us_markets: 5, europe_markets: 3, asia_pacific_markets: 3, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
+      aggressive: { equity: 30, debt: 10, hybrid: 5, gold: 3, silver: 2, index: 6, etf: 7, international: 0, us_markets: 8, europe_markets: 4, asia_pacific_markets: 5, emerging_markets: 3, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0, listed_stocks: 0, unlisted_stocks: 0 },
+      very_aggressive: { equity: 21, debt: 5, hybrid: 5, gold: 2, silver: 3, index: 6, etf: 8, international: 0, us_markets: 10, europe_markets: 5, asia_pacific_markets: 7, emerging_markets: 6, reit: 5, invit: 3, bonds: 2, mld: 0, pms: 0, aif: 0, listed_stocks: 7, unlisted_stocks: 5 }
     };
     
     // Use custom allocations if provided
@@ -3368,21 +3368,21 @@ class AgentProspectWizardService {
     
     // Default allocations based on risk profile (expanded with global regions)
     const defaultAllocations: Record<string, { 
-      equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number;
+      equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number; etf: number;
       international: number; us_markets: number; europe_markets: number; asia_pacific_markets: number; emerging_markets: number;
       reit: number; invit: number; bonds: number; mld: number; 
       listed_stocks: number; unlisted_stocks: number; pms: number; aif: number;
     }> = {
-      conservative: { equity: 20, debt: 35, hybrid: 15, gold: 10, silver: 0, index: 5, international: 0, us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
-      moderate: { equity: 25, debt: 20, hybrid: 10, gold: 5, silver: 0, index: 8, international: 0, us_markets: 5, europe_markets: 2, asia_pacific_markets: 3, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
-      aggressive: { equity: 30, debt: 10, hybrid: 5, gold: 3, silver: 2, index: 10, international: 0, us_markets: 8, europe_markets: 4, asia_pacific_markets: 5, emerging_markets: 3, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
-      very_aggressive: { equity: 25, debt: 5, hybrid: 5, gold: 2, silver: 3, index: 10, international: 0, us_markets: 10, europe_markets: 5, asia_pacific_markets: 7, emerging_markets: 6, reit: 5, invit: 3, bonds: 2, mld: 0, listed_stocks: 7, unlisted_stocks: 5, pms: 0, aif: 0 }
+      conservative: { equity: 20, debt: 32, hybrid: 15, gold: 10, silver: 0, index: 3, etf: 3, international: 0, us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
+      moderate: { equity: 25, debt: 20, hybrid: 10, gold: 5, silver: 2, index: 5, etf: 5, international: 0, us_markets: 5, europe_markets: 3, asia_pacific_markets: 3, emerging_markets: 0, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
+      aggressive: { equity: 30, debt: 10, hybrid: 5, gold: 3, silver: 2, index: 6, etf: 7, international: 0, us_markets: 8, europe_markets: 4, asia_pacific_markets: 5, emerging_markets: 3, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0 },
+      very_aggressive: { equity: 21, debt: 5, hybrid: 5, gold: 2, silver: 3, index: 6, etf: 8, international: 0, us_markets: 10, europe_markets: 5, asia_pacific_markets: 7, emerging_markets: 6, reit: 5, invit: 3, bonds: 2, mld: 0, listed_stocks: 7, unlisted_stocks: 5, pms: 0, aif: 0 }
     };
     
     // Use custom allocations if provided and has non-zero values, otherwise use defaults
     const hasValidCustomAllocations = customAllocations && 
       (customAllocations.equity > 0 || customAllocations.debt > 0 || customAllocations.hybrid > 0 || 
-       customAllocations.gold > 0 || (customAllocations.silver || 0) > 0 || (customAllocations.index || 0) > 0 ||
+       customAllocations.gold > 0 || (customAllocations.silver || 0) > 0 || (customAllocations.index || 0) > 0 || (customAllocations.etf || 0) > 0 ||
        (customAllocations.international || 0) > 0 || (customAllocations.us_markets || 0) > 0 || 
        (customAllocations.europe_markets || 0) > 0 || (customAllocations.asia_pacific_markets || 0) > 0 || 
        (customAllocations.emerging_markets || 0) > 0 || (customAllocations.reit || 0) > 0 || (customAllocations.invit || 0) > 0 ||
@@ -3423,6 +3423,7 @@ class AgentProspectWizardService {
       gold: 'gold_fof',
       silver: 'silver_fof',
       index: 'index_fund',
+      etf: 'etf',
       international: 'international',
       us_markets: 'us_markets',
       europe_markets: 'europe_markets',
