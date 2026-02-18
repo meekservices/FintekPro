@@ -32064,3 +32064,22 @@ export const aiPredictionLogs = pgTable("ai_prediction_logs", {
 export const insertAiPredictionLogSchema = createInsertSchema(aiPredictionLogs).omit({ id: true, createdAt: true });
 export type AiPredictionLog = typeof aiPredictionLogs.$inferSelect;
 export type InsertAiPredictionLog = z.infer<typeof insertAiPredictionLogSchema>;
+
+
+// Portal Access Audit Log for SEBI/RBI compliance
+export const portalAccessLog = pgTable("portal_access_log", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull(),
+  portalType: varchar("portal_type", { length: 20 }).notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  accessedAt: timestamp("accessed_at").defaultNow(),
+}, (table) => [
+  index("idx_portal_access_log_user").on(table.userId),
+  index("idx_portal_access_log_portal").on(table.portalType),
+  index("idx_portal_access_log_date").on(table.accessedAt),
+]);
+
+export const insertPortalAccessLogSchema = createInsertSchema(portalAccessLog).omit({ id: true, accessedAt: true });
+export type PortalAccessLog = typeof portalAccessLog.$inferSelect;
+export type InsertPortalAccessLog = z.infer<typeof insertPortalAccessLogSchema>;

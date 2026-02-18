@@ -15,6 +15,7 @@ import { whatsappService } from "./whatsapp";
 import { apiResponse } from "./utils/responses";
 
 import { duplicateDetectionService } from "./services/duplicateDetectionService";
+import { stampSessionPortal } from "./subdomain-middleware";
 declare global {
   namespace Express {
     interface User {
@@ -514,6 +515,7 @@ export function setupAuth(app: Express) {
           console.error("Login error:", err);
           return apiResponse.serverError(res, "Registration successful but login failed");
         }
+        stampSessionPortal(req);
         return apiResponse.created(res, {
           id: user.id,
           userId: user.userId,
@@ -861,6 +863,7 @@ export function setupAuth(app: Express) {
           console.error("❌ Login session error:", loginErr);
           return apiResponse.serverError(res, "Login failed");
         }
+        stampSessionPortal(req);
         
         // Explicitly save session to ensure it persists
         req.session.save((saveErr) => {

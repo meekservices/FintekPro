@@ -204,3 +204,56 @@ export function requireClientPortal(req: Request, res: Response, next: NextFunct
   }
   next();
 }
+
+/**
+ * Middleware to stamp session with portal type on login.
+ * Call this after successful authentication to bind the session to a portal.
+ */
+export function stampSessionPortal(req: Request) {
+  if (req.session) {
+    (req.session as any).portalType = req.subdomain || 'main';
+  }
+}
+
+/**
+ * Middleware to validate that session portal matches current subdomain.
+ * If mismatch detected, forces logout for security.
+ * Only enforced for authenticated users on non-main portals.
+ */
+export function validateSessionPortal(req: Request, res: Response, next: NextFunction) {
+  if (!req.user || !req.session) {
+    return next();
+  }
+
+  const sessionPortal = (req.session as any).portalType;
+  const currentPortal = req.subdomain || 'main';
+
+  if (!sessionPortal) {
+    (req.session as any).portalType = currentPortal;
+    return next();
+  }
+
+  const isPrivilegedPortal = (p: string) => ['admin', 'partner', 'agent'].includes(p);
+
+  const isMismatch =
+    (isPrivilegedPortal(currentPortal) && sessionPortal !== currentPortal) ||
+    (currentPortal === '' && isPrivilegedPortal(sessionPortal)) ||
+    (currentPortal === 'main' && isPrivilegedPortal(sessionPortal));
+
+  if (isMismatch) {
+    console.warn(`⚠️ [PORTAL_MISMATCH] User ${req.user.id} session portal: ${sessionPortal}, current: ${currentPortal || 'main'}`);
+    req.logout((err) => {
+      if (err) console.error('[PortalValidation] Logout error:', err);
+      res.status(403).json({
+        error: 'Portal mismatch',
+        message: 'Your session was created on a different portal. Please log in again.',
+        sessionPortal,
+        currentPortal: currentPortal || 'main',
+        action: 'force_logout'
+      });
+    });
+    return;
+  }
+
+  next();
+}

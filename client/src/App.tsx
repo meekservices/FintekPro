@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GDPRConsent } from "@/components/gdpr-consent";
 import { ThemeProvider } from "@/contexts/theme-context";
+import { PortalThemeProvider } from "@/components/portal/PortalThemeProvider";
 import { LowDataProvider } from "@/contexts/LowDataContext";
 import { UnifiedCartProvider } from "@/contexts/UnifiedCartContext";
 import { UserPreferencesProvider } from "@/hooks/use-user-preferences";
@@ -2281,6 +2282,7 @@ function App() {
       <LowDataProvider>
         <ThemeProvider>
         <QueryClientProvider client={queryClient}>
+          <PortalThemeProvider>
           <UserPreferencesProvider>
           <UnifiedCartProvider>
             <TooltipProvider>
@@ -2295,6 +2297,7 @@ function App() {
             </TooltipProvider>
           </UnifiedCartProvider>
           </UserPreferencesProvider>
+          </PortalThemeProvider>
         </QueryClientProvider>
       </ThemeProvider>
         </LowDataProvider>

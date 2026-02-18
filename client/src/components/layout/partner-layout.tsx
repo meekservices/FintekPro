@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
 import fintekproLogo from "@assets/fintekpro_favicon_1770477461031.png";
+import { PortalLogo } from "@/components/portal/PortalLogo";
 import { Button } from "@/components/ui/button";
 import { getPortalQueryParams } from "@/hooks/useSubdomain";
 import {
@@ -219,8 +220,8 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
             <div className="flex items-center gap-3">
-              <img src={fintekproLogo} alt="FintekPro" className="h-9 w-9 rounded-lg object-contain" />
-              <div>
+              <PortalLogo size="md" showTagline />
+              <div className="hidden">
                 <h1 className="text-xl font-bold text-foreground">FintekPro Partner</h1>
                 <p className="text-xs text-indigo-300">Business Partner Portal</p>
               </div>

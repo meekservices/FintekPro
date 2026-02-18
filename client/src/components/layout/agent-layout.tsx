@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
 import fintekproLogo from "@assets/fintekpro_favicon_1770477461031.png";
+import { PortalLogo } from "@/components/portal/PortalLogo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -560,8 +561,8 @@ export function AgentLayout({ children }: AgentLayoutProps) {
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
             <div className="flex items-center gap-2 sm:gap-3">
-              <img src={fintekproLogo} alt="FintekPro" className="h-7 w-7 sm:h-9 sm:w-9 rounded-lg object-contain" />
-              <div>
+              <PortalLogo size="md" showTagline />
+              <div className="hidden">
                 <h1 className="text-sm sm:text-lg font-semibold text-foreground tracking-tight">FintekPro</h1>
                 <p className="text-[9px] sm:text-[10px] text-emerald-400 font-medium uppercase tracking-wider hidden sm:block">Agent Portal</p>
               </div>

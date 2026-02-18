@@ -77,7 +77,7 @@ import { complianceMiddleware } from "./compliance-monitor";
 import { storage } from "./storage";
 import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
-import { subdomainDetection } from "./subdomain-middleware";
+import { subdomainDetection, validateSessionPortal } from "./subdomain-middleware";
 import { initializeCronJobs } from "./cron-jobs";
 import { requestContextMiddleware } from "./middleware/request-context";
 import { errorMonitoringMiddleware, globalErrorHandler } from "./error-monitor";
@@ -467,6 +467,9 @@ app.use(sensitiveDataMaskingMiddleware);
 
 // Subdomain detection middleware - must come early to be available in all routes
 app.use(subdomainDetection);
+
+// Portal-bound session validation - enforce portal mismatch security
+app.use(validateSessionPortal);
 
 // Compliance monitoring middleware
 app.use(complianceMiddleware);

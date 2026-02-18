@@ -8,6 +8,7 @@ import { registerBBPSRoutes } from './routes/bbps';
 import { registerCapitalGainsRoutes } from './routes/capital-gains';
 import { registerAdminPanelRoutes } from './routes/admin';
 import { registerPartnerPortalRoutes } from './routes/partner';
+import { registerPortalSystemRoutes } from './routes/portal-system';
 import { registerKYCWizardRoutes } from './routes/kyc';
 import { registerKycV2ExtensionRoutes } from './routes/kyc/v2-extensions';
 import { registerStockExchangeRoutes } from './routes/stock-exchange';
@@ -28909,6 +28910,7 @@ Provide analysis in JSON format with these sections:
   registerPreIPORoutes(app);
   registerCartRoutes(app);
   registerPartnerPortalRoutes(app);
+  registerPortalSystemRoutes(app);
   
   // Document Lifecycle Management (DLM) System
   registerFinancialDataRoutes(app);
