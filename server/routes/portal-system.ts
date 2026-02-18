@@ -58,6 +58,61 @@ router.get('/api/system/portal-logo/:type', (req: Request, res: Response) => {
   res.send(svg);
 });
 
+const PORTAL_ICON_MAP: Record<string, string> = {
+  main: '/icon-192.png',
+  partner: '/icon-partner.png',
+  agent: '/icon-agent.png',
+  admin: '/icon-admin.png',
+};
+
+router.get('/api/system/portal-manifest.json', (req: Request, res: Response) => {
+  const subdomain = req.subdomain || '';
+  const portalType = resolvePortalType(subdomain);
+  const config = PORTAL_BRAND_CONFIG[portalType];
+  const icon = PORTAL_ICON_MAP[portalType] || '/icon-192.png';
+
+  const manifest = {
+    name: `${config.label} - Financial Services Platform`,
+    short_name: config.label,
+    description: `A comprehensive SEBI-compliant financial services platform - ${config.tagline}`,
+    start_url: '/',
+    display: 'standalone',
+    background_color: '#ffffff',
+    theme_color: config.primaryColor,
+    orientation: 'portrait-primary',
+    scope: '/',
+    lang: 'en-IN',
+    categories: ['finance', 'business', 'utilities'],
+    icons: [
+      { src: icon, sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+      { src: icon, sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+    ],
+    screenshots: [],
+    related_applications: [],
+    prefer_related_applications: false,
+    shortcuts: [
+      {
+        name: 'Portfolio',
+        short_name: 'Portfolio',
+        description: 'View your investment portfolio',
+        url: '/portfolio',
+        icons: [{ src: icon, sizes: '192x192' }],
+      },
+      {
+        name: 'Markets',
+        short_name: 'Markets',
+        description: 'View market data and trends',
+        url: '/markets',
+        icons: [{ src: icon, sizes: '192x192' }],
+      },
+    ],
+  };
+
+  res.setHeader('Content-Type', 'application/manifest+json');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.json(manifest);
+});
+
 router.post('/api/system/portal-access-log', async (req: Request, res: Response) => {
   try {
     if (!req.user) {
