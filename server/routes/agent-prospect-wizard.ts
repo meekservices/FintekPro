@@ -1384,6 +1384,15 @@ async function calculateDividendProjection(holdings: NormalizedHolding[]) {
     };
   }
   
+  const totalNonDbCount = sectorDefaultCount + categoryDefaultCount + fallbackCount;
+  const totalCount = dbSourceCount + totalNonDbCount;
+  const estimatedRatio = totalCount > 0 ? totalNonDbCount / totalCount : 0;
+  const disclaimer = estimatedRatio > 0.5
+    ? `Note: ${Math.round(estimatedRatio * 100)}% of dividend yields are estimated using sector/category averages due to limited real-time data. Actual payouts may vary significantly.`
+    : estimatedRatio > 0
+    ? `Note: Some dividend yields (${totalNonDbCount} of ${totalCount}) are estimated using sector/category averages.`
+    : undefined;
+
   return {
     estimatedAnnualIncome: Math.round(totalAnnualDividend),
     monthlyIncome: Math.round(totalAnnualDividend / 12),
@@ -1392,6 +1401,7 @@ async function calculateDividendProjection(holdings: NormalizedHolding[]) {
       : 0,
     holdings: holdingsWithDividend.sort((a, b) => b.estimatedAnnualDividend - a.estimatedAnnualDividend).slice(0, 10),
     hasNoDividendHoldings: false,
+    disclaimer,
     dataSources: {
       database: dbSourceCount,
       sectorDefault: sectorDefaultCount,

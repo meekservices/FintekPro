@@ -287,16 +287,18 @@ class StockFinancialEnrichmentService {
         or(
           isNull(listedStocks.peRatio),
           isNull(listedStocks.eps),
-          isNull(listedStocks.bookValue)
+          isNull(listedStocks.bookValue),
+          isNull(listedStocks.dividendYield)
         )
       );
       
       stats.totalStocks = stocks.length;
       stats.stocksWithNullPe = stocks.filter(s => s.peRatio === null).length;
       stats.stocksWithNullEps = stocks.filter(s => s.eps === null).length;
+      const stocksWithNullDividendYield = stocks.filter(s => s.dividendYield === null).length;
       enrichmentProgress.totalStocks = stocks.length;
       
-      console.log(`[Stock Enrichment] Processing ${stocks.length} stocks`);
+      console.log(`[Stock Enrichment] Processing ${stocks.length} stocks (PE null: ${stats.stocksWithNullPe}, EPS null: ${stats.stocksWithNullEps}, DividendYield null: ${stocksWithNullDividendYield})`);
       
       let yahooRequestCount = 0;
       

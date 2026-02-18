@@ -2259,11 +2259,19 @@ export default function PublicProposalPage() {
                                   <span className="font-medium">{payer.name}</span>
                                   <div className="text-right">
                                     <p className="font-semibold text-green-600">₹{(payer.estimatedAnnualDividend || payer.annualDividend || 0).toLocaleString('en-IN')}</p>
-                                    <p className="text-xs text-muted-foreground">{(payer.dividendYield || payer.yield || 0).toFixed(2)}% yield</p>
+                                    <p className="text-xs text-muted-foreground">{(payer.dividendYield || payer.yield || 0).toFixed(2)}% yield{payer.dataSource && payer.dataSource !== 'database' ? ' (est.)' : ''}</p>
                                   </div>
                                 </div>
                               ))}
                             </div>
+                          </div>
+                        )}
+                        {div?.disclaimer && (
+                          <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                            <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                              {div.disclaimer}
+                            </p>
                           </div>
                         )}
                       </>
