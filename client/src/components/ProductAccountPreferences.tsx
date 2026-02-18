@@ -40,6 +40,7 @@ const PRODUCT_TYPES = [
   { value: "aif", label: "Alternative Investment Funds", requiresDemat: false, icon: <Banknote className="h-4 w-4" /> },
   { value: "pms", label: "Portfolio Management Services", requiresDemat: false, icon: <Banknote className="h-4 w-4" /> },
   { value: "unlisted_share", label: "Unlisted Shares", requiresDemat: true, icon: <Building2 className="h-4 w-4" /> },
+  { value: "etf", label: "ETFs", requiresDemat: true, icon: <Building2 className="h-4 w-4" /> },
   { value: "fd", label: "Fixed Deposits", requiresDemat: false, icon: <CreditCard className="h-4 w-4" /> },
 ];
 

@@ -196,6 +196,7 @@ function InvestmentLinkingSection({ goalId, investments }: { goalId: string; inv
     { value: "mutual_fund_sip", label: "Mutual Fund SIP" },
     { value: "mutual_fund_lumpsum", label: "Mutual Fund Lumpsum" },
     { value: "stocks", label: "Stocks" },
+    { value: "etf", label: "ETFs" },
     { value: "ppf", label: "PPF" },
     { value: "nps", label: "NPS" },
     { value: "fd", label: "Fixed Deposit" },

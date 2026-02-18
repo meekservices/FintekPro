@@ -64,6 +64,7 @@ const PRODUCT_TYPES = [
   { value: "unlisted_stock", label: "Unlisted Stocks", icon: Factory },
   { value: "reit", label: "REITs", icon: Building2 },
   { value: "invit", label: "InvITs", icon: Building2 },
+  { value: "etf", label: "ETFs", icon: LineChart },
 ];
 
 const RISK_PROFILES = [

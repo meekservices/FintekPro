@@ -20,6 +20,7 @@ const PRODUCT_TYPES = {
   pms: { label: "PMS", color: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300", icon: Briefcase, gradient: "from-purple-500 to-pink-500" },
   mld: { label: "MLD", color: "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300", icon: BarChart3, gradient: "from-teal-500 to-cyan-500" },
   mutual_fund: { label: "Mutual Fund", color: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300", icon: TrendingUp, gradient: "from-orange-500 to-amber-500" },
+  etf: { label: "ETF", color: "bg-lime-100 dark:bg-lime-900/30 text-lime-700 dark:text-lime-300", icon: TrendingUp, gradient: "from-lime-500 to-green-500" },
 };
 
 export default function UnifiedCart() {
