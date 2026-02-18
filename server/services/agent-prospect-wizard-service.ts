@@ -2701,29 +2701,53 @@ class AgentProspectWizardService {
       aif: 'aif'
     };
     
-    // If selectedCategories is provided, recalculate target allocations to distribute only among selected categories
+    // If selectedCategories is provided, zero out non-selected categories and redistribute proportionally to 100%
     if (selectedCategories && selectedCategories.length > 0) {
-      // Calculate the total current allocation for selected categories
-      let totalSelectedAllocation = 0;
-      selectedCategories.forEach(cat => {
-        const allocationKey = categoryToAllocationKey[cat] || cat;
-        totalSelectedAllocation += (targetAllocations as any)[allocationKey] || 0;
-      });
+      const selectedAllocationKeys = new Set(
+        selectedCategories.map(cat => categoryToAllocationKey[cat] || cat)
+      );
       
-      // If selected categories have 0% total allocation, distribute 100% equally among them
+      const newAllocations = { ...targetAllocations };
+      let totalSelectedAllocation = 0;
+      
+      // First pass: zero out non-selected, sum selected
+      for (const key of Object.keys(newAllocations)) {
+        if (selectedAllocationKeys.has(key)) {
+          totalSelectedAllocation += (newAllocations as any)[key] || 0;
+        } else {
+          (newAllocations as any)[key] = 0;
+        }
+      }
+      
+      // Second pass: scale selected categories to sum to 100%, or distribute equally if all are 0
       if (totalSelectedAllocation === 0) {
         const equalAllocation = Math.floor(100 / selectedCategories.length);
-        const newAllocations = { ...targetAllocations };
+        let assigned = 0;
         selectedCategories.forEach((cat, idx) => {
           const allocationKey = categoryToAllocationKey[cat] || cat;
-          (newAllocations as any)[allocationKey] = idx === 0 
-            ? equalAllocation + (100 % selectedCategories.length) 
-            : equalAllocation;
+          const value = idx === selectedCategories.length - 1 ? (100 - assigned) : equalAllocation;
+          (newAllocations as any)[allocationKey] = value;
+          assigned += value;
         });
-        targetAllocations = newAllocations;
-        console.log('[Rebalancing] No allocations for selected categories, distributed equally:', 
-          selectedCategories.map(c => `${c}: ${(targetAllocations as any)[categoryToAllocationKey[c] || c]}%`).join(', '));
+        console.log('[Rebalancing] No allocations for selected categories, distributed equally');
+      } else if (totalSelectedAllocation !== 100) {
+        const scaleFactor = 100 / totalSelectedAllocation;
+        let assigned = 0;
+        const selectedKeys = selectedCategories.map(cat => categoryToAllocationKey[cat] || cat);
+        selectedKeys.forEach((key, idx) => {
+          if (idx === selectedKeys.length - 1) {
+            (newAllocations as any)[key] = 100 - assigned;
+          } else {
+            const scaled = Math.round(((newAllocations as any)[key] || 0) * scaleFactor);
+            (newAllocations as any)[key] = scaled;
+            assigned += scaled;
+          }
+        });
       }
+      
+      targetAllocations = newAllocations;
+      console.log('[Rebalancing] Filtered to selected categories:', 
+        selectedCategories.map(c => `${c}: ${(targetAllocations as any)[categoryToAllocationKey[c] || c]}%`).join(', '));
     }
     
     console.log('[Rebalancing] Target allocations:', JSON.stringify(targetAllocations));
