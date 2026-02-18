@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { db } from '../db';
+import { getProductionDb, hasProductionDb, requireProductionDb, getEnrichmentReadDb, getEnrichmentWriteDb } from '../db-production';
 import { mutualFunds, mfEnrichmentAuditLogs, mfAumHistory } from '@shared/schema';
 import { eq, desc, sql, isNull, or, and } from 'drizzle-orm';
 
@@ -164,7 +165,7 @@ class MFComprehensiveEnrichmentService {
     metadata?: Record<string, any>
   ): Promise<void> {
     try {
-      await db.insert(mfEnrichmentAuditLogs).values({
+      await getEnrichmentWriteDb().insert(mfEnrichmentAuditLogs).values({
         schemeCode,
         fieldName,
         oldValue,
@@ -187,7 +188,7 @@ class MFComprehensiveEnrichmentService {
     try {
       const today = new Date().toISOString().split('T')[0];
 
-      const previousRecords = await db.select({
+      const previousRecords = await getEnrichmentReadDb(db).select({
         aum: mfAumHistory.aum,
       }).from(mfAumHistory)
         .where(eq(mfAumHistory.schemeCode, schemeCode))
@@ -206,7 +207,7 @@ class MFComprehensiveEnrichmentService {
         }
       }
 
-      await db.insert(mfAumHistory).values({
+      await getEnrichmentWriteDb().insert(mfAumHistory).values({
         schemeCode,
         asOfDate: today,
         aum: aum.toFixed(2),
@@ -532,6 +533,10 @@ class MFComprehensiveEnrichmentService {
       return enrichmentProgress;
     }
 
+    if (!requireProductionDb('MFComprehensiveEnrichment')) {
+      return createEmptyProgress();
+    }
+
     this.isRunning = true;
     enrichmentProgress = createEmptyProgress();
     enrichmentProgress.startedAt = new Date();
@@ -540,7 +545,7 @@ class MFComprehensiveEnrichmentService {
     const enrichmentRunId = `enrichment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     try {
-      const [countResult] = await db.select({ total: sql<number>`COUNT(*)` }).from(mutualFunds);
+      const [countResult] = await getEnrichmentReadDb(db).select({ total: sql<number>`COUNT(*)` }).from(mutualFunds);
       enrichmentProgress.totalFunds = Number(countResult?.total || 0);
 
       await this.phase1_AmfiEnrichment(batchSize, enrichmentRunId);
@@ -586,7 +591,7 @@ class MFComprehensiveEnrichmentService {
       return;
     }
 
-    const funds = await db.select({
+    const funds = await getEnrichmentReadDb(db).select({
       id: mutualFunds.id,
       schemeCode: mutualFunds.schemeCode,
       category: mutualFunds.category,
@@ -641,7 +646,7 @@ class MFComprehensiveEnrichmentService {
           if (Object.keys(updates).length > 0) {
             updates.lastVerifiedAt = new Date();
             updates.dataSource = 'AMFI';
-            await db.update(mutualFunds).set(updates).where(eq(mutualFunds.id, fund.id));
+            await getEnrichmentWriteDb().update(mutualFunds).set(updates).where(eq(mutualFunds.id, fund.id));
           }
         } catch (error: any) {
           enrichmentProgress.errors.push(`P1 ${fund.schemeCode}: ${error.message}`);
@@ -659,7 +664,7 @@ class MFComprehensiveEnrichmentService {
     enrichmentProgress.currentStep = 'Phase 2: Extracting from extendedData JSONB...';
     console.log('[ComprehensiveEnrichment] Phase 2: ExtendedData extraction');
 
-    const funds = await db.select({
+    const funds = await getEnrichmentReadDb(db).select({
       id: mutualFunds.id,
       schemeCode: mutualFunds.schemeCode,
       extendedData: mutualFunds.extendedData,
@@ -716,7 +721,7 @@ class MFComprehensiveEnrichmentService {
 
           if (Object.keys(updates).length > 0) {
             updates.lastUpdated = new Date();
-            await db.update(mutualFunds).set(updates).where(eq(mutualFunds.id, fund.id));
+            await getEnrichmentWriteDb().update(mutualFunds).set(updates).where(eq(mutualFunds.id, fund.id));
             for (const [field, value] of Object.entries(updates)) {
               if (field !== 'lastUpdated') {
                 await this.logAuditChange(fund.schemeCode, field, null, String(value), 'enrichment', 'extended_data', enrichmentRunId);
@@ -737,7 +742,7 @@ class MFComprehensiveEnrichmentService {
     enrichmentProgress.currentStep = 'Phase 3: Fetching MFapi.in metadata (sub-category, launch date)...';
     console.log('[ComprehensiveEnrichment] Phase 3: MFapi.in metadata enrichment');
 
-    const funds = await db.select({
+    const funds = await getEnrichmentReadDb(db).select({
       id: mutualFunds.id,
       schemeCode: mutualFunds.schemeCode,
       schemeSubCategory: mutualFunds.schemeSubCategory,
@@ -781,7 +786,7 @@ class MFComprehensiveEnrichmentService {
 
         if (Object.keys(updates).length > 0) {
           updates.lastUpdated = new Date();
-          await db.update(mutualFunds).set(updates).where(eq(mutualFunds.id, fund.id));
+          await getEnrichmentWriteDb().update(mutualFunds).set(updates).where(eq(mutualFunds.id, fund.id));
           for (const [field, value] of Object.entries(updates)) {
             if (field !== 'lastUpdated') {
               await this.logAuditChange(fund.schemeCode, field, null, String(value), 'enrichment', 'MFAPI', enrichmentRunId);
@@ -803,7 +808,7 @@ class MFComprehensiveEnrichmentService {
     enrichmentProgress.currentStep = 'Phase 4: Calculating returns & ratios from MFapi.in historical NAV...';
     console.log('[ComprehensiveEnrichment] Phase 4: MFapi.in returns & ratios');
 
-    const funds = await db.select({
+    const funds = await getEnrichmentReadDb(db).select({
       id: mutualFunds.id,
       schemeCode: mutualFunds.schemeCode,
     }).from(mutualFunds).where(
@@ -837,7 +842,7 @@ class MFComprehensiveEnrichmentService {
         if (ratios.maxDrawdown !== null) updates.maxDrawdown = ratios.maxDrawdown.toString();
 
         if (Object.keys(updates).length > 1) {
-          await db.update(mutualFunds).set(updates).where(eq(mutualFunds.id, fund.id));
+          await getEnrichmentWriteDb().update(mutualFunds).set(updates).where(eq(mutualFunds.id, fund.id));
           enrichmentProgress.phase4Stats.fundsSynced++;
           if (returns.returns1y !== null) enrichmentProgress.phase4Stats.returnsUpdated++;
           if (ratios.sharpeRatio !== null) enrichmentProgress.phase4Stats.ratiosUpdated++;
@@ -866,7 +871,7 @@ class MFComprehensiveEnrichmentService {
     enrichmentProgress.currentStep = 'Phase 5: Applying category-based defaults for remaining nulls...';
     console.log('[ComprehensiveEnrichment] Phase 5: Category-based defaults');
 
-    const funds = await db.select({
+    const funds = await getEnrichmentReadDb(db).select({
       id: mutualFunds.id,
       schemeCode: mutualFunds.schemeCode,
       schemeName: mutualFunds.schemeName,
@@ -929,7 +934,7 @@ class MFComprehensiveEnrichmentService {
 
           if (Object.keys(updates).length > 0) {
             updates.lastUpdated = new Date();
-            await db.update(mutualFunds).set(updates).where(eq(mutualFunds.id, fund.id));
+            await getEnrichmentWriteDb().update(mutualFunds).set(updates).where(eq(mutualFunds.id, fund.id));
           }
         } catch (error: any) {
           enrichmentProgress.errors.push(`P5 ${fund.schemeCode}: ${error.message}`);
@@ -1090,7 +1095,7 @@ class MFComprehensiveEnrichmentService {
   }
 
   async getNullColumnStats(): Promise<Record<string, { nullCount: number; filledCount: number; total: number }>> {
-    const [stats] = await db.select({
+    const [stats] = await getEnrichmentReadDb(db).select({
       total: sql<number>`COUNT(*)`,
       navNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.nav} IS NULL)`,
       categoryNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.category} IS NULL)`,

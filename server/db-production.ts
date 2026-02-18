@@ -39,6 +39,40 @@ export function hasProductionDb(): boolean {
   return !!process.env.PRODUCTION_DATABASE_URL;
 }
 
+/**
+ * Get the database instance for enrichment WRITE operations.
+ * Returns production DB when available, throws if not.
+ * All enrichment writes MUST target production.
+ */
+export function getEnrichmentWriteDb() {
+  if (!hasProductionDb()) {
+    throw new Error('[ProductionDB] PRODUCTION_DATABASE_URL not set. Enrichment writes require production DB.');
+  }
+  return getProductionDb();
+}
+
+/**
+ * Get the database instance for enrichment READ operations.
+ * Returns production DB when available, falls back to dev DB.
+ * Import dev `db` from '../db' and pass it as fallback.
+ */
+export function getEnrichmentReadDb(devDb: any) {
+  return hasProductionDb() ? getProductionDb() : devDb;
+}
+
+/**
+ * Guard: abort enrichment if production DB is not configured.
+ * Returns true if production DB is available, false otherwise (with console error).
+ */
+export function requireProductionDb(serviceName: string): boolean {
+  if (!hasProductionDb()) {
+    console.error(`[${serviceName}] ❌ PRODUCTION_DATABASE_URL not set. Enrichment runs on production only. Aborting.`);
+    return false;
+  }
+  console.log(`[${serviceName}] ✅ Connected to PRODUCTION database`);
+  return true;
+}
+
 export async function closeProductionPool(): Promise<void> {
   if (prodPool) {
     try {

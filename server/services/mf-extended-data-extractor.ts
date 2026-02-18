@@ -8,6 +8,7 @@
  */
 
 import { db } from '../db';
+import { getProductionDb, hasProductionDb, requireProductionDb, getEnrichmentReadDb, getEnrichmentWriteDb } from '../db-production';
 import { mutualFunds } from '@shared/schema';
 import { sql, isNull, or, and } from 'drizzle-orm';
 
@@ -347,7 +348,7 @@ class MFExtendedDataExtractor {
    * Get extraction statistics
    */
   async getExtractionStats(): Promise<ExtractionStats> {
-    const [stats] = await db.select({
+    const [stats] = await getEnrichmentReadDb(db).select({
       total: sql<number>`COUNT(*)`,
       withExtended: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.extendedData} IS NOT NULL)`,
       withExitLoad: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.exitLoadPercent} IS NOT NULL)`,
@@ -388,6 +389,16 @@ class MFExtendedDataExtractor {
   }> {
     const { forceRefresh = false, batchSize = 500 } = options;
     
+    if (!requireProductionDb('MFExtendedDataExtractor')) {
+      return {
+        fundsProcessed: 0,
+        exitLoadUpdated: 0,
+        minAmountsUpdated: 0,
+        launchDateUpdated: 0,
+        errors: ['PRODUCTION_DATABASE_URL not set. Enrichment runs on production only.'],
+      };
+    }
+    
     if (extractionProgress.status === 'running') {
       throw new Error('Extraction already in progress');
     }
@@ -415,7 +426,7 @@ class MFExtendedDataExtractor {
             ${mutualFunds.launchDate} IS NULL
           )`;
       
-      const funds = await db.select({
+      const funds = await getEnrichmentReadDb(db).select({
         id: mutualFunds.id,
         schemeCode: mutualFunds.schemeCode,
         extendedData: mutualFunds.extendedData,
@@ -474,7 +485,7 @@ class MFExtendedDataExtractor {
             
             if (hasUpdate) {
               updates.lastUpdated = new Date();
-              await db.update(mutualFunds)
+              await getEnrichmentWriteDb().update(mutualFunds)
                 .set(updates)
                 .where(sql`${mutualFunds.id} = ${fund.id}`);
             }
