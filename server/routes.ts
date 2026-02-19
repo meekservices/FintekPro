@@ -26295,25 +26295,25 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       // Add AIF products if AIF category is requested or all products
       if (!category || category === 'aif' || category === 'AIF') {
         try {
-          const aifProducts = await db.select().from(schema.aifMaster).where(eq(schema.aifMaster.isActive, true));
+          const aifProducts = await db.select().from(schema.aifMaster).where(and(eq(schema.aifMaster.fundStatus, 'active'), eq(schema.aifMaster.isPublished, true)));
           const aifMerged = aifProducts.map(aif => ({
             id: `aif-${aif.id}`,
             name: aif.name,
-            shortDescription: aif.strategy || aif.description || '',
+            shortDescription: aif.description || aif.investmentObjective || '',
             description: aif.description,
             categoryId: 'aif',
             categoryName: 'AIF',
-            subcategoryId: aif.aifCategory?.toLowerCase() || 'category-iii',
-            subcategoryName: aif.aifCategory || 'Category III',
+            subcategoryId: aif.category?.toLowerCase() || 'category-iii',
+            subcategoryName: aif.category || 'Category III',
             productType: 'aif',
             planType: 'regular',
-            provider: aif.fundManager || aif.amcName || '',
-            minimumInvestment: aif.minimumInvestment || 10000000,
-            expectedReturns: aif.targetReturns || 0,
-            riskLevel: aif.riskLevel || 'high',
-            features: aif.features || [],
+            provider: aif.fundHouseName || aif.sponsor || '',
+            minimumInvestment: parseFloat(aif.minInvestment?.toString() || '0') || 10000000,
+            expectedReturns: parseFloat(aif.return1Y?.toString() || '0'),
+            riskLevel: aif.riskScore && aif.riskScore >= 7 ? 'high' : 'moderate',
+            features: [],
             isActive: true,
-            isFeatured: aif.isFeatured || false,
+            isFeatured: false,
             isPremium: true,
             kycProductCode: 'ACCREDITED_AIF',
             sourceTable: 'aif_master',

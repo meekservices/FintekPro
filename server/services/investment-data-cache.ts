@@ -299,28 +299,31 @@ class InvestmentDataCache {
   private async fetchAIFs(): Promise<InvestmentProduct[]> {
     try {
       const { db } = await import("../db");
-      const { aifFunds } = await import("@shared/schema");
-      const aifList = await db.select().from(aifFunds).limit(50);
+      const { aifMaster } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const aifList = await db.select().from(aifMaster)
+        .where(and(eq(aifMaster.fundStatus, 'active'), eq(aifMaster.isPublished, true)))
+        .limit(50);
       return aifList.map(aif => ({
         product_id: aif.id,
         product_type: 'AIF' as ProductType,
-        name: aif.fundName,
-        issuer: aif.fundManager || aif.fundHouse || 'Unknown',
-        risk_level: (aif.riskLevel as RiskLevel) || 'aggressive',
+        name: aif.name,
+        issuer: aif.fundHouseName || aif.sponsor || 'Unknown',
+        risk_level: (aif.riskScore && aif.riskScore >= 7 ? 'aggressive' : aif.riskScore && aif.riskScore >= 4 ? 'moderate' : 'conservative') as RiskLevel,
         liquidity: 'very_low' as Liquidity,
         investment_horizon: 'very_long',
         expected_return_band: { min: 12, max: 25 },
         volatility_proxy: 35,
         tax_treatment: 'aif',
-        lock_in_period: aif.lockInPeriod ? parseInt(aif.lockInPeriod.toString()) * 365 : 1095,
+        lock_in_period: aif.lockIn ? parseInt(aif.lockIn.toString()) * 365 : 1095,
         min_investment: parseFloat(aif.minInvestment?.toString() || '0') || 10000000,
         regulatory_tags: ['SEBI_REGULATED', 'ACCREDITED_INVESTOR_ONLY'],
         source: 'sebi_aif',
-        current_price: parseFloat(aif.nav?.toString() || '0'),
-        yield_or_return: parseFloat(aif.returns1Y?.toString() || '0'),
+        current_price: parseFloat(aif.latestNav?.toString() || '0'),
+        yield_or_return: parseFloat(aif.return1Y?.toString() || '0'),
         sector: aif.category || 'Alternative',
         raw_data: aif,
-        last_updated: aif.lastUpdated?.toISOString() || new Date().toISOString(),
+        last_updated: aif.updatedAt?.toISOString() || new Date().toISOString(),
       }));
     } catch (error) {
       console.error('❌ [InvestmentDataCache] Failed to fetch AIFs:', error);

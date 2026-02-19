@@ -284,20 +284,19 @@ export class ComprehensiveAIFPMSAPI {
   private async fetchAIFFromDatabase(aifId?: string, category?: string): Promise<ComprehensiveAIFData[]> {
     try {
       const { db } = await import('./db');
-      const { aifFunds } = await import('@shared/schema');
+      const { aifMaster } = await import('@shared/schema');
       const { eq, and, isNotNull } = await import('drizzle-orm');
 
-      let query = db.select().from(aifFunds);
+      let query = db.select().from(aifMaster);
       
-      // Build conditions
       const conditions: any[] = [];
       if (aifId) {
-        conditions.push(eq(aifFunds.id, aifId));
+        conditions.push(eq(aifMaster.id, aifId));
       }
       if (category) {
-        conditions.push(eq(aifFunds.category, category));
+        conditions.push(eq(aifMaster.category, category));
       }
-      conditions.push(isNotNull(aifFunds.nav));
+      conditions.push(isNotNull(aifMaster.latestNav));
 
       const results = await query.where(and(...conditions)).limit(50);
 
@@ -339,23 +338,23 @@ export class ComprehensiveAIFPMSAPI {
   private mapDatabaseAIFToComprehensive(fund: any): ComprehensiveAIFData {
     return {
       aifId: fund.id,
-      isin: fund.isinNumber || '',
-      schemaName: fund.fundName,
-      sebiRegistrationNumber: fund.sebiRegistrationNumber,
+      isin: fund.isin || '',
+      schemaName: fund.name,
+      sebiRegistrationNumber: fund.registrationNo || fund.sebiId || '',
       category: fund.category as any,
-      subCategory: fund.subCategory || '',
-      fundType: fund.fundType || '',
+      subCategory: fund.subcategory || '',
+      fundType: fund.style || '',
       investmentObjective: fund.investmentObjective || '',
       fundManager: {
-        name: fund.fundManager || '',
-        experience: fund.fundManagerExperience || 0,
-        qualification: fund.fundManagerQualification || '',
+        name: fund.fundHouseName || '',
+        experience: 0,
+        qualification: '',
         previousPerformance: [],
         trackRecord: '',
       },
       stockScreeningStrategy: {
         screeningCriteria: [],
-        selectionProcess: fund.stockSelectionProcess || '',
+        selectionProcess: '',
         riskParameters: {
           maxSingleStockExposure: 10,
           sectorConcentrationLimit: 25,
@@ -365,26 +364,26 @@ export class ComprehensiveAIFPMSAPI {
         portfolioConstruction: '',
       },
       pastPerformance: {
-        '1M': 0,
-        '3M': 0,
-        '6M': 0,
-        '1Y': parseFloat(fund.returns1y) || 0,
-        '3Y': parseFloat(fund.returns3y) || 0,
-        '5Y': parseFloat(fund.returns5y) || 0,
-        sinceInception: parseFloat(fund.returnsSinceInception) || 0,
+        '1M': parseFloat(fund.return1M) || 0,
+        '3M': parseFloat(fund.return3M) || 0,
+        '6M': parseFloat(fund.return6M) || 0,
+        '1Y': parseFloat(fund.return1Y) || 0,
+        '3Y': parseFloat(fund.return3Y) || 0,
+        '5Y': parseFloat(fund.return5Y) || 0,
+        sinceInception: parseFloat(fund.returnSinceInception) || 0,
         annualizedReturns: [],
       },
-      startDate: fund.launchDate?.toISOString().split('T')[0] || '',
+      startDate: fund.inceptionDate || '',
       fundTenure: '',
-      lockInPeriod: fund.lockInPeriod || '',
-      minimumInvestment: parseFloat(fund.minimumInvestment) || 10000000,
+      lockInPeriod: fund.lockIn || '',
+      minimumInvestment: parseFloat(fund.minInvestment) || 10000000,
       targetCorpus: 0,
       currentAUM: parseFloat(fund.aum) || 0,
       managementFee: parseFloat(fund.managementFee) || 2,
       performanceFee: parseFloat(fund.performanceFee) || 20,
-      hurdle_rate: parseFloat(fund.hurdle_rate) || 0,
+      hurdle_rate: parseFloat(fund.hurdleRate) || 0,
       highWaterMark: true,
-      topHoldings: fund.topHoldings || [],
+      topHoldings: fund.metadata?.topHoldings || [],
       riskMetrics: {
         volatility: parseFloat(fund.volatility) || 0,
         sharpeRatio: parseFloat(fund.sharpeRatio) || 0,

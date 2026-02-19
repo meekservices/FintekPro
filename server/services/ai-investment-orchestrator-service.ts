@@ -8,7 +8,7 @@ import {
   invits,
   ipoCompanies,
   preIpoCompanies,
-  aifFunds,
+  aifMaster,
   userProfiles
 } from "@shared/schema";
 import { eq, and, desc, gte, lte, inArray, isNotNull, or, ilike } from "drizzle-orm";
@@ -243,8 +243,8 @@ class AIInvestmentOrchestratorService {
           return normalizeProducts(unlisted, 'UNLISTED');
           
         case 'AIF':
-          const aifs = await db.select().from(aifFunds)
-            .where(eq(aifFunds.isActive, true))
+          const aifs = await db.select().from(aifMaster)
+            .where(and(eq(aifMaster.fundStatus, 'active'), eq(aifMaster.isPublished, true)))
             .limit(this.config.maxProductsPerType);
           return normalizeProducts(aifs, 'AIF');
           

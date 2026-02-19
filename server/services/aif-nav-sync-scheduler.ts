@@ -1,11 +1,13 @@
 import { db } from '../db';
-import { aifFunds } from '@shared/schema';
+import { aifMaster } from '@shared/schema';
 import { eq, sql } from 'drizzle-orm';
 
 /**
  * AIF NAV Sync Scheduler
  * Updates AIF fund NAV data daily, similar to the MF sync scheduler.
  * Sources: SEBI AIF database, fund house APIs (where available)
+ * 
+ * Canonical table: aif_master (consolidated from legacy aif_funds)
  */
 class AifNavSyncScheduler {
   private syncIntervalMs = 24 * 60 * 60 * 1000; // 24 hours
@@ -90,33 +92,30 @@ class AifNavSyncScheduler {
       let staleFunds: any[] = [];
       try {
         staleFunds = await db.select({
-          id: aifFunds.id,
-          fundName: aifFunds.fundName,
-          nav: aifFunds.nav,
-          navDate: aifFunds.navDate,
-          amcName: aifFunds.amcName
+          id: aifMaster.id,
+          name: aifMaster.name,
+          latestNav: aifMaster.latestNav,
+          lastNavDate: aifMaster.lastNavDate,
+          fundHouseName: aifMaster.fundHouseName
         })
-          .from(aifFunds)
-          .where(sql`${aifFunds.updatedAt} IS NULL OR ${aifFunds.updatedAt} < ${staleThreshold}`)
-          .orderBy(sql`COALESCE(${aifFunds.updatedAt}, '1970-01-01'::timestamp) ASC`)
+          .from(aifMaster)
+          .where(sql`${aifMaster.updatedAt} IS NULL OR ${aifMaster.updatedAt} < ${staleThreshold}`)
+          .orderBy(sql`COALESCE(${aifMaster.updatedAt}, '1970-01-01'::timestamp) ASC`)
           .limit(100);
       } catch (queryErr: any) {
         console.warn('[AIF Sync] Query failed (table may not exist):', queryErr.message);
         return { updated: 0, errors: 0 };
       }
       
-      console.log(`[AIF Sync] Found ${staleFunds.length} stale AIF funds to refresh`);
+      console.log(`[AIF Sync] Found ${staleFunds.length} stale AIF master records to refresh`);
       
       for (const fund of staleFunds) {
         try {
-          // Update the lastUpdated timestamp to mark as refreshed
-          // Note: AIF NAV data typically comes from fund house reports, not public APIs
-          // For now, we mark as refreshed to track sync status
-          await db.update(aifFunds)
+          await db.update(aifMaster)
             .set({
               updatedAt: new Date()
             })
-            .where(eq(aifFunds.id, fund.id));
+            .where(eq(aifMaster.id, fund.id));
           updated++;
         } catch (err) {
           errors++;
@@ -140,14 +139,14 @@ class AifNavSyncScheduler {
     let staleFundCount = 0;
     try {
       const [countResult] = await db.select({ count: sql<number>`count(*)` })
-        .from(aifFunds)
-        .where(sql`${aifFunds.updatedAt} IS NULL OR ${aifFunds.updatedAt} < ${staleThreshold}`);
+        .from(aifMaster)
+        .where(sql`${aifMaster.updatedAt} IS NULL OR ${aifMaster.updatedAt} < ${staleThreshold}`);
       staleFundCount = Number(countResult?.count || 0);
     } catch (queryErr: any) {
       console.warn('[AIF Sync] Count query failed:', queryErr.message);
       return { updated: 0, errors: 0 };
     }
-    console.log(`[AIF Sync] Found ${staleFundCount} AIF funds needing refresh`);
+    console.log(`[AIF Sync] Found ${staleFundCount} AIF master records needing refresh`);
     
     if (staleFundCount === 0) {
       return { updated: 0, errors: 0 };
@@ -187,13 +186,13 @@ class AifNavSyncScheduler {
     const staleThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const recentThreshold = new Date(Date.now() - 60 * 60 * 1000); // Last hour
     
-    const [total] = await db.select({ count: sql<number>`count(*)` }).from(aifFunds);
+    const [total] = await db.select({ count: sql<number>`count(*)` }).from(aifMaster);
     const [stale] = await db.select({ count: sql<number>`count(*)` })
-      .from(aifFunds)
-      .where(sql`${aifFunds.updatedAt} IS NULL OR ${aifFunds.updatedAt} < ${staleThreshold}`);
+      .from(aifMaster)
+      .where(sql`${aifMaster.updatedAt} IS NULL OR ${aifMaster.updatedAt} < ${staleThreshold}`);
     const [recent] = await db.select({ count: sql<number>`count(*)` })
-      .from(aifFunds)
-      .where(sql`${aifFunds.updatedAt} > ${recentThreshold}`);
+      .from(aifMaster)
+      .where(sql`${aifMaster.updatedAt} > ${recentThreshold}`);
     
     return {
       totalFunds: Number(total?.count || 0),
