@@ -4642,6 +4642,7 @@ export type MutualFundAmc = typeof mutualFundAmcs.$inferSelect;
 export type InsertMutualFundAmc = z.infer<typeof insertMutualFundAmcSchema>;
 
 // AIF (Alternative Investment Fund) comprehensive schema
+/** @deprecated Use aif_master as the canonical AIF table. aif_funds is legacy and unused. */
 export const aifFunds = pgTable("aif_funds", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   // Basic fund information

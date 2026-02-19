@@ -172,11 +172,11 @@ async function seedAifFunds(): Promise<BootstrapResult> {
     const aifCount = parseInt(String((aifCheck.rows[0] as any)?.cnt || '0'));
 
     if (aifCount > 0) {
-      console.log(`[ProductionBootstrap] AIF funds: ${aifCount} already exist`);
-      return { category: 'aif_funds', existing: aifCount, seeded: 0, total: aifCount };
+      console.log(`[ProductionBootstrap] AIF master records: ${aifCount} already exist`);
+      return { category: 'aif_master', existing: aifCount, seeded: 0, total: aifCount };
     }
 
-    console.log('[ProductionBootstrap] AIF funds: empty - seeding comprehensive AIF data...');
+    console.log('[ProductionBootstrap] AIF master: empty - seeding comprehensive AIF data...');
 
     const { generateComprehensiveAifSeedData } = await import('./services/sebi-aif-scraper');
     const { aifMaster } = await import('@shared/schema');
@@ -231,11 +231,11 @@ async function seedAifFunds(): Promise<BootstrapResult> {
 
     const finalCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM aif_master`);
     const finalCount = parseInt(String((finalCheck.rows[0] as any)?.cnt || '0'));
-    console.log(`[ProductionBootstrap] AIF funds: seeded ${finalCount} funds`);
-    return { category: 'aif_funds', existing: 0, seeded: finalCount, total: finalCount };
+    console.log(`[ProductionBootstrap] AIF master records: seeded ${finalCount} funds`);
+    return { category: 'aif_master', existing: 0, seeded: finalCount, total: finalCount };
   } catch (error: any) {
-    console.error('[ProductionBootstrap] AIF seeding failed:', error.message);
-    return { category: 'aif_funds', existing: 0, seeded: 0, total: 0 };
+    console.error('[ProductionBootstrap] AIF master seeding failed:', error.message);
+    return { category: 'aif_master', existing: 0, seeded: 0, total: 0 };
   }
 }
 
