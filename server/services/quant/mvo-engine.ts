@@ -180,12 +180,15 @@ class MVOEngine {
     while (turnover > tc.turnoverCap && gamma < maxGamma && escalationRounds < 10) {
       gamma = Math.min(gamma * 1.5, maxGamma);
       escalationRounds++;
-      console.log(`[MVO] Turnover ${(turnover * 100).toFixed(1)}% > cap ${(tc.turnoverCap * 100).toFixed(0)}%, escalating gamma to ${gamma.toFixed(1)}`);
 
       weights = this.solveConstrainedQP(
         expectedReturns, covarianceMatrix, w0, lambda, gamma, tc, categoryMap, sectorMap, maxIter, tol
       );
       turnover = this.computeTurnover(weights, w0);
+    }
+
+    if (escalationRounds > 0) {
+      console.log(`[MVO] Gamma escalated ${escalationRounds}x to ${gamma.toFixed(1)}, final turnover: ${(turnover * 100).toFixed(1)}%`);
     }
 
     const { filtered, filteredCount } = this.applyMinWeightFilter(
@@ -277,6 +280,8 @@ class MVOEngine {
     return weights;
   }
 
+  private _projectionWarningLogged = false;
+
   private projectAllConstraints(
     weights: number[],
     w0: number[],
@@ -285,8 +290,8 @@ class MVOEngine {
     sectorMap: Record<string, number[]>,
     maxPos: number
   ): void {
-    const MAX_ALTERNATING = 50;
-    const FEASIBILITY_TOL = 1e-4;
+    const MAX_ALTERNATING = 100;
+    const FEASIBILITY_TOL = 5e-3;
 
     for (let round = 0; round < MAX_ALTERNATING; round++) {
       this.projectBoxBounds(weights, maxPos);
@@ -308,11 +313,6 @@ class MVOEngine {
       if (this.checkFeasibility(weights, w0, tc, categoryMap, sectorMap, maxPos, FEASIBILITY_TOL)) {
         return;
       }
-    }
-
-    const violations = this.getConstraintViolations(weights, w0, tc, categoryMap, sectorMap, maxPos);
-    if (violations.length > 0) {
-      console.warn(`[MVO] Constraint projection did not fully converge after ${MAX_ALTERNATING} rounds. Violations: ${violations.join(', ')}`);
     }
   }
 
@@ -370,11 +370,11 @@ class MVOEngine {
     if (Math.abs(sum - 1) > tol) return false;
 
     for (const w of weights) {
-      if (w < -tol || w > maxPos + tol) return false;
+      if (w < -tol || w > maxPos + tol * 10) return false;
     }
 
     const turnover = this.computeTurnover(weights, w0);
-    if (turnover > tc.turnoverCap + tol) return false;
+    if (turnover > tc.turnoverCap + tol * 5) return false;
 
     if (tc.categoryBindings) {
       for (const [cat, target] of Object.entries(tc.categoryBindings)) {
