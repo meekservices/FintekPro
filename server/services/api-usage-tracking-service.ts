@@ -50,8 +50,22 @@ const DEFAULT_PROVIDERS: ProviderPricing[] = [
   { providerName: 'phonepe', displayName: 'PhonePe', description: 'Payment gateway', costPerCall: 0 },
   { providerName: 'twilio', displayName: 'Twilio', description: 'SMS & WhatsApp messaging', costPerCall: 0.5 },
   { providerName: 'probe42', displayName: 'Probe42', description: 'Company analytics', costPerCall: 5 },
-  { providerName: 'gemini', displayName: 'Google Gemini', description: 'AI features', costPerCall: 0.01 },
-  { providerName: 'zoho', displayName: 'Zoho', description: 'Email campaigns, Books', costPerCall: 0 },
+  { providerName: 'gemini', displayName: 'Google Gemini', description: 'AI features (fallback)', costPerCall: 0.01 },
+  { providerName: 'zoho', displayName: 'Zoho', description: 'CRM, Books, Campaigns, Meeting, Sign', costPerCall: 0 },
+  { providerName: 'openai', displayName: 'OpenAI', description: 'Primary AI engine (recommendations, analysis)', costPerCall: 0.03 },
+  { providerName: 'fmp', displayName: 'Financial Modeling Prep', description: 'Stock financials, ETF data, batch quotes', costPerCall: 0.01 },
+  { providerName: 'finnhub', displayName: 'Finnhub', description: 'Stock metrics, real-time market data', costPerCall: 0 },
+  { providerName: 'yahoo', displayName: 'Yahoo Finance', description: 'Stock prices, fallback provider', costPerCall: 0 },
+  { providerName: 'nse', displayName: 'NSE India', description: 'Market movers, stock exchange data', costPerCall: 0 },
+  { providerName: 'bse', displayName: 'BSE India', description: 'Market movers, bond catalog', costPerCall: 0 },
+  { providerName: 'amfi', displayName: 'AMFI', description: 'Mutual fund NAV, scheme data', costPerCall: 0 },
+  { providerName: 'polygon', displayName: 'Polygon.io', description: 'US market data, flat files', costPerCall: 0.01 },
+  { providerName: 'alphavantage', displayName: 'Alpha Vantage', description: 'Financial data, technical indicators', costPerCall: 0.01 },
+  { providerName: 'turtlefin', displayName: 'Turtlefin', description: 'Insurance APIs', costPerCall: 1 },
+  { providerName: 'protean', displayName: 'Protean (NSDL)', description: 'Aadhaar eSign, KRA verification', costPerCall: 3 },
+  { providerName: 'exchangerate', displayName: 'Exchange Rate API', description: 'Currency conversion rates', costPerCall: 0 },
+  { providerName: 'smtp', displayName: 'SMTP/Nodemailer', description: 'Email delivery', costPerCall: 0 },
+  { providerName: 'cibil', displayName: 'CIBIL', description: 'Credit score, credit report', costPerCall: 15 },
 ];
 
 class ApiUsageTrackingService {
@@ -74,8 +88,21 @@ class ApiUsageTrackingService {
     try {
       const existingPricing = await db.select().from(schema.apiProviderPricing);
       
-      if (existingPricing.length === 0) {
-        for (const provider of DEFAULT_PROVIDERS) {
+      const existingNames = new Set(existingPricing.map(p => p.providerName.toLowerCase()));
+      
+      existingPricing.forEach(p => {
+        this.providerPricing.set(p.providerName.toLowerCase(), {
+          providerName: p.providerName,
+          displayName: p.displayName,
+          description: p.description || undefined,
+          costPerCall: parseFloat(p.costPerCall || '0'),
+          currency: p.currency || 'INR',
+        });
+      });
+
+      let newCount = 0;
+      for (const provider of DEFAULT_PROVIDERS) {
+        if (!existingNames.has(provider.providerName.toLowerCase())) {
           await db.insert(schema.apiProviderPricing).values({
             providerName: provider.providerName,
             displayName: provider.displayName,
@@ -84,18 +111,14 @@ class ApiUsageTrackingService {
             currency: 'INR',
             isActive: true,
           }).onConflictDoNothing();
+          this.providerPricing.set(provider.providerName.toLowerCase(), provider);
+          newCount++;
         }
-        console.log('✅ API provider pricing initialized with defaults');
+      }
+
+      if (newCount > 0) {
+        console.log(`✅ API provider pricing loaded (${existingPricing.length} existing + ${newCount} new providers)`);
       } else {
-        existingPricing.forEach(p => {
-          this.providerPricing.set(p.providerName.toLowerCase(), {
-            providerName: p.providerName,
-            displayName: p.displayName,
-            description: p.description || undefined,
-            costPerCall: parseFloat(p.costPerCall || '0'),
-            currency: p.currency || 'INR',
-          });
-        });
         console.log(`✅ API provider pricing loaded (${existingPricing.length} providers)`);
       }
       
