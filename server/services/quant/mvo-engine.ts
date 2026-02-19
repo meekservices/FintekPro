@@ -272,15 +272,16 @@ class MVOEngine {
       weights = newWeights;
 
       if (maxDiff < tol) {
-        console.log(`[MVO] Transition QP converged at iteration ${iter}`);
         break;
       }
     }
 
+    this.logProjectionSummary(weights, w0, tc, categoryMap, sectorMap, maxPos);
+
     return weights;
   }
 
-  private _projectionWarningLogged = false;
+  private _projectionNonConvergenceCount = 0;
 
   private projectAllConstraints(
     weights: number[],
@@ -291,7 +292,7 @@ class MVOEngine {
     maxPos: number
   ): void {
     const MAX_ALTERNATING = 100;
-    const FEASIBILITY_TOL = 5e-3;
+    const FEASIBILITY_TOL = 1e-3;
 
     for (let round = 0; round < MAX_ALTERNATING; round++) {
       this.projectBoxBounds(weights, maxPos);
@@ -313,6 +314,17 @@ class MVOEngine {
       if (this.checkFeasibility(weights, w0, tc, categoryMap, sectorMap, maxPos, FEASIBILITY_TOL)) {
         return;
       }
+    }
+
+    this._projectionNonConvergenceCount++;
+  }
+
+  private logProjectionSummary(weights: number[], w0: number[], tc: TransitionConstraints,
+    categoryMap: Record<string, number[]>, sectorMap: Record<string, number[]>, maxPos: number): void {
+    if (this._projectionNonConvergenceCount > 0) {
+      const violations = this.getConstraintViolations(weights, w0, tc, categoryMap, sectorMap, maxPos);
+      console.warn(`[MVO] Constraint projection non-convergence: ${this._projectionNonConvergenceCount} iterations. Final violations: ${violations.join(', ') || 'none'}`);
+      this._projectionNonConvergenceCount = 0;
     }
   }
 
@@ -370,11 +382,11 @@ class MVOEngine {
     if (Math.abs(sum - 1) > tol) return false;
 
     for (const w of weights) {
-      if (w < -tol || w > maxPos + tol * 10) return false;
+      if (w < -tol || w > maxPos + tol) return false;
     }
 
     const turnover = this.computeTurnover(weights, w0);
-    if (turnover > tc.turnoverCap + tol * 5) return false;
+    if (turnover > tc.turnoverCap + tol) return false;
 
     if (tc.categoryBindings) {
       for (const [cat, target] of Object.entries(tc.categoryBindings)) {
