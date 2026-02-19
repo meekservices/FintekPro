@@ -3051,19 +3051,49 @@ class AgentProspectWizardService {
 
         if (isExistingHolding) {
           const alreadyRecommended = recommendations.find(r => r.productName === (holding.name || holding.productName || 'Unknown'));
+          const reduceAmount = Math.min(holding.currentValue, remainingToReduce);
+          const holdAmount = holding.currentValue - reduceAmount;
+          const needsPartialReduce = reduceAmount >= 1000 && holdAmount > 0;
+
           if (!alreadyRecommended) {
-            recommendations.push({
-              action: 'HOLD',
-              productType: holding.productType || holding.assetType || 'other',
-              productName: holding.name || holding.productName || 'Unknown',
-              currentValue: holding.currentValue,
-              suggestedValue: holding.currentValue,
-              changeAmount: 0,
-              rationale: `[HOLD] Existing portfolio position retained. ${dm.category} overweight by ${dm.drift.toFixed(1)}% but position is protected as it is already in your portfolio.`,
-              priority: 'low',
-            });
+            if (needsPartialReduce) {
+              recommendations.push({
+                action: 'HOLD',
+                productType: holding.productType || holding.assetType || 'other',
+                productName: holding.name || holding.productName || 'Unknown',
+                currentValue: holding.currentValue,
+                suggestedValue: holdAmount,
+                changeAmount: -reduceAmount,
+                rationale: `[HOLD] Existing position retained with suggested reduction. ${dm.category} overweight by ${dm.drift.toFixed(1)}%. Recommended: Hold ₹${holdAmount.toLocaleString('en-IN')} and reduce ₹${reduceAmount.toLocaleString('en-IN')} to bring allocation closer to target (${dm.targetPercent}%).`,
+                priority: Math.abs(dm.drift) > 15 ? 'medium' : 'low',
+              });
+              remainingToReduce -= reduceAmount;
+            } else if (reduceAmount >= 1000 && holdAmount <= 0) {
+              recommendations.push({
+                action: 'REDUCE',
+                productType: holding.productType || holding.assetType || 'other',
+                productName: holding.name || holding.productName || 'Unknown',
+                currentValue: holding.currentValue,
+                suggestedValue: 0,
+                changeAmount: -holding.currentValue,
+                rationale: `[REDUCE] ${dm.category} overweight by ${dm.drift.toFixed(1)}%. Full redemption recommended to bring allocation to target (${dm.targetPercent}%).`,
+                priority: Math.abs(dm.drift) > 15 ? 'high' : 'medium',
+              });
+              remainingToReduce -= holding.currentValue;
+            } else {
+              recommendations.push({
+                action: 'HOLD',
+                productType: holding.productType || holding.assetType || 'other',
+                productName: holding.name || holding.productName || 'Unknown',
+                currentValue: holding.currentValue,
+                suggestedValue: holding.currentValue,
+                changeAmount: 0,
+                rationale: `[HOLD] Existing portfolio position retained. ${dm.category} overweight by ${dm.drift.toFixed(1)}% but reduction amount is too small to action. No change needed.`,
+                priority: 'low',
+              });
+            }
           }
-          console.log(`[Rebalancing] Protected existing holding: ${holding.name || holding.productName} — REDUCE suppressed, HOLD retained`);
+          console.log(`[Rebalancing] Existing holding: ${holding.name || holding.productName} — ${needsPartialReduce ? `HOLD with partial reduce ₹${reduceAmount}` : reduceAmount >= 1000 ? `Full REDUCE ₹${holding.currentValue}` : 'HOLD (reduce too small)'}`);
           continue;
         }
 

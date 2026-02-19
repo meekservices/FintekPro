@@ -1311,7 +1311,7 @@ export default function AgentProspectWizard() {
           pdf.roundedRect(margin, yPos, pageWidth - (margin * 2), boxHeight, 2, 2, 'F');
           
           // Action indicator
-          const actionColor = rec.action === 'SELL' ? [220, 38, 38] : rec.action === 'BUY' ? [22, 163, 74] : rec.action === 'HOLD' ? [107, 114, 128] : rec.action === 'REDUCE' ? [217, 119, 6] : rec.action === 'INCREASE' ? [20, 184, 166] : [234, 88, 12];
+          const actionColor = rec.action === 'SELL' ? [220, 38, 38] : rec.action === 'BUY' ? [22, 163, 74] : rec.action === 'HOLD' && rec.changeAmount < 0 ? [217, 119, 6] : rec.action === 'HOLD' ? [107, 114, 128] : rec.action === 'REDUCE' ? [217, 119, 6] : rec.action === 'INCREASE' ? [20, 184, 166] : [234, 88, 12];
           pdf.setFillColor(actionColor[0], actionColor[1], actionColor[2]);
           pdf.rect(margin, yPos, 4, boxHeight, 'F');
           
@@ -1344,7 +1344,12 @@ export default function AgentProspectWizard() {
           pdf.setFont('helvetica', 'bold');
           if (rec.action === 'SWITCH' && rec.switchAmount) {
             pdf.text(`Switch: ${formatRs(rec.switchAmount)}`, margin + 8, yPos + 20);
-          } else if (rec.changeAmount !== undefined) {
+          } else if (rec.action === 'HOLD' && rec.changeAmount < 0 && rec.suggestedValue) {
+            pdf.setTextColor(22, 163, 74);
+            pdf.text(`Hold: ${formatRs(rec.suggestedValue)}`, margin + 8, yPos + 20);
+            pdf.setTextColor(217, 119, 6);
+            pdf.text(`Reduce: ${formatRs(Math.abs(rec.changeAmount))}`, margin + 80, yPos + 20);
+          } else if (rec.changeAmount !== undefined && rec.changeAmount !== 0) {
             const sign = rec.changeAmount < 0 ? '-' : '+';
             pdf.text(`${sign} ${formatRs(Math.abs(rec.changeAmount))}`, margin + 8, yPos + 20);
           }
@@ -5999,6 +6004,7 @@ export default function AgentProspectWizard() {
                   <Card key={idx} className={`${
                     rec.action === 'SELL' ? 'border-l-4 border-l-red-500' :
                     rec.action === 'BUY' ? 'border-l-4 border-l-green-500' :
+                    rec.action === 'HOLD' && rec.changeAmount < 0 ? 'border-l-4 border-l-amber-400' :
                     rec.action === 'HOLD' ? 'border-l-4 border-l-gray-400' :
                     rec.action === 'REDUCE' ? 'border-l-4 border-l-amber-500' :
                     rec.action === 'INCREASE' ? 'border-l-4 border-l-teal-500' :
@@ -6028,13 +6034,31 @@ export default function AgentProspectWizard() {
                           )}
                         </div>
                         <span className={`font-bold ${
-                          rec.action === 'HOLD' ? 'text-gray-500' :
+                          rec.action === 'HOLD' && rec.changeAmount === 0 ? 'text-gray-500' :
+                          rec.action === 'HOLD' && rec.changeAmount < 0 ? 'text-amber-600' :
                           rec.changeAmount < 0 ? 'text-red-600' : 'text-green-600'
                         }`}>
-                          {rec.action === 'HOLD' ? (rec.currentValue ? formatCurrency(rec.currentValue) : 'No action needed') :
-                            `${rec.changeAmount < 0 ? '-' : '+'}${formatCurrency(Math.abs(rec.changeAmount))}`}
+                          {rec.action === 'HOLD' && rec.changeAmount === 0 
+                            ? (rec.currentValue ? formatCurrency(rec.currentValue) : 'No action needed')
+                            : rec.action === 'HOLD' && rec.changeAmount < 0
+                              ? formatCurrency(rec.currentValue)
+                              : `${rec.changeAmount < 0 ? '-' : '+'}${formatCurrency(Math.abs(rec.changeAmount))}`}
                         </span>
                       </div>
+                      {rec.action === 'HOLD' && rec.changeAmount < 0 && rec.suggestedValue != null && (
+                        <div className="flex items-center gap-4 mb-2 text-sm">
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+                            <span className="text-muted-foreground">Hold:</span>
+                            <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(rec.suggestedValue)}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
+                            <span className="text-muted-foreground">Reduce:</span>
+                            <span className="font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(Math.abs(rec.changeAmount))}</span>
+                          </div>
+                        </div>
+                      )}
                       <p className="text-sm text-muted-foreground">{rec.rationale}</p>
                       {rec.isOverridden && rec.override && (
                         <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-md text-xs">
@@ -6700,7 +6724,10 @@ export default function AgentProspectWizard() {
               <div className="grid grid-cols-3 md:grid-cols-6 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Holdings to Keep (HOLD)</p>
-                  <p className="font-semibold">{rebalancing?.filter(r => r.action === 'HOLD').length || holdings.length} instruments</p>
+                  <p className="font-semibold">{rebalancing?.filter(r => r.action === 'HOLD' && r.changeAmount === 0).length || holdings.length} instruments</p>
+                  {(rebalancing?.filter(r => r.action === 'HOLD' && r.changeAmount < 0).length || 0) > 0 && (
+                    <p className="text-xs text-amber-600 mt-0.5">{rebalancing?.filter(r => r.action === 'HOLD' && r.changeAmount < 0).length} with partial reduction</p>
+                  )}
                 </div>
                 <div>
                   <p className="text-muted-foreground">Holdings to Sell</p>
