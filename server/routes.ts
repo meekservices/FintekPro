@@ -26328,7 +26328,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       // Add PMS products if PMS category is requested or all products
       if (!category || category === 'pms' || category === 'PMS') {
         try {
-          const pmsProducts = await db.select().from(schema.pmsMaster).where(eq(schema.pmsMaster.isActive, true));
+          const pmsProducts = await db.select().from(schema.pmsMaster).where(and(eq(schema.pmsMaster.fundStatus, 'active'), eq(schema.pmsMaster.isPublished, true)));
           const pmsMerged = pmsProducts.map(pms => ({
             id: `pms-${pms.id}`,
             name: pms.name,
@@ -26336,17 +26336,17 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             description: pms.description,
             categoryId: 'pms',
             categoryName: 'PMS',
-            subcategoryId: pms.pmsCategory?.toLowerCase() || 'discretionary',
-            subcategoryName: pms.pmsCategory || 'Discretionary',
+            subcategoryId: pms.strategy?.toLowerCase() || 'discretionary',
+            subcategoryName: pms.strategy || 'Discretionary',
             productType: 'pms',
             planType: 'regular',
-            provider: pms.portfolioManager || pms.amcName || '',
-            minimumInvestment: pms.minimumInvestment || 5000000,
-            expectedReturns: pms.targetReturns || 0,
-            riskLevel: pms.riskLevel || 'high',
-            features: pms.features || [],
+            provider: pms.fundHouseName || pms.sponsor || '',
+            minimumInvestment: parseFloat(pms.minInvestment?.toString() || '0') || 5000000,
+            expectedReturns: parseFloat(pms.return1Y?.toString() || '0'),
+            riskLevel: pms.riskScore && pms.riskScore >= 7 ? 'high' : 'moderate',
+            features: [],
             isActive: true,
-            isFeatured: pms.isFeatured || false,
+            isFeatured: false,
             isPremium: true,
             kycProductCode: 'ENHANCED_PMS',
             sourceTable: 'pms_master',
