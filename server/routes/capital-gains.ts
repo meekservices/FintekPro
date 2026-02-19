@@ -351,7 +351,19 @@ export function registerCapitalGainsRoutes(app: Express): void {
         return res.status(400).json({ error: "Holdings array is required" });
       }
 
-      const statusList = await Promise.all(holdings.map(async (holding: any) => {
+      const mfOnly = holdings.filter((h: any) => {
+        const pt = (h.productType || h.assetType || '').toLowerCase();
+        return pt === 'mutual_fund' || pt === 'mf' || pt === 'mutual fund' || pt === '';
+      });
+
+      if (mfOnly.length === 0) {
+        return res.json({
+          holdings: [],
+          summary: { totalHoldings: 0, exitLoadFree: 0, withinExitLoadPeriod: 0, totalExitLoadExposure: 0, holdingsNearExitLoadExpiry: 0 }
+        });
+      }
+
+      const statusList = await Promise.all(mfOnly.map(async (holding: any) => {
         const taxDetails = await proposalCapitalGainsService.calculateHoldingTaxAsync(holding);
         const holdingPeriodDays = Math.floor(
           (Date.now() - new Date(holding.purchaseDate || Date.now()).getTime()) / (1000 * 60 * 60 * 24)

@@ -2163,13 +2163,20 @@ export default function AgentProspectWizard() {
         toast({ title: "Analysis Complete", description: "Portfolio analyzed successfully." });
         setCurrentStep(5);
         
-        // Fetch exit load calendar data
+        // Fetch exit load calendar data (only for mutual funds - exit load doesn't apply to stocks, bonds, etc.)
         try {
-          const exitLoadRes = await fetch("/api/capital-gains/exit-load-status", {
+          const mfHoldings = holdings.filter(h => {
+            const pt = (h.productType || h.assetType || '').toLowerCase();
+            return pt === 'mutual_fund' || pt === 'mf' || pt === 'mutual fund';
+          });
+          if (mfHoldings.length === 0) {
+            setExitLoadData(null as any);
+          }
+          const exitLoadRes = mfHoldings.length > 0 ? await fetch("/api/capital-gains/exit-load-status", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              holdings: holdings.map(h => ({
+              holdings: mfHoldings.map(h => ({
                 name: h.productName,
                 isin: h.isin,
                 currentValue: h.currentValue,
@@ -2177,8 +2184,8 @@ export default function AgentProspectWizard() {
                 productType: h.productType
               }))
             })
-          });
-          if (exitLoadRes.ok) {
+          }) : null;
+          if (exitLoadRes && exitLoadRes.ok) {
             const exitData = await exitLoadRes.json();
             if (exitData.holdings && exitData.summary) {
               setExitLoadData({
