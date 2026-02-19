@@ -1,0 +1,107 @@
+Below is the exact Replit backend ticket (implementation-ready JSON) for formalizing Exit Load classification and documentation in FintekPro.
+This is structured for engineering execution — no ambiguity.
+{
+  "ticket_id": "FTK-BE-CHARGE-001",
+  "title": "Formalize Exit Load Classification & Instrument Charge Taxonomy",
+  "priority": "HIGH",
+  "type": "ARCHITECTURE + COMPLIANCE HARDENING",
+  "owner": "Backend Team",
+  "objective": "Standardize exit load logic to apply only to SEBI-regulated mutual fund schemes and introduce structured charge classification framework for all instrument types.",
+  "problem_statement": "Current exit load filter correctly applies only to mutual funds, but the classification logic is undocumented and lacks a formal charge taxonomy. This creates risk of future misapplication during optimizer or rebalancing engine refactors.",
+  "scope": {
+    "in_scope": [
+      "Add structured documentation comment near exit load filter logic",
+      "Create ChargeType enum",
+      "Add instrument_charge_type field (nullable) in instrument master schema",
+      "Document charge classification matrix in replit.md",
+      "Ensure exit load filter explicitly checks instrument_type === 'MUTUAL_FUND'"
+    ],
+    "out_of_scope": [
+      "Frontend UI changes",
+      "Historical data backfill for charge modeling",
+      "Optimizer cost-function changes (separate ticket)"
+    ]
+  },
+  "implementation_steps": [
+    {
+      "step": 1,
+      "action": "Create ChargeType enum",
+      "details": "Add enum in shared/types/instrument.ts",
+      "code_example": "export enum ChargeType {\n  EXIT_LOAD = 'EXIT_LOAD',\n  LOCK_IN = 'LOCK_IN',\n  SURRENDER_CHARGE = 'SURRENDER_CHARGE',\n  PREMATURE_WITHDRAWAL_PENALTY = 'PREMATURE_WITHDRAWAL_PENALTY',\n  CONTRACTUAL_EXIT_FEE = 'CONTRACTUAL_EXIT_FEE',\n  NONE = 'NONE'\n}"
+    },
+    {
+      "step": 2,
+      "action": "Update Instrument Schema",
+      "details": "Add optional field charge_type to instrument master table",
+      "migration_sql": "ALTER TABLE instruments ADD COLUMN charge_type VARCHAR(50) DEFAULT 'NONE';"
+    },
+    {
+      "step": 3,
+      "action": "Harden Exit Load Filter",
+      "details": "Ensure exit load logic strictly checks MUTUAL_FUND instrument type",
+      "code_example": "if (instrument.instrument_type === 'MUTUAL_FUND') {\n  applyExitLoadLogic();\n}"
+    },
+    {
+      "step": 4,
+      "action": "Add Compliance Documentation Block",
+      "details": "Insert structured comment above exit load filter explaining inclusion/exclusion logic",
+      "documentation_block": "EXIT LOAD APPLICABILITY LOGIC — Applies only to SEBI-regulated open-ended Mutual Fund schemes. Excludes Stocks, ETFs, Bonds/NCDs, FDs, SGBs, PMS, AIF, Insurance (ULIPs). Other exit-like penalties are classified separately."
+    },
+    {
+      "step": 5,
+      "action": "Update replit.md",
+      "details": "Add Instrument Charge Classification Matrix section with regulatory mapping",
+      "matrix_required": true
+    }
+  ],
+  "acceptance_criteria": [
+    "Exit load logic cannot be triggered for ETFs, Stocks, Bonds, REITs, InvITs, AIF, PMS, ULIP",
+    "ChargeType enum available across backend services",
+    "Schema migration successful with no production downtime",
+    "replit.md updated with charge classification matrix",
+    "Unit test confirms exit load applied only when instrument_type = MUTUAL_FUND"
+  ],
+  "unit_test_case": {
+    "test_name": "exit_load_applicability_test",
+    "cases": [
+      {
+        "instrument_type": "MUTUAL_FUND",
+        "expected": "exit load applied if within exit period"
+      },
+      {
+        "instrument_type": "ETF",
+        "expected": "exit load NOT applied"
+      },
+      {
+        "instrument_type": "STOCK",
+        "expected": "exit load NOT applied"
+      }
+    ]
+  },
+  "risk_if_not_implemented": [
+    "Incorrect exit cost modeling in rebalance engine",
+    "Distorted IRR projections",
+    "Regulatory misinterpretation during audit",
+    "Future developer confusion"
+  ],
+  "regulatory_context": {
+    "SEBI": "Exit load applies to open-ended mutual fund schemes",
+    "RBI": "FD premature penalties not classified as exit load",
+    "IRDAI": "ULIP surrender charges separate from exit load concept"
+  },
+  "estimated_effort": "4-6 hours",
+  "rollback_plan": "Revert schema migration and remove enum usage if breaking change detected."
+}
+What This Achieves for FintekPro
+Regulatory defensibility
+Optimizer math purity
+Future multi-asset readiness (REIT, InvIT, ETF expansion)
+Clean separation between liquidity friction vs scheme exit cost
+If you want next-level hardening, I recommend the next ticket:
+FTK-BE-CHARGE-002 — Introduce Friction Cost Modeling Layer for Portfolio Optimizer
+That will mathematically separate:
+Exit load
+STT
+Brokerage
+Impact cost
+Tax

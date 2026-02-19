@@ -69,6 +69,30 @@ A Production Bootstrap & Self-Healing Data System provides automated, idempotent
 | Corporate Treasury | Corporate Treasury Engine | `corporate-treasury-engine.ts` | Corporate treasury management |
 | Explainability | Explainability Engine | `explainability-engine.ts` | AI decision explainability |
 | Signal Orchestration | Signal Orchestrator | `signal-orchestrator.ts` | POTD vs Rebalancing signal conflict resolution with governance matrix, tolerance bands, audit trail |
+| Charge Classification | Instrument Charge Taxonomy | `shared/types/instrument-charges.ts` | ChargeType enum, instrument-to-charge mapping, exit load eligibility checks. All exit load logic MUST use `isMutualFund()` guard. |
+
+### Instrument Charge Classification Matrix
+
+Exit load is a SEBI-regulated charge applicable ONLY to open-ended Mutual Fund schemes. All other exit-like penalties have distinct classifications. Reference: `shared/types/instrument-charges.ts`
+
+| Instrument | ChargeType | Regulator | Notes |
+|---|---|---|---|
+| Mutual Fund (MF) | EXIT_LOAD | SEBI | Varies by scheme/category. Enforced in exit-load-status & exit-load-calendar APIs. |
+| ELSS (Tax Saver MF) | LOCK_IN | SEBI | 3-year mandatory lock-in. No percentage-based exit load. |
+| Stock / Equity | NONE | SEBI | No exit load. STT + brokerage only. |
+| ETF | NONE | SEBI | Exchange-traded. No exit load. |
+| Bond / NCD | NONE | SEBI/RBI | No exit load. May have lock-in period. |
+| FD | PREMATURE_WITHDRAWAL_PENALTY | RBI | Premature penalty, not exit load. |
+| SGB (Gold Bond) | LOCK_IN | RBI | 5-year lock-in, early exit after yr 5. |
+| Digital Gold | NONE | — | No exit load. Spread/premium applies. |
+| PMS | CONTRACTUAL_EXIT_FEE | SEBI | Fund manager-specific. Not standardized. |
+| AIF | CONTRACTUAL_EXIT_FEE | SEBI | Lock-in per PPM terms. |
+| Insurance / ULIP | SURRENDER_CHARGE | IRDAI | Surrender charges, not exit load. |
+| REIT | NONE | SEBI | Exchange-traded. No exit load. |
+| InvIT | NONE | SEBI | Exchange-traded. No exit load. |
+| MLD | LOCK_IN | SEBI | Listed but illiquid. Lock-in per issue. |
+| IPO | NONE | SEBI | Post-listing: exchange-traded. |
+| Unlisted Equity | NONE | — | No exit load. Illiquidity premium. |
 
 ## External Dependencies
 

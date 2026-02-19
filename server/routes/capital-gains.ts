@@ -351,9 +351,16 @@ export function registerCapitalGainsRoutes(app: Express): void {
         return res.status(400).json({ error: "Holdings array is required" });
       }
 
+      /**
+       * EXIT LOAD APPLICABILITY FILTER
+       * Exit load is a SEBI-regulated charge that applies ONLY to open-ended Mutual Fund schemes.
+       * NOT applicable to: Stocks, ETFs, Bonds/NCDs, FDs, SGBs, PMS, AIF, Insurance/ULIPs, REITs, InvITs.
+       * See: shared/types/instrument-charges.ts for full charge taxonomy.
+       */
+      const { isMutualFund } = await import('../../shared/types/instrument-charges');
       const mfOnly = holdings.filter((h: any) => {
-        const pt = (h.productType || h.assetType || '').toLowerCase();
-        return pt === 'mutual_fund' || pt === 'mf' || pt === 'mutual fund' || pt === '';
+        const pt = (h.productType || h.assetType || '').toLowerCase().trim();
+        return isMutualFund(pt);
       });
 
       if (mfOnly.length === 0) {
@@ -714,8 +721,28 @@ export function registerCapitalGainsRoutes(app: Express): void {
         return res.status(400).json({ error: "Holdings array is required" });
       }
 
-      // Calculate exit load status for each holding
-      const holdingsWithDates = await Promise.all(holdings.map(async (holding: any) => {
+      /**
+       * EXIT LOAD APPLICABILITY FILTER
+       * Exit load is a SEBI-regulated charge that applies ONLY to open-ended Mutual Fund schemes.
+       * NOT applicable to: Stocks, ETFs, Bonds/NCDs, FDs, SGBs, PMS, AIF, Insurance/ULIPs, REITs, InvITs.
+       * See: shared/types/instrument-charges.ts for full charge taxonomy.
+       */
+      const { isMutualFund } = await import('../../shared/types/instrument-charges');
+      const mfHoldings = holdings.filter((h: any) => {
+        const pt = (h.productType || h.assetType || '').toLowerCase().trim();
+        return isMutualFund(pt);
+      });
+
+      if (mfHoldings.length === 0) {
+        return res.json({
+          holdings: [],
+          calendar: {},
+          summary: { totalHoldings: 0, alreadyExitLoadFree: 0, pendingExitLoadFree: 0, alreadyLTCGEligible: 0, pendingLTCGEligible: 0, totalPendingExitLoad: 0, upcomingEvents: 0 }
+        });
+      }
+
+      // Calculate exit load status for each holding (MF only)
+      const holdingsWithDates = await Promise.all(mfHoldings.map(async (holding: any) => {
         const taxDetails = await proposalCapitalGainsService.calculateHoldingTaxAsync(holding);
         const purchaseDate = new Date(holding.purchaseDate || Date.now());
         
@@ -847,7 +874,7 @@ export function registerCapitalGainsRoutes(app: Express): void {
 
       // Summary
       const summary = {
-        totalHoldings: holdings.length,
+        totalHoldings: mfHoldings.length,
         alreadyExitLoadFree: holdingsWithDates.filter(h => h.isExitLoadFree).length,
         pendingExitLoadFree: holdingsWithDates.filter(h => !h.isExitLoadFree).length,
         alreadyLTCGEligible: holdingsWithDates.filter(h => h.isLTCGEligible).length,

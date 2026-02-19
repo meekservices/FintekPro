@@ -129,7 +129,11 @@ const SURCHARGE_SLABS = [
   { min: 50000000, max: Infinity, rate: 0.37 }
 ];
 
-// Exit load assumptions (typical for MF)
+/**
+ * Exit load assumptions (typical for SEBI-regulated open-ended Mutual Fund schemes ONLY).
+ * NOT applicable to: Stocks, ETFs, Bonds/NCDs, FDs, SGBs, PMS, AIF, Insurance/ULIPs, REITs, InvITs.
+ * See: shared/types/instrument-charges.ts for full charge taxonomy (ChargeType enum).
+ */
 const EXIT_LOAD_RULES = {
   equity: { withinDays: 365, rate: 0.01 }, // 1% if redeemed within 1 year
   debt: { withinDays: 365, rate: 0.005 }, // 0.5% typical

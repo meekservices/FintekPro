@@ -2,6 +2,12 @@
  * Centralized Exit Load Service
  * Provides ISIN/schemeCode-based exit load lookup for all FintekPro services
  * Features: Database lookup, in-memory caching, generic fallback rates, lot-wise calculations
+ * 
+ * EXIT LOAD APPLICABILITY:
+ * This service applies ONLY to SEBI-regulated open-ended Mutual Fund schemes.
+ * Exit load does NOT apply to: Stocks, ETFs, Bonds/NCDs, FDs, SGBs, PMS, AIF, Insurance/ULIPs, REITs, InvITs.
+ * Other exit-like penalties (surrender charges, premature withdrawal penalties, contractual exit fees)
+ * are classified separately. See: shared/types/instrument-charges.ts for the full charge taxonomy.
  */
 
 import { db } from "../db";

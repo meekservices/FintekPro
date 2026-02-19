@@ -2163,10 +2163,14 @@ export default function AgentProspectWizard() {
         toast({ title: "Analysis Complete", description: "Portfolio analyzed successfully." });
         setCurrentStep(5);
         
-        // Fetch exit load calendar data (only for mutual funds - exit load doesn't apply to stocks, bonds, etc.)
+        /**
+         * EXIT LOAD APPLICABILITY: SEBI-regulated charge for open-ended Mutual Fund schemes ONLY.
+         * NOT applicable to: Stocks, ETFs, Bonds/NCDs, FDs, SGBs, PMS, AIF, Insurance/ULIPs, REITs, InvITs.
+         * See: shared/types/instrument-charges.ts for full charge taxonomy.
+         */
         try {
           const mfHoldings = holdings.filter(h => {
-            const pt = (h.productType || h.assetType || '').toLowerCase();
+            const pt = (h.productType || h.assetType || '').toLowerCase().trim();
             return pt === 'mutual_fund' || pt === 'mf' || pt === 'mutual fund';
           });
           if (mfHoldings.length === 0) {
