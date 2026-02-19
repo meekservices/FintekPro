@@ -14,9 +14,10 @@ process.on('SIGHUP', () => {
   process.exit(0);
 });
 
+// Throttle flag for Neon library non-fatal errors
+let neonErrorThrottled = false;
+
 // Global error handlers to prevent Neon serverless library crashes
-// The @neondatabase/serverless v0.10.4 has a bug where it tries to set
-// a read-only property on ErrorEvent when handling connection terminations
 process.on('uncaughtException', (error: Error) => {
   if (error.message?.includes('socket hang up') || 
       error.message?.includes('ECONNRESET') || 
@@ -30,11 +31,14 @@ process.on('uncaughtException', (error: Error) => {
     console.warn('[Global] Network/stream error (non-fatal):', error.message);
     return;
   }
-  // Ignore the specific Neon library bug that crashes on connection errors
   if (error.message?.includes('Cannot set property message of') && 
       error.message?.includes('which has only a getter')) {
-    console.error('[Global] Caught Neon library error (non-fatal):', error.message);
-    return; // Don't crash the process
+    if (!neonErrorThrottled) {
+      neonErrorThrottled = true;
+      console.warn('[Global] Neon library error (non-fatal, throttling further occurrences for 5m)');
+      setTimeout(() => { neonErrorThrottled = false; }, 5 * 60 * 1000);
+    }
+    return;
   }
   // For other uncaught exceptions, log but don't crash in development
   console.error('[Global] Uncaught exception:', error);

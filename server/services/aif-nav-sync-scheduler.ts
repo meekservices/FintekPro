@@ -85,20 +85,25 @@ class AifNavSyncScheduler {
     let errors = 0;
     
     try {
-      // Get all AIF funds that need NAV update (stale > 24h or never updated)
       const staleThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
       
-      const staleFunds = await db.select({
-        id: aifFunds.id,
-        fundName: aifFunds.fundName,
-        nav: aifFunds.nav,
-        navDate: aifFunds.navDate,
-        amcName: aifFunds.amcName
-      })
-        .from(aifFunds)
-        .where(sql`${aifFunds.updatedAt} IS NULL OR ${aifFunds.updatedAt} < ${staleThreshold}`)
-        .orderBy(sql`COALESCE(${aifFunds.updatedAt}, '1970-01-01'::timestamp) ASC`)
-        .limit(100);
+      let staleFunds: any[] = [];
+      try {
+        staleFunds = await db.select({
+          id: aifFunds.id,
+          fundName: aifFunds.fundName,
+          nav: aifFunds.nav,
+          navDate: aifFunds.navDate,
+          amcName: aifFunds.amcName
+        })
+          .from(aifFunds)
+          .where(sql`${aifFunds.updatedAt} IS NULL OR ${aifFunds.updatedAt} < ${staleThreshold}`)
+          .orderBy(sql`COALESCE(${aifFunds.updatedAt}, '1970-01-01'::timestamp) ASC`)
+          .limit(100);
+      } catch (queryErr: any) {
+        console.warn('[AIF Sync] Query failed (table may not exist):', queryErr.message);
+        return { updated: 0, errors: 0 };
+      }
       
       console.log(`[AIF Sync] Found ${staleFunds.length} stale AIF funds to refresh`);
       
@@ -132,11 +137,16 @@ class AifNavSyncScheduler {
     
     const staleThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
-    const [countResult] = await db.select({ count: sql<number>`count(*)` })
-      .from(aifFunds)
-      .where(sql`${aifFunds.updatedAt} IS NULL OR ${aifFunds.updatedAt} < ${staleThreshold}`);
-    
-    const staleFundCount = Number(countResult?.count || 0);
+    let staleFundCount = 0;
+    try {
+      const [countResult] = await db.select({ count: sql<number>`count(*)` })
+        .from(aifFunds)
+        .where(sql`${aifFunds.updatedAt} IS NULL OR ${aifFunds.updatedAt} < ${staleThreshold}`);
+      staleFundCount = Number(countResult?.count || 0);
+    } catch (queryErr: any) {
+      console.warn('[AIF Sync] Count query failed:', queryErr.message);
+      return { updated: 0, errors: 0 };
+    }
     console.log(`[AIF Sync] Found ${staleFundCount} AIF funds needing refresh`);
     
     if (staleFundCount === 0) {

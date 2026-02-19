@@ -579,7 +579,8 @@ class StockFinancialEnrichmentService {
     };
   }
 
-  private mergeFinancials(base: Partial<StockFinancials>, override: Partial<StockFinancials>): Partial<StockFinancials> {
+  private mergeFinancials(base: Partial<StockFinancials>, override: Partial<StockFinancials> | null | undefined): Partial<StockFinancials> {
+    if (!override) return base;
     const merged = { ...base };
     for (const [key, value] of Object.entries(override)) {
       if (value != null && (merged as any)[key] == null) {

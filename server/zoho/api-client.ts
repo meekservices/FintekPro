@@ -209,6 +209,7 @@ export class ZohoApiClient {
     status: 'success' | 'failure',
     errorMessage?: string
   ): Promise<void> {
+    if (!this.connectionId) return;
     try {
       await db.insert(zohoSyncLogs).values({
         connectionId: this.connectionId,
@@ -227,8 +228,13 @@ export class ZohoApiClient {
         durationMs,
         triggeredBy: 'api_client'
       });
-    } catch (error) {
-      console.error('Failed to log Zoho API request:', error);
+    } catch (error: any) {
+      const msg = String(error?.message || '');
+      if (msg.includes('foreign key constraint')) {
+        console.warn(`[Zoho API] Skipping log (connection ${this.connectionId} not in DB)`);
+      } else {
+        console.error('Failed to log Zoho API request:', error);
+      }
     }
   }
 
