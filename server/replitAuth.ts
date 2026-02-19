@@ -76,11 +76,11 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
     errorLog: (error: Error) => {
-      // Log session store errors but don't crash - these are often transient
-      if (error.message.includes('timeout')) {
-        console.log('[Session Store] Database timeout (will retry):', error.message);
+      const msg = error?.message || String(error) || 'Unknown session store error';
+      if (msg.includes('timeout')) {
+        console.log('[Session Store] Database timeout (will retry):', msg);
       } else {
-        console.log('[Session Store] Database error:', error.message);
+        console.log('[Session Store] Database error:', msg);
       }
     },
     pruneSessionInterval: 60 * 60, // Prune expired sessions every hour (in seconds)
@@ -88,7 +88,7 @@ export function getSession() {
   
   // Handle session store errors gracefully - don't throw
   sessionStore.on('error', (error: Error) => {
-    console.log('[Session Store] Connection error (will auto-retry):', error.message);
+    console.log('[Session Store] Connection error (will auto-retry):', error?.message || String(error));
   });
   
   // Determine if we're on a custom domain or Replit domain
