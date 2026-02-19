@@ -1092,6 +1092,13 @@ app.use((req, res, next) => {
     console.error('❌ Failed to seed store categories:', error);
   });
 
+  // Seed central test account (test@fintekpro.com / Test@123456 / OTP: 123456)
+  import('./seed-test-user').then(({ seedTestUser }) => {
+    seedTestUser().catch(error => {
+      console.error('⚠️ Failed to seed test user:', error instanceof Error ? error.message : error);
+    });
+  }).catch(() => {});
+
   // Comprehensive data bootstrap: seed all reference data
   setTimeout(async () => {
     try {
