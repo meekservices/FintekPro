@@ -859,10 +859,20 @@ export default function AgentDemoProposalBuilder() {
       category = 'very_aggressive';
       tolerance = 'Very high risk tolerance - maximum growth potential';
     }
+
+    const prevCategory = config.riskProfile.category;
+    const allocation = DEFAULT_ALLOCATIONS[category];
+    const selectedCats = Object.entries(allocation)
+      .filter(([_, v]) => v > 0)
+      .map(([key]) => key);
     
     setConfig(prev => ({
       ...prev,
       riskProfile: { score, category, tolerance },
+      ...(category !== prevCategory ? {
+        assetAllocation: { ...allocation },
+        selectedCategories: selectedCats,
+      } : {}),
     }));
   };
 
@@ -887,16 +897,23 @@ export default function AgentDemoProposalBuilder() {
       case 1:
         return !!selectedClient;
       case 2:
-        return config.investmentGoals.primaryGoal && config.investmentGoals.targetAmount > 0;
-      case 3:
+        return !!(config.investmentGoals.primaryGoal && config.investmentGoals.investmentHorizon && config.investmentGoals.targetAmount > 0);
+      case 3: {
         const total = Object.values(config.assetAllocation).reduce((a, b) => a + b, 0);
         return total === 100;
+      }
       case 4:
-        return config.riskProfile.score >= 0;
+        return config.riskProfile.score >= 0 && !!config.riskProfile.category;
       case 5:
-        return Object.values(config.sections).some(v => v);
+        return true;
       case 6:
         return Object.values(config.sections).some(v => v);
+      case 7:
+        return Object.values(config.sections).some(v => v);
+      case 8: {
+        const allocTotal = Object.values(config.assetAllocation).reduce((a, b) => a + b, 0);
+        return !!selectedClient && allocTotal === 100 && Object.values(config.sections).some(v => v);
+      }
       default:
         return true;
     }
@@ -1302,13 +1319,7 @@ export default function AgentDemoProposalBuilder() {
                                       <Slider
                                         value={[value]}
                                         onValueChange={(val) => {
-                                          setConfig(prev => ({
-                                            ...prev,
-                                            assetAllocation: {
-                                              ...prev.assetAllocation,
-                                              [category.id]: val[0]
-                                            }
-                                          }));
+                                          handleAllocationChange(category.id as keyof AssetAllocation, val[0]);
                                         }}
                                         max={100}
                                         step={1}
@@ -1482,40 +1493,26 @@ export default function AgentDemoProposalBuilder() {
                       </div>
 
                       <div>
-                        <h3 className="font-semibold mb-4">Recommended Portfolio Mix</h3>
+                        <h3 className="font-semibold mb-4">Current Portfolio Mix</h3>
                         <div className="space-y-3">
-                          {config.riskProfile.category === 'conservative' && (
-                            <>
-                              <div className="flex justify-between"><span>Equity</span><span>20-30%</span></div>
-                              <div className="flex justify-between"><span>Debt</span><span>50-60%</span></div>
-                              <div className="flex justify-between"><span>Gold</span><span>10-15%</span></div>
-                              <div className="flex justify-between"><span>Cash</span><span>5-10%</span></div>
-                            </>
-                          )}
-                          {config.riskProfile.category === 'moderate' && (
-                            <>
-                              <div className="flex justify-between"><span>Equity</span><span>40-50%</span></div>
-                              <div className="flex justify-between"><span>Debt</span><span>30-40%</span></div>
-                              <div className="flex justify-between"><span>Gold</span><span>10-15%</span></div>
-                              <div className="flex justify-between"><span>Cash</span><span>5%</span></div>
-                            </>
-                          )}
-                          {config.riskProfile.category === 'aggressive' && (
-                            <>
-                              <div className="flex justify-between"><span>Equity</span><span>60-70%</span></div>
-                              <div className="flex justify-between"><span>Debt</span><span>15-25%</span></div>
-                              <div className="flex justify-between"><span>Gold</span><span>5-10%</span></div>
-                              <div className="flex justify-between"><span>Cash</span><span>5%</span></div>
-                            </>
-                          )}
-                          {config.riskProfile.category === 'very_aggressive' && (
-                            <>
-                              <div className="flex justify-between"><span>Equity</span><span>75-85%</span></div>
-                              <div className="flex justify-between"><span>Debt</span><span>5-15%</span></div>
-                              <div className="flex justify-between"><span>Gold/Alternatives</span><span>5-10%</span></div>
-                              <div className="flex justify-between"><span>Cash</span><span>0-5%</span></div>
-                            </>
-                          )}
+                          {ASSET_CATEGORIES.map(cat => {
+                            const value = config.assetAllocation[cat.id as keyof AssetAllocation] || 0;
+                            if (value === 0) return null;
+                            return (
+                              <div key={cat.id} className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-2.5 h-2.5 rounded-full ${cat.color}`} />
+                                  <span className="text-sm">{cat.name}</span>
+                                </div>
+                                <span className="font-medium text-sm">{value}%</span>
+                              </div>
+                            );
+                          })}
+                          <Separator className="my-2" />
+                          <div className="flex justify-between font-semibold">
+                            <span>Total</span>
+                            <span className={allocationTotal === 100 ? 'text-green-600' : 'text-red-600'}>{allocationTotal}%</span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1610,13 +1607,26 @@ export default function AgentDemoProposalBuilder() {
                       
                       <TabsContent value="training" className="space-y-4 mt-4">
                         <AdvisorTrainingPanel
-                          diversificationScore={{
-                            score: 72,
-                            grade: "GOOD",
-                            penalties: [],
-                            stockExposures: [],
-                            sectorExposures: []
-                          }}
+                          diversificationScore={(() => {
+                            const alloc = config.assetAllocation;
+                            const nonZero = Object.values(alloc).filter(v => v > 0);
+                            const categoryCount = nonZero.length;
+                            const maxSingle = Math.max(...nonZero, 0);
+                            const penalties: string[] = [];
+                            let score = 50;
+                            score += Math.min(categoryCount * 4, 30);
+                            if (maxSingle > 40) penalties.push(`Single category at ${maxSingle}% (concentration risk)`);
+                            if (maxSingle <= 30) score += 15;
+                            else if (maxSingle <= 40) score += 8;
+                            else score -= (maxSingle - 40);
+                            const globalAlloc = (alloc.us_markets || 0) + (alloc.europe_markets || 0) + (alloc.asia_pacific_markets || 0) + (alloc.emerging_markets || 0);
+                            if (globalAlloc > 0) score += 5;
+                            else penalties.push('No international diversification');
+                            if ((alloc.reit || 0) + (alloc.invit || 0) > 0) score += 3;
+                            const finalScore = Math.max(10, Math.min(100, Math.round(score)));
+                            const grade = finalScore >= 80 ? 'EXCELLENT' : finalScore >= 60 ? 'GOOD' : finalScore >= 40 ? 'FAIR' : 'POOR';
+                            return { score: finalScore, grade, penalties, stockExposures: [], sectorExposures: [] };
+                          })()}
                           selectedGoal={config.investmentGoals.primaryGoal}
                           isAdvisor={true}
                         />
@@ -1926,7 +1936,7 @@ export default function AgentDemoProposalBuilder() {
                       <Alert>
                         <AlertTriangle className="h-4 w-4" />
                         <AlertDescription>
-                          No sections selected. Go back to Step 5 to select at least one section.
+                          No sections selected. Go back to Step 6 to select at least one section.
                         </AlertDescription>
                       </Alert>
                     )}

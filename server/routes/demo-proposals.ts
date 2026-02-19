@@ -35,13 +35,15 @@ const proposalConfigSchema = z.object({
     bonds: z.coerce.number().min(0).max(100).optional().default(0),
     listed_stocks: z.coerce.number().min(0).max(100).optional().default(0),
     unlisted_stocks: z.coerce.number().min(0).max(100).optional().default(0),
+    etf: z.coerce.number().min(0).max(100).optional().default(0),
   }).refine(data => {
     const total = (data.equity || 0) + (data.debt || 0) + (data.gold || 0) + 
                   (data.realestate || 0) + (data.cash || 0) + (data.hybrid || 0) +
                   (data.index || 0) + (data.international || 0) + (data.us_markets || 0) +
                   (data.europe_markets || 0) + (data.asia_pacific_markets || 0) + 
                   (data.emerging_markets || 0) + (data.reit || 0) + (data.invit || 0) +
-                  (data.bonds || 0) + (data.listed_stocks || 0) + (data.unlisted_stocks || 0);
+                  (data.bonds || 0) + (data.listed_stocks || 0) + (data.unlisted_stocks || 0) +
+                  (data.etf || 0);
     return total === 100;
   }, { message: "Asset allocation must total 100%" }),
   riskProfile: z.object({
@@ -559,11 +561,16 @@ agentDemoRouter.post("/generate-pdf", async (req: Request, res: Response) => {
       investmentGoals: config.investmentGoals,
       riskProfile: config.riskProfile,
       proposedAllocation: {
-        equity: config.assetAllocation.equity,
-        debt: config.assetAllocation.debt,
-        gold: config.assetAllocation.gold,
-        realestate: config.assetAllocation.realestate || 0,
-        cash: config.assetAllocation.cash,
+        equity: (config.assetAllocation.equity || 0) + (config.assetAllocation.index || 0) + 
+                (config.assetAllocation.listed_stocks || 0) + (config.assetAllocation.etf || 0) +
+                (config.assetAllocation.hybrid || 0) + (config.assetAllocation.unlisted_stocks || 0) +
+                (config.assetAllocation.us_markets || 0) + (config.assetAllocation.europe_markets || 0) +
+                (config.assetAllocation.asia_pacific_markets || 0) + (config.assetAllocation.emerging_markets || 0) +
+                (config.assetAllocation.international || 0),
+        debt: (config.assetAllocation.debt || 0) + (config.assetAllocation.bonds || 0),
+        gold: config.assetAllocation.gold || 0,
+        realestate: (config.assetAllocation.reit || 0) + (config.assetAllocation.invit || 0),
+        cash: (config.assetAllocation.cash || 0),
         totalValue: config.investmentGoals.targetAmount,
       },
       sections: config.sections as ProposalPdfConfig['sections'],
@@ -619,12 +626,34 @@ agentDemoRouter.post("/generate-pdf", async (req: Request, res: Response) => {
     const agentName = agentData ? [agentData.firstName, agentData.lastName].filter(Boolean).join(' ') || 'Agent' : 'Agent';
     const agent = { name: agentName, email: agentData?.email || '', mobile: agentData?.mobile || '' };
     
-    // Build recommendations array from config
-    const recommendations = [
-      { productType: 'Equity', productName: 'Diversified Equity Fund', recommendedAmount: targetAmount * (config.assetAllocation.equity / 100), allocationPercentage: config.assetAllocation.equity, investmentType: 'sip', selectionReason: 'Equity allocation for growth' },
-      { productType: 'Debt', productName: 'Corporate Bond Fund', recommendedAmount: targetAmount * (config.assetAllocation.debt / 100), allocationPercentage: config.assetAllocation.debt, investmentType: 'lumpsum', selectionReason: 'Debt allocation for stability' },
-      { productType: 'Gold', productName: 'Gold ETF', recommendedAmount: targetAmount * (config.assetAllocation.gold / 100), allocationPercentage: config.assetAllocation.gold, investmentType: 'lumpsum', selectionReason: 'Gold allocation for hedge' },
-    ].filter(r => r.allocationPercentage > 0);
+    const recommendationMap = [
+      { key: 'equity', type: 'Equity MF', name: 'Diversified Equity Fund', investType: 'sip', reason: 'Equity allocation for growth' },
+      { key: 'debt', type: 'Debt MF', name: 'Corporate Bond Fund', investType: 'lumpsum', reason: 'Debt allocation for stability' },
+      { key: 'hybrid', type: 'Hybrid MF', name: 'Balanced Advantage Fund', investType: 'sip', reason: 'Hybrid allocation for balance' },
+      { key: 'gold', type: 'Gold', name: 'Gold ETF', investType: 'lumpsum', reason: 'Gold allocation for hedge' },
+      { key: 'index', type: 'Index Fund', name: 'Nifty 50 Index Fund', investType: 'sip', reason: 'Index allocation for passive growth' },
+      { key: 'etf', type: 'ETF', name: 'Exchange Traded Fund', investType: 'lumpsum', reason: 'ETF allocation for diversification' },
+      { key: 'us_markets', type: 'US Markets', name: 'US Equity Fund', investType: 'sip', reason: 'US market exposure' },
+      { key: 'europe_markets', type: 'Europe', name: 'Europe Fund', investType: 'sip', reason: 'European market exposure' },
+      { key: 'asia_pacific_markets', type: 'Asia-Pacific', name: 'Asia-Pacific Fund', investType: 'sip', reason: 'Asia-Pacific market exposure' },
+      { key: 'emerging_markets', type: 'Emerging Markets', name: 'Emerging Markets Fund', investType: 'sip', reason: 'Emerging market exposure' },
+      { key: 'reit', type: 'REIT', name: 'Real Estate Investment Trust', investType: 'lumpsum', reason: 'Real estate exposure' },
+      { key: 'invit', type: 'InvIT', name: 'Infrastructure Investment Trust', investType: 'lumpsum', reason: 'Infrastructure exposure' },
+      { key: 'bonds', type: 'Bonds', name: 'Direct Bond/NCD', investType: 'lumpsum', reason: 'Fixed income allocation' },
+      { key: 'listed_stocks', type: 'Listed Stocks', name: 'Direct Equity', investType: 'lumpsum', reason: 'Direct equity exposure' },
+      { key: 'unlisted_stocks', type: 'Unlisted', name: 'Pre-IPO Shares', investType: 'lumpsum', reason: 'Unlisted equity exposure' },
+      { key: 'cash', type: 'Liquid', name: 'Liquid Fund', investType: 'lumpsum', reason: 'Liquidity allocation' },
+    ];
+    const recommendations = recommendationMap
+      .filter(r => (config.assetAllocation[r.key] || 0) > 0)
+      .map(r => ({
+        productType: r.type,
+        productName: r.name,
+        recommendedAmount: targetAmount * ((config.assetAllocation[r.key] || 0) / 100),
+        allocationPercentage: config.assetAllocation[r.key] || 0,
+        investmentType: r.investType,
+        selectionReason: r.reason,
+      }));
     
     const proposalTitle = proposalName || `Investment Proposal - ${clientData.fullName}`;
     
