@@ -44,15 +44,48 @@ interface MonthlyEstimate {
 }
 
 const DEFAULT_PROVIDERS: ProviderPricing[] = [
-  { providerName: 'sandbox', displayName: 'Sandbox.co.in', description: 'PAN verification, MCA data, GSTIN', costPerCall: 2 },
-  { providerName: 'truthscreen', displayName: 'Truthscreen/AuthBridge', description: 'Aadhaar verification, CKYC, eSign', costPerCall: 3 },
-  { providerName: 'cashfree', displayName: 'Cashfree', description: 'Payments, Payouts, Verification', costPerCall: 2 },
-  { providerName: 'phonepe', displayName: 'PhonePe', description: 'Payment gateway', costPerCall: 0 },
-  { providerName: 'twilio', displayName: 'Twilio', description: 'SMS & WhatsApp messaging', costPerCall: 0.5 },
-  { providerName: 'probe42', displayName: 'Probe42', description: 'Company analytics', costPerCall: 5 },
+  // Sandbox.co.in — separate services
+  { providerName: 'sandbox-pan', displayName: 'Sandbox — PAN Verification', description: 'PAN card identity verification', costPerCall: 2 },
+  { providerName: 'sandbox-mca', displayName: 'Sandbox — MCA Data', description: 'Ministry of Corporate Affairs company data', costPerCall: 3 },
+  { providerName: 'sandbox-gstin', displayName: 'Sandbox — GSTIN Verification', description: 'GST identification number verification', costPerCall: 1.5 },
+
+  // Truthscreen/AuthBridge — separate services
+  { providerName: 'truthscreen-aadhaar', displayName: 'AuthBridge — Aadhaar Verification', description: 'Aadhaar identity verification (OTP/offline)', costPerCall: 3 },
+  { providerName: 'truthscreen-ckyc', displayName: 'AuthBridge — CKYC Search', description: 'Central KYC registry lookup', costPerCall: 5 },
+  { providerName: 'truthscreen-esign', displayName: 'AuthBridge — eSign', description: 'Aadhaar-based electronic signature', costPerCall: 10 },
+
+  // Cashfree — separate services
+  { providerName: 'cashfree-payments', displayName: 'Cashfree — Payment Gateway', description: 'Online payment collection (UPI, cards, netbanking)', costPerCall: 0 },
+  { providerName: 'cashfree-payouts', displayName: 'Cashfree — Payouts', description: 'Bank transfer payouts to beneficiaries', costPerCall: 5 },
+  { providerName: 'cashfree-pan', displayName: 'Cashfree — PAN Verification', description: 'PAN card verification via Cashfree', costPerCall: 2 },
+  { providerName: 'cashfree-bank', displayName: 'Cashfree — Bank Verification', description: 'Bank account penny drop verification', costPerCall: 3 },
+
+  // PhonePe — single service
+  { providerName: 'phonepe', displayName: 'PhonePe — Payment Gateway', description: 'UPI & payment gateway', costPerCall: 0 },
+
+  // Twilio — separate services
+  { providerName: 'twilio-sms', displayName: 'Twilio — SMS', description: 'SMS OTP & notifications', costPerCall: 0.5 },
+  { providerName: 'twilio-whatsapp', displayName: 'Twilio — WhatsApp', description: 'WhatsApp business messaging', costPerCall: 0.3 },
+
+  // Probe42 — separate services
+  { providerName: 'probe42-details', displayName: 'Probe42 — Company Details', description: 'Company master data & directors', costPerCall: 5 },
+  { providerName: 'probe42-financials', displayName: 'Probe42 — Company Financials', description: 'Balance sheet, P&L, cash flow', costPerCall: 8 },
+  { providerName: 'probe42-ratios', displayName: 'Probe42 — Company Ratios', description: 'Financial ratios & analytics', costPerCall: 5 },
+
+  // Google Gemini — single service
   { providerName: 'gemini', displayName: 'Google Gemini', description: 'AI features (fallback)', costPerCall: 0.01 },
-  { providerName: 'zoho', displayName: 'Zoho', description: 'CRM, Books, Campaigns, Meeting, Sign', costPerCall: 0 },
+
+  // Zoho — separate services
+  { providerName: 'zoho-crm', displayName: 'Zoho — CRM', description: 'Lead & contact management, deal pipeline', costPerCall: 0 },
+  { providerName: 'zoho-books', displayName: 'Zoho — Books', description: 'Invoicing & accounting', costPerCall: 0 },
+  { providerName: 'zoho-campaigns', displayName: 'Zoho — Campaigns', description: 'Email marketing campaigns', costPerCall: 0 },
+  { providerName: 'zoho-meeting', displayName: 'Zoho — Meeting', description: 'Video conferencing & webinars', costPerCall: 0 },
+  { providerName: 'zoho-sign', displayName: 'Zoho — Sign', description: 'Document digital signing', costPerCall: 0 },
+
+  // OpenAI — single service
   { providerName: 'openai', displayName: 'OpenAI', description: 'Primary AI engine (recommendations, analysis)', costPerCall: 0.03 },
+
+  // Financial data providers — single service each
   { providerName: 'fmp', displayName: 'Financial Modeling Prep', description: 'Stock financials, ETF data, batch quotes', costPerCall: 0.01 },
   { providerName: 'finnhub', displayName: 'Finnhub', description: 'Stock metrics, real-time market data', costPerCall: 0 },
   { providerName: 'yahoo', displayName: 'Yahoo Finance', description: 'Stock prices, fallback provider', costPerCall: 0 },
@@ -61,11 +94,23 @@ const DEFAULT_PROVIDERS: ProviderPricing[] = [
   { providerName: 'amfi', displayName: 'AMFI', description: 'Mutual fund NAV, scheme data', costPerCall: 0 },
   { providerName: 'polygon', displayName: 'Polygon.io', description: 'US market data, flat files', costPerCall: 0.01 },
   { providerName: 'alphavantage', displayName: 'Alpha Vantage', description: 'Financial data, technical indicators', costPerCall: 0.01 },
-  { providerName: 'turtlefin', displayName: 'Turtlefin', description: 'Insurance APIs', costPerCall: 1 },
-  { providerName: 'protean', displayName: 'Protean (NSDL)', description: 'Aadhaar eSign, KRA verification', costPerCall: 3 },
+
+  // Turtlefin — separate services
+  { providerName: 'turtlefin-life', displayName: 'Turtlefin — Life Insurance', description: 'Life insurance quotes & issuance', costPerCall: 1 },
+  { providerName: 'turtlefin-health', displayName: 'Turtlefin — Health Insurance', description: 'Health insurance quotes & issuance', costPerCall: 1 },
+  { providerName: 'turtlefin-general', displayName: 'Turtlefin — General Insurance', description: 'Motor, travel, property insurance', costPerCall: 1 },
+
+  // Protean (NSDL) — separate services
+  { providerName: 'protean-esign', displayName: 'Protean — Aadhaar eSign', description: 'NSDL Aadhaar-based electronic signature', costPerCall: 4 },
+  { providerName: 'protean-kra', displayName: 'Protean — KRA Verification', description: 'KYC Registration Agency verification', costPerCall: 2 },
+
+  // CIBIL — separate services
+  { providerName: 'cibil-score', displayName: 'CIBIL — Credit Score', description: 'TransUnion CIBIL score fetch', costPerCall: 12 },
+  { providerName: 'cibil-report', displayName: 'CIBIL — Credit Report', description: 'Detailed credit report with history', costPerCall: 25 },
+
+  // Utility providers — single service each
   { providerName: 'exchangerate', displayName: 'Exchange Rate API', description: 'Currency conversion rates', costPerCall: 0 },
   { providerName: 'smtp', displayName: 'SMTP/Nodemailer', description: 'Email delivery', costPerCall: 0 },
-  { providerName: 'cibil', displayName: 'CIBIL', description: 'Credit score, credit report', costPerCall: 15 },
 ];
 
 class ApiUsageTrackingService {
@@ -129,13 +174,35 @@ class ApiUsageTrackingService {
     }
   }
 
+  private resolveProviderKey(provider: string, endpoint?: string): string {
+    const key = provider.toLowerCase();
+    if (this.providerPricing.has(key)) return key;
+
+    const ep = (endpoint || '').toLowerCase();
+    const LEGACY_MAP: Record<string, (ep: string) => string> = {
+      'sandbox': (ep) => ep.includes('gstin') ? 'sandbox-gstin' : ep.includes('mca') ? 'sandbox-mca' : 'sandbox-pan',
+      'truthscreen': (ep) => ep.includes('ckyc') ? 'truthscreen-ckyc' : ep.includes('esign') || ep.includes('sign') ? 'truthscreen-esign' : 'truthscreen-aadhaar',
+      'cashfree': (ep) => ep.includes('payout') ? 'cashfree-payouts' : ep.includes('pan') ? 'cashfree-pan' : ep.includes('bank') || ep.includes('penny') ? 'cashfree-bank' : 'cashfree-payments',
+      'twilio': (ep) => ep.includes('whatsapp') ? 'twilio-whatsapp' : 'twilio-sms',
+      'probe42': (ep) => ep.includes('financial') ? 'probe42-financials' : ep.includes('ratio') ? 'probe42-ratios' : 'probe42-details',
+      'zoho': (ep) => ep.includes('book') ? 'zoho-books' : ep.includes('campaign') ? 'zoho-campaigns' : ep.includes('meeting') ? 'zoho-meeting' : ep.includes('sign') ? 'zoho-sign' : 'zoho-crm',
+      'protean': (ep) => ep.includes('kra') ? 'protean-kra' : 'protean-esign',
+      'turtlefin': (ep) => ep.includes('health') ? 'turtlefin-health' : ep.includes('general') || ep.includes('motor') ? 'turtlefin-general' : 'turtlefin-life',
+      'cibil': (ep) => ep.includes('report') ? 'cibil-report' : 'cibil-score',
+    };
+
+    const mapper = LEGACY_MAP[key];
+    return mapper ? mapper(ep) : key;
+  }
+
   async logApiCall(params: ApiCallLogParams): Promise<void> {
     try {
-      const pricing = this.providerPricing.get(params.provider.toLowerCase());
+      const resolvedProvider = this.resolveProviderKey(params.provider, params.endpoint);
+      const pricing = this.providerPricing.get(resolvedProvider);
       const cost = pricing?.costPerCall || 0;
 
       await db.insert(schema.apiUsageLogs).values({
-        provider: params.provider.toLowerCase(),
+        provider: resolvedProvider,
         apiEndpoint: params.endpoint,
         apiMethod: params.method || 'POST',
         userId: params.userId,

@@ -17,11 +17,11 @@ import { requireAuth, requireRole } from '../middleware/roleMiddleware';
 const router = Router();
 
 const setProviderSchema = z.object({
-  provider: z.enum(['cashfree', 'truthscreen', 'sandbox', 'offline_xml']),
+  provider: z.enum(['cashfree-bank', 'truthscreen-aadhaar', 'sandbox-pan', 'offline_xml']),
 });
 
 const updatePricingSchema = z.object({
-  provider: z.enum(['cashfree', 'truthscreen', 'sandbox', 'offline_xml']),
+  provider: z.enum(['cashfree-bank', 'truthscreen-aadhaar', 'sandbox-pan', 'offline_xml']),
   pricePerVerification: z.number().min(0).max(1000),
 });
 
@@ -228,7 +228,7 @@ router.post('/api/admin/ckyc/status', requireAuth, requireRole('admin'), async (
     
     res.json({
       ...ckycStatus,
-      provider: 'truthscreen',
+      provider: 'truthscreen-ckyc',
       checkedAt: new Date().toISOString()
     });
   } catch (error) {

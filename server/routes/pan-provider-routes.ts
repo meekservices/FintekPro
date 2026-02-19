@@ -16,7 +16,7 @@ interface PANProviderConfig {
 
 const PAN_PROVIDERS: PANProviderConfig[] = [
   {
-    provider: 'cashfree',
+    provider: 'cashfree-pan',
     name: 'Cashfree Verification Suite',
     description: 'PAN verification via Cashfree API with name match scoring, Aadhaar seeding status, and corporate PAN support',
     pricePerVerification: 2.50,
@@ -27,7 +27,7 @@ const PAN_PROVIDERS: PANProviderConfig[] = [
     features: ['Name Match Scoring', 'Aadhaar Seeding Status', 'Corporate PAN', 'Real-time API', 'Sandbox Testing'],
   },
   {
-    provider: 'sandbox',
+    provider: 'sandbox-pan',
     name: 'Sandbox.co.in PAN API',
     description: 'Government-sourced PAN verification via Sandbox.co.in with detailed taxpayer info and compliance data',
     pricePerVerification: 1.80,
@@ -38,7 +38,7 @@ const PAN_PROVIDERS: PANProviderConfig[] = [
     features: ['Government Data Source', 'Taxpayer Category', 'Last Name Match', 'Compliance Check', 'Bulk Verification'],
   },
   {
-    provider: 'truthscreen',
+    provider: 'truthscreen-aadhaar',
     name: 'TruthScreen PAN Verification',
     description: 'NSDL-backed PAN verification with comprehensive identity validation and fraud detection',
     pricePerVerification: 3.00,
@@ -50,11 +50,11 @@ const PAN_PROVIDERS: PANProviderConfig[] = [
   },
 ];
 
-let activeProvider = 'cashfree';
+let activeProvider = 'cashfree-pan';
 let providerPricing: Record<string, number> = {
-  cashfree: 2.50,
-  sandbox: 1.80,
-  truthscreen: 3.00,
+  'cashfree-pan': 2.50,
+  'sandbox-pan': 1.80,
+  'truthscreen-aadhaar': 3.00,
 };
 
 function getProviders(): PANProviderConfig[] {

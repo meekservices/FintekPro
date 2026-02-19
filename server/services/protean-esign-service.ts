@@ -130,7 +130,7 @@ class ProteanESignService {
         status: 'initiated',
         otpSentAt: new Date(),
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-        provider: 'protean',
+        provider: 'protean-esign',
       });
 
       if (this.isInMockMode()) {
@@ -249,7 +249,7 @@ class ProteanESignService {
           validTo: new Date(signedAt.getTime() + 365 * 24 * 60 * 60 * 1000),
           signatureAlgorithm: 'SHA256withRSA',
           status: 'valid',
-          provider: 'protean',
+          provider: 'protean-esign',
         });
 
         await db.update(esignRequests)

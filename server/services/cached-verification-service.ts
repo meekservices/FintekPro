@@ -74,14 +74,14 @@ export class CachedVerificationService {
           aadhaarSeedingStatus: apiResult.data.aadhaarSeedingStatus,
           nameMatchResult: apiResult.data.nameMatchResult,
         },
-        provider: 'cashfree',
+        provider: 'cashfree-pan',
         providerReferenceId: apiResult.data.referenceId?.toString(),
         requestedBy,
         requestContext: 'kyc_verification',
       });
       
       // Track API usage
-      await dataCacheService.trackApiUsage('cashfree', 'pan_verification', false, hashIdentifier(panUpper));
+      await dataCacheService.trackApiUsage('cashfree-pan', 'pan_verification', false, hashIdentifier(panUpper));
     }
     
     return {
@@ -91,7 +91,7 @@ export class CachedVerificationService {
       nameMatchScore: apiResult.data?.nameMatchScore,
       status: apiResult.data?.panStatus,
       additionalData: apiResult.data,
-      provider: 'cashfree',
+      provider: 'cashfree-pan',
     };
   }
   
@@ -139,12 +139,12 @@ export class CachedVerificationService {
           taxpayerType: apiResult.taxpayerType,
           principalPlace: apiResult.principalPlaceOfBusiness,
         },
-        provider: 'sandbox',
+        provider: 'sandbox-gstin',
         requestedBy,
         requestContext: 'kyc_verification',
       });
       
-      await dataCacheService.trackApiUsage('sandbox', 'gstin_verification', false, hashIdentifier(gstinUpper));
+      await dataCacheService.trackApiUsage('sandbox-gstin', 'gstin_verification', false, hashIdentifier(gstinUpper));
       
       return {
         verified: apiResult.gstinStatus === 'Active',
@@ -152,7 +152,7 @@ export class CachedVerificationService {
         registeredName: apiResult.legalNameOfBusiness,
         status: apiResult.gstinStatus,
         additionalData: apiResult,
-        provider: 'sandbox',
+        provider: 'sandbox-gstin',
       };
     } catch (error: any) {
       console.error('[CachedVerification] GSTIN verification failed:', error.message);
@@ -217,7 +217,7 @@ export class CachedVerificationService {
         dataSource: 'sandbox',
       });
       
-      await dataCacheService.trackApiUsage('sandbox', 'mca_company', false, cinUpper);
+      await dataCacheService.trackApiUsage('sandbox-mca', 'mca_company', false, cinUpper);
       
       return {
         verified: apiResult.companyStatus === 'Active',
@@ -225,7 +225,7 @@ export class CachedVerificationService {
         registeredName: apiResult.companyName,
         status: apiResult.companyStatus,
         additionalData: apiResult,
-        provider: 'sandbox',
+        provider: 'sandbox-mca',
       };
     } catch (error: any) {
       console.error('[CachedVerification] CIN verification failed:', error.message);

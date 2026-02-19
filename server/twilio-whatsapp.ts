@@ -215,7 +215,7 @@ export class TwilioWhatsAppService {
   getStatus() {
     return {
       isReady: this.isConfigured,
-      provider: 'twilio',
+      provider: 'twilio-whatsapp',
       hasQrCode: false, // Twilio doesn't use QR codes
       message: this.isConfigured 
         ? 'Twilio WhatsApp service is ready' 

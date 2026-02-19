@@ -537,7 +537,7 @@ export function registerKYCWizardRoutes(app: Express) {
         userId,
         action: 'AADHAAR_OTP_SENT',
         step: 'aadhaar_otp',
-        details: { maskedAadhaar: `XXXX-XXXX-${last4Digits}`, provider: 'sandbox' },
+        details: { maskedAadhaar: `XXXX-XXXX-${last4Digits}`, provider: 'sandbox-pan' },
         performedBy: userId,
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
@@ -553,7 +553,7 @@ export function registerKYCWizardRoutes(app: Express) {
         data: {
           maskedMobile: `XXXXXX${Math.floor(1000 + Math.random() * 9000)}`,
           otpValidFor: 300,
-          provider: 'sandbox',
+          provider: 'sandbox-pan',
           ...(isTester ? { testOtp: '123456' } : {})
         }
       });
@@ -721,8 +721,8 @@ export function registerKYCWizardRoutes(app: Express) {
       
       const ckycDecision = kycOrchestratorService.computeCkycConfidence(
         ckycResult?.success && ckycResult?.data
-          ? { found: true, data: ckycResult.data, kin: ckycResult.data?.kin, provider: 'truthscreen' }
-          : { found: false, provider: 'truthscreen' }
+          ? { found: true, data: ckycResult.data, kin: ckycResult.data?.kin, provider: 'truthscreen-ckyc' }
+          : { found: false, provider: 'truthscreen-ckyc' }
       );
       
       const initiatedBy = (session as any).initiatedBy || 'customer';
@@ -1699,8 +1699,8 @@ export function registerKYCWizardRoutes(app: Express) {
 
       const decision = kycOrchestratorService.computeCkycConfidence(
         ckycResult?.success && ckycResult?.data
-          ? { found: true, data: ckycResult.data, kin: ckycResult.data?.kin, provider: 'truthscreen' }
-          : { found: false, provider: 'truthscreen' }
+          ? { found: true, data: ckycResult.data, kin: ckycResult.data?.kin, provider: 'truthscreen-ckyc' }
+          : { found: false, provider: 'truthscreen-ckyc' }
       );
 
       res.json({
@@ -1745,7 +1745,7 @@ export function registerKYCWizardRoutes(app: Express) {
         data: {
           maskedMobile: `XXXXXX${Math.floor(1000 + Math.random() * 9000)}`,
           otpValidFor: 300,
-          provider: 'sandbox',
+          provider: 'sandbox-pan',
           ...(isTester ? { testOtp: '123456' } : {})
         }
       });
@@ -1776,7 +1776,7 @@ export function registerKYCWizardRoutes(app: Express) {
       res.json({
         success: true,
         message: "Aadhaar verified successfully",
-        data: { verified: true, provider: 'sandbox' }
+        data: { verified: true, provider: 'sandbox-pan' }
       });
     } catch (error) {
       console.error('Error verifying Aadhaar OTP:', error);

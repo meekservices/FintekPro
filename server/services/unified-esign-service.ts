@@ -89,7 +89,7 @@ class UnifiedESignService {
       environment: 'sandbox',
     }],
     ['protean', {
-      provider: 'protean',
+      provider: 'protean-esign',
       displayName: 'Protean (NSDL) eSign',
       description: 'NSDL Protean Aadhaar eSign - Government certified ESP',
       pricingPerSign: 8.00,
@@ -349,7 +349,7 @@ class UnifiedESignService {
     switch (activeProvider) {
       case 'protean':
         const proteanResult = await proteanESignService.initiateESign(request);
-        return { ...proteanResult, provider: 'protean' };
+        return { ...proteanResult, provider: 'protean-esign' };
 
       case 'authbridge':
       default:
@@ -367,7 +367,7 @@ class UnifiedESignService {
     switch (provider) {
       case 'protean':
         const proteanResult = await proteanESignService.verifyESign(request);
-        return { ...proteanResult, provider: 'protean' };
+        return { ...proteanResult, provider: 'protean-esign' };
 
       case 'authbridge':
       default:
@@ -382,7 +382,7 @@ class UnifiedESignService {
     switch (provider) {
       case 'protean':
         const proteanResult = await proteanESignService.resendOTP(transactionId);
-        return { ...proteanResult, provider: 'protean' };
+        return { ...proteanResult, provider: 'protean-esign' };
 
       case 'authbridge':
       default:
@@ -405,7 +405,7 @@ class UnifiedESignService {
     switch (provider) {
       case 'protean':
         const proteanStatus = await proteanESignService.getStatus(transactionId);
-        return { ...proteanStatus, provider: 'protean' };
+        return { ...proteanStatus, provider: 'protean-esign' };
 
       case 'dsc_token':
         const dscStatus = await dscTokenESignService.getStatus(transactionId);
@@ -443,7 +443,7 @@ class UnifiedESignService {
         estimatedCost: 0,
       },
       {
-        provider: 'protean',
+        provider: 'protean-esign',
         displayName: 'Protean (NSDL) eSign',
         totalSigns: 0,
         lastUsed: null,

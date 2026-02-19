@@ -9,7 +9,7 @@
 import { CashfreeAadhaarService } from './cashfree-aadhaar-service';
 import { TruthscreenAadhaarService } from './truthscreen-aadhaar-service';
 
-export type AadhaarProvider = 'cashfree' | 'truthscreen' | 'sandbox' | 'offline_xml';
+export type AadhaarProvider = 'cashfree-bank' | 'truthscreen-aadhaar' | 'sandbox-pan' | 'offline_xml';
 
 export interface AadhaarProviderConfig {
   provider: AadhaarProvider;
@@ -85,12 +85,12 @@ interface ProviderSwitchLog {
 }
 
 class UnifiedAadhaarService {
-  private activeProvider: AadhaarProvider = 'truthscreen';
+  private activeProvider: AadhaarProvider = 'truthscreen-aadhaar';
   private providerSwitchLogs: ProviderSwitchLog[] = [];
 
   private providerConfigs: Map<AadhaarProvider, AadhaarProviderConfig> = new Map([
-    ['cashfree', {
-      provider: 'cashfree',
+    ['cashfree-bank', {
+      provider: 'cashfree-bank',
       name: 'Cashfree Aadhaar OKYC',
       description: 'Cashfree Offline Aadhaar verification with OTP',
       pricePerVerification: 4.00,
@@ -99,8 +99,8 @@ class UnifiedAadhaarService {
       isConfigured: false,
       features: ['Aadhaar OTP', 'eKYC Data', 'Photo Retrieval', 'Address Verification'],
     }],
-    ['truthscreen', {
-      provider: 'truthscreen',
+    ['truthscreen-aadhaar', {
+      provider: 'truthscreen-aadhaar',
       name: 'Truthscreen Aadhaar eKYC',
       description: 'Truthscreen Aadhaar verification with encrypted API',
       pricePerVerification: 3.00,
@@ -109,8 +109,8 @@ class UnifiedAadhaarService {
       isConfigured: false,
       features: ['Aadhaar OTP', 'eKYC Data', 'PAN-Aadhaar Linkage', 'Aadhaar Validation'],
     }],
-    ['sandbox', {
-      provider: 'sandbox',
+    ['sandbox-pan', {
+      provider: 'sandbox-pan',
       name: 'Sandbox.co.in Aadhaar API',
       description: 'Government-sourced Aadhaar verification via Sandbox.co.in with UIDAI compliance',
       pricePerVerification: 2.50,
@@ -136,27 +136,27 @@ class UnifiedAadhaarService {
   }
 
   private initializeProviderStatus(): void {
-    const cashfreeConfig = this.providerConfigs.get('cashfree')!;
+    const cashfreeConfig = this.providerConfigs.get('cashfree-bank')!;
     cashfreeConfig.isConfigured = CashfreeAadhaarService.isConfigured();
 
-    const truthscreenConfig = this.providerConfigs.get('truthscreen')!;
+    const truthscreenConfig = this.providerConfigs.get('truthscreen-aadhaar')!;
     truthscreenConfig.isConfigured = TruthscreenAadhaarService.credentialsConfigured();
 
-    const sandboxConfig = this.providerConfigs.get('sandbox')!;
+    const sandboxConfig = this.providerConfigs.get('sandbox-pan')!;
     sandboxConfig.isConfigured = !!(process.env.SANDBOX_API_KEY && process.env.SANDBOX_API_SECRET);
 
     const offlineXmlConfig = this.providerConfigs.get('offline_xml')!;
     offlineXmlConfig.isConfigured = true;
 
     if (truthscreenConfig.isConfigured) {
-      this.activeProvider = 'truthscreen';
-      this.providerConfigs.forEach((cfg, key) => { cfg.isActive = key === 'truthscreen'; });
+      this.activeProvider = 'truthscreen-aadhaar';
+      this.providerConfigs.forEach((cfg, key) => { cfg.isActive = key === 'truthscreen-aadhaar'; });
     } else if (cashfreeConfig.isConfigured) {
-      this.activeProvider = 'cashfree';
-      this.providerConfigs.forEach((cfg, key) => { cfg.isActive = key === 'cashfree'; });
+      this.activeProvider = 'cashfree-bank';
+      this.providerConfigs.forEach((cfg, key) => { cfg.isActive = key === 'cashfree-bank'; });
     } else if (sandboxConfig.isConfigured) {
-      this.activeProvider = 'sandbox';
-      this.providerConfigs.forEach((cfg, key) => { cfg.isActive = key === 'sandbox'; });
+      this.activeProvider = 'sandbox-pan';
+      this.providerConfigs.forEach((cfg, key) => { cfg.isActive = key === 'sandbox-pan'; });
     }
 
     console.log('✅ Unified Aadhaar Verification Service initialized');
@@ -247,7 +247,7 @@ class UnifiedAadhaarService {
 
     try {
       switch (provider) {
-        case 'truthscreen': {
+        case 'truthscreen-aadhaar': {
           const result = await TruthscreenAadhaarService.generateOTP(aadhaarNumber);
           return {
             success: result.success,
@@ -255,11 +255,11 @@ class UnifiedAadhaarService {
             refId: result.refId,
             status: result.status,
             maskedAadhaar: result.maskedAadhaar,
-            provider: 'truthscreen',
+            provider: 'truthscreen-aadhaar',
           };
         }
 
-        case 'cashfree':
+        case 'cashfree-bank':
         default: {
           const result = await CashfreeAadhaarService.generateOTP(aadhaarNumber);
           return {
@@ -268,7 +268,7 @@ class UnifiedAadhaarService {
             refId: result.ref_id,
             status: result.status,
             maskedAadhaar: result.maskedAadhaar,
-            provider: 'cashfree',
+            provider: 'cashfree-bank',
           };
         }
       }
@@ -288,13 +288,13 @@ class UnifiedAadhaarService {
 
     try {
       switch (provider) {
-        case 'truthscreen': {
+        case 'truthscreen-aadhaar': {
           const result = await TruthscreenAadhaarService.verifyOTP(refId, otp);
           return {
             success: result.success,
             message: result.message,
             verified: result.verified,
-            provider: 'truthscreen',
+            provider: 'truthscreen-aadhaar',
             data: result.data ? {
               aadhaarNumber: result.data.aadhaarNumber,
               name: result.data.name,
@@ -309,14 +309,14 @@ class UnifiedAadhaarService {
           };
         }
 
-        case 'cashfree':
+        case 'cashfree-bank':
         default: {
           const result = await CashfreeAadhaarService.verifyOTP(otp, refId);
           return {
             success: result.success,
             message: result.message,
             verified: result.verified,
-            provider: 'cashfree',
+            provider: 'cashfree-bank',
             data: result.data ? {
               aadhaarNumber: result.data.aadhaarNumber,
               name: result.data.name,
@@ -357,18 +357,18 @@ class UnifiedAadhaarService {
       }
 
       switch (provider) {
-        case 'truthscreen': {
+        case 'truthscreen-aadhaar': {
           const result = await TruthscreenAadhaarService.validateAadhaar(aadhaarNumber);
           return {
             success: result.success,
             message: result.message,
             valid: result.valid,
             maskedAadhaar: result.maskedAadhaar,
-            provider: 'truthscreen',
+            provider: 'truthscreen-aadhaar',
           };
         }
 
-        case 'cashfree':
+        case 'cashfree-bank':
         default: {
           const maskedAadhaar = `XXXX XXXX ${aadhaarNumber.slice(-4)}`;
           return {
@@ -376,7 +376,7 @@ class UnifiedAadhaarService {
             message: 'Aadhaar format is valid. Use OTP verification for full validation.',
             valid: true,
             maskedAadhaar,
-            provider: 'cashfree',
+            provider: 'cashfree-bank',
           };
         }
       }
@@ -397,7 +397,7 @@ class UnifiedAadhaarService {
 
     try {
       switch (provider) {
-        case 'truthscreen': {
+        case 'truthscreen-aadhaar': {
           const result = await TruthscreenAadhaarService.checkPanAadhaarLinkage(pan, aadhaar);
           return {
             success: result.success,
@@ -407,17 +407,17 @@ class UnifiedAadhaarService {
             pan: result.pan,
             aadhaarLastFour: result.aadhaarLastFour,
             linkDate: result.linkDate,
-            provider: 'truthscreen',
+            provider: 'truthscreen-aadhaar',
           };
         }
 
-        case 'cashfree':
+        case 'cashfree-bank':
         default: {
           return {
             success: false,
             message: 'PAN-Aadhaar linkage check is not supported by Cashfree provider. Switch to Truthscreen provider.',
             linked: false,
-            provider: 'cashfree',
+            provider: 'cashfree-bank',
           };
         }
       }
@@ -434,7 +434,7 @@ class UnifiedAadhaarService {
 
   private detectProviderFromRefId(refId: string): AadhaarProvider {
     if (refId.startsWith('TS')) {
-      return 'truthscreen';
+      return 'truthscreen-aadhaar';
     }
     return this.activeProvider;
   }

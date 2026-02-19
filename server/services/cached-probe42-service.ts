@@ -46,7 +46,7 @@ export class CachedProbe42Service {
       });
       
       // Track API usage
-      await dataCacheService.trackApiUsage('probe42', 'company_details', false, cin);
+      await dataCacheService.trackApiUsage('probe42-details', 'company_details', false, cin);
     }
     
     return apiResult;
@@ -98,7 +98,7 @@ export class CachedProbe42Service {
     }
     
     // Track API usage
-    await dataCacheService.trackApiUsage('probe42', 'company_financials', false, cin);
+    await dataCacheService.trackApiUsage('probe42-financials', 'company_financials', false, cin);
     
     return apiResult;
   }
@@ -122,7 +122,7 @@ export class CachedProbe42Service {
     const apiResult = await probe42Service.getCompanyRatios(cin, years);
     
     // Track API usage
-    await dataCacheService.trackApiUsage('probe42', 'company_ratios', false, cin);
+    await dataCacheService.trackApiUsage('probe42-ratios', 'company_ratios', false, cin);
     
     return apiResult;
   }
