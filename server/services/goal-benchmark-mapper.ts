@@ -11,7 +11,10 @@ export type GoalType =
   | 'home_purchase'
   | 'emergency_fund'
   | 'travel'
-  | 'wedding';
+  | 'wedding'
+  | 'tax_saving'
+  | 'child_education'
+  | 'regular_income';
 
 export type RiskProfile = 'conservative' | 'moderate' | 'aggressive' | 'very_aggressive';
 
@@ -216,7 +219,10 @@ export class GoalBenchmarkMapper {
       home_purchase: 'Home Purchase',
       emergency_fund: 'Emergency Fund',
       travel: 'Travel',
-      wedding: 'Wedding'
+      wedding: 'Wedding',
+      tax_saving: 'Tax Saving',
+      child_education: 'Child Education',
+      regular_income: 'Regular Income',
     };
 
     return `For your ${goalNames[goalType]} goal with a ${riskProfile} risk profile and ${horizonYears}-year horizon, we've selected ${benchmark.benchmarkName} as your benchmark. ${benchmark.rationale}`;
