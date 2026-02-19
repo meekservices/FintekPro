@@ -112,91 +112,68 @@ class MFSyncScheduler {
       const funds = this.parseAMFIData(response.data);
       console.log(`[MF Sync] Parsed ${funds.length} funds from AMFI`);
 
-      // Batch upsert
-      const batchSize = 100;
+      const batchSize = 50;
       for (let i = 0; i < funds.length; i += batchSize) {
         const batch = funds.slice(i, i + batchSize);
-        
-        for (const fund of batch) {
-          try {
-            // Check if exists
-            const existing = await db.select()
-              .from(mutualFunds)
-              .where(eq(mutualFunds.schemeCode, fund.schemeCode))
-              .limit(1);
+        const now = new Date();
 
-            const now = new Date();
+        try {
+          const values = batch.map(fund => {
             const optionType = this.detectOptionType(fund.schemeName);
             const planType = this.detectPlanType(fund.schemeName);
-
             const isinGrowth = fund.isinGrowth || null;
             const isinDiv = fund.isinDiv || null;
             const primaryIsin = isinGrowth || isinDiv || null;
 
-            if (existing.length > 0) {
-              const existingFund = existing[0];
-              if (existingFund.schemeName && existingFund.schemeName !== fund.schemeName) {
-                try {
-                  await db.insert(schemeRenameLog).values({
-                    isin: primaryIsin,
-                    schemeCode: fund.schemeCode,
-                    oldName: existingFund.schemeName,
-                    newName: fund.schemeName,
-                    syncSource: 'AMFI'
-                  });
-                  renamed++;
-                  if (renamed <= 10) {
-                    console.log(`[MF Sync] Rename detected: "${existingFund.schemeName}" → "${fund.schemeName}" (${fund.schemeCode})`);
-                  }
-                } catch (renameErr) {
-                  // Non-critical, continue sync
-                }
-              }
+            return {
+              schemeCode: fund.schemeCode,
+              schemeName: fund.schemeName,
+              fundHouse: fund.fundHouse,
+              nav: fund.nav,
+              amfiCode: fund.schemeCode,
+              isin: primaryIsin,
+              isinGrowth: isinGrowth,
+              isinDividendPayout: isinDiv,
+              optionType,
+              planType,
+              schemeStatus: 'active' as const,
+              lastVerifiedAt: now,
+              dataSource: 'AMFI',
+              lastUpdated: now
+            };
+          });
 
-              await db.update(mutualFunds)
-                .set({
-                  schemeName: fund.schemeName,
-                  fundHouse: fund.fundHouse,
-                  nav: fund.nav,
-                  amfiCode: fund.schemeCode,
-                  isin: primaryIsin,
-                  isinGrowth: isinGrowth,
-                  isinDividendPayout: isinDiv,
-                  optionType,
-                  planType,
-                  schemeStatus: 'active',
-                  lastVerifiedAt: now,
-                  dataSource: 'AMFI',
-                  lastUpdated: now
-                })
-                .where(eq(mutualFunds.schemeCode, fund.schemeCode));
-              updated++;
-            } else {
-              await db.insert(mutualFunds)
-                .values({
-                  schemeCode: fund.schemeCode,
-                  schemeName: fund.schemeName,
-                  fundHouse: fund.fundHouse,
-                  nav: fund.nav,
-                  amfiCode: fund.schemeCode,
-                  isin: primaryIsin,
-                  isinGrowth: isinGrowth,
-                  isinDividendPayout: isinDiv,
-                  optionType,
-                  planType,
-                  schemeStatus: 'active',
-                  lastVerifiedAt: now,
-                  dataSource: 'AMFI',
-                  lastUpdated: now
-                });
-              added++;
-            }
-          } catch (err) {
-            errors++;
-            if (errors < 5) {
-              console.warn(`[MF Sync] Error upserting fund ${fund.schemeCode}:`, err);
-            }
+          await db.insert(mutualFunds)
+            .values(values)
+            .onConflictDoUpdate({
+              target: mutualFunds.schemeCode,
+              set: {
+                schemeName: sql`excluded.scheme_name`,
+                fundHouse: sql`excluded.fund_house`,
+                nav: sql`excluded.nav`,
+                amfiCode: sql`excluded.amfi_code`,
+                isin: sql`excluded.isin`,
+                isinGrowth: sql`excluded.isin_growth`,
+                isinDividendPayout: sql`excluded.isin_dividend_payout`,
+                optionType: sql`excluded.option_type`,
+                planType: sql`excluded.plan_type`,
+                schemeStatus: sql`excluded.scheme_status`,
+                lastVerifiedAt: sql`excluded.last_verified_at`,
+                dataSource: sql`excluded.data_source`,
+                lastUpdated: sql`excluded.last_updated`
+              }
+            });
+
+          updated += values.length;
+        } catch (err: any) {
+          errors += batch.length;
+          if (errors <= batchSize * 2) {
+            console.warn(`[MF Sync] Batch upsert error (batch ${Math.floor(i / batchSize) + 1}):`, err.message);
           }
+        }
+
+        if (i + batchSize < funds.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
 

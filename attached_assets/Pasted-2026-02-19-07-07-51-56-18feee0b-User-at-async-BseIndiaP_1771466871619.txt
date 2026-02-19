@@ -1,0 +1,116 @@
+2026-02-19 07:07:51.56
+18feee0b
+User
+at async BseIndiaProvider.fetchMarketMovers (file:///home/runner/workspace/dist/index.js:71768:24)
+2026-02-19 07:07:51.56
+18feee0b
+User
+at async MarketMoversCache.refreshCache (file:///home/runner/workspace/dist/index.js:72300:29)
+2026-02-19 07:07:51.56
+18feee0b
+User
+at parse ()
+2026-02-19 07:07:51.56
+18feee0b
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-02-19 07:07:51.56
+18feee0b
+User
+at parseJSONFromBytes (node:internal/deps/undici/undici:5852:19)
+2026-02-19 07:07:51.56
+18feee0b
+User
+at JSON.parse (file:///home/runner/workspace/node_modules/pdfjs-dist/legacy/build/pdf.mjs:4852:56)
+2026-02-19 07:07:51.56
+18feee0b
+User
+⚠️ [MarketMoversCache] BSE India failed: SyntaxError: Unexpected token '<', "
+2026-02-19 07:07:51.56
+18feee0b
+User
+2026-02-19 07:07:51.56
+18feee0b
+User
+at successSteps (node:internal/deps/undici/undici:5833:27)
+2026-02-19 07:07:51.56
+18feee0b
+User
+at parse ()
+2026-02-19 07:07:51.56
+18feee0b
+User
+2026-02-19 07:07:51.56
+18feee0b
+User
+at async consumeBody (node:internal/deps/undici/undici:5842:7)
+2026-02-19 07:07:51.56
+18feee0b
+User
+at async BseIndiaProvider.fetchMarketMovers (file:///home/runner/workspace/dist/index.js:71768:24)
+2026-02-19 07:07:51.56
+18feee0b
+User
+at fullyReadBody (node:internal/deps/undici/undici:4725:9)
+2026-02-19 07:14:32.26
+18feee0b
+User
+[Global] Caught Neon library error (non-fatal): Cannot set property message of # which has only a getter
+2026-02-19 07:14:38.26
+18feee0b
+User
+[Global] Caught Neon library error (non-fatal): Cannot set property message of # which has only a getter
+2026-02-19 07:28:27.56
+18feee0b
+User
+[DB Pool] Connection error (auto-recovering): Connection terminated unexpectedly (3 errors in last batch)
+2026-02-19 07:28:27.66
+18feee0b
+User
+at async Timeout._onTimeout (file:///home/runner/workspace/dist/index.js:72929:11)
+2026-02-19 07:28:27.66
+18feee0b
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2026-02-19 07:28:27.66
+18feee0b
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-02-19 07:28:27.66
+18feee0b
+User
+at async MFSyncScheduler.runAMFIMasterSync (file:///home/runner/workspace/dist/index.js:72984:19)
+2026-02-19 07:28:27.66
+18feee0b
+User
+[MF Sync] Error upserting fund 148806: Error: Connection terminated unexpectedly
+2026-02-19 07:30:02.76
+18feee0b
+User
+[2026-02-19T02:00:02.565Z] [PID: 40] [NODE-CRON] [WARN] missed execution at Thu Feb 19 2026 02:00:00 GMT+0000 (Coordinated Universal Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+2026-02-19 07:30:05.46
+18feee0b
+User
+[2026-02-19T02:00:05.463Z] [PID: 40] [NODE-CRON] [WARN] missed execution at Thu Feb 19 2026 02:00:00 GMT+0000 (Coordinated Universal Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+2026-02-19 07:30:07.66
+18feee0b
+User
+[2026-02-19T02:00:07.565Z] [PID: 40] [NODE-CRON] [WARN] missed execution at Thu Feb 19 2026 02:00:00 GMT+0000 (Coordinated Universal Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+2026-02-19 07:30:11.46
+18feee0b
+User
+[2026-02-19T02:00:11.462Z] [PID: 40] [NODE-CRON] [WARN] missed execution at Thu Feb 19 2026 02:00:00 GMT+0000 (Coordinated Universal Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+2026-02-19 07:35:43.76
+18feee0b
+User
+[Global] Caught Neon library error (non-fatal): Cannot set property message of # which has only a getter
+2026-02-19 07:36:02.56
+18feee0b
+User
+[2026-02-19T02:06:01.564Z] [PID: 40] [NODE-CRON] [WARN] missed execution at Thu Feb 19 2026 02:06:00 GMT+0000 (Coordinated Universal Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+
+Collapse
+
+Wrap
+
+Colors

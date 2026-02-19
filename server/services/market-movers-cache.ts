@@ -412,6 +412,11 @@ class BseIndiaProvider {
         throw new Error(`BSE API error: ${response.status}`);
       }
 
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('json')) {
+        throw new Error(`BSE returned non-JSON response (${contentType.split(';')[0] || 'unknown'})`);
+      }
+
       const data = await response.json();
       const stockQuotes: Stock[] = [];
 
@@ -445,7 +450,8 @@ class BseIndiaProvider {
           },
         });
 
-        if (sensexResponse.ok) {
+        const sensexCT = sensexResponse.headers.get('content-type') || '';
+        if (sensexResponse.ok && sensexCT.includes('json')) {
           const sensexData = await sensexResponse.json();
           if (sensexData?.Table && Array.isArray(sensexData.Table)) {
             for (const item of sensexData.Table.slice(0, 15)) {
@@ -1028,21 +1034,21 @@ class MarketMoversCache {
       let stockQuotes: Stock[] = [];
       let successProvider: string | null = null;
 
-      // Priority 1: Yahoo Finance (most reliable from cloud servers)
-      if (!this.yahooRateLimited) {
+      // Priority 1: NSE India (direct exchange, proven working in production)
+      if (stockQuotes.length === 0 && this.nseProvider.isEnabled()) {
         try {
-          console.log('🔄 [MarketMoversCache] Trying Yahoo Finance (primary)...');
-          stockQuotes = await this.fetchFromYahoo();
-          successProvider = 'yahoo';
-          console.log(`✅ [MarketMoversCache] Yahoo Finance succeeded with ${stockQuotes.length} stocks`);
-        } catch (yahooError) {
-          console.warn('⚠️ [MarketMoversCache] Yahoo Finance failed:', yahooError);
-          this.metrics.providers.yahoo.failureCount++;
-          this.metrics.providers.yahoo.lastFailure = Date.now();
+          console.log('🔄 [MarketMoversCache] Trying NSE India (primary)...');
+          stockQuotes = await this.fetchFromNse();
+          successProvider = 'nse';
+          console.log(`✅ [MarketMoversCache] NSE India succeeded with ${stockQuotes.length} stocks`);
+        } catch (nseError) {
+          console.warn('⚠️ [MarketMoversCache] NSE India failed:', nseError);
+          this.metrics.providers.nse.failureCount++;
+          this.metrics.providers.nse.lastFailure = Date.now();
         }
       }
 
-      // Priority 2: BSE India (secondary, works better than NSE from cloud)
+      // Priority 2: BSE India (secondary exchange)
       if (stockQuotes.length === 0 && this.bseProvider.isEnabled()) {
         try {
           console.log('🔄 [MarketMoversCache] Trying BSE India fallback...');
@@ -1056,17 +1062,17 @@ class MarketMoversCache {
         }
       }
 
-      // Priority 3: NSE India (often blocked from cloud IPs with 403)
-      if (stockQuotes.length === 0 && this.nseProvider.isEnabled()) {
+      // Priority 3: Yahoo Finance (last resort, most rate-limited)
+      if (stockQuotes.length === 0 && !this.yahooRateLimited) {
         try {
-          console.log('🔄 [MarketMoversCache] Trying NSE India fallback...');
-          stockQuotes = await this.fetchFromNse();
-          successProvider = 'nse';
-          console.log(`✅ [MarketMoversCache] NSE India succeeded with ${stockQuotes.length} stocks`);
-        } catch (nseError) {
-          console.warn('⚠️ [MarketMoversCache] NSE India failed:', nseError);
-          this.metrics.providers.nse.failureCount++;
-          this.metrics.providers.nse.lastFailure = Date.now();
+          console.log('🔄 [MarketMoversCache] Trying Yahoo Finance fallback...');
+          stockQuotes = await this.fetchFromYahoo();
+          successProvider = 'yahoo';
+          console.log(`✅ [MarketMoversCache] Yahoo Finance succeeded with ${stockQuotes.length} stocks`);
+        } catch (yahooError) {
+          console.warn('⚠️ [MarketMoversCache] Yahoo Finance failed:', yahooError);
+          this.metrics.providers.yahoo.failureCount++;
+          this.metrics.providers.yahoo.lastFailure = Date.now();
         }
       }
 
