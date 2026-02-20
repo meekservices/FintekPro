@@ -118,10 +118,31 @@ interface ForeignAssetEntry {
   taxableIncome: number;
 }
 
+interface BusinessDetails {
+  businessIncome: number;
+  grossTurnover: number;
+  grossReceipts: number;
+  presumptiveIncome44AD: number;
+  presumptiveIncome44ADA: number;
+  vehicleCount: number;
+  presumptiveIncome44AE: number;
+  isPresumptive: boolean;
+  businessType: string;
+  businessDescription: string;
+}
+
 interface OtherIncomeDetails {
   interestIncome: number;
   dividendIncome: number;
   otherSources: number;
+}
+
+interface RegimeComparison {
+  oldRegime: { taxableIncome: number; taxLiability: number; taxPayable: number; effectiveTaxRate: number; totalDeductions: number };
+  newRegime: { taxableIncome: number; taxLiability: number; taxPayable: number; effectiveTaxRate: number; totalDeductions: number };
+  recommended: string;
+  savings: number;
+  recommendation: string;
 }
 
 interface DeductionDetails {
@@ -195,6 +216,7 @@ const STEPS = [
   { id: "sources", title: "Income Sources", icon: Wallet, description: "Select applicable income types" },
   { id: "salary", title: "Salary", icon: Briefcase, description: "Salary and employment details" },
   { id: "property", title: "House Property", icon: Home, description: "Rental and home loan details" },
+  { id: "business", title: "Business / Profession", icon: Building2, description: "Business income, P&L, presumptive" },
   { id: "capital", title: "Capital Gains", icon: TrendingUp, description: "Investment gains and losses" },
   { id: "foreign", title: "Foreign Income", icon: Globe, description: "Global stocks, DTAA relief, Schedule FA" },
   { id: "other", title: "Other Income", icon: Receipt, description: "Interest, dividends, and more" },
@@ -361,6 +383,21 @@ export default function TaxITRSelfPage() {
     foreignAssets: [],
   });
 
+  const [businessDetails, setBusinessDetails] = useState<BusinessDetails>({
+    businessIncome: 0,
+    grossTurnover: 0,
+    grossReceipts: 0,
+    presumptiveIncome44AD: 0,
+    presumptiveIncome44ADA: 0,
+    vehicleCount: 0,
+    presumptiveIncome44AE: 0,
+    isPresumptive: true,
+    businessType: "business",
+    businessDescription: "",
+  });
+
+  const [regimeComparison, setRegimeComparison] = useState<RegimeComparison | null>(null);
+
   const [otherIncomeDetails, setOtherIncomeDetails] = useState<OtherIncomeDetails>({
     interestIncome: 0,
     dividendIncome: 0,
@@ -441,7 +478,16 @@ export default function TaxITRSelfPage() {
           capitalGainsSTCG: capitalGainsDetails.shortTermGains + foreignSTCG,
           capitalGainsLTCG: capitalGainsDetails.longTermGains + foreignLTCG,
           capitalGainsExemptions: capitalGainsDetails.exemptionsApplied,
-          businessIncome: 0,
+          businessIncome: incomeSources.hasBusinessIncome ? (
+            businessDetails.isPresumptive
+              ? (businessDetails.presumptiveIncome44AD + businessDetails.presumptiveIncome44ADA + businessDetails.presumptiveIncome44AE)
+              : businessDetails.businessIncome
+          ) : 0,
+          presumptiveIncome44AD: businessDetails.presumptiveIncome44AD,
+          presumptiveIncome44ADA: businessDetails.presumptiveIncome44ADA,
+          grossTurnover: businessDetails.grossTurnover,
+          grossReceipts: businessDetails.grossReceipts,
+          isPresumptive: businessDetails.isPresumptive,
           interestIncome: otherIncomeDetails.interestIncome + foreignInterest,
           dividendIncome: otherIncomeDetails.dividendIncome + foreignDividends,
           otherIncome: otherIncomeDetails.otherSources + foreignOtherInc,
@@ -476,6 +522,49 @@ export default function TaxITRSelfPage() {
     }
   });
 
+  const regimeCompareMutation = useMutation({
+    mutationFn: async () => {
+      const salaryIncome = salaryDetails.grossSalary + salaryDetails.allowances +
+        salaryDetails.perquisites + salaryDetails.profitInLieu -
+        salaryDetails.standardDeduction - salaryDetails.professionalTax;
+      const businessInc = incomeSources.hasBusinessIncome ? (
+        businessDetails.isPresumptive
+          ? (businessDetails.presumptiveIncome44AD + businessDetails.presumptiveIncome44ADA + businessDetails.presumptiveIncome44AE)
+          : businessDetails.businessIncome
+      ) : 0;
+      const res = await apiRequest("/api/tax/itr/regime-compare", {
+        method: "POST",
+        body: JSON.stringify({
+          assessmentYear,
+          entityType: panContext?.panType || "individual",
+          salaryIncome: Math.max(0, salaryIncome),
+          businessIncome: businessInc,
+          interestIncome: otherIncomeDetails.interestIncome,
+          dividendIncome: otherIncomeDetails.dividendIncome,
+          otherIncome: otherIncomeDetails.otherSources,
+          section80C: deductionDetails.section80C,
+          section80D: deductionDetails.section80D,
+          section80E: deductionDetails.section80E,
+          section80G: deductionDetails.section80G,
+          section80TTA: deductionDetails.section80TTA,
+          otherDeductions: deductionDetails.otherDeductions,
+          standardDeduction: salaryDetails.standardDeduction,
+          professionalTax: salaryDetails.professionalTax,
+          homeLoanInterest: housePropertyDetails.interestOnLoan,
+          presumptiveIncome44AD: businessDetails.presumptiveIncome44AD,
+          presumptiveIncome44ADA: businessDetails.presumptiveIncome44ADA,
+          grossTurnover: businessDetails.grossTurnover,
+          grossReceipts: businessDetails.grossReceipts,
+          isPresumptive: businessDetails.isPresumptive,
+        }),
+      });
+      return (res as any)?.data as RegimeComparison;
+    },
+    onSuccess: (data) => {
+      if (data) setRegimeComparison(data);
+    },
+  });
+
   useEffect(() => {
     let form = "ITR-1";
     const panType = panContext?.panType || "individual";
@@ -493,7 +582,7 @@ export default function TaxITRSelfPage() {
       form = incomeSources.hasBusinessIncome ? "ITR-3" : "ITR-2";
     } else {
       if (incomeSources.hasBusinessIncome) {
-        form = "ITR-3";
+        form = businessDetails.isPresumptive && !incomeSources.hasCapitalGains && !incomeSources.hasForeignIncome ? "ITR-4" : "ITR-3";
       } else if (incomeSources.hasCapitalGains || incomeSources.hasForeignIncome) {
         form = "ITR-2";
       } else if (housePropertyDetails.propertyCount > 1) {
@@ -510,7 +599,7 @@ export default function TaxITRSelfPage() {
     }
     
     setRecommendedForm(form);
-  }, [incomeSources, salaryDetails, housePropertyDetails, otherIncomeDetails, panContext]);
+  }, [incomeSources, salaryDetails, housePropertyDetails, otherIncomeDetails, panContext, businessDetails]);
 
   useEffect(() => {
     const newSteps = getActiveSteps();
@@ -525,12 +614,13 @@ export default function TaxITRSelfPage() {
     const active = [STEPS[0], STEPS[1]];
     if (incomeSources.hasSalary) active.push(STEPS[2]);
     if (incomeSources.hasHouseProperty) active.push(STEPS[3]);
-    if (incomeSources.hasCapitalGains) active.push(STEPS[4]);
-    if (incomeSources.hasForeignIncome) active.push(STEPS[5]);
-    if (incomeSources.hasOtherIncome) active.push(STEPS[6]);
-    active.push(STEPS[7]);
+    if (incomeSources.hasBusinessIncome) active.push(STEPS[4]);
+    if (incomeSources.hasCapitalGains) active.push(STEPS[5]);
+    if (incomeSources.hasForeignIncome) active.push(STEPS[6]);
+    if (incomeSources.hasOtherIncome) active.push(STEPS[7]);
     active.push(STEPS[8]);
     active.push(STEPS[9]);
+    active.push(STEPS[10]);
     return active;
   };
 
@@ -578,6 +668,51 @@ export default function TaxITRSelfPage() {
           warnings.push("For self-occupied property, home loan interest deduction is capped at ₹2,00,000.");
         }
         break;
+      case "business":
+        if (incomeSources.hasBusinessIncome) {
+          if (businessDetails.isPresumptive) {
+            if (businessDetails.businessType === "business") {
+              if (businessDetails.grossTurnover <= 0) {
+                errors.push("Please enter gross turnover for presumptive income under Section 44AD.");
+              }
+              if (businessDetails.grossTurnover > 30000000) {
+                errors.push("Turnover exceeds ₹3 Cr limit for Section 44AD. Presumptive taxation is not eligible — switch to regular filing (ITR-3).");
+              }
+              const minDeemed = Math.round(businessDetails.grossTurnover * 0.06);
+              if (businessDetails.presumptiveIncome44AD > 0 && businessDetails.presumptiveIncome44AD < minDeemed) {
+                errors.push(`Deemed profit cannot be less than 6% of turnover (₹${minDeemed.toLocaleString('en-IN')}). IT Act mandates minimum 6% for digital receipts, 8% otherwise.`);
+              }
+            }
+            if (businessDetails.businessType === "profession") {
+              if (businessDetails.grossReceipts <= 0) {
+                errors.push("Please enter gross receipts for presumptive income under Section 44ADA.");
+              }
+              if (businessDetails.grossReceipts > 7500000) {
+                errors.push("Gross receipts exceed ₹75 lakhs limit for Section 44ADA. Presumptive taxation is not eligible — switch to regular filing (ITR-3).");
+              }
+              const minDeemed = Math.round(businessDetails.grossReceipts * 0.5);
+              if (businessDetails.presumptiveIncome44ADA > 0 && businessDetails.presumptiveIncome44ADA < minDeemed) {
+                errors.push(`Deemed profit cannot be less than 50% of gross receipts (₹${minDeemed.toLocaleString('en-IN')}). Section 44ADA mandates minimum 50%.`);
+              }
+            }
+            if (businessDetails.businessType === "transport") {
+              if (businessDetails.vehicleCount <= 0) {
+                errors.push("Please enter the number of goods carriage vehicles owned.");
+              }
+              if (businessDetails.vehicleCount > 10) {
+                errors.push("Section 44AE is limited to taxpayers owning ≤10 goods carriage vehicles. Use regular ITR-3 filing.");
+              }
+            }
+          } else {
+            if (businessDetails.businessIncome <= 0) {
+              warnings.push("No business income entered. If you don't have business income, consider unchecking it in income sources.");
+            }
+          }
+          if (!businessDetails.businessDescription) {
+            warnings.push("A brief business description helps during assessment proceedings.");
+          }
+        }
+        break;
       case "capital":
         if (capitalGainsDetails.exemptionsApplied > capitalGainsDetails.shortTermGains + capitalGainsDetails.longTermGains) {
           errors.push("Exemptions cannot exceed total capital gains.");
@@ -619,7 +754,7 @@ export default function TaxITRSelfPage() {
         break;
     }
     return { isValid: errors.length === 0, errors, warnings };
-  }, [incomeSources, salaryDetails, housePropertyDetails, capitalGainsDetails, foreignIncomeDetails, deductionDetails, taxPaymentDetails, panContext, taxRegime]);
+  }, [incomeSources, salaryDetails, housePropertyDetails, businessDetails, capitalGainsDetails, foreignIncomeDetails, deductionDetails, taxPaymentDetails, panContext, taxRegime]);
 
   const calculateLocalTotals = () => {
     const salaryIncome = salaryDetails.grossSalary + salaryDetails.allowances + 
@@ -646,7 +781,13 @@ export default function TaxITRSelfPage() {
     const totalForeignIncome = foreignCapitalGains + foreignOtherIncome;
     const foreignTaxCredit = incomeSources.hasForeignIncome ? foreignIncomeDetails.foreignTaxPaid : 0;
 
-    const grossTotalIncome = Math.max(0, salaryIncome) + housePropertyIncome + capitalGains + otherIncome + totalForeignIncome;
+    const businessInc = incomeSources.hasBusinessIncome ? (
+      businessDetails.isPresumptive
+        ? (businessDetails.presumptiveIncome44AD + businessDetails.presumptiveIncome44ADA + businessDetails.presumptiveIncome44AE)
+        : businessDetails.businessIncome
+    ) : 0;
+
+    const grossTotalIncome = Math.max(0, salaryIncome) + housePropertyIncome + capitalGains + otherIncome + totalForeignIncome + businessInc;
 
     const totalDeductions = Math.min(deductionDetails.section80C, 150000) +
       Math.min(deductionDetails.section80D, 100000) +
@@ -685,6 +826,8 @@ export default function TaxITRSelfPage() {
       salaryDetails,
       housePropertyDetails,
       capitalGainsDetails,
+      businessDetails: incomeSources.hasBusinessIncome ? businessDetails : undefined,
+      foreignIncomeDetails: incomeSources.hasForeignIncome ? foreignIncomeDetails : undefined,
       otherIncomeDetails,
       deductionDetails,
       grossTotalIncome: apiData?.totalIncome ?? totals.grossTotalIncome,
@@ -901,6 +1044,213 @@ export default function TaxITRSelfPage() {
           </div>
         </CardContent>
       </Card>
+
+      <ValidationBanner validation={currentValidation} />
+    </div>
+  );
+
+  const renderBusinessIncomeStep = () => (
+    <div className="space-y-6">
+      <div className="flex items-center gap-2 mb-2">
+        <Building2 className="h-5 w-5 text-orange-600" />
+        <p className="text-muted-foreground text-sm">
+          {recommendedForm === "ITR-4" ? "Presumptive taxation under Section 44AD/44ADA" : "Business or profession income details (ITR-3)"}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="space-y-1.5">
+          <Label>Business Type</Label>
+          <Select value={businessDetails.businessType} onValueChange={(v) => setBusinessDetails(prev => ({ ...prev, businessType: v }))}>
+            <SelectTrigger data-testid="select-business-type">
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="business">Business (44AD)</SelectItem>
+              <SelectItem value="profession">Profession (44ADA)</SelectItem>
+              <SelectItem value="transport">Goods Carriage (44AE)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Business Description</Label>
+          <Input
+            value={businessDetails.businessDescription}
+            onChange={(e) => setBusinessDetails(prev => ({ ...prev, businessDescription: e.target.value }))}
+            placeholder="e.g. Software consulting, Retail shop"
+            data-testid="input-business-desc"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 p-3 bg-orange-50 dark:bg-orange-950 rounded-lg border border-orange-200 dark:border-orange-800">
+        <Checkbox
+          checked={businessDetails.isPresumptive}
+          onCheckedChange={(checked) => setBusinessDetails(prev => ({ ...prev, isPresumptive: !!checked }))}
+          data-testid="checkbox-presumptive"
+        />
+        <div>
+          <p className="text-sm font-medium text-orange-800 dark:text-orange-200">Presumptive Taxation Scheme</p>
+          <p className="text-xs text-orange-600 dark:text-orange-400">
+            Simplified filing under 44AD (business ≤₹3 Cr) or 44ADA (profession ≤₹75 Lakh). No need to maintain books.
+          </p>
+        </div>
+      </div>
+
+      {businessDetails.isPresumptive ? (
+        <div className="space-y-5">
+          {businessDetails.businessType === "business" && (
+            <Card className="border-orange-200 dark:border-orange-800">
+              <CardContent className="p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300">Section 44AD</Badge>
+                  <span className="text-sm text-muted-foreground">Presumptive Business Income</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Gross Turnover (Annual) <span className="text-red-500">*</span>
+                      <FieldHint text="Total revenue/turnover of business. For digital receipts (>95% via banking), 6% of turnover is deemed income; otherwise 8%." />
+                    </Label>
+                    <CurrencyInput
+                      id="grossTurnover"
+                      value={businessDetails.grossTurnover}
+                      onChange={(v) => {
+                        const deemed = Math.round(v * 0.08);
+                        setBusinessDetails(prev => ({ ...prev, grossTurnover: v, presumptiveIncome44AD: deemed }));
+                      }}
+                      placeholder="e.g. 1,00,00,000"
+                      data-testid="input-gross-turnover"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Deemed Profit (8% of Turnover)
+                      <FieldHint text="Minimum 8% of turnover (6% for digital receipts). You can declare higher income." />
+                    </Label>
+                    <CurrencyInput
+                      id="presumptiveIncome44AD"
+                      value={businessDetails.presumptiveIncome44AD}
+                      onChange={(v) => setBusinessDetails(prev => ({ ...prev, presumptiveIncome44AD: v }))}
+                      data-testid="input-presumptive-44ad"
+                    />
+                    <p className="text-xs text-muted-foreground">Min: {formatCurrency(Math.round(businessDetails.grossTurnover * 0.06))} (6%) — Max: {formatCurrency(businessDetails.grossTurnover)} (100%)</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {businessDetails.businessType === "profession" && (
+            <Card className="border-orange-200 dark:border-orange-800">
+              <CardContent className="p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300">Section 44ADA</Badge>
+                  <span className="text-sm text-muted-foreground">Presumptive Professional Income</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Gross Receipts (Annual) <span className="text-red-500">*</span>
+                      <FieldHint text="Total professional receipts. 50% is deemed as net income under 44ADA." />
+                    </Label>
+                    <CurrencyInput
+                      id="grossReceipts"
+                      value={businessDetails.grossReceipts}
+                      onChange={(v) => {
+                        const deemed = Math.round(v * 0.5);
+                        setBusinessDetails(prev => ({ ...prev, grossReceipts: v, presumptiveIncome44ADA: deemed }));
+                      }}
+                      placeholder="e.g. 50,00,000"
+                      data-testid="input-gross-receipts"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Deemed Profit (50% of Receipts)
+                      <FieldHint text="Minimum 50% of gross receipts. You can declare higher." />
+                    </Label>
+                    <CurrencyInput
+                      id="presumptiveIncome44ADA"
+                      value={businessDetails.presumptiveIncome44ADA}
+                      onChange={(v) => setBusinessDetails(prev => ({ ...prev, presumptiveIncome44ADA: v }))}
+                      data-testid="input-presumptive-44ada"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {businessDetails.businessType === "transport" && (
+            <Card className="border-orange-200 dark:border-orange-800">
+              <CardContent className="p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300">Section 44AE</Badge>
+                  <span className="text-sm text-muted-foreground">Goods Carriage Income (≤10 vehicles)</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Number of Goods Vehicles <span className="text-red-500">*</span>
+                      <FieldHint text="Total vehicles owned at any time during the year. Section 44AE is limited to ≤10 vehicles." />
+                    </Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={10}
+                      value={businessDetails.vehicleCount || ""}
+                      onChange={(e) => {
+                        const count = parseInt(e.target.value) || 0;
+                        const deemed = count * 7500 * 12;
+                        setBusinessDetails(prev => ({ ...prev, vehicleCount: count, presumptiveIncome44AE: deemed }));
+                      }}
+                      placeholder="e.g. 5"
+                      data-testid="input-vehicle-count"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Deemed Profit (₹7,500/vehicle/month)
+                      <FieldHint text="₹7,500 per month per vehicle for light goods vehicles. ₹1,000 per ton per month for heavy vehicles." />
+                    </Label>
+                    <CurrencyInput
+                      id="presumptiveIncome44AE"
+                      value={businessDetails.presumptiveIncome44AE}
+                      onChange={(v) => setBusinessDetails(prev => ({ ...prev, presumptiveIncome44AE: v }))}
+                      data-testid="input-presumptive-44ae"
+                    />
+                    <p className="text-xs text-muted-foreground">Auto-calculated: {businessDetails.vehicleCount} × ₹7,500 × 12 = {formatCurrency(businessDetails.vehicleCount * 7500 * 12)}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-5">
+          <Card>
+            <CardContent className="p-5 space-y-4">
+              <p className="text-sm font-medium">Regular Business Income (Non-Presumptive)</p>
+              <p className="text-xs text-muted-foreground">You must maintain books of accounts. Tax audit required if turnover exceeds prescribed limits.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Net Business Income <span className="text-red-500">*</span></Label>
+                  <CurrencyInput
+                    id="businessIncome"
+                    value={businessDetails.businessIncome}
+                    onChange={(v) => setBusinessDetails(prev => ({ ...prev, businessIncome: v }))}
+                    placeholder="Net profit from P&L account"
+                    data-testid="input-business-income"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Gross Turnover</Label>
+                  <CurrencyInput
+                    id="nonPresumptiveTurnover"
+                    value={businessDetails.grossTurnover}
+                    onChange={(v) => setBusinessDetails(prev => ({ ...prev, grossTurnover: v }))}
+                    placeholder="Total turnover/receipts"
+                    data-testid="input-non-presumptive-turnover"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <ValidationBanner validation={currentValidation} />
     </div>
@@ -1854,7 +2204,7 @@ export default function TaxITRSelfPage() {
   const renderReviewStep = () => {
     const apiData = sandboxTaxResult?.data;
     const isCalculating = taxCalcMutation.isPending;
-    const regimeComparison = apiData?.regimeComparison;
+    const apiRegimeComparison = apiData?.regimeComparison;
 
     const allStepValidations = activeSteps
       .filter(s => s.id !== "review")
@@ -1943,6 +2293,16 @@ export default function TaxITRSelfPage() {
                   )}
                 </>
               )}
+              {incomeSources.hasBusinessIncome && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" /> Business Income</span>
+                  <span className="font-medium">{formatCurrency(
+                    businessDetails.isPresumptive 
+                      ? (businessDetails.presumptiveIncome44AD + businessDetails.presumptiveIncome44ADA + businessDetails.presumptiveIncome44AE) 
+                      : businessDetails.businessIncome
+                  )}</span>
+                </div>
+              )}
               {incomeSources.hasOtherIncome && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Other Income</span>
@@ -1988,6 +2348,53 @@ export default function TaxITRSelfPage() {
               </CardContent>
             </Card>
           )}
+
+          <Card className="dark:border-border border-blue-200 dark:border-blue-800">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-blue-600" />
+                Regime Comparison
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => regimeCompareMutation.mutate()}
+                disabled={regimeCompareMutation.isPending}
+                data-testid="btn-compare-regimes"
+              >
+                {regimeCompareMutation.isPending ? (
+                  <><Clock className="h-4 w-4 mr-2 animate-spin" /> Comparing via Sandbox API...</>
+                ) : (
+                  <><Calculator className="h-4 w-4 mr-2" /> Compare Old vs New Regime</>
+                )}
+              </Button>
+              {regimeComparison && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className={`p-3 rounded-lg border ${regimeComparison.recommended === 'old' ? 'border-green-500 bg-green-50 dark:bg-green-950' : 'border-muted'}`}>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Old Regime</p>
+                      <p className="text-lg font-bold">{formatLakhs(regimeComparison.oldRegime.taxPayable)}</p>
+                      <p className="text-xs text-muted-foreground">Deductions: {formatCurrency(regimeComparison.oldRegime.totalDeductions)}</p>
+                      {regimeComparison.recommended === 'old' && <Badge className="mt-1 bg-green-600 text-[10px]">Recommended</Badge>}
+                    </div>
+                    <div className={`p-3 rounded-lg border ${regimeComparison.recommended === 'new' ? 'border-green-500 bg-green-50 dark:bg-green-950' : 'border-muted'}`}>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">New Regime</p>
+                      <p className="text-lg font-bold">{formatLakhs(regimeComparison.newRegime.taxPayable)}</p>
+                      <p className="text-xs text-muted-foreground">Deductions: {formatCurrency(regimeComparison.newRegime.totalDeductions)}</p>
+                      {regimeComparison.recommended === 'new' && <Badge className="mt-1 bg-green-600 text-[10px]">Recommended</Badge>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-950 rounded text-xs">
+                    <CheckCircle className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
+                    <span>{regimeComparison.recommendation}</span>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <Card className="dark:border-border">
             <CardHeader className="pb-3">
@@ -2055,7 +2462,7 @@ export default function TaxITRSelfPage() {
           <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/50">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Scale className="h-4 w-4" /> Regime Comparison
+                <Scale className="h-4 w-4" /> Regime Comparison (Sandbox API)
               </CardTitle>
               <CardDescription>We computed your tax under both regimes to help you choose the better one.</CardDescription>
             </CardHeader>
@@ -2064,7 +2471,7 @@ export default function TaxITRSelfPage() {
                 <div className={`p-4 rounded-lg border ${regimeComparison.recommended === "old" ? "border-green-400 bg-green-50 dark:bg-green-950" : "bg-muted/30"}`}>
                   <p className="text-sm font-medium mb-1">Old Regime</p>
                   <p className="text-xl font-bold">{formatCurrency(regimeComparison.oldRegime.taxPayable)}</p>
-                  <p className="text-xs text-muted-foreground">Rate: {regimeComparison.oldRegime.effectiveRate.toFixed(1)}%</p>
+                  <p className="text-xs text-muted-foreground">Rate: {(regimeComparison.oldRegime.effectiveTaxRate ?? 0).toFixed(1)}%</p>
                   {regimeComparison.recommended === "old" && (
                     <Badge className="mt-2 bg-green-100 text-green-700">Recommended - Save {formatLakhs(regimeComparison.savings)}</Badge>
                   )}
@@ -2072,7 +2479,7 @@ export default function TaxITRSelfPage() {
                 <div className={`p-4 rounded-lg border ${regimeComparison.recommended === "new" ? "border-green-400 bg-green-50 dark:bg-green-950" : "bg-muted/30"}`}>
                   <p className="text-sm font-medium mb-1">New Regime</p>
                   <p className="text-xl font-bold">{formatCurrency(regimeComparison.newRegime.taxPayable)}</p>
-                  <p className="text-xs text-muted-foreground">Rate: {regimeComparison.newRegime.effectiveRate.toFixed(1)}%</p>
+                  <p className="text-xs text-muted-foreground">Rate: {(regimeComparison.newRegime.effectiveTaxRate ?? 0).toFixed(1)}%</p>
                   {regimeComparison.recommended === "new" && (
                     <Badge className="mt-2 bg-green-100 text-green-700">Recommended - Save {formatLakhs(regimeComparison.savings)}</Badge>
                   )}
@@ -2130,6 +2537,7 @@ export default function TaxITRSelfPage() {
       case "sources": return renderIncomeSourcesStep();
       case "salary": return renderSalaryStep();
       case "property": return renderHousePropertyStep();
+      case "business": return renderBusinessIncomeStep();
       case "capital": return renderCapitalGainsStep();
       case "foreign": return renderForeignIncomeStep();
       case "other": return renderOtherIncomeStep();

@@ -1228,6 +1228,33 @@ class SandboxITRService {
     };
   }
 
+  async eVerifyITR(acknowledgmentNumber: string, method: string, details: { pan?: string; aadhaarNumber?: string }): Promise<{ success: boolean; message: string; data?: any }> {
+    try {
+      const response = await this.makeAPICall(
+        '/it/compliance/e-verify',
+        {
+          acknowledgment_number: acknowledgmentNumber,
+          verification_method: method,
+          pan: details.pan,
+          aadhaar_number: details.aadhaarNumber,
+        },
+        'POST'
+      );
+      
+      return {
+        success: true,
+        message: `E-verification ${method === 'aadhaar_otp' ? 'OTP sent to Aadhaar-linked mobile' : 'initiated'} successfully`,
+        data: response.data || response
+      };
+    } catch (error) {
+      console.error('[Sandbox ITR] E-verification failed:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'E-verification failed — Sandbox API error'
+      };
+    }
+  }
+
   isConfigured(): boolean {
     return !!(this.apiKey && this.apiSecret);
   }

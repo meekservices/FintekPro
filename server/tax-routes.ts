@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { createHash } from 'crypto';
 import { storage } from "./storage";
 import { z } from "zod";
 import multer from "multer";
@@ -129,17 +130,45 @@ interface TaxAuditEntry {
   metadata?: Record<string, any>;
   timestamp: string;
   ipAddress?: string;
+  hash: string;
+  previousHash: string;
 }
 
 const taxAuditLog = new Map<number, TaxAuditEntry>();
 let auditIdCounter = 1;
+let lastAuditHash = '0'.repeat(64);
 
-function logTaxAudit(entry: Omit<TaxAuditEntry, "id" | "timestamp">) {
+const draftVersions = new Map<number, Array<{ version: number; data: any; timestamp: string; changedBy: number; changeDescription: string }>>();
+
+function snapshotDraftVersion(draftId: number, data: any, userId: number, description: string) {
+  if (!draftVersions.has(draftId)) {
+    draftVersions.set(draftId, []);
+  }
+  const versions = draftVersions.get(draftId)!;
+  const version = versions.length + 1;
+  versions.push({
+    version,
+    data: JSON.parse(JSON.stringify(data)),
+    timestamp: new Date().toISOString(),
+    changedBy: userId,
+    changeDescription: description
+  });
+  if (versions.length > 50) versions.shift();
+}
+
+function logTaxAudit(entry: Omit<TaxAuditEntry, "id" | "timestamp" | "hash" | "previousHash">) {
   const auditEntry: TaxAuditEntry = {
     id: auditIdCounter++,
     ...entry,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    hash: '',
+    previousHash: ''
   };
+  const dataToHash = JSON.stringify({ ...entry, id: auditEntry.id, timestamp: auditEntry.timestamp, previousHash: lastAuditHash });
+  const hash = createHash('sha256').update(dataToHash).digest('hex');
+  auditEntry.hash = hash;
+  auditEntry.previousHash = lastAuditHash;
+  lastAuditHash = hash;
   taxAuditLog.set(auditEntry.id, auditEntry);
   console.log(`[TAX AUDIT] ${auditEntry.action} on ${auditEntry.entityType}:${auditEntry.entityId} by user ${auditEntry.userId} (${auditEntry.userRole})`);
   return auditEntry;
@@ -268,6 +297,26 @@ const itrDraftSchema = z.object({
     interestIncome: coerceNumber,
     dividendIncome: coerceNumber,
     otherSources: coerceNumber
+  }).optional(),
+  businessDetails: z.object({
+    businessIncome: coerceNumber,
+    grossTurnover: coerceNumber,
+    grossReceipts: coerceNumber,
+    presumptiveIncome44AD: coerceNumber,
+    presumptiveIncome44ADA: coerceNumber,
+    isPresumptive: z.boolean().default(false),
+    businessType: z.string().optional(),
+    businessDescription: z.string().optional(),
+  }).optional(),
+  foreignIncomeDetails: z.object({
+    foreignSTCG: coerceNumber,
+    foreignLTCG: coerceNumber,
+    foreignDividends: coerceNumber,
+    foreignInterest: coerceNumber,
+    foreignOtherIncome: coerceNumber,
+    foreignTaxPaid: coerceNumber,
+    dtaaCountry: z.string().optional(),
+    dtaaArticle: z.string().optional(),
   }).optional(),
   deductionDetails: z.object({
     section80C: coerceNumber,
@@ -493,6 +542,11 @@ const wizardCalcSchema = z.object({
   standardDeduction: z.number().min(0).default(75000),
   professionalTax: z.number().min(0).default(0),
   homeLoanInterest: z.number().min(0).default(0),
+  presumptiveIncome44AD: z.number().min(0).default(0),
+  presumptiveIncome44ADA: z.number().min(0).default(0),
+  grossTurnover: z.number().min(0).default(0),
+  grossReceipts: z.number().min(0).default(0),
+  isPresumptive: z.boolean().default(false),
 });
 
 router.post("/itr/calculate", async (req: Request, res: Response) => {
@@ -774,6 +828,7 @@ router.post("/itr/draft", async (req: Request, res: Response) => {
         updatedAt: now
       };
       itrDraftStorage.set(draftId, savedDraft);
+      snapshotDraftVersion(draftId, savedDraft, userId, "Draft updated");
       res.json({ 
         success: true, 
         draft: savedDraft, 
@@ -802,6 +857,7 @@ router.post("/itr/draft", async (req: Request, res: Response) => {
         updatedAt: now
       };
       itrDraftStorage.set(draftId, savedDraft);
+      snapshotDraftVersion(draftId, savedDraft, userId, "Draft created");
       res.json({ success: true, draft: savedDraft, created: true });
     }
   } catch (error) {
@@ -1544,6 +1600,261 @@ router.get("/filing-status", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error fetching filing status:", error);
     res.status(500).json({ error: "Failed to fetch filing status" });
+  }
+});
+
+function formatINR(amount: number): string {
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
+}
+
+router.post("/itr/questionnaire-log", async (req: Request, res: Response) => {
+  try {
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id || 0;
+    const userRole = getUserTaxRole(req);
+    
+    const { questionId, questionText, answer, resultingForm, pan, assessmentYear } = req.body;
+    
+    if (!questionId || !answer) {
+      return res.status(400).json({ error: "questionId and answer are required" });
+    }
+    
+    const auditEntry = logTaxAudit({
+      entityType: "itr_draft",
+      entityId: pan || "questionnaire",
+      action: "FORM_ELIGIBILITY_ANSWER",
+      userId,
+      userRole,
+      changesDescription: `Q: ${questionText || questionId} → A: ${answer}${resultingForm ? ` → Form: ${resultingForm}` : ''}`,
+      metadata: { questionId, questionText, answer, resultingForm, pan, assessmentYear }
+    });
+    
+    res.json({ success: true, auditId: auditEntry.id, hash: auditEntry.hash });
+  } catch (error) {
+    console.error("[Tax Route] /itr/questionnaire-log error:", error);
+    res.status(500).json({ success: false, error: "Questionnaire logging failed" });
+  }
+});
+
+router.post("/itr/regime-compare", async (req: Request, res: Response) => {
+  try {
+    if (!sandboxITRService.isConfigured()) {
+      return res.status(503).json({
+        success: false,
+        error: "SANDBOX_API_NOT_CONFIGURED",
+        message: "Tax regime comparison requires Sandbox.co.in API. Not configured."
+      });
+    }
+
+    const validation = wizardCalcSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        error: "VALIDATION_FAILED",
+        details: validation.error.errors
+      });
+    }
+
+    const data = validation.data;
+    
+    const [oldRegimeResult, newRegimeResult] = await Promise.all([
+      sandboxITRService.calculateTaxFromWizard({ ...data, taxRegime: 'old' }),
+      sandboxITRService.calculateTaxFromWizard({ ...data, taxRegime: 'new' })
+    ]);
+
+    const oldTax = oldRegimeResult.data?.taxPayable ?? oldRegimeResult.data?.taxLiability ?? 0;
+    const newTax = newRegimeResult.data?.taxPayable ?? newRegimeResult.data?.taxLiability ?? 0;
+    const savings = Math.abs(oldTax - newTax);
+    const recommended = oldTax <= newTax ? 'old' : 'new';
+
+    res.json({
+      success: true,
+      data: {
+        oldRegime: {
+          taxableIncome: oldRegimeResult.data?.taxableIncome ?? 0,
+          taxLiability: oldRegimeResult.data?.taxLiability ?? 0,
+          taxPayable: oldTax,
+          effectiveTaxRate: oldRegimeResult.data?.effectiveTaxRate ?? 0,
+          totalDeductions: oldRegimeResult.data?.totalDeductions ?? 0,
+        },
+        newRegime: {
+          taxableIncome: newRegimeResult.data?.taxableIncome ?? 0,
+          taxLiability: newRegimeResult.data?.taxLiability ?? 0,
+          taxPayable: newTax,
+          effectiveTaxRate: newRegimeResult.data?.effectiveTaxRate ?? 0,
+          totalDeductions: newRegimeResult.data?.totalDeductions ?? 0,
+        },
+        recommended,
+        savings,
+        recommendation: recommended === 'new' 
+          ? `New Regime saves you ${formatINR(savings)}. Lower tax rates outweigh the deductions.`
+          : `Old Regime saves you ${formatINR(savings)}. Your deductions are substantial enough to benefit.`,
+      }
+    });
+  } catch (error) {
+    console.error("[Tax Route] /itr/regime-compare error:", error);
+    res.status(500).json({
+      success: false,
+      error: "REGIME_COMPARISON_FAILED",
+      message: error instanceof Error ? error.message : "Regime comparison failed"
+    });
+  }
+});
+
+router.get("/itr/audit-trail/:entityId", async (req: Request, res: Response) => {
+  try {
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
+    if (!userId) return res.status(401).json({ error: "Authentication required" });
+    
+    const entityId = req.params.entityId;
+    const entries = Array.from(taxAuditLog.values())
+      .filter(e => String(e.entityId) === entityId)
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    
+    res.json({ success: true, entries, count: entries.length });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to fetch audit trail" });
+  }
+});
+
+router.get("/itr/audit-verify", async (req: Request, res: Response) => {
+  try {
+    const entries = Array.from(taxAuditLog.values())
+      .sort((a, b) => a.id - b.id);
+    
+    let prevHash = '0'.repeat(64);
+    let valid = true;
+    let brokenAt: number | null = null;
+    
+    for (const entry of entries) {
+      if (entry.previousHash !== prevHash) {
+        valid = false;
+        brokenAt = entry.id;
+        break;
+      }
+      const dataToHash = JSON.stringify({
+        entityType: entry.entityType,
+        entityId: entry.entityId,
+        action: entry.action,
+        previousStatus: entry.previousStatus,
+        newStatus: entry.newStatus,
+        userId: entry.userId,
+        userRole: entry.userRole,
+        changesDescription: entry.changesDescription,
+        metadata: entry.metadata,
+        id: entry.id,
+        timestamp: entry.timestamp,
+        previousHash: entry.previousHash
+      });
+      const expectedHash = createHash('sha256').update(dataToHash).digest('hex');
+      if (entry.hash !== expectedHash) {
+        valid = false;
+        brokenAt = entry.id;
+        break;
+      }
+      prevHash = entry.hash;
+    }
+    
+    res.json({
+      success: true,
+      chainValid: valid,
+      totalEntries: entries.length,
+      brokenAtEntry: brokenAt,
+      lastHash: prevHash,
+      verifiedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Audit verification failed" });
+  }
+});
+
+router.get("/itr/draft/:id/versions", async (req: Request, res: Response) => {
+  try {
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
+    if (!userId) return res.status(401).json({ error: "Authentication required" });
+    
+    const draftId = parseInt(req.params.id);
+    const versions = draftVersions.get(draftId) || [];
+    
+    res.json({
+      success: true,
+      draftId,
+      versions: versions.map(v => ({
+        version: v.version,
+        timestamp: v.timestamp,
+        changedBy: v.changedBy,
+        changeDescription: v.changeDescription
+      })),
+      totalVersions: versions.length
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to fetch versions" });
+  }
+});
+
+router.post("/itr/e-verify", async (req: Request, res: Response) => {
+  try {
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
+    if (!userId) return res.status(401).json({ error: "Authentication required" });
+    
+    if (!sandboxITRService.isConfigured()) {
+      return res.status(503).json({
+        success: false,
+        error: "SANDBOX_API_NOT_CONFIGURED",
+        message: "E-verification requires Sandbox.co.in API. Not configured."
+      });
+    }
+    
+    const { method, acknowledgmentNumber, pan, aadhaarNumber } = req.body;
+    
+    if (!method || !acknowledgmentNumber) {
+      return res.status(400).json({ error: "method and acknowledgmentNumber are required" });
+    }
+    
+    const validMethods = ['aadhaar_otp', 'net_banking', 'dsc', 'bank_atm', 'demat'];
+    if (!validMethods.includes(method)) {
+      return res.status(400).json({ error: `Invalid method. Valid methods: ${validMethods.join(', ')}` });
+    }
+    
+    const userRole = getUserTaxRole(req);
+    
+    logTaxAudit({
+      entityType: "itr_draft",
+      entityId: acknowledgmentNumber,
+      action: "E_VERIFICATION_INITIATED",
+      userId,
+      userRole,
+      changesDescription: `E-verification initiated via ${method} for acknowledgment ${acknowledgmentNumber}`,
+      metadata: { method, acknowledgmentNumber, pan }
+    });
+    
+    const result = await sandboxITRService.eVerifyITR(acknowledgmentNumber, method, { pan, aadhaarNumber });
+    
+    logTaxAudit({
+      entityType: "itr_draft",
+      entityId: acknowledgmentNumber,
+      action: result.success ? "E_VERIFICATION_SUCCESS" : "E_VERIFICATION_FAILED",
+      userId,
+      userRole,
+      changesDescription: `E-verification ${result.success ? 'succeeded' : 'failed'} via ${method}`,
+      metadata: { method, acknowledgmentNumber, result: result.success }
+    });
+    
+    res.json(result);
+  } catch (error) {
+    console.error("[Tax Route] /itr/e-verify error:", error);
+    res.status(500).json({
+      success: false,
+      error: "E_VERIFICATION_FAILED",
+      message: error instanceof Error ? error.message : "E-verification failed"
+    });
   }
 });
 
