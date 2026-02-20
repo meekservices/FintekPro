@@ -1,0 +1,210 @@
+Below are exact Replit-ready update tickets to upgrade your existing Proposal Builder into:
+Strategy-locked
+Advisor-controlled (AI or Manual allocation)
+Fair Old vs Proposed backtesting
+Institution-grade comparison reporting
+This is an update, not a rebuild.
+🟦 EPIC 1: Allocation Mode Control (Advisor Authority)
+🔧 Backend Ticket 1.1 – Add Allocation Mode to Proposal
+Type: Backend
+Files:
+proposal-orchestrator.ts
+proposal_versions table
+Objective
+Support two allocation modes:
+AI_DRIVEN
+MANUAL
+Implementation
+Add to proposal_versions:
+allocation_mode varchar(20) -- AI_DRIVEN | MANUAL
+strategy_snapshot jsonb
+strategy_locked boolean default false
+Orchestrator Update
+Add step before product selection:
+if (allocationMode === "AI_DRIVEN") {
+   proposedAllocation = aiSuggestAllocation(riskProfile)
+   requireAdvisorApproval()
+}
+
+if (allocationMode === "MANUAL") {
+   validateManualAllocation(inputAllocation)
+}
+Acceptance Criteria
+Allocation mode stored in DB
+Allocation must be approved before proceeding
+No engine runs without locked allocation
+🎨 Frontend Ticket 1.2 – Allocation Mode Selector UI
+Type: Frontend
+Add UI Component:
+Toggle:
+[ AI Suggested Allocation ]  [ Manual Allocation ]
+Manual Mode:
+Editable asset class weights
+Must total 100%
+Validation errors shown inline
+AI Mode:
+Display suggested weights
+Require explicit “Approve Allocation” button
+Acceptance Criteria
+Cannot proceed without locking allocation
+Allocation snapshot visible in summary
+🟦 EPIC 2: Strategy Snapshot Locking
+🔧 Backend Ticket 2.1 – Lock Allocation Snapshot
+Type: Backend
+Add to proposal-orchestrator.ts
+After advisor approval:
+proposal.strategy_snapshot = {
+   allocationMode,
+   assetAllocation,
+   lockedAt: new Date()
+}
+
+proposal.strategy_locked = true
+Add Gatekeeper Check
+Reject if:
+strategy_locked !== true
+Allocation sum != 100
+Acceptance Criteria
+Allocation immutable after proposal generation
+Any change forces new proposal version
+🎨 Frontend Ticket 2.2 – Strategy Snapshot Display
+Display:
+Allocation Mode: Manual
+Equity 60% | Debt 30% | Gold 10%
+Locked on: Date
+Read-only after generation.
+🟦 EPIC 3: Product Selection Constraint Update
+🔧 Backend Ticket 3.1 – Enforce Category-Constrained Instrument Selection
+File: product-selection-engine.ts
+Update Logic:
+Replace dynamic weighting with:
+for each assetClass in strategy_snapshot:
+   funds = selectSchemesWithinCategory(assetClass)
+   assignWeight = strategy_snapshot[assetClass]
+Add guard:
+if (totalWeight !== strategyWeight)
+   throw AllocationDriftError
+Acceptance Criteria
+AI cannot alter asset class weights
+No cross-category drift
+Governance rules still applied
+🟦 EPIC 4: Fair Backtesting Engine Update
+🔧 Backend Ticket 4.1 – Static Allocation Backtest Enforcement
+File: proposal-backtesting-engine.ts
+Add Rule:
+Proposed portfolio must use:
+weights = strategy_snapshot.assetAllocation
+rebalanceFrequency = "annual" | "none"
+Prohibit:
+Tactical reallocation
+AI reweighting
+Period optimization
+Add Period Enforcement:
+commonStartDate = max(
+   earliestCurrentHoldingDate,
+   earliestProposedHoldingDate
+)
+Acceptance Criteria
+Old vs Proposed use same period
+Backtest snapshot hash stored
+Assumptions logged
+🔧 Backend Ticket 4.2 – Store Backtest Comparison Delta
+Add to proposal_backtest_results:
+delta_summary_jsonb
+includes_backtest boolean
+Delta must compute:
+CAGR difference
+Volatility difference
+Drawdown difference
+Sharpe improvement
+🎨 Frontend Ticket 4.3 – Historical Comparison Section
+Add new tab:
+“Old vs Proposed – Historical Comparison”
+Must include:
+1️⃣ Growth of ₹10L chart
+2️⃣ Risk metric comparison table
+3️⃣ Stress period comparison
+4️⃣ Plain-language summary
+No marketing wording.
+🟦 EPIC 5: Proposal Difference Summary (Institution-Grade Output)
+🔧 Backend Ticket 5.1 – Portfolio Transformation Summary Generator
+Add new service:
+generatePortfolioDifferenceSummary()
+Compute:
+allocationDelta
+riskMetricDelta
+costDelta
+concentrationDelta
+Store in proposal JSON.
+🎨 Frontend Ticket 5.2 – Allocation Comparison Table
+Mandatory section in final proposal:
+Asset Class	Old	Proposed	Change
+Color coding:
+Increase (green)
+Decrease (amber)
+🎨 Frontend Ticket 5.3 – Risk Metrics Comparison Cards
+Display:
+| Metric | Old | Proposed | Impact |
+Highlight:
+Improved Sharpe
+Reduced Drawdown
+Reduced Volatility
+Must be factual.
+🟦 EPIC 6: AI Constraint Update
+🔧 Backend Ticket 6.1 – Prevent AI Allocation Override
+In proposal-verdict-normalizer.ts:
+Add:
+if (aiSuggestedAllocation !== strategy_snapshot.assetAllocation)
+   discardSuggestion
+AI may:
+Improve instrument selection
+Improve risk efficiency
+AI may not:
+Change allocation weights
+🟦 EPIC 7: Flow Gatekeeper Enhancements
+🔧 Backend Ticket 7.1 – Allocation Integrity Validator
+Add new validation step:
+validateStrategyIntegrity(proposalId)
+Checks:
+✓ Allocation locked
+✓ Allocation sum = 100
+✓ Backtest weights match snapshot
+✓ No drift in execution plan
+Reject proposal if violation.
+🟦 EPIC 8: Audit Trail Enhancements
+🔧 Backend Ticket 8.1 – Add Audit Events
+Insert logs:
+ALLOCATION_MODE_SELECTED
+AI_ALLOCATION_PROPOSED
+MANUAL_ALLOCATION_LOCKED
+STRATEGY_SNAPSHOT_CREATED
+BACKTEST_COMPARISON_COMPLETED
+PORTFOLIO_DIFFERENCE_SUMMARY_GENERATED
+Stored in proposal_audit_log.
+🟦 EPIC 9: Regulator-Grade PDF Update
+🔧 Backend Ticket 9.1 – Add Mandatory Sections to PDF
+Update PDF generator:
+Add sections:
+Strategy Chosen (AI or Manual)
+Allocation Snapshot
+Old vs Proposed Allocation Comparison
+Historical Backtest Comparison
+Assumptions & Disclosure
+Ensure:
+Snapshot hash included
+Backtest period clearly stated
+🟦 EPIC 10: Versioning Enforcement
+🔧 Backend Ticket 10.1 – Force New Version on Allocation Change
+If allocation edited after lock:
+createNewProposalVersion()
+Old proposal remains immutable.
+✅ FINAL STATE AFTER THESE TICKETS
+Your Proposal Builder will be:
+✔ Advisor-controlled
+✔ AI-assistive only
+✔ Allocation-locked
+✔ Backtest fair and symmetric
+✔ Clear Old vs Proposed comparison
+✔ Versioned and immutable
+✔ Audit-traceable
+✔ Institution-grade
