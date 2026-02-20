@@ -409,6 +409,8 @@ class SandboxITRService {
     interestIncome: number;
     dividendIncome: number;
     otherIncome: number;
+    foreignTaxCredit?: number;
+    foreignIncomeCountry?: string;
     section80C: number;
     section80D: number;
     section80E: number;
@@ -423,41 +425,52 @@ class SandboxITRService {
     homeLoanInterest: number;
   }): Promise<ITRCalculationResponse> {
     const totalCapitalGains = wizardData.capitalGainsSTCG + wizardData.capitalGainsLTCG - wizardData.capitalGainsExemptions;
+    const ftc = wizardData.foreignTaxCredit || 0;
+
+    const payload: Record<string, any> = {
+      assessment_year: wizardData.assessmentYear,
+      entity_type: wizardData.entityType,
+      income_details: {
+        salary_income: wizardData.salaryIncome,
+        business_income: wizardData.businessIncome,
+        capital_gains: Math.max(0, totalCapitalGains),
+        capital_gains_stcg: wizardData.capitalGainsSTCG,
+        capital_gains_ltcg: wizardData.capitalGainsLTCG,
+        capital_gains_exemptions: wizardData.capitalGainsExemptions,
+        other_income: wizardData.otherIncome,
+        interest_income: wizardData.interestIncome,
+        rental_income: wizardData.housePropertyIncome,
+        dividend_income: wizardData.dividendIncome,
+      },
+      deductions: {
+        section_80c: Math.min(wizardData.section80C, 150000),
+        section_80d: Math.min(wizardData.section80D, 50000),
+        section_80e: wizardData.section80E,
+        section_80g: wizardData.section80G,
+        section_80tta: Math.min(wizardData.section80TTA, 10000),
+        standard_deduction: wizardData.standardDeduction,
+        professional_tax: wizardData.professionalTax,
+        home_loan_interest: wizardData.homeLoanInterest,
+        other_deductions: wizardData.otherDeductions,
+      },
+      tax_payments: {
+        tds_deducted: wizardData.tdsDeducted,
+        advance_tax_paid: wizardData.advanceTaxPaid,
+        self_assessment_tax: wizardData.selfAssessmentTax,
+      },
+    };
+
+    if (ftc > 0) {
+      payload.tax_relief = {
+        section_90_91: ftc,
+        country: wizardData.foreignIncomeCountry || 'US',
+        dtaa_applicable: true,
+      };
+    }
 
     const response = await this.makeAPICall(
       '/it/calculator/income_tax/itr',
-      {
-        assessment_year: wizardData.assessmentYear,
-        entity_type: wizardData.entityType,
-        income_details: {
-          salary_income: wizardData.salaryIncome,
-          business_income: wizardData.businessIncome,
-          capital_gains: Math.max(0, totalCapitalGains),
-          capital_gains_stcg: wizardData.capitalGainsSTCG,
-          capital_gains_ltcg: wizardData.capitalGainsLTCG,
-          capital_gains_exemptions: wizardData.capitalGainsExemptions,
-          other_income: wizardData.otherIncome,
-          interest_income: wizardData.interestIncome,
-          rental_income: wizardData.housePropertyIncome,
-          dividend_income: wizardData.dividendIncome,
-        },
-        deductions: {
-          section_80c: Math.min(wizardData.section80C, 150000),
-          section_80d: Math.min(wizardData.section80D, 50000),
-          section_80e: wizardData.section80E,
-          section_80g: wizardData.section80G,
-          section_80tta: Math.min(wizardData.section80TTA, 10000),
-          standard_deduction: wizardData.standardDeduction,
-          professional_tax: wizardData.professionalTax,
-          home_loan_interest: wizardData.homeLoanInterest,
-          other_deductions: wizardData.otherDeductions,
-        },
-        tax_payments: {
-          tds_deducted: wizardData.tdsDeducted,
-          advance_tax_paid: wizardData.advanceTaxPaid,
-          self_assessment_tax: wizardData.selfAssessmentTax,
-        },
-      },
+      payload,
       'POST'
     );
 

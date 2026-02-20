@@ -479,6 +479,8 @@ const wizardCalcSchema = z.object({
   interestIncome: z.number().min(0).default(0),
   dividendIncome: z.number().min(0).default(0),
   otherIncome: z.number().min(0).default(0),
+  foreignTaxCredit: z.number().min(0).default(0),
+  foreignIncomeCountry: z.string().optional(),
   section80C: z.number().min(0).default(0),
   section80D: z.number().min(0).default(0),
   section80E: z.number().min(0).default(0),

@@ -39,7 +39,10 @@ import {
   Eye,
   Lock,
   BarChart3,
-  Scale
+  Scale,
+  Globe,
+  Plus,
+  Trash2
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -85,6 +88,34 @@ interface CapitalGainsDetails {
   shortTermGains: number;
   longTermGains: number;
   exemptionsApplied: number;
+}
+
+interface ForeignIncomeDetails {
+  foreignSTCG: number;
+  foreignLTCG: number;
+  foreignDividends: number;
+  foreignInterest: number;
+  foreignOtherIncome: number;
+  foreignTaxPaid: number;
+  dtaaCountry: string;
+  dtaaArticle: string;
+  currencyCode: string;
+  exchangeRate: number;
+  hasForeignAssets: boolean;
+  foreignAssets: ForeignAssetEntry[];
+}
+
+interface ForeignAssetEntry {
+  countryCode: string;
+  countryName: string;
+  assetType: string;
+  institutionName: string;
+  accountNumber: string;
+  peakBalance: number;
+  closingBalance: number;
+  acquisitionDate: string;
+  totalGrossIncome: number;
+  taxableIncome: number;
 }
 
 interface OtherIncomeDetails {
@@ -165,6 +196,7 @@ const STEPS = [
   { id: "salary", title: "Salary", icon: Briefcase, description: "Salary and employment details" },
   { id: "property", title: "House Property", icon: Home, description: "Rental and home loan details" },
   { id: "capital", title: "Capital Gains", icon: TrendingUp, description: "Investment gains and losses" },
+  { id: "foreign", title: "Foreign Income", icon: Globe, description: "Global stocks, DTAA relief, Schedule FA" },
   { id: "other", title: "Other Income", icon: Receipt, description: "Interest, dividends, and more" },
   { id: "deductions", title: "Deductions", icon: Calculator, description: "Tax-saving investments" },
   { id: "tax_payments", title: "Tax Payments", icon: IndianRupee, description: "TDS, advance tax, self-assessment" },
@@ -314,6 +346,21 @@ export default function TaxITRSelfPage() {
     exemptionsApplied: 0
   });
 
+  const [foreignIncomeDetails, setForeignIncomeDetails] = useState<ForeignIncomeDetails>({
+    foreignSTCG: 0,
+    foreignLTCG: 0,
+    foreignDividends: 0,
+    foreignInterest: 0,
+    foreignOtherIncome: 0,
+    foreignTaxPaid: 0,
+    dtaaCountry: "US",
+    dtaaArticle: "",
+    currencyCode: "USD",
+    exchangeRate: 83.5,
+    hasForeignAssets: true,
+    foreignAssets: [],
+  });
+
   const [otherIncomeDetails, setOtherIncomeDetails] = useState<OtherIncomeDetails>({
     interestIncome: 0,
     dividendIncome: 0,
@@ -376,6 +423,13 @@ export default function TaxITRSelfPage() {
         }
       }
 
+      const foreignSTCG = incomeSources.hasForeignIncome ? foreignIncomeDetails.foreignSTCG : 0;
+      const foreignLTCG = incomeSources.hasForeignIncome ? foreignIncomeDetails.foreignLTCG : 0;
+      const foreignDividends = incomeSources.hasForeignIncome ? foreignIncomeDetails.foreignDividends : 0;
+      const foreignInterest = incomeSources.hasForeignIncome ? foreignIncomeDetails.foreignInterest : 0;
+      const foreignOtherInc = incomeSources.hasForeignIncome ? foreignIncomeDetails.foreignOtherIncome : 0;
+      const foreignTaxPaid = incomeSources.hasForeignIncome ? foreignIncomeDetails.foreignTaxPaid : 0;
+
       const res = await apiRequest("/api/tax/itr/calculate", {
         method: "POST",
         body: JSON.stringify({
@@ -384,13 +438,15 @@ export default function TaxITRSelfPage() {
           taxRegime,
           salaryIncome: Math.max(0, salaryIncome),
           housePropertyIncome,
-          capitalGainsSTCG: capitalGainsDetails.shortTermGains,
-          capitalGainsLTCG: capitalGainsDetails.longTermGains,
+          capitalGainsSTCG: capitalGainsDetails.shortTermGains + foreignSTCG,
+          capitalGainsLTCG: capitalGainsDetails.longTermGains + foreignLTCG,
           capitalGainsExemptions: capitalGainsDetails.exemptionsApplied,
           businessIncome: 0,
-          interestIncome: otherIncomeDetails.interestIncome,
-          dividendIncome: otherIncomeDetails.dividendIncome,
-          otherIncome: otherIncomeDetails.otherSources,
+          interestIncome: otherIncomeDetails.interestIncome + foreignInterest,
+          dividendIncome: otherIncomeDetails.dividendIncome + foreignDividends,
+          otherIncome: otherIncomeDetails.otherSources + foreignOtherInc,
+          foreignTaxCredit: foreignTaxPaid,
+          foreignIncomeCountry: incomeSources.hasForeignIncome ? foreignIncomeDetails.dtaaCountry : undefined,
           section80C: deductionDetails.section80C,
           section80D: deductionDetails.section80D,
           section80E: deductionDetails.section80E,
@@ -470,10 +526,11 @@ export default function TaxITRSelfPage() {
     if (incomeSources.hasSalary) active.push(STEPS[2]);
     if (incomeSources.hasHouseProperty) active.push(STEPS[3]);
     if (incomeSources.hasCapitalGains) active.push(STEPS[4]);
-    if (incomeSources.hasOtherIncome) active.push(STEPS[5]);
-    active.push(STEPS[6]);
+    if (incomeSources.hasForeignIncome) active.push(STEPS[5]);
+    if (incomeSources.hasOtherIncome) active.push(STEPS[6]);
     active.push(STEPS[7]);
     active.push(STEPS[8]);
+    active.push(STEPS[9]);
     return active;
   };
 
@@ -529,6 +586,27 @@ export default function TaxITRSelfPage() {
           warnings.push("If you have no capital gains, consider unchecking 'Capital Gains' in income sources.");
         }
         break;
+      case "foreign":
+        {
+          const totalForeignIncome = foreignIncomeDetails.foreignSTCG + foreignIncomeDetails.foreignLTCG +
+            foreignIncomeDetails.foreignDividends + foreignIncomeDetails.foreignInterest + foreignIncomeDetails.foreignOtherIncome;
+          if (totalForeignIncome === 0) {
+            warnings.push("No foreign income entered. If you don't have foreign income, uncheck 'Foreign Income / Assets' in income sources.");
+          }
+          if (foreignIncomeDetails.foreignTaxPaid > totalForeignIncome) {
+            errors.push("Foreign tax paid (FTC) cannot exceed total foreign income. DTAA relief is limited to tax on foreign income.");
+          }
+          if (foreignIncomeDetails.exchangeRate <= 0) {
+            errors.push("Please enter a valid RBI reference exchange rate for currency conversion.");
+          }
+          if (foreignIncomeDetails.hasForeignAssets && foreignIncomeDetails.foreignAssets.length === 0) {
+            warnings.push("Schedule FA (Foreign Assets) disclosure is mandatory under the Black Money Act. Please add at least one foreign asset entry.");
+          }
+          if (foreignIncomeDetails.foreignTaxPaid > 0 && !foreignIncomeDetails.dtaaCountry) {
+            errors.push("Please select the DTAA country to claim Foreign Tax Credit.");
+          }
+        }
+        break;
       case "deductions":
         if (taxRegime === "new") {
           warnings.push("Under the New Tax Regime (default from FY 2023-24), most deductions under Chapter VI-A are not available. Only standard deduction applies.");
@@ -541,7 +619,7 @@ export default function TaxITRSelfPage() {
         break;
     }
     return { isValid: errors.length === 0, errors, warnings };
-  }, [incomeSources, salaryDetails, housePropertyDetails, capitalGainsDetails, deductionDetails, taxPaymentDetails, panContext, taxRegime]);
+  }, [incomeSources, salaryDetails, housePropertyDetails, capitalGainsDetails, foreignIncomeDetails, deductionDetails, taxPaymentDetails, panContext, taxRegime]);
 
   const calculateLocalTotals = () => {
     const salaryIncome = salaryDetails.grossSalary + salaryDetails.allowances + 
@@ -561,7 +639,14 @@ export default function TaxITRSelfPage() {
 
     const capitalGains = capitalGainsDetails.shortTermGains + capitalGainsDetails.longTermGains - capitalGainsDetails.exemptionsApplied;
     const otherIncome = otherIncomeDetails.interestIncome + otherIncomeDetails.dividendIncome + otherIncomeDetails.otherSources;
-    const grossTotalIncome = Math.max(0, salaryIncome) + housePropertyIncome + capitalGains + otherIncome;
+
+    const foreignCapitalGains = incomeSources.hasForeignIncome ? (foreignIncomeDetails.foreignSTCG + foreignIncomeDetails.foreignLTCG) : 0;
+    const foreignOtherIncome = incomeSources.hasForeignIncome ?
+      (foreignIncomeDetails.foreignDividends + foreignIncomeDetails.foreignInterest + foreignIncomeDetails.foreignOtherIncome) : 0;
+    const totalForeignIncome = foreignCapitalGains + foreignOtherIncome;
+    const foreignTaxCredit = incomeSources.hasForeignIncome ? foreignIncomeDetails.foreignTaxPaid : 0;
+
+    const grossTotalIncome = Math.max(0, salaryIncome) + housePropertyIncome + capitalGains + otherIncome + totalForeignIncome;
 
     const totalDeductions = Math.min(deductionDetails.section80C, 150000) +
       Math.min(deductionDetails.section80D, 100000) +
@@ -577,6 +662,10 @@ export default function TaxITRSelfPage() {
       housePropertyIncome,
       capitalGains,
       otherIncome,
+      foreignCapitalGains,
+      foreignOtherIncome,
+      totalForeignIncome,
+      foreignTaxCredit,
       grossTotalIncome,
       totalDeductions,
       totalTaxPaid,
@@ -768,7 +857,7 @@ export default function TaxITRSelfPage() {
           { key: "hasHouseProperty", label: "House Property", icon: Home, desc: "Rental income or home loan interest", color: "text-green-600" },
           { key: "hasCapitalGains", label: "Capital Gains", icon: TrendingUp, desc: "Stocks, MFs, property sale", color: "text-purple-600" },
           { key: "hasBusinessIncome", label: "Business / Profession", icon: Building2, desc: "Self-employed, freelancer, business", color: "text-orange-600" },
-          { key: "hasForeignIncome", label: "Foreign Income / Assets", icon: Receipt, desc: "Income outside India, Schedule FA", color: "text-red-600" },
+          { key: "hasForeignIncome", label: "Foreign Income / Global Stocks", icon: Globe, desc: "US/global stocks, DTAA relief, Schedule FA & FSI", color: "text-red-600" },
           { key: "hasOtherIncome", label: "Other Sources", icon: Wallet, desc: "FD/savings interest, dividends, lottery", color: "text-teal-600" }
         ].map(source => {
           const Icon = source.icon;
@@ -1061,6 +1150,469 @@ export default function TaxITRSelfPage() {
           <div className="flex justify-between items-center">
             <span className="font-medium">Net Capital Gains</span>
             <span className="font-bold text-lg">{formatCurrency(totals.capitalGains)}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      <ValidationBanner validation={currentValidation} />
+    </div>
+  );
+
+  const DTAA_COUNTRIES = [
+    { code: "US", name: "United States", article: "Article 10/11/13" },
+    { code: "UK", name: "United Kingdom", article: "Article 10/11/13" },
+    { code: "SG", name: "Singapore", article: "Article 10/11/13" },
+    { code: "AE", name: "UAE", article: "Article 11/13" },
+    { code: "CA", name: "Canada", article: "Article 10/11/13" },
+    { code: "AU", name: "Australia", article: "Article 10/11/13" },
+    { code: "DE", name: "Germany", article: "Article 10/11/13" },
+    { code: "JP", name: "Japan", article: "Article 10/11/13" },
+    { code: "HK", name: "Hong Kong", article: "Article 10/11/13" },
+    { code: "NL", name: "Netherlands", article: "Article 10/11/13" },
+    { code: "FR", name: "France", article: "Article 10/11/13" },
+    { code: "CH", name: "Switzerland", article: "Article 10/11/13" },
+    { code: "OTHER", name: "Other Country", article: "See DTAA treaty" },
+  ];
+
+  const ASSET_TYPES = [
+    { value: "equity", label: "Foreign Equity Shares (US stocks, ETFs)" },
+    { value: "mutual_fund", label: "Foreign Mutual Funds / ETFs" },
+    { value: "bank_account", label: "Foreign Bank Account" },
+    { value: "custodial", label: "Foreign Custodial Account (Schwab, IBKR)" },
+    { value: "bonds", label: "Foreign Bonds / Securities" },
+    { value: "real_estate", label: "Foreign Immovable Property" },
+    { value: "other", label: "Other Foreign Capital Asset" },
+  ];
+
+  const CURRENCY_CODES = [
+    { code: "USD", symbol: "$", name: "US Dollar", defaultRate: 83.5 },
+    { code: "GBP", symbol: "£", name: "British Pound", defaultRate: 105.5 },
+    { code: "EUR", symbol: "€", name: "Euro", defaultRate: 90.5 },
+    { code: "SGD", symbol: "S$", name: "Singapore Dollar", defaultRate: 62.0 },
+    { code: "AED", symbol: "د.إ", name: "UAE Dirham", defaultRate: 22.7 },
+    { code: "AUD", symbol: "A$", name: "Australian Dollar", defaultRate: 54.0 },
+    { code: "CAD", symbol: "C$", name: "Canadian Dollar", defaultRate: 61.5 },
+    { code: "JPY", symbol: "¥", name: "Japanese Yen", defaultRate: 0.56 },
+    { code: "HKD", symbol: "HK$", name: "Hong Kong Dollar", defaultRate: 10.7 },
+    { code: "CHF", symbol: "Fr", name: "Swiss Franc", defaultRate: 94.0 },
+  ];
+
+  const addForeignAsset = () => {
+    setForeignIncomeDetails(prev => ({
+      ...prev,
+      foreignAssets: [...prev.foreignAssets, {
+        countryCode: prev.dtaaCountry || "US",
+        countryName: DTAA_COUNTRIES.find(c => c.code === (prev.dtaaCountry || "US"))?.name || "United States",
+        assetType: "equity",
+        institutionName: "",
+        accountNumber: "",
+        peakBalance: 0,
+        closingBalance: 0,
+        acquisitionDate: "",
+        totalGrossIncome: 0,
+        taxableIncome: 0,
+      }]
+    }));
+  };
+
+  const updateForeignAsset = (idx: number, field: keyof ForeignAssetEntry, value: string | number) => {
+    setForeignIncomeDetails(prev => ({
+      ...prev,
+      foreignAssets: prev.foreignAssets.map((a, i) => i === idx ? { ...a, [field]: value } : a)
+    }));
+  };
+
+  const removeForeignAsset = (idx: number) => {
+    setForeignIncomeDetails(prev => ({
+      ...prev,
+      foreignAssets: prev.foreignAssets.filter((_, i) => i !== idx)
+    }));
+  };
+
+  const selectedCurrency = CURRENCY_CODES.find(c => c.code === foreignIncomeDetails.currencyCode) || CURRENCY_CODES[0];
+
+  const foreignTotalInINR = (foreignIncomeDetails.foreignSTCG + foreignIncomeDetails.foreignLTCG +
+    foreignIncomeDetails.foreignDividends + foreignIncomeDetails.foreignInterest + foreignIncomeDetails.foreignOtherIncome);
+
+  const renderForeignIncomeStep = () => (
+    <div className="space-y-6">
+      <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+        <Globe className="h-4 w-4 text-blue-600" />
+        <AlertDescription className="text-blue-700 dark:text-blue-300">
+          <strong>Global Stock Investments</strong> — Report all foreign income in INR (converted at RBI reference rate on the date of credit/sale).
+          Schedule FA disclosure is mandatory under the Black Money Act, 2015. Non-disclosure attracts ₹10 lakh penalty.
+        </AlertDescription>
+      </Alert>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Globe className="h-4 w-4" /> Currency & Country Setup
+          </CardTitle>
+          <CardDescription>Set your primary investment country and currency for auto-conversion.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label>
+                DTAA Country
+                <FieldHint text="Select the country where you earned foreign income. India has DTAA treaties with 90+ countries to prevent double taxation." />
+              </Label>
+              <Select value={foreignIncomeDetails.dtaaCountry} onValueChange={(v) => {
+                const country = DTAA_COUNTRIES.find(c => c.code === v);
+                setForeignIncomeDetails(prev => ({
+                  ...prev,
+                  dtaaCountry: v,
+                  dtaaArticle: country?.article || "",
+                }));
+              }}>
+                <SelectTrigger data-testid="select-dtaa-country">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DTAA_COUNTRIES.map(c => (
+                    <SelectItem key={c.code} value={c.code}>{c.name} ({c.code})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>
+                Currency
+                <FieldHint text="Currency in which your foreign transactions were made. All amounts will be converted to INR using the exchange rate below." />
+              </Label>
+              <Select value={foreignIncomeDetails.currencyCode} onValueChange={(v) => {
+                const cur = CURRENCY_CODES.find(c => c.code === v);
+                setForeignIncomeDetails(prev => ({
+                  ...prev,
+                  currencyCode: v,
+                  exchangeRate: cur?.defaultRate || prev.exchangeRate,
+                }));
+              }}>
+                <SelectTrigger data-testid="select-currency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCY_CODES.map(c => (
+                    <SelectItem key={c.code} value={c.code}>{c.symbol} {c.name} ({c.code})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>
+                Exchange Rate (1 {foreignIncomeDetails.currencyCode} = ₹)
+                <FieldHint text="Use the SBI TT Buying Rate or RBI reference rate on the date of transaction. Check rbi.org.in for official rates. The pre-filled rate is approximate." />
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={foreignIncomeDetails.exchangeRate}
+                onChange={(e) => setForeignIncomeDetails(prev => ({ ...prev, exchangeRate: parseFloat(e.target.value) || 0 }))}
+                data-testid="input-exchange-rate"
+              />
+              <p className="text-xs text-muted-foreground">Pre-filled approximate rate. Verify from RBI/SBI for actual filing.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" /> Foreign Capital Gains (Schedule CG)
+          </CardTitle>
+          <CardDescription>Enter capital gains from global stocks, ETFs, or other foreign assets. Enter amounts already converted to INR.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="foreignSTCG">
+                Foreign STCG (in ₹)
+                <FieldHint text="Short-term capital gains from foreign stocks/ETFs held < 24 months. Unlike Indian equities (12 months), foreign shares use 24-month holding period. Taxed at slab rates (not 15% flat like Indian STT-paid equity)." />
+              </Label>
+              <CurrencyInput
+                id="foreignSTCG"
+                value={foreignIncomeDetails.foreignSTCG}
+                onChange={(v) => setForeignIncomeDetails(prev => ({ ...prev, foreignSTCG: v }))}
+                placeholder="e.g., gains from selling US stocks < 24 months"
+                data-testid="input-foreign-stcg"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="foreignLTCG">
+                Foreign LTCG (in ₹)
+                <FieldHint text="Long-term capital gains from foreign stocks/ETFs held > 24 months. Taxed at 20% with indexation benefit (u/s 112). No ₹1L exemption available (that's only for Indian listed equity u/s 112A)." />
+              </Label>
+              <CurrencyInput
+                id="foreignLTCG"
+                value={foreignIncomeDetails.foreignLTCG}
+                onChange={(v) => setForeignIncomeDetails(prev => ({ ...prev, foreignLTCG: v }))}
+                placeholder="e.g., gains from selling US stocks > 24 months"
+                data-testid="input-foreign-ltcg"
+              />
+            </div>
+          </div>
+          <div className="mt-3 p-3 rounded-md bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800">
+            <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+              Foreign equity holding period for LTCG is 24 months (not 12 months like Indian listed equity). Also, STT-based concessional rates (15%/10%) do NOT apply to foreign stocks.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Receipt className="h-4 w-4" /> Foreign Income — Other Heads (Schedule FSI)
+          </CardTitle>
+          <CardDescription>Report dividends, interest, and other income earned from foreign sources. Enter amounts in INR.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="foreignDividends">
+                Foreign Dividends (in ₹)
+                <FieldHint text="Dividends from US stocks are taxed at 25% (DTAA rate) by the US and added to your Indian income at slab rates. Claim FTC below to avoid double taxation." />
+              </Label>
+              <CurrencyInput
+                id="foreignDividends"
+                value={foreignIncomeDetails.foreignDividends}
+                onChange={(v) => setForeignIncomeDetails(prev => ({ ...prev, foreignDividends: v }))}
+                placeholder="Dividends from foreign stocks/funds"
+                data-testid="input-foreign-dividends"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="foreignInterest">
+                Foreign Interest (in ₹)
+                <FieldHint text="Interest earned on foreign bank accounts, bonds, or deposits. Fully taxable at slab rates in India." />
+              </Label>
+              <CurrencyInput
+                id="foreignInterest"
+                value={foreignIncomeDetails.foreignInterest}
+                onChange={(v) => setForeignIncomeDetails(prev => ({ ...prev, foreignInterest: v }))}
+                placeholder="Interest from foreign bank/bonds"
+                data-testid="input-foreign-interest"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="foreignOtherIncome">
+                Other Foreign Income (in ₹)
+                <FieldHint text="Any other income from foreign sources — rental income from overseas property, freelance income earned abroad, etc." />
+              </Label>
+              <CurrencyInput
+                id="foreignOtherIncome"
+                value={foreignIncomeDetails.foreignOtherIncome}
+                onChange={(v) => setForeignIncomeDetails(prev => ({ ...prev, foreignOtherIncome: v }))}
+                placeholder="Other foreign-sourced income"
+                data-testid="input-foreign-other-income"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-green-200 dark:border-green-800">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Scale className="h-4 w-4 text-green-600" /> Foreign Tax Credit — DTAA Relief (Schedule TR)
+          </CardTitle>
+          <CardDescription>Claim credit for taxes already paid in the foreign country to avoid double taxation. You must file Form 67 before filing ITR.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="foreignTaxPaid">
+                Tax Paid in Foreign Country (in ₹)
+                <FieldHint text="Total tax withheld or paid in the foreign country on your income. For US stocks: 25% on dividends, 0% on capital gains (US doesn't tax non-residents on capital gains). Get this from your broker's 1042-S form or tax statement." />
+              </Label>
+              <CurrencyInput
+                id="foreignTaxPaid"
+                value={foreignIncomeDetails.foreignTaxPaid}
+                onChange={(v) => setForeignIncomeDetails(prev => ({ ...prev, foreignTaxPaid: v }))}
+                placeholder="Tax withheld by foreign government"
+                data-testid="input-foreign-tax-paid"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>
+                DTAA Article
+                <FieldHint text="The specific DTAA article under which you're claiming relief. Common: Article 10 (Dividends), Article 11 (Interest), Article 13 (Capital Gains). Auto-filled based on country selection." />
+              </Label>
+              <Input
+                value={foreignIncomeDetails.dtaaArticle || DTAA_COUNTRIES.find(c => c.code === foreignIncomeDetails.dtaaCountry)?.article || ""}
+                onChange={(e) => setForeignIncomeDetails(prev => ({ ...prev, dtaaArticle: e.target.value }))}
+                placeholder="e.g., Article 10/11/13"
+                data-testid="input-dtaa-article"
+              />
+            </div>
+          </div>
+          {foreignIncomeDetails.foreignTaxPaid > 0 && (
+            <Alert className="mt-3 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-700 dark:text-green-300 text-sm">
+                FTC of {formatCurrency(foreignIncomeDetails.foreignTaxPaid)} will be claimed under Section 90/91. 
+                Remember to file <strong>Form 67</strong> before your ITR filing date — FTC is not allowed without it.
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-red-200 dark:border-red-800">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Shield className="h-4 w-4 text-red-600" /> Schedule FA — Foreign Asset Disclosure
+            <Badge variant="outline" className="text-[10px] text-red-600 border-red-300">Mandatory</Badge>
+          </CardTitle>
+          <CardDescription>
+            Mandatory for Resident & Ordinarily Resident (ROR) Indians. Disclose ALL foreign assets — even zero-balance accounts, 
+            dormant accounts, or assets held for even 1 day during the calendar year (Jan 1 – Dec 31).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {foreignIncomeDetails.foreignAssets.map((asset, idx) => (
+            <Card key={idx} className="border-dashed">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex justify-between items-center">
+                  <Badge variant="secondary" className="text-xs">Asset {idx + 1}</Badge>
+                  <Button variant="ghost" size="sm" onClick={() => removeForeignAsset(idx)} className="text-red-500 hover:text-red-700 h-7 px-2">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Country</Label>
+                    <Select value={asset.countryCode} onValueChange={(v) => {
+                      updateForeignAsset(idx, "countryCode", v);
+                      updateForeignAsset(idx, "countryName", DTAA_COUNTRIES.find(c => c.code === v)?.name || v);
+                    }}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DTAA_COUNTRIES.map(c => (
+                          <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">
+                      Asset Type
+                      <FieldHint text="Table A3: Equity/Debt in foreign entity. Table A1: Foreign bank account. Table A2: Custodial account. Table C: Immovable property." />
+                    </Label>
+                    <Select value={asset.assetType} onValueChange={(v) => updateForeignAsset(idx, "assetType", v)}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ASSET_TYPES.map(t => (
+                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Institution / Broker Name</Label>
+                    <Input
+                      className="h-8 text-xs"
+                      value={asset.institutionName}
+                      onChange={(e) => updateForeignAsset(idx, "institutionName", e.target.value)}
+                      placeholder="e.g., Charles Schwab, Vested, INDmoney"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Account / Folio No.</Label>
+                    <Input
+                      className="h-8 text-xs"
+                      value={asset.accountNumber}
+                      onChange={(e) => updateForeignAsset(idx, "accountNumber", e.target.value)}
+                      placeholder="Account number"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">
+                      Peak Balance (₹)
+                      <FieldHint text="Maximum balance/value of this asset at any point during the calendar year (Jan 1 – Dec 31). Convert using SBI TTBR rate on that peak date." />
+                    </Label>
+                    <CurrencyInput
+                      id={`peak-${idx}`}
+                      value={asset.peakBalance}
+                      onChange={(v) => updateForeignAsset(idx, "peakBalance", v)}
+                      placeholder="Max value during year"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">
+                      Closing Balance (₹)
+                      <FieldHint text="Value of this asset as of December 31 of the relevant calendar year. Convert at SBI TTBR rate on Dec 31." />
+                    </Label>
+                    <CurrencyInput
+                      id={`closing-${idx}`}
+                      value={asset.closingBalance}
+                      onChange={(v) => updateForeignAsset(idx, "closingBalance", v)}
+                      placeholder="Value on Dec 31"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Date Acquired</Label>
+                    <Input
+                      type="date"
+                      className="h-8 text-xs"
+                      value={asset.acquisitionDate}
+                      onChange={(e) => updateForeignAsset(idx, "acquisitionDate", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          <Button variant="outline" size="sm" onClick={addForeignAsset} className="w-full border-dashed" data-testid="button-add-foreign-asset">
+            <Plus className="h-4 w-4 mr-2" /> Add Foreign Asset Entry
+          </Button>
+
+          {foreignIncomeDetails.foreignAssets.length === 0 && (
+            <Alert className="bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-700 dark:text-red-300 text-sm">
+                Schedule FA is mandatory for residents holding foreign assets. The Income Tax Department receives data from 100+ countries via CRS (Common Reporting Standard). 
+                Non-disclosure can lead to ₹10 lakh penalty and prosecution under the Black Money Act.
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="bg-muted/50">
+        <CardContent className="p-4 space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="font-medium">Total Foreign Capital Gains</span>
+            <span className="font-bold text-lg">{formatCurrency(foreignIncomeDetails.foreignSTCG + foreignIncomeDetails.foreignLTCG)}</span>
+          </div>
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground">Total Foreign Other Income</span>
+            <span className="font-medium">{formatCurrency(foreignIncomeDetails.foreignDividends + foreignIncomeDetails.foreignInterest + foreignIncomeDetails.foreignOtherIncome)}</span>
+          </div>
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground">Total Foreign Income</span>
+            <span className="font-medium">{formatCurrency(foreignTotalInINR)}</span>
+          </div>
+          {foreignIncomeDetails.foreignTaxPaid > 0 && (
+            <div className="flex justify-between items-center text-sm text-green-600">
+              <span>Less: Foreign Tax Credit (DTAA)</span>
+              <span>- {formatCurrency(foreignIncomeDetails.foreignTaxPaid)}</span>
+            </div>
+          )}
+          <Separator />
+          <div className="flex justify-between items-center font-semibold">
+            <span>Net Foreign Income (after FTC)</span>
+            <span>{formatCurrency(foreignTotalInINR - foreignIncomeDetails.foreignTaxPaid)}</span>
           </div>
         </CardContent>
       </Card>
@@ -1373,6 +1925,24 @@ export default function TaxITRSelfPage() {
                   <span className="font-medium">{formatCurrency(totals.capitalGains)}</span>
                 </div>
               )}
+              {incomeSources.hasForeignIncome && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground flex items-center gap-1"><Globe className="h-3 w-3" /> Foreign Capital Gains</span>
+                    <span className="font-medium">{formatCurrency(totals.foreignCapitalGains)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground flex items-center gap-1"><Globe className="h-3 w-3" /> Foreign Other Income</span>
+                    <span className="font-medium">{formatCurrency(totals.foreignOtherIncome)}</span>
+                  </div>
+                  {totals.foreignTaxCredit > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Less: Foreign Tax Credit (DTAA)</span>
+                      <span>- {formatCurrency(totals.foreignTaxCredit)}</span>
+                    </div>
+                  )}
+                </>
+              )}
               {incomeSources.hasOtherIncome && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Other Income</span>
@@ -1392,6 +1962,32 @@ export default function TaxITRSelfPage() {
               )}
             </CardContent>
           </Card>
+
+          {incomeSources.hasForeignIncome && foreignIncomeDetails.foreignAssets.length > 0 && (
+            <Card className="dark:border-border border-red-200 dark:border-red-800">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-red-600" />
+                  Schedule FA — Foreign Assets ({foreignIncomeDetails.foreignAssets.length})
+                  <Badge variant="outline" className="text-[10px] text-red-600 border-red-300">Mandatory</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-xs">
+                {foreignIncomeDetails.foreignAssets.map((a, i) => (
+                  <div key={i} className="flex justify-between items-center py-1 border-b last:border-0">
+                    <div>
+                      <span className="font-medium">{a.institutionName || `Asset ${i+1}`}</span>
+                      <span className="text-muted-foreground ml-2">({a.countryCode} · {a.assetType})</span>
+                    </div>
+                    <span className="font-medium">{formatCurrency(a.closingBalance)}</span>
+                  </div>
+                ))}
+                <div className="pt-1 text-muted-foreground italic">
+                  Form 67 must be filed before ITR submission to claim Foreign Tax Credit of {formatCurrency(foreignIncomeDetails.foreignTaxPaid)}.
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="dark:border-border">
             <CardHeader className="pb-3">
@@ -1535,6 +2131,7 @@ export default function TaxITRSelfPage() {
       case "salary": return renderSalaryStep();
       case "property": return renderHousePropertyStep();
       case "capital": return renderCapitalGainsStep();
+      case "foreign": return renderForeignIncomeStep();
       case "other": return renderOtherIncomeStep();
       case "deductions": return renderDeductionsStep();
       case "tax_payments": return renderTaxPaymentsStep();
