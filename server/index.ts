@@ -1,18 +1,6 @@
 // FintekPro Server - Main entry point
 
-// Signal handlers to diagnose unexpected process termination
-process.on('SIGTERM', () => {
-  console.log(`⚠️ [SIGNAL] SIGTERM received at ${new Date().toISOString()} (uptime: ${(process.uptime()/60).toFixed(1)}min, RSS: ${(process.memoryUsage().rss/1024/1024).toFixed(0)}MB)`);
-  process.exit(0);
-});
-process.on('SIGINT', () => {
-  console.log(`⚠️ [SIGNAL] SIGINT received at ${new Date().toISOString()} (uptime: ${(process.uptime()/60).toFixed(1)}min)`);
-  process.exit(0);
-});
-process.on('SIGHUP', () => {
-  console.log(`ℹ️ [SIGNAL] SIGHUP received at ${new Date().toISOString()} (uptime: ${(process.uptime()/60).toFixed(1)}min) - graceful shutdown`);
-  process.exit(0);
-});
+// Signal handlers removed - graceful shutdown (setupGracefulShutdown) handles SIGTERM/SIGINT properly
 
 // Throttle flag for Neon library non-fatal errors
 let neonErrorThrottled = false;
@@ -543,9 +531,45 @@ app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
 
+// ============================================================================
+// IMMEDIATE SERVER START - Create and listen SYNCHRONOUSLY before any async work
+// This ensures health checks respond within Replit's 5-second deployment timeout
+// ============================================================================
+import { createServer } from 'http';
+
+const server = createServer(app);
+const port = parseInt(process.env.PORT || '5000', 10);
+
+// Boot-in-progress middleware - returns 503 for API routes not yet loaded
+app.use('/api', (req: Request, res: Response, next: NextFunction) => {
+  if (bootState.routesReady) return next();
+  if (req.path === '/api/health' || req.path === '/api/ready' || req.path === '/health' || req.path === '/ready') return next();
+  if (req.path.startsWith('/api/auth') || req.path.startsWith('/api/login') || req.path.startsWith('/api/user')) return next();
+  if (req.path === '/api/csrf-token') return next();
+  res.status(503).json({
+    status: 'booting',
+    message: 'Server is starting up, please wait a moment and refresh...',
+    bootTime: bootState.getBootTime(),
+    retryAfter: 5
+  });
+});
+
+// Setup graceful shutdown handling (SIGTERM/SIGINT) - replaces the removed signal handlers
+setupGracefulShutdown(server);
+
+// Start listening IMMEDIATELY - before ANY async initialization
+server.listen({
+  port,
+  host: "0.0.0.0",
+  reusePort: true,
+}, () => {
+  bootState.serverListening = true;
+  console.log(`🚀 Server listening on port ${port} (boot time: ${bootState.getBootTime()}ms)`);
+  logger.info(`Server listening on port ${port}`, { port, environment: process.env.NODE_ENV || 'development', bootTime: bootState.getBootTime() });
+});
+
 (async () => {
-  // Health check endpoints registered inside IIFE for extended checks (readiness, liveness)
-  // Note: /health, /api/health, and / are already registered synchronously above
+  // Extended health check endpoints
   const { readinessCheck, livenessCheck } = await import('./health-check');
   app.get('/ready', (req, res) => {
     if (bootState.isFullyReady()) {
@@ -589,63 +613,6 @@ app.get('/health', (_req: Request, res: Response) => {
   
   // Apply CSRF protection after session/auth middleware
   app.use('/api', createCsrfProtection());
-  
-  // ============================================================================
-  // FAST BOOT: Start the HTTP server NOW, before heavy route registration
-  // This ensures health endpoints respond immediately instead of 502 errors
-  // ============================================================================
-  const { createServer } = await import('http');
-  const server = createServer(app);
-  const port = parseInt(process.env.PORT || '5000', 10);
-  
-  // Boot-in-progress middleware - returns 503 for API routes not yet loaded
-  // This will be removed once routes are fully registered
-  const bootInProgressMiddleware = (req: Request, res: Response, next: NextFunction) => {
-    // Skip if routes are ready
-    if (bootState.routesReady) {
-      return next();
-    }
-    
-    // Allow health endpoints during boot
-    if (req.path === '/api/health' || req.path === '/api/ready' || req.path === '/health' || req.path === '/ready') {
-      return next();
-    }
-    
-    // Allow auth-related endpoints during boot
-    if (req.path.startsWith('/api/auth') || req.path.startsWith('/api/login') || req.path.startsWith('/api/user')) {
-      return next();
-    }
-    
-    // Allow CSRF token endpoint during boot (needed for login forms)
-    if (req.path === '/api/csrf-token') {
-      return next();
-    }
-    
-    // Return 503 for other API routes - server is still booting
-    res.status(503).json({
-      status: 'booting',
-      message: 'Server is starting up, please wait a moment and refresh...',
-      bootTime: bootState.getBootTime(),
-      retryAfter: 5
-    });
-  };
-  
-  // Apply boot middleware for API routes
-  app.use('/api', bootInProgressMiddleware);
-  
-  // Start listening IMMEDIATELY - don't wait for routes
-  // Setup graceful shutdown handling (SIGTERM/SIGINT)
-  setupGracefulShutdown(server);
-  
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    bootState.serverListening = true;
-    console.log(`🚀 Server listening on port ${port} (boot time: ${bootState.getBootTime()}ms)`);
-    logger.info(`Server listening on port ${port}`, { port, environment: process.env.NODE_ENV || 'development', bootTime: bootState.getBootTime() });
-  });
   
   // Continue registering routes asynchronously (server is already listening)
   console.log('📦 Registering routes...');
