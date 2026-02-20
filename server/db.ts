@@ -14,8 +14,18 @@ if (!process.env.DATABASE_URL) {
 
 const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
 
+const selectedDbUrl = !isProduction && process.env.PRODUCTION_DATABASE_URL
+  ? process.env.PRODUCTION_DATABASE_URL
+  : process.env.DATABASE_URL;
+
+export const isUsingProductionDb = selectedDbUrl === process.env.PRODUCTION_DATABASE_URL;
+
+if (!isProduction && isUsingProductionDb) {
+  console.log('🔗 [DB] Development using PRODUCTION database (shared read service, no mock data writes)');
+}
+
 const POOL_CONFIG = {
-  connectionString: process.env.DATABASE_URL,
+  connectionString: selectedDbUrl,
   max: isProduction ? 50 : 20,
   idleTimeoutMillis: isProduction ? 30000 : 20000,
   connectionTimeoutMillis: 20000,

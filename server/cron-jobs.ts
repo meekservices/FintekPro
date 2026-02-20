@@ -870,12 +870,16 @@ export function initializeCronJobs(): void {
     console.log('⏭️ [CompanyRefresh/Reconciliation/GIFTCity] Skipped (development mode - production only)');
   }
 
-  // Proactive Cache Warming Service - Warms popular data every 30 minutes (read-only, OK in dev)
-  try {
-    proactiveCacheWarmingService.start();
-    console.log('[CRON] Proactive Cache Warming Service started');
-  } catch (error: any) {
-    console.error('[CRON] Failed to start Proactive Cache Warming Service:', error.message);
+  // Proactive Cache Warming Service - Warms popular data every 30 minutes (production only - external API calls)
+  if (isProductionEnvironment()) {
+    try {
+      proactiveCacheWarmingService.start();
+      console.log('[CRON] Proactive Cache Warming Service started');
+    } catch (error: any) {
+      console.error('[CRON] Failed to start Proactive Cache Warming Service:', error.message);
+    }
+  } else {
+    console.log('⏭️ [CacheWarming] Skipped (development mode - production only)');
   }
   
   console.log('✓ Cron jobs initialized successfully');

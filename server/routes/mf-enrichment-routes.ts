@@ -222,17 +222,22 @@ export function registerMFEnrichmentRoutes(app: Express) {
     }
   });
 
-  (async () => {
-    try {
-      const { sebiCategoryEngine } = await import('../services/mf-sebi-category-engine');
-      const result = await sebiCategoryEngine.seedCategoryRules();
-      if (result.seeded > 0) {
-        console.log(`📋 [SEBI] Seeded ${result.seeded} category rules`);
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
+  if (isProduction) {
+    (async () => {
+      try {
+        const { sebiCategoryEngine } = await import('../services/mf-sebi-category-engine');
+        const result = await sebiCategoryEngine.seedCategoryRules();
+        if (result.seeded > 0) {
+          console.log(`📋 [SEBI] Seeded ${result.seeded} category rules`);
+        }
+      } catch (e: any) {
+        console.log(`[SEBI] Category rules seeding deferred: ${e.message}`);
       }
-    } catch (e: any) {
-      console.log(`[SEBI] Category rules seeding deferred: ${e.message}`);
-    }
-  })();
+    })();
+  } else {
+    console.log('⏭️ [SEBICategoryEngine] Auto-seed skipped (development mode - production only)');
+  }
 
   console.log('✅ MF Enrichment APIs registered (/api/funds/*)');
 }

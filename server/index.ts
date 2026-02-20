@@ -1010,19 +1010,23 @@ app.use((req, res, next) => {
     console.log('⏭️ [SessionCleanup] Skipped (development mode - production only)');
   }
   
-  // Initialize CKYC Provider Configuration (non-blocking)
-  try {
-    import('./services/ckyc-provider-resolution-service').then(({ ckycProviderResolutionService }) => {
-      ckycProviderResolutionService.seedDefaultProviders().then(() => {
-        console.log('✅ CKYC Provider Configuration Service initialized');
+  // Initialize CKYC Provider Configuration (production only - writes to DB)
+  if (isProductionEnvironment()) {
+    try {
+      import('./services/ckyc-provider-resolution-service').then(({ ckycProviderResolutionService }) => {
+        ckycProviderResolutionService.seedDefaultProviders().then(() => {
+          console.log('✅ CKYC Provider Configuration Service initialized');
+        }).catch(error => {
+          console.warn('⚠️ CKYC Provider seeding skipped (will retry on first request):', error instanceof Error ? error.message : 'Unknown error');
+        });
       }).catch(error => {
-        console.warn('⚠️ CKYC Provider seeding skipped (will retry on first request):', error instanceof Error ? error.message : 'Unknown error');
+        console.warn('⚠️ CKYC Provider Service not loaded (app continues without it):', error instanceof Error ? error.message : 'Unknown error');
       });
-    }).catch(error => {
-      console.warn('⚠️ CKYC Provider Service not loaded (app continues without it):', error instanceof Error ? error.message : 'Unknown error');
-    });
-  } catch (error) {
-    console.warn('⚠️ Error importing CKYC provider service (non-blocking):', error instanceof Error ? error.message : 'Unknown error');
+    } catch (error) {
+      console.warn('⚠️ Error importing CKYC provider service (non-blocking):', error instanceof Error ? error.message : 'Unknown error');
+    }
+  } else {
+    console.log('⏭️ [CKYCProvider] Seeding skipped (development mode - production only)');
   }
   
   // Initialize Retention Cleanup Service (production only - deletes old data per PMLA/RBI compliance)
@@ -1119,19 +1123,28 @@ app.use((req, res, next) => {
     console.log('⏭️ [MFReturnsScheduler] Skipped (development mode - production only)');
   }
   
-  // Seed default store categories if not present
-  storage.seedDefaultStoreCategories().catch(error => {
-    console.error('❌ Failed to seed store categories:', error);
-  });
-
-  // Seed central test account (test@fintekpro.com / Test@123456 / OTP: 123456)
-  import('./seed-test-user').then(({ seedTestUser }) => {
-    seedTestUser().catch(error => {
-      console.error('⚠️ Failed to seed test user:', error instanceof Error ? error.message : error);
+  // Seed default store categories if not present (production only - writes to DB)
+  if (isProductionEnvironment()) {
+    storage.seedDefaultStoreCategories().catch(error => {
+      console.error('❌ Failed to seed store categories:', error);
     });
-  }).catch(() => {});
+  } else {
+    console.log('⏭️ [StoreCategories] Seeding skipped (development mode - production only)');
+  }
 
-  // Comprehensive data bootstrap: seed all reference data
+  // Seed central test account (production only - no mock data on shared production DB from development)
+  if (isProductionEnvironment()) {
+    import('./seed-test-user').then(({ seedTestUser }) => {
+      seedTestUser().catch(error => {
+        console.error('⚠️ Failed to seed test user:', error instanceof Error ? error.message : error);
+      });
+    }).catch(() => {});
+  } else {
+    console.log('⏭️ [TestUser] Seeding skipped (development mode - no mock data on production DB)');
+  }
+
+  // Comprehensive data bootstrap: seed all reference data (production only - heavy DB writes)
+  if (isProductionEnvironment()) {
   setTimeout(async () => {
     try {
       const { runProductionBootstrap } = await import('./production-bootstrap');
@@ -1237,4 +1250,7 @@ app.use((req, res, next) => {
       console.error('❌ [Bootstrap] Data seeding failed:', error.message);
     }
   }, 60000);
+  } else {
+    console.log('⏭️ [ProductionBootstrap] All data seeding skipped (development mode - production only)');
+  }
 })();

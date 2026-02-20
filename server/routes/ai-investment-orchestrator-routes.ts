@@ -145,9 +145,14 @@ export function registerAIInvestmentOrchestratorRoutes(app: Express) {
     }
   });
 
-  investmentDataCache.initialize().catch(err => {
-    console.error('❌ Failed to initialize investment data cache:', err);
-  });
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
+  if (isProduction) {
+    investmentDataCache.initialize().catch(err => {
+      console.error('❌ Failed to initialize investment data cache:', err);
+    });
+  } else {
+    console.log('⏭️ [InvestmentDataCache] Initialization skipped (development mode - production only)');
+  }
 
   console.log("✅ AI Investment Orchestrator routes registered");
 }

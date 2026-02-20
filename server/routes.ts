@@ -328,10 +328,18 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     res.status(hasErrors ? 503 : 200).json(diagnostics);
   });
   
-  // Initialize market movers cache at startup (non-blocking)
-  marketMoversCache.initialize().catch(err => console.error("Failed to initialize market movers cache:", err));
-  // Initialize platform stats cache at startup (non-blocking)
-  platformStatsCache.initialize().catch(err => console.error("Failed to initialize platform stats cache:", err));
+  // Initialize market movers cache at startup (production only - external API calls + DB writes)
+  if (isProductionEnvironment()) {
+    marketMoversCache.initialize().catch(err => console.error("Failed to initialize market movers cache:", err));
+  } else {
+    console.log('⏭️ [MarketMoversCache] Initialization skipped (development mode - production only)');
+  }
+  // Initialize platform stats cache at startup (production only - periodic DB queries)
+  if (isProductionEnvironment()) {
+    platformStatsCache.initialize().catch(err => console.error("Failed to initialize platform stats cache:", err));
+  } else {
+    console.log('⏭️ [PlatformStatsCache] Initialization skipped (development mode - production only)');
+  }
   // Initialize API usage tracking service
   apiUsageTrackingService.initialize().catch(err => console.error("Failed to initialize API usage tracking:", err)); // Deferred startup
   
@@ -392,11 +400,15 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     console.log('⚠️ Product check skipped:', error instanceof Error ? error.message : 'Unknown error');
   }
   
-  // Seed default agent (Sangram Kesari Mohanty)
-  try {
-    await seedDefaultAgent();
-  } catch (error) {
-    console.log('⚠️ Default agent seeding skipped:', error instanceof Error ? error.message : 'Unknown error');
+  // Seed default agent (production only - no mock data on production DB from development)
+  if (isProductionEnvironment()) {
+    try {
+      await seedDefaultAgent();
+    } catch (error) {
+      console.log('⚠️ Default agent seeding skipped:', error instanceof Error ? error.message : 'Unknown error');
+    }
+  } else {
+    console.log('⏭️ [DefaultAgent] Seeding skipped (development mode - no mock data on production DB)');
   }
   
   // Activity tracking middleware
@@ -834,7 +846,11 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   console.log("✅ Parser Admin routes registered");
   app.use("/api/admin/exchange-filings", requireAdmin, exchangeFilingsRoutes);
   console.log("✅ Exchange Filings routes registered (admin-only)");
-  cacheCleanupScheduler.initialize();
+  if (isProductionEnvironment()) {
+    cacheCleanupScheduler.initialize();
+  } else {
+    console.log('⏭️ [CacheCleanupScheduler] Skipped (development mode - production only)');
+  }
   console.log("✅ Cache Admin routes registered");
 
   // Historical NAV Data Service (Portfolio Metrics from Real Data)

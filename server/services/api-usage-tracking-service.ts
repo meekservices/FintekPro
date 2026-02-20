@@ -130,6 +130,8 @@ class ApiUsageTrackingService {
   async initialize() {
     if (this.initialized) return;
 
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
+
     try {
       const existingPricing = await db.select().from(schema.apiProviderPricing);
       
@@ -146,18 +148,20 @@ class ApiUsageTrackingService {
       });
 
       let newCount = 0;
-      for (const provider of DEFAULT_PROVIDERS) {
-        if (!existingNames.has(provider.providerName.toLowerCase())) {
-          await db.insert(schema.apiProviderPricing).values({
-            providerName: provider.providerName,
-            displayName: provider.displayName,
-            description: provider.description,
-            costPerCall: String(provider.costPerCall),
-            currency: 'INR',
-            isActive: true,
-          }).onConflictDoNothing();
-          this.providerPricing.set(provider.providerName.toLowerCase(), provider);
-          newCount++;
+      if (isProduction) {
+        for (const provider of DEFAULT_PROVIDERS) {
+          if (!existingNames.has(provider.providerName.toLowerCase())) {
+            await db.insert(schema.apiProviderPricing).values({
+              providerName: provider.providerName,
+              displayName: provider.displayName,
+              description: provider.description,
+              costPerCall: String(provider.costPerCall),
+              currency: 'INR',
+              isActive: true,
+            }).onConflictDoNothing();
+            this.providerPricing.set(provider.providerName.toLowerCase(), provider);
+            newCount++;
+          }
         }
       }
 
