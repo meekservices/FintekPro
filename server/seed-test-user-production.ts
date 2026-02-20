@@ -106,4 +106,7 @@ async function seedProductionTestUser(): Promise<void> {
   }
 }
 
-seedProductionTestUser().then(() => process.exit(0));
+// Only run standalone (not when bundled into the main server)
+if (process.argv[1] && !process.argv[1].endsWith('dist/index.js')) {
+  seedProductionTestUser().then(() => process.exit(0));
+}

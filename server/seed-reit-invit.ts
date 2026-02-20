@@ -512,7 +512,7 @@ export async function seedAllReitsInvits(): Promise<{ listedReits: number; liste
   return { listedReits, listedInvits, unlisted };
 }
 
-const isMainModule = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMainModule = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1] && !process.argv[1]?.endsWith('dist/index.js');
 
 if (isMainModule) {
   seedAllReitsInvits()

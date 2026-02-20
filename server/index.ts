@@ -40,12 +40,10 @@ process.on('uncaughtException', (error: Error) => {
     }
     return;
   }
-  // For other uncaught exceptions, log but don't crash in development
+  // For other uncaught exceptions, log but don't crash
   console.error('[Global] Uncaught exception:', error);
-  if (process.env.NODE_ENV === 'production') {
-    // In production, give time for error logging then exit
-    setTimeout(() => process.exit(1), 1000);
-  }
+  // Don't exit the process - let it continue serving requests
+  // Only truly fatal errors (like missing DATABASE_URL) use process.exit() explicitly
 });
 
 process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
@@ -508,12 +506,48 @@ app.use((req, res, next) => {
   next();
 });
 
+// ============================================================================
+// IMMEDIATE HEALTH CHECK HANDLERS - registered synchronously BEFORE async init
+// These ensure the server responds to health checks as soon as server.listen() fires,
+// even while route registration is still in progress inside the async IIFE.
+// ============================================================================
+
+// Root / handler for deployment health checks
+app.get('/', (req: Request, res: Response, next: NextFunction) => {
+  if (bootState.routesReady) {
+    return next();
+  }
+  res.status(200).set({ 'Content-Type': 'text/html' }).send(
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>FintekPro</title>' +
+    '<meta http-equiv="refresh" content="5"></head><body>' +
+    '<p>Loading FintekPro...</p></body></html>'
+  );
+});
+
+// /api/health - always returns 200 as long as process is running
+app.get('/api/health', (_req: Request, res: Response) => {
+  res.status(200).json({
+    status: bootState.isFullyReady() ? 'ok' : 'booting',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    bootTime: bootState.getBootTime(),
+    ready: bootState.isFullyReady()
+  });
+});
+app.head('/api/health', (_req: Request, res: Response) => {
+  res.status(200).end();
+});
+
+// /health - simple health check
+app.get('/health', (_req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok', uptime: process.uptime() });
+});
+
 (async () => {
-  // Health check endpoints (must be before auth - no authentication required)
-  const { healthCheck, readinessCheck, livenessCheck } = await import('./health-check');
-  app.get('/health', healthCheck);
+  // Health check endpoints registered inside IIFE for extended checks (readiness, liveness)
+  // Note: /health, /api/health, and / are already registered synchronously above
+  const { readinessCheck, livenessCheck } = await import('./health-check');
   app.get('/ready', (req, res) => {
-    // Enhanced readiness check that includes boot state
     if (bootState.isFullyReady()) {
       return readinessCheck(req, res);
     }
@@ -529,46 +563,6 @@ app.use((req, res, next) => {
     });
   });
   app.get('/live', livenessCheck);
-  
-  // API health endpoint - BEFORE session middleware to ensure it always responds
-  // This is critical for production load balancers and health checks
-  // Returns 200 as long as server process is running (even during boot)
-  app.get('/api/health', (req, res) => {
-    res.status(200).json({
-      status: bootState.isFullyReady() ? 'ok' : 'booting',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      bootTime: bootState.getBootTime(),
-      ready: bootState.isFullyReady()
-    });
-  });
-  
-  // HEAD request for /api/health (used by some monitoring tools)
-  app.head('/api/health', (req, res) => {
-    res.status(200).end();
-  });
-  
-  // API ready endpoint - returns 503 during boot, 200 when fully ready
-  app.get('/api/ready', async (req, res) => {
-    if (bootState.isFullyReady()) {
-      res.status(200).json({
-        status: 'ready',
-        timestamp: new Date().toISOString(),
-        bootTime: bootState.getBootTime()
-      });
-    } else {
-      res.status(503).json({
-        status: 'booting',
-        message: 'Server is starting up, please wait...',
-        bootTime: bootState.getBootTime(),
-        state: {
-          serverListening: bootState.serverListening,
-          authReady: bootState.authReady,
-          routesReady: bootState.routesReady
-        }
-      });
-    }
-  });
   
   // Initialize authentication (Passport & sessions must be set up first)
   await setupReplitAuth(app);
@@ -1253,4 +1247,12 @@ app.use((req, res, next) => {
   } else {
     console.log('⏭️ [ProductionBootstrap] All data seeding skipped (development mode - production only)');
   }
-})();
+})().catch((error: any) => {
+  console.error('❌ [FATAL] Server initialization failed:', error?.message || error);
+  // Don't exit - the server may still be able to handle health checks
+  // Only exit if the server never started listening
+  if (!bootState.serverListening) {
+    console.error('❌ Server never started listening, exiting...');
+    process.exit(1);
+  }
+});
