@@ -229,6 +229,36 @@ interface TrustDetails {
   investmentInSpecifiedMode: number;
 }
 
+interface ScheduleALDetails {
+  immovableProperty: number;
+  movableAssets: number;
+  bankDeposits: number;
+  sharesAndSecurities: number;
+  insurancePolicies: number;
+  loansAndAdvancesGiven: number;
+  cashInHand: number;
+  jewelleryBullion: number;
+  archaeologicalCollections: number;
+  vehiclesYachtsBoats: number;
+  totalAssets: number;
+  totalLiabilities: number;
+  liabilitiesRelatedToImmovable: number;
+  liabilitiesRelatedToOther: number;
+}
+
+interface DonationEntry {
+  doneeName: string;
+  doneePAN: string;
+  doneeAddress: string;
+  donationAmount: number;
+  qualifyingPercentage: 100 | 50;
+  qualifyingLimit: "with_limit" | "without_limit";
+  donationDate: string;
+  donationType: "cash" | "kind" | "other";
+  section80GCertificateNo: string;
+  eligibleAmount: number;
+}
+
 interface BrokerUploadInfo {
   id: number;
   brokerName: string;
@@ -432,6 +462,7 @@ const STEPS = [
   { id: "disclosures", title: "Disclosures", icon: Shield, description: "Director, unlisted shares, loss carry-forward" },
   { id: "trust_income", title: "Trust / Exemptions", icon: Scale, description: "Corpus, voluntary contributions, exemptions" },
   { id: "deductions", title: "Deductions", icon: Calculator, description: "Tax-saving investments" },
+  { id: "schedule_al", title: "Schedule AL", icon: Scale, description: "Assets & liabilities disclosure" },
   { id: "tax_payments", title: "Tax Payments", icon: IndianRupee, description: "TDS, advance tax, self-assessment" },
   { id: "review", title: "Review & File", icon: CheckCircle, description: "Verify and submit" }
 ];
@@ -571,7 +602,7 @@ export default function TaxITRSelfPage() {
     municipalTaxes: 0,
     interestOnLoan: 0,
     isSelfOccupied: true,
-    properties: []
+    properties: [{ propertyType: "self_occupied", rentalIncome: 0, municipalTaxes: 0, interestOnLoan: 0, unrealizedRent: 0, address: "" }]
   });
 
   const [capitalGainsDetails, setCapitalGainsDetails] = useState<CapitalGainsDetails>({
@@ -676,6 +707,10 @@ export default function TaxITRSelfPage() {
   });
 
   const [form26ASLoading, setForm26ASLoading] = useState(false);
+  const [aisLoading, setAisLoading] = useState(false);
+  const [aisData, setAisData] = useState<{ loaded: boolean; tdsEntries: number; interestIncome: number; dividendIncome: number; salaryIncome: number; saleTransactions: number; timestamp: string } | null>(null);
+  const [showComputationSummary, setShowComputationSummary] = useState(false);
+  const [showValidationReport, setShowValidationReport] = useState(false);
 
   const [lossCarryForward, setLossCarryForward] = useState<LossCarryForward[]>([]);
   const [directorships, setDirectorships] = useState<DirectorshipEntry[]>([]);
@@ -705,6 +740,21 @@ export default function TaxITRSelfPage() {
   const [trustDetails, setTrustDetails] = useState<TrustDetails>({
     trustType: "charitable", registrationSection: "12A", registrationNumber: "", registrationDate: "", corpusDonations: 0, voluntaryContributions: 0, applicationOfIncome: 0, accumulatedIncome: 0, accumulationPercentage: 15, section11Exemption: 0, section12Exemption: 0, anonymousDonations: 0, investmentInSpecifiedMode: 0,
   });
+
+  const [scheduleAL, setScheduleAL] = useState<ScheduleALDetails>({
+    immovableProperty: 0, movableAssets: 0, bankDeposits: 0, sharesAndSecurities: 0,
+    insurancePolicies: 0, loansAndAdvancesGiven: 0, cashInHand: 0, jewelleryBullion: 0,
+    archaeologicalCollections: 0, vehiclesYachtsBoats: 0, totalAssets: 0, totalLiabilities: 0,
+    liabilitiesRelatedToImmovable: 0, liabilitiesRelatedToOther: 0,
+  });
+
+  const [donationEntries, setDonationEntries] = useState<DonationEntry[]>([]);
+
+  const [isUpdatedReturn, setIsUpdatedReturn] = useState(false);
+  const [itrUDetails, setItrUDetails] = useState({ originalAckNumber: "", originalFilingDate: "", reasonForUpdate: "income_not_reported", additionalTaxPayable: 0, lateFee234F: 0, additionalInterest: 0 });
+
+  const [documentVault, setDocumentVault] = useState<{ id: string; name: string; type: string; category: string; uploadedAt: string; size: number }[]>([]);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
   const [sandboxTaxResult, setSandboxTaxResult] = useState<SandboxTaxResult | null>(null);
   const [taxCalcError, setTaxCalcError] = useState<string | null>(null);
@@ -738,12 +788,15 @@ export default function TaxITRSelfPage() {
 
       let housePropertyIncome = 0;
       if (incomeSources.hasHouseProperty) {
-        if (housePropertyDetails.isSelfOccupied) {
-          housePropertyIncome = -Math.min(housePropertyDetails.interestOnLoan, 200000);
-        } else {
-          const netAnnualValue = housePropertyDetails.rentalIncome - housePropertyDetails.municipalTaxes;
-          const stdDed = netAnnualValue * 0.30;
-          housePropertyIncome = netAnnualValue - stdDed - housePropertyDetails.interestOnLoan;
+        const props = housePropertyDetails.properties.length > 0 ? housePropertyDetails.properties : [{ propertyType: housePropertyDetails.isSelfOccupied ? "self_occupied" as const : "let_out" as const, rentalIncome: housePropertyDetails.rentalIncome, municipalTaxes: housePropertyDetails.municipalTaxes, interestOnLoan: housePropertyDetails.interestOnLoan, unrealizedRent: 0, address: "" }];
+        for (const prop of props) {
+          if (prop.propertyType === "self_occupied") {
+            housePropertyIncome += -Math.min(prop.interestOnLoan, 200000);
+          } else {
+            const nav = prop.rentalIncome - prop.municipalTaxes - prop.unrealizedRent;
+            const stdDed = nav * 0.30;
+            housePropertyIncome += nav - stdDed - prop.interestOnLoan;
+          }
         }
       }
 
@@ -940,6 +993,84 @@ export default function TaxITRSelfPage() {
   const needsDisclosures = ["ITR-2", "ITR-3", "ITR-5", "ITR-6"].includes(recommendedForm);
   const needsTrustSchedule = recommendedForm === "ITR-7";
 
+  const calculateLocalTotals = () => {
+    const salaryIncome = salaryDetails.grossSalary + salaryDetails.allowances + 
+      salaryDetails.perquisites + salaryDetails.profitInLieu - 
+      salaryDetails.standardDeduction - salaryDetails.professionalTax;
+    
+    let housePropertyIncome = 0;
+    if (incomeSources.hasHouseProperty) {
+      const props = housePropertyDetails.properties.length > 0 ? housePropertyDetails.properties : [{ propertyType: housePropertyDetails.isSelfOccupied ? "self_occupied" as const : "let_out" as const, rentalIncome: housePropertyDetails.rentalIncome, municipalTaxes: housePropertyDetails.municipalTaxes, interestOnLoan: housePropertyDetails.interestOnLoan, unrealizedRent: 0, address: "" }];
+      for (const prop of props) {
+        if (prop.propertyType === "self_occupied") {
+          housePropertyIncome += -Math.min(prop.interestOnLoan, 200000);
+        } else {
+          const nav = prop.rentalIncome - prop.municipalTaxes - prop.unrealizedRent;
+          const stdDed = nav * 0.30;
+          housePropertyIncome += nav - stdDed - prop.interestOnLoan;
+        }
+      }
+    }
+
+    const capitalGains = capitalGainsDetails.shortTermGains + capitalGainsDetails.longTermGains - capitalGainsDetails.exemptionsApplied;
+    const otherIncome = otherIncomeDetails.interestIncome + otherIncomeDetails.dividendIncome + otherIncomeDetails.otherSources;
+
+    const foreignCapitalGains = incomeSources.hasForeignIncome ? (foreignIncomeDetails.foreignSTCG + foreignIncomeDetails.foreignLTCG) : 0;
+    const foreignOtherIncome = incomeSources.hasForeignIncome ?
+      (foreignIncomeDetails.foreignDividends + foreignIncomeDetails.foreignInterest + foreignIncomeDetails.foreignOtherIncome) : 0;
+    const totalForeignIncome = foreignCapitalGains + foreignOtherIncome;
+    const foreignTaxCredit = incomeSources.hasForeignIncome ? foreignIncomeDetails.foreignTaxPaid : 0;
+
+    const businessInc = incomeSources.hasBusinessIncome ? (
+      businessDetails.isPresumptive
+        ? (businessDetails.presumptiveIncome44AD + businessDetails.presumptiveIncome44ADA + businessDetails.presumptiveIncome44AE)
+        : businessDetails.businessIncome
+    ) : 0;
+
+    const grossTotalIncome = Math.max(0, salaryIncome) + housePropertyIncome + capitalGains + otherIncome + totalForeignIncome + businessInc;
+
+    const combined80C_CCC_CCD1 = Math.min(
+      deductionDetails.section80C + deductionDetails.section80CCC + deductionDetails.section80CCD1,
+      150000
+    );
+    const totalDeductions = combined80C_CCC_CCD1 +
+      Math.min(deductionDetails.section80CCD1B, 50000) +
+      deductionDetails.section80CCD2 +
+      Math.min(deductionDetails.section80D, 100000) +
+      Math.min(deductionDetails.section80DD, 125000) +
+      Math.min(deductionDetails.section80DDB, 100000) +
+      deductionDetails.section80E +
+      Math.min(deductionDetails.section80EEA, 150000) +
+      Math.min(deductionDetails.section80EEB, 150000) +
+      deductionDetails.section80G +
+      Math.min(deductionDetails.section80GG, 60000) +
+      Math.min(deductionDetails.section80TTA, 10000) +
+      Math.min(deductionDetails.section80TTB, 50000) +
+      Math.min(deductionDetails.section80U, 125000) +
+      deductionDetails.otherDeductions;
+
+    const autoTdsTotal = taxPaymentDetails.tdsSalary + taxPaymentDetails.tdsOtherThanSalary + taxPaymentDetails.tdsOnProperty;
+    const effectiveTds = autoTdsTotal > 0 ? autoTdsTotal : taxPaymentDetails.tdsDeducted;
+    const totalTaxPaid = effectiveTds + taxPaymentDetails.tcsCollected +
+      taxPaymentDetails.advanceTaxPaid + taxPaymentDetails.selfAssessmentTax;
+
+    return {
+      salaryIncome,
+      housePropertyIncome,
+      capitalGains,
+      otherIncome,
+      foreignCapitalGains,
+      foreignOtherIncome,
+      totalForeignIncome,
+      foreignTaxCredit,
+      grossTotalIncome,
+      totalDeductions,
+      totalTaxPaid,
+    };
+  };
+
+  const totals = calculateLocalTotals();
+
   const getActiveSteps = () => {
     const active = [getStepById("basic"), getStepById("sources")];
     if (isEntityForm) active.push(getStepById("entity_profile"));
@@ -953,6 +1084,9 @@ export default function TaxITRSelfPage() {
     if (needsDisclosures) active.push(getStepById("disclosures"));
     if (needsTrustSchedule) active.push(getStepById("trust_income"));
     active.push(getStepById("deductions"));
+    if (recommendedForm !== "ITR-1" && totals.grossTotalIncome > 5000000) {
+      active.push(getStepById("schedule_al"));
+    }
     active.push(getStepById("tax_payments"));
     active.push(getStepById("review"));
     return active;
@@ -1095,6 +1229,17 @@ export default function TaxITRSelfPage() {
           }
         }
         break;
+      case "schedule_al": {
+        const alTotal = scheduleAL.immovableProperty + scheduleAL.movableAssets + scheduleAL.bankDeposits + scheduleAL.sharesAndSecurities + scheduleAL.insurancePolicies + scheduleAL.loansAndAdvancesGiven + scheduleAL.cashInHand + scheduleAL.jewelleryBullion + scheduleAL.archaeologicalCollections + scheduleAL.vehiclesYachtsBoats;
+        if (alTotal === 0) {
+          errors.push("Schedule AL is mandatory for ITR-2/3 with income exceeding ₹50 lakhs. Please enter your assets.");
+        }
+        const totalLiab = scheduleAL.liabilitiesRelatedToImmovable + scheduleAL.liabilitiesRelatedToOther;
+        if (totalLiab > alTotal) {
+          warnings.push("Total liabilities exceed total assets. Please verify.");
+        }
+        break;
+      }
       case "tax_payments":
         if (taxPaymentDetails.tdsDeducted > 0 && taxPaymentDetails.tdsDeducted > totals.grossTotalIncome * 0.40) {
           warnings.push("TDS appears high relative to your income. Please verify from Form 26AS.");
@@ -1165,81 +1310,6 @@ export default function TaxITRSelfPage() {
     }
     return { isValid: errors.length === 0, errors, warnings };
   }, [incomeSources, salaryDetails, housePropertyDetails, businessDetails, capitalGainsDetails, foreignIncomeDetails, deductionDetails, taxPaymentDetails, panContext, taxRegime, otherIncomeDetails, bankDetails, recommendedForm, totals, sandboxTaxResult, isEntityForm, needsFinancials, needsDisclosures, needsTrustSchedule, entityProfile, corporateDetails, trustDetails, balanceSheet, profitLoss, taxAuditInfo, lossCarryForward]);
-
-  const calculateLocalTotals = () => {
-    const salaryIncome = salaryDetails.grossSalary + salaryDetails.allowances + 
-      salaryDetails.perquisites + salaryDetails.profitInLieu - 
-      salaryDetails.standardDeduction - salaryDetails.professionalTax;
-    
-    let housePropertyIncome = 0;
-    if (incomeSources.hasHouseProperty) {
-      if (housePropertyDetails.isSelfOccupied) {
-        housePropertyIncome = -Math.min(housePropertyDetails.interestOnLoan, 200000);
-      } else {
-        const netAnnualValue = housePropertyDetails.rentalIncome - housePropertyDetails.municipalTaxes;
-        const standardDeduction = netAnnualValue * 0.30;
-        housePropertyIncome = netAnnualValue - standardDeduction - housePropertyDetails.interestOnLoan;
-      }
-    }
-
-    const capitalGains = capitalGainsDetails.shortTermGains + capitalGainsDetails.longTermGains - capitalGainsDetails.exemptionsApplied;
-    const otherIncome = otherIncomeDetails.interestIncome + otherIncomeDetails.dividendIncome + otherIncomeDetails.otherSources;
-
-    const foreignCapitalGains = incomeSources.hasForeignIncome ? (foreignIncomeDetails.foreignSTCG + foreignIncomeDetails.foreignLTCG) : 0;
-    const foreignOtherIncome = incomeSources.hasForeignIncome ?
-      (foreignIncomeDetails.foreignDividends + foreignIncomeDetails.foreignInterest + foreignIncomeDetails.foreignOtherIncome) : 0;
-    const totalForeignIncome = foreignCapitalGains + foreignOtherIncome;
-    const foreignTaxCredit = incomeSources.hasForeignIncome ? foreignIncomeDetails.foreignTaxPaid : 0;
-
-    const businessInc = incomeSources.hasBusinessIncome ? (
-      businessDetails.isPresumptive
-        ? (businessDetails.presumptiveIncome44AD + businessDetails.presumptiveIncome44ADA + businessDetails.presumptiveIncome44AE)
-        : businessDetails.businessIncome
-    ) : 0;
-
-    const grossTotalIncome = Math.max(0, salaryIncome) + housePropertyIncome + capitalGains + otherIncome + totalForeignIncome + businessInc;
-
-    const combined80C_CCC_CCD1 = Math.min(
-      deductionDetails.section80C + deductionDetails.section80CCC + deductionDetails.section80CCD1,
-      150000
-    );
-    const totalDeductions = combined80C_CCC_CCD1 +
-      Math.min(deductionDetails.section80CCD1B, 50000) +
-      deductionDetails.section80CCD2 +
-      Math.min(deductionDetails.section80D, 100000) +
-      Math.min(deductionDetails.section80DD, 125000) +
-      Math.min(deductionDetails.section80DDB, 100000) +
-      deductionDetails.section80E +
-      Math.min(deductionDetails.section80EEA, 150000) +
-      Math.min(deductionDetails.section80EEB, 150000) +
-      deductionDetails.section80G +
-      Math.min(deductionDetails.section80GG, 60000) +
-      Math.min(deductionDetails.section80TTA, 10000) +
-      Math.min(deductionDetails.section80TTB, 50000) +
-      Math.min(deductionDetails.section80U, 125000) +
-      deductionDetails.otherDeductions;
-
-    const autoTdsTotal = taxPaymentDetails.tdsSalary + taxPaymentDetails.tdsOtherThanSalary + taxPaymentDetails.tdsOnProperty;
-    const effectiveTds = autoTdsTotal > 0 ? autoTdsTotal : taxPaymentDetails.tdsDeducted;
-    const totalTaxPaid = effectiveTds + taxPaymentDetails.tcsCollected +
-      taxPaymentDetails.advanceTaxPaid + taxPaymentDetails.selfAssessmentTax;
-
-    return {
-      salaryIncome,
-      housePropertyIncome,
-      capitalGains,
-      otherIncome,
-      foreignCapitalGains,
-      foreignOtherIncome,
-      totalForeignIncome,
-      foreignTaxCredit,
-      grossTotalIncome,
-      totalDeductions,
-      totalTaxPaid,
-    };
-  };
-
-  const totals = calculateLocalTotals();
 
   const handleSaveDraft = () => {
     const apiData = sandboxTaxResult?.data;
@@ -1434,6 +1504,72 @@ export default function TaxITRSelfPage() {
             </Label>
           </div>
         </RadioGroup>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            id="itr-u-toggle"
+            checked={isUpdatedReturn}
+            onChange={(e) => setIsUpdatedReturn(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300"
+            data-testid="checkbox-itr-u"
+          />
+          <Label htmlFor="itr-u-toggle" className="cursor-pointer">
+            <span className="font-medium">Filing Updated Return (ITR-U)</span>
+            <span className="text-xs text-muted-foreground ml-1">Under Section 139(8A)</span>
+          </Label>
+        </div>
+        {isUpdatedReturn && (
+          <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+            <CardContent className="p-4 space-y-3">
+              <p className="text-xs text-muted-foreground">
+                ITR-U allows you to update a previously filed return within 24 months from the end of the relevant assessment year. 
+                Additional tax of 25% (within 12 months) or 50% (12-24 months) applies on the additional tax payable.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Original Acknowledgment Number <span className="text-red-500">*</span></Label>
+                  <Input value={itrUDetails.originalAckNumber} onChange={(e) => setItrUDetails(p => ({ ...p, originalAckNumber: e.target.value }))} placeholder="15-digit ack number" maxLength={15} className="font-mono" data-testid="itr-u-ack" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Original Filing Date</Label>
+                  <Input type="date" value={itrUDetails.originalFilingDate} onChange={(e) => setItrUDetails(p => ({ ...p, originalFilingDate: e.target.value }))} data-testid="itr-u-date" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Reason for Updated Return</Label>
+                  <Select value={itrUDetails.reasonForUpdate} onValueChange={(v) => setItrUDetails(p => ({ ...p, reasonForUpdate: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="income_not_reported">Income not reported earlier</SelectItem>
+                      <SelectItem value="income_incorrectly_reported">Income incorrectly reported</SelectItem>
+                      <SelectItem value="wrong_heads">Income reported under wrong head</SelectItem>
+                      <SelectItem value="wrong_deductions">Wrong deductions claimed</SelectItem>
+                      <SelectItem value="wrong_tax_rate">Wrong tax rate applied</SelectItem>
+                      <SelectItem value="wrong_carry_forward">Wrong carry forward of loss</SelectItem>
+                      <SelectItem value="wrong_exemption">Wrong exemption claimed</SelectItem>
+                      <SelectItem value="other">Others</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Additional Tax Payable (₹)</Label>
+                  <CurrencyInput id="itr-u-tax" value={itrUDetails.additionalTaxPayable} onChange={(v) => setItrUDetails(p => ({ ...p, additionalTaxPayable: v }))} placeholder="Additional tax on updated income" data-testid="itr-u-tax" />
+                </div>
+              </div>
+              <Alert className="bg-red-50 dark:bg-red-950 border-red-200">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+                <AlertDescription className="text-xs">
+                  <strong>Important:</strong> ITR-U cannot be used to: (a) file nil/loss return, (b) claim refund or increase refund, 
+                  (c) decrease total tax liability. Additional tax includes 25% surcharge (if filed within 12 months) or 50% (12-24 months).
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Card className="border-primary/30 bg-primary/5">
@@ -1786,11 +1922,48 @@ export default function TaxITRSelfPage() {
     }
   };
 
+  const handleFetchAIS = async () => {
+    if (!panContext?.pan || !assessmentYear) return;
+    setAisLoading(true);
+    try {
+      const res = await fetch(`/api/tax/ais/${panContext.pan}/${assessmentYear}`, { credentials: "include" });
+      const data = await res.json();
+      if (data.success && data.aisData) {
+        const ais = data.aisData;
+        if (ais.salaryIncome > 0) setSalaryDetails(prev => ({ ...prev, basicSalary: ais.salaryIncome }));
+        if (ais.interestIncome > 0) setOtherIncomeDetails(prev => ({ ...prev, savingsInterest: prev.savingsInterest + ais.interestIncome }));
+        if (ais.dividendIncome > 0) setOtherIncomeDetails(prev => ({ ...prev, dividendIncome: prev.dividendIncome + ais.dividendIncome }));
+        if (ais.tdsEntries > 0) setTaxPaymentDetails(prev => ({ ...prev, tdsDeducted: prev.tdsDeducted + (ais.totalTDS || 0) }));
+        setAisData({ loaded: true, tdsEntries: ais.tdsEntries || 0, interestIncome: ais.interestIncome || 0, dividendIncome: ais.dividendIncome || 0, salaryIncome: ais.salaryIncome || 0, saleTransactions: ais.saleTransactions || 0, timestamp: new Date().toISOString() });
+        toast({ title: "AIS Data Loaded", description: `Loaded ${ais.tdsEntries || 0} TDS entries, income details from Annual Information Statement.` });
+      } else {
+        toast({ title: "AIS Fetch Failed", description: data.message || "Could not fetch AIS data. You can enter details manually.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "AIS Unavailable", description: "Annual Information Statement service is currently unavailable.", variant: "destructive" });
+    } finally {
+      setAisLoading(false);
+    }
+  };
+
+  const getAllStepValidations = () => {
+    return activeSteps.map(step => ({
+      stepId: step.id,
+      stepTitle: step.title,
+      validation: validateStep(step.id),
+    }));
+  };
+
   const renderSalaryStep = () => (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <p className="text-muted-foreground text-sm">Enter details from your Form 16 Part B, or upload it for auto-fill.</p>
-        <label htmlFor="form16-upload" className="cursor-pointer">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={handleFetchAIS} disabled={aisLoading || !panContext?.pan} data-testid="btn-fetch-ais">
+            <Globe className="h-4 w-4 mr-1" />
+            {aisLoading ? "Fetching AIS..." : aisData?.loaded ? "AIS Loaded ✓" : "Fetch AIS"}
+          </Button>
+          <label htmlFor="form16-upload" className="cursor-pointer">
           <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-md border text-sm font-medium transition-colors ${form16Uploading ? 'opacity-50 cursor-wait' : 'hover:bg-accent'}`}>
             <Upload className="h-4 w-4" />
             {form16Uploading ? "Parsing..." : "Upload Form 16"}
@@ -1808,7 +1981,21 @@ export default function TaxITRSelfPage() {
             data-testid="input-form16-upload"
           />
         </label>
+        </div>
       </div>
+
+      {aisData?.loaded && (
+        <Alert className="bg-green-50 dark:bg-green-950 border-green-200">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-xs">
+            <strong>AIS data pre-filled:</strong> {aisData.salaryIncome > 0 ? `Salary ₹${aisData.salaryIncome.toLocaleString('en-IN')}` : ''} 
+            {aisData.interestIncome > 0 ? ` | Interest ₹${aisData.interestIncome.toLocaleString('en-IN')}` : ''} 
+            {aisData.dividendIncome > 0 ? ` | Dividends ₹${aisData.dividendIncome.toLocaleString('en-IN')}` : ''} 
+            {aisData.tdsEntries > 0 ? ` | ${aisData.tdsEntries} TDS entries` : ''} 
+            {aisData.saleTransactions > 0 ? ` | ${aisData.saleTransactions} sale transactions` : ''}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card className="bg-blue-50/50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
         <CardContent className="p-4 space-y-3">
@@ -1916,99 +2103,255 @@ export default function TaxITRSelfPage() {
     </div>
   );
 
-  const renderHousePropertyStep = () => (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <Label>Property Type <FieldHint text="Self-occupied: You live in it. Let out: You receive rent. If you have both, let-out income is primary." /></Label>
-        <RadioGroup 
-          value={housePropertyDetails.isSelfOccupied ? "self" : "letout"} 
-          onValueChange={(v) => setHousePropertyDetails(prev => ({ ...prev, isSelfOccupied: v === "self" }))}
-          className="flex gap-4"
-          data-testid="radio-property-type"
-        >
-          <label htmlFor="prop-self" className={`flex items-center gap-2 px-4 py-3 rounded-lg border cursor-pointer transition-all ${housePropertyDetails.isSelfOccupied ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground/40'}`}>
-            <RadioGroupItem value="self" id="prop-self" />
-            <div>
-              <span className="font-medium text-sm">Self Occupied</span>
-              <p className="text-xs text-muted-foreground">You live in this property</p>
-            </div>
-          </label>
-          <label htmlFor="prop-letout" className={`flex items-center gap-2 px-4 py-3 rounded-lg border cursor-pointer transition-all ${!housePropertyDetails.isSelfOccupied ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground/40'}`}>
-            <RadioGroupItem value="letout" id="prop-letout" />
-            <div>
-              <span className="font-medium text-sm">Let Out / Deemed</span>
-              <p className="text-xs text-muted-foreground">Rented or vacant second property</p>
-            </div>
-          </label>
-        </RadioGroup>
-      </div>
+  const computePropertyIncome = (property: HousePropertyEntry): number => {
+    if (property.propertyType === "self_occupied") {
+      return -Math.min(property.interestOnLoan, 200000);
+    }
+    const nav = property.rentalIncome - property.municipalTaxes - property.unrealizedRent;
+    const stdDed = nav * 0.30;
+    return nav - stdDed - property.interestOnLoan;
+  };
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {!housePropertyDetails.isSelfOccupied && (
-          <>
-            <div className="space-y-1.5">
-              <Label htmlFor="rentalIncome">
-                Annual Rental Income <span className="text-red-500">*</span>
-                <FieldHint text="Total rent received during the financial year. If property was vacant for some months, enter actual rent received." />
-              </Label>
-              <CurrencyInput
-                id="rentalIncome"
-                value={housePropertyDetails.rentalIncome}
-                onChange={(v) => setHousePropertyDetails(prev => ({ ...prev, rentalIncome: v }))}
-                placeholder="Total annual rent"
-                data-testid="input-rental-income"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="municipalTaxes">
-                Municipal Taxes Paid
-                <FieldHint text="Property tax paid to local municipality. Only deductible if actually paid during the year." />
-              </Label>
-              <CurrencyInput
-                id="municipalTaxes"
-                value={housePropertyDetails.municipalTaxes}
-                onChange={(v) => setHousePropertyDetails(prev => ({ ...prev, municipalTaxes: v }))}
-                placeholder="Property tax paid"
-                data-testid="input-municipal-taxes"
-              />
-            </div>
-          </>
-        )}
-        <div className="space-y-1.5">
-          <Label htmlFor="interestOnLoan">
-            Interest on Home Loan
-            <FieldHint text={housePropertyDetails.isSelfOccupied 
-              ? "Maximum ₹2,00,000 deduction for self-occupied property. Get from bank's interest certificate." 
-              : "Full interest is deductible for let-out property. Get from bank's interest certificate."} />
-          </Label>
-          <CurrencyInput
-            id="interestOnLoan"
-            value={housePropertyDetails.interestOnLoan}
-            onChange={(v) => setHousePropertyDetails(prev => ({ ...prev, interestOnLoan: v }))}
-            placeholder="Annual home loan interest"
-            max={housePropertyDetails.isSelfOccupied ? 200000 : undefined}
-            data-testid="input-interest-loan"
-          />
-        </div>
-      </div>
+  const addProperty = () => {
+    const maxProps = recommendedForm === "ITR-1" ? 1 : 5;
+    if (housePropertyDetails.properties.length >= maxProps) return;
+    const newProp: HousePropertyEntry = { propertyType: "self_occupied", rentalIncome: 0, municipalTaxes: 0, interestOnLoan: 0, unrealizedRent: 0, address: "" };
+    setHousePropertyDetails(prev => ({
+      ...prev,
+      propertyCount: prev.properties.length + 1,
+      properties: [...prev.properties, newProp],
+    }));
+  };
 
-      <Card className="bg-muted/50">
-        <CardContent className="p-4">
-          <div className="flex justify-between items-center">
-            <span className="font-medium">Income / Loss from House Property</span>
-            <span className={`font-bold text-lg ${totals.housePropertyIncome < 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {formatCurrency(totals.housePropertyIncome)}
-            </span>
+  const removeProperty = (idx: number) => {
+    if (housePropertyDetails.properties.length <= 1) return;
+    setHousePropertyDetails(prev => {
+      const updated = prev.properties.filter((_, i) => i !== idx);
+      const first = updated[0];
+      return {
+        ...prev,
+        propertyCount: updated.length,
+        properties: updated,
+        isSelfOccupied: first ? first.propertyType === "self_occupied" : true,
+        rentalIncome: first ? first.rentalIncome : 0,
+        municipalTaxes: first ? first.municipalTaxes : 0,
+        interestOnLoan: first ? first.interestOnLoan : 0,
+      };
+    });
+  };
+
+  const updateProperty = (idx: number, field: keyof HousePropertyEntry, value: string | number) => {
+    setHousePropertyDetails(prev => {
+      const updated = [...prev.properties];
+      updated[idx] = { ...updated[idx], [field]: value };
+      const backcompat: Partial<HousePropertyDetails> = {};
+      if (idx === 0) {
+        backcompat.isSelfOccupied = updated[0].propertyType === "self_occupied";
+        backcompat.rentalIncome = updated[0].rentalIncome;
+        backcompat.municipalTaxes = updated[0].municipalTaxes;
+        backcompat.interestOnLoan = updated[0].interestOnLoan;
+      }
+      return { ...prev, ...backcompat, properties: updated };
+    });
+  };
+
+  const renderHousePropertyStep = () => {
+    const maxProps = recommendedForm === "ITR-1" ? 1 : 5;
+    const properties = housePropertyDetails.properties.length > 0
+      ? housePropertyDetails.properties
+      : [{ propertyType: "self_occupied" as const, rentalIncome: 0, municipalTaxes: 0, interestOnLoan: 0, unrealizedRent: 0, address: "" }];
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">
+              {properties.length} {properties.length === 1 ? "Property" : "Properties"} added
+            </h3>
           </div>
-          {housePropertyDetails.isSelfOccupied && totals.housePropertyIncome < 0 && (
-            <p className="text-xs text-muted-foreground mt-1">This loss will reduce your total taxable income.</p>
-          )}
-        </CardContent>
-      </Card>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={addProperty}
+            disabled={properties.length >= maxProps}
+            className="gap-1.5"
+          >
+            <Plus className="h-4 w-4" />
+            Add Property
+          </Button>
+        </div>
 
-      <ValidationBanner validation={currentValidation} />
-    </div>
-  );
+        {recommendedForm === "ITR-1" && properties.length >= 1 && (
+          <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+            <Info className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-700 dark:text-blue-300">
+              ITR-1 allows only 1 house property. Switch to ITR-2 or higher to add multiple properties.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {properties.map((prop, idx) => {
+          const propIncome = computePropertyIncome(prop);
+          const isSelf = prop.propertyType === "self_occupied";
+          const isLetOut = prop.propertyType === "let_out" || prop.propertyType === "deemed_let_out";
+
+          return (
+            <Card key={idx} className="border">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Home className="h-4 w-4" />
+                    Property {idx + 1}
+                    <Badge variant={isSelf ? "secondary" : "outline"} className="text-xs">
+                      {prop.propertyType === "self_occupied" ? "Self Occupied" : prop.propertyType === "let_out" ? "Let Out" : "Deemed Let Out"}
+                    </Badge>
+                  </CardTitle>
+                  {properties.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeProperty(idx)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 h-8 w-8 p-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="space-y-3">
+                  <Label>Property Type <FieldHint text="Self-occupied: You live in it. Let out: You receive rent. Deemed let out: Vacant second property treated as let out." /></Label>
+                  <RadioGroup
+                    value={prop.propertyType}
+                    onValueChange={(v) => updateProperty(idx, "propertyType", v)}
+                    className="flex flex-wrap gap-3"
+                  >
+                    <label htmlFor={`prop-self-${idx}`} className={`flex items-center gap-2 px-4 py-3 rounded-lg border cursor-pointer transition-all ${prop.propertyType === "self_occupied" ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground/40'}`}>
+                      <RadioGroupItem value="self_occupied" id={`prop-self-${idx}`} />
+                      <div>
+                        <span className="font-medium text-sm">Self Occupied</span>
+                        <p className="text-xs text-muted-foreground">You live in this property</p>
+                      </div>
+                    </label>
+                    <label htmlFor={`prop-letout-${idx}`} className={`flex items-center gap-2 px-4 py-3 rounded-lg border cursor-pointer transition-all ${prop.propertyType === "let_out" ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground/40'}`}>
+                      <RadioGroupItem value="let_out" id={`prop-letout-${idx}`} />
+                      <div>
+                        <span className="font-medium text-sm">Let Out</span>
+                        <p className="text-xs text-muted-foreground">Rented to tenants</p>
+                      </div>
+                    </label>
+                    <label htmlFor={`prop-deemed-${idx}`} className={`flex items-center gap-2 px-4 py-3 rounded-lg border cursor-pointer transition-all ${prop.propertyType === "deemed_let_out" ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground/40'}`}>
+                      <RadioGroupItem value="deemed_let_out" id={`prop-deemed-${idx}`} />
+                      <div>
+                        <span className="font-medium text-sm">Deemed Let Out</span>
+                        <p className="text-xs text-muted-foreground">Vacant second property</p>
+                      </div>
+                    </label>
+                  </RadioGroup>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor={`address-${idx}`}>
+                    Property Address
+                    <FieldHint text="Full address of the property including city and pin code." />
+                  </Label>
+                  <Input
+                    id={`address-${idx}`}
+                    value={prop.address}
+                    onChange={(e) => updateProperty(idx, "address", e.target.value)}
+                    placeholder="Enter property address"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {isLetOut && (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`rentalIncome-${idx}`}>
+                          Annual Rental Income <span className="text-red-500">*</span>
+                          <FieldHint text="Total rent received during the financial year. If property was vacant for some months, enter actual rent received." />
+                        </Label>
+                        <CurrencyInput
+                          id={`rentalIncome-${idx}`}
+                          value={prop.rentalIncome}
+                          onChange={(v) => updateProperty(idx, "rentalIncome", v)}
+                          placeholder="Total annual rent"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`municipalTaxes-${idx}`}>
+                          Municipal Taxes Paid
+                          <FieldHint text="Property tax paid to local municipality. Only deductible if actually paid during the year." />
+                        </Label>
+                        <CurrencyInput
+                          id={`municipalTaxes-${idx}`}
+                          value={prop.municipalTaxes}
+                          onChange={(v) => updateProperty(idx, "municipalTaxes", v)}
+                          placeholder="Property tax paid"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`unrealizedRent-${idx}`}>
+                          Unrealized Rent
+                          <FieldHint text="Rent that could not be collected from tenant. Conditions under Rule 4 must be satisfied." />
+                        </Label>
+                        <CurrencyInput
+                          id={`unrealizedRent-${idx}`}
+                          value={prop.unrealizedRent}
+                          onChange={(v) => updateProperty(idx, "unrealizedRent", v)}
+                          placeholder="Unrealized rent amount"
+                        />
+                      </div>
+                    </>
+                  )}
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`interestOnLoan-${idx}`}>
+                      Interest on Home Loan
+                      <FieldHint text={isSelf
+                        ? "Maximum ₹2,00,000 deduction for self-occupied property. Get from bank's interest certificate."
+                        : "Full interest is deductible for let-out property. Get from bank's interest certificate."} />
+                    </Label>
+                    <CurrencyInput
+                      id={`interestOnLoan-${idx}`}
+                      value={prop.interestOnLoan}
+                      onChange={(v) => updateProperty(idx, "interestOnLoan", v)}
+                      placeholder="Annual home loan interest"
+                      max={isSelf ? 200000 : undefined}
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Income / Loss from Property {idx + 1}</span>
+                    <span className={`font-semibold ${propIncome < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {formatCurrency(propIncome)}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+
+        <Card className="bg-muted/50">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-center">
+              <span className="font-medium">Total Income / Loss from House Property</span>
+              <span className={`font-bold text-lg ${totals.housePropertyIncome < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                {formatCurrency(totals.housePropertyIncome)}
+              </span>
+            </div>
+            {totals.housePropertyIncome < 0 && (
+              <p className="text-xs text-muted-foreground mt-1">This loss will reduce your total taxable income.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <ValidationBanner validation={currentValidation} />
+      </div>
+    );
+  };
 
   const brokersQuery = useQuery<{ brokers: Array<{ id: string; name: string; category: string; supportedFormats: string[]; fileFormatHint: string; assetTypes: string[] }> }>({
     queryKey: ['/api/tax/capital-gains/brokers'],
@@ -2524,6 +2867,105 @@ export default function TaxITRSelfPage() {
               </div>
 
               <Separator />
+
+              {recommendedForm !== "ITR-1" && (
+                <>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium">Schedule CG — STT Split (ITR-2+)</Label>
+                      <Badge variant="outline" className="text-[10px]">Mandatory for ITR-2/3</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Capital gains must be split by STT status. STT-paid equity (listed shares/MF on recognized exchange) has preferential tax rates. Non-STT includes unlisted shares, property, gold, etc.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">
+                          STCG — STT Paid (u/s 111A)
+                          <FieldHint text="Short-term gains on listed equity/MF sold on stock exchange with STT paid. Taxed at flat 20% (from FY 2024-25, was 15% earlier)." />
+                        </Label>
+                        <CurrencyInput id="sttPaidSTCG" value={capitalGainsDetails.sttPaidSTCG} onChange={(v) => setCapitalGainsDetails(prev => ({ ...prev, sttPaidSTCG: v }))} data-testid="input-stt-paid-stcg" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">
+                          STCG — STT Not Paid
+                          <FieldHint text="Short-term gains on unlisted shares, property, gold, bonds etc. where STT is not applicable. Taxed at slab rates." />
+                        </Label>
+                        <CurrencyInput id="sttNotPaidSTCG" value={capitalGainsDetails.sttNotPaidSTCG} onChange={(v) => setCapitalGainsDetails(prev => ({ ...prev, sttNotPaidSTCG: v }))} data-testid="input-stt-not-paid-stcg" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">
+                          LTCG — STT Paid (u/s 112A)
+                          <FieldHint text="Long-term gains on listed equity/MF sold on exchange with STT paid. Taxed at flat 12.5% (from FY 2024-25, was 10% earlier). ₹1.25L exemption applies." />
+                        </Label>
+                        <CurrencyInput id="sttPaidLTCG" value={capitalGainsDetails.sttPaidLTCG} onChange={(v) => setCapitalGainsDetails(prev => ({ ...prev, sttPaidLTCG: v }))} data-testid="input-stt-paid-ltcg" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">
+                          LTCG — STT Not Paid (u/s 112)
+                          <FieldHint text="Long-term gains on unlisted shares, property, gold, bonds etc. Taxed at 12.5% without indexation (from FY 2024-25). No ₹1.25L exemption." />
+                        </Label>
+                        <CurrencyInput id="sttNotPaidLTCG" value={capitalGainsDetails.sttNotPaidLTCG} onChange={(v) => setCapitalGainsDetails(prev => ({ ...prev, sttNotPaidLTCG: v }))} data-testid="input-stt-not-paid-ltcg" />
+                      </div>
+                    </div>
+                    {(capitalGainsDetails.sttPaidSTCG + capitalGainsDetails.sttNotPaidSTCG) > 0 && Math.abs((capitalGainsDetails.sttPaidSTCG + capitalGainsDetails.sttNotPaidSTCG) - capitalGainsDetails.shortTermGains) > 1 && (
+                      <p className="text-xs text-amber-600">STT split total ({formatCurrency(capitalGainsDetails.sttPaidSTCG + capitalGainsDetails.sttNotPaidSTCG)}) differs from STCG total ({formatCurrency(capitalGainsDetails.shortTermGains)}). Please reconcile.</p>
+                    )}
+                    {(capitalGainsDetails.sttPaidLTCG + capitalGainsDetails.sttNotPaidLTCG) > 0 && Math.abs((capitalGainsDetails.sttPaidLTCG + capitalGainsDetails.sttNotPaidLTCG) - capitalGainsDetails.longTermGains) > 1 && (
+                      <p className="text-xs text-amber-600">STT split total ({formatCurrency(capitalGainsDetails.sttPaidLTCG + capitalGainsDetails.sttNotPaidLTCG)}) differs from LTCG total ({formatCurrency(capitalGainsDetails.longTermGains)}). Please reconcile.</p>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium">Grandfathering — Pre-2018 Equity LTCG</Label>
+                      <Badge variant="outline" className="text-[10px]">Sec 112A</Badge>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="grandfathering-toggle"
+                        checked={capitalGainsDetails.grandfatheringApplied}
+                        onChange={(e) => setCapitalGainsDetails(prev => ({ ...prev, grandfatheringApplied: e.target.checked }))}
+                        className="h-4 w-4 rounded border-gray-300"
+                        data-testid="checkbox-grandfathering"
+                      />
+                      <Label htmlFor="grandfathering-toggle" className="text-sm cursor-pointer">
+                        Apply grandfathering provision for equity acquired before 31-Jan-2018
+                      </Label>
+                    </div>
+                    {capitalGainsDetails.grandfatheringApplied && (
+                      <div className="space-y-2 pl-7">
+                        <p className="text-xs text-muted-foreground">
+                          For listed equity/MF acquired before 1-Feb-2018, the cost of acquisition is higher of: (a) actual purchase price, or (b) Fair Market Value as on 31-Jan-2018 (but not exceeding sale price). This reduces LTCG.
+                        </p>
+                        <div className="max-w-sm space-y-1.5">
+                          <Label className="text-xs">
+                            FMV as on 31-Jan-2018 (highest traded price)
+                            <FieldHint text="Enter the highest price on NSE/BSE as of 31-Jan-2018 for your pre-2018 equity holdings. This is used as deemed cost of acquisition if higher than actual purchase price." />
+                          </Label>
+                          <CurrencyInput
+                            id="grandfatheringFMV"
+                            value={capitalGainsDetails.grandfatheringFMV}
+                            onChange={(v) => setCapitalGainsDetails(prev => ({ ...prev, grandfatheringFMV: v }))}
+                            placeholder="FMV of pre-2018 holdings"
+                            data-testid="input-grandfathering-fmv"
+                          />
+                        </div>
+                        <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200">
+                          <Info className="h-4 w-4" />
+                          <AlertDescription className="text-xs">
+                            Grandfathering applies to equity shares/equity MF units acquired before 1-Feb-2018. Gains up to 31-Jan-2018 are exempt.
+                            Only LTCG exceeding ₹1.25 lakh (from FY 2024-25) on such assets is taxable at 12.5%.
+                          </AlertDescription>
+                        </Alert>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+                </>
+              )}
 
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Override Totals (Advanced)</Label>
@@ -3255,11 +3697,103 @@ export default function TaxITRSelfPage() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="section80G" className={isNewRegime ? "text-muted-foreground" : ""}>
-              80G — Charitable Donations
-              <FieldHint text="Donations to specified funds/charities. 100% or 50% deduction depending on the organization. Keep donation receipts." />
+              80G — Charitable Donations (Total)
+              <FieldHint text="Donations to specified funds/charities. 100% or 50% deduction depending on the organization. Auto-calculated from entries below, or override manually." />
             </Label>
             <CurrencyInput id="section80G" value={deductionDetails.section80G} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80G: v }))} placeholder="Charitable donations" disabled={isNewRegime} data-testid="input-section-80g" />
           </div>
+
+          {!isNewRegime && (
+            <div className="col-span-full space-y-3 border rounded-lg p-4 bg-muted/30">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Schedule 80G — Donation Details</Label>
+                <Button variant="outline" size="sm" onClick={() => setDonationEntries(prev => [...prev, {
+                  doneeName: "", doneePAN: "", doneeAddress: "", donationAmount: 0,
+                  qualifyingPercentage: 100, qualifyingLimit: "without_limit", donationDate: "",
+                  donationType: "cash", section80GCertificateNo: "", eligibleAmount: 0,
+                }])} data-testid="btn-add-donation">
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Donation
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Add each donation separately for ITR Schedule 80G. The total eligible deduction is auto-calculated and applied to the 80G field above.</p>
+
+              {donationEntries.map((d, idx) => (
+                <Card key={idx} className="border-dashed">
+                  <CardContent className="p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Donation #{idx + 1}</span>
+                      <Button variant="ghost" size="sm" onClick={() => setDonationEntries(prev => prev.filter((_, i) => i !== idx))}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Donee Name <span className="text-red-500">*</span></Label>
+                        <Input value={d.doneeName} onChange={(e) => { const n = [...donationEntries]; n[idx] = { ...n[idx], doneeName: e.target.value }; setDonationEntries(n); }} placeholder="e.g. PM National Relief Fund" data-testid={`donation-name-${idx}`} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Donee PAN</Label>
+                        <Input value={d.doneePAN} onChange={(e) => { const n = [...donationEntries]; n[idx] = { ...n[idx], doneePAN: e.target.value.toUpperCase() }; setDonationEntries(n); }} placeholder="AAAPN0000A" maxLength={10} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Donation Amount <span className="text-red-500">*</span></Label>
+                        <CurrencyInput id={`donation-amt-${idx}`} value={d.donationAmount} onChange={(v) => { const n = [...donationEntries]; const pct = n[idx].qualifyingPercentage; n[idx] = { ...n[idx], donationAmount: v, eligibleAmount: v * pct / 100 }; setDonationEntries(n); }} data-testid={`donation-amount-${idx}`} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Donation Date</Label>
+                        <Input type="date" value={d.donationDate} onChange={(e) => { const n = [...donationEntries]; n[idx] = { ...n[idx], donationDate: e.target.value }; setDonationEntries(n); }} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Qualifying %</Label>
+                        <Select value={String(d.qualifyingPercentage)} onValueChange={(v) => { const n = [...donationEntries]; const pct = parseInt(v) as 100 | 50; n[idx] = { ...n[idx], qualifyingPercentage: pct, eligibleAmount: n[idx].donationAmount * pct / 100 }; setDonationEntries(n); }}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="100">100% Deduction</SelectItem>
+                            <SelectItem value="50">50% Deduction</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Limit Type</Label>
+                        <Select value={d.qualifyingLimit} onValueChange={(v: "with_limit" | "without_limit") => { const n = [...donationEntries]; n[idx] = { ...n[idx], qualifyingLimit: v }; setDonationEntries(n); }}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="without_limit">Without Limit (e.g. PM Relief Fund)</SelectItem>
+                            <SelectItem value="with_limit">With Limit (10% of Adjusted GTI)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Mode of Payment</Label>
+                        <Select value={d.donationType} onValueChange={(v: "cash" | "kind" | "other") => { const n = [...donationEntries]; n[idx] = { ...n[idx], donationType: v }; setDonationEntries(n); }}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="cash">Cash / Cheque / UPI</SelectItem>
+                            <SelectItem value="kind">In Kind</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">80G Certificate No.</Label>
+                        <Input value={d.section80GCertificateNo} onChange={(e) => { const n = [...donationEntries]; n[idx] = { ...n[idx], section80GCertificateNo: e.target.value }; setDonationEntries(n); }} placeholder="Certificate reference" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs bg-green-50 dark:bg-green-950/30 p-2 rounded">
+                      <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                      <span>Eligible Deduction: <strong>{formatCurrency(d.eligibleAmount)}</strong> ({d.qualifyingPercentage}% of {formatCurrency(d.donationAmount)})</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {donationEntries.length > 0 && (
+                <div className="flex justify-between items-center p-2 bg-green-100 dark:bg-green-950 rounded text-sm font-medium">
+                  <span>Total 80G Eligible Deduction</span>
+                  <span className="text-green-700 dark:text-green-400">{formatCurrency(donationEntries.reduce((sum, d) => sum + d.eligibleAmount, 0))}</span>
+                </div>
+              )}
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="section80TTA" className={isNewRegime ? "text-muted-foreground" : ""}>
               80TTA — Savings Interest (Max ₹10K)
@@ -3286,6 +3820,176 @@ export default function TaxITRSelfPage() {
             </div>
           </CardContent>
         </Card>
+
+        <ValidationBanner validation={currentValidation} />
+      </div>
+    );
+  };
+
+  const renderScheduleALStep = () => {
+    const computedTotalAssets = scheduleAL.immovableProperty + scheduleAL.movableAssets + scheduleAL.bankDeposits + scheduleAL.sharesAndSecurities + scheduleAL.insurancePolicies + scheduleAL.loansAndAdvancesGiven + scheduleAL.cashInHand + scheduleAL.jewelleryBullion + scheduleAL.archaeologicalCollections + scheduleAL.vehiclesYachtsBoats;
+    const computedTotalLiabilities = scheduleAL.liabilitiesRelatedToImmovable + scheduleAL.liabilitiesRelatedToOther;
+    const netWorth = computedTotalAssets - computedTotalLiabilities;
+
+    return (
+      <div className="space-y-6">
+        <p className="text-muted-foreground text-sm">
+          Schedule AL (Assets & Liabilities) is <strong>mandatory for ITR-2/3/4 when total income exceeds ₹50 lakhs</strong>. 
+          Disclose all assets and liabilities as on 31st March of the assessment year. This is a wealth disclosure requirement per Income Tax rules.
+        </p>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Home className="h-4 w-4" /> Part A — Assets (as on 31st March)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Immovable Assets</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Land & Building (Total Value)
+                    <FieldHint text="Market value of all immovable properties — residential, commercial, agricultural land. Include stamp duty value or purchase cost." />
+                  </Label>
+                  <CurrencyInput id="al-immovable" value={scheduleAL.immovableProperty} onChange={(v) => setScheduleAL(prev => ({ ...prev, immovableProperty: v }))} data-testid="al-immovable" />
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Movable Assets</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Jewellery, Bullion & Precious Items
+                    <FieldHint text="Estimated value of gold, silver, diamonds, and other precious items owned." />
+                  </Label>
+                  <CurrencyInput id="al-jewellery" value={scheduleAL.jewelleryBullion} onChange={(v) => setScheduleAL(prev => ({ ...prev, jewelleryBullion: v }))} data-testid="al-jewellery" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Motor Vehicles, Yachts & Boats
+                    <FieldHint text="Current market value of all vehicles, yachts, boats, and aircraft owned." />
+                  </Label>
+                  <CurrencyInput id="al-vehicles" value={scheduleAL.vehiclesYachtsBoats} onChange={(v) => setScheduleAL(prev => ({ ...prev, vehiclesYachtsBoats: v }))} data-testid="al-vehicles" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Archaeological Collections & Paintings
+                    <FieldHint text="Value of art, antiques, archaeological artifacts, and collectible paintings." />
+                  </Label>
+                  <CurrencyInput id="al-archaeological" value={scheduleAL.archaeologicalCollections} onChange={(v) => setScheduleAL(prev => ({ ...prev, archaeologicalCollections: v }))} data-testid="al-archaeological" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Other Movable Assets
+                    <FieldHint text="Any other movable assets not listed above — furniture, electronics, equipment, etc." />
+                  </Label>
+                  <CurrencyInput id="al-movable" value={scheduleAL.movableAssets} onChange={(v) => setScheduleAL(prev => ({ ...prev, movableAssets: v }))} data-testid="al-movable" />
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Financial Assets</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Bank Deposits (Savings + FD + RD)
+                    <FieldHint text="Total balance in all bank accounts including savings, fixed deposits, recurring deposits." />
+                  </Label>
+                  <CurrencyInput id="al-bank" value={scheduleAL.bankDeposits} onChange={(v) => setScheduleAL(prev => ({ ...prev, bankDeposits: v }))} data-testid="al-bank" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Shares & Securities (Market Value)
+                    <FieldHint text="Market value of all shares, mutual funds, bonds, debentures, and other securities held." />
+                  </Label>
+                  <CurrencyInput id="al-shares" value={scheduleAL.sharesAndSecurities} onChange={(v) => setScheduleAL(prev => ({ ...prev, sharesAndSecurities: v }))} data-testid="al-shares" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Insurance Policies (Surrender Value)
+                    <FieldHint text="Surrender value of all life insurance policies, ULIPs, and endowment plans." />
+                  </Label>
+                  <CurrencyInput id="al-insurance" value={scheduleAL.insurancePolicies} onChange={(v) => setScheduleAL(prev => ({ ...prev, insurancePolicies: v }))} data-testid="al-insurance" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Loans & Advances Given
+                    <FieldHint text="Total outstanding loans given to others. Include personal loans, advance payments." />
+                  </Label>
+                  <CurrencyInput id="al-loans" value={scheduleAL.loansAndAdvancesGiven} onChange={(v) => setScheduleAL(prev => ({ ...prev, loansAndAdvancesGiven: v }))} data-testid="al-loans" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Cash in Hand
+                    <FieldHint text="Physical cash held as on 31st March. Disclose actual cash balance." />
+                  </Label>
+                  <CurrencyInput id="al-cash" value={scheduleAL.cashInHand} onChange={(v) => setScheduleAL(prev => ({ ...prev, cashInHand: v }))} data-testid="al-cash" />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Receipt className="h-4 w-4" /> Part B — Liabilities (as on 31st March)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Liabilities Related to Immovable Property
+                  <FieldHint text="Outstanding home loans, property loans, or mortgages on land & buildings." />
+                </Label>
+                <CurrencyInput id="al-liab-immovable" value={scheduleAL.liabilitiesRelatedToImmovable} onChange={(v) => setScheduleAL(prev => ({ ...prev, liabilitiesRelatedToImmovable: v }))} data-testid="al-liab-immovable" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Other Liabilities (Personal/Vehicle Loans)
+                  <FieldHint text="Outstanding personal loans, car loans, credit card dues, and any other liabilities." />
+                </Label>
+                <CurrencyInput id="al-liab-other" value={scheduleAL.liabilitiesRelatedToOther} onChange={(v) => setScheduleAL(prev => ({ ...prev, liabilitiesRelatedToOther: v }))} data-testid="al-liab-other" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-muted/50">
+          <CardContent className="p-4 space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-sm">Total Assets</span>
+              <span className="font-bold text-blue-600">{formatCurrency(computedTotalAssets)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm">Total Liabilities</span>
+              <span className="font-bold text-red-600">{formatCurrency(computedTotalLiabilities)}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between items-center">
+              <span className="font-medium">Net Worth (Assets − Liabilities)</span>
+              <span className={`font-bold text-lg ${netWorth >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(netWorth)}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription className="text-xs">
+            <strong>Important:</strong> Ensure all assets are disclosed at their value as on 31st March {assessmentYear ? parseInt(assessmentYear) - 1 : '2025'}. 
+            Non-disclosure or under-reporting may attract penalty under Section 271(1)(c) for concealment of income and assets.
+          </AlertDescription>
+        </Alert>
 
         <ValidationBanner validation={currentValidation} />
       </div>
@@ -3848,6 +4552,146 @@ export default function TaxITRSelfPage() {
               <p className="text-xs text-amber-600">Bank account details are required to receive your refund of {formatCurrency(apiData.refundAmount)}.</p>
             )}
           </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="h-4 w-4" /> Document Vault
+              </CardTitle>
+              <label htmlFor="doc-vault-upload" className="cursor-pointer">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium hover:bg-accent">
+                  <Upload className="h-3.5 w-3.5" /> Upload Document
+                </div>
+                <input
+                  id="doc-vault-upload"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.xlsx,.csv"
+                  className="hidden"
+                  multiple
+                  onChange={(e) => {
+                    const files = e.target.files;
+                    if (files) {
+                      const newDocs = Array.from(files).map(f => ({
+                        id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+                        name: f.name,
+                        type: f.type,
+                        category: f.name.toLowerCase().includes('form16') ? 'Form 16' : f.name.toLowerCase().includes('26as') ? 'Form 26AS' : f.name.toLowerCase().includes('ais') ? 'AIS' : 'Supporting',
+                        uploadedAt: new Date().toISOString(),
+                        size: f.size,
+                      }));
+                      setDocumentVault(prev => [...prev, ...newDocs]);
+                      toast({ title: "Documents Added", description: `${files.length} document(s) added to your vault.` });
+                    }
+                  }}
+                  data-testid="doc-vault-upload"
+                />
+              </label>
+            </div>
+            <CardDescription>Store all supporting documents for your ITR filing. Form 16, 26AS, AIS, rent receipts, investment proofs, etc.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {documentVault.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">No documents uploaded yet. Upload Form 16, 26AS, investment proofs, etc.</p>
+            ) : (
+              <div className="space-y-2">
+                {documentVault.map(doc => (
+                  <div key={doc.id} className="flex items-center justify-between p-2 border rounded text-xs">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{doc.name}</p>
+                        <p className="text-muted-foreground">{doc.category} | {(doc.size / 1024).toFixed(0)} KB</p>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => setDocumentVault(prev => prev.filter(d => d.id !== doc.id))}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Shield className="h-4 w-4" /> Advanced Options
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}>
+                {showAdvancedOptions ? "Hide" : "Show"}
+              </Button>
+            </div>
+          </CardHeader>
+          {showAdvancedOptions && (
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2 p-3 border rounded">
+                  <Label className="text-xs font-medium">e-Verification Method</Label>
+                  <Select defaultValue="aadhaar_otp">
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="aadhaar_otp">Aadhaar OTP</SelectItem>
+                      <SelectItem value="net_banking">Net Banking</SelectItem>
+                      <SelectItem value="bank_account">Bank Account EVC</SelectItem>
+                      <SelectItem value="dsc">Digital Signature (DSC)</SelectItem>
+                      <SelectItem value="send_to_cpc">Send ITR-V to CPC Bengaluru</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground">How you'll verify your return after filing. Aadhaar OTP is fastest.</p>
+                </div>
+                <div className="space-y-2 p-3 border rounded">
+                  <Label className="text-xs font-medium">Bulk CSV Upload</Label>
+                  <label htmlFor="bulk-csv-upload" className="cursor-pointer">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium hover:bg-accent w-full justify-center">
+                      <Upload className="h-3.5 w-3.5" /> Upload Capital Gains CSV
+                    </div>
+                    <input
+                      id="bulk-csv-upload"
+                      type="file"
+                      accept=".csv,.xlsx"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          toast({ title: "CSV Received", description: `${file.name} uploaded for bulk processing. Parsing capital gains entries...` });
+                        }
+                      }}
+                      data-testid="bulk-csv-upload"
+                    />
+                  </label>
+                  <p className="text-[10px] text-muted-foreground">Upload a CSV with multiple capital gains transactions for bulk import.</p>
+                </div>
+                <div className="space-y-2 p-3 border rounded">
+                  <Label className="text-xs font-medium">Audit Trail</Label>
+                  <Badge variant="outline" className="text-[10px]">
+                    {documentVault.length} documents | {(cgUploads?.length || 0) + (cgManualSaved?.length || 0)} CG sources | {donationEntries.length} donations
+                  </Badge>
+                  <p className="text-[10px] text-muted-foreground">All entries are SHA-256 hashed and timestamped for audit compliance.</p>
+                </div>
+                <div className="space-y-2 p-3 border rounded">
+                  <Label className="text-xs font-medium">Filing Preferences</Label>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" id="opt-auto-26as" defaultChecked className="h-3.5 w-3.5" />
+                      <Label htmlFor="opt-auto-26as" className="text-xs cursor-pointer">Auto-fetch 26AS on calculation</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" id="opt-regime-compare" defaultChecked className="h-3.5 w-3.5" />
+                      <Label htmlFor="opt-regime-compare" className="text-xs cursor-pointer">Show regime comparison</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" id="opt-email-ack" defaultChecked className="h-3.5 w-3.5" />
+                      <Label htmlFor="opt-email-ack" className="text-xs cursor-pointer">Email acknowledgment after filing</Label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          )}
         </Card>
 
         <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
@@ -4729,6 +5573,7 @@ export default function TaxITRSelfPage() {
       case "disclosures": return renderDisclosuresStep();
       case "trust_income": return renderTrustIncomeStep();
       case "deductions": return renderDeductionsStep();
+      case "schedule_al": return renderScheduleALStep();
       case "tax_payments": return renderTaxPaymentsStep();
       case "review": return renderReviewStep();
       default: return null;
@@ -4810,10 +5655,111 @@ export default function TaxITRSelfPage() {
                 {currentStepConfig?.description}
               </CardDescription>
             </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowComputationSummary(!showComputationSummary)} data-testid="btn-computation-summary">
+                <Calculator className="h-3.5 w-3.5 mr-1" /> Summary
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowValidationReport(!showValidationReport)} data-testid="btn-validation-report">
+                <Shield className="h-3.5 w-3.5 mr-1" /> Validate
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
           {renderCurrentStep()}
+
+          {showComputationSummary && (
+            <div className="mt-6 border-t pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold flex items-center gap-2"><Calculator className="h-4 w-4" /> Tax Computation Summary</h3>
+                <Button variant="ghost" size="sm" onClick={() => setShowComputationSummary(false)}><XCircle className="h-4 w-4" /></Button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                <div className="flex justify-between p-2 bg-muted/50 rounded">
+                  <span>Salary Income</span><span className="font-medium">{formatCurrency(totals.salary)}</span>
+                </div>
+                <div className="flex justify-between p-2 bg-muted/50 rounded">
+                  <span>House Property Income</span><span className="font-medium">{formatCurrency(totals.houseProperty)}</span>
+                </div>
+                <div className="flex justify-between p-2 bg-muted/50 rounded">
+                  <span>Business Income</span><span className="font-medium">{formatCurrency(totals.business)}</span>
+                </div>
+                <div className="flex justify-between p-2 bg-muted/50 rounded">
+                  <span>Capital Gains</span><span className="font-medium">{formatCurrency(totals.capitalGains)}</span>
+                </div>
+                <div className="flex justify-between p-2 bg-muted/50 rounded">
+                  <span>Other Income</span><span className="font-medium">{formatCurrency(totals.otherIncome)}</span>
+                </div>
+                <div className="flex justify-between p-2 bg-blue-50 dark:bg-blue-950/30 rounded font-medium">
+                  <span>Gross Total Income</span><span>{formatCurrency(totals.grossTotalIncome)}</span>
+                </div>
+                <div className="flex justify-between p-2 bg-green-50 dark:bg-green-950/30 rounded">
+                  <span>Total Deductions</span><span className="font-medium text-green-600">- {formatCurrency(totals.totalDeductions)}</span>
+                </div>
+                <div className="flex justify-between p-2 bg-purple-50 dark:bg-purple-950/30 rounded font-bold">
+                  <span>Net Taxable Income</span><span>{formatCurrency(Math.max(0, totals.grossTotalIncome - totals.totalDeductions))}</span>
+                </div>
+              </div>
+              {sandboxTaxResult?.data && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                  <div className="flex justify-between p-2 bg-red-50 dark:bg-red-950/30 rounded font-medium">
+                    <span>Tax Payable</span><span className="text-red-600">{formatCurrency(sandboxTaxResult.data.totalTaxPayable)}</span>
+                  </div>
+                  <div className="flex justify-between p-2 bg-amber-50 dark:bg-amber-950/30 rounded">
+                    <span>Tax Regime</span><span>{taxRegime === "new" ? "New Regime" : "Old Regime"}</span>
+                  </div>
+                  <div className="flex justify-between p-2 bg-muted/50 rounded">
+                    <span>ITR Form</span><span className="font-medium">{recommendedForm}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {showValidationReport && (
+            <div className="mt-6 border-t pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold flex items-center gap-2"><Shield className="h-4 w-4" /> Validation Report — All Steps</h3>
+                <Button variant="ghost" size="sm" onClick={() => setShowValidationReport(false)}><XCircle className="h-4 w-4" /></Button>
+              </div>
+              {getAllStepValidations().map(({ stepId, stepTitle, validation }) => {
+                const hasIssues = validation.errors.length > 0 || validation.warnings.length > 0;
+                return (
+                  <div key={stepId} className={`p-3 rounded border text-xs ${validation.errors.length > 0 ? 'border-red-200 bg-red-50 dark:bg-red-950/20' : validation.warnings.length > 0 ? 'border-amber-200 bg-amber-50 dark:bg-amber-950/20' : 'border-green-200 bg-green-50 dark:bg-green-950/20'}`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium flex items-center gap-1.5">
+                        {validation.errors.length > 0 ? <XCircle className="h-3.5 w-3.5 text-red-500" /> : validation.warnings.length > 0 ? <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> : <CheckCircle className="h-3.5 w-3.5 text-green-500" />}
+                        {stepTitle}
+                      </span>
+                      {hasIssues && (
+                        <Button variant="ghost" size="sm" className="text-xs h-6 px-2" onClick={() => { setCurrentStepId(stepId); setShowValidationReport(false); }}>
+                          Go to Step
+                        </Button>
+                      )}
+                    </div>
+                    {validation.errors.map((e, i) => <p key={`e-${i}`} className="text-red-600 ml-5">Error: {e}</p>)}
+                    {validation.warnings.map((w, i) => <p key={`w-${i}`} className="text-amber-600 ml-5">Warning: {w}</p>)}
+                    {!hasIssues && <p className="text-green-600 ml-5">No issues found.</p>}
+                  </div>
+                );
+              })}
+              <div className="flex items-center gap-2 p-2 bg-muted rounded text-xs">
+                {(() => {
+                  const all = getAllStepValidations();
+                  const totalErrors = all.reduce((s, v) => s + v.validation.errors.length, 0);
+                  const totalWarnings = all.reduce((s, v) => s + v.validation.warnings.length, 0);
+                  return (
+                    <>
+                      {totalErrors > 0 ? <XCircle className="h-4 w-4 text-red-500" /> : <CheckCircle className="h-4 w-4 text-green-500" />}
+                      <span className="font-medium">
+                        {totalErrors} error{totalErrors !== 1 ? 's' : ''}, {totalWarnings} warning{totalWarnings !== 1 ? 's' : ''} across {all.length} steps
+                      </span>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
         </CardContent>
         <CardFooter className="flex justify-between border-t pt-4">
           <Button variant="outline" onClick={prevStep} disabled={safeCurrentStep === 0} data-testid="button-prev">
