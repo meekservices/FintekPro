@@ -2037,6 +2037,109 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
+  // ========== Instrument Time-Series Admin Endpoints ==========
+
+  app.post("/api/admin/instrument-time-series/daily-update", requireAdmin, async (req, res) => {
+    try {
+      const { runDailyPriceUpdate } = await import('./services/instrument-time-series/daily-price-updater');
+      const result = await runDailyPriceUpdate();
+      res.json({ success: true, message: "Daily price update completed", data: result });
+    } catch (error: any) {
+      console.error("[InstrumentTimeSeries] Daily update error:", error);
+      res.status(500).json({ success: false, error: error.message || "Daily price update failed" });
+    }
+  });
+
+  app.post("/api/admin/instrument-time-series/historical-backfill", requireAdmin, async (req, res) => {
+    try {
+      const batchSize = parseInt(req.query.batchSize as string) || 5;
+      const { runHistoricalBackfill } = await import('./services/instrument-time-series/historical-backfill-service');
+      const result = await runHistoricalBackfill(batchSize);
+      res.json({ success: true, message: "Historical backfill completed", data: result });
+    } catch (error: any) {
+      console.error("[InstrumentTimeSeries] Backfill error:", error);
+      res.status(500).json({ success: false, error: error.message || "Historical backfill failed" });
+    }
+  });
+
+  app.get("/api/admin/instrument-time-series/job-log", requireAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const jobType = req.query.jobType as string;
+      const statusFilter = req.query.status as string;
+      
+      let result;
+      if (jobType && statusFilter) {
+        result = await db.execute(sql`
+          SELECT * FROM enrichment_job_log 
+          WHERE job_type = ${jobType} AND status = ${statusFilter}
+          ORDER BY executed_at DESC LIMIT ${limit}
+        `);
+      } else if (jobType) {
+        result = await db.execute(sql`
+          SELECT * FROM enrichment_job_log 
+          WHERE job_type = ${jobType}
+          ORDER BY executed_at DESC LIMIT ${limit}
+        `);
+      } else if (statusFilter) {
+        result = await db.execute(sql`
+          SELECT * FROM enrichment_job_log 
+          WHERE status = ${statusFilter}
+          ORDER BY executed_at DESC LIMIT ${limit}
+        `);
+      } else {
+        result = await db.execute(sql`
+          SELECT * FROM enrichment_job_log 
+          ORDER BY executed_at DESC LIMIT ${limit}
+        `);
+      }
+      
+      const rows = (result as any).rows || result;
+      res.json({ success: true, data: rows, count: rows.length });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/instrument-time-series/retry-queue", requireAdmin, async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT rq.*, ls.symbol as stock_symbol, ls.company_name
+        FROM enrichment_retry_queue rq
+        LEFT JOIN listed_stocks ls ON rq.instrument_id = ls.id
+        WHERE rq.resolved_at IS NULL
+        ORDER BY rq.next_retry_at ASC
+      `);
+      const rows = (result as any).rows || result;
+      res.json({ success: true, data: rows, count: rows.length });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/admin/instrument-time-series/status", requireAdmin, async (req, res) => {
+    try {
+      const [stats] = await db.execute(sql`
+        SELECT
+          (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true) as total_active,
+          (SELECT COUNT(*) FROM listed_stocks WHERE historical_complete = true) as historical_complete,
+          (SELECT COUNT(*) FROM listed_stocks WHERE historical_complete = false OR historical_complete IS NULL) as historical_pending,
+          (SELECT COUNT(*) FROM listed_stocks WHERE last_daily_update = CURRENT_DATE - 1) as daily_updated_today,
+          (SELECT COUNT(*) FROM instrument_prices) as total_price_records,
+          (SELECT MIN(price_date) FROM instrument_prices) as earliest_price,
+          (SELECT MAX(price_date) FROM instrument_prices) as latest_price,
+          (SELECT COUNT(*) FROM enrichment_retry_queue WHERE resolved_at IS NULL) as pending_retries,
+          (SELECT COUNT(*) FROM enrichment_job_log WHERE executed_at > NOW() - INTERVAL '24 hours') as jobs_last_24h
+      `);
+      const row = (stats as any).rows?.[0] || stats;
+      res.json({ success: true, data: row });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  console.log('✅ Instrument Time-Series Admin routes registered');
+
   app.post("/api/profile/complete", async (req, res) => {
     try {
       // Check authentication

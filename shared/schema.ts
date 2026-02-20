@@ -4616,6 +4616,13 @@ export const listedStocks = pgTable("listed_stocks", {
   selectionNotes: text("selection_notes"), // Why this stock is recommended
   investmentThesis: text("investment_thesis"), // Investment thesis/rationale
   
+  // Time-series tracking (Instrument Time-Series Architecture)
+  historicalStartDate: date("historical_start_date"),
+  historicalEndDate: date("historical_end_date"),
+  historicalComplete: boolean("historical_complete").default(false),
+  lastDailyUpdate: date("last_daily_update"),
+  isActive: boolean("is_active").default(true),
+  
   // Metadata
   dataSource: varchar("data_source").default("nse"), // 'nse', 'bse', 'manual'
   enrichmentStatus: varchar("enrichment_status").default("pending"), // 'pending', 'partial', 'complete', 'failed'
@@ -32379,3 +32386,67 @@ export const quantTransitionLog = pgTable("quant_transition_log", {
   index("idx_quant_transition_log_portfolio").on(table.portfolioId),
   index("idx_quant_transition_log_created").on(table.createdAt),
 ]);
+
+// ── Instrument Prices (Time-Series Architecture - Daily + Historical) ──
+
+export const instrumentPrices = pgTable("instrument_prices", {
+  id: serial("id").primaryKey(),
+  instrumentId: varchar("instrument_id").notNull().references(() => listedStocks.id),
+  priceDate: date("price_date").notNull(),
+  openPrice: decimal("open_price", { precision: 15, scale: 2 }),
+  highPrice: decimal("high_price", { precision: 15, scale: 2 }),
+  lowPrice: decimal("low_price", { precision: 15, scale: 2 }),
+  closePrice: decimal("close_price", { precision: 15, scale: 2 }).notNull(),
+  adjClose: decimal("adj_close", { precision: 15, scale: 2 }),
+  volume: decimal("volume", { precision: 20, scale: 0 }),
+  changePercent: decimal("change_percent", { precision: 10, scale: 4 }),
+  source: varchar("source").default("fmp"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_unique_instrument_price").on(table.instrumentId, table.priceDate),
+  index("idx_instrument_prices_date").on(table.priceDate),
+  index("idx_instrument_prices_instrument").on(table.instrumentId),
+]);
+
+export type InstrumentPrice = typeof instrumentPrices.$inferSelect;
+export type InsertInstrumentPrice = typeof instrumentPrices.$inferInsert;
+
+// ── Enrichment Job Log (Audit trail for daily + historical pipelines) ──
+
+export const enrichmentJobLog = pgTable("enrichment_job_log", {
+  id: serial("id").primaryKey(),
+  jobType: varchar("job_type", { length: 50 }).notNull(),
+  instrumentId: varchar("instrument_id"),
+  symbol: varchar("symbol"),
+  status: varchar("status", { length: 20 }).notNull(),
+  message: text("message"),
+  recordsProcessed: integer("records_processed").default(0),
+  executedAt: timestamp("executed_at").defaultNow(),
+}, (table) => [
+  index("idx_enrichment_job_log_type").on(table.jobType),
+  index("idx_enrichment_job_log_status").on(table.status),
+  index("idx_enrichment_job_log_executed").on(table.executedAt),
+]);
+
+export type EnrichmentJobLog = typeof enrichmentJobLog.$inferSelect;
+
+// ── Enrichment Retry Queue (Failed instruments for retry with cap) ──
+
+export const enrichmentRetryQueue = pgTable("enrichment_retry_queue", {
+  id: serial("id").primaryKey(),
+  instrumentId: varchar("instrument_id").notNull().references(() => listedStocks.id),
+  symbol: varchar("symbol"),
+  jobType: varchar("job_type", { length: 50 }).notNull(),
+  retryCount: integer("retry_count").default(0).notNull(),
+  maxRetries: integer("max_retries").default(5).notNull(),
+  lastError: text("last_error"),
+  nextRetryAt: timestamp("next_retry_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+}, (table) => [
+  index("idx_retry_queue_instrument").on(table.instrumentId),
+  index("idx_retry_queue_job_type").on(table.jobType),
+  index("idx_retry_queue_next_retry").on(table.nextRetryAt),
+]);
+
+export type EnrichmentRetryQueueEntry = typeof enrichmentRetryQueue.$inferSelect;

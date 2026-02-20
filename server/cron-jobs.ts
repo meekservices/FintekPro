@@ -882,6 +882,43 @@ export function initializeCronJobs(): void {
     console.log('⏭️ [CacheWarming] Skipped (development mode - production only)');
   }
   
+  // Instrument Time-Series Pipelines (production only - external API calls, writes to DB)
+  if (isProductionEnvironment()) {
+    // Daily Price Update - 8:45 PM IST (15:15 UTC) - after market close + AMC NAV update
+    staggeredStart('Daily Price Updater', () => {
+      cron.schedule('15 15 * * 1-5', async () => {
+        console.log('[CRON] Starting Daily Instrument Price Update...');
+        try {
+          const { runDailyPriceUpdate } = await import('./services/instrument-time-series/daily-price-updater');
+          const result = await runDailyPriceUpdate();
+          console.log(`[CRON] Daily Price Update complete: ${result.processed} updated, ${result.errors} errors`);
+        } catch (error: any) {
+          console.error('[CRON] Daily Price Update failed:', error.message);
+        }
+      }, { timezone: 'Asia/Kolkata' });
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+
+    // Historical Backfill - 2:00 AM IST (20:30 UTC) - low traffic window
+    staggeredStart('Historical Backfill Engine', () => {
+      cron.schedule('30 20 * * *', async () => {
+        console.log('[CRON] Starting Historical Backfill...');
+        try {
+          const { runHistoricalBackfill } = await import('./services/instrument-time-series/historical-backfill-service');
+          const result = await runHistoricalBackfill(5);
+          console.log(`[CRON] Historical Backfill complete: ${result.processed} instruments, ${result.totalRecords} records`);
+        } catch (error: any) {
+          console.error('[CRON] Historical Backfill failed:', error.message);
+        }
+      }, { timezone: 'Asia/Kolkata' });
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+
+    console.log('📊 [InstrumentTimeSeries] Daily update (8:45 PM IST) + Backfill (2:00 AM IST) scheduled');
+  } else {
+    console.log('⏭️ [InstrumentTimeSeries] Dual pipeline skipped (development mode - production only)');
+  }
+
   console.log('✓ Cron jobs initialized successfully');
 }
 
