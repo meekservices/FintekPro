@@ -173,6 +173,7 @@ interface OtherIncomeDetails {
   interestIncome: number;
   dividendIncome: number;
   otherSources: number;
+  agriculturalIncome: number;
 }
 
 interface RegimeComparison {
@@ -185,17 +186,46 @@ interface RegimeComparison {
 
 interface DeductionDetails {
   section80C: number;
+  section80CCC: number;
+  section80CCD1: number;
+  section80CCD1B: number;
+  section80CCD2: number;
   section80D: number;
+  section80DD: number;
+  section80DDB: number;
   section80E: number;
+  section80EEA: number;
+  section80EEB: number;
   section80G: number;
+  section80GG: number;
   section80TTA: number;
+  section80TTB: number;
+  section80U: number;
   otherDeductions: number;
 }
 
 interface TaxPaymentDetails {
+  tdsSalary: number;
+  tdsOtherThanSalary: number;
+  tdsOnProperty: number;
+  tcsCollected: number;
   tdsDeducted: number;
   advanceTaxPaid: number;
   selfAssessmentTax: number;
+  reliefUs89: number;
+}
+
+interface BankDetailsForRefund {
+  accountNumber: string;
+  ifscCode: string;
+  bankName: string;
+  accountType: "savings" | "current";
+  isPrimary: boolean;
+}
+
+interface EmployerDetails {
+  employerName: string;
+  employerTAN: string;
 }
 
 interface SandboxTaxResult {
@@ -445,26 +475,57 @@ export default function TaxITRSelfPage() {
 
   const [regimeComparison, setRegimeComparison] = useState<RegimeComparison | null>(null);
 
+  const [residentialStatus, setResidentialStatus] = useState<"resident" | "nri" | "rnor">("resident");
+  const [filingSection, setFilingSection] = useState<string>("139(1)");
+  const [employerDetails, setEmployerDetails] = useState<EmployerDetails>({ employerName: "", employerTAN: "" });
+
   const [otherIncomeDetails, setOtherIncomeDetails] = useState<OtherIncomeDetails>({
     interestIncome: 0,
     dividendIncome: 0,
-    otherSources: 0
+    otherSources: 0,
+    agriculturalIncome: 0
   });
 
   const [deductionDetails, setDeductionDetails] = useState<DeductionDetails>({
     section80C: 0,
+    section80CCC: 0,
+    section80CCD1: 0,
+    section80CCD1B: 0,
+    section80CCD2: 0,
     section80D: 0,
+    section80DD: 0,
+    section80DDB: 0,
     section80E: 0,
+    section80EEA: 0,
+    section80EEB: 0,
     section80G: 0,
+    section80GG: 0,
     section80TTA: 0,
+    section80TTB: 0,
+    section80U: 0,
     otherDeductions: 0
   });
 
   const [taxPaymentDetails, setTaxPaymentDetails] = useState<TaxPaymentDetails>({
+    tdsSalary: 0,
+    tdsOtherThanSalary: 0,
+    tdsOnProperty: 0,
+    tcsCollected: 0,
     tdsDeducted: 0,
     advanceTaxPaid: 0,
-    selfAssessmentTax: 0
+    selfAssessmentTax: 0,
+    reliefUs89: 0
   });
+
+  const [bankDetails, setBankDetails] = useState<BankDetailsForRefund>({
+    accountNumber: "",
+    ifscCode: "",
+    bankName: "",
+    accountType: "savings",
+    isPrimary: true
+  });
+
+  const [form26ASLoading, setForm26ASLoading] = useState(false);
 
   const [sandboxTaxResult, setSandboxTaxResult] = useState<SandboxTaxResult | null>(null);
   const [taxCalcError, setTaxCalcError] = useState<string | null>(null);
@@ -540,18 +601,40 @@ export default function TaxITRSelfPage() {
           otherIncome: otherIncomeDetails.otherSources + foreignOtherInc,
           foreignTaxCredit: foreignTaxPaid,
           foreignIncomeCountry: incomeSources.hasForeignIncome ? foreignIncomeDetails.dtaaCountry : undefined,
+          agriculturalIncome: otherIncomeDetails.agriculturalIncome,
           section80C: deductionDetails.section80C,
+          section80CCC: deductionDetails.section80CCC,
+          section80CCD1: deductionDetails.section80CCD1,
+          section80CCD1B: deductionDetails.section80CCD1B,
+          section80CCD2: deductionDetails.section80CCD2,
           section80D: deductionDetails.section80D,
+          section80DD: deductionDetails.section80DD,
+          section80DDB: deductionDetails.section80DDB,
           section80E: deductionDetails.section80E,
+          section80EEA: deductionDetails.section80EEA,
+          section80EEB: deductionDetails.section80EEB,
           section80G: deductionDetails.section80G,
+          section80GG: deductionDetails.section80GG,
           section80TTA: deductionDetails.section80TTA,
+          section80TTB: deductionDetails.section80TTB,
+          section80U: deductionDetails.section80U,
           otherDeductions: deductionDetails.otherDeductions,
           tdsDeducted: taxPaymentDetails.tdsDeducted,
+          tdsSalary: taxPaymentDetails.tdsSalary,
+          tdsOtherThanSalary: taxPaymentDetails.tdsOtherThanSalary,
+          tdsOnProperty: taxPaymentDetails.tdsOnProperty,
+          tcsCollected: taxPaymentDetails.tcsCollected,
           advanceTaxPaid: taxPaymentDetails.advanceTaxPaid,
           selfAssessmentTax: taxPaymentDetails.selfAssessmentTax,
+          reliefUs89: taxPaymentDetails.reliefUs89,
           standardDeduction: salaryDetails.standardDeduction,
           professionalTax: salaryDetails.professionalTax,
           homeLoanInterest: housePropertyDetails.interestOnLoan,
+          residentialStatus,
+          filingSection,
+          employerName: employerDetails.employerName,
+          employerTAN: employerDetails.employerTAN,
+          bankDetails: bankDetails.accountNumber ? bankDetails : undefined,
         }),
       });
       return res as unknown as SandboxTaxResult;
@@ -590,10 +673,21 @@ export default function TaxITRSelfPage() {
           dividendIncome: otherIncomeDetails.dividendIncome,
           otherIncome: otherIncomeDetails.otherSources,
           section80C: deductionDetails.section80C,
+          section80CCC: deductionDetails.section80CCC,
+          section80CCD1: deductionDetails.section80CCD1,
+          section80CCD1B: deductionDetails.section80CCD1B,
+          section80CCD2: deductionDetails.section80CCD2,
           section80D: deductionDetails.section80D,
+          section80DD: deductionDetails.section80DD,
+          section80DDB: deductionDetails.section80DDB,
           section80E: deductionDetails.section80E,
+          section80EEA: deductionDetails.section80EEA,
+          section80EEB: deductionDetails.section80EEB,
           section80G: deductionDetails.section80G,
+          section80GG: deductionDetails.section80GG,
           section80TTA: deductionDetails.section80TTA,
+          section80TTB: deductionDetails.section80TTB,
+          section80U: deductionDetails.section80U,
           otherDeductions: deductionDetails.otherDeductions,
           standardDeduction: salaryDetails.standardDeduction,
           professionalTax: salaryDetails.professionalTax,
@@ -634,6 +728,10 @@ export default function TaxITRSelfPage() {
         form = "ITR-2";
       } else if (housePropertyDetails.propertyCount > 1) {
         form = "ITR-2";
+      } else if (residentialStatus !== "resident") {
+        form = "ITR-2";
+      } else if (otherIncomeDetails.agriculturalIncome > 5000) {
+        form = "ITR-2";
       } else {
         const totalIncome = salaryDetails.grossSalary + housePropertyDetails.rentalIncome + 
           otherIncomeDetails.interestIncome + otherIncomeDetails.dividendIncome;
@@ -646,7 +744,7 @@ export default function TaxITRSelfPage() {
     }
     
     setRecommendedForm(form);
-  }, [incomeSources, salaryDetails, housePropertyDetails, otherIncomeDetails, panContext, businessDetails]);
+  }, [incomeSources, salaryDetails, housePropertyDetails, otherIncomeDetails, panContext, businessDetails, residentialStatus]);
 
   useEffect(() => {
     const newSteps = getActiveSteps();
@@ -789,9 +887,23 @@ export default function TaxITRSelfPage() {
           }
         }
         break;
+      case "other":
+        if (otherIncomeDetails.agriculturalIncome > 5000 && recommendedForm === "ITR-1") {
+          warnings.push("Agricultural income above ₹5,000 disqualifies ITR-1. Your form will auto-upgrade to ITR-2.");
+        }
+        break;
       case "deductions":
         if (taxRegime === "new") {
-          warnings.push("Under the New Tax Regime (default from FY 2023-24), most deductions under Chapter VI-A are not available. Only standard deduction applies.");
+          warnings.push("Under the New Tax Regime (default from FY 2023-24), most deductions under Chapter VI-A are not available. Only standard deduction and 80CCD(2) apply.");
+        }
+        if (deductionDetails.section80TTA > 0 && deductionDetails.section80TTB > 0) {
+          errors.push("You cannot claim both 80TTA and 80TTB. 80TTA is for below 60 years; 80TTB is for senior citizens (60+).");
+        }
+        {
+          const combined80C = deductionDetails.section80C + deductionDetails.section80CCC + deductionDetails.section80CCD1;
+          if (combined80C > 150000) {
+            warnings.push(`Combined 80C + 80CCC + 80CCD(1) exceeds ₹1.5L limit. Only ₹1,50,000 will be allowed. You entered ₹${combined80C.toLocaleString('en-IN')}.`);
+          }
         }
         break;
       case "tax_payments":
@@ -799,9 +911,25 @@ export default function TaxITRSelfPage() {
           warnings.push("TDS appears high relative to your income. Please verify from Form 26AS.");
         }
         break;
+      case "review":
+        {
+          const hasRefundDue = sandboxTaxResult?.data?.refundAmount && sandboxTaxResult.data.refundAmount > 0;
+          if (hasRefundDue && !bankDetails.accountNumber) {
+            errors.push("Bank account details are required to receive your refund. Please enter your bank account number and IFSC code.");
+          } else if (!bankDetails.accountNumber) {
+            warnings.push("Bank account details are recommended for receiving any refund.");
+          }
+          if (bankDetails.accountNumber && !bankDetails.ifscCode) {
+            errors.push("IFSC code is required when bank account number is provided.");
+          }
+          if (bankDetails.ifscCode && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(bankDetails.ifscCode)) {
+            errors.push("Invalid IFSC code format. It should be 11 characters: 4 letters, '0', then 6 alphanumeric characters.");
+          }
+        }
+        break;
     }
     return { isValid: errors.length === 0, errors, warnings };
-  }, [incomeSources, salaryDetails, housePropertyDetails, businessDetails, capitalGainsDetails, foreignIncomeDetails, deductionDetails, taxPaymentDetails, panContext, taxRegime]);
+  }, [incomeSources, salaryDetails, housePropertyDetails, businessDetails, capitalGainsDetails, foreignIncomeDetails, deductionDetails, taxPaymentDetails, panContext, taxRegime, otherIncomeDetails, bankDetails, recommendedForm, totals, sandboxTaxResult]);
 
   const calculateLocalTotals = () => {
     const salaryIncome = salaryDetails.grossSalary + salaryDetails.allowances + 
@@ -836,14 +964,30 @@ export default function TaxITRSelfPage() {
 
     const grossTotalIncome = Math.max(0, salaryIncome) + housePropertyIncome + capitalGains + otherIncome + totalForeignIncome + businessInc;
 
-    const totalDeductions = Math.min(deductionDetails.section80C, 150000) +
+    const combined80C_CCC_CCD1 = Math.min(
+      deductionDetails.section80C + deductionDetails.section80CCC + deductionDetails.section80CCD1,
+      150000
+    );
+    const totalDeductions = combined80C_CCC_CCD1 +
+      Math.min(deductionDetails.section80CCD1B, 50000) +
+      deductionDetails.section80CCD2 +
       Math.min(deductionDetails.section80D, 100000) +
+      Math.min(deductionDetails.section80DD, 125000) +
+      Math.min(deductionDetails.section80DDB, 100000) +
       deductionDetails.section80E +
+      Math.min(deductionDetails.section80EEA, 150000) +
+      Math.min(deductionDetails.section80EEB, 150000) +
       deductionDetails.section80G +
+      Math.min(deductionDetails.section80GG, 60000) +
       Math.min(deductionDetails.section80TTA, 10000) +
+      Math.min(deductionDetails.section80TTB, 50000) +
+      Math.min(deductionDetails.section80U, 125000) +
       deductionDetails.otherDeductions;
 
-    const totalTaxPaid = taxPaymentDetails.tdsDeducted + taxPaymentDetails.advanceTaxPaid + taxPaymentDetails.selfAssessmentTax;
+    const autoTdsTotal = taxPaymentDetails.tdsSalary + taxPaymentDetails.tdsOtherThanSalary + taxPaymentDetails.tdsOnProperty;
+    const effectiveTds = autoTdsTotal > 0 ? autoTdsTotal : taxPaymentDetails.tdsDeducted;
+    const totalTaxPaid = effectiveTds + taxPaymentDetails.tcsCollected +
+      taxPaymentDetails.advanceTaxPaid + taxPaymentDetails.selfAssessmentTax;
 
     return {
       salaryIncome,
@@ -1000,6 +1144,38 @@ export default function TaxITRSelfPage() {
               {ASSESSMENT_YEARS.map(year => (
                 <SelectItem key={year} value={year}>AY {year}</SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <Label>Residential Status <FieldHint text="Resident: in India ≥182 days. NRI: outside India. RNOR: Returning NRI or newly resident. ITR-1 is only for Resident Individuals." /></Label>
+          <Select value={residentialStatus} onValueChange={(v) => setResidentialStatus(v as any)}>
+            <SelectTrigger data-testid="select-residential-status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="resident">Resident (ROR)</SelectItem>
+              <SelectItem value="nri">Non-Resident (NRI)</SelectItem>
+              <SelectItem value="rnor">Resident but Not Ordinarily Resident (RNOR)</SelectItem>
+            </SelectContent>
+          </Select>
+          {residentialStatus !== "resident" && (
+            <p className="text-xs text-amber-600">NRI/RNOR cannot file ITR-1. Form will auto-upgrade to ITR-2 or higher.</p>
+          )}
+        </div>
+        <div className="space-y-2">
+          <Label>Filing Under Section <FieldHint text="139(1): Original return filed on time. 139(4): Belated return (after due date). 139(5): Revised return (correcting earlier filed return)." /></Label>
+          <Select value={filingSection} onValueChange={setFilingSection}>
+            <SelectTrigger data-testid="select-filing-section">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="139(1)">139(1) — Original Return</SelectItem>
+              <SelectItem value="139(4)">139(4) — Belated Return</SelectItem>
+              <SelectItem value="139(5)">139(5) — Revised Return</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -1303,6 +1479,35 @@ export default function TaxITRSelfPage() {
     </div>
   );
 
+  const handleFetch26AS = async () => {
+    if (!panContext?.pan) return;
+    setForm26ASLoading(true);
+    try {
+      const res = await fetch(`/api/tax/itr/26as/${panContext.pan}/${assessmentYear}`, { credentials: "include" });
+      const data = await res.json();
+      if (data.success && data.data) {
+        const d = data.data;
+        setTaxPaymentDetails(prev => ({
+          ...prev,
+          tdsSalary: d.summary?.tdsSalary ?? d.summary?.totalTDSDeducted ?? prev.tdsSalary,
+          tdsOtherThanSalary: d.summary?.tdsOtherThanSalary ?? prev.tdsOtherThanSalary,
+          tdsOnProperty: d.summary?.tdsOnProperty ?? prev.tdsOnProperty,
+          tcsCollected: d.summary?.totalTCSCollected ?? prev.tcsCollected,
+          tdsDeducted: d.summary?.totalTaxCredits ?? d.summary?.totalTDSDeducted ?? prev.tdsDeducted,
+          advanceTaxPaid: d.summary?.totalAdvanceTax ?? prev.advanceTaxPaid,
+          selfAssessmentTax: d.summary?.totalSelfAssessmentTax ?? prev.selfAssessmentTax,
+        }));
+        toast({ title: "Form 26AS Loaded", description: "TDS, advance tax, and self-assessment details auto-filled from Form 26AS." });
+      } else {
+        toast({ title: "26AS Fetch Failed", description: data.message || "Could not fetch Form 26AS. Please enter TDS details manually.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "26AS Unavailable", description: "Form 26AS service is currently unavailable. Please enter details manually.", variant: "destructive" });
+    } finally {
+      setForm26ASLoading(false);
+    }
+  };
+
   const renderSalaryStep = () => (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -1326,6 +1531,38 @@ export default function TaxITRSelfPage() {
           />
         </label>
       </div>
+
+      <Card className="bg-blue-50/50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+        <CardContent className="p-4 space-y-3">
+          <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Employer Details (as per Form 16 Part A)</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="employerName" className="text-xs">Employer Name</Label>
+              <Input
+                id="employerName"
+                value={employerDetails.employerName}
+                onChange={(e) => setEmployerDetails(prev => ({ ...prev, employerName: e.target.value }))}
+                placeholder="e.g. Tata Consultancy Services Ltd"
+                data-testid="input-employer-name"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="employerTAN" className="text-xs">
+                Employer TAN <FieldHint text="Tax Deduction Account Number of employer. 10-character alphanumeric. Found on Form 16 Part A." />
+              </Label>
+              <Input
+                id="employerTAN"
+                value={employerDetails.employerTAN}
+                onChange={(e) => setEmployerDetails(prev => ({ ...prev, employerTAN: e.target.value.toUpperCase() }))}
+                placeholder="e.g. MUMS12345E"
+                className="font-mono tracking-wider uppercase"
+                maxLength={10}
+                data-testid="input-employer-tan"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="space-y-1.5">
@@ -2572,7 +2809,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-1.5">
           <Label htmlFor="otherSources">
             Other Sources
-            <FieldHint text="Any income not covered above — gifts above ₹50,000, lottery winnings, agricultural income > ₹5,000, etc." />
+            <FieldHint text="Any income not covered above — gifts above ₹50,000, lottery winnings, etc." />
           </Label>
           <CurrencyInput
             id="otherSources"
@@ -2582,14 +2819,37 @@ export default function TaxITRSelfPage() {
             data-testid="input-other-sources"
           />
         </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="agriculturalIncome">
+            Agricultural Income
+            <FieldHint text="Income from agriculture. Exempt under Sec 10(1) but used for rate purposes if total income > ₹5 lakh. ITR-1 allows up to ₹5,000 only; above ₹5,000 requires ITR-2." />
+          </Label>
+          <CurrencyInput
+            id="agriculturalIncome"
+            value={otherIncomeDetails.agriculturalIncome}
+            onChange={(v) => setOtherIncomeDetails(prev => ({ ...prev, agriculturalIncome: v }))}
+            placeholder="Exempt up to ₹5,000 for ITR-1"
+            max={5000000}
+            data-testid="input-agricultural-income"
+          />
+          {otherIncomeDetails.agriculturalIncome > 5000 && recommendedForm === "ITR-1" && (
+            <p className="text-xs text-amber-600">Agricultural income above ₹5,000 requires ITR-2. Your form will be auto-upgraded.</p>
+          )}
+        </div>
       </div>
 
       <Card className="bg-muted/50">
-        <CardContent className="p-4">
+        <CardContent className="p-4 space-y-1">
           <div className="flex justify-between items-center">
             <span className="font-medium">Total Other Income</span>
             <span className="font-bold text-lg">{formatCurrency(totals.otherIncome)}</span>
           </div>
+          {otherIncomeDetails.agriculturalIncome > 0 && (
+            <div className="flex justify-between items-center text-xs text-muted-foreground">
+              <span>Agricultural Income (exempt, for rate purposes)</span>
+              <span>{formatCurrency(otherIncomeDetails.agriculturalIncome)}</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -2605,94 +2865,145 @@ export default function TaxITRSelfPage() {
           <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              <strong>New Tax Regime selected.</strong> Most Chapter VI-A deductions (80C, 80D, 80G, etc.) are <strong>not available</strong>. Only standard deduction of ₹75,000 applies. 
+              <strong>New Tax Regime selected.</strong> Most Chapter VI-A deductions (80C, 80D, 80G, etc.) are <strong>not available</strong>. Only standard deduction of ₹75,000 and employer NPS (80CCD2) apply. 
               Switch to Old Regime in Basic Info to claim these deductions.
             </AlertDescription>
           </Alert>
         )}
 
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Section 80C / 80CCC / 80CCD — Combined Limit ₹1.5 Lakh</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-1.5">
             <Label htmlFor="section80C" className={isNewRegime ? "text-muted-foreground" : ""}>
-              Section 80C (Max ₹1.5 Lakh)
-              <FieldHint text="PPF, ELSS, life insurance, PF, tuition fees, home loan principal, NSC, tax-saving FD. Combined limit ₹1,50,000." />
+              80C — Investments (Max ₹1.5L combined)
+              <FieldHint text="PPF, ELSS, life insurance, PF, tuition fees, home loan principal, NSC, tax-saving FD, Sukanya Samriddhi. Combined limit with 80CCC and 80CCD(1)." />
             </Label>
-            <CurrencyInput
-              id="section80C"
-              value={deductionDetails.section80C}
-              onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80C: v }))}
-              placeholder="PPF, ELSS, LIC, PF, etc."
-              max={150000}
-              disabled={isNewRegime}
-              data-testid="input-section-80c"
-            />
+            <CurrencyInput id="section80C" value={deductionDetails.section80C} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80C: v }))} placeholder="PPF, ELSS, LIC, PF" max={150000} disabled={isNewRegime} data-testid="input-section-80c" />
           </div>
           <div className="space-y-1.5">
+            <Label htmlFor="section80CCC" className={isNewRegime ? "text-muted-foreground" : ""}>
+              80CCC — Pension Fund (within ₹1.5L)
+              <FieldHint text="Contribution to annuity plan of LIC or other insurer. Falls within the overall ₹1.5L limit of 80C+80CCC+80CCD(1)." />
+            </Label>
+            <CurrencyInput id="section80CCC" value={deductionDetails.section80CCC} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80CCC: v }))} placeholder="Pension fund contributions" max={150000} disabled={isNewRegime} data-testid="input-section-80ccc" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="section80CCD1" className={isNewRegime ? "text-muted-foreground" : ""}>
+              80CCD(1) — NPS Employee (within ₹1.5L)
+              <FieldHint text="Your own contribution to NPS (National Pension System). Limited to 10% of salary (14% for govt). Within overall ₹1.5L cap." />
+            </Label>
+            <CurrencyInput id="section80CCD1" value={deductionDetails.section80CCD1} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80CCD1: v }))} placeholder="NPS self-contribution" max={150000} disabled={isNewRegime} data-testid="input-section-80ccd1" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="section80CCD1B" className={isNewRegime ? "text-muted-foreground" : ""}>
+              80CCD(1B) — NPS Additional (Extra ₹50K)
+              <FieldHint text="Additional deduction of ₹50,000 for NPS. This is OVER AND ABOVE the ₹1.5L limit — a powerful tax saver." />
+            </Label>
+            <CurrencyInput id="section80CCD1B" value={deductionDetails.section80CCD1B} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80CCD1B: v }))} placeholder="Additional NPS ₹50K" max={50000} disabled={isNewRegime} data-testid="input-section-80ccd1b" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="section80CCD2">
+              80CCD(2) — Employer NPS Contribution
+              <FieldHint text="Employer's NPS contribution — up to 10% of salary (14% for central govt). Available in BOTH old and new regimes. Check salary slip." />
+            </Label>
+            <CurrencyInput id="section80CCD2" value={deductionDetails.section80CCD2} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80CCD2: v }))} placeholder="Employer NPS (check payslip)" data-testid="input-section-80ccd2" />
+            <p className="text-xs text-green-600">Available in both Old and New regime</p>
+          </div>
+        </div>
+
+        <Separator />
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Health, Disability & Education</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="space-y-1.5">
             <Label htmlFor="section80D" className={isNewRegime ? "text-muted-foreground" : ""}>
-              Section 80D - Health Insurance (Max ₹1L)
+              80D — Health Insurance (Max ₹1L)
               <FieldHint text="Self + family: ₹25K (₹50K if senior). Parents: additional ₹25K (₹50K if senior). Max total: ₹1,00,000." />
             </Label>
-            <CurrencyInput
-              id="section80D"
-              value={deductionDetails.section80D}
-              onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80D: v }))}
-              placeholder="Self + family + parents"
-              max={100000}
-              disabled={isNewRegime}
-              data-testid="input-section-80d"
-            />
+            <CurrencyInput id="section80D" value={deductionDetails.section80D} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80D: v }))} placeholder="Self + family + parents" max={100000} disabled={isNewRegime} data-testid="input-section-80d" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="section80DD" className={isNewRegime ? "text-muted-foreground" : ""}>
+              80DD — Disabled Dependent (₹75K/₹1.25L)
+              <FieldHint text="Maintenance/medical treatment of disabled dependent. ₹75,000 for 40-80% disability, ₹1,25,000 for severe (>80%)." />
+            </Label>
+            <CurrencyInput id="section80DD" value={deductionDetails.section80DD} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80DD: v }))} placeholder="₹75K or ₹1.25L" max={125000} disabled={isNewRegime} data-testid="input-section-80dd" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="section80DDB" className={isNewRegime ? "text-muted-foreground" : ""}>
+              80DDB — Medical Treatment (Max ₹40K/₹1L)
+              <FieldHint text="Treatment of specified diseases (cancer, AIDS, etc.). ₹40,000 for below 60; ₹1,00,000 for senior citizens. Need Form 10-I." />
+            </Label>
+            <CurrencyInput id="section80DDB" value={deductionDetails.section80DDB} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80DDB: v }))} placeholder="Specified disease treatment" max={100000} disabled={isNewRegime} data-testid="input-section-80ddb" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="section80U" className={isNewRegime ? "text-muted-foreground" : ""}>
+              80U — Self Disability (₹75K/₹1.25L)
+              <FieldHint text="For persons with disability (self). ₹75,000 for 40-80% disability, ₹1,25,000 for severe disability (>80%). Need medical certificate." />
+            </Label>
+            <CurrencyInput id="section80U" value={deductionDetails.section80U} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80U: v }))} placeholder="₹75K or ₹1.25L" max={125000} disabled={isNewRegime} data-testid="input-section-80u" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="section80E" className={isNewRegime ? "text-muted-foreground" : ""}>
-              Section 80E - Education Loan Interest
+              80E — Education Loan Interest
               <FieldHint text="Interest on education loan for higher studies. No upper limit. Available for 8 years from start of repayment." />
             </Label>
-            <CurrencyInput
-              id="section80E"
-              value={deductionDetails.section80E}
-              onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80E: v }))}
-              placeholder="No upper limit"
-              disabled={isNewRegime}
-              data-testid="input-section-80e"
-            />
+            <CurrencyInput id="section80E" value={deductionDetails.section80E} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80E: v }))} placeholder="No upper limit" disabled={isNewRegime} data-testid="input-section-80e" />
+          </div>
+        </div>
+
+        <Separator />
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Housing, Donations & Savings Interest</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="space-y-1.5">
+            <Label htmlFor="section80EEA" className={isNewRegime ? "text-muted-foreground" : ""}>
+              80EEA — Affordable Housing Interest (₹1.5L)
+              <FieldHint text="Additional interest deduction up to ₹1.5L for affordable housing (stamp duty ≤₹45L). Loan sanctioned between 1 Apr 2019 – 31 Mar 2022." />
+            </Label>
+            <CurrencyInput id="section80EEA" value={deductionDetails.section80EEA} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80EEA: v }))} placeholder="Affordable housing loan" max={150000} disabled={isNewRegime} data-testid="input-section-80eea" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="section80EEB" className={isNewRegime ? "text-muted-foreground" : ""}>
+              80EEB — EV Loan Interest (₹1.5L)
+              <FieldHint text="Interest on loan for electric vehicle purchase. Max ₹1,50,000. Loan sanctioned between 1 Apr 2019 – 31 Mar 2023." />
+            </Label>
+            <CurrencyInput id="section80EEB" value={deductionDetails.section80EEB} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80EEB: v }))} placeholder="Electric vehicle loan" max={150000} disabled={isNewRegime} data-testid="input-section-80eeb" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="section80GG" className={isNewRegime ? "text-muted-foreground" : ""}>
+              80GG — Rent Paid (No HRA) (Max ₹5K/m)
+              <FieldHint text="For those NOT receiving HRA from employer. Least of: rent paid - 10% of total income, ₹5,000/month, or 25% of total income. File Form 10BA." />
+            </Label>
+            <CurrencyInput id="section80GG" value={deductionDetails.section80GG} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80GG: v }))} placeholder="Rent if no HRA" max={60000} disabled={isNewRegime} data-testid="input-section-80gg" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="section80G" className={isNewRegime ? "text-muted-foreground" : ""}>
-              Section 80G - Charitable Donations
+              80G — Charitable Donations
               <FieldHint text="Donations to specified funds/charities. 100% or 50% deduction depending on the organization. Keep donation receipts." />
             </Label>
-            <CurrencyInput
-              id="section80G"
-              value={deductionDetails.section80G}
-              onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80G: v }))}
-              placeholder="Charitable donations"
-              disabled={isNewRegime}
-              data-testid="input-section-80g"
-            />
+            <CurrencyInput id="section80G" value={deductionDetails.section80G} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80G: v }))} placeholder="Charitable donations" disabled={isNewRegime} data-testid="input-section-80g" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="section80TTA" className={isNewRegime ? "text-muted-foreground" : ""}>
-              Section 80TTA - Savings Interest (Max ₹10K)
-              <FieldHint text="Deduction on interest from savings account. Max ₹10,000. FD/RD interest NOT eligible. Senior citizens use 80TTB instead." />
+              80TTA — Savings Interest (Max ₹10K)
+              <FieldHint text="Deduction on interest from savings account. Max ₹10,000. FD/RD interest NOT eligible. Cannot claim both 80TTA and 80TTB." />
             </Label>
-            <CurrencyInput
-              id="section80TTA"
-              value={deductionDetails.section80TTA}
-              onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80TTA: v }))}
-              placeholder="Savings account interest"
-              max={10000}
-              disabled={isNewRegime}
-              data-testid="input-section-80tta"
-            />
+            <CurrencyInput id="section80TTA" value={deductionDetails.section80TTA} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80TTA: v }))} placeholder="Savings account interest" max={10000} disabled={isNewRegime} data-testid="input-section-80tta" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="section80TTB" className={isNewRegime ? "text-muted-foreground" : ""}>
+              80TTB — Senior Citizen Interest (Max ₹50K)
+              <FieldHint text="For senior citizens (60+). Deduction on interest from savings, FD, RD — up to ₹50,000. Cannot claim both 80TTA and 80TTB." />
+            </Label>
+            <CurrencyInput id="section80TTB" value={deductionDetails.section80TTB} onChange={(v) => setDeductionDetails(prev => ({ ...prev, section80TTB: v }))} placeholder="Senior citizen interest" max={50000} disabled={isNewRegime} data-testid="input-section-80ttb" />
           </div>
         </div>
 
         <Card className="bg-muted/50">
           <CardContent className="p-4">
             <div className="flex justify-between items-center">
-              <span className="font-medium">Total Deductions</span>
+              <span className="font-medium">Total Deductions (Chapter VI-A)</span>
               <span className="font-bold text-lg text-green-600">
-                {isNewRegime ? formatCurrency(0) + " (New Regime)" : formatCurrency(totals.totalDeductions)}
+                {isNewRegime ? formatCurrency(deductionDetails.section80CCD2) + " (New Regime — only 80CCD2)" : formatCurrency(totals.totalDeductions)}
               </span>
             </div>
           </CardContent>
@@ -2705,18 +3016,111 @@ export default function TaxITRSelfPage() {
 
   const renderTaxPaymentsStep = () => (
     <div className="space-y-6">
-      <p className="text-muted-foreground text-sm">
-        Enter taxes already paid or deducted. These reduce your final tax liability. Verify from your Form 26AS on the Income Tax e-filing portal.
-      </p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <p className="text-muted-foreground text-sm">
+          Enter taxes already paid or deducted. These reduce your final tax liability. Verify from your Form 26AS on the Income Tax e-filing portal.
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleFetch26AS}
+          disabled={form26ASLoading || !panContext?.pan}
+          data-testid="btn-fetch-26as"
+        >
+          {form26ASLoading ? <><Clock className="h-4 w-4 mr-2 animate-spin" /> Fetching 26AS...</> : <><FileText className="h-4 w-4 mr-2" /> Auto-fill from 26AS</>}
+        </Button>
+      </div>
 
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">TDS Breakdown (Schedule TDS)</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="space-y-1.5">
+          <Label htmlFor="tdsSalary">
+            TDS on Salary (Part A) <FieldHint text="Tax deducted by your employer from salary. Check Form 16 Part A or 26AS Part A, section 192." />
+          </Label>
+          <CurrencyInput
+            id="tdsSalary"
+            value={taxPaymentDetails.tdsSalary}
+            onChange={(v) => {
+              setTaxPaymentDetails(prev => {
+                const updated = { ...prev, tdsSalary: v };
+                updated.tdsDeducted = updated.tdsSalary + updated.tdsOtherThanSalary + updated.tdsOnProperty;
+                return updated;
+              });
+            }}
+            placeholder="TDS from employer"
+            data-testid="input-tds-salary"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="tdsOtherThanSalary">
+            TDS Other Than Salary (Part A1) <FieldHint text="TDS by banks on FD interest (194A), TDS on rent receipts (194I), commission (194H), etc. Check 26AS Part A." />
+          </Label>
+          <CurrencyInput
+            id="tdsOtherThanSalary"
+            value={taxPaymentDetails.tdsOtherThanSalary}
+            onChange={(v) => {
+              setTaxPaymentDetails(prev => {
+                const updated = { ...prev, tdsOtherThanSalary: v };
+                updated.tdsDeducted = updated.tdsSalary + updated.tdsOtherThanSalary + updated.tdsOnProperty;
+                return updated;
+              });
+            }}
+            placeholder="Bank TDS, rent TDS, etc."
+            data-testid="input-tds-other"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="tdsOnProperty">
+            TDS on Sale of Property (26QB) <FieldHint text="TDS deducted by buyer on purchase of property ≥₹50 lakh. Rate: 1% of sale consideration. Check Form 26QB." />
+          </Label>
+          <CurrencyInput
+            id="tdsOnProperty"
+            value={taxPaymentDetails.tdsOnProperty}
+            onChange={(v) => {
+              setTaxPaymentDetails(prev => {
+                const updated = { ...prev, tdsOnProperty: v };
+                updated.tdsDeducted = updated.tdsSalary + updated.tdsOtherThanSalary + updated.tdsOnProperty;
+                return updated;
+              });
+            }}
+            placeholder="Property sale TDS (26QB)"
+            data-testid="input-tds-property"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="tcsCollected">
+            TCS Collected (Part A2) <FieldHint text="Tax Collected at Source — on foreign remittances (LRS), car purchases above ₹10L, etc. Check 26AS Part A2." />
+          </Label>
+          <CurrencyInput
+            id="tcsCollected"
+            value={taxPaymentDetails.tcsCollected}
+            onChange={(v) => setTaxPaymentDetails(prev => ({ ...prev, tcsCollected: v }))}
+            placeholder="Foreign remittance TCS, etc."
+            data-testid="input-tcs-collected"
+          />
+        </div>
+      </div>
+
+      <Card className="bg-muted/50">
+        <CardContent className="p-3">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground">Total TDS + TCS</span>
+            <span className="font-medium">{formatCurrency(taxPaymentDetails.tdsDeducted + taxPaymentDetails.tcsCollected)}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Separator />
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Advance Tax & Self-Assessment</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="space-y-1.5">
           <Label htmlFor="tdsDeducted">
-            TDS Deducted <FieldHint text="Total Tax Deducted at Source — by employer (salary), bank (FD interest), etc. Check Form 26AS Part A." />
+            Total TDS (Auto-calculated) <FieldHint text="Sum of TDS on salary + TDS other than salary + TDS on property. Auto-calculated from breakdown above." />
           </Label>
           <CurrencyInput
             id="tdsDeducted"
             value={taxPaymentDetails.tdsDeducted}
+            disabled
             onChange={(v) => setTaxPaymentDetails(prev => ({ ...prev, tdsDeducted: v }))}
             placeholder="From Form 26AS / AIS"
             data-testid="input-tds-deducted"
@@ -2748,10 +3152,42 @@ export default function TaxITRSelfPage() {
         </div>
       </div>
 
+      <Separator />
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Relief & Adjustments</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="space-y-1.5">
+          <Label htmlFor="reliefUs89">
+            Relief u/s 89 (Arrear Salary) <FieldHint text="Relief for salary received in arrears or in advance. Calculate using Form 10E on the e-filing portal before claiming." />
+          </Label>
+          <CurrencyInput
+            id="reliefUs89"
+            value={taxPaymentDetails.reliefUs89}
+            onChange={(v) => setTaxPaymentDetails(prev => ({ ...prev, reliefUs89: v }))}
+            placeholder="File Form 10E first"
+            data-testid="input-relief-89"
+          />
+        </div>
+      </div>
+
       <Card className="bg-muted/50">
-        <CardContent className="p-4">
+        <CardContent className="p-4 space-y-1">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground">TDS + TCS</span>
+            <span>{formatCurrency(taxPaymentDetails.tdsDeducted + taxPaymentDetails.tcsCollected)}</span>
+          </div>
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground">Advance Tax + Self-Assessment</span>
+            <span>{formatCurrency(taxPaymentDetails.advanceTaxPaid + taxPaymentDetails.selfAssessmentTax)}</span>
+          </div>
+          {taxPaymentDetails.reliefUs89 > 0 && (
+            <div className="flex justify-between items-center text-sm text-green-600">
+              <span>Relief u/s 89</span>
+              <span>{formatCurrency(taxPaymentDetails.reliefUs89)}</span>
+            </div>
+          )}
+          <Separator />
           <div className="flex justify-between items-center">
-            <span className="font-medium">Total Tax Already Paid</span>
+            <span className="font-medium">Total Tax Credits</span>
             <span className="font-bold text-lg text-green-600">{formatCurrency(totals.totalTaxPaid)}</span>
           </div>
         </CardContent>
@@ -3076,6 +3512,63 @@ export default function TaxITRSelfPage() {
                 </Badge>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="dark:border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Building2 className="h-4 w-4" /> Bank Account for Refund
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="bankAccountNumber" className="text-xs">Account Number <span className="text-red-500">*</span></Label>
+                <Input
+                  id="bankAccountNumber"
+                  value={bankDetails.accountNumber}
+                  onChange={(e) => setBankDetails(prev => ({ ...prev, accountNumber: e.target.value }))}
+                  placeholder="Enter bank account number"
+                  data-testid="input-bank-account"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="bankIFSC" className="text-xs">IFSC Code <span className="text-red-500">*</span></Label>
+                <Input
+                  id="bankIFSC"
+                  value={bankDetails.ifscCode}
+                  onChange={(e) => setBankDetails(prev => ({ ...prev, ifscCode: e.target.value.toUpperCase() }))}
+                  placeholder="e.g. SBIN0001234"
+                  className="font-mono tracking-wider uppercase"
+                  maxLength={11}
+                  data-testid="input-bank-ifsc"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="bankName" className="text-xs">Bank Name</Label>
+                <Input
+                  id="bankName"
+                  value={bankDetails.bankName}
+                  onChange={(e) => setBankDetails(prev => ({ ...prev, bankName: e.target.value }))}
+                  placeholder="e.g. State Bank of India"
+                  data-testid="input-bank-name"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="bankAccountType" className="text-xs">Account Type</Label>
+                <Select value={bankDetails.accountType} onValueChange={(v) => setBankDetails(prev => ({ ...prev, accountType: v as any }))}>
+                  <SelectTrigger id="bankAccountType" data-testid="select-bank-account-type"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="savings">Savings</SelectItem>
+                    <SelectItem value="current">Current</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {apiData?.refundAmount && apiData.refundAmount > 0 && !bankDetails.accountNumber && (
+              <p className="text-xs text-amber-600">Bank account details are required to receive your refund of {formatCurrency(apiData.refundAmount)}.</p>
+            )}
           </CardContent>
         </Card>
 

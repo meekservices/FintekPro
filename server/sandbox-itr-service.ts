@@ -409,23 +409,50 @@ class SandboxITRService {
     interestIncome: number;
     dividendIncome: number;
     otherIncome: number;
+    agriculturalIncome?: number;
     foreignTaxCredit?: number;
     foreignIncomeCountry?: string;
     section80C: number;
+    section80CCC?: number;
+    section80CCD1?: number;
+    section80CCD1B?: number;
+    section80CCD2?: number;
     section80D: number;
+    section80DD?: number;
+    section80DDB?: number;
     section80E: number;
+    section80EEA?: number;
+    section80EEB?: number;
     section80G: number;
+    section80GG?: number;
     section80TTA: number;
+    section80TTB?: number;
+    section80U?: number;
     otherDeductions: number;
     tdsDeducted: number;
+    tdsSalary?: number;
+    tdsOtherThanSalary?: number;
+    tdsOnProperty?: number;
+    tcsCollected?: number;
     advanceTaxPaid: number;
     selfAssessmentTax: number;
+    reliefUs89?: number;
     standardDeduction: number;
     professionalTax: number;
     homeLoanInterest: number;
+    residentialStatus?: string;
+    filingSection?: string;
+    employerName?: string;
+    employerTAN?: string;
+    bankDetails?: { accountNumber: string; ifscCode: string; bankName?: string; accountType?: string };
   }): Promise<ITRCalculationResponse> {
     const totalCapitalGains = wizardData.capitalGainsSTCG + wizardData.capitalGainsLTCG - wizardData.capitalGainsExemptions;
     const ftc = wizardData.foreignTaxCredit || 0;
+
+    const combined80C = Math.min(
+      (wizardData.section80C || 0) + (wizardData.section80CCC || 0) + (wizardData.section80CCD1 || 0),
+      150000
+    );
 
     const payload: Record<string, any> = {
       assessment_year: wizardData.assessmentYear,
@@ -441,13 +468,23 @@ class SandboxITRService {
         interest_income: wizardData.interestIncome,
         rental_income: wizardData.housePropertyIncome,
         dividend_income: wizardData.dividendIncome,
+        agricultural_income: wizardData.agriculturalIncome || 0,
       },
       deductions: {
-        section_80c: Math.min(wizardData.section80C, 150000),
-        section_80d: Math.min(wizardData.section80D, 50000),
+        section_80c: combined80C,
+        section_80ccd_1b: Math.min(wizardData.section80CCD1B || 0, 50000),
+        section_80ccd_2: wizardData.section80CCD2 || 0,
+        section_80d: Math.min(wizardData.section80D, 100000),
+        section_80dd: Math.min(wizardData.section80DD || 0, 125000),
+        section_80ddb: Math.min(wizardData.section80DDB || 0, 100000),
         section_80e: wizardData.section80E,
+        section_80eea: Math.min(wizardData.section80EEA || 0, 150000),
+        section_80eeb: Math.min(wizardData.section80EEB || 0, 150000),
         section_80g: wizardData.section80G,
+        section_80gg: Math.min(wizardData.section80GG || 0, 60000),
         section_80tta: Math.min(wizardData.section80TTA, 10000),
+        section_80ttb: Math.min(wizardData.section80TTB || 0, 50000),
+        section_80u: Math.min(wizardData.section80U || 0, 125000),
         standard_deduction: wizardData.standardDeduction,
         professional_tax: wizardData.professionalTax,
         home_loan_interest: wizardData.homeLoanInterest,
@@ -455,8 +492,13 @@ class SandboxITRService {
       },
       tax_payments: {
         tds_deducted: wizardData.tdsDeducted,
+        tds_salary: wizardData.tdsSalary || 0,
+        tds_other_than_salary: wizardData.tdsOtherThanSalary || 0,
+        tds_on_property: wizardData.tdsOnProperty || 0,
+        tcs_collected: wizardData.tcsCollected || 0,
         advance_tax_paid: wizardData.advanceTaxPaid,
         self_assessment_tax: wizardData.selfAssessmentTax,
+        relief_us_89: wizardData.reliefUs89 || 0,
       },
     };
 
@@ -465,6 +507,15 @@ class SandboxITRService {
         section_90_91: ftc,
         country: wizardData.foreignIncomeCountry || 'US',
         dtaa_applicable: true,
+      };
+    }
+
+    if (wizardData.bankDetails) {
+      payload.bank_details = {
+        account_number: wizardData.bankDetails.accountNumber,
+        ifsc_code: wizardData.bankDetails.ifscCode,
+        bank_name: wizardData.bankDetails.bankName || '',
+        account_type: wizardData.bankDetails.accountType || 'savings',
       };
     }
 
