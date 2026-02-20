@@ -76,18 +76,157 @@ interface SalaryDetails {
   employerPF: number;
 }
 
+interface HousePropertyEntry {
+  propertyType: "self_occupied" | "let_out" | "deemed_let_out";
+  rentalIncome: number;
+  municipalTaxes: number;
+  interestOnLoan: number;
+  unrealizedRent: number;
+  address: string;
+}
+
 interface HousePropertyDetails {
   propertyCount: number;
   rentalIncome: number;
   municipalTaxes: number;
   interestOnLoan: number;
   isSelfOccupied: boolean;
+  properties: HousePropertyEntry[];
 }
 
 interface CapitalGainsDetails {
   shortTermGains: number;
   longTermGains: number;
   exemptionsApplied: number;
+  sttPaidSTCG: number;
+  sttNotPaidSTCG: number;
+  sttPaidLTCG: number;
+  sttNotPaidLTCG: number;
+  grandfatheringFMV: number;
+  grandfatheringApplied: boolean;
+}
+
+interface LossCarryForward {
+  assessmentYear: string;
+  housePropertyLoss: number;
+  shortTermCapitalLoss: number;
+  longTermCapitalLoss: number;
+  businessLoss: number;
+  speculativeBusinessLoss: number;
+  owedSpecifiedBusinessLoss: number;
+}
+
+interface DirectorshipEntry {
+  companyName: string;
+  companyPAN: string;
+  din: string;
+  sharesHeld: number;
+}
+
+interface UnlistedShareEntry {
+  companyName: string;
+  companyPAN: string;
+  openingShares: number;
+  closingShares: number;
+  acquisitionCost: number;
+}
+
+interface BalanceSheetDetails {
+  fixedAssets: number;
+  investments: number;
+  currentAssets: number;
+  loansAndAdvances: number;
+  otherAssets: number;
+  totalAssets: number;
+  capital: number;
+  reservesAndSurplus: number;
+  securedLoans: number;
+  unsecuredLoans: number;
+  currentLiabilities: number;
+  totalLiabilities: number;
+}
+
+interface ProfitLossDetails {
+  grossRevenue: number;
+  otherOperatingIncome: number;
+  totalRevenue: number;
+  purchasesAndDirectExpenses: number;
+  employeeBenefitExpenses: number;
+  depreciation: number;
+  otherExpenses: number;
+  totalExpenses: number;
+  netProfitBeforeTax: number;
+}
+
+interface DepreciationEntry {
+  assetBlock: string;
+  openingWDV: number;
+  additions: number;
+  disposals: number;
+  depreciationRate: number;
+  depreciationAmount: number;
+  closingWDV: number;
+}
+
+interface TaxAuditInfo {
+  isAuditRequired: boolean;
+  auditorName: string;
+  auditorMembershipNo: string;
+  auditDate: string;
+  form3CA_3CD: boolean;
+  form3CB_3CD: boolean;
+  auditReportFiled: boolean;
+}
+
+interface PartnerDetails {
+  partnerName: string;
+  partnerPAN: string;
+  sharePercentage: number;
+  capitalContribution: number;
+  profitShareRatio: number;
+  remuneration: number;
+  interestOnCapital: number;
+  isManagingPartner: boolean;
+}
+
+interface EntityProfileDetails {
+  entityName: string;
+  entityPAN: string;
+  entityType: string;
+  dateOfIncorporation: string;
+  registrationNumber: string;
+  constitutionType: string;
+  natureOfBusiness: string;
+  partners: PartnerDetails[];
+}
+
+interface CorporateDetails {
+  companyType: "private" | "public" | "section_8";
+  cin: string;
+  authorizedCapital: number;
+  paidUpCapital: number;
+  matApplicable: boolean;
+  matCredit: number;
+  bookProfit: number;
+  matTax: number;
+  dividendDeclared: number;
+  dividendDistributionTax: number;
+}
+
+interface TrustDetails {
+  trustType: "charitable" | "religious" | "educational" | "medical" | "political_party" | "research" | "news_agency";
+  registrationSection: string;
+  registrationNumber: string;
+  registrationDate: string;
+  corpusDonations: number;
+  voluntaryContributions: number;
+  applicationOfIncome: number;
+  accumulatedIncome: number;
+  accumulationPercentage: number;
+  section11Exemption: number;
+  section12Exemption: number;
+  anonymousDonations: number;
+  investmentInSpecifiedMode: number;
 }
 
 interface BrokerUploadInfo {
@@ -282,12 +421,16 @@ const ASSESSMENT_YEARS = ["2025-26", "2024-25", "2023-24"];
 const STEPS = [
   { id: "basic", title: "Basic Info", icon: FileText, description: "Your PAN and assessment year" },
   { id: "sources", title: "Income Sources", icon: Wallet, description: "Select applicable income types" },
+  { id: "entity_profile", title: "Entity Profile", icon: Building2, description: "Firm/company/trust details and partners" },
   { id: "salary", title: "Salary", icon: Briefcase, description: "Salary and employment details" },
   { id: "property", title: "House Property", icon: Home, description: "Rental and home loan details" },
   { id: "business", title: "Business / Profession", icon: Building2, description: "Business income, P&L, presumptive" },
+  { id: "financials", title: "Financial Statements", icon: BarChart3, description: "Balance Sheet, P&L, depreciation" },
   { id: "capital", title: "Capital Gains", icon: TrendingUp, description: "Investment gains and losses" },
   { id: "foreign", title: "Foreign Income", icon: Globe, description: "Global stocks, DTAA relief, Schedule FA" },
   { id: "other", title: "Other Income", icon: Receipt, description: "Interest, dividends, and more" },
+  { id: "disclosures", title: "Disclosures", icon: Shield, description: "Director, unlisted shares, loss carry-forward" },
+  { id: "trust_income", title: "Trust / Exemptions", icon: Scale, description: "Corpus, voluntary contributions, exemptions" },
   { id: "deductions", title: "Deductions", icon: Calculator, description: "Tax-saving investments" },
   { id: "tax_payments", title: "Tax Payments", icon: IndianRupee, description: "TDS, advance tax, self-assessment" },
   { id: "review", title: "Review & File", icon: CheckCircle, description: "Verify and submit" }
@@ -427,13 +570,20 @@ export default function TaxITRSelfPage() {
     rentalIncome: 0,
     municipalTaxes: 0,
     interestOnLoan: 0,
-    isSelfOccupied: true
+    isSelfOccupied: true,
+    properties: []
   });
 
   const [capitalGainsDetails, setCapitalGainsDetails] = useState<CapitalGainsDetails>({
     shortTermGains: 0,
     longTermGains: 0,
-    exemptionsApplied: 0
+    exemptionsApplied: 0,
+    sttPaidSTCG: 0,
+    sttNotPaidSTCG: 0,
+    sttPaidLTCG: 0,
+    sttNotPaidLTCG: 0,
+    grandfatheringFMV: 0,
+    grandfatheringApplied: false,
   });
 
   const [cgMode, setCgMode] = useState<'upload' | 'manual' | 'summary'>('upload');
@@ -526,6 +676,35 @@ export default function TaxITRSelfPage() {
   });
 
   const [form26ASLoading, setForm26ASLoading] = useState(false);
+
+  const [lossCarryForward, setLossCarryForward] = useState<LossCarryForward[]>([]);
+  const [directorships, setDirectorships] = useState<DirectorshipEntry[]>([]);
+  const [unlistedShares, setUnlistedShares] = useState<UnlistedShareEntry[]>([]);
+  const [specialRateIncome, setSpecialRateIncome] = useState({ lottery: 0, horseRacing: 0, onlineGaming: 0, otherSpecial: 0 });
+
+  const [balanceSheet, setBalanceSheet] = useState<BalanceSheetDetails>({
+    fixedAssets: 0, investments: 0, currentAssets: 0, loansAndAdvances: 0, otherAssets: 0, totalAssets: 0,
+    capital: 0, reservesAndSurplus: 0, securedLoans: 0, unsecuredLoans: 0, currentLiabilities: 0, totalLiabilities: 0,
+  });
+  const [profitLoss, setProfitLoss] = useState<ProfitLossDetails>({
+    grossRevenue: 0, otherOperatingIncome: 0, totalRevenue: 0,
+    purchasesAndDirectExpenses: 0, employeeBenefitExpenses: 0, depreciation: 0, otherExpenses: 0, totalExpenses: 0, netProfitBeforeTax: 0,
+  });
+  const [depreciationEntries, setDepreciationEntries] = useState<DepreciationEntry[]>([]);
+  const [taxAuditInfo, setTaxAuditInfo] = useState<TaxAuditInfo>({
+    isAuditRequired: false, auditorName: "", auditorMembershipNo: "", auditDate: "", form3CA_3CD: false, form3CB_3CD: false, auditReportFiled: false,
+  });
+  const [foIncome, setFoIncome] = useState({ futuresGains: 0, optionsGains: 0, intradayGains: 0, isSpeculative: false });
+
+  const [entityProfile, setEntityProfile] = useState<EntityProfileDetails>({
+    entityName: "", entityPAN: "", entityType: "partnership_firm", dateOfIncorporation: "", registrationNumber: "", constitutionType: "partnership", natureOfBusiness: "", partners: [],
+  });
+  const [corporateDetails, setCorporateDetails] = useState<CorporateDetails>({
+    companyType: "private", cin: "", authorizedCapital: 0, paidUpCapital: 0, matApplicable: false, matCredit: 0, bookProfit: 0, matTax: 0, dividendDeclared: 0, dividendDistributionTax: 0,
+  });
+  const [trustDetails, setTrustDetails] = useState<TrustDetails>({
+    trustType: "charitable", registrationSection: "12A", registrationNumber: "", registrationDate: "", corpusDonations: 0, voluntaryContributions: 0, applicationOfIncome: 0, accumulatedIncome: 0, accumulationPercentage: 15, section11Exemption: 0, section12Exemption: 0, anonymousDonations: 0, investmentInSpecifiedMode: 0,
+  });
 
   const [sandboxTaxResult, setSandboxTaxResult] = useState<SandboxTaxResult | null>(null);
   const [taxCalcError, setTaxCalcError] = useState<string | null>(null);
@@ -755,17 +934,27 @@ export default function TaxITRSelfPage() {
     }
   }, [incomeSources, currentStepId]);
 
+  const getStepById = (id: string) => STEPS.find(s => s.id === id)!;
+  const isEntityForm = ["ITR-5", "ITR-6", "ITR-7"].includes(recommendedForm);
+  const needsFinancials = ["ITR-3", "ITR-5", "ITR-6"].includes(recommendedForm);
+  const needsDisclosures = ["ITR-2", "ITR-3", "ITR-5", "ITR-6"].includes(recommendedForm);
+  const needsTrustSchedule = recommendedForm === "ITR-7";
+
   const getActiveSteps = () => {
-    const active = [STEPS[0], STEPS[1]];
-    if (incomeSources.hasSalary) active.push(STEPS[2]);
-    if (incomeSources.hasHouseProperty) active.push(STEPS[3]);
-    if (incomeSources.hasBusinessIncome) active.push(STEPS[4]);
-    if (incomeSources.hasCapitalGains) active.push(STEPS[5]);
-    if (incomeSources.hasForeignIncome) active.push(STEPS[6]);
-    if (incomeSources.hasOtherIncome) active.push(STEPS[7]);
-    active.push(STEPS[8]);
-    active.push(STEPS[9]);
-    active.push(STEPS[10]);
+    const active = [getStepById("basic"), getStepById("sources")];
+    if (isEntityForm) active.push(getStepById("entity_profile"));
+    if (incomeSources.hasSalary && !isEntityForm) active.push(getStepById("salary"));
+    if (incomeSources.hasHouseProperty) active.push(getStepById("property"));
+    if (incomeSources.hasBusinessIncome) active.push(getStepById("business"));
+    if (needsFinancials && incomeSources.hasBusinessIncome) active.push(getStepById("financials"));
+    if (incomeSources.hasCapitalGains) active.push(getStepById("capital"));
+    if (incomeSources.hasForeignIncome) active.push(getStepById("foreign"));
+    if (incomeSources.hasOtherIncome) active.push(getStepById("other"));
+    if (needsDisclosures) active.push(getStepById("disclosures"));
+    if (needsTrustSchedule) active.push(getStepById("trust_income"));
+    active.push(getStepById("deductions"));
+    active.push(getStepById("tax_payments"));
+    active.push(getStepById("review"));
     return active;
   };
 
@@ -911,6 +1100,52 @@ export default function TaxITRSelfPage() {
           warnings.push("TDS appears high relative to your income. Please verify from Form 26AS.");
         }
         break;
+      case "entity_profile":
+        if (isEntityForm) {
+          if (!entityProfile.entityName) errors.push("Entity name is required.");
+          if (!entityProfile.entityPAN) errors.push("Entity PAN is required.");
+          if (recommendedForm === "ITR-5" && entityProfile.partners.length === 0) {
+            errors.push("At least one partner/member must be added.");
+          }
+          if (recommendedForm === "ITR-6" && !corporateDetails.cin) {
+            errors.push("Company Identification Number (CIN) is required for ITR-6.");
+          }
+          if (recommendedForm === "ITR-7" && !trustDetails.registrationNumber) {
+            errors.push("Trust/institution registration number is required.");
+          }
+        }
+        break;
+      case "financials":
+        if (needsFinancials) {
+          if (balanceSheet.totalAssets !== balanceSheet.totalLiabilities && balanceSheet.totalAssets > 0) {
+            errors.push("Balance Sheet does not tally — Total Assets must equal Total Liabilities + Capital.");
+          }
+          if (profitLoss.grossRevenue > 0 && profitLoss.netProfitBeforeTax === 0) {
+            warnings.push("Net profit is zero despite having revenue. Please verify expenses.");
+          }
+          if (taxAuditInfo.isAuditRequired && !taxAuditInfo.auditReportFiled) {
+            warnings.push("Tax audit is required but not yet filed. Audit report must be filed before ITR.");
+          }
+        }
+        break;
+      case "disclosures":
+        if (needsDisclosures) {
+          if (lossCarryForward.length > 0) {
+            const invalidLoss = lossCarryForward.find(l => !l.assessmentYear);
+            if (invalidLoss) errors.push("Assessment year is required for all loss carry-forward entries.");
+          }
+        }
+        break;
+      case "trust_income":
+        if (needsTrustSchedule) {
+          if (trustDetails.accumulationPercentage > 15) {
+            warnings.push("Accumulation beyond 15% of income requires specific conditions under Section 11(2).");
+          }
+          if (trustDetails.anonymousDonations > 0) {
+            warnings.push("Anonymous donations exceeding ₹1 lakh or 5% of total donations are taxed at 30%.");
+          }
+        }
+        break;
       case "review":
         {
           const hasRefundDue = sandboxTaxResult?.data?.refundAmount && sandboxTaxResult.data.refundAmount > 0;
@@ -929,7 +1164,7 @@ export default function TaxITRSelfPage() {
         break;
     }
     return { isValid: errors.length === 0, errors, warnings };
-  }, [incomeSources, salaryDetails, housePropertyDetails, businessDetails, capitalGainsDetails, foreignIncomeDetails, deductionDetails, taxPaymentDetails, panContext, taxRegime, otherIncomeDetails, bankDetails, recommendedForm, totals, sandboxTaxResult]);
+  }, [incomeSources, salaryDetails, housePropertyDetails, businessDetails, capitalGainsDetails, foreignIncomeDetails, deductionDetails, taxPaymentDetails, panContext, taxRegime, otherIncomeDetails, bankDetails, recommendedForm, totals, sandboxTaxResult, isEntityForm, needsFinancials, needsDisclosures, needsTrustSchedule, entityProfile, corporateDetails, trustDetails, balanceSheet, profitLoss, taxAuditInfo, lossCarryForward]);
 
   const calculateLocalTotals = () => {
     const salaryIncome = salaryDetails.grossSalary + salaryDetails.allowances + 
@@ -1213,18 +1448,28 @@ export default function TaxITRSelfPage() {
     </div>
   );
 
+  const formScheduleMap: Record<string, string[]> = {
+    "ITR-1": ["Part A: Personal Details", "Part B: Gross Total Income (Salary, HP, Other)", "Part C: Deductions & Taxable Income", "Part D: Tax Computation", "Schedule TDS"],
+    "ITR-2": ["Schedule S (Salary)", "Schedule HP", "Schedule CG (Capital Gains — STT/Non-STT split)", "Schedule OS", "Schedule CYLA/BFLA/CFL", "Schedule SI (Special Rate)", "Schedule FA (Foreign Assets)", "Schedule FSI", "Schedule AL (Assets & Liabilities)"],
+    "ITR-3": ["All ITR-2 Schedules", "Schedule BP (Business/Profession)", "Part A-BS (Balance Sheet)", "Part A-P&L", "Schedule DEP (Depreciation)", "Schedule ESR (Tax Audit 44AB)"],
+    "ITR-4": ["Part A (Personal Info)", "Schedule BP (Presumptive 44AD/44ADA/44AE)", "Part B-TI (Total Income)", "Part B-TTI (Tax Computation)"],
+    "ITR-5": ["Part A-GEN (Firm/LLP)", "Schedule IF (Partner Details)", "Part A-BS", "Part A-P&L", "Schedule CG", "Schedule OS", "Schedule BP"],
+    "ITR-6": ["Part A-GEN (Company)", "Part A-BS", "Part A-P&L", "Schedule MAT (115JB)", "Schedule CG", "Schedule OS", "Schedule BP"],
+    "ITR-7": ["Part A-GEN (Trust)", "Schedule VC (Voluntary Contributions)", "Schedule-J (Investments)", "Schedule AI (Aggregate Income)", "Part B-TI", "Part B-TTI", "Section 11/12/13 Exemptions"],
+  };
+
   const renderIncomeSourcesStep = () => (
     <div className="space-y-6">
-      <p className="text-muted-foreground">Select all sources of income for FY {assessmentYear === "2025-26" ? "2024-25" : assessmentYear === "2024-25" ? "2023-24" : "2022-23"}. The system will automatically select the correct ITR form.</p>
+      <p className="text-muted-foreground">Select all sources of income for FY {assessmentYear === "2025-26" ? "2024-25" : assessmentYear === "2024-25" ? "2023-24" : "2022-23"}. The system will automatically select the correct ITR form — just like TaxCloudIndia, schedules adjust internally.</p>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {[
           { key: "hasSalary", label: "Salary / Pension", icon: Briefcase, desc: "Income from employment, Form 16", color: "text-blue-600" },
           { key: "hasHouseProperty", label: "House Property", icon: Home, desc: "Rental income or home loan interest", color: "text-green-600" },
-          { key: "hasCapitalGains", label: "Capital Gains", icon: TrendingUp, desc: "Stocks, MFs, property sale", color: "text-purple-600" },
-          { key: "hasBusinessIncome", label: "Business / Profession", icon: Building2, desc: "Self-employed, freelancer, business", color: "text-orange-600" },
+          { key: "hasCapitalGains", label: "Capital Gains", icon: TrendingUp, desc: "Stocks, MFs, property sale, STT/non-STT split", color: "text-purple-600" },
+          { key: "hasBusinessIncome", label: "Business / Profession", icon: Building2, desc: "Self-employed, freelancer, F&O, business P&L", color: "text-orange-600" },
           { key: "hasForeignIncome", label: "Foreign Income / Global Stocks", icon: Globe, desc: "US/global stocks, DTAA relief, Schedule FA & FSI", color: "text-red-600" },
-          { key: "hasOtherIncome", label: "Other Sources", icon: Wallet, desc: "FD/savings interest, dividends, lottery", color: "text-teal-600" }
+          { key: "hasOtherIncome", label: "Other Sources", icon: Wallet, desc: "FD/savings interest, dividends, lottery, gaming", color: "text-teal-600" }
         ].map(source => {
           const Icon = source.icon;
           const isChecked = incomeSources[source.key as keyof IncomeSource];
@@ -1250,21 +1495,54 @@ export default function TaxITRSelfPage() {
         })}
       </div>
 
-      <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-        <CardContent className="p-4">
+      <Card className={`border-2 ${
+        recommendedForm === "ITR-1" ? "border-green-300 bg-green-50 dark:bg-green-950" :
+        recommendedForm === "ITR-2" ? "border-blue-300 bg-blue-50 dark:bg-blue-950" :
+        recommendedForm === "ITR-3" ? "border-orange-300 bg-orange-50 dark:bg-orange-950" :
+        recommendedForm === "ITR-4" ? "border-amber-300 bg-amber-50 dark:bg-amber-950" :
+        "border-purple-300 bg-purple-50 dark:bg-purple-950"
+      }`}>
+        <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
-              <FileText className="h-5 w-5 text-blue-600" />
+            <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+              recommendedForm === "ITR-1" ? "bg-green-100 dark:bg-green-900" :
+              recommendedForm === "ITR-2" ? "bg-blue-100 dark:bg-blue-900" :
+              "bg-purple-100 dark:bg-purple-900"
+            }`}>
+              <FileText className="h-5 w-5" />
             </div>
-            <div>
-              <p className="text-sm font-semibold text-blue-800 dark:text-blue-200">
-                Auto-selected: {recommendedForm}
+            <div className="flex-1">
+              <p className="text-sm font-semibold">
+                Auto-selected: {recommendedForm} {
+                  recommendedForm === "ITR-1" ? "(Sahaj)" :
+                  recommendedForm === "ITR-2" ? "(Individual/HUF — No Business)" :
+                  recommendedForm === "ITR-3" ? "(Business/Profession)" :
+                  recommendedForm === "ITR-4" ? "(Sugam — Presumptive)" :
+                  recommendedForm === "ITR-5" ? "(Firm/LLP/AOP)" :
+                  recommendedForm === "ITR-6" ? "(Company)" : "(Trust/Charity)"
+                }
               </p>
-              <p className="text-xs text-blue-600 dark:text-blue-400">
-                Based on your income sources. This is the correct form — no need to choose manually.
+              <p className="text-xs text-muted-foreground">
+                Based on your PAN type and income sources. Steps and schedules adjust automatically as you add or remove sources.
               </p>
             </div>
           </div>
+          <div className="flex flex-wrap gap-1.5">
+            {(formScheduleMap[recommendedForm] || []).map((sch, i) => (
+              <Badge key={i} variant="secondary" className="text-xs">{sch}</Badge>
+            ))}
+          </div>
+          {recommendedForm !== "ITR-1" && (
+            <div className="text-xs text-muted-foreground border-t pt-2 mt-2">
+              <strong>Why not ITR-1?</strong>{" "}
+              {incomeSources.hasCapitalGains && "Capital gains require ITR-2+. "}
+              {incomeSources.hasForeignIncome && "Foreign income/assets require ITR-2+. "}
+              {incomeSources.hasBusinessIncome && "Business income requires ITR-3/4. "}
+              {residentialStatus !== "resident" && "NRI/RNOR status requires ITR-2+. "}
+              {housePropertyDetails.propertyCount > 1 && "Multiple properties require ITR-2+. "}
+              {isEntityForm && `Entity type (${panContext?.panType}) requires ${recommendedForm}. `}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -3582,6 +3860,851 @@ export default function TaxITRSelfPage() {
     );
   };
 
+  const renderEntityProfileStep = () => {
+    const formLabel = recommendedForm === "ITR-6" ? "Company" : recommendedForm === "ITR-7" ? "Trust / Institution" : "Firm / AOP / BOI";
+    return (
+      <div className="space-y-4">
+        <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+          <Info className="h-4 w-4" />
+          <AlertDescription className="text-sm">
+            {recommendedForm}: {formLabel} details required. This information maps to Part A-GEN of the return.
+          </AlertDescription>
+        </Alert>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">{formLabel} Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label>Entity Name *</Label>
+                <Input value={entityProfile.entityName} onChange={e => setEntityProfile(p => ({ ...p, entityName: e.target.value }))} placeholder="Legal name of entity" />
+              </div>
+              <div>
+                <Label>Entity PAN *</Label>
+                <Input value={entityProfile.entityPAN} onChange={e => setEntityProfile(p => ({ ...p, entityPAN: e.target.value.toUpperCase() }))} placeholder="ABCDE1234F" maxLength={10} />
+              </div>
+              <div>
+                <Label>Date of Incorporation</Label>
+                <Input type="date" value={entityProfile.dateOfIncorporation} onChange={e => setEntityProfile(p => ({ ...p, dateOfIncorporation: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Nature of Business</Label>
+                <Input value={entityProfile.natureOfBusiness} onChange={e => setEntityProfile(p => ({ ...p, natureOfBusiness: e.target.value }))} placeholder="e.g. Manufacturing, IT Services" />
+              </div>
+              {recommendedForm === "ITR-5" && (
+                <div>
+                  <Label>Constitution Type</Label>
+                  <Select value={entityProfile.constitutionType} onValueChange={v => setEntityProfile(p => ({ ...p, constitutionType: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="partnership">Partnership Firm</SelectItem>
+                      <SelectItem value="llp">LLP</SelectItem>
+                      <SelectItem value="aop">AOP / BOI</SelectItem>
+                      <SelectItem value="cooperative">Cooperative Society</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div>
+                <Label>Registration Number</Label>
+                <Input value={entityProfile.registrationNumber} onChange={e => setEntityProfile(p => ({ ...p, registrationNumber: e.target.value }))} placeholder="LLPIN / CIN / Registration No." />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {recommendedForm === "ITR-6" && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Corporate Details (Schedule Part A-GEN)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label>Company Type</Label>
+                  <Select value={corporateDetails.companyType} onValueChange={v => setCorporateDetails(p => ({ ...p, companyType: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="private">Private Limited</SelectItem>
+                      <SelectItem value="public">Public Limited</SelectItem>
+                      <SelectItem value="section8">Section 8 Company</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>CIN (Company Identification Number) *</Label>
+                  <Input value={corporateDetails.cin} onChange={e => setCorporateDetails(p => ({ ...p, cin: e.target.value.toUpperCase() }))} placeholder="U12345MH2020PTC123456" />
+                </div>
+                <div>
+                  <Label>Authorized Capital (₹)</Label>
+                  <Input type="number" value={corporateDetails.authorizedCapital || ""} onChange={e => setCorporateDetails(p => ({ ...p, authorizedCapital: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <Label>Paid-up Capital (₹)</Label>
+                  <Input type="number" value={corporateDetails.paidUpCapital || ""} onChange={e => setCorporateDetails(p => ({ ...p, paidUpCapital: Number(e.target.value) }))} />
+                </div>
+              </div>
+              <Separator />
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Checkbox checked={corporateDetails.matApplicable} onCheckedChange={c => setCorporateDetails(p => ({ ...p, matApplicable: !!c }))} />
+                  <Label>MAT (Minimum Alternate Tax) applicable under Section 115JB</Label>
+                </div>
+                {corporateDetails.matApplicable && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pl-6">
+                    <div>
+                      <Label>Book Profit (₹)</Label>
+                      <Input type="number" value={corporateDetails.bookProfit || ""} onChange={e => setCorporateDetails(p => ({ ...p, bookProfit: Number(e.target.value) }))} />
+                    </div>
+                    <div>
+                      <Label>MAT Tax (₹)</Label>
+                      <Input type="number" value={corporateDetails.matTax || ""} onChange={e => setCorporateDetails(p => ({ ...p, matTax: Number(e.target.value) }))} />
+                    </div>
+                    <div>
+                      <Label>MAT Credit c/f (₹)</Label>
+                      <Input type="number" value={corporateDetails.matCredit || ""} onChange={e => setCorporateDetails(p => ({ ...p, matCredit: Number(e.target.value) }))} />
+                    </div>
+                  </div>
+                )}
+              </div>
+              <Separator />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label>Dividend Declared (₹)</Label>
+                  <Input type="number" value={corporateDetails.dividendDeclared || ""} onChange={e => setCorporateDetails(p => ({ ...p, dividendDeclared: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <Label>Dividend Distribution Tax (₹)</Label>
+                  <Input type="number" value={corporateDetails.dividendDistributionTax || ""} onChange={e => setCorporateDetails(p => ({ ...p, dividendDistributionTax: Number(e.target.value) }))} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {recommendedForm === "ITR-7" && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Trust / Institution Registration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label>Trust Type</Label>
+                  <Select value={trustDetails.trustType} onValueChange={v => setTrustDetails(p => ({ ...p, trustType: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="charitable">Charitable Trust</SelectItem>
+                      <SelectItem value="religious">Religious Trust</SelectItem>
+                      <SelectItem value="educational">Educational Institution</SelectItem>
+                      <SelectItem value="medical">Medical Institution</SelectItem>
+                      <SelectItem value="political">Political Party</SelectItem>
+                      <SelectItem value="research">Research Association</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Registration Section</Label>
+                  <Select value={trustDetails.registrationSection} onValueChange={v => setTrustDetails(p => ({ ...p, registrationSection: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="12A">Section 12A</SelectItem>
+                      <SelectItem value="12AA">Section 12AA</SelectItem>
+                      <SelectItem value="12AB">Section 12AB</SelectItem>
+                      <SelectItem value="10(23C)">Section 10(23C)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Registration Number *</Label>
+                  <Input value={trustDetails.registrationNumber} onChange={e => setTrustDetails(p => ({ ...p, registrationNumber: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Registration Date</Label>
+                  <Input type="date" value={trustDetails.registrationDate} onChange={e => setTrustDetails(p => ({ ...p, registrationDate: e.target.value }))} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {recommendedForm === "ITR-5" && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Partners / Members (Schedule-IF)</CardTitle>
+              <CardDescription>Add details of all partners or members as per the deed</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {entityProfile.partners.map((partner, idx) => (
+                <div key={idx} className="border rounded-lg p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">Partner {idx + 1}</span>
+                    <Button variant="ghost" size="sm" onClick={() => setEntityProfile(p => ({ ...p, partners: p.partners.filter((_, i) => i !== idx) }))}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-xs">Name</Label>
+                      <Input value={partner.name} onChange={e => {
+                        const updated = [...entityProfile.partners];
+                        updated[idx] = { ...updated[idx], name: e.target.value };
+                        setEntityProfile(p => ({ ...p, partners: updated }));
+                      }} placeholder="Partner name" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">PAN</Label>
+                      <Input value={partner.pan} onChange={e => {
+                        const updated = [...entityProfile.partners];
+                        updated[idx] = { ...updated[idx], pan: e.target.value.toUpperCase() };
+                        setEntityProfile(p => ({ ...p, partners: updated }));
+                      }} maxLength={10} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Profit Share %</Label>
+                      <Input type="number" value={partner.profitSharePercentage || ""} onChange={e => {
+                        const updated = [...entityProfile.partners];
+                        updated[idx] = { ...updated[idx], profitSharePercentage: Number(e.target.value) };
+                        setEntityProfile(p => ({ ...p, partners: updated }));
+                      }} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Remuneration (₹)</Label>
+                      <Input type="number" value={partner.remuneration || ""} onChange={e => {
+                        const updated = [...entityProfile.partners];
+                        updated[idx] = { ...updated[idx], remuneration: Number(e.target.value) };
+                        setEntityProfile(p => ({ ...p, partners: updated }));
+                      }} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Interest on Capital (₹)</Label>
+                      <Input type="number" value={partner.interestOnCapital || ""} onChange={e => {
+                        const updated = [...entityProfile.partners];
+                        updated[idx] = { ...updated[idx], interestOnCapital: Number(e.target.value) };
+                        setEntityProfile(p => ({ ...p, partners: updated }));
+                      }} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Capital Balance (₹)</Label>
+                      <Input type="number" value={partner.capitalBalance || ""} onChange={e => {
+                        const updated = [...entityProfile.partners];
+                        updated[idx] = { ...updated[idx], capitalBalance: Number(e.target.value) };
+                        setEntityProfile(p => ({ ...p, partners: updated }));
+                      }} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <Button variant="outline" size="sm" onClick={() => setEntityProfile(p => ({ ...p, partners: [...p.partners, { name: "", pan: "", profitSharePercentage: 0, remuneration: 0, interestOnCapital: 0, capitalBalance: 0 }] }))}>
+                <Plus className="h-4 w-4 mr-1" /> Add Partner
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  };
+
+  const renderFinancialsStep = () => {
+    const autoTotalAssets = balanceSheet.fixedAssets + balanceSheet.investments + balanceSheet.currentAssets + balanceSheet.loansAndAdvances + balanceSheet.otherAssets;
+    const autoTotalLiabilities = balanceSheet.capital + balanceSheet.reservesAndSurplus + balanceSheet.securedLoans + balanceSheet.unsecuredLoans + balanceSheet.currentLiabilities;
+    const autoTotalRevenue = profitLoss.grossRevenue + profitLoss.otherOperatingIncome;
+    const autoTotalExpenses = profitLoss.purchasesAndDirectExpenses + profitLoss.employeeBenefitExpenses + profitLoss.depreciation + profitLoss.otherExpenses;
+    const autoNetProfit = autoTotalRevenue - autoTotalExpenses;
+
+    return (
+      <div className="space-y-4">
+        <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+          <Info className="h-4 w-4" />
+          <AlertDescription className="text-sm">
+            Schedule BP / Balance Sheet / P&L as required for {recommendedForm}. These map to Part A-BS, Part A-P&L and Part A-OI.
+          </AlertDescription>
+        </Alert>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Balance Sheet (Part A-BS)</CardTitle>
+            <CardDescription>Assets and liabilities as on 31st March</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <h4 className="text-sm font-semibold mb-2 text-green-700 dark:text-green-400">Assets</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { key: "fixedAssets", label: "Fixed Assets (Net of Depreciation)" },
+                  { key: "investments", label: "Investments" },
+                  { key: "currentAssets", label: "Current Assets" },
+                  { key: "loansAndAdvances", label: "Loans & Advances" },
+                  { key: "otherAssets", label: "Other Assets" },
+                ].map(item => (
+                  <div key={item.key}>
+                    <Label className="text-xs">{item.label} (₹)</Label>
+                    <Input type="number" value={(balanceSheet as any)[item.key] || ""} onChange={e => {
+                      const val = Number(e.target.value);
+                      setBalanceSheet(p => ({ ...p, [item.key]: val, totalAssets: autoTotalAssets - (p as any)[item.key] + val }));
+                    }} />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 p-2 bg-green-50 dark:bg-green-950 rounded text-sm font-medium">
+                Total Assets: ₹{autoTotalAssets.toLocaleString('en-IN')}
+              </div>
+            </div>
+            <Separator />
+            <div>
+              <h4 className="text-sm font-semibold mb-2 text-red-700 dark:text-red-400">Liabilities & Capital</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { key: "capital", label: "Capital / Share Capital" },
+                  { key: "reservesAndSurplus", label: "Reserves & Surplus" },
+                  { key: "securedLoans", label: "Secured Loans" },
+                  { key: "unsecuredLoans", label: "Unsecured Loans" },
+                  { key: "currentLiabilities", label: "Current Liabilities & Provisions" },
+                ].map(item => (
+                  <div key={item.key}>
+                    <Label className="text-xs">{item.label} (₹)</Label>
+                    <Input type="number" value={(balanceSheet as any)[item.key] || ""} onChange={e => {
+                      const val = Number(e.target.value);
+                      setBalanceSheet(p => ({ ...p, [item.key]: val, totalLiabilities: autoTotalLiabilities - (p as any)[item.key] + val }));
+                    }} />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 p-2 bg-red-50 dark:bg-red-950 rounded text-sm font-medium">
+                Total Liabilities: ₹{autoTotalLiabilities.toLocaleString('en-IN')}
+                {autoTotalAssets !== autoTotalLiabilities && autoTotalAssets > 0 && (
+                  <span className="ml-2 text-red-600 text-xs">(Does not tally — difference: ₹{Math.abs(autoTotalAssets - autoTotalLiabilities).toLocaleString('en-IN')})</span>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Profit & Loss Account (Part A-P&L)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Revenue</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Gross Revenue / Turnover (₹)</Label>
+                  <Input type="number" value={profitLoss.grossRevenue || ""} onChange={e => setProfitLoss(p => ({ ...p, grossRevenue: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <Label className="text-xs">Other Operating Income (₹)</Label>
+                  <Input type="number" value={profitLoss.otherOperatingIncome || ""} onChange={e => setProfitLoss(p => ({ ...p, otherOperatingIncome: Number(e.target.value) }))} />
+                </div>
+              </div>
+              <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-950 rounded text-sm">Total Revenue: ₹{autoTotalRevenue.toLocaleString('en-IN')}</div>
+            </div>
+            <Separator />
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Expenses</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { key: "purchasesAndDirectExpenses", label: "Purchases & Direct Expenses" },
+                  { key: "employeeBenefitExpenses", label: "Employee Benefit Expenses" },
+                  { key: "depreciation", label: "Depreciation & Amortisation" },
+                  { key: "otherExpenses", label: "Other Expenses" },
+                ].map(item => (
+                  <div key={item.key}>
+                    <Label className="text-xs">{item.label} (₹)</Label>
+                    <Input type="number" value={(profitLoss as any)[item.key] || ""} onChange={e => setProfitLoss(p => ({ ...p, [item.key]: Number(e.target.value) }))} />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950 rounded text-sm">Total Expenses: ₹{autoTotalExpenses.toLocaleString('en-IN')}</div>
+            </div>
+            <div className={`p-3 rounded-lg text-sm font-semibold ${autoNetProfit >= 0 ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'}`}>
+              Net Profit Before Tax: ₹{autoNetProfit.toLocaleString('en-IN')} {autoNetProfit < 0 ? '(Loss)' : ''}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Depreciation Schedule</CardTitle>
+            <CardDescription>Block-wise depreciation as per IT Act (WDV method)</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {depreciationEntries.map((entry, idx) => (
+              <div key={idx} className="border rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-sm">Block {idx + 1}</span>
+                  <Button variant="ghost" size="sm" onClick={() => setDepreciationEntries(prev => prev.filter((_, i) => i !== idx))}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div>
+                    <Label className="text-xs">Asset Block</Label>
+                    <Input value={entry.assetBlock} onChange={e => {
+                      const updated = [...depreciationEntries]; updated[idx] = { ...updated[idx], assetBlock: e.target.value };
+                      setDepreciationEntries(updated);
+                    }} placeholder="e.g. Plant & Machinery" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Rate %</Label>
+                    <Input type="number" value={entry.rate || ""} onChange={e => {
+                      const updated = [...depreciationEntries]; updated[idx] = { ...updated[idx], rate: Number(e.target.value) };
+                      setDepreciationEntries(updated);
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Opening WDV (₹)</Label>
+                    <Input type="number" value={entry.openingWDV || ""} onChange={e => {
+                      const updated = [...depreciationEntries]; updated[idx] = { ...updated[idx], openingWDV: Number(e.target.value) };
+                      setDepreciationEntries(updated);
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Additions (₹)</Label>
+                    <Input type="number" value={entry.additions || ""} onChange={e => {
+                      const updated = [...depreciationEntries]; updated[idx] = { ...updated[idx], additions: Number(e.target.value) };
+                      setDepreciationEntries(updated);
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Deletions (₹)</Label>
+                    <Input type="number" value={entry.deletions || ""} onChange={e => {
+                      const updated = [...depreciationEntries]; updated[idx] = { ...updated[idx], deletions: Number(e.target.value) };
+                      setDepreciationEntries(updated);
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Depreciation (₹)</Label>
+                    <Input type="number" value={entry.depreciationAmount || ""} onChange={e => {
+                      const updated = [...depreciationEntries]; updated[idx] = { ...updated[idx], depreciationAmount: Number(e.target.value) };
+                      setDepreciationEntries(updated);
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Closing WDV (₹)</Label>
+                    <div className="text-sm mt-1 font-medium p-2 bg-muted rounded">
+                      ₹{((entry.openingWDV + entry.additions - entry.deletions - entry.depreciationAmount)).toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => setDepreciationEntries(prev => [...prev, { assetBlock: "", rate: 15, openingWDV: 0, additions: 0, deletions: 0, depreciationAmount: 0, closingWDV: 0, method: "WDV" }])}>
+              <Plus className="h-4 w-4 mr-1" /> Add Depreciation Block
+            </Button>
+          </CardContent>
+        </Card>
+
+        {recommendedForm === "ITR-3" && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Tax Audit Information (Section 44AB)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Checkbox checked={taxAuditInfo.isAuditRequired} onCheckedChange={c => setTaxAuditInfo(p => ({ ...p, isAuditRequired: !!c }))} />
+                <Label>Tax Audit is required (turnover exceeds threshold)</Label>
+              </div>
+              {taxAuditInfo.isAuditRequired && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-6">
+                  <div>
+                    <Label className="text-xs">Auditor Name</Label>
+                    <Input value={taxAuditInfo.auditorName} onChange={e => setTaxAuditInfo(p => ({ ...p, auditorName: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Membership Number</Label>
+                    <Input value={taxAuditInfo.auditorMembershipNo} onChange={e => setTaxAuditInfo(p => ({ ...p, auditorMembershipNo: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Audit Date</Label>
+                    <Input type="date" value={taxAuditInfo.auditDate} onChange={e => setTaxAuditInfo(p => ({ ...p, auditDate: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Checkbox checked={taxAuditInfo.form3CA_3CD} onCheckedChange={c => setTaxAuditInfo(p => ({ ...p, form3CA_3CD: !!c, form3CB_3CD: !!c ? false : p.form3CB_3CD }))} />
+                      <Label className="text-xs">Form 3CA-3CD (company/firm audit)</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox checked={taxAuditInfo.form3CB_3CD} onCheckedChange={c => setTaxAuditInfo(p => ({ ...p, form3CB_3CD: !!c, form3CA_3CD: !!c ? false : p.form3CA_3CD }))} />
+                      <Label className="text-xs">Form 3CB-3CD (other persons audit)</Label>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox checked={taxAuditInfo.auditReportFiled} onCheckedChange={c => setTaxAuditInfo(p => ({ ...p, auditReportFiled: !!c }))} />
+                    <Label className="text-xs">Audit Report Filed on IT Portal</Label>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {recommendedForm === "ITR-3" && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">F&O / Intraday Income (Schedule BP)</CardTitle>
+              <CardDescription>Futures, Options, and Intraday trading classified as business income</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Futures Gains/Loss (₹)</Label>
+                  <Input type="number" value={foIncome.futuresGains || ""} onChange={e => setFoIncome(p => ({ ...p, futuresGains: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <Label className="text-xs">Options Gains/Loss (₹)</Label>
+                  <Input type="number" value={foIncome.optionsGains || ""} onChange={e => setFoIncome(p => ({ ...p, optionsGains: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <Label className="text-xs">Intraday Gains/Loss (₹)</Label>
+                  <Input type="number" value={foIncome.intradayGains || ""} onChange={e => setFoIncome(p => ({ ...p, intradayGains: Number(e.target.value) }))} />
+                </div>
+                <div className="flex items-center gap-2 pt-5">
+                  <Checkbox checked={foIncome.isSpeculative} onCheckedChange={c => setFoIncome(p => ({ ...p, isSpeculative: !!c }))} />
+                  <Label className="text-xs">Mark intraday as speculative income (Section 43(5))</Label>
+                </div>
+              </div>
+              <div className="mt-3 p-2 bg-muted rounded text-sm">
+                Net F&O + Intraday: ₹{(foIncome.futuresGains + foIncome.optionsGains + foIncome.intradayGains).toLocaleString('en-IN')}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  };
+
+  const renderDisclosuresStep = () => {
+    return (
+      <div className="space-y-4">
+        <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+          <Info className="h-4 w-4" />
+          <AlertDescription className="text-sm">
+            Mandatory disclosures for {recommendedForm}: Director positions, unlisted equity holdings, and loss carry-forward (Schedule CYLA / BFLA / CFL).
+          </AlertDescription>
+        </Alert>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Directorship in Companies</CardTitle>
+            <CardDescription>Required if you are/were a director in any company during the FY</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {directorships.map((entry, idx) => (
+              <div key={idx} className="border rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-sm">Company {idx + 1}</span>
+                  <Button variant="ghost" size="sm" onClick={() => setDirectorships(prev => prev.filter((_, i) => i !== idx))}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-xs">Company Name</Label>
+                    <Input value={entry.companyName} onChange={e => {
+                      const updated = [...directorships]; updated[idx] = { ...updated[idx], companyName: e.target.value };
+                      setDirectorships(updated);
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">CIN / LLPIN</Label>
+                    <Input value={entry.cin} onChange={e => {
+                      const updated = [...directorships]; updated[idx] = { ...updated[idx], cin: e.target.value };
+                      setDirectorships(updated);
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">DIN</Label>
+                    <Input value={entry.din} onChange={e => {
+                      const updated = [...directorships]; updated[idx] = { ...updated[idx], din: e.target.value };
+                      setDirectorships(updated);
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Shares Held</Label>
+                    <Input type="number" value={entry.sharesHeld || ""} onChange={e => {
+                      const updated = [...directorships]; updated[idx] = { ...updated[idx], sharesHeld: Number(e.target.value) };
+                      setDirectorships(updated);
+                    }} />
+                  </div>
+                  <div className="flex items-center gap-2 pt-5">
+                    <Checkbox checked={entry.listedCompany} onCheckedChange={c => {
+                      const updated = [...directorships]; updated[idx] = { ...updated[idx], listedCompany: !!c };
+                      setDirectorships(updated);
+                    }} />
+                    <Label className="text-xs">Listed Company</Label>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => setDirectorships(prev => [...prev, { companyName: "", cin: "", din: "", sharesHeld: 0, listedCompany: false }])}>
+              <Plus className="h-4 w-4 mr-1" /> Add Directorship
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Unlisted Equity Shares</CardTitle>
+            <CardDescription>Holdings in unlisted companies at any time during the FY</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {unlistedShares.map((entry, idx) => (
+              <div key={idx} className="border rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-sm">Holding {idx + 1}</span>
+                  <Button variant="ghost" size="sm" onClick={() => setUnlistedShares(prev => prev.filter((_, i) => i !== idx))}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-xs">Company Name</Label>
+                    <Input value={entry.companyName} onChange={e => {
+                      const updated = [...unlistedShares]; updated[idx] = { ...updated[idx], companyName: e.target.value };
+                      setUnlistedShares(updated);
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">PAN of Company</Label>
+                    <Input value={entry.companyPAN} onChange={e => {
+                      const updated = [...unlistedShares]; updated[idx] = { ...updated[idx], companyPAN: e.target.value.toUpperCase() };
+                      setUnlistedShares(updated);
+                    }} maxLength={10} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">No. of Shares</Label>
+                    <Input type="number" value={entry.numberOfShares || ""} onChange={e => {
+                      const updated = [...unlistedShares]; updated[idx] = { ...updated[idx], numberOfShares: Number(e.target.value) };
+                      setUnlistedShares(updated);
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Acquisition Cost (₹)</Label>
+                    <Input type="number" value={entry.acquisitionCost || ""} onChange={e => {
+                      const updated = [...unlistedShares]; updated[idx] = { ...updated[idx], acquisitionCost: Number(e.target.value) };
+                      setUnlistedShares(updated);
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">FMV at Year End (₹)</Label>
+                    <Input type="number" value={entry.fmvAtYearEnd || ""} onChange={e => {
+                      const updated = [...unlistedShares]; updated[idx] = { ...updated[idx], fmvAtYearEnd: Number(e.target.value) };
+                      setUnlistedShares(updated);
+                    }} />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => setUnlistedShares(prev => [...prev, { companyName: "", companyPAN: "", numberOfShares: 0, acquisitionCost: 0, fmvAtYearEnd: 0 }])}>
+              <Plus className="h-4 w-4 mr-1" /> Add Unlisted Share Holding
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Loss Carry Forward (Schedule CYLA / BFLA / CFL)</CardTitle>
+            <CardDescription>Losses from prior assessment years eligible for carry-forward and set-off</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {lossCarryForward.map((entry, idx) => (
+              <div key={idx} className="border rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-sm">Loss Entry {idx + 1}</span>
+                  <Button variant="ghost" size="sm" onClick={() => setLossCarryForward(prev => prev.filter((_, i) => i !== idx))}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-xs">Assessment Year *</Label>
+                    <Select value={entry.assessmentYear} onValueChange={v => {
+                      const updated = [...lossCarryForward]; updated[idx] = { ...updated[idx], assessmentYear: v };
+                      setLossCarryForward(updated);
+                    }}>
+                      <SelectTrigger><SelectValue placeholder="Select AY" /></SelectTrigger>
+                      <SelectContent>
+                        {["2024-25", "2023-24", "2022-23", "2021-22", "2020-21", "2019-20", "2018-19", "2017-18"].map(ay => (
+                          <SelectItem key={ay} value={ay}>{ay}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Loss Type</Label>
+                    <Select value={entry.lossType} onValueChange={v => {
+                      const updated = [...lossCarryForward]; updated[idx] = { ...updated[idx], lossType: v as any };
+                      setLossCarryForward(updated);
+                    }}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="house_property">House Property Loss</SelectItem>
+                        <SelectItem value="short_term_capital">Short-Term Capital Loss</SelectItem>
+                        <SelectItem value="long_term_capital">Long-Term Capital Loss</SelectItem>
+                        <SelectItem value="business">Business Loss</SelectItem>
+                        <SelectItem value="speculation">Speculation Loss</SelectItem>
+                        <SelectItem value="specified_business">Specified Business Loss (35AD)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Loss Amount (₹)</Label>
+                    <Input type="number" value={entry.lossAmount || ""} onChange={e => {
+                      const updated = [...lossCarryForward]; updated[idx] = { ...updated[idx], lossAmount: Number(e.target.value) };
+                      setLossCarryForward(updated);
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Set Off This Year (₹)</Label>
+                    <Input type="number" value={entry.setOffAmount || ""} onChange={e => {
+                      const updated = [...lossCarryForward]; updated[idx] = { ...updated[idx], setOffAmount: Number(e.target.value) };
+                      setLossCarryForward(updated);
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Carried Forward (₹)</Label>
+                    <div className="text-sm mt-1 font-medium p-2 bg-muted rounded">
+                      ₹{(entry.lossAmount - entry.setOffAmount).toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => setLossCarryForward(prev => [...prev, { assessmentYear: "", lossType: "short_term_capital", lossAmount: 0, setOffAmount: 0, carriedForwardAmount: 0 }])}>
+              <Plus className="h-4 w-4 mr-1" /> Add Prior Year Loss
+            </Button>
+            {lossCarryForward.length > 0 && (
+              <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-950 rounded text-sm">
+                <strong>Set-off rules:</strong> STCL against any CG; LTCL only against LTCG; HP loss against any head (max ₹2L); Business loss against any head except salary. Carry-forward up to 8 AYs (HP loss: no limit).
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {["ITR-2", "ITR-3"].includes(recommendedForm) && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Special Rate Income (Schedule SI)</CardTitle>
+              <CardDescription>Income taxable at special rates — not at slab rate</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Lottery / Crossword / Game Show Winnings (₹) — 30% flat</Label>
+                  <Input type="number" value={specialRateIncome.lottery || ""} onChange={e => setSpecialRateIncome(p => ({ ...p, lottery: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <Label className="text-xs">Horse Racing Winnings (₹) — 30% flat</Label>
+                  <Input type="number" value={specialRateIncome.horseRacing || ""} onChange={e => setSpecialRateIncome(p => ({ ...p, horseRacing: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <Label className="text-xs">Online Gaming Winnings (₹) — 30% flat</Label>
+                  <Input type="number" value={specialRateIncome.onlineGaming || ""} onChange={e => setSpecialRateIncome(p => ({ ...p, onlineGaming: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <Label className="text-xs">Other Special Rate Income (₹)</Label>
+                  <Input type="number" value={specialRateIncome.otherSpecial || ""} onChange={e => setSpecialRateIncome(p => ({ ...p, otherSpecial: Number(e.target.value) }))} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  };
+
+  const renderTrustIncomeStep = () => {
+    return (
+      <div className="space-y-4">
+        <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+          <Info className="h-4 w-4" />
+          <AlertDescription className="text-sm">
+            ITR-7 specific schedules: Voluntary contributions, corpus donations, application of income, and Section 11/12/13 exemptions.
+          </AlertDescription>
+        </Alert>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Schedule VC — Voluntary Contributions & Corpus</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Corpus Donations (₹)</Label>
+                <Input type="number" value={trustDetails.corpusDonations || ""} onChange={e => setTrustDetails(p => ({ ...p, corpusDonations: Number(e.target.value) }))} />
+                <p className="text-xs text-muted-foreground mt-1">Donations with specific direction to form part of corpus — exempt u/s 11(1)(d)</p>
+              </div>
+              <div>
+                <Label className="text-xs">Voluntary Contributions (₹)</Label>
+                <Input type="number" value={trustDetails.voluntaryContributions || ""} onChange={e => setTrustDetails(p => ({ ...p, voluntaryContributions: Number(e.target.value) }))} />
+                <p className="text-xs text-muted-foreground mt-1">General donations without corpus direction</p>
+              </div>
+              <div>
+                <Label className="text-xs">Anonymous Donations (₹)</Label>
+                <Input type="number" value={trustDetails.anonymousDonations || ""} onChange={e => setTrustDetails(p => ({ ...p, anonymousDonations: Number(e.target.value) }))} />
+                <p className="text-xs text-muted-foreground mt-1">Donations where donor identity not available — taxed at 30% beyond threshold</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Application of Income & Accumulation</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Application of Income (₹)</Label>
+                <Input type="number" value={trustDetails.applicationOfIncome || ""} onChange={e => setTrustDetails(p => ({ ...p, applicationOfIncome: Number(e.target.value) }))} />
+                <p className="text-xs text-muted-foreground mt-1">Amount actually spent on objects of the trust during the FY</p>
+              </div>
+              <div>
+                <Label className="text-xs">Accumulated Income (₹)</Label>
+                <Input type="number" value={trustDetails.accumulatedIncome || ""} onChange={e => setTrustDetails(p => ({ ...p, accumulatedIncome: Number(e.target.value) }))} />
+              </div>
+              <div>
+                <Label className="text-xs">Accumulation % (max 15% u/s 11(1)(a))</Label>
+                <Input type="number" value={trustDetails.accumulationPercentage} onChange={e => setTrustDetails(p => ({ ...p, accumulationPercentage: Number(e.target.value) }))} max={100} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Exemptions — Section 11 / 12 / 13</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Section 11 Exemption (₹)</Label>
+                <Input type="number" value={trustDetails.section11Exemption || ""} onChange={e => setTrustDetails(p => ({ ...p, section11Exemption: Number(e.target.value) }))} />
+                <p className="text-xs text-muted-foreground mt-1">Income applied for charitable/religious purposes</p>
+              </div>
+              <div>
+                <Label className="text-xs">Section 12 Exemption (₹)</Label>
+                <Input type="number" value={trustDetails.section12Exemption || ""} onChange={e => setTrustDetails(p => ({ ...p, section12Exemption: Number(e.target.value) }))} />
+                <p className="text-xs text-muted-foreground mt-1">Voluntary contributions treated as income</p>
+              </div>
+              <div>
+                <Label className="text-xs">Investment in Specified Mode (₹)</Label>
+                <Input type="number" value={trustDetails.investmentInSpecifiedMode || ""} onChange={e => setTrustDetails(p => ({ ...p, investmentInSpecifiedMode: Number(e.target.value) }))} />
+                <p className="text-xs text-muted-foreground mt-1">Schedule-J: Investments as per Section 11(5) — government securities, FDs, etc.</p>
+              </div>
+            </div>
+            <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-950 rounded text-sm">
+              <strong>Section 13 warning:</strong> If income is applied for private benefit, invested outside specified modes, or trust has specified violations, exemption u/s 11 and 12 may be denied.
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
   const renderCurrentStep = () => {
     const currentStepExists = activeSteps.some(s => s.id === currentStepId);
     if (!currentStepExists) {
@@ -3595,12 +4718,16 @@ export default function TaxITRSelfPage() {
     switch (currentStepId) {
       case "basic": return renderBasicInfoStep();
       case "sources": return renderIncomeSourcesStep();
+      case "entity_profile": return renderEntityProfileStep();
       case "salary": return renderSalaryStep();
       case "property": return renderHousePropertyStep();
       case "business": return renderBusinessIncomeStep();
+      case "financials": return renderFinancialsStep();
       case "capital": return renderCapitalGainsStep();
       case "foreign": return renderForeignIncomeStep();
       case "other": return renderOtherIncomeStep();
+      case "disclosures": return renderDisclosuresStep();
+      case "trust_income": return renderTrustIncomeStep();
       case "deductions": return renderDeductionsStep();
       case "tax_payments": return renderTaxPaymentsStep();
       case "review": return renderReviewStep();
