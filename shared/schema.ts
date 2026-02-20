@@ -4371,6 +4371,9 @@ export const proposalVersions = pgTable("proposal_versions", {
   payload: jsonb("payload").notNull(),
   changeReason: text("change_reason"),
   changedSchemes: jsonb("changed_schemes"),
+  allocationMode: varchar("allocation_mode", { length: 20 }),
+  strategySnapshot: jsonb("strategy_snapshot"),
+  strategyLocked: boolean("strategy_locked").default(false),
   createdBy: varchar("created_by"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
@@ -4381,6 +4384,29 @@ export const proposalVersions = pgTable("proposal_versions", {
 export const insertProposalVersionSchema = createInsertSchema(proposalVersions).omit({ id: true, createdAt: true });
 export type ProposalVersion = typeof proposalVersions.$inferSelect;
 export type InsertProposalVersion = z.infer<typeof insertProposalVersionSchema>;
+
+// Proposal Backtest Results - Stores fair comparison between old and proposed portfolios
+export const proposalBacktestResults = pgTable("proposal_backtest_results", {
+  id: serial("id").primaryKey(),
+  proposalId: varchar("proposal_id").notNull(),
+  versionNumber: integer("version_number").notNull().default(1),
+  includesBacktest: boolean("includes_backtest").default(false),
+  commonStartDate: date("common_start_date"),
+  commonEndDate: date("common_end_date"),
+  oldPortfolioMetrics: jsonb("old_portfolio_metrics"),
+  proposedPortfolioMetrics: jsonb("proposed_portfolio_metrics"),
+  deltaSummary: jsonb("delta_summary"),
+  backtestSnapshotHash: varchar("backtest_snapshot_hash"),
+  assumptions: jsonb("assumptions"),
+  portfolioDifferenceSummary: jsonb("portfolio_difference_summary"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  proposalIdIdx: index("idx_proposal_backtest_proposal").on(table.proposalId),
+}));
+
+export const insertProposalBacktestResultSchema = createInsertSchema(proposalBacktestResults).omit({ id: true, createdAt: true });
+export type ProposalBacktestResult = typeof proposalBacktestResults.$inferSelect;
+export type InsertProposalBacktestResult = z.infer<typeof insertProposalBacktestResultSchema>;
 
 // NAV History table for storing daily NAV data from MFapi.in
 export const mfNavHistory = pgTable("mf_nav_history", {
@@ -30981,6 +31007,16 @@ export const PROPOSAL_AUDIT_EVENT_TYPES = {
   PROPOSAL_APPROVED: 'PROPOSAL_APPROVED',
   PROPOSAL_REJECTED: 'PROPOSAL_REJECTED',
   CLIENT_ACKNOWLEDGED: 'CLIENT_ACKNOWLEDGED',
+  ALLOCATION_MODE_SELECTED: 'ALLOCATION_MODE_SELECTED',
+  AI_ALLOCATION_PROPOSED: 'AI_ALLOCATION_PROPOSED',
+  MANUAL_ALLOCATION_LOCKED: 'MANUAL_ALLOCATION_LOCKED',
+  STRATEGY_SNAPSHOT_CREATED: 'STRATEGY_SNAPSHOT_CREATED',
+  BACKTEST_COMPARISON_COMPLETED: 'BACKTEST_COMPARISON_COMPLETED',
+  PORTFOLIO_DIFFERENCE_SUMMARY_GENERATED: 'PORTFOLIO_DIFFERENCE_SUMMARY_GENERATED',
+  ALLOCATION_CHANGE_FORCED_NEW_VERSION: 'ALLOCATION_CHANGE_FORCED_NEW_VERSION',
+  AI_ALLOCATION_OVERRIDE_BLOCKED: 'AI_ALLOCATION_OVERRIDE_BLOCKED',
+  STRATEGY_INTEGRITY_VALIDATED: 'STRATEGY_INTEGRITY_VALIDATED',
+  STRATEGY_INTEGRITY_FAILED: 'STRATEGY_INTEGRITY_FAILED',
 } as const;
 
 // MF Benchmark Lineage - Tracks source transitions for compliance audit trail (AMFI ↔ BSE ↔ Manual)
