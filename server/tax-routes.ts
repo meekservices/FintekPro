@@ -1,6 +1,10 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
 import { z } from "zod";
+import multer from "multer";
+import { sandboxITRService } from "./sandbox-itr-service";
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const router = Router();
 
@@ -461,6 +465,247 @@ function getEligibleITRForms(panType: PANType): Array<{ form: string; name: stri
       ];
   }
 }
+
+const wizardCalcSchema = z.object({
+  assessmentYear: z.string(),
+  entityType: z.string().default('individual'),
+  taxRegime: z.enum(["old", "new"]).default("new"),
+  salaryIncome: z.number().min(0).default(0),
+  housePropertyIncome: z.number().default(0),
+  capitalGainsSTCG: z.number().min(0).default(0),
+  capitalGainsLTCG: z.number().min(0).default(0),
+  capitalGainsExemptions: z.number().min(0).default(0),
+  businessIncome: z.number().min(0).default(0),
+  interestIncome: z.number().min(0).default(0),
+  dividendIncome: z.number().min(0).default(0),
+  otherIncome: z.number().min(0).default(0),
+  section80C: z.number().min(0).default(0),
+  section80D: z.number().min(0).default(0),
+  section80E: z.number().min(0).default(0),
+  section80G: z.number().min(0).default(0),
+  section80TTA: z.number().min(0).default(0),
+  otherDeductions: z.number().min(0).default(0),
+  tdsDeducted: z.number().min(0).default(0),
+  advanceTaxPaid: z.number().min(0).default(0),
+  selfAssessmentTax: z.number().min(0).default(0),
+  standardDeduction: z.number().min(0).default(75000),
+  professionalTax: z.number().min(0).default(0),
+  homeLoanInterest: z.number().min(0).default(0),
+});
+
+router.post("/itr/calculate", async (req: Request, res: Response) => {
+  try {
+    if (!sandboxITRService.isConfigured()) {
+      return res.status(503).json({
+        success: false,
+        error: "SANDBOX_API_NOT_CONFIGURED",
+        message: "Tax calculation service unavailable. Sandbox.co.in API credentials not configured."
+      });
+    }
+
+    const validation = wizardCalcSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        error: "VALIDATION_FAILED",
+        message: "Invalid input data",
+        details: validation.error.errors
+      });
+    }
+
+    const result = await sandboxITRService.calculateTaxFromWizard(validation.data);
+    res.json(result);
+  } catch (error) {
+    console.error("[Tax Route] /itr/calculate error:", error);
+    res.status(500).json({
+      success: false,
+      error: "CALCULATION_FAILED",
+      message: error instanceof Error ? error.message : "Tax calculation failed"
+    });
+  }
+});
+
+router.post("/itr/parse-form16", upload.single("file"), async (req: Request, res: Response) => {
+  try {
+    if (!sandboxITRService.isConfigured()) {
+      return res.status(503).json({
+        success: false,
+        error: "SANDBOX_API_NOT_CONFIGURED",
+        message: "Form 16 parsing requires Sandbox.co.in API. Not configured."
+      });
+    }
+
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    const file = (req as any).file;
+    if (!file || !file.buffer) {
+      return res.status(400).json({ success: false, message: "No file uploaded. Please upload a Form 16 PDF or image." });
+    }
+
+    const result = await sandboxITRService.parseForm16(file.buffer, file.originalname || "form16.pdf");
+    
+    if (result.success && result.data) {
+      res.json({
+        success: true,
+        parsed: {
+          grossSalary: result.data.grossSalary || 0,
+          allowances: result.data.allowances || 0,
+          professionalTax: result.data.professionalTax || 0,
+          employerPF: result.data.employerPF || 0,
+          tdsDeducted: result.data.tdsDeducted || 0,
+        }
+      });
+    } else {
+      res.json({ success: false, message: result.message || "Could not parse Form 16" });
+    }
+  } catch (error) {
+    console.error("[Tax Route] /itr/parse-form16 error:", error);
+    res.status(500).json({
+      success: false,
+      error: "PARSE_FAILED",
+      message: error instanceof Error ? error.message : "Form 16 parsing failed"
+    });
+  }
+});
+
+router.post("/itr/file", async (req: Request, res: Response) => {
+  try {
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    if (!sandboxITRService.isConfigured()) {
+      return res.status(503).json({
+        success: false,
+        error: "SANDBOX_API_NOT_CONFIGURED",
+        message: "ITR filing service unavailable. Sandbox.co.in API credentials not configured."
+      });
+    }
+
+    const result = await sandboxITRService.fileITR(req.body);
+    res.json(result);
+  } catch (error) {
+    console.error("[Tax Route] /itr/file error:", error);
+    res.status(500).json({
+      success: false,
+      error: "FILING_FAILED",
+      message: error instanceof Error ? error.message : "ITR filing failed"
+    });
+  }
+});
+
+router.get("/itr/status/:ackNumber", async (req: Request, res: Response) => {
+  try {
+    if (!sandboxITRService.isConfigured()) {
+      return res.status(503).json({
+        success: false,
+        error: "SANDBOX_API_NOT_CONFIGURED",
+        message: "Status check service unavailable."
+      });
+    }
+
+    const result = await sandboxITRService.getITRStatus(req.params.ackNumber);
+    res.json(result);
+  } catch (error) {
+    console.error("[Tax Route] /itr/status error:", error);
+    res.status(500).json({
+      success: false,
+      error: "STATUS_CHECK_FAILED",
+      message: error instanceof Error ? error.message : "Status check failed"
+    });
+  }
+});
+
+router.post("/itr/eligible-form", async (req: Request, res: Response) => {
+  try {
+    const { incomeDetails, entityType } = req.body;
+    if (!incomeDetails) {
+      return res.status(400).json({ error: "incomeDetails is required" });
+    }
+
+    const result = sandboxITRService.getSuitableITRForm(incomeDetails, entityType || 'individual');
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error("[Tax Route] /itr/eligible-form error:", error);
+    res.status(500).json({ success: false, error: "Form determination failed" });
+  }
+});
+
+router.get("/form26as/:pan/:assessmentYear", async (req: Request, res: Response) => {
+  try {
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    if (!sandboxITRService.isConfigured()) {
+      return res.status(503).json({
+        success: false,
+        error: "SANDBOX_API_NOT_CONFIGURED",
+        message: "Form 26AS service unavailable."
+      });
+    }
+
+    const result = await sandboxITRService.getForm26AS(req.params.pan, req.params.assessmentYear);
+    res.json(result);
+  } catch (error) {
+    console.error("[Tax Route] /form26as error:", error);
+    res.status(500).json({ success: false, error: "Form 26AS fetch failed" });
+  }
+});
+
+router.get("/ais/:pan/:assessmentYear", async (req: Request, res: Response) => {
+  try {
+    const reqUser = (req as any).user;
+    const session = (req as any).session;
+    const userId = reqUser?.id || session?.userId || session?.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    if (!sandboxITRService.isConfigured()) {
+      return res.status(503).json({
+        success: false,
+        error: "SANDBOX_API_NOT_CONFIGURED",
+        message: "AIS service unavailable."
+      });
+    }
+
+    const result = await sandboxITRService.getAIS(req.params.pan, req.params.assessmentYear);
+    res.json(result);
+  } catch (error) {
+    console.error("[Tax Route] /ais error:", error);
+    res.status(500).json({ success: false, error: "AIS fetch failed" });
+  }
+});
+
+router.get("/sandbox/status", async (_req: Request, res: Response) => {
+  res.json({
+    configured: sandboxITRService.isConfigured(),
+    ocr: sandboxITRService.getOCRStatus(),
+    endpoints: {
+      calculate: "POST /api/tax/itr/calculate",
+      file: "POST /api/tax/itr/file",
+      status: "GET /api/tax/itr/status/:ackNumber",
+      eligibleForm: "POST /api/tax/itr/eligible-form",
+      form26as: "GET /api/tax/form26as/:pan/:ay",
+      ais: "GET /api/tax/ais/:pan/:ay",
+    }
+  });
+});
 
 router.post("/itr/draft", async (req: Request, res: Response) => {
   try {

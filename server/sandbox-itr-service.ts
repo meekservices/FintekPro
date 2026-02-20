@@ -289,7 +289,7 @@ class SandboxITRService {
     this.apiSecret = process.env.SANDBOX_API_SECRET || '';
     
     if (!this.apiKey || !this.apiSecret) {
-      console.warn('⚠️ Sandbox.co.in API credentials not configured. ITR services will use mock data.');
+      console.error('FATAL: Sandbox.co.in API credentials missing. SANDBOX_API_KEY and SANDBOX_API_SECRET are required. No mock data fallback — system will refuse computation.');
     }
   }
 
@@ -304,96 +304,252 @@ class SandboxITRService {
 
   private async makeAPICall(endpoint: string, data?: any, method: 'GET' | 'POST' | 'PUT' = 'GET') {
     if (!this.apiKey || !this.apiSecret) {
-      throw new Error('Sandbox ITR API not configured. Set SANDBOX_API_KEY and SANDBOX_API_SECRET for ITR services.');
+      throw new Error('SANDBOX_API_NOT_CONFIGURED: Set SANDBOX_API_KEY and SANDBOX_API_SECRET. No mock data fallback available.');
     }
 
+    const url = `${SANDBOX_BASE_URL}${endpoint}`;
+    console.log(`[Sandbox API] ${method} ${url}`);
+
     try {
-      const response = await fetch(`${SANDBOX_BASE_URL}${endpoint}`, {
+      const response = await fetch(url, {
         method,
         headers: this.getAuthHeaders(),
         body: method === 'GET' ? undefined : (data ? JSON.stringify(data) : undefined),
       });
 
+      const responseText = await response.text();
+
       if (!response.ok) {
-        const errorBody = await response.text();
-        console.error('Sandbox API error response:', errorBody);
-        throw new Error(`Sandbox API error: ${response.status} ${response.statusText}`);
+        console.error(`[Sandbox API] Error ${response.status}: ${responseText}`);
+        throw new Error(`Sandbox API returned ${response.status}: ${responseText}`);
       }
 
-      return await response.json();
+      try {
+        return JSON.parse(responseText);
+      } catch {
+        throw new Error(`Sandbox API returned non-JSON response: ${responseText.substring(0, 200)}`);
+      }
     } catch (error) {
-      console.error('Sandbox API call failed:', error);
-      throw new Error('Sandbox ITR API not configured. Set SANDBOX_API_KEY and SANDBOX_API_SECRET for ITR services.');
+      if (error instanceof Error && error.message.startsWith('Sandbox API')) {
+        throw error;
+      }
+      console.error('[Sandbox API] Network/fetch error:', error);
+      throw new Error(`Sandbox API unreachable: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }
-
-  private calculateTaxOldRegime(taxableIncome: number): number {
-    // Old Regime tax slabs (FY 2024-25)
-    if (taxableIncome <= 250000) return 0;
-    if (taxableIncome <= 500000) return (taxableIncome - 250000) * 0.05;
-    if (taxableIncome <= 1000000) return 12500 + (taxableIncome - 500000) * 0.20;
-    return 112500 + (taxableIncome - 1000000) * 0.30;
-  }
-
-  private calculateTaxNewRegime(taxableIncome: number): number {
-    // New Regime tax slabs (FY 2024-25) - Section 115BAC
-    if (taxableIncome <= 300000) return 0;
-    if (taxableIncome <= 700000) return (taxableIncome - 300000) * 0.05;
-    if (taxableIncome <= 1000000) return 20000 + (taxableIncome - 700000) * 0.10;
-    if (taxableIncome <= 1200000) return 50000 + (taxableIncome - 1000000) * 0.15;
-    if (taxableIncome <= 1500000) return 80000 + (taxableIncome - 1200000) * 0.20;
-    return 140000 + (taxableIncome - 1500000) * 0.30;
   }
 
   async calculateTax(formData: ITRFormData): Promise<ITRCalculationResponse> {
     try {
       const validatedData = ITRFormDataSchema.parse(formData);
       
-      // Use Sandbox.co.in tax calculator API
       const response = await this.makeAPICall(
-        `/itr-reporting/taxpayer/${validatedData.personalInfo.pan}/calculate`,
+        '/it/calculator/income_tax/itr',
         {
-          assessmentYear: validatedData.filingDetails.assessmentYear,
-          incomeDetails: validatedData.incomeDetails,
-          deductions: validatedData.deductions,
-          taxPayments: validatedData.taxPayments,
+          assessment_year: validatedData.filingDetails.assessmentYear,
+          entity_type: validatedData.entityType || 'individual',
+          income_details: {
+            salary_income: validatedData.incomeDetails.salaryIncome,
+            business_income: validatedData.incomeDetails.businessIncome,
+            capital_gains: validatedData.incomeDetails.capitalGains,
+            other_income: validatedData.incomeDetails.otherIncome,
+            interest_income: validatedData.incomeDetails.interestIncome,
+            rental_income: validatedData.incomeDetails.rentalIncome,
+            dividend_income: validatedData.incomeDetails.dividendIncome,
+          },
+          deductions: {
+            section_80c: validatedData.deductions.section80C,
+            section_80d: validatedData.deductions.section80D,
+            section_80g: validatedData.deductions.section80G,
+            home_loan_interest: validatedData.deductions.homeLoanInterest,
+            standard_deduction: validatedData.deductions.standardDeduction,
+            professional_tax: validatedData.deductions.professionalTax,
+            other_deductions: validatedData.deductions.otherDeductions,
+          },
+          tax_payments: {
+            tds_deducted: validatedData.taxPayments.tdsDeducted,
+            advance_tax_paid: validatedData.taxPayments.advanceTaxPaid,
+            self_assessment_tax: validatedData.taxPayments.selfAssessmentTax,
+          },
         },
         'POST'
       );
-      return response;
+
+      return {
+        success: true,
+        data: {
+          totalIncome: response.data?.total_income ?? response.total_income ?? 0,
+          taxableIncome: response.data?.taxable_income ?? response.taxable_income ?? 0,
+          totalDeductions: response.data?.total_deductions ?? response.total_deductions ?? 0,
+          taxLiability: response.data?.tax_liability ?? response.tax_liability ?? 0,
+          taxPaid: response.data?.tax_paid ?? response.tax_paid ?? 0,
+          refundAmount: response.data?.refund_amount ?? response.refund_amount ?? 0,
+          taxPayable: response.data?.tax_payable ?? response.tax_payable ?? 0,
+          effectiveTaxRate: response.data?.effective_tax_rate ?? response.effective_tax_rate ?? 0,
+        },
+        message: 'Tax calculated via Sandbox.co.in API',
+      };
     } catch (error) {
-      console.error('Tax calculation error:', error);
+      console.error('[Sandbox ITR] Tax calculation failed:', error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Tax calculation failed'
+        message: error instanceof Error ? error.message : 'Tax calculation failed — Sandbox API error'
       };
     }
+  }
+
+  async calculateTaxFromWizard(wizardData: {
+    assessmentYear: string;
+    entityType: string;
+    salaryIncome: number;
+    housePropertyIncome: number;
+    capitalGainsSTCG: number;
+    capitalGainsLTCG: number;
+    capitalGainsExemptions: number;
+    businessIncome: number;
+    interestIncome: number;
+    dividendIncome: number;
+    otherIncome: number;
+    section80C: number;
+    section80D: number;
+    section80E: number;
+    section80G: number;
+    section80TTA: number;
+    otherDeductions: number;
+    tdsDeducted: number;
+    advanceTaxPaid: number;
+    selfAssessmentTax: number;
+    standardDeduction: number;
+    professionalTax: number;
+    homeLoanInterest: number;
+  }): Promise<ITRCalculationResponse> {
+    const totalCapitalGains = wizardData.capitalGainsSTCG + wizardData.capitalGainsLTCG - wizardData.capitalGainsExemptions;
+
+    const response = await this.makeAPICall(
+      '/it/calculator/income_tax/itr',
+      {
+        assessment_year: wizardData.assessmentYear,
+        entity_type: wizardData.entityType,
+        income_details: {
+          salary_income: wizardData.salaryIncome,
+          business_income: wizardData.businessIncome,
+          capital_gains: Math.max(0, totalCapitalGains),
+          capital_gains_stcg: wizardData.capitalGainsSTCG,
+          capital_gains_ltcg: wizardData.capitalGainsLTCG,
+          capital_gains_exemptions: wizardData.capitalGainsExemptions,
+          other_income: wizardData.otherIncome,
+          interest_income: wizardData.interestIncome,
+          rental_income: wizardData.housePropertyIncome,
+          dividend_income: wizardData.dividendIncome,
+        },
+        deductions: {
+          section_80c: Math.min(wizardData.section80C, 150000),
+          section_80d: Math.min(wizardData.section80D, 50000),
+          section_80e: wizardData.section80E,
+          section_80g: wizardData.section80G,
+          section_80tta: Math.min(wizardData.section80TTA, 10000),
+          standard_deduction: wizardData.standardDeduction,
+          professional_tax: wizardData.professionalTax,
+          home_loan_interest: wizardData.homeLoanInterest,
+          other_deductions: wizardData.otherDeductions,
+        },
+        tax_payments: {
+          tds_deducted: wizardData.tdsDeducted,
+          advance_tax_paid: wizardData.advanceTaxPaid,
+          self_assessment_tax: wizardData.selfAssessmentTax,
+        },
+      },
+      'POST'
+    );
+
+    return {
+      success: true,
+      data: {
+        totalIncome: response.data?.total_income ?? response.total_income ?? 0,
+        taxableIncome: response.data?.taxable_income ?? response.taxable_income ?? 0,
+        totalDeductions: response.data?.total_deductions ?? response.total_deductions ?? 0,
+        taxLiability: response.data?.tax_liability ?? response.tax_liability ?? 0,
+        taxPaid: response.data?.tax_paid ?? response.tax_paid ?? 0,
+        refundAmount: response.data?.refund_amount ?? response.refund_amount ?? 0,
+        taxPayable: response.data?.tax_payable ?? response.tax_payable ?? 0,
+        effectiveTaxRate: response.data?.effective_tax_rate ?? response.effective_tax_rate ?? 0,
+      },
+      message: 'Tax calculated via Sandbox.co.in API',
+    };
   }
 
   async prepareITR(formData: ITRFormData): Promise<ITRFilingResponse> {
     try {
       const validatedData = ITRFormDataSchema.parse(formData);
       
-      // Use Sandbox.co.in Prepare ITR API
       const response = await this.makeAPICall(
-        `/itr-reporting/taxpayer/${validatedData.personalInfo.pan}/itrs/${validatedData.filingDetails.assessmentYear}/`,
+        '/it/report/itr',
         {
-          itrForm: validatedData.filingDetails.itrForm,
-          filingStatus: validatedData.filingDetails.filingStatus,
-          personalInfo: validatedData.personalInfo,
-          incomeDetails: validatedData.incomeDetails,
-          deductions: validatedData.deductions,
-          taxPayments: validatedData.taxPayments,
-          bankDetails: validatedData.bankDetails,
+          pan: validatedData.personalInfo.pan,
+          assessment_year: validatedData.filingDetails.assessmentYear,
+          itr_form: validatedData.filingDetails.itrForm,
+          filing_status: validatedData.filingDetails.filingStatus,
+          entity_type: validatedData.entityType || 'individual',
+          personal_info: {
+            pan: validatedData.personalInfo.pan,
+            first_name: validatedData.personalInfo.firstName,
+            last_name: validatedData.personalInfo.lastName,
+            date_of_birth: validatedData.personalInfo.dateOfBirth,
+            email: validatedData.personalInfo.email,
+            phone: validatedData.personalInfo.phone,
+            aadhar: validatedData.personalInfo.aadhar,
+            address: validatedData.personalInfo.address,
+          },
+          income_details: {
+            salary_income: validatedData.incomeDetails.salaryIncome,
+            business_income: validatedData.incomeDetails.businessIncome,
+            capital_gains: validatedData.incomeDetails.capitalGains,
+            other_income: validatedData.incomeDetails.otherIncome,
+            interest_income: validatedData.incomeDetails.interestIncome,
+            rental_income: validatedData.incomeDetails.rentalIncome,
+            dividend_income: validatedData.incomeDetails.dividendIncome,
+          },
+          deductions: {
+            section_80c: validatedData.deductions.section80C,
+            section_80d: validatedData.deductions.section80D,
+            section_80g: validatedData.deductions.section80G,
+            home_loan_interest: validatedData.deductions.homeLoanInterest,
+            standard_deduction: validatedData.deductions.standardDeduction,
+            professional_tax: validatedData.deductions.professionalTax,
+            other_deductions: validatedData.deductions.otherDeductions,
+          },
+          tax_payments: {
+            tds_deducted: validatedData.taxPayments.tdsDeducted,
+            advance_tax_paid: validatedData.taxPayments.advanceTaxPaid,
+            self_assessment_tax: validatedData.taxPayments.selfAssessmentTax,
+          },
+          bank_details: {
+            account_number: validatedData.bankDetails.accountNumber,
+            ifsc_code: validatedData.bankDetails.ifscCode,
+            bank_name: validatedData.bankDetails.bankName,
+            account_holder_name: validatedData.bankDetails.accountHolderName,
+          },
         },
         'POST'
       );
-      return response;
+
+      return {
+        success: true,
+        message: 'ITR prepared via Sandbox.co.in API',
+        data: {
+          acknowledgmentNumber: response.data?.acknowledgment_number ?? response.acknowledgment_number ?? '',
+          filingDate: response.data?.filing_date ?? response.filing_date ?? new Date().toISOString(),
+          taxLiability: response.data?.tax_liability ?? response.tax_liability ?? 0,
+          refundAmount: response.data?.refund_amount ?? response.refund_amount ?? 0,
+          itrVFilePath: response.data?.itr_v_file_path ?? response.itr_v_url,
+          receiptNumber: response.data?.receipt_number ?? response.receipt_number ?? '',
+          status: response.data?.status ?? 'Processing',
+        },
+      };
     } catch (error) {
-      console.error('ITR preparation error:', error);
+      console.error('[Sandbox ITR] Preparation failed:', error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'ITR preparation failed',
+        message: error instanceof Error ? error.message : 'ITR preparation failed — Sandbox API error',
         errors: [error instanceof Error ? error.message : 'Unknown error']
       };
     }
@@ -410,7 +566,7 @@ class SandboxITRService {
       }
 
       const response = await this.makeAPICall(
-        `/income-tax-api/compliance-apis/eri-api/itr-v/${acknowledgmentNumber}`,
+        `/it/compliance/itr-v/${acknowledgmentNumber}`,
         undefined,
         'GET'
       );
@@ -427,7 +583,7 @@ class SandboxITRService {
   async getForm26AS(pan: string, assessmentYear: string): Promise<any> {
     try {
       const response = await this.makeAPICall(
-        `/income-tax-api/form-26as/${pan}/${assessmentYear}`,
+        `/it/report/form-26as/${pan}/${assessmentYear}`,
         undefined,
         'GET'
       );
@@ -444,7 +600,7 @@ class SandboxITRService {
   async getAIS(pan: string, assessmentYear: string): Promise<any> {
     try {
       const response = await this.makeAPICall(
-        `/income-tax-api/ais/${pan}/${assessmentYear}`,
+        `/it/report/ais/${pan}/${assessmentYear}`,
         undefined,
         'GET'
       );
@@ -469,7 +625,7 @@ class SandboxITRService {
       }
 
       const response = await this.makeAPICall(
-        `/income-tax-api/compliance-apis/eri-api/itr-v/${acknowledgmentNumber}?format=pdf`,
+        `/it/compliance/itr-v/${acknowledgmentNumber}?format=pdf`,
         undefined,
         'GET'
       );
@@ -828,7 +984,7 @@ class SandboxITRService {
       const blob = new Blob([fileBuffer], { type: 'application/pdf' });
       formData.append('file', blob, fileName);
 
-      const response = await fetch(`${SANDBOX_BASE_URL}/form-16/pdf`, {
+      const response = await fetch(`${SANDBOX_BASE_URL}/it/ocr/form16`, {
         method: 'POST',
         headers: {
           'x-api-key': this.apiKey,
@@ -876,7 +1032,7 @@ class SandboxITRService {
       const blob = new Blob([fileBuffer], { type: 'application/pdf' });
       formData.append('file', blob, fileName);
 
-      const response = await fetch(`${SANDBOX_BASE_URL}/form-26as/pdf`, {
+      const response = await fetch(`${SANDBOX_BASE_URL}/it/ocr/form26as`, {
         method: 'POST',
         headers: {
           'x-api-key': this.apiKey,
