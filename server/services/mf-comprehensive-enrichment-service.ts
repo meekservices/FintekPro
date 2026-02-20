@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { db } from '../db';
 import { getProductionDb, hasProductionDb, requireProductionDb, getEnrichmentReadDb, getEnrichmentWriteDb } from '../db-production';
-import { mutualFunds, mfEnrichmentAuditLogs, mfAumHistory } from '@shared/schema';
+import { mutualFunds, mutualFundMetrics, mfEnrichmentAuditLogs, mfAumHistory } from '@shared/schema';
 import { eq, desc, sql, isNull, or, and } from 'drizzle-orm';
 
 const MFAPI_BASE_URL = 'https://api.mfapi.in/mf';
@@ -846,6 +846,46 @@ class MFComprehensiveEnrichmentService {
           enrichmentProgress.phase4Stats.fundsSynced++;
           if (returns.returns1y !== null) enrichmentProgress.phase4Stats.returnsUpdated++;
           if (ratios.sharpeRatio !== null) enrichmentProgress.phase4Stats.ratiosUpdated++;
+
+          const now = new Date();
+          const month = now.getMonth() + 1;
+          const year = now.getFullYear();
+          const startYear = month >= 4 ? year : year - 1;
+          const fiscalYear = `FY${String(startYear).slice(2)}-${String(startYear + 1).slice(2)}`;
+
+          try {
+            await getEnrichmentWriteDb().execute(sql`
+              INSERT INTO mutual_fund_metrics (scheme_code, fund_id, fiscal_year,
+                return_1y, return_3y, return_5y,
+                standard_deviation, sharpe_ratio, sortino_ratio, max_drawdown,
+                data_source, last_updated)
+              VALUES (
+                ${fund.schemeCode}, ${fund.id}, ${fiscalYear},
+                ${returns.returns1y?.toFixed(4) || null},
+                ${returns.returns3y?.toFixed(4) || null},
+                ${returns.returns5y?.toFixed(4) || null},
+                ${ratios.standardDeviation?.toString() || null},
+                ${ratios.sharpeRatio?.toString() || null},
+                ${ratios.sortinoRatio?.toString() || null},
+                ${ratios.maxDrawdown?.toString() || null},
+                'MFAPI_ENRICHMENT', NOW()
+              )
+              ON CONFLICT (scheme_code, fiscal_year)
+              DO UPDATE SET
+                return_1y = COALESCE(EXCLUDED.return_1y, mutual_fund_metrics.return_1y),
+                return_3y = COALESCE(EXCLUDED.return_3y, mutual_fund_metrics.return_3y),
+                return_5y = COALESCE(EXCLUDED.return_5y, mutual_fund_metrics.return_5y),
+                standard_deviation = COALESCE(EXCLUDED.standard_deviation, mutual_fund_metrics.standard_deviation),
+                sharpe_ratio = COALESCE(EXCLUDED.sharpe_ratio, mutual_fund_metrics.sharpe_ratio),
+                sortino_ratio = COALESCE(EXCLUDED.sortino_ratio, mutual_fund_metrics.sortino_ratio),
+                max_drawdown = COALESCE(EXCLUDED.max_drawdown, mutual_fund_metrics.max_drawdown),
+                fund_id = COALESCE(EXCLUDED.fund_id, mutual_fund_metrics.fund_id),
+                last_updated = NOW()
+            `);
+          } catch (metricsErr) {
+            console.error(`[ComprehensiveEnrichment] P4 metrics upsert failed for ${fund.schemeCode}:`, metricsErr);
+          }
+
           for (const [field, value] of Object.entries(updates)) {
             if (field !== 'lastUpdated') {
               await this.logAuditChange(fund.schemeCode, field, null, String(value), 'enrichment', 'MFAPI_RETURNS', enrichmentRunId);

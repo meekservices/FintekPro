@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from 'express';
 import { db } from '../db';
-import { mutualFunds, mfAumHistory, mfEnrichmentAuditLogs, mfCategoryRules } from '@shared/schema';
+import { mutualFunds, mutualFundMetrics, mfAumHistory, mfEnrichmentAuditLogs, mfCategoryRules } from '@shared/schema';
 import { eq, sql, desc, and, ilike, isNull, or, isNotNull } from 'drizzle-orm';
 
 export function registerMFEnrichmentRoutes(app: Express) {
@@ -51,12 +51,24 @@ export function registerMFEnrichmentRoutes(app: Express) {
         exitLoadDays: mutualFunds.exitLoadDays,
         minSipAmount: mutualFunds.minSipAmount,
         minLumpsumAmount: mutualFunds.minLumpsumAmount,
-        sharpeRatio: mutualFunds.sharpeRatio,
-        sortinoRatio: mutualFunds.sortinoRatio,
-        standardDeviation: mutualFunds.standardDeviation,
+        sharpeRatio: sql<string>`COALESCE(${mutualFundMetrics.sharpeRatio}, ${mutualFunds.sharpeRatio})`.as('sharpe_ratio'),
+        sortinoRatio: sql<string>`COALESCE(${mutualFundMetrics.sortinoRatio}, ${mutualFunds.sortinoRatio})`.as('sortino_ratio'),
+        standardDeviation: sql<string>`COALESCE(${mutualFundMetrics.standardDeviation}, ${mutualFunds.standardDeviation})`.as('standard_deviation'),
+        maxDrawdown: sql<string>`COALESCE(${mutualFundMetrics.maxDrawdown}, ${mutualFunds.maxDrawdown})`.as('max_drawdown'),
         lastUpdated: mutualFunds.lastUpdated,
       })
       .from(mutualFunds)
+      .leftJoin(
+        mutualFundMetrics,
+        and(
+          eq(mutualFunds.schemeCode, mutualFundMetrics.schemeCode),
+          eq(mutualFundMetrics.fiscalYear, sql`(
+            SELECT fiscal_year FROM mutual_fund_metrics m2 
+            WHERE m2.scheme_code = ${mutualFunds.schemeCode}
+            ORDER BY m2.fiscal_year DESC LIMIT 1
+          )`)
+        )
+      )
       .where(whereClause)
       .orderBy(sql`${sortColumn} ${orderDir}`)
       .limit(limitNum)

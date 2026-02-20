@@ -30007,6 +30007,7 @@ export const mutualFundMetrics = pgTable("mutual_fund_metrics", {
   index("idx_mf_metrics_fund").on(table.fundId),
   index("idx_mf_metrics_scheme").on(table.schemeCode),
   index("idx_mf_metrics_fy").on(table.fiscalYear),
+  uniqueIndex("uq_mf_metrics_scheme_fy").on(table.schemeCode, table.fiscalYear),
 ]);
 
 export const insertMutualFundMetricsSchema = createInsertSchema(mutualFundMetrics).omit({

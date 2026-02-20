@@ -12,9 +12,17 @@
  */
 
 import { db } from '../db';
-import { mutualFunds, historicalNavData } from '@shared/schema';
+import { mutualFunds, mutualFundMetrics, historicalNavData } from '@shared/schema';
 import { eq, and, gte, lte, desc, asc, sql, isNull, or } from 'drizzle-orm';
 import { HistoricalNavService } from './historical-nav-service';
+
+function getCurrentFiscalYear(): string {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+  const startYear = month >= 4 ? year : year - 1;
+  return `FY${String(startYear).slice(2)}-${String(startYear + 1).slice(2)}`;
+}
 
 interface CalculatedReturns {
   returns1y: number | null;
@@ -296,17 +304,46 @@ export class MutualFundMetricsService {
   }
 
   /**
-   * Update returns for a single scheme in the database
+   * Update returns for a single scheme in the database.
+   * Writes to mutual_fund_metrics (canonical) and keeps basic returns on mutual_funds (catalog display).
    */
   async updateSchemeReturns(schemeCode: string): Promise<boolean> {
     try {
-      // First, ensure we have NAV history
       await this.fetchAndStoreNavHistory(schemeCode);
-      
-      // Calculate returns
       const returns = await this.calculateReturnsForScheme(schemeCode);
-      
-      // Update the mutual_funds table
+      const fiscalYear = getCurrentFiscalYear();
+
+      const fund = await db.select({ id: mutualFunds.id, schemeName: mutualFunds.schemeName, category: mutualFunds.category })
+        .from(mutualFunds)
+        .where(eq(mutualFunds.schemeCode, schemeCode))
+        .limit(1);
+
+      const fundId = fund[0]?.id || null;
+      const schemeName = fund[0]?.schemeName || null;
+      const fundCategory = fund[0]?.category || null;
+
+      await db.execute(sql`
+        INSERT INTO mutual_fund_metrics (scheme_code, scheme_name, fund_id, fiscal_year, fund_category,
+          return_1y, return_3y, return_5y, data_source, last_updated)
+        VALUES (
+          ${schemeCode}, ${schemeName}, ${fundId}, ${fiscalYear}, ${fundCategory},
+          ${returns.returns1y?.toString() || null},
+          ${returns.returns3y?.toString() || null},
+          ${returns.returns5y?.toString() || null},
+          'MFAPI.in (AMFI)', NOW()
+        )
+        ON CONFLICT (scheme_code, fiscal_year) 
+        DO UPDATE SET
+          return_1y = COALESCE(EXCLUDED.return_1y, mutual_fund_metrics.return_1y),
+          return_3y = COALESCE(EXCLUDED.return_3y, mutual_fund_metrics.return_3y),
+          return_5y = COALESCE(EXCLUDED.return_5y, mutual_fund_metrics.return_5y),
+          fund_id = COALESCE(EXCLUDED.fund_id, mutual_fund_metrics.fund_id),
+          scheme_name = COALESCE(EXCLUDED.scheme_name, mutual_fund_metrics.scheme_name),
+          fund_category = COALESCE(EXCLUDED.fund_category, mutual_fund_metrics.fund_category),
+          data_source = EXCLUDED.data_source,
+          last_updated = NOW()
+      `);
+
       await db.update(mutualFunds)
         .set({
           returns1y: returns.returns1y?.toString() || null,
