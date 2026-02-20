@@ -266,11 +266,16 @@ class UnifiedAIRecommendationEngine {
   }
 
   private initializeModels() {
-    // Initialize OpenAI (primary)
+    // Initialize OpenAI (primary) - prefer Replit AI Integrations with its proxy base URL
+    const useAiIntegrations = !!process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
     const openaiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || 
                       process.env.OPENAI_API_KEY;
     if (openaiKey) {
-      this.openai = new OpenAI({ apiKey: openaiKey });
+      const config: { apiKey: string; baseURL?: string } = { apiKey: openaiKey };
+      if (useAiIntegrations && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+        config.baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+      }
+      this.openai = new OpenAI(config);
     }
 
     // Initialize Gemini (fallback)

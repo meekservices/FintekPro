@@ -283,10 +283,10 @@ export function initializeCronJobs(): void {
       const expiringListings = await db
         .select({
           id: sellListings.id,
-          userId: sellListings.userId,
+          userId: sellListings.sellerUserId,
           companyId: sellListings.companyId,
           quantity: sellListings.quantity,
-          pricePerShare: sellListings.pricePerShare,
+          pricePerShare: sellListings.askPrice,
           validUntil: sellListings.validUntil
         })
         .from(sellListings)
@@ -302,10 +302,10 @@ export function initializeCronJobs(): void {
       const expiringRequests = await db
         .select({
           id: buyRequests.id,
-          userId: buyRequests.userId,
+          userId: buyRequests.buyerUserId,
           companyId: buyRequests.companyId,
           quantity: buyRequests.quantity,
-          maxPricePerShare: buyRequests.maxPricePerShare,
+          maxPricePerShare: buyRequests.maxPrice,
           validUntil: buyRequests.validUntil
         })
         .from(buyRequests)
@@ -474,8 +474,8 @@ export function initializeCronJobs(): void {
       }
     });
 
-    // Morning MF NAV Pre-warm - Run at 9 AM IST (3:30 AM UTC)
-    cron.schedule('30 3 * * *', async () => {
+    // Morning MF NAV Pre-warm - Run at 9:05 AM IST (3:35 AM UTC) - staggered from expiry warning at 3:30
+    cron.schedule('35 3 * * *', async () => {
       if (!isProductionEnvironment()) return;
       console.log('[CRON] Pre-warming MF NAV cache...');
       try {
@@ -773,9 +773,9 @@ export function initializeCronJobs(): void {
     console.log('⏭️ [ExpiryWarning/StaleOrders/ProcessingTimeout/KYCReminders] Skipped (development mode - production only)');
   }
 
-  // Error Digest Job - Run daily at 8 AM IST (2:30 AM UTC) (production only - sends emails)
+  // Error Digest Job - Run daily at 8:10 AM IST (2:40 AM UTC) - staggered from Probe42 alerts at 2:30
   if (isProductionEnvironment()) {
-    cron.schedule('30 2 * * *', async () => {
+    cron.schedule('40 2 * * *', async () => {
       console.log('[CRON] Starting daily error digest...');
       try {
         await errorDigestService.runDailyDigest();
@@ -885,9 +885,9 @@ export function initializeCronJobs(): void {
   console.log('✓ Cron jobs initialized successfully');
 }
 
-// Fixed Income Status Engine - Run daily at 6:00 AM IST (12:30 AM UTC) (production only)
+// Fixed Income Status Engine - Run daily at 6:05 AM IST (12:35 AM UTC) - staggered from bond calendar at 12:30
 if (isProductionEnvironment()) {
-  cron.schedule('30 0 * * *', async () => {
+  cron.schedule('35 0 * * *', async () => {
     console.log('[CRON] Starting Fixed Income status refresh...');
     try {
       const result = await runDailyFixedIncomeRefresh();
