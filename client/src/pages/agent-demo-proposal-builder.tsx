@@ -66,6 +66,7 @@ import {
 import SIPSimulatorUI from "@/components/proposal-builder/sip-simulator-ui";
 import AdvisorTrainingPanel from "@/components/proposal-builder/advisor-training-panel";
 import SEBIAuditExport from "@/components/proposal-builder/sebi-audit-export";
+import StrategyAllocationPanel from "@/components/proposal-builder/strategy-allocation-panel";
 
 interface Client {
   id: number | string;
@@ -1521,11 +1522,15 @@ export default function AgentDemoProposalBuilder() {
 
                 {currentStep === 5 && (
                   <div className="space-y-6">
-                    <h2 className="text-xl font-semibold">Portfolio Intelligence</h2>
-                    <p className="text-muted-foreground">Analyze overlap, simulate SIP impact, and generate advisor talking points</p>
+                    <h2 className="text-xl font-semibold">Portfolio Intelligence & Strategy</h2>
+                    <p className="text-muted-foreground">Set allocation strategy, run fair backtests, and analyze portfolio impact</p>
                     
-                    <Tabs defaultValue="simulator" className="w-full">
-                      <TabsList className="grid w-full grid-cols-3">
+                    <Tabs defaultValue="strategy" className="w-full">
+                      <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="strategy" className="flex items-center gap-2">
+                          <PieChart className="h-4 w-4" />
+                          Strategy
+                        </TabsTrigger>
                         <TabsTrigger value="simulator" className="flex items-center gap-2">
                           <Calendar className="h-4 w-4" />
                           SIP Simulator
@@ -1539,6 +1544,26 @@ export default function AgentDemoProposalBuilder() {
                           Advisor Training
                         </TabsTrigger>
                       </TabsList>
+                      
+                      <TabsContent value="strategy" className="space-y-4 mt-4">
+                        {selectedClient ? (
+                          <StrategyAllocationPanel
+                            proposalId={selectedClient.id?.toString() || ''}
+                            currentHoldings={prospectPortfolio?.holdings?.map(h => ({
+                              assetClass: h.type?.toLowerCase() || 'equity',
+                              weight: prospectPortfolio?.totalValue 
+                                ? (h.currentValue / prospectPortfolio.totalValue) * 100 
+                                : 25,
+                              startDate: h.purchaseDate
+                            })) || []}
+                          />
+                        ) : (
+                          <Alert>
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertDescription>Select a client in Step 1 to configure strategy allocation.</AlertDescription>
+                          </Alert>
+                        )}
+                      </TabsContent>
                       
                       <TabsContent value="simulator" className="space-y-4 mt-4">
                         <SIPSimulatorUI

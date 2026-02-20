@@ -2317,7 +2317,141 @@ export function registerAgentAdvisoryRoutes(app: Express) {
     }
   });
 
-  console.log("✅ Agent Advisory routes registered");
+  // ============================================================================
+  // PROPOSAL BUILDER UPGRADE - Allocation, Strategy, Backtest APIs
+  // ============================================================================
+
+  app.post('/api/proposals/:proposalId/allocation-mode', requireAgent, async (req: Request, res: Response) => {
+    try {
+      const { proposalId } = req.params;
+      const { mode, agentId } = req.body;
+      if (!mode || !['AI_DRIVEN', 'MANUAL'].includes(mode)) {
+        return res.status(400).json({ error: 'Invalid mode. Must be AI_DRIVEN or MANUAL' });
+      }
+      const result = await ProposalOrchestrator.selectAllocationMode(proposalId, mode, agentId || 'system');
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/proposals/:proposalId/ai-allocation', requireAgent, async (req: Request, res: Response) => {
+    try {
+      const { proposalId } = req.params;
+      const result = await ProposalOrchestrator.suggestAiAllocation(proposalId, 'system');
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/proposals/:proposalId/lock-strategy', requireAgent, async (req: Request, res: Response) => {
+    try {
+      const { proposalId } = req.params;
+      const { allocationMode, allocation, agentId } = req.body;
+      if (!allocationMode || !allocation || !Array.isArray(allocation)) {
+        return res.status(400).json({ error: 'allocationMode and allocation array required' });
+      }
+      const validation = ProposalOrchestrator.validateAllocation(allocation);
+      if (!validation.valid) {
+        return res.status(400).json({ error: 'Allocation validation failed', errors: validation.errors });
+      }
+      const result = await ProposalOrchestrator.lockStrategySnapshot(proposalId, allocationMode, allocation, agentId || 'system');
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/proposals/:proposalId/locked-strategy', requireAgent, async (req: Request, res: Response) => {
+    try {
+      const { proposalId } = req.params;
+      const result = await ProposalOrchestrator.getLockedStrategy(proposalId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/proposals/:proposalId/select-instruments', requireAgent, async (req: Request, res: Response) => {
+    try {
+      const { proposalId } = req.params;
+      const { agentId } = req.body;
+      const result = await ProposalOrchestrator.selectInstrumentsWithinStrategy(proposalId, agentId || 'system');
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/proposals/:proposalId/fair-backtest', requireAgent, async (req: Request, res: Response) => {
+    try {
+      const { proposalId } = req.params;
+      const { oldHoldings, agentId } = req.body;
+      if (!oldHoldings || !Array.isArray(oldHoldings)) {
+        return res.status(400).json({ error: 'oldHoldings array required' });
+      }
+      const result = await ProposalOrchestrator.runFairBacktest(proposalId, oldHoldings, agentId || 'system');
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/proposals/:proposalId/portfolio-difference', requireAgent, async (req: Request, res: Response) => {
+    try {
+      const { proposalId } = req.params;
+      const { oldAllocation, agentId } = req.body;
+      if (!oldAllocation || !Array.isArray(oldAllocation)) {
+        return res.status(400).json({ error: 'oldAllocation array required' });
+      }
+      const result = await ProposalOrchestrator.generatePortfolioDifferenceSummary(proposalId, oldAllocation, agentId || 'system');
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/proposals/:proposalId/validate-override', requireAgent, async (req: Request, res: Response) => {
+    try {
+      const { proposalId } = req.params;
+      const { proposedAllocation, agentId } = req.body;
+      const { ProposalVerdictNormalizer } = await import('../services/proposal-verdict-normalizer');
+      const result = await ProposalVerdictNormalizer.validateAllocationOverride(proposalId, proposedAllocation, agentId || 'system');
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/proposals/:proposalId/strategy-integrity', requireAgent, async (req: Request, res: Response) => {
+    try {
+      const { proposalId } = req.params;
+      const { ProposalFlowGatekeeper } = await import('../services/proposal-flow-gatekeeper');
+      const result = await ProposalFlowGatekeeper.validateStrategyIntegrity(proposalId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/proposals/:proposalId/new-version', requireAgent, async (req: Request, res: Response) => {
+    try {
+      const { proposalId } = req.params;
+      const { newAllocation, allocationMode, agentId, changeReason } = req.body;
+      if (!newAllocation || !Array.isArray(newAllocation) || !allocationMode) {
+        return res.status(400).json({ error: 'newAllocation array and allocationMode required' });
+      }
+      const result = await ProposalOrchestrator.forceNewVersionOnAllocationChange(
+        proposalId, newAllocation, allocationMode, agentId || 'system', changeReason || 'Allocation modified'
+      );
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  console.log("✅ Agent Advisory routes registered (including Proposal Builder Upgrade APIs)");
 }
 
 // Helper functions for agent portfolio routes

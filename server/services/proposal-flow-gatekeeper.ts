@@ -306,6 +306,105 @@ export class ProposalFlowGatekeeper {
 
     return { valid: errors.length === 0, errors };
   }
+
+  // ============================================================================
+  // STRATEGY INTEGRITY VALIDATION (Epic 7)
+  // ============================================================================
+
+  static async validateStrategyIntegrity(
+    proposalId: string,
+    agentId?: string
+  ): Promise<{
+    valid: boolean;
+    errors: string[];
+    strategyLocked: boolean;
+    versionNumber: number;
+    integrityChecks: { check: string; passed: boolean; detail?: string }[];
+  }> {
+    const errors: string[] = [];
+    const integrityChecks: { check: string; passed: boolean; detail?: string }[] = [];
+
+    const { proposalVersions, investmentProposals } = await import('@shared/schema');
+    const { desc, and, eq } = await import('drizzle-orm');
+
+    const [lockedVersion] = await db
+      .select()
+      .from(proposalVersions)
+      .where(and(
+        eq(proposalVersions.proposalId, proposalId),
+        eq(proposalVersions.strategyLocked, true)
+      ))
+      .orderBy(desc(proposalVersions.versionNumber))
+      .limit(1);
+
+    if (!lockedVersion) {
+      integrityChecks.push({ check: 'strategy_lock_exists', passed: false, detail: 'No locked strategy found' });
+      errors.push('Strategy must be locked before proceeding to report generation');
+      return { valid: false, errors, strategyLocked: false, versionNumber: 0, integrityChecks };
+    }
+
+    integrityChecks.push({ check: 'strategy_lock_exists', passed: true, detail: `Version ${lockedVersion.versionNumber} locked` });
+
+    const snapshot = lockedVersion.strategySnapshot as any;
+    if (!snapshot?.assetAllocation || !Array.isArray(snapshot.assetAllocation)) {
+      integrityChecks.push({ check: 'snapshot_structure', passed: false, detail: 'Strategy snapshot missing or malformed' });
+      errors.push('Strategy snapshot is missing asset allocation data');
+    } else {
+      integrityChecks.push({ check: 'snapshot_structure', passed: true, detail: `${snapshot.assetAllocation.length} asset classes defined` });
+
+      const totalWeight = snapshot.assetAllocation.reduce((sum: number, a: any) => sum + (a.weight || 0), 0);
+      if (Math.abs(totalWeight - 100) > 0.01) {
+        integrityChecks.push({ check: 'weight_sum_100', passed: false, detail: `Total weight: ${totalWeight.toFixed(2)}%` });
+        errors.push(`Allocation weights total ${totalWeight.toFixed(2)}%, must be 100%`);
+      } else {
+        integrityChecks.push({ check: 'weight_sum_100', passed: true, detail: `Total weight: ${totalWeight.toFixed(2)}%` });
+      }
+
+      const negativeWeights = snapshot.assetAllocation.filter((a: any) => a.weight < 0);
+      if (negativeWeights.length > 0) {
+        integrityChecks.push({ check: 'no_negative_weights', passed: false, detail: `${negativeWeights.length} negative weights` });
+        errors.push('Allocation contains negative weights');
+      } else {
+        integrityChecks.push({ check: 'no_negative_weights', passed: true });
+      }
+
+      const emptyAssets = snapshot.assetAllocation.filter((a: any) => !a.assetClass || a.assetClass.trim() === '');
+      if (emptyAssets.length > 0) {
+        integrityChecks.push({ check: 'no_empty_asset_classes', passed: false, detail: `${emptyAssets.length} unnamed asset classes` });
+        errors.push('Allocation contains unnamed asset classes');
+      } else {
+        integrityChecks.push({ check: 'no_empty_asset_classes', passed: true });
+      }
+    }
+
+    if (!lockedVersion.allocationMode || !['AI_DRIVEN', 'MANUAL'].includes(lockedVersion.allocationMode)) {
+      integrityChecks.push({ check: 'valid_allocation_mode', passed: false, detail: `Mode: ${lockedVersion.allocationMode || 'undefined'}` });
+      errors.push('Invalid or missing allocation mode');
+    } else {
+      integrityChecks.push({ check: 'valid_allocation_mode', passed: true, detail: `Mode: ${lockedVersion.allocationMode}` });
+    }
+
+    if (agentId) {
+      const { agentComplianceAuditLogs } = await import('@shared/schema');
+      await db.insert(agentComplianceAuditLogs).values({
+        agentId,
+        actionCategory: 'proposal',
+        actionType: errors.length > 0 ? 'strategy_integrity_failed' : 'strategy_integrity_validated',
+        actionDescription: `Strategy integrity check: ${errors.length === 0 ? 'PASSED' : `FAILED (${errors.length} errors)`}`,
+        previousState: {},
+        newState: { integrityChecks, errors, versionNumber: lockedVersion.versionNumber },
+        complianceRelevant: true
+      });
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      strategyLocked: true,
+      versionNumber: lockedVersion.versionNumber,
+      integrityChecks
+    };
+  }
 }
 
 export function createPhaseValidationMiddleware(targetPhase: ProposalPhase) {

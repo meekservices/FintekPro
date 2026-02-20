@@ -247,6 +247,78 @@ export class ProposalVerdictNormalizer {
 
     return { blocked: false };
   }
+
+  // ============================================================================
+  // AI ALLOCATION OVERRIDE PREVENTION (Epic 6)
+  // ============================================================================
+
+  static async validateAllocationOverride(
+    proposalId: string,
+    proposedAllocation: { assetClass: string; weight: number }[],
+    agentId: string
+  ): Promise<{ allowed: boolean; reason?: string; blocked: boolean }> {
+    const { proposalVersions } = await import('@shared/schema');
+    const { desc, and, eq } = await import('drizzle-orm');
+
+    const [lockedVersion] = await db
+      .select()
+      .from(proposalVersions)
+      .where(and(
+        eq(proposalVersions.proposalId, proposalId),
+        eq(proposalVersions.strategyLocked, true)
+      ))
+      .orderBy(desc(proposalVersions.versionNumber))
+      .limit(1);
+
+    if (!lockedVersion || !lockedVersion.strategyLocked) {
+      return { allowed: true, blocked: false };
+    }
+
+    const lockedSnapshot = lockedVersion.strategySnapshot as any;
+    if (!lockedSnapshot?.assetAllocation) {
+      return { allowed: true, blocked: false };
+    }
+
+    const lockedAllocation: { assetClass: string; weight: number }[] = lockedSnapshot.assetAllocation;
+    const drifts: string[] = [];
+
+    for (const proposed of proposedAllocation) {
+      const locked = lockedAllocation.find(a => a.assetClass === proposed.assetClass);
+      if (!locked) {
+        drifts.push(`New asset class '${proposed.assetClass}' not in locked strategy`);
+        continue;
+      }
+      if (Math.abs(proposed.weight - locked.weight) > 0.01) {
+        drifts.push(`${proposed.assetClass}: locked=${locked.weight}%, proposed=${proposed.weight}%`);
+      }
+    }
+
+    for (const locked of lockedAllocation) {
+      if (!proposedAllocation.find(p => p.assetClass === locked.assetClass)) {
+        drifts.push(`Missing locked asset class '${locked.assetClass}' (${locked.weight}%)`);
+      }
+    }
+
+    if (drifts.length > 0) {
+      await db.insert(agentComplianceAuditLogs).values({
+        agentId,
+        actionCategory: 'proposal',
+        actionType: 'ai_allocation_override_blocked',
+        actionDescription: `Blocked AI allocation override attempt on locked strategy v${lockedVersion.versionNumber}`,
+        previousState: { lockedAllocation },
+        newState: { proposedAllocation, drifts },
+        complianceRelevant: true
+      });
+
+      return {
+        allowed: false,
+        blocked: true,
+        reason: `Strategy is locked (v${lockedVersion.versionNumber}). Cannot override allocation. Drifts detected: ${drifts.join('; ')}. Create a new version to change allocation.`
+      };
+    }
+
+    return { allowed: true, blocked: false };
+  }
 }
 
 console.log('✅ Proposal Verdict Normalizer initialized');
