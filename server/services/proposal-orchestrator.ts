@@ -1460,7 +1460,10 @@ export class ProposalOrchestrator {
         rebalanceFrequency: 'annual',
         tacticalReallocation: false,
         aiReweighting: false,
-        periodOptimization: false
+        periodOptimization: false,
+        dataSource: 'SIMULATED_ASSET_CLASS_AVERAGES',
+        riskFreeRate: 6.0,
+        disclaimer: 'Backtest uses historical asset class averages, not individual fund returns. Actual results may vary.'
       }
     });
 
@@ -1523,7 +1526,7 @@ export class ProposalOrchestrator {
     }
 
     const portfolioVolatility = Math.sqrt(weightedVolatility);
-    const riskFreeRate = 5.5;
+    const riskFreeRate = 6.0; // India 10Y G-Sec benchmark, aligned with enrichment pipeline
     const sharpeRatio = portfolioVolatility > 0 
       ? (weightedReturn - riskFreeRate) / portfolioVolatility 
       : 0;

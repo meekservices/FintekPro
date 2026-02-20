@@ -117,7 +117,7 @@ export const ALTERNATIVE_TYPES = ['alternatives'];
 export const LIQUID_TYPES = ['money_market', 'government_bonds'];
 
 class AssetAllocationOptimizer {
-  private riskFreeRate = 5.5;
+  private riskFreeRate = 6.0; // India 10Y G-Sec benchmark, aligned with enrichment pipeline
   private assetTypes = ASSET_CLASSES.map(a => a.type);
 
   getRiskProfile(riskScore: number): string {
