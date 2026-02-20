@@ -108,12 +108,104 @@ interface CapitalGainsDetails {
 
 interface LossCarryForward {
   assessmentYear: string;
+  lossType: "house_property" | "short_term_capital" | "long_term_capital" | "business" | "speculation" | "specified_business";
+  lossAmount: number;
+  setOffAmount: number;
+  carriedForwardAmount: number;
   housePropertyLoss: number;
   shortTermCapitalLoss: number;
   longTermCapitalLoss: number;
   businessLoss: number;
   speculativeBusinessLoss: number;
   owedSpecifiedBusinessLoss: number;
+}
+
+interface Schedule112AEntry {
+  isin: string;
+  shareName: string;
+  unitsSold: number;
+  salePricePerUnit: number;
+  costOfAcquisition: number;
+  fmvAsOn31Jan2018: number;
+  expenditureOnTransfer: number;
+  totalSaleValue: number;
+  totalCostWithFMV: number;
+  ltcgBeforeExemption: number;
+}
+
+interface ScheduleSIDetails {
+  stcg111A: number;
+  ltcg112A: number;
+  ltcg112: number;
+  vdaCrypto115BBH: number;
+  lottery115BB: number;
+  horseRacing: number;
+  onlineGaming: number;
+  dtaaSpecialRate: number;
+  dtaaSpecialRatePercent: number;
+  otherSpecialRate: number;
+  otherSpecialRatePercent: number;
+}
+
+interface ScheduleEIDetails {
+  agriculturalIncome: number;
+  ltcgExemptUpTo125000: number;
+  dividendFromCooperative: number;
+  ppfInterest: number;
+  epfInterest: number;
+  section10Exemptions: number;
+  otherExemptIncome: number;
+  exemptIncomeDescription: string;
+}
+
+interface AdvanceTaxInstallment {
+  quarter: string;
+  dueDate: string;
+  amountDue: number;
+  amountPaid: number;
+  paidDate: string;
+}
+
+interface Interest234Details {
+  interest234A: number;
+  interest234B: number;
+  interest234C: number;
+  totalInterest: number;
+  filingDueDate: string;
+  filingDate: string;
+  assessedTax: number;
+  advanceTaxDetails: AdvanceTaxInstallment[];
+}
+
+interface CYLAAdjustment {
+  head: string;
+  incomeBeforeSetOff: number;
+  hpLossSetOff: number;
+  businessLossSetOff: number;
+  otherSourceLossSetOff: number;
+  incomeAfterSetOff: number;
+}
+
+interface BFLAAdjustment {
+  head: string;
+  incomeAfterCYLA: number;
+  bfHPLossSetOff: number;
+  bfSTCLSetOff: number;
+  bfLTCLSetOff: number;
+  bfBusinessLossSetOff: number;
+  bfSpeculationSetOff: number;
+  incomeAfterBFLA: number;
+}
+
+interface CFLEntry {
+  assessmentYear: string;
+  dateOfFiling: string;
+  housePropertyLoss: number;
+  shortTermCapitalLoss: number;
+  longTermCapitalLoss: number;
+  businessLoss: number;
+  speculativeBusinessLoss: number;
+  specifiedBusinessLoss: number;
 }
 
 interface DirectorshipEntry {
@@ -463,6 +555,8 @@ const STEPS = [
   { id: "trust_income", title: "Trust / Exemptions", icon: Scale, description: "Corpus, voluntary contributions, exemptions" },
   { id: "deductions", title: "Deductions", icon: Calculator, description: "Tax-saving investments" },
   { id: "schedule_al", title: "Schedule AL", icon: Scale, description: "Assets & liabilities disclosure" },
+  { id: "loss_adjustment", title: "Loss Adjustment", icon: Scale, description: "CYLA, BFLA, CFL set-off schedules" },
+  { id: "schedule_si_ei", title: "Special / Exempt", icon: Shield, description: "Schedule SI & EI — special rate and exempt income" },
   { id: "tax_payments", title: "Tax Payments", icon: IndianRupee, description: "TDS, advance tax, self-assessment" },
   { id: "review", title: "Review & File", icon: CheckCircle, description: "Verify and submit" }
 ];
