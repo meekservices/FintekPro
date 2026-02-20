@@ -12,122 +12,45 @@ import { exitLoadService } from './exit-load-service';
 import { historicalNavService } from './historical-nav-service';
 import { holdingLotsStorageService } from './holding-lots-storage-service';
 import { sandboxCapitalGainsService, type AssetType as SandboxAssetType } from './sandbox-capital-gains-service';
+import { createHash } from 'crypto';
+import {
+  TAX_REGIME_VERSION,
+  BUDGET_2024_EFFECTIVE_DATE,
+  GRANDFATHERING_DATE,
+  GRANDFATHERING_FMV_APPRECIATION_ESTIMATE,
+  INDEXATION_CUTOFF_DATE,
+  CESS_RATE,
+  SURCHARGE_SLABS,
+  COST_INFLATION_INDEX,
+  POST_BUDGET_2024_RATES,
+  PRE_BUDGET_2024_RATES,
+  getTaxRegime as getRegimeFromConfig,
+  getTaxRatesForAsset,
+  calculateSurcharge as calculateSurchargeFromConfig,
+  getProvisionalDisclaimer,
+  getFiscalYear as getFiscalYearFromConfig,
+  getCII,
+  isSlabBased as isSlabBasedFromConfig,
+  type TaxAssetClass,
+} from './tax-regime-config';
 
 const USE_SANDBOX_API_FOR_TAX = process.env.USE_SANDBOX_TAX_API === 'true';
 const SANDBOX_TAX_API_AVAILABLE = sandboxCapitalGainsService.isServiceAvailable();
 
-// Cost Inflation Index (CII) data from Income Tax Department
-// Source: https://incometaxindia.gov.in/Pages/tools/cost-inflation-index.aspx
-const COST_INFLATION_INDEX: Record<string, number> = {
-  '2001-02': 100,
-  '2002-03': 105,
-  '2003-04': 109,
-  '2004-05': 113,
-  '2005-06': 117,
-  '2006-07': 122,
-  '2007-08': 129,
-  '2008-09': 137,
-  '2009-10': 148,
-  '2010-11': 167,
-  '2011-12': 184,
-  '2012-13': 200,
-  '2013-14': 220,
-  '2014-15': 240,
-  '2015-16': 254,
-  '2016-17': 264,
-  '2017-18': 272,
-  '2018-19': 280,
-  '2019-20': 289,
-  '2020-21': 301,
-  '2021-22': 317,
-  '2022-23': 331,
-  '2023-24': 348,
-  '2024-25': 363,
-  '2025-26': 377  // Estimated (to be updated when announced)
-};
-
-// Deadline for indexation benefit eligibility
-const INDEXATION_CUTOFF_DATE = new Date('2023-04-01');
-
-// Tax Regime Constants
-// Note: Debt MF taxation changed significantly:
-// - Pre-April 2023: 3-year LTCG at 20% with indexation
-// - Post-April 2023 to July 2024: ALL gains taxed at investor's slab rate (no STCG/LTCG distinction)
-// - Post-July 2024: Proposed 20% STCG / 12.5% LTCG with 2-year threshold (awaiting final rules)
 const TAX_REGIMES = {
-  // Pre-July 23, 2024 Budget (includes post-April 2023 debt fund rules)
-  PRE_BUDGET_2024: {
-    effectiveUntil: new Date('2024-07-22'),
-    equity: {
-      stcg: { rate: 0.15, thresholdDays: 365 },
-      ltcg: { rate: 0.10, thresholdDays: 365, exemption: 100000 }
-    },
-    debt: {
-      // Post April 2023 - ALL gains taxed at slab rate regardless of holding period
-      // Using 30% as conservative estimate for high-income investors
-      // Note: No STCG/LTCG distinction - both taxed at slab
-      stcg: { rate: 0.30, thresholdDays: Infinity, slabBased: true }, // Always slab-rate
-      ltcg: { rate: 0.30, thresholdDays: Infinity, exemption: 0, slabBased: true } // No LTCG benefit
-    },
-    hybrid_equity: { // Equity-oriented hybrid (>65% equity)
-      stcg: { rate: 0.15, thresholdDays: 365 },
-      ltcg: { rate: 0.10, thresholdDays: 365, exemption: 100000 }
-    },
-    hybrid_debt: { // Debt-oriented hybrid (<65% equity) - same as debt post-April 2023
-      stcg: { rate: 0.30, thresholdDays: Infinity, slabBased: true },
-      ltcg: { rate: 0.30, thresholdDays: Infinity, exemption: 0, slabBased: true }
-    },
-    gold_silver: {
-      stcg: { rate: 0.30, thresholdDays: 1095 },
-      ltcg: { rate: 0.20, thresholdDays: 1095, exemption: 0, indexation: true }
-    }
-  },
-  // Post-July 23, 2024 Budget (Current)
-  POST_BUDGET_2024: {
-    effectiveFrom: new Date('2024-07-23'),
-    equity: {
-      stcg: { rate: 0.20, thresholdDays: 365 },
-      ltcg: { rate: 0.125, thresholdDays: 365, exemption: 125000 }
-    },
-    debt: {
-      // Post-July 2024: 20% STCG, 12.5% LTCG with 2-year threshold
-      stcg: { rate: 0.20, thresholdDays: 730 }, // 2 years
-      ltcg: { rate: 0.125, thresholdDays: 730, exemption: 0 }
-    },
-    hybrid_equity: {
-      stcg: { rate: 0.20, thresholdDays: 365 },
-      ltcg: { rate: 0.125, thresholdDays: 365, exemption: 125000 }
-    },
-    hybrid_debt: {
-      stcg: { rate: 0.20, thresholdDays: 730 },
-      ltcg: { rate: 0.125, thresholdDays: 730, exemption: 0 }
-    },
-    gold_silver: {
-      stcg: { rate: 0.20, thresholdDays: 730 },
-      ltcg: { rate: 0.125, thresholdDays: 730, exemption: 0 }
-    }
-  }
+  PRE_BUDGET_2024: Object.fromEntries(
+    Object.entries(PRE_BUDGET_2024_RATES).map(([k, v]) => [k, {
+      stcg: { rate: v.stcg, thresholdDays: v.ltcgThresholdDays, slabBased: isSlabBasedFromConfig(k as TaxAssetClass, new Date('2024-01-01')) },
+      ltcg: { rate: v.ltcg, thresholdDays: v.ltcgThresholdDays, exemption: v.ltcgExemption, slabBased: isSlabBasedFromConfig(k as TaxAssetClass, new Date('2024-01-01')) }
+    }])
+  ) as any,
+  POST_BUDGET_2024: Object.fromEntries(
+    Object.entries(POST_BUDGET_2024_RATES).map(([k, v]) => [k, {
+      stcg: { rate: v.stcg, thresholdDays: v.ltcgThresholdDays },
+      ltcg: { rate: v.ltcg, thresholdDays: v.ltcgThresholdDays, exemption: v.ltcgExemption }
+    }])
+  ) as any,
 };
-
-// Grandfathering date for equity funds (SEBI circular dated Jan 31, 2018)
-const GRANDFATHERING_DATE = new Date('2018-01-31');
-// PLACEHOLDER: Grandfathering FMV estimation
-// Without actual NAV data from Jan 31, 2018, we use a conservative 40% appreciation estimate
-// This is clearly an approximation - actual grandfathering benefit may differ significantly
-// Users should verify with actual NAV data or consult a tax professional
-const GRANDFATHERING_FMV_APPRECIATION_ESTIMATE = 0.40; // Estimated 40% appreciation since purchase to Jan 2018
-
-// Cess rate
-const CESS_RATE = 0.04; // 4% Health & Education Cess
-
-// Surcharge slabs for individuals
-const SURCHARGE_SLABS = [
-  { min: 0, max: 5000000, rate: 0 },
-  { min: 5000000, max: 10000000, rate: 0.10 },
-  { min: 10000000, max: 20000000, rate: 0.15 },
-  { min: 20000000, max: 50000000, rate: 0.25 },
-  { min: 50000000, max: Infinity, rate: 0.37 }
-];
 
 /**
  * Exit load assumptions (typical for SEBI-regulated open-ended Mutual Fund schemes ONLY).
@@ -277,14 +200,58 @@ export interface RebalanceRecommendationWithTax {
   };
 }
 
+interface TaxAuditEntry {
+  timestamp: string;
+  event: string;
+  taxRegimeVersion: string;
+  taxRegime: string;
+  inputs: Record<string, any>;
+  outputs: Record<string, any>;
+  sources: Record<string, string>;
+  checksum: string;
+  previousChecksum: string;
+}
+
 class ProposalCapitalGainsService {
+  private auditLog: TaxAuditEntry[] = [];
+  private lastAuditChecksum: string = '';
+
+  private logTaxAuditEvent(event: string, inputs: Record<string, any>, outputs: Record<string, any>, sources: Record<string, string> = {}): void {
+    const entry: TaxAuditEntry = {
+      timestamp: new Date().toISOString(),
+      event,
+      taxRegimeVersion: TAX_REGIME_VERSION,
+      taxRegime: this.getTaxRegime().toString(),
+      inputs,
+      outputs,
+      sources,
+      previousChecksum: this.lastAuditChecksum,
+      checksum: '',
+    };
+    const payload = JSON.stringify({ ...entry, previousChecksum: this.lastAuditChecksum });
+    entry.checksum = createHash('sha256').update(payload).digest('hex');
+    this.lastAuditChecksum = entry.checksum;
+    this.auditLog.push(entry);
+
+    if (this.auditLog.length > 500) {
+      this.auditLog = this.auditLog.slice(-250);
+    }
+  }
+
+  getAuditLog(): TaxAuditEntry[] {
+    return [...this.auditLog];
+  }
+
+  clearAuditLog(): void {
+    this.auditLog = [];
+    this.lastAuditChecksum = '';
+  }
   
   /**
    * Determine which tax regime applies based on transaction date
    */
   getTaxRegime(transactionDate: Date = new Date()): 'PRE_BUDGET_2024' | 'POST_BUDGET_2024' {
-    const budget2024Date = new Date('2024-07-23');
-    return transactionDate >= budget2024Date ? 'POST_BUDGET_2024' : 'PRE_BUDGET_2024';
+    return getRegimeFromConfig(transactionDate);
   }
 
   /**
@@ -898,9 +865,37 @@ class ProposalCapitalGainsService {
       schemeCode: holding.schemeCode
     });
     
-    // Use async alerts with ISIN-based exit load lookup
     const alerts = await this.generateAlertsAsync(holding, holdingPeriodDays, unrealizedGain, assetCategory, taxRegime);
     
+    const provisionalNote = getProvisionalDisclaimer([assetCategory as TaxAssetClass]);
+
+    this.logTaxAuditEvent('HOLDING_TAX_CALCULATED', {
+      holdingName: holding.name,
+      isin: holding.isin,
+      schemeCode: holding.schemeCode,
+      productType: holding.productType,
+      category: holding.category,
+      currentValue,
+      investedAmount,
+      holdingPeriodDays,
+      assetCategory,
+    }, {
+      taxType,
+      applicableTaxRate,
+      estimatedTax,
+      estimatedTaxWithCess,
+      exitLoad: exitLoadResult.exitLoad,
+      unrealizedGain,
+      grandfatheringApplied: grandfathering.applies,
+      grandfatheringBenefit: grandfathering.benefit,
+      grandfatheringUsedActualNav: grandfathering.usedActualNav,
+      isProvisionalRate: !!provisionalNote,
+    }, {
+      taxRates: 'tax-regime-config',
+      exitLoad: exitLoadResult.source,
+      grandfathering: grandfathering.usedActualNav ? 'historical_nav_db' : 'estimated_fmv',
+    });
+
     return {
       name: holding.name,
       productType: holding.productType,
@@ -982,6 +977,26 @@ class ProposalCapitalGainsService {
         const estimatedTaxWithCess = sandboxResult.estimatedTax * (1 + CESS_RATE);
         
         console.log(`[CapitalGains] Using Sandbox API rates for ${holding.name}: ${sandboxResult.taxType} @ ${(sandboxResult.applicableTaxRate * 100).toFixed(1)}%`);
+
+        this.logTaxAuditEvent('HOLDING_TAX_SANDBOX_API', {
+          holdingName: holding.name,
+          isin: holding.isin,
+          productType: holding.productType,
+          category: holding.category,
+          currentValue,
+          investedAmount,
+          holdingPeriodDays,
+        }, {
+          taxType: sandboxResult.taxType,
+          applicableTaxRate: sandboxResult.applicableTaxRate,
+          estimatedTax: sandboxResult.estimatedTax,
+          estimatedTaxWithCess,
+          exitLoad: exitLoadResult.exitLoad,
+          unrealizedGain: sandboxResult.unrealizedGain,
+        }, {
+          taxRates: 'SANDBOX_API',
+          exitLoad: exitLoadResult.source,
+        });
 
         return {
           name: holding.name,
@@ -1153,9 +1168,37 @@ class ProposalCapitalGainsService {
     // Generate FY breakdown (current FY and next FY for STP planning)
     const fyBreakdown = this.generateFYBreakdown(holdingsWithTax, transactionDate);
     
-    // Generate disclosure
     const disclosure = this.generateTaxDisclosure(transactionDate);
-    
+
+    const assetClasses = holdings
+      .filter(h => h.action !== 'HOLD')
+      .map(h => this.getAssetCategory(h.productType, h.category) as TaxAssetClass);
+    const provisionalNote = getProvisionalDisclaimer(assetClasses);
+
+    this.logTaxAuditEvent('REBALANCING_TAX_SUMMARY', {
+      holdingsCount: holdings.length,
+      sellCount: holdings.filter(h => h.action !== 'HOLD').length,
+      transactionDate: transactionDate.toISOString(),
+    }, {
+      totalSTCG,
+      totalLTCG,
+      totalSlabGains,
+      stcgTax,
+      ltcgTax,
+      slabTax,
+      surcharge,
+      cess,
+      totalTaxLiability,
+      totalExitLoad,
+      netRebalancingCost,
+      taxLossHarvestingOpportunity,
+      grandfatheringBenefitTotal,
+      isProvisionalRate: !!provisionalNote,
+    }, {
+      taxRates: 'tax-regime-config',
+      rateVersion: TAX_REGIME_VERSION,
+    });
+
     return {
       totalSTCG,
       totalLTCG,
@@ -1269,8 +1312,9 @@ The tax estimates provided are based on the ${isPostBudget ? 'Union Budget 2024 
 
 **Debt Funds:**
 ${isPostBudget ? 
-`• STCG: 20% (holding period < 2 years)
-• LTCG: 12.5% (holding period ≥ 2 years)` : 
+`• STCG: 20% (holding period < 2 years) — PROVISIONAL, pending final CBDT notification
+• LTCG: 12.5% (holding period ≥ 2 years) — PROVISIONAL, pending final CBDT notification
+• These rates are based on proposed post-Budget 2024 rules and may change` : 
 `• For funds purchased after April 1, 2023: ALL gains taxed at investor's slab rate
 • No STCG/LTCG distinction - estimated at 30% (highest slab) for conservative calculation
 • Indexation benefit removed for debt funds`}
@@ -1296,6 +1340,8 @@ For equity funds purchased before January 31, 2018, a grandfathering benefit app
 6. Tax laws are subject to change
 
 _This is not tax advice. Consult your CA/Tax Advisor for personalized guidance._
+
+_Tax regime version: ${TAX_REGIME_VERSION}_
     `.trim();
   }
 
@@ -1544,6 +1590,27 @@ _This is not tax advice. Consult your CA/Tax Advisor for personalized guidance._
       });
     }
     
+    this.logTaxAuditEvent('LOT_WISE_TAX_CALCULATED', {
+      holdingName,
+      isin,
+      schemeCode,
+      category,
+      productType,
+      lotsCount: lots.length,
+      currentNav,
+    }, {
+      activeLots: lotTaxInfos.length,
+      stcgLots,
+      ltcgLots,
+      totalSTCGTax,
+      totalLTCGTax,
+      totalExitLoad,
+      totalCurrentValue: lotTaxInfos.reduce((sum, l) => sum + l.currentValue, 0),
+    }, {
+      taxRates: 'tax-regime-config',
+      exitLoad: exitLoadDays ? 'caller_provided' : 'default_estimate',
+    });
+
     return {
       holdingName,
       isin,

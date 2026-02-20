@@ -3,6 +3,8 @@
  * 
  * Provides lot-level capital gains and exit load calculations
  * integrated with the FIFO Lot Ledger.
+ * 
+ * Tax rates and thresholds sourced from centralized tax-regime-config.ts
  */
 
 import { db } from "../db";
@@ -10,100 +12,39 @@ import { mutualFunds } from "@shared/schema";
 import { eq, or, ilike } from "drizzle-orm";
 import { InvestmentLot } from "./fifo-lot-ledger-service";
 import { exitLoadService, ExitLoadResult } from "./exit-load-service";
+import {
+  GRANDFATHERING_DATE,
+  INDEXATION_CUTOFF_DATE,
+  COST_INFLATION_INDEX as CII_DATA,
+  getTaxRatesForAsset,
+  getTaxRegime,
+  getFiscalYear,
+  getCII,
+  type TaxAssetClass,
+} from './tax-regime-config';
 
-/**
- * Epic 3.1: Asset Classification Types
- */
-export type AssetClass = 
-  | 'equity'
-  | 'debt'
-  | 'hybrid_equity'  // >65% equity
-  | 'hybrid_debt'    // <65% equity
-  | 'gold'
-  | 'international'
-  | 'liquid'
-  | 'overnight'
-  | 'elss'
-  | 'index'
-  | 'sectoral'
-  | 'unknown';
+export type AssetClass = TaxAssetClass;
 
-/**
- * LTCG holding period thresholds (in days) by asset class
- */
-const LTCG_THRESHOLDS: Record<AssetClass, number> = {
-  equity: 365,           // 1 year
-  debt: 730,             // 2 years (post Apr 2023) - no indexation
-  hybrid_equity: 365,    // Treated as equity if >65% equity
-  hybrid_debt: 730,      // Treated as debt if <65% equity
-  gold: 730,             // 2 years
-  international: 730,    // 2 years
-  liquid: 730,           // 2 years
-  overnight: 730,        // 2 years
-  elss: 1095,            // 3 years lock-in + capital gains threshold
-  index: 365,            // Follows equity
-  sectoral: 365,         // Follows equity
-  unknown: 365,          // Default to equity
-};
+function getThresholdsAndRatesForDate(transactionDate: Date = new Date()) {
+  const rates = getTaxRatesForAsset('equity', transactionDate);
+  const allClasses: AssetClass[] = ['equity', 'debt', 'hybrid_equity', 'hybrid_debt', 'gold_silver', 'liquid', 'overnight'];
+  const thresholds: Record<string, number> = {};
+  const taxRates: Record<string, { stcg: number; ltcg: number }> = {};
+  let equityExemption = rates.ltcgExemption;
 
-/**
- * Tax rates by asset class and capital gains type
- */
-const TAX_RATES: Record<AssetClass, { stcg: number; ltcg: number }> = {
-  equity: { stcg: 0.20, ltcg: 0.125 },      // 20% STCG, 12.5% LTCG
-  debt: { stcg: 0.30, ltcg: 0.30 },         // Slab rate (using max 30%)
-  hybrid_equity: { stcg: 0.20, ltcg: 0.125 },
-  hybrid_debt: { stcg: 0.30, ltcg: 0.30 },
-  gold: { stcg: 0.30, ltcg: 0.125 },        // Gold: slab for STCG, 12.5% LTCG
-  international: { stcg: 0.30, ltcg: 0.30 }, // No LTCG benefit for foreign
-  liquid: { stcg: 0.30, ltcg: 0.30 },
-  overnight: { stcg: 0.30, ltcg: 0.30 },
-  elss: { stcg: 0.20, ltcg: 0.125 },
-  index: { stcg: 0.20, ltcg: 0.125 },
-  sectoral: { stcg: 0.20, ltcg: 0.125 },
-  unknown: { stcg: 0.20, ltcg: 0.125 },
-};
+  for (const cls of allClasses) {
+    const r = getTaxRatesForAsset(cls, transactionDate);
+    thresholds[cls] = r.ltcgThresholdDays;
+    taxRates[cls] = { stcg: r.stcg, ltcg: r.ltcg };
+    if (cls === 'equity') equityExemption = r.ltcgExemption;
+  }
 
-/**
- * Equity LTCG exemption limit (per financial year)
- */
-const EQUITY_LTCG_EXEMPTION = 125000;  // ₹1.25 lakh
-
-/**
- * Grandfathering date for equity (Jan 31, 2018)
- */
-const GRANDFATHERING_DATE = new Date('2018-01-31');
-
-/**
- * Cost Inflation Index for debt fund indexation (pre-Apr 2023 purchases)
- */
-const CII_DATA: Record<string, number> = {
-  '2001-02': 100,
-  '2002-03': 105,
-  '2003-04': 109,
-  '2004-05': 113,
-  '2005-06': 117,
-  '2006-07': 122,
-  '2007-08': 129,
-  '2008-09': 137,
-  '2009-10': 148,
-  '2010-11': 167,
-  '2011-12': 184,
-  '2012-13': 200,
-  '2013-14': 220,
-  '2014-15': 240,
-  '2015-16': 254,
-  '2016-17': 264,
-  '2017-18': 272,
-  '2018-19': 280,
-  '2019-20': 289,
-  '2020-21': 301,
-  '2021-22': 317,
-  '2022-23': 331,
-  '2023-24': 348,
-  '2024-25': 363,
-  '2025-26': 380,  // Estimated
-};
+  return {
+    thresholds: thresholds as Record<AssetClass, number>,
+    taxRates: taxRates as Record<AssetClass, { stcg: number; ltcg: number }>,
+    equityExemption,
+  };
+}
 
 /**
  * Lot-level tax calculation result
@@ -303,8 +244,9 @@ class LotTaxCalculatorService {
       (referenceDate.getTime() - lot.purchaseDate.getTime()) / (1000 * 60 * 60 * 24)
     );
 
-    // Determine capital gains type
-    const ltcgThreshold = LTCG_THRESHOLDS[assetClass];
+    // Determine capital gains type using date-based regime selection
+    const { thresholds, taxRates: regimeTaxRates, equityExemption } = getThresholdsAndRatesForDate(referenceDate);
+    const ltcgThreshold = thresholds[assetClass];
     const capitalGainsType: 'stcg' | 'ltcg' = holdingPeriodDays >= ltcgThreshold ? 'ltcg' : 'stcg';
 
     // Calculate values
@@ -320,9 +262,8 @@ class LotTaxCalculatorService {
       warnings.push('Grandfathering benefit may apply - pre-Feb 2018 purchase');
     }
 
-    // Get tax rate
-    const taxRates = TAX_RATES[assetClass];
-    const taxRate = capitalGainsType === 'stcg' ? taxRates.stcg : taxRates.ltcg;
+    // Get tax rate from regime-appropriate config
+    const taxRate = capitalGainsType === 'stcg' ? regimeTaxRates[assetClass].stcg : regimeTaxRates[assetClass].ltcg;
 
     // Calculate estimated tax (note: equity LTCG exemption applied at portfolio level)
     const taxableGain = Math.max(0, unrealizedGain);
@@ -483,17 +424,15 @@ class LotTaxCalculatorService {
    * Calculate indexed cost for debt funds (pre-Apr 2023 purchases)
    */
   calculateIndexedCost(purchaseDate: Date, purchaseCost: number, saleDate: Date = new Date()): number {
-    // Indexation benefit only for purchases before April 1, 2023
-    const indexationCutoff = new Date('2023-04-01');
-    if (purchaseDate >= indexationCutoff) {
-      return purchaseCost;  // No indexation for post-Apr 2023 purchases
+    if (purchaseDate >= INDEXATION_CUTOFF_DATE) {
+      return purchaseCost;
     }
 
     const purchaseFY = this.getFiscalYear(purchaseDate);
     const saleFY = this.getFiscalYear(saleDate);
 
-    const purchaseCII = CII_DATA[purchaseFY] || 100;
-    const saleCII = CII_DATA[saleFY] || 380;
+    const purchaseCII = getCII(purchaseFY);
+    const saleCII = getCII(saleFY);
 
     const indexedCost = purchaseCost * (saleCII / purchaseCII);
     return indexedCost;
@@ -599,13 +538,16 @@ class LotTaxCalculatorService {
 
   /**
    * FIX SPEC SECTION 5.2: Partial Redemption FIFO Logic
-   * Calculate which lots are consumed when redeeming a specific amount
+   * Calculate which lots are consumed when redeeming a specific amount.
+   * Uses centralized ExitLoadService for ISIN-specific exit load lookup.
    */
-  simulateFIFORedemption(
-    lots: Array<{ purchaseDate: string; units: number; nav: number }>,
+  async simulateFIFORedemption(
+    lots: Array<{ purchaseDate: string; units: number; nav: number; isin?: string; schemeName?: string }>,
     redemptionAmount: number,
-    currentNav: number
-  ): {
+    currentNav: number,
+    isin?: string,
+    category?: string
+  ): Promise<{
     unitsToRedeem: number;
     consumedLots: Array<{
       purchaseDate: string;
@@ -613,11 +555,12 @@ class LotTaxCalculatorService {
       taxType: 'LTCG' | 'STCG';
       hasExitLoad: boolean;
       exitLoadAmount: number;
+      exitLoadSource: 'database' | 'generic';
     }>;
     totalExitLoad: number;
     ltcgAmount: number;
     stcgAmount: number;
-  } {
+  }> {
     const today = new Date();
     const unitsToRedeem = redemptionAmount / currentNav;
     let remainingUnits = unitsToRedeem;
@@ -628,13 +571,13 @@ class LotTaxCalculatorService {
       taxType: 'LTCG' | 'STCG';
       hasExitLoad: boolean;
       exitLoadAmount: number;
+      exitLoadSource: 'database' | 'generic';
     }> = [];
 
     let totalExitLoad = 0;
     let ltcgAmount = 0;
     let stcgAmount = 0;
 
-    // Sort lots by purchase date (FIFO - oldest first)
     const sortedLots = [...lots].sort((a, b) => 
       new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime()
     );
@@ -647,10 +590,26 @@ class LotTaxCalculatorService {
       const holdingDays = Math.floor((today.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
       const taxType: 'LTCG' | 'STCG' = holdingDays >= 365 ? 'LTCG' : 'STCG';
       
-      // Exit load: typically 0.5% if within 30 days
-      const hasExitLoad = holdingDays < 30;
       const lotValue = unitsFromThisLot * currentNav;
-      const exitLoadAmount = hasExitLoad ? lotValue * 0.005 : 0;
+      let exitLoadAmount = 0;
+      let hasExitLoad = false;
+      let exitLoadSource: 'database' | 'generic' = 'generic';
+
+      const lookupIsin = lot.isin || isin;
+      try {
+        const exitResult = await exitLoadService.getExitLoad({
+          isin: lookupIsin,
+          holdingDays,
+          redemptionAmount: lotValue,
+          category: category,
+          schemeName: lot.schemeName,
+        });
+        exitLoadAmount = exitResult.exitLoadAmount;
+        hasExitLoad = exitLoadAmount > 0;
+        exitLoadSource = exitResult.source;
+      } catch (error) {
+        console.warn(`[LotTax FIFO] Exit load lookup failed for lot ${lot.purchaseDate}, using zero:`, error);
+      }
       
       const gain = (currentNav - lot.nav) * unitsFromThisLot;
       if (taxType === 'LTCG') {
@@ -664,7 +623,8 @@ class LotTaxCalculatorService {
         units: unitsFromThisLot,
         taxType,
         hasExitLoad,
-        exitLoadAmount
+        exitLoadAmount,
+        exitLoadSource
       });
 
       totalExitLoad += exitLoadAmount;
