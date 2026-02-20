@@ -304,6 +304,8 @@ const itrDraftSchema = z.object({
     grossReceipts: coerceNumber,
     presumptiveIncome44AD: coerceNumber,
     presumptiveIncome44ADA: coerceNumber,
+    vehicleCount: coerceNumber,
+    presumptiveIncome44AE: coerceNumber,
     isPresumptive: z.boolean().default(false),
     businessType: z.string().optional(),
     businessDescription: z.string().optional(),
@@ -544,6 +546,8 @@ const wizardCalcSchema = z.object({
   homeLoanInterest: z.number().min(0).default(0),
   presumptiveIncome44AD: z.number().min(0).default(0),
   presumptiveIncome44ADA: z.number().min(0).default(0),
+  presumptiveIncome44AE: z.number().min(0).default(0),
+  vehicleCount: z.number().min(0).default(0),
   grossTurnover: z.number().min(0).default(0),
   grossReceipts: z.number().min(0).default(0),
   isPresumptive: z.boolean().default(false),
@@ -783,6 +787,45 @@ router.post("/itr/draft", async (req: Request, res: Response) => {
     }
     
     const draftData = validation.data;
+
+    if (draftData.businessDetails?.isPresumptive) {
+      const bd = draftData.businessDetails;
+      const blockingErrors: string[] = [];
+      if (bd.businessType === "business" && bd.grossTurnover > 30000000) {
+        blockingErrors.push("Section 44AD: Turnover exceeds ₹3 Cr limit. Presumptive taxation ineligible.");
+      }
+      if (bd.businessType === "business" && bd.presumptiveIncome44AD > 0 && bd.grossTurnover > 0) {
+        const minDeemed = Math.round(bd.grossTurnover * 0.06);
+        if (bd.presumptiveIncome44AD < minDeemed) {
+          blockingErrors.push(`Section 44AD: Deemed profit ₹${bd.presumptiveIncome44AD} is below minimum 6% of turnover (₹${minDeemed}).`);
+        }
+      }
+      if (bd.businessType === "profession" && bd.grossReceipts > 7500000) {
+        blockingErrors.push("Section 44ADA: Gross receipts exceed ₹75 lakhs limit. Presumptive taxation ineligible.");
+      }
+      if (bd.businessType === "profession" && bd.presumptiveIncome44ADA > 0 && bd.grossReceipts > 0) {
+        const minDeemed = Math.round(bd.grossReceipts * 0.5);
+        if (bd.presumptiveIncome44ADA < minDeemed) {
+          blockingErrors.push(`Section 44ADA: Deemed profit ₹${bd.presumptiveIncome44ADA} is below minimum 50% of receipts (₹${minDeemed}).`);
+        }
+      }
+      if (bd.businessType === "transport" && bd.vehicleCount > 10) {
+        blockingErrors.push("Section 44AE: Vehicle count exceeds 10. Presumptive taxation ineligible.");
+      }
+      if (blockingErrors.length > 0) {
+        logTaxAudit({
+          entityType: "itr_draft",
+          entityId: 0,
+          action: "VALIDATION_BLOCKED",
+          userId,
+          userRole: getUserTaxRole(req),
+          changesDescription: `Presumptive taxation validation failed: ${blockingErrors.join('; ')}`,
+          metadata: { blockingErrors, businessType: bd.businessType }
+        });
+        return res.status(422).json({ error: "Presumptive taxation validation failed", details: blockingErrors });
+      }
+    }
+
     const existingDraftKey = Array.from(itrDraftStorage.entries()).find(
       ([_, d]) => d.userId === userId && d.pan === draftData.pan && d.assessmentYear === draftData.assessmentYear
     );
