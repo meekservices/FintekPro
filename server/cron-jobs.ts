@@ -773,18 +773,21 @@ export function initializeCronJobs(): void {
     console.log('⏭️ [ExpiryWarning/StaleOrders/ProcessingTimeout/KYCReminders] Skipped (development mode - production only)');
   }
 
-  // Error Digest Job - Run daily at 8 AM IST (2:30 AM UTC)
-  // Sends AI-powered daily error summary to admin users
-  cron.schedule('30 2 * * *', async () => {
-    console.log('[CRON] Starting daily error digest...');
-    try {
-      await errorDigestService.runDailyDigest();
-      console.log('[CRON] Daily error digest completed');
-    } catch (error: any) {
-      console.error('[CRON] Error digest job failed:', error.message);
-    }
-  });
-  console.log('📊 [ErrorDigest] Daily error digest scheduled (8:00 AM IST)');
+  // Error Digest Job - Run daily at 8 AM IST (2:30 AM UTC) (production only - sends emails)
+  if (isProductionEnvironment()) {
+    cron.schedule('30 2 * * *', async () => {
+      console.log('[CRON] Starting daily error digest...');
+      try {
+        await errorDigestService.runDailyDigest();
+        console.log('[CRON] Daily error digest completed');
+      } catch (error: any) {
+        console.error('[CRON] Error digest job failed:', error.message);
+      }
+    });
+    console.log('📊 [ErrorDigest] Daily error digest scheduled (8:00 AM IST)');
+  } else {
+    console.log('⏭️ [ErrorDigest] Skipped (development mode - production only)');
+  }
 
   if (isProductionEnvironment()) {
     stockSyncScheduler.initialize();
@@ -792,21 +795,28 @@ export function initializeCronJobs(): void {
     console.log('⏭️ [StockSync] NSE/BSE sync skipped (development mode - production only)');
   }
 
-  // Initialize CKYC SLA Escalation Service - Runs hourly
-  try {
-    ckycSlaEscalationService.initialize();
-  } catch (error: any) {
-    console.error('[CRON] Failed to initialize CKYC SLA Escalation Service:', error.message);
+  // Initialize CKYC SLA Escalation Service - Runs hourly (production only - writes to DB, sends emails)
+  if (isProductionEnvironment()) {
+    try {
+      ckycSlaEscalationService.initialize();
+    } catch (error: any) {
+      console.error('[CRON] Failed to initialize CKYC SLA Escalation Service:', error.message);
+    }
+  } else {
+    console.log('⏭️ [CKYC SLA] Skipped (development mode - production only)');
   }
 
-  // Initialize Audit Trail Integrity Checker - Runs every hour by default
-  // Verifies SHA-256 hash chain integrity and alerts on tampering
-  try {
-    const auditCheckIntervalMinutes = parseInt(process.env.AUDIT_INTEGRITY_CHECK_INTERVAL_MINUTES || '60', 10);
-    auditIntegrityChecker.initialize(auditCheckIntervalMinutes);
-    console.log(`[CRON] Audit Integrity Checker initialized (every ${auditCheckIntervalMinutes} minutes)`);
-  } catch (error: any) {
-    console.error('[CRON] Failed to initialize Audit Integrity Checker:', error.message);
+  // Initialize Audit Trail Integrity Checker - Runs every hour by default (production only - sends emails)
+  if (isProductionEnvironment()) {
+    try {
+      const auditCheckIntervalMinutes = parseInt(process.env.AUDIT_INTEGRITY_CHECK_INTERVAL_MINUTES || '60', 10);
+      auditIntegrityChecker.initialize(auditCheckIntervalMinutes);
+      console.log(`[CRON] Audit Integrity Checker initialized (every ${auditCheckIntervalMinutes} minutes)`);
+    } catch (error: any) {
+      console.error('[CRON] Failed to initialize Audit Integrity Checker:', error.message);
+    }
+  } else {
+    console.log('⏭️ [AuditIntegrity] Skipped (development mode - production only)');
   }
 
   // Company Data Refresh, Reconciliation, GIFT City Maintenance (production only - writes to DB)

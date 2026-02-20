@@ -960,16 +960,20 @@ app.use((req, res, next) => {
     console.log('⏭️ [BondCatalog] Auto-refresh skipped (development mode - production only)');
   }
   
-  // Initialize Alert Monitoring Service
-  try {
-    import('./services/alert-monitoring-service').then(({ alertMonitoringService }) => {
-      alertMonitoringService.start();
-      logger.service('Alert Monitoring Service', 'Service initialized successfully');
-    }).catch(error => {
-      console.error('❌ Failed to initialize alert monitoring service:', error);
-    });
-  } catch (error) {
-    console.error('❌ Error importing alert monitoring service:', error);
+  // Initialize Alert Monitoring Service (production only - writes to DB)
+  if (isProductionEnvironment()) {
+    try {
+      import('./services/alert-monitoring-service').then(({ alertMonitoringService }) => {
+        alertMonitoringService.start();
+        logger.service('Alert Monitoring Service', 'Service initialized successfully');
+      }).catch(error => {
+        console.error('❌ Failed to initialize alert monitoring service:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error importing alert monitoring service:', error);
+    }
+  } else {
+    console.log('⏭️ [AlertMonitoring] Skipped (development mode - production only)');
   }
   
   // Initialize Currency Exchange Service (production only - writes to DB)
@@ -991,15 +995,19 @@ app.use((req, res, next) => {
     console.log('⏭️ [CurrencyExchange] Auto-refresh skipped (development mode - production only)');
   }
   
-  // Initialize Session Cleanup Cron Job
-  try {
-    import('./session-cleanup-cron').then(({ initSessionCleanupCron }) => {
-      initSessionCleanupCron();
-    }).catch(error => {
-      console.error('❌ Failed to initialize session cleanup cron:', error);
-    });
-  } catch (error) {
-    console.error('❌ Error importing session cleanup cron:', error);
+  // Initialize Session Cleanup Cron Job (production only - writes to DB)
+  if (isProductionEnvironment()) {
+    try {
+      import('./session-cleanup-cron').then(({ initSessionCleanupCron }) => {
+        initSessionCleanupCron();
+      }).catch(error => {
+        console.error('❌ Failed to initialize session cleanup cron:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error importing session cleanup cron:', error);
+    }
+  } else {
+    console.log('⏭️ [SessionCleanup] Skipped (development mode - production only)');
   }
   
   // Initialize CKYC Provider Configuration (non-blocking)

@@ -82,21 +82,26 @@ class PickOfTheDayService {
     const status = unifiedAIRecommendationEngine.getStatus();
     console.log(`✅ Pick of the Day Service initialized via Unified Engine (primary: ${status.primary})`);
     
-    setTimeout(() => {
-      this.refreshLivePicks()
-        .then(r => console.log(`📊 [PickOfTheDay] Initial price refresh: ${r.updated} updated, ${r.errors} errors`))
-        .catch(e => console.error("[PickOfTheDay] Initial refresh failed:", e));
-    }, 15000);
-    
-    setInterval(() => {
-      this.refreshLivePicks()
-        .then(r => {
-          if (r.updated > 0) {
-            console.log(`📊 [PickOfTheDay] Periodic refresh: ${r.updated} updated, ${r.errors} errors`);
-          }
-        })
-        .catch(e => console.error("[PickOfTheDay] Periodic refresh failed:", e));
-    }, 4 * 60 * 60 * 1000);
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.REPL_DEPLOYMENT === '1';
+    if (isProduction) {
+      setTimeout(() => {
+        this.refreshLivePicks()
+          .then(r => console.log(`📊 [PickOfTheDay] Initial price refresh: ${r.updated} updated, ${r.errors} errors`))
+          .catch(e => console.error("[PickOfTheDay] Initial refresh failed:", e));
+      }, 15000);
+      
+      setInterval(() => {
+        this.refreshLivePicks()
+          .then(r => {
+            if (r.updated > 0) {
+              console.log(`📊 [PickOfTheDay] Periodic refresh: ${r.updated} updated, ${r.errors} errors`);
+            }
+          })
+          .catch(e => console.error("[PickOfTheDay] Periodic refresh failed:", e));
+      }, 4 * 60 * 60 * 1000);
+    } else {
+      console.log("⏭️ [PickOfTheDay] Price refresh skipped (development mode - production only)");
+    }
   }
 
   // Get time horizon by category

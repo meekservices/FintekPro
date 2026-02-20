@@ -761,6 +761,8 @@ class MarketMoversCache {
 
   private async saveToDatabase(stocks: Stock[], source: string): Promise<void> {
     if (stocks.length === 0) return;
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.REPL_DEPLOYMENT === '1';
+    if (!isProduction) return;
     
     try {
       const client = await pool.connect();
