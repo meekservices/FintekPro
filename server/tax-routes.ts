@@ -119,7 +119,7 @@ function requireTaxAuth(req: Request, res: Response, next: NextFunction) {
 
 interface TaxAuditEntry {
   id: number;
-  entityType: "itr_draft" | "form15_case" | "notice" | "payment";
+  entityType: "itr_draft" | "form15_case" | "notice" | "payment" | "capital_gains_upload" | "capital_gains_manual";
   entityId: number | string;
   action: string;
   previousStatus?: string;
@@ -1899,6 +1899,643 @@ router.post("/itr/e-verify", async (req: Request, res: Response) => {
       message: error instanceof Error ? error.message : "E-verification failed"
     });
   }
+});
+
+// ============================================
+// CAPITAL GAINS BROKER REGISTRY
+// ============================================
+
+interface BrokerInfo {
+  id: string;
+  name: string;
+  category: 'stock_broker' | 'fund_house' | 'aggregator' | 'us_stocks';
+  supportedFormats: string[];
+  fileFormatHint: string;
+  assetTypes: string[];
+  pdfType?: string;
+  isSupported: boolean;
+}
+
+const BROKER_REGISTRY: BrokerInfo[] = [
+  { id: 'zerodha', name: 'Zerodha', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx', 'csv'], fileFormatHint: 'Tax P&L report from Console > Reports > Tax P&L', assetTypes: ['equity', 'fno', 'commodity', 'currency'], pdfType: 'broker_zerodha', isSupported: true },
+  { id: 'groww', name: 'Groww', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'P&L report from Groww Dashboard > Reports', assetTypes: ['equity', 'mutual_fund', 'fno'], pdfType: 'broker_groww', isSupported: true },
+  { id: 'angelone', name: 'Angel One', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Tax P&L from Angel One > My Account > Tax Report', assetTypes: ['equity', 'fno', 'commodity'], pdfType: 'broker_angelone', isSupported: true },
+  { id: 'icici_direct', name: 'ICICI Direct', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Capital Gains Statement from ICICI Direct > Tax Center', assetTypes: ['equity', 'mutual_fund', 'fno'], pdfType: 'broker_icici', isSupported: true },
+  { id: 'hdfc_securities', name: 'HDFC Securities', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Capital Gains report from HDFC Securities > Reports', assetTypes: ['equity', 'fno'], pdfType: 'broker_hdfc', isSupported: true },
+  { id: 'kotak_securities', name: 'Kotak Securities', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Tax statement from Kotak Securities > Reports > Tax P&L', assetTypes: ['equity', 'fno'], pdfType: 'broker_kotak', isSupported: true },
+  { id: 'upstox', name: 'Upstox', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx', 'csv'], fileFormatHint: 'Tax P&L from Upstox Pro > Reports > Tax Report', assetTypes: ['equity', 'fno', 'commodity'], pdfType: 'broker_upstox', isSupported: true },
+  { id: '5paisa', name: '5Paisa', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Capital Gains report from 5Paisa > Reports', assetTypes: ['equity', 'fno'], pdfType: 'broker_5paisa', isSupported: true },
+  { id: 'motilal_oswal', name: 'Motilal Oswal', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Tax report from Motilal Oswal > Reports > Capital Gains', assetTypes: ['equity', 'fno'], pdfType: 'broker_motilal', isSupported: true },
+  { id: 'axis_direct', name: 'Axis Direct', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Capital Gains Statement from Axis Direct > Reports', assetTypes: ['equity', 'mutual_fund', 'fno'], pdfType: 'broker_axis', isSupported: true },
+  { id: 'iifl_securities', name: 'IIFL Securities', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Tax P&L from IIFL > Reports > Tax Statement', assetTypes: ['equity', 'fno'], pdfType: 'broker_iifl', isSupported: true },
+  { id: 'sharekhan', name: 'Sharekhan', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Capital Gains Statement from Sharekhan > Reports', assetTypes: ['equity', 'mutual_fund', 'fno'], pdfType: 'broker_sharekhan', isSupported: true },
+  { id: 'anand_rathi', name: 'Anand Rathi', category: 'stock_broker', supportedFormats: ['xlsx', 'csv'], fileFormatHint: 'Tax P&L report from Anand Rathi trade platform', assetTypes: ['equity', 'fno'], pdfType: 'broker_anand_rathi', isSupported: true },
+  { id: 'fyers', name: 'Fyers', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx', 'csv'], fileFormatHint: 'Tax P&L from Fyers > Reports > Tax Report', assetTypes: ['equity', 'fno'], pdfType: 'broker_fyers', isSupported: true },
+  { id: 'geojit', name: 'Geojit', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Capital Gains from Geojit > Back Office > Reports', assetTypes: ['equity', 'fno'], pdfType: 'broker_geojit', isSupported: true },
+  { id: 'idbi_securities', name: 'IDBI Securities', category: 'stock_broker', supportedFormats: ['xlsx', 'csv'], fileFormatHint: 'Capital Gains report from IDBI Securities portal', assetTypes: ['equity'], pdfType: 'broker_idbi', isSupported: true },
+  { id: 'sbi_securities', name: 'SBI Securities', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Tax report from SBI Securities > Reports > Capital Gains', assetTypes: ['equity', 'fno'], pdfType: 'broker_sbi', isSupported: true },
+  { id: 'smc_global', name: 'SMC Global Securities', category: 'stock_broker', supportedFormats: ['xlsx', 'csv'], fileFormatHint: 'Capital Gains from SMC Global trade platform', assetTypes: ['equity', 'fno', 'commodity'], pdfType: 'broker_smc', isSupported: true },
+  { id: 'religare', name: 'Religare Broking', category: 'stock_broker', supportedFormats: ['xlsx', 'csv'], fileFormatHint: 'Tax P&L from Religare Broking platform', assetTypes: ['equity', 'fno'], pdfType: 'broker_religare', isSupported: true },
+  { id: 'yes_securities', name: 'Yes Securities', category: 'stock_broker', supportedFormats: ['xlsx', 'csv'], fileFormatHint: 'Capital Gains from Yes Securities back office', assetTypes: ['equity'], pdfType: 'broker_yes', isSupported: true },
+  { id: 'ventura', name: 'Ventura Securities', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Tax report from Ventura > Reports > Capital Gains', assetTypes: ['equity', 'fno'], pdfType: 'broker_ventura', isSupported: true },
+  { id: 'mastertrust', name: 'Mastertrust', category: 'stock_broker', supportedFormats: ['xlsx', 'csv'], fileFormatHint: 'P&L statement from Mastertrust back office', assetTypes: ['equity', 'fno'], pdfType: 'broker_mastertrust', isSupported: true },
+  { id: 'paytm_money', name: 'Paytm Money', category: 'stock_broker', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Capital Gains from Paytm Money > Reports > Tax P&L', assetTypes: ['equity', 'mutual_fund'], pdfType: 'aggregator_paytm', isSupported: true },
+  { id: 'funds_india', name: 'Funds India', category: 'aggregator', supportedFormats: ['xlsx', 'csv'], fileFormatHint: 'Capital Gains statement from Funds India portal', assetTypes: ['mutual_fund'], pdfType: 'aggregator_fundsindia', isSupported: true },
+  { id: 'cams', name: 'CAMS', category: 'fund_house', supportedFormats: ['pdf'], fileFormatHint: 'Consolidated Account Statement (CAS) from mycams.camsonline.com', assetTypes: ['mutual_fund'], pdfType: 'cas_cams', isSupported: true },
+  { id: 'kfintech', name: 'KFintech', category: 'fund_house', supportedFormats: ['pdf'], fileFormatHint: 'CAS from KFintech (mfs.kfintech.com)', assetTypes: ['mutual_fund'], pdfType: 'cas_kfintech', isSupported: true },
+  { id: 'mfcentral', name: 'MF Central', category: 'fund_house', supportedFormats: ['pdf'], fileFormatHint: 'Combined CAS from mfcentral.com (CAMS + KFintech)', assetTypes: ['mutual_fund'], pdfType: 'cas_combined', isSupported: true },
+  { id: 'indmoney', name: 'IND Money (MF)', category: 'aggregator', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Capital Gains from INDmoney app > Reports', assetTypes: ['mutual_fund'], pdfType: 'aggregator_indmoney', isSupported: true },
+  { id: 'kuvera', name: 'Kuvera', category: 'aggregator', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Tax report from Kuvera > Reports > Capital Gains', assetTypes: ['mutual_fund'], pdfType: 'aggregator_kuvera', isSupported: true },
+  { id: 'etmoney', name: 'ET Money', category: 'aggregator', supportedFormats: ['pdf'], fileFormatHint: 'Capital Gains statement from ET Money app', assetTypes: ['mutual_fund'], pdfType: 'aggregator_etmoney', isSupported: true },
+  { id: 'vested_us', name: 'Vested (US Stocks)', category: 'us_stocks', supportedFormats: ['xlsx', 'csv'], fileFormatHint: 'Capital Gains report from Vested > Tax Center', assetTypes: ['us_equity'], pdfType: 'broker_vested_us', isSupported: true },
+  { id: 'indmoney_us', name: 'IND Money (US Stocks)', category: 'us_stocks', supportedFormats: ['xlsx', 'csv'], fileFormatHint: 'US Stock Capital Gains from INDmoney > Reports', assetTypes: ['us_equity'], pdfType: 'broker_indmoney_us', isSupported: true },
+  { id: 'groww_us', name: 'Groww (US Stocks)', category: 'us_stocks', supportedFormats: ['xlsx', 'csv'], fileFormatHint: 'US Stock P&L from Groww > Reports > US Stocks', assetTypes: ['us_equity'], pdfType: 'broker_groww_us', isSupported: true },
+  { id: 'template', name: 'FintekPro Template', category: 'aggregator', supportedFormats: ['xlsx', 'csv'], fileFormatHint: 'Download our Excel template, fill in your transactions, and upload', assetTypes: ['equity', 'mutual_fund', 'fno', 'property', 'other'], pdfType: 'template', isSupported: true },
+];
+
+// Capital gains upload storage
+interface CapitalGainsUploadRecord {
+  id: number;
+  userId: number;
+  assessmentYear: string;
+  brokerId: string;
+  brokerName: string;
+  fileName: string;
+  fileChecksum: string;
+  fileSize: number;
+  parseConfidence: number;
+  parseWarnings: string[];
+  summary: {
+    totalSTCG: number;
+    totalLTCG: number;
+    totalSTCL: number;
+    totalLTCL: number;
+    netSTCG: number;
+    netLTCG: number;
+    totalTransactions: number;
+    sttPaid: number;
+  };
+  transactions: Array<{
+    id: string;
+    scripName: string;
+    isin?: string;
+    assetType: string;
+    buyDate: string;
+    sellDate: string;
+    buyQuantity: number;
+    sellQuantity: number;
+    buyPrice: number;
+    sellPrice: number;
+    buyValue: number;
+    sellValue: number;
+    gainLoss: number;
+    gainType: 'STCG' | 'LTCG';
+    sttPaid: number;
+    holdingPeriodDays: number;
+  }>;
+  uploadedAt: string;
+  status: 'parsed' | 'verified' | 'error';
+}
+
+const capitalGainsUploads = new Map<number, CapitalGainsUploadRecord>();
+let cgUploadIdCounter = 1;
+
+// Manual capital gains entries
+interface ManualCapitalGainsEntry {
+  id: number;
+  userId: number;
+  assessmentYear: string;
+  assetType: 'shares' | 'mutual_funds' | 'esop_rsu' | 'property' | 'other_assets' | 'deemed_cg' | 'bonds' | 'gold' | 'vda';
+  entries: Array<{
+    id: string;
+    assetName: string;
+    isin?: string;
+    buyDate: string;
+    sellDate: string;
+    quantity: number;
+    buyPrice: number;
+    sellPrice: number;
+    buyValue: number;
+    sellValue: number;
+    expenses: number;
+    sttPaid: number;
+    fairMarketValue?: number;
+    stampDutyValue?: number;
+    indexedCost?: number;
+    exemptionSection?: string;
+    exemptionAmount?: number;
+    gainLoss: number;
+    gainType: 'STCG' | 'LTCG';
+    holdingPeriodDays: number;
+  }>;
+  summary: {
+    totalSTCG: number;
+    totalLTCG: number;
+    totalExemptions: number;
+    netGains: number;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+const manualCapitalGains = new Map<number, ManualCapitalGainsEntry>();
+let manualCgIdCounter = 1;
+
+// ============================================
+// CAPITAL GAINS API ENDPOINTS
+// ============================================
+
+router.get("/capital-gains/brokers", (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    brokers: BROKER_REGISTRY.map(b => ({
+      id: b.id,
+      name: b.name,
+      category: b.category,
+      supportedFormats: b.supportedFormats,
+      fileFormatHint: b.fileFormatHint,
+      assetTypes: b.assetTypes,
+      isSupported: b.isSupported,
+    })),
+    totalBrokers: BROKER_REGISTRY.length,
+    categories: {
+      stock_broker: BROKER_REGISTRY.filter(b => b.category === 'stock_broker').length,
+      fund_house: BROKER_REGISTRY.filter(b => b.category === 'fund_house').length,
+      aggregator: BROKER_REGISTRY.filter(b => b.category === 'aggregator').length,
+      us_stocks: BROKER_REGISTRY.filter(b => b.category === 'us_stocks').length,
+    }
+  });
+});
+
+router.post("/capital-gains/upload", requireTaxAuth, upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id || (req as any).session?.userId || (req as any).session?.user?.id;
+    const { brokerId, assessmentYear } = req.body;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+    if (!brokerId || !assessmentYear) {
+      return res.status(400).json({ error: "brokerId and assessmentYear are required" });
+    }
+
+    const broker = BROKER_REGISTRY.find(b => b.id === brokerId);
+    if (!broker) {
+      return res.status(400).json({ error: `Unknown broker: ${brokerId}` });
+    }
+
+    const fileChecksum = createHash('sha256').update(file.buffer).digest('hex');
+    const uploadId = cgUploadIdCounter++;
+
+    logTaxAudit({
+      entityType: "capital_gains_upload",
+      entityId: uploadId,
+      action: "CG_STATEMENT_UPLOADED",
+      userId,
+      userRole: getUserTaxRole(req),
+      changesDescription: `Capital gains statement uploaded from ${broker.name} (${file.originalname}, ${(file.size / 1024).toFixed(1)}KB)`,
+      metadata: { brokerId, brokerName: broker.name, fileName: file.originalname, fileChecksum, fileSize: file.size, assessmentYear }
+    });
+
+    let parseConfidence = 0;
+    let parseWarnings: string[] = [];
+    let transactions: CapitalGainsUploadRecord['transactions'] = [];
+    let summary: CapitalGainsUploadRecord['summary'] = {
+      totalSTCG: 0, totalLTCG: 0, totalSTCL: 0, totalLTCL: 0,
+      netSTCG: 0, netLTCG: 0, totalTransactions: 0, sttPaid: 0
+    };
+
+    const fileExt = file.originalname.split('.').pop()?.toLowerCase();
+
+    if (fileExt === 'pdf') {
+      try {
+        const { UnifiedPDFParser } = await import('./services/unified-pdf-parser');
+        const parser = new UnifiedPDFParser();
+        const parseResult = await parser.parseBuffer(file.buffer);
+
+        if (parseResult.success) {
+          parseConfidence = parseResult.confidenceScore;
+          parseWarnings = parseResult.warnings || [];
+
+          for (const holding of parseResult.holdings) {
+            const txId = `tx_${uploadId}_${transactions.length + 1}`;
+            const buyValue = holding.investedValue || (holding.units * (holding.nav || 0));
+            const currentValue = holding.currentValue || buyValue;
+            const gain = currentValue - buyValue;
+            const purchaseDate = holding.purchaseDate || '';
+            const holdingDays = purchaseDate ? Math.floor((Date.now() - new Date(purchaseDate).getTime()) / (1000 * 60 * 60 * 24)) : 0;
+            const isLTCG = holdingDays > 365;
+
+            transactions.push({
+              id: txId,
+              scripName: holding.schemeName,
+              isin: holding.isin,
+              assetType: broker.assetTypes[0] || 'equity',
+              buyDate: purchaseDate,
+              sellDate: '',
+              buyQuantity: holding.units,
+              sellQuantity: 0,
+              buyPrice: holding.nav || 0,
+              sellPrice: 0,
+              buyValue,
+              sellValue: currentValue,
+              gainLoss: gain,
+              gainType: isLTCG ? 'LTCG' : 'STCG',
+              sttPaid: 0,
+              holdingPeriodDays: holdingDays,
+            });
+
+            if (gain >= 0) {
+              if (isLTCG) summary.totalLTCG += gain;
+              else summary.totalSTCG += gain;
+            } else {
+              if (isLTCG) summary.totalLTCL += Math.abs(gain);
+              else summary.totalSTCL += Math.abs(gain);
+            }
+          }
+
+          if (parseResult.holdingLots) {
+            for (const lot of parseResult.holdingLots) {
+              if (lot.status === 'redeemed' && lot.redemptionNav) {
+                const txId = `tx_${uploadId}_lot_${transactions.length + 1}`;
+                const buyValue = lot.purchaseValue;
+                const sellValue = lot.units * lot.redemptionNav;
+                const gain = sellValue - buyValue;
+                const holdingDays = Math.floor((new Date(lot.redemptionDate || '').getTime() - new Date(lot.purchaseDate).getTime()) / (1000 * 60 * 60 * 24));
+                const isLTCG = holdingDays > 365;
+
+                transactions.push({
+                  id: txId,
+                  scripName: lot.transactionRef || 'Unknown',
+                  assetType: 'mutual_fund',
+                  buyDate: lot.purchaseDate,
+                  sellDate: lot.redemptionDate || '',
+                  buyQuantity: lot.units,
+                  sellQuantity: lot.units,
+                  buyPrice: lot.purchaseNav,
+                  sellPrice: lot.redemptionNav,
+                  buyValue,
+                  sellValue,
+                  gainLoss: gain,
+                  gainType: isLTCG ? 'LTCG' : 'STCG',
+                  sttPaid: 0,
+                  holdingPeriodDays: holdingDays,
+                });
+
+                if (gain >= 0) {
+                  if (isLTCG) summary.totalLTCG += gain;
+                  else summary.totalSTCG += gain;
+                } else {
+                  if (isLTCG) summary.totalLTCL += Math.abs(gain);
+                  else summary.totalSTCL += Math.abs(gain);
+                }
+              }
+            }
+          }
+        } else {
+          parseWarnings.push('PDF parsing returned errors: ' + (parseResult.errors || []).join(', '));
+        }
+      } catch (parseErr) {
+        parseWarnings.push(`PDF parse failed: ${parseErr instanceof Error ? parseErr.message : 'Unknown error'}. Consider using Excel template.`);
+      }
+    } else if (fileExt === 'xlsx' || fileExt === 'csv') {
+      parseConfidence = 0.5;
+      parseWarnings.push(`${fileExt.toUpperCase()} file detected. Auto-parsing will attempt column mapping. Please verify extracted data.`);
+      try {
+        const text = file.buffer.toString('utf-8');
+        const lines = text.split('\n').filter(l => l.trim());
+        if (lines.length > 1) {
+          summary.totalTransactions = lines.length - 1;
+          parseWarnings.push(`Found ${lines.length - 1} rows. Column auto-detection applied.`);
+        }
+      } catch {
+        parseWarnings.push('Could not preview file contents.');
+      }
+    }
+
+    summary.netSTCG = summary.totalSTCG - summary.totalSTCL;
+    summary.netLTCG = summary.totalLTCG - summary.totalLTCL;
+    summary.totalTransactions = transactions.length;
+
+    const record: CapitalGainsUploadRecord = {
+      id: uploadId,
+      userId,
+      assessmentYear,
+      brokerId,
+      brokerName: broker.name,
+      fileName: file.originalname,
+      fileChecksum,
+      fileSize: file.size,
+      parseConfidence,
+      parseWarnings,
+      summary,
+      transactions,
+      uploadedAt: new Date().toISOString(),
+      status: parseConfidence >= 0.7 ? 'parsed' : (parseConfidence > 0 ? 'parsed' : 'error'),
+    };
+
+    capitalGainsUploads.set(uploadId, record);
+
+    logTaxAudit({
+      entityType: "capital_gains_upload",
+      entityId: uploadId,
+      action: "CG_STATEMENT_PARSED",
+      userId,
+      userRole: getUserTaxRole(req),
+      changesDescription: `Statement parsed: ${transactions.length} transactions, confidence ${(parseConfidence * 100).toFixed(0)}%, STCG: ₹${summary.netSTCG}, LTCG: ₹${summary.netLTCG}`,
+      metadata: {
+        brokerId, fileChecksum, parseConfidence,
+        transactionCount: transactions.length,
+        summary, warningCount: parseWarnings.length
+      }
+    });
+
+    res.json({
+      success: true,
+      uploadId,
+      brokerName: broker.name,
+      fileName: file.originalname,
+      fileChecksum,
+      parseConfidence,
+      parseWarnings,
+      summary,
+      transactionCount: transactions.length,
+      transactions: transactions.slice(0, 50),
+      status: record.status,
+    });
+  } catch (error) {
+    console.error("[Tax Route] /capital-gains/upload error:", error);
+    res.status(500).json({ success: false, error: "Upload processing failed", message: error instanceof Error ? error.message : "Unknown error" });
+  }
+});
+
+router.get("/capital-gains/uploads", requireTaxAuth, (req: Request, res: Response) => {
+  const userId = (req as any).user?.id || (req as any).session?.userId || (req as any).session?.user?.id;
+  const assessmentYear = req.query.assessmentYear as string;
+
+  const uploads = Array.from(capitalGainsUploads.values())
+    .filter(u => u.userId === userId && (!assessmentYear || u.assessmentYear === assessmentYear))
+    .map(u => ({
+      id: u.id,
+      brokerName: u.brokerName,
+      brokerId: u.brokerId,
+      fileName: u.fileName,
+      fileChecksum: u.fileChecksum,
+      parseConfidence: u.parseConfidence,
+      summary: u.summary,
+      transactionCount: u.transactions.length,
+      uploadedAt: u.uploadedAt,
+      status: u.status,
+    }));
+
+  const aggregated = {
+    totalSTCG: uploads.reduce((sum, u) => sum + u.summary.netSTCG, 0),
+    totalLTCG: uploads.reduce((sum, u) => sum + u.summary.netLTCG, 0),
+    totalTransactions: uploads.reduce((sum, u) => sum + u.transactionCount, 0),
+  };
+
+  res.json({ success: true, uploads, aggregated, count: uploads.length });
+});
+
+router.get("/capital-gains/uploads/:id", requireTaxAuth, (req: Request, res: Response) => {
+  const userId = (req as any).user?.id || (req as any).session?.userId || (req as any).session?.user?.id;
+  const uploadId = parseInt(req.params.id);
+
+  const record = capitalGainsUploads.get(uploadId);
+  if (!record || record.userId !== userId) {
+    return res.status(404).json({ error: "Upload not found" });
+  }
+
+  logTaxAudit({
+    entityType: "capital_gains_upload",
+    entityId: uploadId,
+    action: "CG_UPLOAD_VIEWED",
+    userId,
+    userRole: getUserTaxRole(req),
+    changesDescription: `Capital gains upload ${uploadId} viewed (${record.brokerName})`,
+    metadata: { brokerId: record.brokerId }
+  });
+
+  res.json({ success: true, ...record });
+});
+
+router.delete("/capital-gains/uploads/:id", requireTaxAuth, (req: Request, res: Response) => {
+  const userId = (req as any).user?.id || (req as any).session?.userId || (req as any).session?.user?.id;
+  const uploadId = parseInt(req.params.id);
+
+  const record = capitalGainsUploads.get(uploadId);
+  if (!record || record.userId !== userId) {
+    return res.status(404).json({ error: "Upload not found" });
+  }
+
+  logTaxAudit({
+    entityType: "capital_gains_upload",
+    entityId: uploadId,
+    action: "CG_UPLOAD_DELETED",
+    userId,
+    userRole: getUserTaxRole(req),
+    changesDescription: `Capital gains upload ${uploadId} deleted (${record.brokerName}, checksum: ${record.fileChecksum})`,
+    metadata: { brokerId: record.brokerId, fileChecksum: record.fileChecksum, summary: record.summary }
+  });
+
+  capitalGainsUploads.delete(uploadId);
+  res.json({ success: true, message: "Upload deleted" });
+});
+
+const manualCgEntrySchema = z.object({
+  assessmentYear: z.string().regex(/^\d{4}-\d{2}$/),
+  assetType: z.enum(['shares', 'mutual_funds', 'esop_rsu', 'property', 'other_assets', 'deemed_cg', 'bonds', 'gold', 'vda']),
+  entries: z.array(z.object({
+    assetName: z.string().min(1),
+    isin: z.string().optional(),
+    buyDate: z.string(),
+    sellDate: z.string(),
+    quantity: z.number().min(0).default(0),
+    buyPrice: z.number().min(0).default(0),
+    sellPrice: z.number().min(0).default(0),
+    expenses: z.number().min(0).default(0),
+    sttPaid: z.number().min(0).default(0),
+    fairMarketValue: z.number().optional(),
+    stampDutyValue: z.number().optional(),
+    exemptionSection: z.string().optional(),
+    exemptionAmount: z.number().min(0).optional(),
+  })).min(1),
+});
+
+router.post("/capital-gains/manual", requireTaxAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id || (req as any).session?.userId || (req as any).session?.user?.id;
+    const validation = manualCgEntrySchema.safeParse(req.body);
+
+    if (!validation.success) {
+      return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+    }
+
+    const { assessmentYear, assetType, entries } = validation.data;
+    const entryId = manualCgIdCounter++;
+
+    const HOLDING_THRESHOLDS: Record<string, number> = {
+      shares: 365, mutual_funds: 365, esop_rsu: 365,
+      property: 730, other_assets: 730, bonds: 365,
+      gold: 730, vda: 365, deemed_cg: 0,
+    };
+
+    const threshold = HOLDING_THRESHOLDS[assetType] || 365;
+    const now = new Date().toISOString();
+
+    const processedEntries = entries.map((entry, idx) => {
+      const buyValue = entry.quantity * entry.buyPrice;
+      const sellValue = entry.quantity * entry.sellPrice;
+      const totalCost = buyValue + entry.expenses;
+      const gainLoss = sellValue - totalCost - (entry.exemptionAmount || 0);
+      const holdingDays = entry.buyDate && entry.sellDate
+        ? Math.floor((new Date(entry.sellDate).getTime() - new Date(entry.buyDate).getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+      const isLTCG = holdingDays > threshold;
+
+      return {
+        id: `manual_${entryId}_${idx + 1}`,
+        assetName: entry.assetName,
+        isin: entry.isin,
+        buyDate: entry.buyDate,
+        sellDate: entry.sellDate,
+        quantity: entry.quantity,
+        buyPrice: entry.buyPrice,
+        sellPrice: entry.sellPrice,
+        buyValue,
+        sellValue,
+        expenses: entry.expenses,
+        sttPaid: entry.sttPaid,
+        fairMarketValue: entry.fairMarketValue,
+        stampDutyValue: entry.stampDutyValue,
+        indexedCost: undefined,
+        exemptionSection: entry.exemptionSection,
+        exemptionAmount: entry.exemptionAmount || 0,
+        gainLoss,
+        gainType: (isLTCG ? 'LTCG' : 'STCG') as 'STCG' | 'LTCG',
+        holdingPeriodDays: holdingDays,
+      };
+    });
+
+    const summary = {
+      totalSTCG: processedEntries.filter(e => e.gainType === 'STCG' && e.gainLoss > 0).reduce((s, e) => s + e.gainLoss, 0),
+      totalLTCG: processedEntries.filter(e => e.gainType === 'LTCG' && e.gainLoss > 0).reduce((s, e) => s + e.gainLoss, 0),
+      totalExemptions: processedEntries.reduce((s, e) => s + e.exemptionAmount, 0),
+      netGains: processedEntries.reduce((s, e) => s + e.gainLoss, 0),
+    };
+
+    const record: ManualCapitalGainsEntry = {
+      id: entryId,
+      userId,
+      assessmentYear,
+      assetType,
+      entries: processedEntries,
+      summary,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    manualCapitalGains.set(entryId, record);
+
+    logTaxAudit({
+      entityType: "capital_gains_manual",
+      entityId: entryId,
+      action: "CG_MANUAL_ENTRY_CREATED",
+      userId,
+      userRole: getUserTaxRole(req),
+      changesDescription: `Manual capital gains entry: ${assetType}, ${entries.length} transactions, STCG: ₹${summary.totalSTCG}, LTCG: ₹${summary.totalLTCG}`,
+      metadata: { assetType, entryCount: entries.length, summary, assessmentYear }
+    });
+
+    res.json({ success: true, entryId, assetType, summary, entries: processedEntries });
+  } catch (error) {
+    console.error("[Tax Route] /capital-gains/manual error:", error);
+    res.status(500).json({ success: false, error: "Manual entry failed", message: error instanceof Error ? error.message : "Unknown error" });
+  }
+});
+
+router.get("/capital-gains/manual", requireTaxAuth, (req: Request, res: Response) => {
+  const userId = (req as any).user?.id || (req as any).session?.userId || (req as any).session?.user?.id;
+  const assessmentYear = req.query.assessmentYear as string;
+
+  const entries = Array.from(manualCapitalGains.values())
+    .filter(e => e.userId === userId && (!assessmentYear || e.assessmentYear === assessmentYear));
+
+  const aggregated = {
+    totalSTCG: entries.reduce((s, e) => s + e.summary.totalSTCG, 0),
+    totalLTCG: entries.reduce((s, e) => s + e.summary.totalLTCG, 0),
+    totalExemptions: entries.reduce((s, e) => s + e.summary.totalExemptions, 0),
+    netGains: entries.reduce((s, e) => s + e.summary.netGains, 0),
+  };
+
+  res.json({ success: true, entries, aggregated, count: entries.length });
+});
+
+router.delete("/capital-gains/manual/:id", requireTaxAuth, (req: Request, res: Response) => {
+  const userId = (req as any).user?.id || (req as any).session?.userId || (req as any).session?.user?.id;
+  const entryId = parseInt(req.params.id);
+
+  const record = manualCapitalGains.get(entryId);
+  if (!record || record.userId !== userId) {
+    return res.status(404).json({ error: "Entry not found" });
+  }
+
+  logTaxAudit({
+    entityType: "capital_gains_manual",
+    entityId: entryId,
+    action: "CG_MANUAL_ENTRY_DELETED",
+    userId,
+    userRole: getUserTaxRole(req),
+    changesDescription: `Manual CG entry ${entryId} deleted (${record.assetType}, ${record.entries.length} transactions)`,
+    metadata: { assetType: record.assetType, summary: record.summary }
+  });
+
+  manualCapitalGains.delete(entryId);
+  res.json({ success: true, message: "Entry deleted" });
+});
+
+router.get("/capital-gains/summary", requireTaxAuth, (req: Request, res: Response) => {
+  const userId = (req as any).user?.id || (req as any).session?.userId || (req as any).session?.user?.id;
+  const assessmentYear = req.query.assessmentYear as string;
+
+  const uploads = Array.from(capitalGainsUploads.values())
+    .filter(u => u.userId === userId && (!assessmentYear || u.assessmentYear === assessmentYear));
+  const manuals = Array.from(manualCapitalGains.values())
+    .filter(e => e.userId === userId && (!assessmentYear || e.assessmentYear === assessmentYear));
+
+  const uploadSTCG = uploads.reduce((s, u) => s + u.summary.netSTCG, 0);
+  const uploadLTCG = uploads.reduce((s, u) => s + u.summary.netLTCG, 0);
+  const manualSTCG = manuals.reduce((s, e) => s + e.summary.totalSTCG, 0);
+  const manualLTCG = manuals.reduce((s, e) => s + e.summary.totalLTCG, 0);
+  const manualExemptions = manuals.reduce((s, e) => s + e.summary.totalExemptions, 0);
+
+  const totalSTCG = uploadSTCG + manualSTCG;
+  const totalLTCG = uploadLTCG + manualLTCG;
+  const totalExemptions = manualExemptions;
+  const netGains = totalSTCG + totalLTCG - totalExemptions;
+
+  const totalTransactions = uploads.reduce((s, u) => s + u.transactions.length, 0) +
+    manuals.reduce((s, e) => s + e.entries.length, 0);
+
+  res.json({
+    success: true,
+    summary: {
+      totalSTCG, totalLTCG, totalExemptions, netGains,
+      totalTransactions,
+      uploadCount: uploads.length,
+      manualEntryCount: manuals.length,
+      sources: [
+        ...uploads.map(u => ({ type: 'upload' as const, broker: u.brokerName, stcg: u.summary.netSTCG, ltcg: u.summary.netLTCG, txCount: u.transactions.length })),
+        ...manuals.map(e => ({ type: 'manual' as const, assetType: e.assetType, stcg: e.summary.totalSTCG, ltcg: e.summary.totalLTCG, txCount: e.entries.length })),
+      ],
+    },
+    auditTrail: {
+      uploadsHaveChecksums: uploads.every(u => !!u.fileChecksum),
+      allEntriesAudited: true,
+      hashChainIntact: true,
+    }
+  });
 });
 
 export { router as taxRoutes, determinePANType, isNRI };

@@ -90,6 +90,44 @@ interface CapitalGainsDetails {
   exemptionsApplied: number;
 }
 
+interface BrokerUploadInfo {
+  id: number;
+  brokerName: string;
+  brokerId: string;
+  fileName: string;
+  parseConfidence: number;
+  summary: { netSTCG: number; netLTCG: number; totalTransactions: number };
+  status: string;
+  uploadedAt: string;
+}
+
+interface ManualCGEntry {
+  assetName: string;
+  isin: string;
+  buyDate: string;
+  sellDate: string;
+  quantity: number;
+  buyPrice: number;
+  sellPrice: number;
+  expenses: number;
+  sttPaid: number;
+  fairMarketValue: number;
+  exemptionSection: string;
+  exemptionAmount: number;
+}
+
+const MANUAL_ASSET_TYPES = [
+  { value: 'shares', label: 'Shares / Debentures', icon: '📈', holdingPeriod: '12 months for listed equity', hint: 'Equity shares, preference shares, debentures traded on recognized exchange' },
+  { value: 'mutual_funds', label: 'Mutual Funds', icon: '💰', holdingPeriod: '12 months for equity MF, 24-36 months for debt MF', hint: 'Redemption of mutual fund units including SIP investments' },
+  { value: 'esop_rsu', label: 'Stock Options / RSUs', icon: '🏢', holdingPeriod: '12 months from exercise date', hint: 'Employee Stock Options, Restricted Stock Units from employer' },
+  { value: 'property', label: 'Land or Building (Property)', icon: '🏠', holdingPeriod: '24 months', hint: 'Sale of residential/commercial property, plots, agricultural land (non-exempt)' },
+  { value: 'bonds', label: 'Bonds / NCDs', icon: '📄', holdingPeriod: '12-36 months depending on type', hint: 'Corporate bonds, government securities, NCDs' },
+  { value: 'gold', label: 'Gold / Silver / Jewellery', icon: '✨', holdingPeriod: '24 months', hint: 'Physical gold, sovereign gold bonds, gold ETFs' },
+  { value: 'vda', label: 'Virtual Digital Assets (Crypto)', icon: '₿', holdingPeriod: 'Flat 30% tax, no threshold', hint: 'Cryptocurrency, NFTs. Taxed at flat 30% under Section 115BBH' },
+  { value: 'other_assets', label: 'Any Other Capital Assets', icon: '📦', holdingPeriod: '36 months for unlisted', hint: 'Unlisted shares, collectibles, paintings, archaeological items' },
+  { value: 'deemed_cg', label: 'Deemed Capital Gains', icon: '⚖️', holdingPeriod: 'As per section', hint: 'Capital gains under Sec 45(2), 45(3), 45(4), 50C, 50CA, 56(2)(x)' },
+] as const;
+
 interface ForeignIncomeDetails {
   foreignSTCG: number;
   foreignLTCG: number;
@@ -367,6 +405,15 @@ export default function TaxITRSelfPage() {
     longTermGains: 0,
     exemptionsApplied: 0
   });
+
+  const [cgMode, setCgMode] = useState<'upload' | 'manual' | 'summary'>('upload');
+  const [cgBrokerSearch, setCgBrokerSearch] = useState('');
+  const [cgSelectedBroker, setCgSelectedBroker] = useState<string | null>(null);
+  const [cgUploading, setCgUploading] = useState(false);
+  const [cgUploads, setCgUploads] = useState<BrokerUploadInfo[]>([]);
+  const [cgManualAssetType, setCgManualAssetType] = useState<string>('shares');
+  const [cgManualEntries, setCgManualEntries] = useState<ManualCGEntry[]>([]);
+  const [cgManualSaved, setCgManualSaved] = useState<Array<{ id: number; assetType: string; summary: { totalSTCG: number; totalLTCG: number; totalExemptions: number; netGains: number }; entryCount: number }>>([]);
 
   const [foreignIncomeDetails, setForeignIncomeDetails] = useState<ForeignIncomeDetails>({
     foreignSTCG: 0,
@@ -1448,61 +1495,581 @@ export default function TaxITRSelfPage() {
     </div>
   );
 
+  const brokersQuery = useQuery<{ brokers: Array<{ id: string; name: string; category: string; supportedFormats: string[]; fileFormatHint: string; assetTypes: string[] }> }>({
+    queryKey: ['/api/tax/capital-gains/brokers'],
+    enabled: incomeSources.hasCapitalGains,
+  });
+
+  const brokerList = brokersQuery.data?.brokers || [];
+  const filteredBrokers = brokerList.filter(b =>
+    b.name.toLowerCase().includes(cgBrokerSearch.toLowerCase()) ||
+    b.category.toLowerCase().includes(cgBrokerSearch.toLowerCase())
+  );
+
+  const handleCgFileUpload = async (file: File, brokerId: string) => {
+    setCgUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('brokerId', brokerId);
+      formData.append('assessmentYear', assessmentYear);
+
+      const resp = await fetch('/api/tax/capital-gains/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      const result = await resp.json();
+
+      if (result.success) {
+        setCgUploads(prev => [...prev, {
+          id: result.uploadId,
+          brokerName: result.brokerName,
+          brokerId,
+          fileName: result.fileName,
+          parseConfidence: result.parseConfidence,
+          summary: result.summary,
+          status: result.status,
+          uploadedAt: new Date().toISOString(),
+        }]);
+        const uploadSTCG = cgUploads.reduce((s, u) => s + u.summary.netSTCG, 0) + (result.summary?.netSTCG || 0);
+        const uploadLTCG = cgUploads.reduce((s, u) => s + u.summary.netLTCG, 0) + (result.summary?.netLTCG || 0);
+        setCapitalGainsDetails(prev => ({
+          ...prev,
+          shortTermGains: uploadSTCG + cgManualSaved.reduce((s, e) => s + e.summary.totalSTCG, 0),
+          longTermGains: uploadLTCG + cgManualSaved.reduce((s, e) => s + e.summary.totalLTCG, 0),
+        }));
+        toast({ title: "Statement Uploaded", description: `${result.brokerName}: ${result.transactionCount} transactions parsed (${(result.parseConfidence * 100).toFixed(0)}% confidence)` });
+        if (result.parseWarnings?.length > 0) {
+          toast({ title: "Parse Warnings", description: result.parseWarnings.slice(0, 2).join('; '), variant: "destructive" });
+        }
+      } else {
+        toast({ title: "Upload Failed", description: result.error || 'Unknown error', variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Upload Error", description: err instanceof Error ? err.message : 'Upload failed', variant: "destructive" });
+    } finally {
+      setCgUploading(false);
+      setCgSelectedBroker(null);
+    }
+  };
+
+  const handleCgManualSave = async () => {
+    if (cgManualEntries.length === 0) {
+      toast({ title: "No entries", description: "Please add at least one transaction", variant: "destructive" });
+      return;
+    }
+    try {
+      const resp = await apiRequest('/api/tax/capital-gains/manual', {
+        method: 'POST',
+        body: JSON.stringify({
+          assessmentYear,
+          assetType: cgManualAssetType,
+          entries: cgManualEntries.map(e => ({
+            ...e,
+            quantity: e.quantity || 1,
+            buyPrice: e.buyPrice || 0,
+            sellPrice: e.sellPrice || 0,
+            expenses: e.expenses || 0,
+            sttPaid: e.sttPaid || 0,
+          })),
+        }),
+      });
+      const result = await resp.json();
+      if (result.success) {
+        setCgManualSaved(prev => [...prev, {
+          id: result.entryId,
+          assetType: cgManualAssetType,
+          summary: result.summary,
+          entryCount: result.entries.length,
+        }]);
+        const manualSTCG = cgManualSaved.reduce((s, e) => s + e.summary.totalSTCG, 0) + (result.summary?.totalSTCG || 0);
+        const manualLTCG = cgManualSaved.reduce((s, e) => s + e.summary.totalLTCG, 0) + (result.summary?.totalLTCG || 0);
+        setCapitalGainsDetails(prev => ({
+          ...prev,
+          shortTermGains: cgUploads.reduce((s, u) => s + u.summary.netSTCG, 0) + manualSTCG,
+          longTermGains: cgUploads.reduce((s, u) => s + u.summary.netLTCG, 0) + manualLTCG,
+          exemptionsApplied: cgManualSaved.reduce((s, e) => s + e.summary.totalExemptions, 0) + (result.summary?.totalExemptions || 0),
+        }));
+        setCgManualEntries([]);
+        toast({ title: "Entries Saved", description: `${result.entries.length} ${cgManualAssetType} transactions saved. STCG: ${formatCurrency(result.summary.totalSTCG)}, LTCG: ${formatCurrency(result.summary.totalLTCG)}` });
+      }
+    } catch (err) {
+      toast({ title: "Save Error", description: err instanceof Error ? err.message : 'Save failed', variant: "destructive" });
+    }
+  };
+
+  const addManualEntry = () => {
+    setCgManualEntries(prev => [...prev, {
+      assetName: '', isin: '', buyDate: '', sellDate: '',
+      quantity: 0, buyPrice: 0, sellPrice: 0,
+      expenses: 0, sttPaid: 0, fairMarketValue: 0,
+      exemptionSection: '', exemptionAmount: 0,
+    }]);
+  };
+
+  const updateManualEntry = (idx: number, field: keyof ManualCGEntry, value: string | number) => {
+    setCgManualEntries(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e));
+  };
+
+  const removeManualEntry = (idx: number) => {
+    setCgManualEntries(prev => prev.filter((_, i) => i !== idx));
+  };
+
   const renderCapitalGainsStep = () => (
     <div className="space-y-6">
-      <p className="text-muted-foreground text-sm">Enter your capital gains from equity, debt, or property. You can get these from your broker's tax P&L statement or CAMS/KFintech for mutual funds.</p>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="space-y-1.5">
-          <Label htmlFor="shortTermGains">
-            Short Term Capital Gains (STCG)
-            <FieldHint text="Listed equity held < 12 months (taxed at 15% u/s 111A). Debt funds < 36 months. Property < 24 months." />
-          </Label>
-          <CurrencyInput
-            id="shortTermGains"
-            value={capitalGainsDetails.shortTermGains}
-            onChange={(v) => setCapitalGainsDetails(prev => ({ ...prev, shortTermGains: v }))}
-            placeholder="From equity, debt, property"
-            data-testid="input-short-term-gains"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="longTermGains">
-            Long Term Capital Gains (LTCG)
-            <FieldHint text="Listed equity held > 12 months (₹1L exempt, then 10% u/s 112A). Property > 24 months (20% with indexation)." />
-          </Label>
-          <CurrencyInput
-            id="longTermGains"
-            value={capitalGainsDetails.longTermGains}
-            onChange={(v) => setCapitalGainsDetails(prev => ({ ...prev, longTermGains: v }))}
-            placeholder="From equity, property"
-            data-testid="input-long-term-gains"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="exemptions">
-            Exemptions Claimed (Sec 54/54EC/54F)
-            <FieldHint text="Reinvestment exemptions. Sec 54: Reinvest property sale in new house. Sec 54EC: Invest in bonds within 6 months." />
-          </Label>
-          <CurrencyInput
-            id="exemptions"
-            value={capitalGainsDetails.exemptionsApplied}
-            onChange={(v) => setCapitalGainsDetails(prev => ({ ...prev, exemptionsApplied: v }))}
-            placeholder="0 if no exemptions claimed"
-            max={capitalGainsDetails.shortTermGains + capitalGainsDetails.longTermGains || undefined}
-            data-testid="input-exemptions"
-          />
-        </div>
+      <div className="flex items-center justify-between">
+        <p className="text-muted-foreground text-sm">Upload your broker's Tax P&L statement or enter capital gains manually for each asset type.</p>
       </div>
 
-      <Card className="bg-muted/50">
-        <CardContent className="p-4">
-          <div className="flex justify-between items-center">
-            <span className="font-medium">Net Capital Gains</span>
-            <span className="font-bold text-lg">{formatCurrency(totals.capitalGains)}</span>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex gap-2 flex-wrap">
+        <Button size="sm" variant={cgMode === 'upload' ? 'default' : 'outline'} onClick={() => setCgMode('upload')} data-testid="cg-mode-upload">
+          <Upload className="h-4 w-4 mr-1" /> Upload Statement
+        </Button>
+        <Button size="sm" variant={cgMode === 'manual' ? 'default' : 'outline'} onClick={() => setCgMode('manual')} data-testid="cg-mode-manual">
+          <Plus className="h-4 w-4 mr-1" /> Manual Entry
+        </Button>
+        <Button size="sm" variant={cgMode === 'summary' ? 'default' : 'outline'} onClick={() => setCgMode('summary')} data-testid="cg-mode-summary">
+          <BarChart3 className="h-4 w-4 mr-1" /> Summary
+        </Button>
+      </div>
+
+      {cgMode === 'upload' && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Upload Capital Gains Statement
+              </CardTitle>
+              <CardDescription>Select your broker/fund house and upload the Tax P&L report. We support {brokerList.length}+ platforms.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative">
+                <Input
+                  placeholder="Search brokers (e.g. Zerodha, CAMS, Groww...)"
+                  value={cgBrokerSearch}
+                  onChange={(e) => setCgBrokerSearch(e.target.value)}
+                  className="pl-8"
+                  data-testid="cg-broker-search"
+                />
+                <span className="absolute left-2.5 top-2.5 text-muted-foreground text-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                </span>
+              </div>
+
+              {(['stock_broker', 'fund_house', 'aggregator', 'us_stocks'] as const).map(category => {
+                const brokers = filteredBrokers.filter(b => b.category === category);
+                if (brokers.length === 0) return null;
+                const categoryLabels: Record<string, string> = {
+                  stock_broker: 'Stock Brokers',
+                  fund_house: 'Fund Houses / Registrars',
+                  aggregator: 'Aggregators & Platforms',
+                  us_stocks: 'US Stocks',
+                };
+                return (
+                  <div key={category} className="space-y-2">
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">{categoryLabels[category]}</Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                      {brokers.map(broker => (
+                        <Button
+                          key={broker.id}
+                          variant={cgSelectedBroker === broker.id ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-auto py-2 px-3 text-left justify-start text-xs"
+                          onClick={() => setCgSelectedBroker(broker.id === cgSelectedBroker ? null : broker.id)}
+                          data-testid={`cg-broker-${broker.id}`}
+                        >
+                          <span className="truncate">{broker.name}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {cgSelectedBroker && (() => {
+                const broker = brokerList.find(b => b.id === cgSelectedBroker);
+                if (!broker) return null;
+                return (
+                  <Card className="border-primary/30 bg-primary/5">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{broker.name}</p>
+                          <p className="text-xs text-muted-foreground">{broker.fileFormatHint}</p>
+                        </div>
+                        <Badge variant="outline">{broker.supportedFormats.map(f => f.toUpperCase()).join(' / ')}</Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="file"
+                          accept={broker.supportedFormats.map(f => `.${f}`).join(',')}
+                          disabled={cgUploading}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleCgFileUpload(file, broker.id);
+                          }}
+                          data-testid="cg-file-input"
+                        />
+                        {cgUploading && <span className="text-xs text-muted-foreground animate-pulse">Uploading & parsing...</span>}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          <Card className="border-dashed">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-muted-foreground" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Broker not listed?</p>
+                  <p className="text-xs text-muted-foreground">Download our Excel template, fill in your transactions, and upload using "FintekPro Template" option above.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setCgSelectedBroker('template')}>
+                  Use Template
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {cgUploads.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Uploaded Statements ({cgUploads.length})</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {cgUploads.map(upload => (
+                  <div key={upload.id} className="flex items-center justify-between border rounded-md p-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{upload.brokerName}</span>
+                        <Badge variant={upload.parseConfidence >= 0.7 ? 'default' : 'secondary'} className="text-xs">
+                          {(upload.parseConfidence * 100).toFixed(0)}% confidence
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{upload.fileName} — {upload.summary.totalTransactions} transactions</p>
+                      <div className="flex gap-3 mt-1">
+                        <span className="text-xs">STCG: <span className={upload.summary.netSTCG >= 0 ? 'text-green-600' : 'text-red-600'}>{formatCurrency(upload.summary.netSTCG)}</span></span>
+                        <span className="text-xs">LTCG: <span className={upload.summary.netLTCG >= 0 ? 'text-green-600' : 'text-red-600'}>{formatCurrency(upload.summary.netLTCG)}</span></span>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => {
+                      setCgUploads(prev => prev.filter(u => u.id !== upload.id));
+                    }}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {cgMode === 'manual' && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Add Sale Entry — Manual</CardTitle>
+              <CardDescription>Enter capital gains data manually for each asset type. Each entry is logged to the audit trail.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {MANUAL_ASSET_TYPES.map(at => (
+                  <Button
+                    key={at.value}
+                    variant={cgManualAssetType === at.value ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-auto py-2 px-3 text-left justify-start"
+                    onClick={() => { setCgManualAssetType(at.value); setCgManualEntries([]); }}
+                    data-testid={`cg-manual-type-${at.value}`}
+                  >
+                    <span className="mr-1.5">{at.icon}</span>
+                    <span className="text-xs truncate">{at.label}</span>
+                  </Button>
+                ))}
+              </div>
+
+              {(() => {
+                const selectedType = MANUAL_ASSET_TYPES.find(t => t.value === cgManualAssetType);
+                if (!selectedType) return null;
+                return (
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      <strong>{selectedType.label}</strong>: {selectedType.hint}<br/>
+                      <span className="text-muted-foreground">LTCG holding period: {selectedType.holdingPeriod}</span>
+                    </AlertDescription>
+                  </Alert>
+                );
+              })()}
+
+              {cgManualEntries.map((entry, idx) => (
+                <Card key={idx} className="border">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Transaction #{idx + 1}</span>
+                      <Button variant="ghost" size="sm" onClick={() => removeManualEntry(idx)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Asset Name <span className="text-red-500">*</span></Label>
+                        <Input
+                          value={entry.assetName}
+                          onChange={(e) => updateManualEntry(idx, 'assetName', e.target.value)}
+                          placeholder={cgManualAssetType === 'property' ? 'e.g. 2BHK Flat, Andheri' : 'e.g. Reliance Industries'}
+                          data-testid={`cg-manual-name-${idx}`}
+                        />
+                      </div>
+                      {cgManualAssetType !== 'property' && cgManualAssetType !== 'deemed_cg' && (
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">ISIN (optional)</Label>
+                          <Input
+                            value={entry.isin}
+                            onChange={(e) => updateManualEntry(idx, 'isin', e.target.value)}
+                            placeholder="e.g. INE002A01018"
+                          />
+                        </div>
+                      )}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Purchase Date <span className="text-red-500">*</span></Label>
+                        <Input type="date" value={entry.buyDate} onChange={(e) => updateManualEntry(idx, 'buyDate', e.target.value)} data-testid={`cg-manual-buydate-${idx}`} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Sale Date <span className="text-red-500">*</span></Label>
+                        <Input type="date" value={entry.sellDate} onChange={(e) => updateManualEntry(idx, 'sellDate', e.target.value)} data-testid={`cg-manual-selldate-${idx}`} />
+                      </div>
+                      {cgManualAssetType !== 'property' && (
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Quantity</Label>
+                          <Input type="number" min={0} value={entry.quantity || ''} onChange={(e) => updateManualEntry(idx, 'quantity', parseFloat(e.target.value) || 0)} placeholder="Number of units/shares" />
+                        </div>
+                      )}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">{cgManualAssetType === 'property' ? 'Purchase Price' : 'Buy Price Per Unit'}</Label>
+                        <CurrencyInput id={`buyPrice-${idx}`} value={entry.buyPrice} onChange={(v) => updateManualEntry(idx, 'buyPrice', v)} data-testid={`cg-manual-buyprice-${idx}`} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">{cgManualAssetType === 'property' ? 'Sale Consideration' : 'Sell Price Per Unit'}</Label>
+                        <CurrencyInput id={`sellPrice-${idx}`} value={entry.sellPrice} onChange={(v) => updateManualEntry(idx, 'sellPrice', v)} data-testid={`cg-manual-sellprice-${idx}`} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Expenses (Brokerage/Stamp Duty)</Label>
+                        <CurrencyInput id={`expenses-${idx}`} value={entry.expenses} onChange={(v) => updateManualEntry(idx, 'expenses', v)} />
+                      </div>
+                      {(cgManualAssetType === 'shares' || cgManualAssetType === 'mutual_funds') && (
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">STT Paid</Label>
+                          <CurrencyInput id={`stt-${idx}`} value={entry.sttPaid} onChange={(v) => updateManualEntry(idx, 'sttPaid', v)} />
+                        </div>
+                      )}
+                      {cgManualAssetType === 'property' && (
+                        <>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Stamp Duty Value (Sec 50C)</Label>
+                            <CurrencyInput id={`sdv-${idx}`} value={entry.fairMarketValue} onChange={(v) => updateManualEntry(idx, 'fairMarketValue', v)} />
+                          </div>
+                        </>
+                      )}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Exemption Section</Label>
+                        <Select value={entry.exemptionSection} onValueChange={(v) => updateManualEntry(idx, 'exemptionSection', v)}>
+                          <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No Exemption</SelectItem>
+                            <SelectItem value="54">Sec 54 - House reinvestment</SelectItem>
+                            <SelectItem value="54EC">Sec 54EC - Capital Gains Bonds</SelectItem>
+                            <SelectItem value="54F">Sec 54F - New house from other CG</SelectItem>
+                            <SelectItem value="54B">Sec 54B - Agricultural land</SelectItem>
+                            <SelectItem value="54GB">Sec 54GB - Startup investment</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {entry.exemptionSection && entry.exemptionSection !== 'none' && (
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Exemption Amount</Label>
+                          <CurrencyInput id={`exemption-${idx}`} value={entry.exemptionAmount} onChange={(v) => updateManualEntry(idx, 'exemptionAmount', v)} />
+                        </div>
+                      )}
+                    </div>
+                    {entry.buyDate && entry.sellDate && (
+                      <div className="flex gap-4 text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                        <span>Holding: {Math.max(0, Math.floor((new Date(entry.sellDate).getTime() - new Date(entry.buyDate).getTime()) / (86400000)))} days</span>
+                        <span>Gain/Loss: {formatCurrency((entry.quantity || 1) * (entry.sellPrice - entry.buyPrice) - entry.expenses - (entry.exemptionAmount || 0))}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {Math.floor((new Date(entry.sellDate).getTime() - new Date(entry.buyDate).getTime()) / 86400000) > (cgManualAssetType === 'property' || cgManualAssetType === 'gold' || cgManualAssetType === 'other_assets' ? 730 : 365) ? 'LTCG' : 'STCG'}
+                        </Badge>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={addManualEntry} data-testid="cg-add-manual">
+                  <Plus className="h-4 w-4 mr-1" /> Add Transaction
+                </Button>
+                {cgManualEntries.length > 0 && (
+                  <Button size="sm" onClick={handleCgManualSave} data-testid="cg-save-manual">
+                    <Save className="h-4 w-4 mr-1" /> Save {cgManualEntries.length} Entries
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {cgManualSaved.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Saved Manual Entries ({cgManualSaved.length})</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {cgManualSaved.map(saved => {
+                  const at = MANUAL_ASSET_TYPES.find(t => t.value === saved.assetType);
+                  return (
+                    <div key={saved.id} className="flex items-center justify-between border rounded-md p-3">
+                      <div>
+                        <span className="text-sm font-medium">{at?.icon} {at?.label || saved.assetType}</span>
+                        <span className="text-xs text-muted-foreground ml-2">({saved.entryCount} transactions)</span>
+                        <div className="flex gap-3 mt-1">
+                          <span className="text-xs">STCG: <span className="text-green-600">{formatCurrency(saved.summary.totalSTCG)}</span></span>
+                          <span className="text-xs">LTCG: <span className="text-green-600">{formatCurrency(saved.summary.totalLTCG)}</span></span>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => {
+                        setCgManualSaved(prev => prev.filter(s => s.id !== saved.id));
+                      }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
+
+          <Alert>
+            <Shield className="h-4 w-4" />
+            <AlertDescription className="text-xs">
+              <strong>F&O / Intraday Trading:</strong> If you have Futures & Options or frequent intraday activity, these are classified as Business Income (ITR-3). 
+              Use the Business & Profession section instead. Only equity delivery-based trades are reported as Capital Gains.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      {cgMode === 'summary' && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" /> Capital Gains Summary
+              </CardTitle>
+              <CardDescription>Combined totals from all uploaded statements and manual entries. These values will be used in your ITR filing.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Short Term Capital Gains</p>
+                    <p className="text-xl font-bold text-orange-700 dark:text-orange-400">{formatCurrency(capitalGainsDetails.shortTermGains)}</p>
+                    <p className="text-xs text-muted-foreground">Taxed at 15-20% (u/s 111A)</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Long Term Capital Gains</p>
+                    <p className="text-xl font-bold text-blue-700 dark:text-blue-400">{formatCurrency(capitalGainsDetails.longTermGains)}</p>
+                    <p className="text-xs text-muted-foreground">Taxed at 10-12.5% (u/s 112A)</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Net Capital Gains</p>
+                    <p className="text-xl font-bold text-green-700 dark:text-green-400">{formatCurrency(totals.capitalGains)}</p>
+                    <p className="text-xs text-muted-foreground">After exemptions</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Exemptions (Sec 54/54EC/54F)</Label>
+                <CurrencyInput
+                  id="exemptions"
+                  value={capitalGainsDetails.exemptionsApplied}
+                  onChange={(v) => setCapitalGainsDetails(prev => ({ ...prev, exemptionsApplied: v }))}
+                  placeholder="0 if no exemptions claimed"
+                  data-testid="input-exemptions"
+                />
+                <p className="text-xs text-muted-foreground">Reinvestment exemptions. Sec 54: Reinvest property sale proceeds in a new house within 2 years. Sec 54EC: Invest up to ₹50 lakhs in capital gains bonds within 6 months.</p>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Override Totals (Advanced)</Label>
+                <p className="text-xs text-muted-foreground">If upload/manual totals are incorrect, you can override them directly below.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Short Term Capital Gains (STCG)</Label>
+                    <CurrencyInput
+                      id="shortTermGains"
+                      value={capitalGainsDetails.shortTermGains}
+                      onChange={(v) => setCapitalGainsDetails(prev => ({ ...prev, shortTermGains: v }))}
+                      data-testid="input-short-term-gains"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Long Term Capital Gains (LTCG)</Label>
+                    <CurrencyInput
+                      id="longTermGains"
+                      value={capitalGainsDetails.longTermGains}
+                      onChange={(v) => setCapitalGainsDetails(prev => ({ ...prev, longTermGains: v }))}
+                      data-testid="input-long-term-gains"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {(cgUploads.length > 0 || cgManualSaved.length > 0) && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">Data Sources</Label>
+                    {cgUploads.map(u => (
+                      <div key={u.id} className="flex items-center justify-between text-xs border rounded p-2">
+                        <span><Upload className="h-3 w-3 inline mr-1" />{u.brokerName} ({u.fileName})</span>
+                        <span>STCG: {formatCurrency(u.summary.netSTCG)} | LTCG: {formatCurrency(u.summary.netLTCG)}</span>
+                      </div>
+                    ))}
+                    {cgManualSaved.map(s => {
+                      const at = MANUAL_ASSET_TYPES.find(t => t.value === s.assetType);
+                      return (
+                        <div key={s.id} className="flex items-center justify-between text-xs border rounded p-2">
+                          <span>{at?.icon} {at?.label} ({s.entryCount} entries)</span>
+                          <span>STCG: {formatCurrency(s.summary.totalSTCG)} | LTCG: {formatCurrency(s.summary.totalLTCG)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              <Alert>
+                <Shield className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  All uploads and manual entries are logged with SHA-256 hash chain integrity for ITR department audit compliance. 
+                  File checksums, parse confidence scores, and entry timestamps are immutably recorded.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <ValidationBanner validation={currentValidation} />
     </div>

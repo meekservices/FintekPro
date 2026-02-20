@@ -34,6 +34,21 @@ export type PDFType =
   | 'broker_axis'        // Axis Direct holdings
   | 'broker_iifl'        // IIFL Securities holdings
   | 'broker_sharekhan'   // Sharekhan holdings
+  | 'broker_anand_rathi' // Anand Rathi holdings
+  | 'broker_fyers'       // Fyers holdings
+  | 'broker_geojit'      // Geojit holdings
+  | 'broker_idbi'        // IDBI Securities holdings
+  | 'broker_sbi'         // SBI Securities holdings
+  | 'broker_smc'         // SMC Global Securities holdings
+  | 'broker_religare'    // Religare Broking holdings
+  | 'broker_yes'         // Yes Securities holdings
+  | 'broker_ventura'     // Ventura Securities holdings
+  | 'broker_mastertrust' // Mastertrust holdings
+  | 'broker_paytm_broker'// Paytm Money broker holdings
+  | 'broker_vested_us'   // Vested US stocks
+  | 'broker_indmoney_us' // INDmoney US stocks
+  | 'broker_groww_us'    // Groww US stocks
+  | 'aggregator_fundsindia' // Funds India
   | 'aggregator_mfcentral' // MF Central
   | 'aggregator_indmoney' // INDmoney
   | 'aggregator_kuvera'  // Kuvera
@@ -693,6 +708,18 @@ class UnifiedPDFParser {
     if (/axis\s*direct|axisdirect\.in/i.test(text)) return 'broker_axis';
     if (/iifl\s*securities|indiainfoline/i.test(text)) return 'broker_iifl';
     if (/sharekhan/i.test(text)) return 'broker_sharekhan';
+    if (/anand\s*rathi|anandrathi/i.test(text)) return 'broker_anand_rathi';
+    if (/fyers\.in|fyers\s+securities/i.test(text)) return 'broker_fyers';
+    if (/geojit|bnp\s*paribas.*geojit/i.test(text)) return 'broker_geojit';
+    if (/idbi\s*capital|idbi\s*securities/i.test(text)) return 'broker_idbi';
+    if (/sbi\s*securities|sbisec\.in/i.test(text)) return 'broker_sbi';
+    if (/smc\s*global|smctradeonline/i.test(text)) return 'broker_smc';
+    if (/religare\s*broking|religare\s*securities/i.test(text)) return 'broker_religare';
+    if (/yes\s*securities/i.test(text)) return 'broker_yes';
+    if (/ventura\s*securities|ventura\.in/i.test(text)) return 'broker_ventura';
+    if (/mastertrust/i.test(text)) return 'broker_mastertrust';
+    if (/vested\.co\.in|vested\s*finance/i.test(text)) return 'broker_vested_us';
+    if (/funds\s*india|fundsindia/i.test(text)) return 'aggregator_fundsindia';
     
     if (/wealthy\.in|wealthy\s+portfolio/i.test(text)) return 'aggregator_wealthy';
     if (/mf\s*central|mfcentral\.com/i.test(text)) return 'aggregator_mfcentral';
