@@ -4766,12 +4766,18 @@ System Security Data:`;
     }
   });
   
-  // Initialize the scheduler on startup
-  import("../../services/data-enrichment-scheduler").then(({ dataEnrichmentScheduler }) => {
-    dataEnrichmentScheduler.initialize();
-    console.log("✅ Data Enrichment Scheduler initialized");
-  }).catch(err => {
-    console.warn("⚠️ Failed to initialize Data Enrichment Scheduler:", err.message);
+  // Initialize the scheduler on startup (production only - writes to DB)
+  import("../../utils/enrichment-guard").then(({ isProductionEnvironment }) => {
+    if (isProductionEnvironment()) {
+      import("../../services/data-enrichment-scheduler").then(({ dataEnrichmentScheduler }) => {
+        dataEnrichmentScheduler.initialize();
+        console.log("✅ Data Enrichment Scheduler initialized");
+      }).catch(err => {
+        console.warn("⚠️ Failed to initialize Data Enrichment Scheduler:", err.message);
+      });
+    } else {
+      console.log("⏭️ [DataEnrichment] Scheduler skipped (development mode - production only)");
+    }
   });
   
   console.log("✅ Data Enrichment Admin routes registered");

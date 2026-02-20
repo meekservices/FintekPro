@@ -127,6 +127,7 @@ import { bseBondApi } from './bseBondApi';
 import { bseDirectApi } from './bseDirectApi';
 import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema } from '@shared/schema';
 import { businessIntelligence } from './business-intelligence-service';
+import { isProductionEnvironment } from './utils/enrichment-guard';
 import { bondOrderNotificationService } from "./services/bond-order-notification-service";
 import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isNameMatchAcceptable } from './penny-drop-service';
 import { lookupIFSC, isValidIFSCFormat } from './ifsc-lookup-service';
@@ -365,13 +366,21 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   //   console.log('⚠️ WhatsApp service initialization failed (non-critical):', error instanceof Error ? error.message : 'Unknown error');
   // }
   
-  // Start mutual funds background refresh job
-  mutualFundsRefreshJob.start();
+  // Start mutual funds background refresh job (production only - writes to DB)
+  if (isProductionEnvironment()) {
+    mutualFundsRefreshJob.start();
+  } else {
+    console.log("⏭️ [MF Refresh Job] Skipped (development mode - production only)");
+  }
   registerAgentItrRoutes(app);
   registerForm15Routes(app);
   
-  // Start Re-KYC reminder cron job (runs daily at 9:00 AM)
-  initReKYCCron();
+  // Start Re-KYC reminder cron job (production only - sends notifications)
+  if (isProductionEnvironment()) {
+    initReKYCCron();
+  } else {
+    console.log("⏭️ [Re-KYC Cron] Skipped (development mode - production only)");
+  }
   
   // Check products - no auto-seeding with mock data
   try {
@@ -830,8 +839,13 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
   // Historical NAV Data Service (Portfolio Metrics from Real Data)
   app.use("/api/historical-nav", historicalNavRoutes);
-  historicalNavRefreshJob.initialize();
-  console.log("✅ Historical NAV Data routes registered (with daily refresh job)");
+  if (isProductionEnvironment()) {
+    historicalNavRefreshJob.initialize();
+    console.log("✅ Historical NAV Data routes registered (with daily refresh job)");
+  } else {
+    console.log("✅ Historical NAV Data routes registered");
+    console.log("⏭️ [HistoricalNavRefresh] Daily refresh skipped (development mode - production only)");
+  }
 
   // Global Advisory Routes (EPIC 1 & 2)
   app.use("/api/global-advisory", globalAdvisoryRoutes);
@@ -863,13 +877,16 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   console.log("✅ MCA Direct Payment routes registered");
   app.use("/api/admin/mca-backfill", mcaFinancialBackfillRoutes);
   console.log("✅ MCA Financial Backfill routes registered");
-  mcaFinancialRefreshScheduler.start();
-  console.log("✅ MCA Financial Refresh Scheduler started (daily auto-refresh)");
+  if (isProductionEnvironment()) {
+    mcaFinancialRefreshScheduler.start();
+    console.log("✅ MCA Financial Refresh Scheduler started (daily auto-refresh)");
 
-  // Start Quant Retraining Scheduler (automated model retraining)
-  const { quantRetrainingScheduler } = await import('./services/quant/quant-retraining-scheduler');
-  quantRetrainingScheduler.start();
-  console.log("✅ Quant Retraining Scheduler started (automated model lifecycle)");
+    const { quantRetrainingScheduler } = await import('./services/quant/quant-retraining-scheduler');
+    quantRetrainingScheduler.start();
+    console.log("✅ Quant Retraining Scheduler started (automated model lifecycle)");
+  } else {
+    console.log("⏭️ [MCA Refresh/Quant Retraining] Skipped (development mode - production only)");
+  }
   console.log("✅ MCA Intelligence routes registered");
 
   app.use("/api/admin/recommendation-products", recommendationProductsRoutes);

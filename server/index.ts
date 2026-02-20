@@ -768,50 +768,58 @@ app.use((req, res, next) => {
   console.log('✅ Pick of the Day routes registered');
 
   const { pickOfTheDayService } = await import('./services/pick-of-the-day-service');
-  setTimeout(() => pickOfTheDayService.startDailyScheduler(), 60000);
+  const { isProductionEnvironment } = await import('./utils/enrichment-guard');
+  if (isProductionEnvironment()) {
+    setTimeout(() => pickOfTheDayService.startDailyScheduler(), 60000);
+  } else {
+    console.log('⏭️ [PickOfTheDay] Daily scheduler skipped (development mode - production only)');
+  }
 
   // Register AI Alpha Engine routes (Backtesting, Regime Detection, Portfolio Optimization)
   const aiAlphaEngineRoutes = await import('./routes/ai-alpha-engine');
   app.use('/api/ai', aiAlphaEngineRoutes.default);
   console.log('✅ AI Alpha Engine routes registered');
 
-  // Start AI Regime Detection scheduler (8:30 AM IST daily, before pick generation at 9:00 AM)
-  const { aiRegimeDetectionEngine } = await import('./services/ai-regime-detection-engine');
+  // AI Regime Detection & Model Governance schedulers (production only - writes to DB)
   const cron = await import('node-cron');
-  cron.schedule('0 3 * * *', async () => {
-    console.log('[AI Regime] Running daily regime detection (8:30 AM IST / 3:00 AM UTC)...');
-    try {
-      const result = await aiRegimeDetectionEngine.detectCurrentRegime();
-      await aiRegimeDetectionEngine.persistRegime(result);
-      console.log(`[AI Regime] Detected: ${result.regimeLabel} (confidence: ${result.confidence.toFixed(1)}%)`);
-    } catch (error) {
-      console.error('[AI Regime] Detection failed:', error);
-    }
-  }, { timezone: 'UTC' });
+  if (isProductionEnvironment()) {
+    const { aiRegimeDetectionEngine } = await import('./services/ai-regime-detection-engine');
+    cron.schedule('0 3 * * *', async () => {
+      console.log('[AI Regime] Running daily regime detection (8:30 AM IST / 3:00 AM UTC)...');
+      try {
+        const result = await aiRegimeDetectionEngine.detectCurrentRegime();
+        await aiRegimeDetectionEngine.persistRegime(result);
+        console.log(`[AI Regime] Detected: ${result.regimeLabel} (confidence: ${result.confidence.toFixed(1)}%)`);
+      } catch (error) {
+        console.error('[AI Regime] Detection failed:', error);
+      }
+    }, { timezone: 'UTC' });
 
-  // AI Model Governance check (8:00 AM IST / 2:30 AM UTC daily, before regime detection)
-  const { aiModelGovernance } = await import('./services/ai-model-governance');
-  cron.schedule('30 2 * * *', async () => {
-    console.log('[AI Governance] Running daily governance check (8:00 AM IST)...');
-    try {
-      await aiModelGovernance.updatePredictionOutcomes();
-      const summary = await aiModelGovernance.runGovernanceCheck();
-      console.log(`[AI Governance] Models: ${summary.healthyModels} healthy, ${summary.warningModels} warning, ${summary.criticalModels} critical`);
-      if (summary.modelsNeedingRetrain.length > 0) {
-        console.log(`[AI Governance] Auto-retraining: ${summary.modelsNeedingRetrain.join(', ')}`);
-        for (const assetClass of summary.modelsNeedingRetrain) {
-          try {
-            await aiModelGovernance.triggerRetrain(assetClass);
-            console.log(`[AI Governance] Retrained model for ${assetClass}`);
-          } catch (err) {
-            console.error(`[AI Governance] Retrain failed for ${assetClass}:`, err);
+    const { aiModelGovernance } = await import('./services/ai-model-governance');
+    cron.schedule('30 2 * * *', async () => {
+      console.log('[AI Governance] Running daily governance check (8:00 AM IST)...');
+      try {
+        await aiModelGovernance.updatePredictionOutcomes();
+        const summary = await aiModelGovernance.runGovernanceCheck();
+        console.log(`[AI Governance] Models: ${summary.healthyModels} healthy, ${summary.warningModels} warning, ${summary.criticalModels} critical`);
+        if (summary.modelsNeedingRetrain.length > 0) {
+          console.log(`[AI Governance] Auto-retraining: ${summary.modelsNeedingRetrain.join(', ')}`);
+          for (const assetClass of summary.modelsNeedingRetrain) {
+            try {
+              await aiModelGovernance.triggerRetrain(assetClass);
+              console.log(`[AI Governance] Retrained model for ${assetClass}`);
+            } catch (err) {
+              console.error(`[AI Governance] Retrain failed for ${assetClass}:`, err);
+            }
           }
         }
+      } catch (error) {
+        console.error('[AI Governance] Check failed:', error);
       }
-    } catch (error) {
-      console.error('[AI Governance] Check failed:', error);
-    }
-  }, { timezone: 'UTC' });
+    }, { timezone: 'UTC' });
+  } else {
+    console.log('⏭️ [AI Regime/Governance] Daily schedulers skipped (development mode - production only)');
+  }
   
   // Register MF Order Execution routes (SEBI-compliant buy/sell order management)
   const mfOrdersRoutes = await import('./routes/mf-orders');
@@ -918,31 +926,39 @@ app.use((req, res, next) => {
 
   // Initialize background services now that server is fully ready
   
-  // Initialize Capital Gains Tax Reminder Scheduler
-  try {
-    import('./services/reminder-scheduler').then(({ reminderScheduler }) => {
-      reminderScheduler.start();
-      logger.service('Capital Gains Tax Reminder Scheduler', 'Service initialized successfully');
-    }).catch(error => {
-      logger.serviceError('Capital Gains Tax Reminder Scheduler', 'Failed to initialize service', error instanceof Error ? error : undefined);
-    });
-  } catch (error) {
-    logger.serviceError('Capital Gains Tax Reminder Scheduler', 'Error importing service module', error instanceof Error ? error : undefined);
-  }
-  
-  // Initialize Bond Catalog Service (delayed to reduce startup load)
-  setTimeout(() => {
+  // Initialize Capital Gains Tax Reminder Scheduler (production only - sends notifications)
+  if (isProductionEnvironment()) {
     try {
-      import('./bond-catalog-service').then(({ bondCatalogService }) => {
-        bondCatalogService.startAutoRefresh();
-        logger.service('Bond Catalog Service', 'Service initialized successfully');
+      import('./services/reminder-scheduler').then(({ reminderScheduler }) => {
+        reminderScheduler.start();
+        logger.service('Capital Gains Tax Reminder Scheduler', 'Service initialized successfully');
       }).catch(error => {
-        console.error('❌ Failed to initialize bond catalog service:', error);
+        logger.serviceError('Capital Gains Tax Reminder Scheduler', 'Failed to initialize service', error instanceof Error ? error : undefined);
       });
     } catch (error) {
-      console.error('❌ Error importing bond catalog service:', error);
+      logger.serviceError('Capital Gains Tax Reminder Scheduler', 'Error importing service module', error instanceof Error ? error : undefined);
     }
-  }, 30000); // 30 second delay
+  } else {
+    console.log('⏭️ [CapitalGainsReminder] Scheduler skipped (development mode - production only)');
+  }
+  
+  // Initialize Bond Catalog Service (production only - writes to DB)
+  if (isProductionEnvironment()) {
+    setTimeout(() => {
+      try {
+        import('./bond-catalog-service').then(({ bondCatalogService }) => {
+          bondCatalogService.startAutoRefresh();
+          logger.service('Bond Catalog Service', 'Service initialized successfully');
+        }).catch(error => {
+          console.error('❌ Failed to initialize bond catalog service:', error);
+        });
+      } catch (error) {
+        console.error('❌ Error importing bond catalog service:', error);
+      }
+    }, 30000);
+  } else {
+    console.log('⏭️ [BondCatalog] Auto-refresh skipped (development mode - production only)');
+  }
   
   // Initialize Alert Monitoring Service
   try {
@@ -956,20 +972,24 @@ app.use((req, res, next) => {
     console.error('❌ Error importing alert monitoring service:', error);
   }
   
-  // Initialize Currency Exchange Service (delayed to reduce startup load)
-  setTimeout(() => {
-    try {
-      import('./services/currency-exchange-service').then(async ({ currencyExchangeService }) => {
-        await currencyExchangeService.initializeRates();
-        currencyExchangeService.startAutoRefresh();
-        logger.service('Currency Exchange Service', 'Service initialized successfully');
-      }).catch(error => {
-        console.error('❌ Failed to initialize currency exchange service:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error importing currency exchange service:', error);
-    }
-  }, 45000); // 45 second delay (after bond catalog)
+  // Initialize Currency Exchange Service (production only - writes to DB)
+  if (isProductionEnvironment()) {
+    setTimeout(() => {
+      try {
+        import('./services/currency-exchange-service').then(async ({ currencyExchangeService }) => {
+          await currencyExchangeService.initializeRates();
+          currencyExchangeService.startAutoRefresh();
+          logger.service('Currency Exchange Service', 'Service initialized successfully');
+        }).catch(error => {
+          console.error('❌ Failed to initialize currency exchange service:', error);
+        });
+      } catch (error) {
+        console.error('❌ Error importing currency exchange service:', error);
+      }
+    }, 45000);
+  } else {
+    console.log('⏭️ [CurrencyExchange] Auto-refresh skipped (development mode - production only)');
+  }
   
   // Initialize Session Cleanup Cron Job
   try {
@@ -997,16 +1017,20 @@ app.use((req, res, next) => {
     console.warn('⚠️ Error importing CKYC provider service (non-blocking):', error instanceof Error ? error.message : 'Unknown error');
   }
   
-  // Initialize Retention Cleanup Service (8-year PMLA/RBI compliance)
-  try {
-    import('./services/retention-cleanup-service').then(({ retentionCleanupService }) => {
-      retentionCleanupService.scheduleCleanup();
-      logger.service('Retention Cleanup Service', 'Scheduled daily cleanup at 2:00 AM IST');
-    }).catch(error => {
-      console.error('❌ Failed to initialize retention cleanup service:', error);
-    });
-  } catch (error) {
-    console.error('❌ Error importing retention cleanup service:', error);
+  // Initialize Retention Cleanup Service (production only - deletes old data per PMLA/RBI compliance)
+  if (isProductionEnvironment()) {
+    try {
+      import('./services/retention-cleanup-service').then(({ retentionCleanupService }) => {
+        retentionCleanupService.scheduleCleanup();
+        logger.service('Retention Cleanup Service', 'Scheduled daily cleanup at 2:00 AM IST');
+      }).catch(error => {
+        console.error('❌ Failed to initialize retention cleanup service:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error importing retention cleanup service:', error);
+    }
+  } else {
+    console.log('⏭️ [RetentionCleanup] Scheduler skipped (development mode - production only)');
   }
   
   // Initialize Background Job Queue
