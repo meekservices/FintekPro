@@ -47,7 +47,8 @@ import {
   Trash2,
   Users,
   Banknote,
-  Lightbulb
+  Lightbulb,
+  FileSearch
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -1112,10 +1113,21 @@ export default function TaxITRSelfPage() {
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [showChallanDialog, setShowChallanDialog] = useState(false);
   const [showToolsDialog, setShowToolsDialog] = useState(false);
+  const [showSharingPanel, setShowSharingPanel] = useState(false);
+  const [showPreFilingCheck, setShowPreFilingCheck] = useState(false);
+  const [showDeadlines, setShowDeadlines] = useState(false);
+  const [showRefundTracker, setShowRefundTracker] = useState(false);
+  const [showLookupPanel, setShowLookupPanel] = useState(false);
+  const [showReconciliation, setShowReconciliation] = useState(false);
+  const [reconciliationResult, setReconciliationResult] = useState<any>(null);
   const [challanResult, setChallanResult] = useState<any>(null);
   const [hraResult, setHraResult] = useState<any>(null);
   const [form10EResult, setForm10EResult] = useState<any>(null);
   const [optimizerResult, setOptimizerResult] = useState<any>(null);
+  const [preFilingResult, setPreFilingResult] = useState<any>(null);
+  const [deadlinesData, setDeadlinesData] = useState<any[]>([]);
+  const [refundData, setRefundData] = useState<any>(null);
+  const [ifscResult, setIfscResult] = useState<any>(null);
 
   const [sandboxTaxResult, setSandboxTaxResult] = useState<SandboxTaxResult | null>(null);
   const [taxCalcError, setTaxCalcError] = useState<string | null>(null);
@@ -2150,7 +2162,7 @@ export default function TaxITRSelfPage() {
           <CardDescription>Import data from IT portal, previous year ITR, or broker statements</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <Label className="text-xs mb-1 block">Import ITR JSON from IT Portal</Label>
               <Input type="file" accept=".json" className="text-xs" onChange={async (e) => {
@@ -2175,24 +2187,48 @@ export default function TaxITRSelfPage() {
               }} data-testid="input-import-itr-json" />
             </div>
             <div>
-              <Label className="text-xs mb-1 block">Import Broker CG Statement (CSV)</Label>
+              <Label className="text-xs mb-1 block">Import AIS/TIS Statement</Label>
+              <Input type="file" accept=".json" className="text-xs" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const formData = new FormData();
+                formData.append("file", file);
+                try {
+                  const resp = await fetch("/api/tax/import/ais-tis", { method: "POST", body: formData });
+                  const result = await resp.json();
+                  if (result.success) {
+                    const d = result.data;
+                    if (d.interestIncome > 0) setOtherIncomeDetails(p => ({ ...p, interestIncome: p.interestIncome + d.interestIncome }));
+                    if (d.dividendIncome > 0) setOtherIncomeDetails(p => ({ ...p, dividendIncome: p.dividendIncome + d.dividendIncome }));
+                    if (d.salaryIncome > 0) setSalaryDetails(p => ({ ...p, grossSalary: d.salaryIncome }));
+                    const summary = result.summary;
+                    toast({ title: "AIS/TIS Imported", description: `${summary.totalTDSEntries} TDS entries, ${summary.totalSFTEntries} SFT entries, ₹${summary.interestIncome.toLocaleString("en-IN")} interest, ₹${summary.dividendIncome.toLocaleString("en-IN")} dividends` });
+                  } else {
+                    toast({ title: "Import Failed", description: result.message, variant: "destructive" });
+                  }
+                } catch { toast({ title: "Import Error", description: "Failed to parse AIS/TIS", variant: "destructive" }); }
+              }} data-testid="input-import-ais-tis" />
+            </div>
+            <div>
+              <Label className="text-xs mb-1 block">Import Broker CG (23 Brokers)</Label>
               <Input type="file" accept=".csv,.xlsx" className="text-xs" onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
                 const formData = new FormData();
                 formData.append("file", file);
-                formData.append("broker", "generic");
+                formData.append("broker", "auto");
                 try {
-                  const resp = await fetch("/api/tax/import/broker-cg", { method: "POST", body: formData });
+                  const resp = await fetch("/api/tax/import/broker-cg-v2", { method: "POST", body: formData });
                   const result = await resp.json();
                   if (result.success) {
                     setCapitalGainsDetails(p => ({ ...p, shortTermGains: p.shortTermGains + result.data.totalSTCG, longTermGains: p.longTermGains + result.data.totalLTCG }));
-                    toast({ title: "Broker Import Done", description: `${result.data.totalTransactions} transactions parsed. STCG: ₹${result.data.totalSTCG.toLocaleString("en-IN")}, LTCG: ₹${result.data.totalLTCG.toLocaleString("en-IN")}` });
+                    toast({ title: `Broker Import (${result.data.broker})`, description: `${result.data.totalTransactions} transactions. STCG: ₹${result.data.totalSTCG.toLocaleString("en-IN")}, LTCG: ₹${result.data.totalLTCG.toLocaleString("en-IN")}` });
                   } else {
                     toast({ title: "Import Failed", description: result.message, variant: "destructive" });
                   }
-                } catch { toast({ title: "Import Error", description: "Failed to parse broker statement", variant: "destructive" }); }
-              }} data-testid="input-import-broker-cg" />
+                } catch { toast({ title: "Import Error", variant: "destructive" }); }
+              }} data-testid="input-import-broker-cg-v2" />
+              <p className="text-[10px] text-muted-foreground mt-0.5">Zerodha, Groww, Upstox, Angel One, ICICI Direct, HDFC Sec, Motilal, Kotak, 5Paisa, Paytm Money, Axis, Edelweiss, Sharekhan, SBI, Dhan, mStock, IIFL, Geojit, Kuvera, CAMS, KFintech, Coin, MFCentral</p>
             </div>
             <div>
               <Label className="text-xs mb-1 block">Export ITR JSON</Label>
@@ -2202,7 +2238,7 @@ export default function TaxITRSelfPage() {
                     method: "POST", headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       pan: panContext?.pan, assessmentYear, itrForm: recommendedForm,
-                      data: { name: panContext?.name, filingSection, taxRegime, residentialStatus, salaryDetails, capitalGainsDetails, otherIncomeDetails: otherIncomeDetails, deductionDetails, taxPaymentDetails, grossTotalIncome: totals.grossTotalIncome, totalDeductions: totals.totalDeductions, taxableIncome: Math.max(0, totals.grossTotalIncome - totals.totalDeductions) },
+                      data: { name: panContext?.name, filingSection, taxRegime, residentialStatus, salaryDetails, capitalGainsDetails, otherIncomeDetails, deductionDetails, taxPaymentDetails, grossTotalIncome: totals.grossTotalIncome, totalDeductions: totals.totalDeductions, taxableIncome: Math.max(0, totals.grossTotalIncome - totals.totalDeductions) },
                     }),
                   });
                   const result = await resp.json();
@@ -2214,7 +2250,7 @@ export default function TaxITRSelfPage() {
                     URL.revokeObjectURL(url);
                     toast({ title: "Export Done", description: `${result.fileName} downloaded` });
                   }
-                } catch { toast({ title: "Export Error", description: "Failed to export ITR JSON", variant: "destructive" }); }
+                } catch { toast({ title: "Export Error", variant: "destructive" }); }
               }} data-testid="btn-export-itr-json">
                 <FileText className="h-3.5 w-3.5 mr-1" /> Download ITR JSON
               </Button>
@@ -5736,6 +5772,331 @@ export default function TaxITRSelfPage() {
                 </Tabs>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Shield className="h-4 w-4" /> Filing Utilities
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async () => {
+                try {
+                  const resp = await fetch("/api/tax/validate/pre-filing", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pan: panContext?.pan, assessmentYear, itrForm: recommendedForm, data: { salaryDetails, capitalGainsDetails, otherIncomeDetails, deductionDetails, taxPaymentDetails, taxRegime, residentialStatus, grossTotalIncome: totals.grossTotalIncome, housePropertyIncome: totals.housePropertyIncome, bankDetails: {} } }),
+                  });
+                  const result = await resp.json();
+                  if (result.success) { setPreFilingResult(result.data); setShowPreFilingCheck(true); }
+                } catch { toast({ title: "Error", variant: "destructive" }); }
+              }} data-testid="btn-pre-filing-check">
+                <CheckCircle className="h-3.5 w-3.5 mr-1" /> Pre-Filing Check
+              </Button>
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={() => setShowSharingPanel(p => !p)} data-testid="btn-sharing">
+                <Send className="h-3.5 w-3.5 mr-1" /> Share Docs
+              </Button>
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async () => {
+                try {
+                  const resp = await fetch(`/api/tax/refund/status?pan=${panContext?.pan || ""}&assessmentYear=${assessmentYear}`);
+                  const result = await resp.json();
+                  if (result.success) { setRefundData(result.data); setShowRefundTracker(true); }
+                } catch { toast({ title: "Error", variant: "destructive" }); }
+              }} data-testid="btn-refund-tracker">
+                <Wallet className="h-3.5 w-3.5 mr-1" /> Refund Status
+              </Button>
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async () => {
+                try {
+                  const resp = await fetch("/api/tax/deadlines");
+                  const result = await resp.json();
+                  if (result.success) { setDeadlinesData(result.data); setShowDeadlines(true); }
+                } catch { toast({ title: "Error", variant: "destructive" }); }
+              }} data-testid="btn-deadlines">
+                <Clock className="h-3.5 w-3.5 mr-1" /> Deadlines
+              </Button>
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={() => setShowLookupPanel(p => !p)} data-testid="btn-lookups">
+                <HelpCircle className="h-3.5 w-3.5 mr-1" /> IFSC / TAN
+              </Button>
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async () => {
+                try {
+                  const resp = await fetch("/api/tax/reconcile/26as", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pan: panContext?.pan, assessmentYear, enteredTds: taxPaymentDetails }),
+                  });
+                  const result = await resp.json();
+                  if (result.success) { setReconciliationResult(result.data); setShowReconciliation(true); }
+                } catch { toast({ title: "Error", variant: "destructive" }); }
+              }} data-testid="btn-reconcile-26as">
+                <FileSearch className="h-3.5 w-3.5 mr-1" /> 26AS Reconcile
+              </Button>
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async () => {
+                try {
+                  const resp = await fetch("/api/tax/efile/direct", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pan: panContext?.pan, itrForm: recommendedForm, assessmentYear, itrData: { salaryDetails, capitalGainsDetails, otherIncomeDetails, deductionDetails, taxPaymentDetails }, eVerificationMethod: "aadhaar_otp" }),
+                  });
+                  const result = await resp.json();
+                  if (result.success) toast({ title: "e-Filing Initiated", description: `Ack: ${result.data.ackNumber} | Status: ${result.data.status}` });
+                } catch { toast({ title: "Error", variant: "destructive" }); }
+              }} data-testid="btn-direct-efile">
+                <Send className="h-3.5 w-3.5 mr-1" /> Direct e-File
+              </Button>
+            </div>
+
+            {showPreFilingCheck && preFilingResult && (
+              <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    {preFilingResult.summary.verdict === "CLEAR_TO_FILE" ? <CheckCircle className="h-4 w-4 text-green-600" /> : preFilingResult.summary.verdict === "ERRORS_FOUND" ? <XCircle className="h-4 w-4 text-red-600" /> : <AlertTriangle className="h-4 w-4 text-amber-600" />}
+                    {preFilingResult.summary.verdict.replace(/_/g, " ")}
+                  </h4>
+                  <Badge variant={preFilingResult.isFileable ? "default" : "destructive"} className="text-[10px]">{preFilingResult.summary.totalErrors} errors, {preFilingResult.summary.totalWarnings} warnings</Badge>
+                </div>
+                {preFilingResult.errors.map((e: any, i: number) => (
+                  <div key={i} className="text-xs p-2 bg-red-50 dark:bg-red-950 rounded border border-red-200 dark:border-red-800 flex items-start gap-2">
+                    <XCircle className="h-3.5 w-3.5 text-red-600 mt-0.5 flex-shrink-0" /><div><span className="font-medium">[{e.code}]</span> {e.message}</div>
+                  </div>
+                ))}
+                {preFilingResult.warnings.map((w: any, i: number) => (
+                  <div key={i} className="text-xs p-2 bg-amber-50 dark:bg-amber-950 rounded border border-amber-200 dark:border-amber-800 flex items-start gap-2">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600 mt-0.5 flex-shrink-0" /><div><span className="font-medium">[{w.code}]</span> {w.message}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {showReconciliation && reconciliationResult && (
+              <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold flex items-center gap-2"><FileSearch className="h-4 w-4" /> 26AS Reconciliation</h4>
+                  <Badge variant="outline" className="text-[10px]">{reconciliationResult.summary?.matchRate || "N/A"} Match Rate</Badge>
+                </div>
+                {reconciliationResult.matched?.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-green-600">Matched ({reconciliationResult.matched.length})</p>
+                    {reconciliationResult.matched.map((m: any, i: number) => (
+                      <div key={i} className="text-xs p-1.5 bg-green-50 dark:bg-green-950 rounded border border-green-200 dark:border-green-800 flex justify-between">
+                        <span>{m.deductorName || m.tan}</span><span className="font-medium">₹{(m.amount26AS || 0).toLocaleString("en-IN")}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {reconciliationResult.mismatched?.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-amber-600">Mismatched ({reconciliationResult.mismatched.length})</p>
+                    {reconciliationResult.mismatched.map((m: any, i: number) => (
+                      <div key={i} className="text-xs p-1.5 bg-amber-50 dark:bg-amber-950 rounded border border-amber-200 dark:border-amber-800">
+                        <div className="flex justify-between"><span>{m.deductorName || m.tan}</span><span className="text-red-600">Diff: ₹{(m.difference || 0).toLocaleString("en-IN")}</span></div>
+                        <p className="text-[10px] text-muted-foreground">{m.recommendation}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {reconciliationResult.missing?.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-red-600">Missing from Return ({reconciliationResult.missing.length})</p>
+                    {reconciliationResult.missing.map((m: any, i: number) => (
+                      <div key={i} className="text-xs p-1.5 bg-red-50 dark:bg-red-950 rounded border border-red-200 dark:border-red-800 flex justify-between">
+                        <span>{m.deductorName || m.tan}</span><span className="font-medium">₹{(m.amount || 0).toLocaleString("en-IN")}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {reconciliationResult.recommendations?.length > 0 && (
+                  <div className="text-xs space-y-0.5">
+                    {reconciliationResult.recommendations.map((r: string, i: number) => (
+                      <div key={i} className="flex items-start gap-1"><Lightbulb className="h-3 w-3 text-amber-500 mt-0.5 flex-shrink-0" /><span>{r}</span></div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {showSharingPanel && (
+              <div className="border rounded-lg p-3 space-y-3 bg-muted/30">
+                <h4 className="text-sm font-semibold">Share Documents</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs">Email Address</Label>
+                    <Input type="email" className="h-8 text-xs" id="share-email" placeholder="client@email.com" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">WhatsApp Number</Label>
+                    <Input type="tel" className="h-8 text-xs" id="share-phone" placeholder="+919876543210" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Document Type</Label>
+                    <Select defaultValue="computation" onValueChange={(v) => { const el = document.getElementById("share-doc-val") as HTMLInputElement; if (el) el.value = v; }}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="computation">Computation Sheet</SelectItem>
+                        <SelectItem value="itr_json">ITR JSON</SelectItem>
+                        <SelectItem value="itr_v">ITR-V Acknowledgment</SelectItem>
+                        <SelectItem value="challan">Challan Receipt</SelectItem>
+                        <SelectItem value="form_12bb">Form 12BB</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <input type="hidden" id="share-doc-val" defaultValue="computation" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="text-xs" onClick={async () => {
+                    const email = (document.getElementById("share-email") as HTMLInputElement)?.value;
+                    const docType = (document.getElementById("share-doc-val") as HTMLInputElement)?.value || "computation";
+                    if (!email) { toast({ title: "Email required", variant: "destructive" }); return; }
+                    try {
+                      const resp = await fetch("/api/tax/share/email", {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ recipientEmail: email, documentType: docType, pan: panContext?.pan, assessmentYear }),
+                      });
+                      const result = await resp.json();
+                      if (result.success) toast({ title: "Sent", description: result.message });
+                    } catch { toast({ title: "Error", variant: "destructive" }); }
+                  }}>
+                    <Send className="h-3.5 w-3.5 mr-1" /> Send Email
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-xs" onClick={async () => {
+                    const phone = (document.getElementById("share-phone") as HTMLInputElement)?.value;
+                    const docType = (document.getElementById("share-doc-val") as HTMLInputElement)?.value || "summary";
+                    if (!phone || phone.length < 10) { toast({ title: "Valid phone number required", variant: "destructive" }); return; }
+                    try {
+                      const resp = await fetch("/api/tax/share/whatsapp", {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ phoneNumber: phone, documentType: docType, pan: panContext?.pan, assessmentYear }),
+                      });
+                      const result = await resp.json();
+                      if (result.success && result.data.whatsappUrl) window.open(result.data.whatsappUrl, "_blank");
+                    } catch { toast({ title: "Error", variant: "destructive" }); }
+                  }}>
+                    WhatsApp
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {showRefundTracker && refundData && (
+              <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                <h4 className="text-sm font-semibold flex items-center gap-2"><Wallet className="h-4 w-4" /> Refund Status — AY {refundData.assessmentYear}</h4>
+                <div className="space-y-1">
+                  {refundData.stages.map((s: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      {s.status === "completed" ? <CheckCircle className="h-3.5 w-3.5 text-green-600" /> : s.status === "in_progress" ? <Clock className="h-3.5 w-3.5 text-blue-600 animate-pulse" /> : <div className="h-3.5 w-3.5 rounded-full border-2 border-muted-foreground/30" />}
+                      <span className={s.status === "completed" ? "text-green-700 dark:text-green-400" : s.status === "in_progress" ? "text-blue-700 dark:text-blue-400 font-medium" : "text-muted-foreground"}>{s.stage}</span>
+                      {s.date && <span className="text-muted-foreground ml-auto">{s.date}</span>}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground">{refundData.note}</p>
+              </div>
+            )}
+
+            {showDeadlines && deadlinesData.length > 0 && (
+              <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                <h4 className="text-sm font-semibold flex items-center gap-2"><Clock className="h-4 w-4" /> Filing Deadlines & Due Dates</h4>
+                <div className="space-y-1">
+                  {deadlinesData.map((d: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between text-xs p-1.5 rounded bg-background border">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={d.urgency === "critical" ? "destructive" : d.urgency === "warning" ? "default" : "outline"} className="text-[10px]">
+                          {d.daysLeft}d
+                        </Badge>
+                        <span className="font-medium">{d.form}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-muted-foreground">{d.deadline}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {showLookupPanel && (
+              <div className="border rounded-lg p-3 space-y-3 bg-muted/30">
+                <h4 className="text-sm font-semibold">IFSC / BSR / TAN Lookup</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs">IFSC Code</Label>
+                    <div className="flex gap-1">
+                      <Input className="h-8 text-xs" id="lookup-ifsc" placeholder="SBIN0001234" maxLength={11} />
+                      <Button size="sm" variant="outline" className="h-8 text-xs px-2" onClick={async () => {
+                        const code = (document.getElementById("lookup-ifsc") as HTMLInputElement)?.value;
+                        if (!code) return;
+                        try {
+                          const resp = await fetch(`/api/tax/lookup/ifsc/${code}`);
+                          const result = await resp.json();
+                          if (result.success) setIfscResult(result.data);
+                        } catch {}
+                      }}>Go</Button>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">BSR Code</Label>
+                    <div className="flex gap-1">
+                      <Input className="h-8 text-xs" id="lookup-bsr" placeholder="0002" maxLength={7} />
+                      <Button size="sm" variant="outline" className="h-8 text-xs px-2" onClick={async () => {
+                        const code = (document.getElementById("lookup-bsr") as HTMLInputElement)?.value;
+                        if (!code) return;
+                        try {
+                          const resp = await fetch(`/api/tax/lookup/bsr/${code}`);
+                          const result = await resp.json();
+                          if (result.success) setIfscResult(result.data);
+                        } catch {}
+                      }}>Go</Button>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">TAN Validation</Label>
+                    <div className="flex gap-1">
+                      <Input className="h-8 text-xs" id="lookup-tan" placeholder="DELH12345A" maxLength={10} />
+                      <Button size="sm" variant="outline" className="h-8 text-xs px-2" onClick={async () => {
+                        const tan = (document.getElementById("lookup-tan") as HTMLInputElement)?.value;
+                        if (!tan) return;
+                        try {
+                          const resp = await fetch(`/api/tax/lookup/tan/${tan}`);
+                          const result = await resp.json();
+                          if (result.success) setIfscResult(result.data);
+                        } catch {}
+                      }}>Go</Button>
+                    </div>
+                  </div>
+                </div>
+                {ifscResult && (
+                  <div className="text-xs p-2 bg-background rounded border space-y-0.5">
+                    {ifscResult.ifsc && <div className="flex justify-between"><span>IFSC:</span><span className="font-medium">{ifscResult.ifsc}</span></div>}
+                    {ifscResult.bank && <div className="flex justify-between"><span>Bank:</span><span>{ifscResult.bank}</span></div>}
+                    {ifscResult.branch && <div className="flex justify-between"><span>Branch:</span><span>{ifscResult.branch}</span></div>}
+                    {ifscResult.city && <div className="flex justify-between"><span>City:</span><span>{ifscResult.city}</span></div>}
+                    {ifscResult.bsrCode && <div className="flex justify-between"><span>BSR Code:</span><span className="font-medium">{ifscResult.bsrCode}</span></div>}
+                    {ifscResult.bankName && <div className="flex justify-between"><span>Bank:</span><span>{ifscResult.bankName}</span></div>}
+                    {ifscResult.tan && <div className="flex justify-between"><span>TAN:</span><span className="font-medium">{ifscResult.tan}</span></div>}
+                    {ifscResult.isValid !== undefined && <div className="flex justify-between"><span>Valid:</span><Badge variant={ifscResult.isValid ? "default" : "destructive"} className="text-[10px]">{ifscResult.isValid ? "Yes" : "No"}</Badge></div>}
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/30">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-green-600" />
+                <div>
+                  <p className="text-xs font-semibold text-green-700 dark:text-green-400">Security & Compliance</p>
+                  <p className="text-[10px] text-muted-foreground">128-bit SSL | AES-256 Encryption | SEBI/IT Dept Compliant</p>
+                </div>
+              </div>
+              <div className="flex gap-1.5 ml-auto">
+                <Badge variant="outline" className="text-[10px] border-green-300">SOC 2</Badge>
+                <Badge variant="outline" className="text-[10px] border-green-300">ISO 27001</Badge>
+                <Badge variant="outline" className="text-[10px] border-green-300">VAPT Tested</Badge>
+                <Badge variant="outline" className="text-[10px] border-green-300">ERIP Licensed</Badge>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
