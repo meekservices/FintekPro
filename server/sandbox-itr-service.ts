@@ -1306,6 +1306,102 @@ class SandboxITRService {
     }
   }
 
+  async calculateIndexedCost(items: Array<{
+    acquisitionCost: number;
+    acquisitionYear: string;
+    saleYear: string;
+    assetType?: string;
+  }>): Promise<{ success: boolean; data?: any; message: string }> {
+    try {
+      const response = await this.makeAPICall(
+        '/it/calculator/income_tax/indexed_cost',
+        {
+          items: items.map(item => ({
+            acquisition_cost: item.acquisitionCost,
+            acquisition_year: item.acquisitionYear,
+            sale_year: item.saleYear,
+            asset_type: item.assetType || 'property',
+          })),
+        },
+        'POST'
+      );
+      return {
+        success: true,
+        data: response.data || response,
+        message: 'Indexed cost calculated via Sandbox.co.in API',
+      };
+    } catch (error) {
+      console.error('[Sandbox ITR] Indexed cost calculation failed:', error);
+      return { success: false, message: error instanceof Error ? error.message : 'Indexed cost calculation failed' };
+    }
+  }
+
+  async calculateTaxPnL(assetClass: 'domestic' | 'foreign' | 'crypto' | 'real_estate' | 'other', transactions: Array<{
+    symbol?: string;
+    buyDate: string;
+    sellDate: string;
+    buyPrice: number;
+    sellPrice: number;
+    quantity: number;
+    brokerage?: number;
+    exchangeFees?: number;
+  }>): Promise<{ success: boolean; data?: any; message: string }> {
+    try {
+      const endpointMap: Record<string, string> = {
+        domestic: '/it/calculator/tax_pnl/securities/domestic',
+        foreign: '/it/calculator/tax_pnl/securities/foreign',
+        crypto: '/it/calculator/tax_pnl/crypto',
+        real_estate: '/it/calculator/tax_pnl/real_estate',
+        other: '/it/calculator/tax_pnl/other_assets',
+      };
+      const response = await this.makeAPICall(
+        endpointMap[assetClass] || endpointMap.domestic,
+        {
+          transactions: transactions.map(t => ({
+            symbol: t.symbol || '',
+            buy_date: t.buyDate,
+            sell_date: t.sellDate,
+            buy_price: t.buyPrice,
+            sell_price: t.sellPrice,
+            quantity: t.quantity,
+            brokerage: t.brokerage || 0,
+            exchange_fees: t.exchangeFees || 0,
+          })),
+        },
+        'POST'
+      );
+      return {
+        success: true,
+        data: response.data || response,
+        message: `Tax P&L calculated for ${assetClass} via Sandbox.co.in API`,
+      };
+    } catch (error) {
+      console.error(`[Sandbox ITR] Tax P&L (${assetClass}) calculation failed:`, error);
+      return { success: false, message: error instanceof Error ? error.message : 'Tax P&L calculation failed' };
+    }
+  }
+
+  async getCapitalGainsReport(pan: string, assessmentYear: string, assetClass?: string): Promise<{ success: boolean; data?: any; message: string }> {
+    try {
+      const endpoint = assetClass
+        ? `/it/report/capital_gains/${assetClass}`
+        : '/it/report/capital_gains';
+      const response = await this.makeAPICall(
+        endpoint,
+        { pan, assessment_year: assessmentYear },
+        'POST'
+      );
+      return {
+        success: true,
+        data: response.data || response,
+        message: 'Capital gains report generated via Sandbox.co.in API',
+      };
+    } catch (error) {
+      console.error('[Sandbox ITR] Capital gains report failed:', error);
+      return { success: false, message: error instanceof Error ? error.message : 'Capital gains report failed' };
+    }
+  }
+
   isConfigured(): boolean {
     return !!(this.apiKey && this.apiSecret);
   }

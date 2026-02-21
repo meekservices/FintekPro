@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { z } from "zod";
 import multer from "multer";
 import { sandboxITRService } from "./sandbox-itr-service";
+import { emailService } from "./email-service";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -3439,40 +3440,118 @@ router.post("/api/tax/import/broker-cg-v2", upload.single("file"), async (req: R
 });
 
 // ==========================================
-// GAP G4: Direct ERI e-Filing API
+// GAP G4: Direct ERI e-Filing API (via Sandbox.co.in)
 // ==========================================
 router.post("/api/tax/efile/direct", async (req: Request, res: Response) => {
   try {
-    const { pan, itrForm, assessmentYear, itrData, eVerificationMethod, digitalSignature } = req.body;
+    const { pan, itrForm, assessmentYear, itrData, eVerificationMethod, digitalSignature, personalInfo, bankDetails } = req.body;
     if (!pan || !itrForm || !itrData) return res.status(400).json({ success: false, message: "PAN, ITR form, and ITR data required" });
 
-    const filingToken = `FTK-${Date.now()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
-    const ackNumber = `${Date.now().toString().slice(-12)}`;
+    const firstName = personalInfo?.firstName || itrData?.personalInfo?.firstName;
+    const lastName = personalInfo?.lastName || itrData?.personalInfo?.lastName;
+    const dateOfBirth = personalInfo?.dateOfBirth || itrData?.personalInfo?.dateOfBirth;
+    const email = personalInfo?.email || itrData?.personalInfo?.email;
+    const phone = personalInfo?.phone || itrData?.personalInfo?.phone;
+    const aadhar = personalInfo?.aadhar || itrData?.personalInfo?.aadhar;
+    const address = personalInfo?.address || itrData?.personalInfo?.address;
+    const acctNumber = bankDetails?.accountNumber || itrData?.bankDetails?.accountNumber;
+    const ifscCode = bankDetails?.ifscCode || itrData?.bankDetails?.ifscCode;
 
-    const filingRecord = {
-      filingToken,
-      ackNumber,
-      pan, itrForm,
-      assessmentYear: assessmentYear || "2025-26",
-      status: "SUBMITTED_TO_CPC",
-      submittedAt: new Date().toISOString(),
-      eVerificationMethod: eVerificationMethod || "aadhaar_otp",
-      eVerificationStatus: "PENDING",
-      cpcProcessingStatus: "QUEUED",
-      estimatedProcessingDays: 30,
-      itrVGenerated: true,
-      itrVUrl: `/api/tax/efile/itrv/${filingToken}`,
-      xmlGenerated: true,
-      eriId: "ERIP000XXX",
-      digitallySignedBy: digitalSignature ? pan : null,
-      timestamps: {
-        xmlGenerated: new Date().toISOString(),
-        submittedToIT: new Date().toISOString(),
-        ackReceived: new Date().toISOString(),
+    const missingFields: string[] = [];
+    if (!firstName) missingFields.push("firstName");
+    if (!lastName) missingFields.push("lastName");
+    if (!dateOfBirth) missingFields.push("dateOfBirth");
+    if (!email) missingFields.push("email");
+    if (!phone) missingFields.push("phone");
+    if (!aadhar || aadhar.length !== 12) missingFields.push("aadhar (12-digit Aadhaar number)");
+    if (!address?.line1 || !address?.city || !address?.state || !address?.pincode) missingFields.push("address (line1, city, state, pincode)");
+    if (!acctNumber) missingFields.push("bankDetails.accountNumber");
+    if (!ifscCode) missingFields.push("bankDetails.ifscCode");
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields for e-filing: ${missingFields.join(", ")}`,
+        missingFields,
+      });
+    }
+
+    const formData = {
+      personalInfo: {
+        pan,
+        firstName,
+        lastName,
+        dateOfBirth,
+        email,
+        phone,
+        aadhar,
+        address,
       },
+      incomeDetails: {
+        salaryIncome: Number(itrData?.salaryDetails?.grossSalary || itrData?.salaryIncome || 0),
+        businessIncome: Number(itrData?.businessIncome || 0),
+        capitalGains: Number(itrData?.capitalGainsDetails?.shortTermGains || 0) + Number(itrData?.capitalGainsDetails?.longTermGains || 0),
+        otherIncome: Number(itrData?.otherIncomeDetails?.otherIncome || 0),
+        interestIncome: Number(itrData?.otherIncomeDetails?.interestIncome || 0),
+        rentalIncome: Number(itrData?.housePropertyIncome || 0),
+        dividendIncome: Number(itrData?.otherIncomeDetails?.dividendIncome || 0),
+      },
+      deductions: {
+        section80C: Number(itrData?.deductionDetails?.section80C || 0),
+        section80D: Number(itrData?.deductionDetails?.section80D || 0),
+        section80G: Number(itrData?.deductionDetails?.section80G || 0),
+        homeLoanInterest: Number(itrData?.deductionDetails?.homeLoanInterest || 0),
+        standardDeduction: Number(itrData?.deductionDetails?.standardDeduction || 75000),
+        professionalTax: Number(itrData?.deductionDetails?.professionalTax || 0),
+        otherDeductions: Number(itrData?.deductionDetails?.otherDeductions || 0),
+      },
+      taxPayments: {
+        tdsDeducted: Number(itrData?.taxPaymentDetails?.tdsDeducted || 0),
+        advanceTaxPaid: Number(itrData?.taxPaymentDetails?.advanceTaxPaid || 0),
+        selfAssessmentTax: Number(itrData?.taxPaymentDetails?.selfAssessmentTax || 0),
+      },
+      bankDetails: {
+        accountNumber: acctNumber,
+        ifscCode,
+        bankName: bankDetails?.bankName || itrData?.bankDetails?.bankName || "",
+        accountHolderName: `${firstName} ${lastName}`,
+      },
+      filingDetails: {
+        assessmentYear: assessmentYear || "2025-26",
+        itrForm: itrForm as any,
+        filingStatus: "Original" as const,
+        isDefective: false,
+      },
+      entityType: (itrData?.entityType || "individual") as any,
     };
 
-    res.json({ success: true, data: filingRecord });
+    const result = await sandboxITRService.prepareITR(formData);
+
+    if (!result.success) {
+      return res.status(400).json({ success: false, message: result.message, errors: result.errors });
+    }
+
+    if (eVerificationMethod && result.data?.acknowledgmentNumber) {
+      const eVerifyResult = await sandboxITRService.eVerifyITR(
+        result.data.acknowledgmentNumber,
+        eVerificationMethod,
+        { pan, aadhaarNumber: personalInfo?.aadhar }
+      );
+      (result.data as any).eVerificationStatus = eVerifyResult.success ? "VERIFIED" : "PENDING";
+      (result.data as any).eVerificationMethod = eVerificationMethod;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...result.data,
+        pan,
+        itrForm,
+        assessmentYear: assessmentYear || "2025-26",
+        submittedAt: new Date().toISOString(),
+        source: "sandbox_api",
+      },
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -3638,7 +3717,70 @@ router.get("/api/tax/lookup/ao-code", async (req: Request, res: Response) => {
 });
 
 // ==========================================
-// GAP G8 & G9: Email & WhatsApp Sharing
+// GAP G19: Tax PnL Calculator (via Sandbox.co.in API)
+// ==========================================
+router.post("/api/tax/calculate/tax-pnl", async (req: Request, res: Response) => {
+  try {
+    const { assetClass, transactions } = req.body;
+    if (!assetClass || !transactions || !Array.isArray(transactions) || transactions.length === 0) {
+      return res.status(400).json({ success: false, message: "Asset class and transactions array required" });
+    }
+
+    const validClasses = ["domestic", "foreign", "crypto", "real_estate", "other"];
+    if (!validClasses.includes(assetClass)) {
+      return res.status(400).json({ success: false, message: `Invalid asset class. Valid: ${validClasses.join(", ")}` });
+    }
+
+    const result = await sandboxITRService.calculateTaxPnL(assetClass, transactions);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.json({ success: true, data: result.data, source: "sandbox_api" });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ==========================================
+// GAP G20: Indexed Cost Calculator (via Sandbox.co.in API)
+// ==========================================
+router.post("/api/tax/calculate/indexed-cost", async (req: Request, res: Response) => {
+  try {
+    const { items } = req.body;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, message: "Items array required with acquisitionCost, acquisitionYear, saleYear" });
+    }
+
+    const result = await sandboxITRService.calculateIndexedCost(items);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.json({ success: true, data: result.data, source: "sandbox_api" });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ==========================================
+// GAP G21: Capital Gains Report (via Sandbox.co.in API)
+// ==========================================
+router.post("/api/tax/report/capital-gains", async (req: Request, res: Response) => {
+  try {
+    const { pan, assessmentYear, assetClass } = req.body;
+    if (!pan) return res.status(400).json({ success: false, message: "PAN required" });
+
+    const result = await sandboxITRService.getCapitalGainsReport(pan, assessmentYear || "2025-26", assetClass);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.json({ success: true, data: result.data, source: "sandbox_api" });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ==========================================
+// GAP G8 & G9: Email & WhatsApp Sharing (via Nodemailer)
 // ==========================================
 router.post("/api/tax/share/email", async (req: Request, res: Response) => {
   try {
@@ -3651,18 +3793,61 @@ router.post("/api/tax/share/email", async (req: Request, res: Response) => {
       form_26as: "Form 26AS", ais_tis: "AIS/TIS Statement", challan: "Challan Receipt", form_12bb: "Form 12BB",
     };
 
+    const maskedPAN = pan ? pan.substring(0, 5) + "XXXXX" : "N/A";
+    const docLabel = docLabels[documentType] || documentType;
+    const subject = `${docLabel} - PAN: ${maskedPAN} - AY ${assessmentYear || "2025-26"}`;
+
+    const htmlContent = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #1a365d; color: white; padding: 20px; text-align: center;">
+          <h1 style="margin: 0; font-size: 22px;">FintekPro Tax Services</h1>
+        </div>
+        <div style="padding: 24px; background: #f8fafc;">
+          <p>Dear ${recipientName || "Client"},</p>
+          <p>Please find your <strong>${docLabel}</strong> for:</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+            <tr><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: bold;">Assessment Year</td><td style="padding: 8px; border: 1px solid #e2e8f0;">${assessmentYear || "2025-26"}</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: bold;">PAN</td><td style="padding: 8px; border: 1px solid #e2e8f0;">${maskedPAN}</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: bold;">Document Type</td><td style="padding: 8px; border: 1px solid #e2e8f0;">${docLabel}</td></tr>
+          </table>
+          ${attachmentData ? '<p>The document data is included below for your records.</p>' : '<p>Please log in to FintekPro to download the document.</p>'}
+          <p style="margin-top: 24px; color: #64748b; font-size: 12px;">
+            This is an automated message from FintekPro Tax Services. Please do not reply to this email.
+            For queries, contact your assigned tax advisor.
+          </p>
+        </div>
+        <div style="background: #1e293b; color: #94a3b8; padding: 16px; text-align: center; font-size: 12px;">
+          FintekPro Financial Services | SEBI Registered | SOC2 Compliant
+        </div>
+      </div>
+    `;
+
+    const sent = await emailService.sendEmail({
+      to: recipientEmail,
+      subject,
+      html: htmlContent,
+      text: `Dear ${recipientName || "Client"},\n\nYour ${docLabel} for AY ${assessmentYear || "2025-26"} (PAN: ${maskedPAN}) is ready.\n\nPlease log in to FintekPro to access your documents.\n\n— FintekPro Tax Services`,
+    });
+
     const emailRecord = {
       id: `email-${Date.now()}`,
       to: recipientEmail,
       recipientName: recipientName || "",
-      subject: `${docLabels[documentType] || documentType} - PAN: ${pan ? pan.substring(0, 5) + "XXXXX" : "N/A"} - AY ${assessmentYear || "2025-26"}`,
+      subject,
       documentType,
-      status: "sent",
+      status: sent ? "sent" : "queued",
       sentAt: new Date().toISOString(),
       hasAttachment: !!attachmentData,
+      deliveryMethod: sent ? "smtp" : "email_service_unavailable",
     };
 
-    res.json({ success: true, data: emailRecord, message: `${docLabels[documentType] || "Document"} sent to ${recipientEmail}` });
+    res.json({
+      success: true,
+      data: emailRecord,
+      message: sent
+        ? `${docLabel} sent to ${recipientEmail}`
+        : `Email queued. SMTP not configured — configure EMAIL_HOST, EMAIL_USER, EMAIL_PASS to enable email delivery.`,
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -3698,7 +3883,7 @@ router.post("/api/tax/share/whatsapp", async (req: Request, res: Response) => {
 });
 
 // ==========================================
-// GAP G10: PDF Computation Sheet
+// GAP G10: PDF Computation Sheet (via Sandbox.co.in Calculator API)
 // ==========================================
 router.post("/api/tax/export/computation-pdf", async (req: Request, res: Response) => {
   try {
@@ -3707,24 +3892,67 @@ router.post("/api/tax/export/computation-pdf", async (req: Request, res: Respons
 
     const salaryIncome = Number(data?.salaryDetails?.grossSalary || 0) - Number(data?.salaryDetails?.standardDeduction || 75000);
     const hpIncome = Number(data?.housePropertyIncome || 0);
-    const cgIncome = Number(data?.capitalGainsDetails?.shortTermGains || 0) + Number(data?.capitalGainsDetails?.longTermGains || 0);
-    const otherIncome = Number(data?.otherIncomeDetails?.interestIncome || 0) + Number(data?.otherIncomeDetails?.dividendIncome || 0);
+    const stcg = Number(data?.capitalGainsDetails?.shortTermGains || 0);
+    const ltcg = Number(data?.capitalGainsDetails?.longTermGains || 0);
+    const cgIncome = stcg + ltcg;
+    const interestInc = Number(data?.otherIncomeDetails?.interestIncome || 0);
+    const dividendInc = Number(data?.otherIncomeDetails?.dividendIncome || 0);
+    const otherIncome = interestInc + dividendInc;
     const grossTotal = salaryIncome + hpIncome + cgIncome + otherIncome;
-    const deductions = Number(data?.deductionDetails?.section80C || 0) + Number(data?.deductionDetails?.section80D || 0);
-    const taxableIncome = Math.max(0, grossTotal - deductions);
-    const tax = computeSimpleTax(taxableIncome);
-    const cess = Math.round(tax * 0.04);
+    const sec80C = Number(data?.deductionDetails?.section80C || 0);
+    const sec80D = Number(data?.deductionDetails?.section80D || 0);
+    const sec80G = Number(data?.deductionDetails?.section80G || 0);
+    const deductions = sec80C + sec80D + sec80G + Number(data?.deductionDetails?.otherDeductions || 0);
     const tds = Number(data?.taxPaymentDetails?.tdsDeducted || 0);
     const advanceTax = Number(data?.taxPaymentDetails?.advanceTaxPaid || 0);
-    const totalPaid = tds + advanceTax;
-    const balanceDue = Math.max(0, tax + cess - totalPaid);
-    const refund = totalPaid > (tax + cess) ? totalPaid - (tax + cess) : 0;
+    const selfAssessmentTax = Number(data?.taxPaymentDetails?.selfAssessmentTax || 0);
+    const totalPaid = tds + advanceTax + selfAssessmentTax;
+
+    let taxResult: any = null;
+    let taxSource = "local_fallback";
+    try {
+      const calcResult = await sandboxITRService.calculateTaxFromWizard({
+        assessmentYear: assessmentYear || "2025-26",
+        entityType: data?.entityType || "individual",
+        salaryIncome: Number(data?.salaryDetails?.grossSalary || 0),
+        housePropertyIncome: hpIncome,
+        capitalGainsSTCG: stcg,
+        capitalGainsLTCG: ltcg,
+        capitalGainsExemptions: Number(data?.capitalGainsDetails?.exemptions || 0),
+        businessIncome: Number(data?.businessIncome || 0),
+        interestIncome: interestInc,
+        dividendIncome: dividendInc,
+        otherIncome: Number(data?.otherIncomeDetails?.otherIncome || 0),
+        section80C: sec80C, section80D: sec80D, section80G: sec80G,
+        section80E: Number(data?.deductionDetails?.section80E || 0),
+        section80TTA: Number(data?.deductionDetails?.section80TTA || 0),
+        otherDeductions: Number(data?.deductionDetails?.otherDeductions || 0),
+        tdsDeducted: tds, advanceTaxPaid: advanceTax, selfAssessmentTax,
+        standardDeduction: Number(data?.salaryDetails?.standardDeduction || 75000),
+        professionalTax: Number(data?.salaryDetails?.professionalTax || 0),
+        homeLoanInterest: Number(data?.deductionDetails?.homeLoanInterest || 0),
+      });
+      if (calcResult.success && calcResult.data) {
+        taxResult = calcResult.data;
+        taxSource = "sandbox_api";
+      }
+    } catch (apiErr) {
+      console.warn("[Computation] Sandbox API unavailable, using local calculation:", apiErr);
+    }
+
+    const taxableIncome = taxResult?.taxableIncome ?? Math.max(0, grossTotal - deductions);
+    const tax = taxResult?.taxLiability ?? computeSimpleTax(taxableIncome);
+    const cess = Math.round(tax * 0.04);
+    const totalTaxLiability = tax + cess;
+    const balanceDue = Math.max(0, totalTaxLiability - totalPaid);
+    const refund = totalPaid > totalTaxLiability ? totalPaid - totalTaxLiability : 0;
 
     const pdfContent = {
       title: "COMPUTATION OF INCOME AND TAX",
       subtitle: `Assessment Year: ${assessmentYear || "2025-26"} | ITR Form: ${itrForm || "ITR-1"}`,
       assessee: { name: name || "", pan, status: "Individual" },
       generatedAt: new Date().toISOString(),
+      calculationSource: taxSource,
       sections: [
         { heading: "1. INCOME FROM SALARY", items: [
           { label: "Gross Salary", amount: Number(data?.salaryDetails?.grossSalary || 0) },
@@ -3733,30 +3961,32 @@ router.post("/api/tax/export/computation-pdf", async (req: Request, res: Respons
         ]},
         { heading: "2. INCOME FROM HOUSE PROPERTY", items: [{ label: "Net Income from HP", amount: hpIncome }] },
         { heading: "3. CAPITAL GAINS", items: [
-          { label: "Short-Term Capital Gains", amount: Number(data?.capitalGainsDetails?.shortTermGains || 0) },
-          { label: "Long-Term Capital Gains", amount: Number(data?.capitalGainsDetails?.longTermGains || 0) },
+          { label: "Short-Term Capital Gains", amount: stcg },
+          { label: "Long-Term Capital Gains", amount: ltcg },
           { label: "Total Capital Gains", amount: cgIncome, isBold: true },
         ]},
         { heading: "4. INCOME FROM OTHER SOURCES", items: [
-          { label: "Interest Income", amount: Number(data?.otherIncomeDetails?.interestIncome || 0) },
-          { label: "Dividend Income", amount: Number(data?.otherIncomeDetails?.dividendIncome || 0) },
+          { label: "Interest Income", amount: interestInc },
+          { label: "Dividend Income", amount: dividendInc },
           { label: "Total Other Income", amount: otherIncome, isBold: true },
         ]},
-        { heading: "5. GROSS TOTAL INCOME", items: [{ label: "Gross Total Income", amount: grossTotal, isBold: true }] },
+        { heading: "5. GROSS TOTAL INCOME", items: [{ label: "Gross Total Income", amount: taxResult?.totalIncome ?? grossTotal, isBold: true }] },
         { heading: "6. DEDUCTIONS UNDER CHAPTER VI-A", items: [
-          { label: "Section 80C", amount: Number(data?.deductionDetails?.section80C || 0), isDeduction: true },
-          { label: "Section 80D", amount: Number(data?.deductionDetails?.section80D || 0), isDeduction: true },
-          { label: "Total Deductions", amount: deductions, isBold: true, isDeduction: true },
+          { label: "Section 80C", amount: sec80C, isDeduction: true },
+          { label: "Section 80D", amount: sec80D, isDeduction: true },
+          { label: "Section 80G", amount: sec80G, isDeduction: true },
+          { label: "Total Deductions", amount: taxResult?.totalDeductions ?? deductions, isBold: true, isDeduction: true },
         ]},
         { heading: "7. TOTAL TAXABLE INCOME", items: [{ label: "Total Taxable Income", amount: taxableIncome, isBold: true }] },
         { heading: "8. TAX COMPUTATION", items: [
           { label: `Tax on Total Income (${data?.taxRegime || "new"} regime)`, amount: tax },
           { label: "Health & Education Cess @ 4%", amount: cess },
-          { label: "Total Tax Liability", amount: tax + cess, isBold: true },
+          { label: "Total Tax Liability", amount: totalTaxLiability, isBold: true },
         ]},
         { heading: "9. TAXES PAID", items: [
           { label: "TDS Deducted", amount: tds, isDeduction: true },
           { label: "Advance Tax Paid", amount: advanceTax, isDeduction: true },
+          { label: "Self-Assessment Tax", amount: selfAssessmentTax, isDeduction: true },
           { label: "Total Tax Paid", amount: totalPaid, isBold: true, isDeduction: true },
         ]},
         { heading: "10. TAX PAYABLE / REFUND", items: [
@@ -3765,7 +3995,7 @@ router.post("/api/tax/export/computation-pdf", async (req: Request, res: Respons
         ]},
       ],
       footer: {
-        verification: `I, ${name || "the assessee"}, hereby declare that the information given above is correct and complete.`,
+        verification: `I, ${name || "the assessee"}, hereby declare that to the best of my knowledge and belief, the information given above is correct, complete, and truly stated.`,
         place: "", date: new Date().toISOString().split("T")[0],
       },
       format: "structured_pdf_data",
@@ -3779,34 +4009,65 @@ router.post("/api/tax/export/computation-pdf", async (req: Request, res: Respons
 });
 
 // ==========================================
-// GAP G11: Refund Status Tracking
+// GAP G11: Refund Status Tracking (via Sandbox.co.in API)
 // ==========================================
 router.get("/api/tax/refund/status", async (req: Request, res: Response) => {
   try {
-    const { pan, assessmentYear } = req.query;
+    const { pan, assessmentYear, acknowledgmentNumber } = req.query;
     if (!pan) return res.status(400).json({ success: false, message: "PAN required" });
 
-    const refundStatus = {
-      pan: String(pan),
-      assessmentYear: String(assessmentYear || "2025-26"),
-      status: "PROCESSING",
-      stages: [
-        { stage: "Return Filed", status: "completed", date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] },
-        { stage: "Return Verified (e-Verification)", status: "completed", date: new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] },
-        { stage: "Return Processed at CPC", status: "in_progress", date: null },
-        { stage: "Intimation u/s 143(1) Sent", status: "pending", date: null },
-        { stage: "Refund Issued", status: "pending", date: null },
-        { stage: "Refund Credited to Bank", status: "pending", date: null },
-      ],
-      estimatedRefundDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      refundAmount: null,
-      bankAccountLast4: null,
-      communicationRef: null,
-      itPortalLink: `https://www.incometax.gov.in/iec/foportal/`,
-      note: "Status is fetched from the IT portal. Actual processing times vary. Typical: 30-120 days after e-verification.",
-    };
+    if (acknowledgmentNumber) {
+      const apiResult = await sandboxITRService.getITRStatus(String(acknowledgmentNumber));
+      if (apiResult.success && apiResult.data) {
+        const statusMap: Record<string, number> = { "Filed": 1, "Processing": 3, "Verified": 2, "Defective": 3, "Failed": 0 };
+        const completedSteps = statusMap[apiResult.data.status] ?? 1;
+        const allStages = [
+          { stage: "Return Filed", status: completedSteps >= 1 ? "completed" : "pending", date: apiResult.data.filingDate || null },
+          { stage: "Return Verified (e-Verification)", status: completedSteps >= 2 ? "completed" : completedSteps === 1 ? "in_progress" : "pending", date: apiResult.data.verificationDate || null },
+          { stage: "Return Processed at CPC", status: completedSteps >= 3 ? "completed" : completedSteps === 2 ? "in_progress" : "pending", date: null },
+          { stage: "Intimation u/s 143(1) Sent", status: completedSteps >= 4 ? "completed" : completedSteps === 3 ? "in_progress" : "pending", date: null },
+          { stage: "Refund Issued", status: apiResult.data.refundStatus === "Issued" ? "completed" : apiResult.data.refundStatus === "Processed" ? "in_progress" : "pending", date: null },
+          { stage: "Refund Credited to Bank", status: "pending", date: null },
+        ];
 
-    res.json({ success: true, data: refundStatus });
+        return res.json({
+          success: true,
+          data: {
+            pan: String(pan),
+            assessmentYear: String(assessmentYear || "2025-26"),
+            acknowledgmentNumber: apiResult.data.acknowledgmentNumber,
+            status: apiResult.data.status,
+            stages: allStages,
+            refundAmount: apiResult.data.refundAmount || null,
+            taxLiability: apiResult.data.taxLiability,
+            itPortalLink: "https://www.incometax.gov.in/iec/foportal/",
+            source: "sandbox_api",
+            note: "Status fetched from Income Tax portal via Sandbox.co.in API.",
+          },
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        pan: String(pan),
+        assessmentYear: String(assessmentYear || "2025-26"),
+        status: "NO_FILING_FOUND",
+        stages: [
+          { stage: "Return Filed", status: "pending", date: null },
+          { stage: "Return Verified (e-Verification)", status: "pending", date: null },
+          { stage: "Return Processed at CPC", status: "pending", date: null },
+          { stage: "Intimation u/s 143(1) Sent", status: "pending", date: null },
+          { stage: "Refund Issued", status: "pending", date: null },
+          { stage: "Refund Credited to Bank", status: "pending", date: null },
+        ],
+        refundAmount: null,
+        itPortalLink: "https://www.incometax.gov.in/iec/foportal/",
+        source: "no_ack_number",
+        note: "No acknowledgment number provided. Provide your ITR acknowledgment number to check real-time status from the IT portal. You can also check directly at incometax.gov.in.",
+      },
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -3844,19 +4105,50 @@ router.get("/api/tax/deadlines", async (_req: Request, res: Response) => {
 });
 
 // ==========================================
-// GAP G14: ITR-V PDF Generation
+// GAP G14: ITR-V PDF Generation (via Sandbox.co.in API)
 // ==========================================
 router.post("/api/tax/generate/itrv", async (req: Request, res: Response) => {
   try {
-    const { pan, name, assessmentYear, itrForm, ackNumber, filingDate } = req.body;
+    const { pan, name, assessmentYear, itrForm, ackNumber, filingDate, incomeData } = req.body;
     if (!pan || !name) return res.status(400).json({ success: false, message: "PAN and name required" });
+
+    if (ackNumber) {
+      const apiResult = await sandboxITRService.downloadITRV(ackNumber);
+      if (apiResult.success && apiResult.data) {
+        return res.json({
+          success: true,
+          data: {
+            title: "INDIAN INCOME TAX RETURN VERIFICATION FORM",
+            formType: "ITR-V",
+            assessmentYear: assessmentYear || "2025-26",
+            ackNumber,
+            downloadUrl: apiResult.data.downloadUrl,
+            fileName: apiResult.data.fileName,
+            assessee: { name, pan, status: "Resident Individual", aadhaarLinked: true },
+            itrForm: itrForm || "ITR-1",
+            source: "sandbox_api",
+            generatedAt: new Date().toISOString(),
+            instructions: [
+              "This ITR-V is valid only if it is digitally signed or e-verified.",
+              "If not e-verified within 30 days, send signed ITR-V to: CPC, Post Bag No. 1, Electronic City Post Office, Bengaluru — 560100, Karnataka.",
+              "Do not send this form to any other office of the Income Tax Department.",
+            ],
+          },
+        });
+      }
+    }
+
+    const grossTotalIncome = Number(incomeData?.grossTotalIncome || 0);
+    const totalDeductions = Number(incomeData?.totalDeductions || 0);
+    const taxableIncome = Number(incomeData?.taxableIncome || Math.max(0, grossTotalIncome - totalDeductions));
+    const netTaxPayable = Number(incomeData?.netTaxPayable || 0);
+    const totalTaxesPaid = Number(incomeData?.totalTaxesPaid || 0);
 
     const itrV = {
       title: "INDIAN INCOME TAX RETURN VERIFICATION FORM",
       formType: "ITR-V",
       assessmentYear: assessmentYear || "2025-26",
-      ackNumber: ackNumber || `ACK${Date.now().toString().slice(-10)}`,
-      barcode: `ITRV-${pan}-${assessmentYear || "2025-26"}`,
+      ackNumber: ackNumber || null,
       filingDate: filingDate || new Date().toISOString().split("T")[0],
       assessee: { name, pan, status: "Resident Individual", address: "", aadhaarLinked: true },
       itrForm: itrForm || "ITR-1",
@@ -3865,25 +4157,27 @@ router.post("/api/tax/generate/itrv", async (req: Request, res: Response) => {
         originalOrRevised: "Original",
       },
       incomeDetails: {
-        grossTotalIncome: 0,
-        totalDeductions: 0,
-        totalTaxableIncome: 0,
-        currentYearLoss: 0,
-        netTaxPayable: 0,
-        totalTaxesPaid: 0,
-        refundOrBalanceDue: 0,
+        grossTotalIncome,
+        totalDeductions,
+        totalTaxableIncome: taxableIncome,
+        currentYearLoss: Number(incomeData?.currentYearLoss || 0),
+        netTaxPayable,
+        totalTaxesPaid,
+        refundOrBalanceDue: totalTaxesPaid - netTaxPayable,
       },
-      bankDetails: { bankName: "", accountNumber: "", ifscCode: "", accountType: "Savings" },
+      bankDetails: incomeData?.bankDetails || { bankName: "", accountNumber: "", ifscCode: "", accountType: "Savings" },
       verification: {
         place: "",
         date: new Date().toISOString().split("T")[0],
-        declaration: `I, ${name}, son/daughter of ________, solemnly declare that to the best of my knowledge and belief, the information given in the return and schedules thereto is correct and complete.`,
+        declaration: `I, ${name}, son/daughter of ________, solemnly declare that to the best of my knowledge and belief, the information given in the return and schedules thereto is correct and complete and that the amount of total income and other particulars shown therein are truly stated.`,
       },
       instructions: [
         "This ITR-V is valid only if it is digitally signed or e-verified.",
-        "If not e-verified within 30 days, send signed ITR-V to: CPC, Post Bag No. 1, Electronic City Post Office, Bengaluru — 560100.",
-        "Do not send this form to any other office.",
+        "If not e-verified within 30 days, send signed ITR-V to: CPC, Post Bag No. 1, Electronic City Post Office, Bengaluru — 560100, Karnataka.",
+        "Do not send this form to any other office of the Income Tax Department.",
       ],
+      source: ackNumber ? "sandbox_api_fallback" : "local_generation",
+      note: ackNumber ? "Sandbox API did not return ITR-V. Showing structured data. Re-try with valid acknowledgment number." : "No acknowledgment number provided. File ITR first to generate official ITR-V.",
       generatedAt: new Date().toISOString(),
       fileName: `ITR-V_${pan}_AY${(assessmentYear || "2025-26").replace("-", "")}.json`,
     };
