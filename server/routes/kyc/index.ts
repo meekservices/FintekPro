@@ -1050,14 +1050,21 @@ export function registerKYCWizardRoutes(app: Express) {
             panNumber: userProfile?.panNumber ? `XXXX-XXXX-${userProfile.panNumber.slice(-4)}` : null,
             dateOfBirth: userProfile?.dateOfBirth,
             firstName: userProfile?.firstName,
+            middleName: (userProfile as any)?.middleName || null,
             lastName: userProfile?.lastName,
             address: userProfile?.address,
             city: userProfile?.city,
             state: userProfile?.state,
             pincode: userProfile?.pincode,
+            email: userProfile?.email || null,
+            mobile: userProfile?.mobile || null,
             occupation: userProfile?.occupation,
             annualIncome: userProfile?.annualIncome,
-            maritalStatus: userProfile?.maritalStatus
+            investmentExperience: (userProfile as any)?.investmentExperience || null,
+            riskTolerance: (userProfile as any)?.riskTolerance || null,
+            maritalStatus: userProfile?.maritalStatus,
+            sourceOfFunds: (userProfile as any)?.sourceOfFunds || null,
+            investorCategory: (userProfile as any)?.investorCategory || null
           }
         }
       });
@@ -1071,9 +1078,20 @@ export function registerKYCWizardRoutes(app: Express) {
   app.patch("/api/kyc/profile", requireClientOrHigher, async (req: any, res) => {
     try {
       const userId = req.user!.id;
-      const updates = req.body;
+      const rawBody = req.body;
       const ipAddress = req.ip || req.connection?.remoteAddress;
       const userAgent = req.headers['user-agent'];
+      
+      const metadataFields = ['nameChangeReason', 'addressChangeReason', 'otpVerified', 'otpSessionId', 'documentIds'];
+      const metadata: Record<string, any> = {};
+      const updates: Record<string, any> = {};
+      for (const [key, val] of Object.entries(rawBody)) {
+        if (metadataFields.includes(key)) {
+          metadata[key] = val;
+        } else {
+          updates[key] = val;
+        }
+      }
       
       // Fetch current profile
       const profiles = await db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId)).limit(1);
@@ -1112,7 +1130,7 @@ export function registerKYCWizardRoutes(app: Express) {
         // Check document-required fields
         if (KYC_FIELD_RULES.documentRequired.includes(field)) {
           // Enforce document upload for name/address changes (SEBI/RBI compliance)
-          const documentIds = updates.documentIds || [];
+          const documentIds = (metadata.documentIds as string[]) || [];
           if (documentIds.length === 0) {
             errors.push(`${field} change requires supporting documents. Please upload proof documents first.`);
             continue;
@@ -1120,7 +1138,7 @@ export function registerKYCWizardRoutes(app: Express) {
           
           // For name changes, require reason
           if (['firstName', 'middleName', 'lastName'].includes(field)) {
-            if (!updates.nameChangeReason) {
+            if (!metadata.nameChangeReason) {
               warnings.push(`Name change requires a reason (e.g., marriage, legal name change).`);
             }
           }
@@ -1132,7 +1150,7 @@ export function registerKYCWizardRoutes(app: Express) {
             fieldChanged: field,
             oldValue: oldValue ? String(oldValue) : null,
             newValue: String(newValue),
-            reason: updates.nameChangeReason || updates.addressChangeReason || 'User initiated change',
+            reason: metadata.nameChangeReason || metadata.addressChangeReason || 'User initiated change',
             riskImpact: 'medium',
             complianceImpact: 'minor',
             requiresDocumentProof: true,
@@ -1143,7 +1161,7 @@ export function registerKYCWizardRoutes(app: Express) {
         // Check OTP-required fields
         else if (KYC_FIELD_RULES.otpRequired.includes(field)) {
           // Verify OTP was provided and validated
-          if (!updates.otpVerified) {
+          if (!metadata.otpVerified) {
             errors.push(`${field} change requires OTP verification. Please verify your ${field} first.`);
             continue;
           }
