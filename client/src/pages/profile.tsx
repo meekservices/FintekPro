@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar, RefreshCw, ShieldCheck, Crown, CheckCircle2, XCircle, Edit, ArrowRight, Unlock, TrendingUp, Clock, AlertCircle, Sparkles } from "lucide-react";
+import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar, RefreshCw, ShieldCheck, Crown, CheckCircle2, XCircle, Edit, ArrowRight, Unlock, TrendingUp, Clock, AlertCircle, Sparkles, Home, BarChart3, Briefcase, IndianRupee, LineChart, Receipt, ExternalLink, ChevronRight, Package, ShoppingCart } from "lucide-react";
 import { useLocation } from 'wouter';
 import { BankingTab } from "@/components/BankingDematTab";
 import { DematTab } from "@/components/DematTab";
@@ -315,10 +315,10 @@ export default function ProfilePage() {
     const tabParam = params.get('tab');
     // Map "kyc" to "identity" since that's the actual tab name
     if (tabParam === 'kyc') return 'identity';
-    if (tabParam && ['kyc-dashboard', 'basic', 'enhanced', 'accredited', 'identity', 'address', 'financial', 'compliance', 'banking', 'demat'].includes(tabParam)) {
+    if (tabParam && ['overview', 'kyc-dashboard', 'basic', 'enhanced', 'accredited', 'identity', 'address', 'financial', 'compliance', 'banking', 'demat'].includes(tabParam)) {
       return tabParam;
     }
-    return 'kyc-dashboard'; // Default to dashboard for progressive workflow
+    return 'overview';
   };
 
   const [activeTab, setActiveTab] = useState(getInitialTab());
@@ -533,6 +533,21 @@ export default function ProfilePage() {
     enabled: !!user
   });
 
+  const { data: orderStats, isLoading: orderStatsLoading } = useQuery({
+    queryKey: ['/api/orders/stats'],
+    enabled: !!user,
+  });
+
+  const { data: recentOrders, isLoading: recentOrdersLoading } = useQuery({
+    queryKey: ['/api/orders', { limit: 5 }],
+    queryFn: async () => {
+      const response = await fetch('/api/orders?limit=5', { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch orders');
+      return response.json();
+    },
+    enabled: !!user,
+  });
+
   // KYC Helper Functions
   const getTierIcon = (tier: string) => {
     switch (tier) {
@@ -741,6 +756,10 @@ export default function ProfilePage() {
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <ScrollableTabsList>
+              <TabsTrigger value="overview" data-testid="tab-overview" className="flex-shrink-0">
+                <Home className="h-4 w-4 mr-2" />
+                Overview
+              </TabsTrigger>
               <TabsTrigger value="kyc-dashboard" data-testid="tab-kyc-dashboard" className="flex-shrink-0">
                 <Award className="h-4 w-4 mr-2" />
                 Dashboard
@@ -758,6 +777,350 @@ export default function ProfilePage() {
                 Compliance
               </TabsTrigger>
             </ScrollableTabsList>
+
+            {/* Overview Tab */}
+            <TabsContent value="overview" className="space-y-6">
+              {!user ? (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>Please log in to view your account overview</AlertDescription>
+                </Alert>
+              ) : (
+                <>
+                  {(() => {
+                    const kycProfileData = (kycProfile as any)?.data;
+                    const stats = (orderStats as any)?.stats;
+                    const orders = (recentOrders as any)?.orders || [];
+                    const isKycComplete = kycProfileData?.kycStatus === 'approved';
+
+                    return (
+                      <>
+                        {/* 1. Account Summary Hero Card */}
+                        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border-blue-200 dark:border-blue-800">
+                          <CardContent className="p-6">
+                            {kycProfileLoading ? (
+                              <div className="animate-pulse flex items-center gap-4">
+                                <div className="h-16 w-16 rounded-full bg-muted"></div>
+                                <div className="space-y-2 flex-1">
+                                  <div className="h-6 bg-muted rounded w-48"></div>
+                                  <div className="h-4 bg-muted rounded w-32"></div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                  <div className="h-16 w-16 rounded-full bg-blue-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                                    {(kycProfileData?.fullName || user?.username || 'U').charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <h2 className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                                      {kycProfileData?.fullName || user?.username || 'User'}
+                                    </h2>
+                                    <p className="text-blue-700 dark:text-blue-300 text-sm">
+                                      UID: {kycProfileData?.userId || user?.id || '—'}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <Badge variant={clientType === 'non_individual' ? 'secondary' : 'outline'} className="text-xs">
+                                        <Building2 className="h-3 w-3 mr-1" />
+                                        {clientType === 'non_individual' ? 'Corporate' : 'Individual'}
+                                      </Badge>
+                                      {user?.createdAt && (
+                                        <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                                          <Calendar className="h-3 w-3" />
+                                          Member since {new Date(user.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Badge
+                                    variant={isKycComplete ? 'default' : 'secondary'}
+                                    className={`px-3 py-1 ${isKycComplete ? 'bg-green-500 hover:bg-green-600' : 'bg-yellow-500 hover:bg-yellow-600'} text-white`}
+                                  >
+                                    {isKycComplete ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1" />}
+                                    {kycProfileData?.kycStatus === 'approved' ? 'Verified' : kycProfileData?.kycStatus === 'in_progress' ? 'In Progress' : 'Pending'}
+                                  </Badge>
+                                  {kycProfileData?.kycTier && (
+                                    <Badge variant="outline" className="px-3 py-1">
+                                      {getTierIcon(kycProfileData.kycTier)}
+                                      <span className="ml-1">{formatTierName(kycProfileData.kycTier)}</span>
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+
+                        {/* 2. Portfolio Summary Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          {orderStatsLoading ? (
+                            <>
+                              {[1, 2, 3, 4].map((i) => (
+                                <Card key={i} className="animate-pulse">
+                                  <CardContent className="p-6">
+                                    <div className="h-4 bg-muted rounded w-24 mb-2"></div>
+                                    <div className="h-8 bg-muted rounded w-32"></div>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </>
+                          ) : (
+                            <>
+                              <Card className="border-l-4 border-l-blue-500">
+                                <CardContent className="p-6">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <p className="text-sm text-muted-foreground">Total Investment</p>
+                                      <p className="text-2xl font-bold">₹{((stats?.totalAmount || 0) / 100000).toFixed(2)}L</p>
+                                    </div>
+                                    <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                                      <IndianRupee className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+
+                              <Card className="border-l-4 border-l-green-500">
+                                <CardContent className="p-6">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <p className="text-sm text-muted-foreground">Holdings Value</p>
+                                      <p className="text-2xl font-bold">₹{((stats?.completedAmount || stats?.totalAmount || 0) / 100000).toFixed(2)}L</p>
+                                    </div>
+                                    <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                                      <LineChart className="h-5 w-5 text-green-600 dark:text-green-400" />
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+
+                              <Card className="border-l-4 border-l-purple-500">
+                                <CardContent className="p-6">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <p className="text-sm text-muted-foreground">Total Orders</p>
+                                      <p className="text-2xl font-bold">{stats?.totalOrders || 0}</p>
+                                    </div>
+                                    <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
+                                      <ShoppingCart className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+
+                              <Card className="border-l-4 border-l-orange-500">
+                                <CardContent className="p-6">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <p className="text-sm text-muted-foreground">Pending Actions</p>
+                                      <p className="text-2xl font-bold">{stats?.pendingOrders || 0}</p>
+                                    </div>
+                                    <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
+                                      <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </>
+                          )}
+                        </div>
+
+                        {/* 3. Quick Actions Grid */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                              <Sparkles className="h-5 w-5" />
+                              Quick Actions
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="flex gap-3 overflow-x-auto pb-2">
+                              {!isKycComplete && (
+                                <Button
+                                  variant="outline"
+                                  className="flex-shrink-0 h-auto py-3 px-4 flex flex-col items-center gap-2 min-w-[100px] border-dashed border-yellow-400 dark:border-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-950"
+                                  onClick={() => setLocation('/onboarding')}
+                                >
+                                  <ShieldCheck className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                                  <span className="text-xs font-medium">Complete KYC</span>
+                                </Button>
+                              )}
+                              <Button variant="outline" className="flex-shrink-0 h-auto py-3 px-4 flex flex-col items-center gap-2 min-w-[100px]" onClick={() => setLocation('/domestic-trading')}>
+                                <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                <span className="text-xs font-medium">Start Trading</span>
+                              </Button>
+                              <Button variant="outline" className="flex-shrink-0 h-auto py-3 px-4 flex flex-col items-center gap-2 min-w-[100px]" onClick={() => setLocation('/mutual-funds')}>
+                                <BarChart3 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                                <span className="text-xs font-medium">Mutual Funds</span>
+                              </Button>
+                              <Button variant="outline" className="flex-shrink-0 h-auto py-3 px-4 flex flex-col items-center gap-2 min-w-[100px]" onClick={() => setLocation('/ipo')}>
+                                <Briefcase className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                                <span className="text-xs font-medium">IPO</span>
+                              </Button>
+                              <Button variant="outline" className="flex-shrink-0 h-auto py-3 px-4 flex flex-col items-center gap-2 min-w-[100px]" onClick={() => setLocation('/bonds')}>
+                                <Receipt className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                                <span className="text-xs font-medium">Bonds</span>
+                              </Button>
+                              <Button variant="outline" className="flex-shrink-0 h-auto py-3 px-4 flex flex-col items-center gap-2 min-w-[100px]" onClick={() => setLocation('/tax-itr-self')}>
+                                <FileText className="h-5 w-5 text-red-600 dark:text-red-400" />
+                                <span className="text-xs font-medium">Tax Filing</span>
+                              </Button>
+                              <Button variant="outline" className="flex-shrink-0 h-auto py-3 px-4 flex flex-col items-center gap-2 min-w-[100px]" onClick={() => setLocation('/portfolio')}>
+                                <LineChart className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                                <span className="text-xs font-medium">Portfolio</span>
+                              </Button>
+                              <Button variant="outline" className="flex-shrink-0 h-auto py-3 px-4 flex flex-col items-center gap-2 min-w-[100px]" onClick={() => setLocation('/family-dashboard')}>
+                                <Users className="h-5 w-5 text-pink-600 dark:text-pink-400" />
+                                <span className="text-xs font-medium">Family</span>
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* 4. Recent Orders Card */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                              <Package className="h-5 w-5" />
+                              Recent Orders
+                            </CardTitle>
+                            <CardDescription>Your latest transactions</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            {recentOrdersLoading ? (
+                              <div className="animate-pulse space-y-3">
+                                {[1, 2, 3].map((i) => (
+                                  <div key={i} className="flex justify-between items-center p-3 rounded-lg bg-muted/50">
+                                    <div className="space-y-1">
+                                      <div className="h-4 bg-muted rounded w-40"></div>
+                                      <div className="h-3 bg-muted rounded w-24"></div>
+                                    </div>
+                                    <div className="h-6 bg-muted rounded w-20"></div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : orders.length === 0 ? (
+                              <div className="text-center py-8">
+                                <Package className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+                                <p className="text-muted-foreground">No orders yet</p>
+                                <p className="text-sm text-muted-foreground mt-1">Start investing to see your orders here</p>
+                                <Button variant="outline" className="mt-4" onClick={() => setLocation('/mutual-funds')}>
+                                  Explore Products
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                {orders.slice(0, 5).map((order: any, idx: number) => (
+                                  <div key={order.id || idx} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                      <div className={`h-8 w-8 rounded-full flex items-center justify-center ${order.orderType === 'sell' || order.orderType === 'redemption' ? 'bg-red-100 dark:bg-red-900' : 'bg-green-100 dark:bg-green-900'}`}>
+                                        {order.orderType === 'sell' || order.orderType === 'redemption' ? (
+                                          <ArrowRight className="h-4 w-4 text-red-600 dark:text-red-400 rotate-45" />
+                                        ) : (
+                                          <ArrowRight className="h-4 w-4 text-green-600 dark:text-green-400 -rotate-45" />
+                                        )}
+                                      </div>
+                                      <div>
+                                        <p className="font-medium text-sm">{order.productName || 'Order'}</p>
+                                        <p className="text-xs text-muted-foreground capitalize">
+                                          {order.orderType} · {order.productType?.replace(/_/g, ' ')} · {order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : '—'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="text-right flex items-center gap-3">
+                                      <span className="font-semibold text-sm">₹{(order.amount || 0).toLocaleString('en-IN')}</span>
+                                      <Badge
+                                        variant={order.status === 'completed' || order.status === 'executed' ? 'default' : order.status === 'cancelled' || order.status === 'failed' ? 'destructive' : 'secondary'}
+                                        className="text-xs capitalize"
+                                      >
+                                        {order.status || 'pending'}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                ))}
+                                <Separator className="my-2" />
+                                <Button variant="ghost" className="w-full text-sm" onClick={() => setActiveTab('kyc-dashboard')}>
+                                  View All Orders
+                                  <ChevronRight className="h-4 w-4 ml-1" />
+                                </Button>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+
+                        {/* 5. Account Details Snapshot Card */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                              <CreditCard className="h-5 w-5" />
+                              Account Details
+                            </CardTitle>
+                            <CardDescription>Linked accounts and verification status</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                                <div className="flex items-center gap-3">
+                                  <Banknote className="h-5 w-5 text-blue-500" />
+                                  <div>
+                                    <p className="text-sm font-medium">Bank Account</p>
+                                    <p className="text-xs text-muted-foreground">{kycProfileData?.bankVerified ? 'Linked & Verified' : 'Not Linked'}</p>
+                                  </div>
+                                </div>
+                                <Button variant="ghost" size="sm" onClick={() => setActiveTab('accounts')}>
+                                  {kycProfileData?.bankVerified ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <ExternalLink className="h-4 w-4" />}
+                                </Button>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                                <div className="flex items-center gap-3">
+                                  <Building2 className="h-5 w-5 text-purple-500" />
+                                  <div>
+                                    <p className="text-sm font-medium">Demat Account</p>
+                                    <p className="text-xs text-muted-foreground">{kycProfileData?.dematLinked ? 'Linked' : 'Not Linked'}</p>
+                                  </div>
+                                </div>
+                                <Button variant="ghost" size="sm" onClick={() => setActiveTab('accounts')}>
+                                  {kycProfileData?.dematLinked ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <ExternalLink className="h-4 w-4" />}
+                                </Button>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                                <div className="flex items-center gap-3">
+                                  <CreditCard className="h-5 w-5 text-green-500" />
+                                  <div>
+                                    <p className="text-sm font-medium">PAN</p>
+                                    <p className="text-xs text-muted-foreground">{isPanVerified ? 'Verified' : 'Not Verified'}</p>
+                                  </div>
+                                </div>
+                                <Button variant="ghost" size="sm" onClick={() => setActiveTab('kyc-verification')}>
+                                  {isPanVerified ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <ExternalLink className="h-4 w-4" />}
+                                </Button>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                                <div className="flex items-center gap-3">
+                                  <Shield className="h-5 w-5 text-orange-500" />
+                                  <div>
+                                    <p className="text-sm font-medium">Aadhaar</p>
+                                    <p className="text-xs text-muted-foreground">{kycProfileData?.aadhaarVerified ? 'Verified' : 'Not Verified'}</p>
+                                  </div>
+                                </div>
+                                <Button variant="ghost" size="sm" onClick={() => setActiveTab('kyc-verification')}>
+                                  {kycProfileData?.aadhaarVerified ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <ExternalLink className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </>
+                    );
+                  })()}
+                </>
+              )}
+            </TabsContent>
 
             {/* KYC Dashboard Tab */}
             <TabsContent value="kyc-dashboard" className="space-y-6">
@@ -2086,13 +2449,13 @@ export default function ProfilePage() {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  const tabs = ["kyc-dashboard", "kyc-verification", "accounts", "compliance"];
+                  const tabs = ["overview", "kyc-dashboard", "kyc-verification", "accounts", "compliance"];
                   const currentIndex = tabs.indexOf(activeTab);
                   if (currentIndex > 0) {
                     setActiveTab(tabs[currentIndex - 1]);
                   }
                 }}
-                disabled={activeTab === "kyc-dashboard"}
+                disabled={activeTab === "overview"}
               >
                 Previous
               </Button>
@@ -2101,7 +2464,7 @@ export default function ProfilePage() {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  const tabs = ["kyc-dashboard", "kyc-verification", "accounts", "compliance"];
+                  const tabs = ["overview", "kyc-dashboard", "kyc-verification", "accounts", "compliance"];
                   const currentIndex = tabs.indexOf(activeTab);
                   if (currentIndex < tabs.length - 1) {
                     setActiveTab(tabs[currentIndex + 1]);
