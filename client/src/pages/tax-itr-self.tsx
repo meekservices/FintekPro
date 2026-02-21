@@ -810,6 +810,29 @@ export default function TaxITRSelfPage() {
   const [directorships, setDirectorships] = useState<DirectorshipEntry[]>([]);
   const [unlistedShares, setUnlistedShares] = useState<UnlistedShareEntry[]>([]);
   const [specialRateIncome, setSpecialRateIncome] = useState({ lottery: 0, horseRacing: 0, onlineGaming: 0, otherSpecial: 0 });
+  const [schedule112AEntries, setSchedule112AEntries] = useState<Schedule112AEntry[]>([]);
+  const [scheduleSI, setScheduleSI] = useState<ScheduleSIDetails>({
+    stcg111A: 0, ltcg112A: 0, ltcg112: 0, vdaCrypto115BBH: 0,
+    lottery115BB: 0, horseRacing: 0, onlineGaming: 0,
+    dtaaSpecialRate: 0, dtaaSpecialRatePercent: 10,
+    otherSpecialRate: 0, otherSpecialRatePercent: 20,
+  });
+  const [scheduleEI, setScheduleEI] = useState<ScheduleEIDetails>({
+    agriculturalIncome: 0, ltcgExemptUpTo125000: 0, dividendFromCooperative: 0,
+    ppfInterest: 0, epfInterest: 0, section10Exemptions: 0,
+    otherExemptIncome: 0, exemptIncomeDescription: "",
+  });
+  const [interest234, setInterest234] = useState<Interest234Details>({
+    interest234A: 0, interest234B: 0, interest234C: 0, totalInterest: 0,
+    filingDueDate: "2025-07-31", filingDate: "",
+    assessedTax: 0,
+    advanceTaxDetails: [
+      { quarter: "Q1 (Jun 15)", dueDate: "2024-06-15", amountDue: 0, amountPaid: 0, paidDate: "" },
+      { quarter: "Q2 (Sep 15)", dueDate: "2024-09-15", amountDue: 0, amountPaid: 0, paidDate: "" },
+      { quarter: "Q3 (Dec 15)", dueDate: "2024-12-15", amountDue: 0, amountPaid: 0, paidDate: "" },
+      { quarter: "Q4 (Mar 15)", dueDate: "2025-03-15", amountDue: 0, amountPaid: 0, paidDate: "" },
+    ],
+  });
 
   const [balanceSheet, setBalanceSheet] = useState<BalanceSheetDetails>({
     fixedAssets: 0, investments: 0, currentAssets: 0, loansAndAdvances: 0, otherAssets: 0, totalAssets: 0,
@@ -1087,6 +1110,161 @@ export default function TaxITRSelfPage() {
   const needsDisclosures = ["ITR-2", "ITR-3", "ITR-5", "ITR-6"].includes(recommendedForm);
   const needsTrustSchedule = recommendedForm === "ITR-7";
 
+  const computeCYLA = useMemo(() => {
+    const salary = incomeSources.hasSalary ? (salaryDetails.grossSalary + salaryDetails.allowances + salaryDetails.perquisites + salaryDetails.profitInLieu - salaryDetails.standardDeduction - salaryDetails.professionalTax) : 0;
+    let hp = 0;
+    if (incomeSources.hasHouseProperty) {
+      const props = housePropertyDetails.properties.length > 0 ? housePropertyDetails.properties : [{ propertyType: housePropertyDetails.isSelfOccupied ? "self_occupied" as const : "let_out" as const, rentalIncome: housePropertyDetails.rentalIncome, municipalTaxes: housePropertyDetails.municipalTaxes, interestOnLoan: housePropertyDetails.interestOnLoan, unrealizedRent: 0, address: "" }];
+      for (const prop of props) {
+        if (prop.propertyType === "self_occupied") { hp += -Math.min(prop.interestOnLoan, 200000); }
+        else { const nav = prop.rentalIncome - prop.municipalTaxes - prop.unrealizedRent; hp += nav * 0.70 - prop.interestOnLoan; }
+      }
+    }
+    const stcg = capitalGainsDetails.sttPaidSTCG + capitalGainsDetails.sttNotPaidSTCG;
+    const ltcg = capitalGainsDetails.sttPaidLTCG + capitalGainsDetails.sttNotPaidLTCG;
+    const business = incomeSources.hasBusinessIncome ? (businessDetails.isPresumptive ? (businessDetails.presumptiveIncome44AD + businessDetails.presumptiveIncome44ADA + businessDetails.presumptiveIncome44AE) : businessDetails.businessIncome) : 0;
+    const otherSrc = otherIncomeDetails.interestIncome + otherIncomeDetails.dividendIncome + otherIncomeDetails.otherSources;
+
+    const adjustments: CYLAAdjustment[] = [];
+    const hpLossToSetOff = hp < 0 ? Math.min(Math.abs(hp), 200000) : 0;
+    let remainingHPLoss = hpLossToSetOff;
+    let remainingBizLoss = business < 0 ? Math.abs(business) : 0;
+
+    const heads = [
+      { head: "Salary", income: Math.max(salary, 0) },
+      { head: "House Property", income: hp > 0 ? hp : 0 },
+      { head: "STCG", income: stcg > 0 ? stcg : 0 },
+      { head: "LTCG", income: ltcg > 0 ? ltcg : 0 },
+      { head: "Business / Profession", income: business > 0 ? business : 0 },
+      { head: "Other Sources", income: otherSrc > 0 ? otherSrc : 0 },
+    ];
+
+    for (const h of heads) {
+      let available = h.income;
+      let hpUsed = 0, bizUsed = 0;
+      if (remainingHPLoss > 0 && available > 0 && h.head !== "House Property") {
+        hpUsed = Math.min(remainingHPLoss, available);
+        remainingHPLoss -= hpUsed;
+        available -= hpUsed;
+      }
+      if (remainingBizLoss > 0 && available > 0 && h.head !== "Salary" && h.head !== "Business / Profession") {
+        bizUsed = Math.min(remainingBizLoss, available);
+        remainingBizLoss -= bizUsed;
+        available -= bizUsed;
+      }
+      adjustments.push({ head: h.head, incomeBeforeSetOff: h.income, hpLossSetOff: hpUsed, businessLossSetOff: bizUsed, otherSourceLossSetOff: 0, incomeAfterSetOff: available });
+    }
+    const totalIncomeAfterCYLA = adjustments.reduce((s, a) => s + a.incomeAfterSetOff, 0);
+    return { adjustments, totalIncomeAfterCYLA, unabsorbedHPLoss: remainingHPLoss, unabsorbedBizLoss: remainingBizLoss, currentYearSTCLoss: stcg < 0 ? Math.abs(stcg) : 0, currentYearLTCLoss: ltcg < 0 ? Math.abs(ltcg) : 0 };
+  }, [incomeSources, salaryDetails, housePropertyDetails, capitalGainsDetails, businessDetails, otherIncomeDetails]);
+
+  const computeBFLA = useMemo(() => {
+    const cyla = computeCYLA;
+    const bflaRows: BFLAAdjustment[] = cyla.adjustments.map(a => ({
+      head: a.head, incomeAfterCYLA: a.incomeAfterSetOff, bfHPLossSetOff: 0, bfSTCLSetOff: 0, bfLTCLSetOff: 0, bfBusinessLossSetOff: 0, bfSpeculationSetOff: 0, incomeAfterBFLA: a.incomeAfterSetOff,
+    }));
+    let totalBFHPLoss = 0, totalBFSTCL = 0, totalBFLTCL = 0, totalBFBizLoss = 0;
+    for (const lcf of lossCarryForward) {
+      const amt = (lcf.lossAmount || 0) - (lcf.setOffAmount || 0);
+      if (amt <= 0) continue;
+      if (lcf.lossType === "house_property") totalBFHPLoss += amt;
+      else if (lcf.lossType === "short_term_capital") totalBFSTCL += amt;
+      else if (lcf.lossType === "long_term_capital") totalBFLTCL += amt;
+      else if (lcf.lossType === "business") totalBFBizLoss += amt;
+    }
+    let remHP = totalBFHPLoss, remSTCL = totalBFSTCL, remLTCL = totalBFLTCL, remBiz = totalBFBizLoss;
+    for (const row of bflaRows) {
+      let avail = row.incomeAfterCYLA;
+      if (remHP > 0 && avail > 0) { const u = Math.min(remHP, avail); row.bfHPLossSetOff = u; remHP -= u; avail -= u; }
+      if (remBiz > 0 && avail > 0 && row.head !== "Salary") { const u = Math.min(remBiz, avail); row.bfBusinessLossSetOff = u; remBiz -= u; avail -= u; }
+      if (remSTCL > 0 && avail > 0 && (row.head === "STCG" || row.head === "LTCG")) { const u = Math.min(remSTCL, avail); row.bfSTCLSetOff = u; remSTCL -= u; avail -= u; }
+      if (remLTCL > 0 && avail > 0 && row.head === "LTCG") { const u = Math.min(remLTCL, avail); row.bfLTCLSetOff = u; remLTCL -= u; avail -= u; }
+      row.incomeAfterBFLA = avail;
+    }
+    return { bflaRows, totalIncomeAfterBFLA: bflaRows.reduce((s, r) => s + r.incomeAfterBFLA, 0), remainingHP: remHP, remainingSTCL: remSTCL, remainingLTCL: remLTCL, remainingBiz: remBiz };
+  }, [computeCYLA, lossCarryForward]);
+
+  const computeCFL = useMemo((): CFLEntry[] => {
+    const bfla = computeBFLA;
+    const cyla = computeCYLA;
+    const entries: CFLEntry[] = [];
+    for (const lcf of lossCarryForward) {
+      const remaining = (lcf.lossAmount || 0) - (lcf.setOffAmount || 0);
+      if (remaining <= 0) continue;
+      const existing = entries.find(e => e.assessmentYear === lcf.assessmentYear);
+      if (existing) {
+        if (lcf.lossType === "house_property") existing.housePropertyLoss += remaining;
+        else if (lcf.lossType === "short_term_capital") existing.shortTermCapitalLoss += remaining;
+        else if (lcf.lossType === "long_term_capital") existing.longTermCapitalLoss += remaining;
+        else if (lcf.lossType === "business") existing.businessLoss += remaining;
+        else if (lcf.lossType === "speculation") existing.speculativeBusinessLoss += remaining;
+        else if (lcf.lossType === "specified_business") existing.specifiedBusinessLoss += remaining;
+      } else {
+        const e: CFLEntry = { assessmentYear: lcf.assessmentYear, dateOfFiling: "", housePropertyLoss: 0, shortTermCapitalLoss: 0, longTermCapitalLoss: 0, businessLoss: 0, speculativeBusinessLoss: 0, specifiedBusinessLoss: 0 };
+        if (lcf.lossType === "house_property") e.housePropertyLoss = remaining;
+        else if (lcf.lossType === "short_term_capital") e.shortTermCapitalLoss = remaining;
+        else if (lcf.lossType === "long_term_capital") e.longTermCapitalLoss = remaining;
+        else if (lcf.lossType === "business") e.businessLoss = remaining;
+        else if (lcf.lossType === "speculation") e.speculativeBusinessLoss = remaining;
+        else if (lcf.lossType === "specified_business") e.specifiedBusinessLoss = remaining;
+        entries.push(e);
+      }
+    }
+    if (cyla.unabsorbedHPLoss > 0 || cyla.currentYearSTCLoss > 0 || cyla.currentYearLTCLoss > 0 || cyla.unabsorbedBizLoss > 0) {
+      entries.push({
+        assessmentYear: assessmentYear, dateOfFiling: interest234.filingDate || new Date().toISOString().split("T")[0],
+        housePropertyLoss: cyla.unabsorbedHPLoss + bfla.remainingHP, shortTermCapitalLoss: cyla.currentYearSTCLoss + bfla.remainingSTCL,
+        longTermCapitalLoss: cyla.currentYearLTCLoss + bfla.remainingLTCL, businessLoss: cyla.unabsorbedBizLoss + bfla.remainingBiz,
+        speculativeBusinessLoss: 0, specifiedBusinessLoss: 0,
+      });
+    }
+    return entries;
+  }, [computeCYLA, computeBFLA, lossCarryForward, assessmentYear, interest234.filingDate]);
+
+  const compute234Interest = useCallback(() => {
+    const taxLiability = sandboxTaxResult?.data?.taxLiability || 0;
+    const totalTaxPaid = taxPaymentDetails.tdsSalary + taxPaymentDetails.tdsOtherThanSalary + taxPaymentDetails.tdsOnProperty + taxPaymentDetails.tcsCollected + taxPaymentDetails.advanceTaxPaid + taxPaymentDetails.selfAssessmentTax;
+    const assessedTax = Math.max(0, taxLiability - taxPaymentDetails.reliefUs89);
+    const unpaidTax = Math.max(0, assessedTax - totalTaxPaid);
+
+    let int234A = 0;
+    if (interest234.filingDate && interest234.filingDueDate && unpaidTax > 0) {
+      const due = new Date(interest234.filingDueDate);
+      const filed = new Date(interest234.filingDate);
+      if (filed > due) {
+        const months = Math.ceil((filed.getTime() - due.getTime()) / (30.44 * 24 * 60 * 60 * 1000));
+        int234A = Math.round(unpaidTax * 0.01 * months);
+      }
+    }
+
+    let int234B = 0;
+    const advanceTaxLiability = assessedTax - taxPaymentDetails.tdsSalary - taxPaymentDetails.tdsOtherThanSalary - taxPaymentDetails.tdsOnProperty - taxPaymentDetails.tcsCollected;
+    if (advanceTaxLiability > 10000) {
+      const advanceTaxPaid = taxPaymentDetails.advanceTaxPaid;
+      if (advanceTaxPaid < advanceTaxLiability * 0.9) {
+        const shortfall = advanceTaxLiability - advanceTaxPaid;
+        const ayStart = assessmentYear.split("-")[0];
+        const aprilToFiling = interest234.filingDate ? Math.ceil((new Date(interest234.filingDate).getTime() - new Date(`${ayStart}-04-01`).getTime()) / (30.44 * 24 * 60 * 60 * 1000)) : 3;
+        int234B = Math.round(shortfall * 0.01 * Math.max(aprilToFiling, 1));
+      }
+    }
+
+    let int234C = 0;
+    const installments = interest234.advanceTaxDetails;
+    const qDue = [0.15, 0.45, 0.75, 1.0];
+    let cumPaid = 0;
+    for (let i = 0; i < 4; i++) {
+      cumPaid += installments[i].amountPaid;
+      const shouldHavePaid = advanceTaxLiability * qDue[i];
+      if (cumPaid < shouldHavePaid) {
+        const shortfall = shouldHavePaid - cumPaid;
+        int234C += Math.round(shortfall * 0.01 * 3);
+      }
+    }
+
+    setInterest234(prev => ({ ...prev, interest234A: int234A, interest234B: int234B, interest234C: int234C, totalInterest: int234A + int234B + int234C, assessedTax }));
+  }, [sandboxTaxResult, taxPaymentDetails, interest234.filingDate, interest234.filingDueDate, interest234.advanceTaxDetails, assessmentYear]);
+
   const calculateLocalTotals = () => {
     const salaryIncome = salaryDetails.grossSalary + salaryDetails.allowances + 
       salaryDetails.perquisites + salaryDetails.profitInLieu - 
@@ -1180,6 +1358,12 @@ export default function TaxITRSelfPage() {
     active.push(getStepById("deductions"));
     if (recommendedForm !== "ITR-1" && totals.grossTotalIncome > 5000000) {
       active.push(getStepById("schedule_al"));
+    }
+    if (needsDisclosures || incomeSources.hasCapitalGains || incomeSources.hasBusinessIncome) {
+      active.push(getStepById("loss_adjustment"));
+    }
+    if (["ITR-2", "ITR-3", "ITR-5", "ITR-6"].includes(recommendedForm)) {
+      active.push(getStepById("schedule_si_ei"));
     }
     active.push(getStepById("tax_payments"));
     active.push(getStepById("review"));
@@ -1334,9 +1518,25 @@ export default function TaxITRSelfPage() {
         }
         break;
       }
+      case "loss_adjustment":
+        break;
+      case "schedule_si_ei":
+        if (scheduleSI.stcg111A < 0 || scheduleSI.ltcg112A < 0 || scheduleSI.ltcg112 < 0 || scheduleSI.vdaCrypto115BBH < 0) {
+          errors.push("Special rate income amounts cannot be negative.");
+        }
+        if (scheduleEI.ltcgExemptUpTo125000 > 125000) {
+          errors.push("LTCG exemption u/s 112A cannot exceed ₹1,25,000.");
+        }
+        if (scheduleEI.agriculturalIncome > 0 && scheduleEI.agriculturalIncome < 5000) {
+          warnings.push("Very small agricultural income. Please verify — income below ₹5,000 is generally not considered agricultural income by the IT department.");
+        }
+        break;
       case "tax_payments":
         if (taxPaymentDetails.tdsDeducted > 0 && taxPaymentDetails.tdsDeducted > totals.grossTotalIncome * 0.40) {
           warnings.push("TDS appears high relative to your income. Please verify from Form 26AS.");
+        }
+        if (interest234.totalInterest > 0) {
+          warnings.push(`Interest u/s 234A/B/C of ${formatCurrency(interest234.totalInterest)} will be added to your tax liability.`);
         }
         break;
       case "entity_profile":
@@ -3122,6 +3322,96 @@ export default function TaxITRSelfPage() {
         </div>
       )}
 
+      {["ITR-2", "ITR-3"].includes(recommendedForm) && incomeSources.hasCapitalGains && (
+          <Card className="border-purple-200 dark:border-purple-800">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-purple-600" /> Schedule 112A — Scrip-wise Long-Term Capital Gains
+                <Badge variant="outline" className="text-[10px]">Listed Equity / Equity MF with STT</Badge>
+              </CardTitle>
+              <CardDescription>Per-share details of LTCG on listed equity shares and equity-oriented mutual funds where STT was paid on sale</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {schedule112AEntries.map((entry, idx) => (
+                <div key={idx} className="border rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">Scrip {idx + 1}: {entry.shareName || 'New Entry'}</span>
+                    <Button variant="ghost" size="sm" onClick={() => setSchedule112AEntries(prev => prev.filter((_, i) => i !== idx))}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div>
+                      <Label className="text-xs">ISIN *</Label>
+                      <Input value={entry.isin} onChange={e => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], isin: e.target.value.toUpperCase() }; setSchedule112AEntries(u); }} placeholder="INE..." maxLength={12} className="font-mono text-xs" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Share / Fund Name *</Label>
+                      <Input value={entry.shareName} onChange={e => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], shareName: e.target.value }; setSchedule112AEntries(u); }} placeholder="e.g. Reliance Industries" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Units Sold</Label>
+                      <Input type="number" value={entry.unitsSold || ""} onChange={e => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], unitsSold: Number(e.target.value) }; setSchedule112AEntries(u); }} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Sale Price / Unit (₹)</Label>
+                      <Input type="number" value={entry.salePricePerUnit || ""} onChange={e => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], salePricePerUnit: Number(e.target.value) }; setSchedule112AEntries(u); }} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Cost of Acquisition (₹)</Label>
+                      <Input type="number" value={entry.costOfAcquisition || ""} onChange={e => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], costOfAcquisition: Number(e.target.value) }; setSchedule112AEntries(u); }} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">FMV as on 31-Jan-2018 (₹) <FieldHint text="Fair Market Value for grandfathering. Highest traded price on 31-Jan-2018 or NAV on that date for MF." /></Label>
+                      <Input type="number" value={entry.fmvAsOn31Jan2018 || ""} onChange={e => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], fmvAsOn31Jan2018: Number(e.target.value) }; setSchedule112AEntries(u); }} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Expenditure on Transfer (₹)</Label>
+                      <Input type="number" value={entry.expenditureOnTransfer || ""} onChange={e => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], expenditureOnTransfer: Number(e.target.value) }; setSchedule112AEntries(u); }} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">LTCG (₹)</Label>
+                      <div className="text-sm mt-1 font-medium p-2 bg-muted rounded">
+                        ₹{(() => { const saleVal = entry.unitsSold * entry.salePricePerUnit; const costWithFMV = entry.fmvAsOn31Jan2018 > 0 ? Math.max(entry.costOfAcquisition, Math.min(entry.fmvAsOn31Jan2018 * entry.unitsSold, saleVal)) : entry.costOfAcquisition; return (saleVal - costWithFMV - entry.expenditureOnTransfer).toLocaleString('en-IN'); })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <Button variant="outline" size="sm" onClick={() => setSchedule112AEntries(prev => [...prev, { isin: "", shareName: "", unitsSold: 0, salePricePerUnit: 0, costOfAcquisition: 0, fmvAsOn31Jan2018: 0, expenditureOnTransfer: 0, totalSaleValue: 0, totalCostWithFMV: 0, ltcgBeforeExemption: 0 }])} data-testid="btn-add-112a-scrip">
+                <Plus className="h-4 w-4 mr-1" /> Add Scrip
+              </Button>
+              {schedule112AEntries.length > 0 && (
+                <Card className="bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800">
+                  <CardContent className="p-3 space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Sale Consideration</span>
+                      <span className="font-medium">₹{schedule112AEntries.reduce((s, e) => s + e.unitsSold * e.salePricePerUnit, 0).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total LTCG (before exemption)</span>
+                      <span className="font-medium">₹{schedule112AEntries.reduce((s, e) => { const sv = e.unitsSold * e.salePricePerUnit; const c = e.fmvAsOn31Jan2018 > 0 ? Math.max(e.costOfAcquisition, Math.min(e.fmvAsOn31Jan2018 * e.unitsSold, sv)) : e.costOfAcquisition; return s + sv - c - e.expenditureOnTransfer; }, 0).toLocaleString('en-IN')}</span>
+                    </div>
+                    <Separator />
+                    <div className="flex justify-between text-green-600">
+                      <span>Exempt u/s 112A (up to ₹1,25,000)</span>
+                      <span>- ₹{Math.min(125000, Math.max(0, schedule112AEntries.reduce((s, e) => { const sv = e.unitsSold * e.salePricePerUnit; const c = e.fmvAsOn31Jan2018 > 0 ? Math.max(e.costOfAcquisition, Math.min(e.fmvAsOn31Jan2018 * e.unitsSold, sv)) : e.costOfAcquisition; return s + sv - c - e.expenditureOnTransfer; }, 0))).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold">
+                      <span>Taxable LTCG u/s 112A @ 12.5%</span>
+                      <span>₹{Math.max(0, schedule112AEntries.reduce((s, e) => { const sv = e.unitsSold * e.salePricePerUnit; const c = e.fmvAsOn31Jan2018 > 0 ? Math.max(e.costOfAcquisition, Math.min(e.fmvAsOn31Jan2018 * e.unitsSold, sv)) : e.costOfAcquisition; return s + sv - c - e.expenditureOnTransfer; }, 0) - 125000).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Tax on LTCG @ 12.5%</span>
+                      <span>₹{Math.round(Math.max(0, schedule112AEntries.reduce((s, e) => { const sv = e.unitsSold * e.salePricePerUnit; const c = e.fmvAsOn31Jan2018 > 0 ? Math.max(e.costOfAcquisition, Math.min(e.fmvAsOn31Jan2018 * e.unitsSold, sv)) : e.costOfAcquisition; return s + sv - c - e.expenditureOnTransfer; }, 0) - 125000) * 0.125).toLocaleString('en-IN')}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
       <ValidationBanner validation={currentValidation} />
     </div>
   );
@@ -4268,6 +4558,80 @@ export default function TaxITRSelfPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Separator />
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Interest u/s 234A / 234B / 234C (Auto-calculated)</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Filing Due Date <FieldHint text="Standard due date is 31st July. Extended to 31st Oct for audit cases. Belated filing allowed until 31st Dec of AY." /></Label>
+          <Input type="date" value={interest234.filingDueDate} onChange={e => setInterest234(p => ({ ...p, filingDueDate: e.target.value }))} data-testid="input-filing-due-date" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Actual / Expected Filing Date <FieldHint text="Date when you file (or plan to file) the ITR. Used to compute months of delay for 234A interest." /></Label>
+          <Input type="date" value={interest234.filingDate} onChange={e => setInterest234(p => ({ ...p, filingDate: e.target.value }))} data-testid="input-filing-date" />
+        </div>
+      </div>
+
+      <Card className="bg-muted/30">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Advance Tax Installments (for 234C calculation)</CardTitle>
+          <CardDescription className="text-xs">Enter quarter-wise advance tax paid. Required if tax liability exceeds ₹10,000.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {interest234.advanceTaxDetails.map((inst, idx) => (
+              <div key={idx} className="border rounded p-2 space-y-1">
+                <p className="text-xs font-medium">{inst.quarter} — Due: {inst.dueDate}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[10px]">Amount Paid (₹)</Label>
+                    <Input type="number" className="h-8 text-xs" value={inst.amountPaid || ""} onChange={e => {
+                      const u = [...interest234.advanceTaxDetails]; u[idx] = { ...u[idx], amountPaid: Number(e.target.value) };
+                      setInterest234(p => ({ ...p, advanceTaxDetails: u }));
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-[10px]">Date Paid</Label>
+                    <Input type="date" className="h-8 text-xs" value={inst.paidDate} onChange={e => {
+                      const u = [...interest234.advanceTaxDetails]; u[idx] = { ...u[idx], paidDate: e.target.value };
+                      setInterest234(p => ({ ...p, advanceTaxDetails: u }));
+                    }} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Button variant="outline" size="sm" onClick={compute234Interest} className="w-full" data-testid="btn-compute-234-interest">
+        <Calculator className="h-4 w-4 mr-2" /> Compute Interest u/s 234A / 234B / 234C
+      </Button>
+
+      {interest234.totalInterest > 0 && (
+        <Card className="bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
+          <CardContent className="p-3 space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">234A — Late Filing Interest</span>
+              <span className="text-red-600 font-medium">{formatCurrency(interest234.interest234A)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">234B — Default in Advance Tax</span>
+              <span className="text-red-600 font-medium">{formatCurrency(interest234.interest234B)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">234C — Deferment of Advance Tax</span>
+              <span className="text-red-600 font-medium">{formatCurrency(interest234.interest234C)}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between font-semibold">
+              <span>Total Interest Payable</span>
+              <span className="text-red-600">{formatCurrency(interest234.totalInterest)}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">This interest is added to your tax liability. Pay along with self-assessment tax before filing.</p>
+          </CardContent>
+        </Card>
+      )}
 
       <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
         <HelpCircle className="h-4 w-4" />
@@ -5643,6 +6007,331 @@ export default function TaxITRSelfPage() {
     );
   };
 
+  const renderLossAdjustmentStep = () => {
+    const cyla = computeCYLA;
+    const bfla = computeBFLA;
+    const cfl = computeCFL;
+
+    return (
+      <div className="space-y-4">
+        <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+          <Info className="h-4 w-4" />
+          <AlertDescription className="text-sm">
+            Auto-computed loss adjustment schedules per Income Tax Act rules. CYLA adjusts current year losses across income heads; BFLA applies brought-forward losses from prior years; CFL shows remaining losses carried to future years.
+          </AlertDescription>
+        </Alert>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Schedule CYLA — Current Year Loss Adjustment</CardTitle>
+            <CardDescription>Inter-head set-off of current year losses (HP loss max ₹2L against other heads; business loss against all except salary)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-1 font-medium">Head of Income</th>
+                    <th className="text-right py-2 px-1 font-medium">Income</th>
+                    <th className="text-right py-2 px-1 font-medium text-red-600">HP Loss Set-off</th>
+                    <th className="text-right py-2 px-1 font-medium text-red-600">Business Loss</th>
+                    <th className="text-right py-2 px-1 font-medium">After Set-off</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cyla.adjustments.map((a, i) => (
+                    <tr key={i} className="border-b last:border-0">
+                      <td className="py-2 px-1 font-medium">{a.head}</td>
+                      <td className="py-2 px-1 text-right">{formatCurrency(a.incomeBeforeSetOff)}</td>
+                      <td className="py-2 px-1 text-right text-red-600">{a.hpLossSetOff > 0 ? `- ${formatCurrency(a.hpLossSetOff)}` : '—'}</td>
+                      <td className="py-2 px-1 text-right text-red-600">{a.businessLossSetOff > 0 ? `- ${formatCurrency(a.businessLossSetOff)}` : '—'}</td>
+                      <td className="py-2 px-1 text-right font-medium">{formatCurrency(a.incomeAfterSetOff)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 font-semibold">
+                    <td className="py-2 px-1">Total Income After CYLA</td>
+                    <td colSpan={3}></td>
+                    <td className="py-2 px-1 text-right">{formatCurrency(cyla.totalIncomeAfterCYLA)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            {(cyla.unabsorbedHPLoss > 0 || cyla.unabsorbedBizLoss > 0 || cyla.currentYearSTCLoss > 0 || cyla.currentYearLTCLoss > 0) && (
+              <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-950 rounded text-xs space-y-1">
+                {cyla.unabsorbedHPLoss > 0 && <p>Unabsorbed HP Loss: {formatCurrency(cyla.unabsorbedHPLoss)} (carry forward — no time limit)</p>}
+                {cyla.unabsorbedBizLoss > 0 && <p>Unabsorbed Business Loss: {formatCurrency(cyla.unabsorbedBizLoss)} (carry forward — 8 AYs)</p>}
+                {cyla.currentYearSTCLoss > 0 && <p>Current Year STCL: {formatCurrency(cyla.currentYearSTCLoss)} (carry forward — 8 AYs)</p>}
+                {cyla.currentYearLTCLoss > 0 && <p>Current Year LTCL: {formatCurrency(cyla.currentYearLTCLoss)} (carry forward — 8 AYs, set-off only against LTCG)</p>}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Schedule BFLA — Brought Forward Loss Adjustment</CardTitle>
+            <CardDescription>Set-off of losses from prior assessment years against current year income (after CYLA)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {lossCarryForward.length === 0 ? (
+              <div className="text-center py-4 text-sm text-muted-foreground">
+                <p>No brought-forward losses entered. Add prior year losses in the Disclosures step to see BFLA adjustments.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-1 font-medium">Head</th>
+                      <th className="text-right py-2 px-1 font-medium">After CYLA</th>
+                      <th className="text-right py-2 px-1 font-medium text-orange-600">BF HP Loss</th>
+                      <th className="text-right py-2 px-1 font-medium text-orange-600">BF STCL</th>
+                      <th className="text-right py-2 px-1 font-medium text-orange-600">BF LTCL</th>
+                      <th className="text-right py-2 px-1 font-medium text-orange-600">BF Business</th>
+                      <th className="text-right py-2 px-1 font-medium">After BFLA</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bfla.bflaRows.map((r, i) => (
+                      <tr key={i} className="border-b last:border-0">
+                        <td className="py-2 px-1 font-medium">{r.head}</td>
+                        <td className="py-2 px-1 text-right">{formatCurrency(r.incomeAfterCYLA)}</td>
+                        <td className="py-2 px-1 text-right text-orange-600">{r.bfHPLossSetOff > 0 ? `- ${formatCurrency(r.bfHPLossSetOff)}` : '—'}</td>
+                        <td className="py-2 px-1 text-right text-orange-600">{r.bfSTCLSetOff > 0 ? `- ${formatCurrency(r.bfSTCLSetOff)}` : '—'}</td>
+                        <td className="py-2 px-1 text-right text-orange-600">{r.bfLTCLSetOff > 0 ? `- ${formatCurrency(r.bfLTCLSetOff)}` : '—'}</td>
+                        <td className="py-2 px-1 text-right text-orange-600">{r.bfBusinessLossSetOff > 0 ? `- ${formatCurrency(r.bfBusinessLossSetOff)}` : '—'}</td>
+                        <td className="py-2 px-1 text-right font-medium">{formatCurrency(r.incomeAfterBFLA)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 font-semibold">
+                      <td className="py-2 px-1">Total After BFLA</td>
+                      <td colSpan={5}></td>
+                      <td className="py-2 px-1 text-right">{formatCurrency(bfla.totalIncomeAfterBFLA)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Schedule CFL — Losses to Carry Forward</CardTitle>
+            <CardDescription>Losses remaining after CYLA + BFLA, available for set-off in future assessment years</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {cfl.length === 0 ? (
+              <div className="text-center py-4 text-sm text-muted-foreground">
+                <CheckCircle className="h-5 w-5 mx-auto mb-2 text-green-500" />
+                <p>No losses to carry forward. All losses have been fully absorbed in the current year.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-1 font-medium">Assessment Year</th>
+                      <th className="text-right py-2 px-1 font-medium">HP Loss</th>
+                      <th className="text-right py-2 px-1 font-medium">STCL</th>
+                      <th className="text-right py-2 px-1 font-medium">LTCL</th>
+                      <th className="text-right py-2 px-1 font-medium">Business</th>
+                      <th className="text-right py-2 px-1 font-medium">Speculation</th>
+                      <th className="text-right py-2 px-1 font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cfl.map((e, i) => (
+                      <tr key={i} className="border-b last:border-0">
+                        <td className="py-2 px-1 font-medium">{e.assessmentYear}</td>
+                        <td className="py-2 px-1 text-right">{e.housePropertyLoss > 0 ? formatCurrency(e.housePropertyLoss) : '—'}</td>
+                        <td className="py-2 px-1 text-right">{e.shortTermCapitalLoss > 0 ? formatCurrency(e.shortTermCapitalLoss) : '—'}</td>
+                        <td className="py-2 px-1 text-right">{e.longTermCapitalLoss > 0 ? formatCurrency(e.longTermCapitalLoss) : '—'}</td>
+                        <td className="py-2 px-1 text-right">{e.businessLoss > 0 ? formatCurrency(e.businessLoss) : '—'}</td>
+                        <td className="py-2 px-1 text-right">{e.speculativeBusinessLoss > 0 ? formatCurrency(e.speculativeBusinessLoss) : '—'}</td>
+                        <td className="py-2 px-1 text-right font-medium">{formatCurrency(e.housePropertyLoss + e.shortTermCapitalLoss + e.longTermCapitalLoss + e.businessLoss + e.speculativeBusinessLoss + e.specifiedBusinessLoss)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-950 rounded text-xs space-y-1">
+              <p><strong>Carry-forward rules:</strong></p>
+              <p>House Property Loss — No time limit for carry-forward</p>
+              <p>Capital Losses (STCL/LTCL) — 8 assessment years; LTCL only against LTCG</p>
+              <p>Business Loss — 8 assessment years; against any head except salary</p>
+              <p>Speculation Loss — 4 assessment years; only against speculation income</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  const renderScheduleSIEIStep = () => {
+    const totalSI = scheduleSI.stcg111A + scheduleSI.ltcg112A + scheduleSI.ltcg112 + scheduleSI.vdaCrypto115BBH + scheduleSI.lottery115BB + scheduleSI.horseRacing + scheduleSI.onlineGaming + scheduleSI.dtaaSpecialRate + scheduleSI.otherSpecialRate;
+    const totalEI = scheduleEI.agriculturalIncome + scheduleEI.ltcgExemptUpTo125000 + scheduleEI.dividendFromCooperative + scheduleEI.ppfInterest + scheduleEI.epfInterest + scheduleEI.section10Exemptions + scheduleEI.otherExemptIncome;
+
+    const autoPopulateSI = () => {
+      setScheduleSI(prev => ({
+        ...prev,
+        stcg111A: capitalGainsDetails.sttPaidSTCG,
+        ltcg112A: Math.max(0, capitalGainsDetails.sttPaidLTCG - 125000),
+        vdaCrypto115BBH: prev.vdaCrypto115BBH,
+        lottery115BB: specialRateIncome.lottery,
+        horseRacing: specialRateIncome.horseRacing,
+        onlineGaming: specialRateIncome.onlineGaming,
+      }));
+    };
+
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Schedule SI — Income Chargeable at Special Rates</CardTitle>
+                <CardDescription>Income taxed at rates other than normal slab (capital gains, lottery, crypto, DTAA rates)</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={autoPopulateSI} data-testid="btn-auto-populate-si">
+                <Calculator className="h-3.5 w-3.5 mr-1" /> Auto-fill from CG
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Capital Gains at Special Rates</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">STCG u/s 111A (₹) — 20% <FieldHint text="Short-term capital gains on listed equity shares/MF where STT paid on sale. Taxed at flat 20%." /></Label>
+                <Input type="number" value={scheduleSI.stcg111A || ""} onChange={e => setScheduleSI(p => ({ ...p, stcg111A: Number(e.target.value) }))} data-testid="input-si-stcg-111a" />
+              </div>
+              <div>
+                <Label className="text-xs">LTCG u/s 112A (₹) — 12.5% <FieldHint text="Long-term capital gains on listed equity/MF with STT, exceeding ₹1.25 lakh exemption. Taxed at 12.5%." /></Label>
+                <Input type="number" value={scheduleSI.ltcg112A || ""} onChange={e => setScheduleSI(p => ({ ...p, ltcg112A: Number(e.target.value) }))} data-testid="input-si-ltcg-112a" />
+              </div>
+              <div>
+                <Label className="text-xs">LTCG u/s 112 (₹) — 20% with indexation <FieldHint text="Long-term capital gains on unlisted shares, property, gold, debt MF (pre-2023 investments). 20% with indexation benefit." /></Label>
+                <Input type="number" value={scheduleSI.ltcg112 || ""} onChange={e => setScheduleSI(p => ({ ...p, ltcg112: Number(e.target.value) }))} data-testid="input-si-ltcg-112" />
+              </div>
+              <div>
+                <Label className="text-xs">VDA / Crypto u/s 115BBH (₹) — 30% <FieldHint text="Virtual Digital Assets (cryptocurrency, NFTs) taxed at flat 30%. No deduction except cost of acquisition. 1% TDS applies." /></Label>
+                <Input type="number" value={scheduleSI.vdaCrypto115BBH || ""} onChange={e => setScheduleSI(p => ({ ...p, vdaCrypto115BBH: Number(e.target.value) }))} data-testid="input-si-vda" />
+              </div>
+            </div>
+            <Separator />
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Winnings & Other Special Rate Income</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Lottery / Crossword / Game Show u/s 115BB (₹) — 30%</Label>
+                <Input type="number" value={scheduleSI.lottery115BB || ""} onChange={e => setScheduleSI(p => ({ ...p, lottery115BB: Number(e.target.value) }))} />
+              </div>
+              <div>
+                <Label className="text-xs">Horse Racing (₹) — 30%</Label>
+                <Input type="number" value={scheduleSI.horseRacing || ""} onChange={e => setScheduleSI(p => ({ ...p, horseRacing: Number(e.target.value) }))} />
+              </div>
+              <div>
+                <Label className="text-xs">Online Gaming (₹) — 30%</Label>
+                <Input type="number" value={scheduleSI.onlineGaming || ""} onChange={e => setScheduleSI(p => ({ ...p, onlineGaming: Number(e.target.value) }))} />
+              </div>
+            </div>
+            <Separator />
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">DTAA Special Rate Income</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">Income Amount (₹)</Label>
+                <Input type="number" value={scheduleSI.dtaaSpecialRate || ""} onChange={e => setScheduleSI(p => ({ ...p, dtaaSpecialRate: Number(e.target.value) }))} />
+              </div>
+              <div>
+                <Label className="text-xs">DTAA Tax Rate (%)</Label>
+                <Input type="number" value={scheduleSI.dtaaSpecialRatePercent || ""} onChange={e => setScheduleSI(p => ({ ...p, dtaaSpecialRatePercent: Number(e.target.value) }))} max={100} />
+              </div>
+              <div>
+                <Label className="text-xs">Other Special Rate Income (₹)</Label>
+                <Input type="number" value={scheduleSI.otherSpecialRate || ""} onChange={e => setScheduleSI(p => ({ ...p, otherSpecialRate: Number(e.target.value) }))} />
+              </div>
+            </div>
+            <Card className="bg-muted/50">
+              <CardContent className="p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Total Special Rate Income</span>
+                  <span className="font-bold text-lg">{formatCurrency(totalSI)}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
+                  <span>Estimated Tax on Special Rate Income</span>
+                  <span>{formatCurrency(Math.round(
+                    scheduleSI.stcg111A * 0.20 + scheduleSI.ltcg112A * 0.125 + scheduleSI.ltcg112 * 0.20 +
+                    (scheduleSI.vdaCrypto115BBH + scheduleSI.lottery115BB + scheduleSI.horseRacing + scheduleSI.onlineGaming) * 0.30 +
+                    scheduleSI.dtaaSpecialRate * (scheduleSI.dtaaSpecialRatePercent / 100) +
+                    scheduleSI.otherSpecialRate * (scheduleSI.otherSpecialRatePercent / 100)
+                  ))}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Schedule EI — Exempt Income</CardTitle>
+            <CardDescription>Income not included in total income — must still be reported in the ITR</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Agricultural Income (₹) <FieldHint text="Income from agriculture is exempt u/s 10(1). However, if total income exceeds ₹5 lakh, agricultural income is used to calculate tax on non-agricultural income (partial integration)." /></Label>
+                <Input type="number" value={scheduleEI.agriculturalIncome || ""} onChange={e => setScheduleEI(p => ({ ...p, agriculturalIncome: Number(e.target.value) }))} data-testid="input-ei-agri" />
+              </div>
+              <div>
+                <Label className="text-xs">LTCG Exempt u/s 112A (up to ₹1,25,000) <FieldHint text="First ₹1.25 lakh of LTCG on listed equity/MF with STT is exempt from tax. Auto-calculated from Schedule 112A." /></Label>
+                <Input type="number" value={scheduleEI.ltcgExemptUpTo125000 || ""} onChange={e => setScheduleEI(p => ({ ...p, ltcgExemptUpTo125000: Math.min(125000, Number(e.target.value)) }))} max={125000} />
+              </div>
+              <div>
+                <Label className="text-xs">PPF Interest (₹) — Exempt u/s 10(11)</Label>
+                <Input type="number" value={scheduleEI.ppfInterest || ""} onChange={e => setScheduleEI(p => ({ ...p, ppfInterest: Number(e.target.value) }))} />
+              </div>
+              <div>
+                <Label className="text-xs">EPF Interest (₹) — Exempt portion <FieldHint text="Interest on EPF balance is exempt if withdrawn after 5 years of continuous service." /></Label>
+                <Input type="number" value={scheduleEI.epfInterest || ""} onChange={e => setScheduleEI(p => ({ ...p, epfInterest: Number(e.target.value) }))} />
+              </div>
+              <div>
+                <Label className="text-xs">Dividend from Cooperative Society (₹) — Exempt u/s 10(34)</Label>
+                <Input type="number" value={scheduleEI.dividendFromCooperative || ""} onChange={e => setScheduleEI(p => ({ ...p, dividendFromCooperative: Number(e.target.value) }))} />
+              </div>
+              <div>
+                <Label className="text-xs">Section 10 Exemptions (₹) <FieldHint text="Other exemptions under section 10: Leave encashment (10(10AA)), gratuity (10(10)), VRS compensation (10(10C)), etc." /></Label>
+                <Input type="number" value={scheduleEI.section10Exemptions || ""} onChange={e => setScheduleEI(p => ({ ...p, section10Exemptions: Number(e.target.value) }))} />
+              </div>
+              <div>
+                <Label className="text-xs">Other Exempt Income (₹)</Label>
+                <Input type="number" value={scheduleEI.otherExemptIncome || ""} onChange={e => setScheduleEI(p => ({ ...p, otherExemptIncome: Number(e.target.value) }))} />
+              </div>
+              <div>
+                <Label className="text-xs">Description of Other Exempt Income</Label>
+                <Input value={scheduleEI.exemptIncomeDescription} onChange={e => setScheduleEI(p => ({ ...p, exemptIncomeDescription: e.target.value }))} placeholder="e.g. ELSS maturity, SGB redemption" />
+              </div>
+            </div>
+            <Card className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+              <CardContent className="p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-green-700 dark:text-green-300">Total Exempt Income</span>
+                  <span className="font-bold text-lg text-green-700 dark:text-green-300">{formatCurrency(totalEI)}</span>
+                </div>
+                {scheduleEI.agriculturalIncome > 0 && totals.grossTotalIncome > 500000 && (
+                  <p className="text-xs text-amber-600 mt-1">Agricultural income with total income above ₹5L triggers partial integration for tax calculation.</p>
+                )}
+              </CardContent>
+            </Card>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
   const renderCurrentStep = () => {
     const currentStepExists = activeSteps.some(s => s.id === currentStepId);
     if (!currentStepExists) {
@@ -5668,6 +6357,8 @@ export default function TaxITRSelfPage() {
       case "trust_income": return renderTrustIncomeStep();
       case "deductions": return renderDeductionsStep();
       case "schedule_al": return renderScheduleALStep();
+      case "loss_adjustment": return renderLossAdjustmentStep();
+      case "schedule_si_ei": return renderScheduleSIEIStep();
       case "tax_payments": return renderTaxPaymentsStep();
       case "review": return renderReviewStep();
       default: return null;
