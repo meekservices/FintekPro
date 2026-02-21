@@ -2981,6 +2981,48 @@ router.post("/api/tax/challan/prepare", async (req: Request, res: Response) => {
     const { pan, assessmentYear, taxAmount, challanType, paymentMode } = req.body;
     if (!pan || !taxAmount) return res.status(400).json({ success: false, message: "PAN and tax amount required" });
 
+    const { filingDate, dueDate, advanceTaxPaid, grossTotalIncome } = req.body;
+    const amt = Number(taxAmount) || 0;
+
+    const dueDateObj = dueDate ? new Date(dueDate) : new Date(`${(assessmentYear || "2025-26").split("-")[0]}-07-31`);
+    const filingDateObj = filingDate ? new Date(filingDate) : new Date();
+    const monthsLate234A = Math.max(0, Math.ceil((filingDateObj.getTime() - dueDateObj.getTime()) / (30.44 * 24 * 60 * 60 * 1000)));
+    const interest234A = monthsLate234A > 0 ? Math.round(amt * 0.01 * monthsLate234A) : 0;
+
+    const advTaxPaid = Number(advanceTaxPaid) || 0;
+    const shortfall234B = Math.max(0, amt - advTaxPaid);
+    const assessedTaxDue = amt * 0.90;
+    const months234B = shortfall234B > 0 && advTaxPaid < assessedTaxDue
+      ? Math.max(0, Math.ceil((filingDateObj.getTime() - new Date(`${(assessmentYear || "2025-26").split("-")[0]}-03-31`).getTime()) / (30.44 * 24 * 60 * 60 * 1000)))
+      : 0;
+    const interest234B = months234B > 0 ? Math.round(shortfall234B * 0.01 * months234B) : 0;
+
+    const { advanceTaxQ1, advanceTaxQ2, advanceTaxQ3, advanceTaxQ4 } = req.body;
+    let interest234C = 0;
+    if (amt > 10000) {
+      const q1Paid = Number(advanceTaxQ1) || 0;
+      const q2Paid = Number(advanceTaxQ2) || 0;
+      const q3Paid = Number(advanceTaxQ3) || 0;
+      const q4Paid = Number(advanceTaxQ4) || 0;
+      const q1Due = amt * 0.15;
+      const q2Due = amt * 0.45;
+      const q3Due = amt * 0.75;
+      const q4Due = amt;
+      if (q1Paid < q1Due) interest234C += Math.round((q1Due - q1Paid) * 0.01 * 3);
+      if ((q1Paid + q2Paid) < q2Due) interest234C += Math.round((q2Due - q1Paid - q2Paid) * 0.01 * 3);
+      if ((q1Paid + q2Paid + q3Paid) < q3Due) interest234C += Math.round((q3Due - q1Paid - q2Paid - q3Paid) * 0.01 * 3);
+      if ((q1Paid + q2Paid + q3Paid + q4Paid) < q4Due) interest234C += Math.round((q4Due - q1Paid - q2Paid - q3Paid - q4Paid) * 0.01 * 1);
+    }
+
+    const gti = Number(grossTotalIncome) || 0;
+    let fee234F = 0;
+    if (filingDateObj > dueDateObj) {
+      fee234F = gti <= 500000 ? 1000 : 5000;
+    }
+
+    const surcharge = computeSurcharge(computeSlabTax(amt, NEW_REGIME_SLABS), amt, NEW_REGIME_SLABS);
+    const educationCess = Math.round((amt + surcharge) * 0.04);
+
     const challanData = {
       challanNo: challanType === "advance_tax" ? "280" : challanType === "self_assessment" ? "280" : "281",
       bsrCode: "",
@@ -2989,19 +3031,29 @@ router.post("/api/tax/challan/prepare", async (req: Request, res: Response) => {
       assessmentYear: assessmentYear || "2025-26",
       majorHead: "0021",
       minorHead: challanType === "advance_tax" ? "100" : challanType === "self_assessment" ? "300" : "400",
-      taxAmount: taxAmount || 0,
-      surcharge: Math.round(taxAmount > 5000000 ? taxAmount * 0.10 : 0),
-      educationCess: Math.round((taxAmount + (taxAmount > 5000000 ? taxAmount * 0.10 : 0)) * 0.04),
-      interest234A: 0,
-      interest234B: 0,
-      interest234C: 0,
-      fee234F: 0,
-      totalAmount: taxAmount,
+      taxAmount: amt,
+      surcharge,
+      educationCess,
+      interest234A,
+      interest234B,
+      interest234C,
+      fee234F,
+      totalAmount: amt + surcharge + educationCess + interest234A + interest234B + interest234C + fee234F,
       paymentMode: paymentMode || "net_banking",
       paymentUrl: `https://onlineservices.tin.egov-nsdl.com/etaxnew/tdsnontds.jsp`,
       generatedAt: new Date().toISOString(),
+      dueDate: dueDateObj.toISOString().split("T")[0],
+      filingDate: filingDateObj.toISOString().split("T")[0],
+      interestBreakdown: {
+        "234A_monthsLate": monthsLate234A,
+        "234A_ratePerMonth": "1%",
+        "234B_shortfall": shortfall234B,
+        "234B_months": months234B,
+        "234C_applicable": amt > 10000,
+        "234C_note": "1% per month for shortfall in quarterly advance tax installments (15%/45%/75%/100%)",
+        "234F_reason": fee234F > 0 ? "Filed after due date" : "Filed on or before due date",
+      },
     };
-    challanData.totalAmount = challanData.taxAmount + challanData.surcharge + challanData.educationCess + challanData.interest234A + challanData.interest234B + challanData.interest234C + challanData.fee234F;
 
     res.json({ success: true, data: challanData });
   } catch (err: any) {
@@ -3129,17 +3181,8 @@ router.post("/api/tax/calculator/form10e", async (req: Request, res: Response) =
   }
 });
 
-function computeSimpleTax(income: number): number {
-  if (income <= 300000) return 0;
+function computeSlabTax(income: number, slabs: { limit: number; rate: number }[]): number {
   let tax = 0;
-  const slabs = [
-    { limit: 300000, rate: 0 },
-    { limit: 700000, rate: 0.05 },
-    { limit: 1000000, rate: 0.10 },
-    { limit: 1200000, rate: 0.15 },
-    { limit: 1500000, rate: 0.20 },
-    { limit: Infinity, rate: 0.30 },
-  ];
   let prev = 0;
   for (const slab of slabs) {
     const taxable = Math.min(income, slab.limit) - prev;
@@ -3148,6 +3191,91 @@ function computeSimpleTax(income: number): number {
     if (income <= slab.limit) break;
   }
   return Math.round(tax);
+}
+
+const NEW_REGIME_SLABS = [
+  { limit: 300000, rate: 0 },
+  { limit: 700000, rate: 0.05 },
+  { limit: 1000000, rate: 0.10 },
+  { limit: 1200000, rate: 0.15 },
+  { limit: 1500000, rate: 0.20 },
+  { limit: Infinity, rate: 0.30 },
+];
+
+const OLD_REGIME_SLABS_BELOW60 = [
+  { limit: 250000, rate: 0 },
+  { limit: 500000, rate: 0.05 },
+  { limit: 1000000, rate: 0.20 },
+  { limit: Infinity, rate: 0.30 },
+];
+
+const OLD_REGIME_SLABS_60TO80 = [
+  { limit: 300000, rate: 0 },
+  { limit: 500000, rate: 0.05 },
+  { limit: 1000000, rate: 0.20 },
+  { limit: Infinity, rate: 0.30 },
+];
+
+const OLD_REGIME_SLABS_ABOVE80 = [
+  { limit: 500000, rate: 0 },
+  { limit: 1000000, rate: 0.20 },
+  { limit: Infinity, rate: 0.30 },
+];
+
+function computeSurcharge(tax: number, income: number, slabs: { limit: number; rate: number }[]): number {
+  let surchargeRate = 0;
+  if (income > 50000000) surchargeRate = 0.37;
+  else if (income > 20000000) surchargeRate = 0.25;
+  else if (income > 10000000) surchargeRate = 0.15;
+  else if (income > 5000000) surchargeRate = 0.10;
+  else return 0;
+
+  const surcharge = Math.round(tax * surchargeRate);
+
+  const thresholds = [5000000, 10000000, 20000000, 50000000];
+  const rates = [0, 0.10, 0.15, 0.25, 0.37];
+  for (let i = thresholds.length - 1; i >= 0; i--) {
+    if (income > thresholds[i]) {
+      const excessIncome = income - thresholds[i];
+      const taxAtThreshold = computeSlabTax(thresholds[i], slabs);
+      const surchargeAtThreshold = Math.round(taxAtThreshold * rates[i]);
+      const maxTaxPlusSurcharge = taxAtThreshold + surchargeAtThreshold + excessIncome;
+      if (tax + surcharge > maxTaxPlusSurcharge) {
+        return Math.max(0, maxTaxPlusSurcharge - tax);
+      }
+      break;
+    }
+  }
+  return surcharge;
+}
+
+function computeFullTax(income: number, regime: "new" | "old" = "new", age: number = 30): {
+  basicTax: number; rebate87A: number; surcharge: number; cess: number; totalTax: number;
+} {
+  const slabs = regime === "old"
+    ? (age >= 80 ? OLD_REGIME_SLABS_ABOVE80 : age >= 60 ? OLD_REGIME_SLABS_60TO80 : OLD_REGIME_SLABS_BELOW60)
+    : NEW_REGIME_SLABS;
+
+  let basicTax = computeSlabTax(income, slabs);
+
+  let rebate87A = 0;
+  if (regime === "new" && income <= 700000) {
+    rebate87A = Math.min(basicTax, 25000);
+  } else if (regime === "old" && income <= 500000) {
+    rebate87A = Math.min(basicTax, 12500);
+  }
+  basicTax -= rebate87A;
+  if (basicTax < 0) basicTax = 0;
+
+  const surcharge = computeSurcharge(basicTax, income, slabs);
+  const cess = Math.round((basicTax + surcharge) * 0.04);
+  const totalTax = basicTax + surcharge + cess;
+
+  return { basicTax, rebate87A, surcharge, cess, totalTax };
+}
+
+function computeSimpleTax(income: number): number {
+  return computeFullTax(income, "new").totalTax;
 }
 
 router.post("/api/tax/optimizer/suggestions", async (req: Request, res: Response) => {
@@ -3182,8 +3310,10 @@ router.post("/api/tax/optimizer/suggestions", async (req: Request, res: Response
     }
 
     if (income > 500000) {
-      const oldTax = computeSimpleTax(income - (Number(deductions?.totalDeductions) || 0));
-      const newTax = computeSimpleTax(income);
+      const totalDeductions = Number(deductions?.totalDeductions) || 0;
+      const userAge = Number(age) || 30;
+      const oldTax = computeFullTax(Math.max(0, income - totalDeductions), "old", userAge).totalTax;
+      const newTax = computeFullTax(income, "new", userAge).totalTax;
       if (taxRegime === "old" && newTax < oldTax) {
         suggestions.push({
           section: "Regime", potential: oldTax - newTax, taxSaving: oldTax - newTax,
@@ -3865,18 +3995,47 @@ router.post("/api/tax/share/whatsapp", async (req: Request, res: Response) => {
 
     const maskedPAN = pan ? pan.substring(0, 5) + "XXXXX" : "N/A";
     const defaultMsg = `Dear Client,\n\nYour ${docLabels[documentType] || documentType} for AY ${assessmentYear || "2025-26"} (PAN: ${maskedPAN}) has been prepared.\n\nPlease review and confirm.\n\n— FintekPro Tax Services`;
+    const msgToSend = message || defaultMsg;
+
+    let sent = false;
+    let deliveryMethod = "whatsapp_link";
+    try {
+      const { twilioWhatsAppService } = await import("./services/twilio-whatsapp-service");
+      if (twilioWhatsAppService.isAvailable()) {
+        const result = await twilioWhatsAppService.sendMessage(phoneNumber, msgToSend);
+        sent = result?.success ?? false;
+        deliveryMethod = sent ? "twilio_whatsapp" : "twilio_failed";
+      }
+    } catch {
+      try {
+        const { whatsappService } = await import("./whatsapp");
+        if (whatsappService.isClientReady()) {
+          sent = await whatsappService.sendMessage(phoneNumber, msgToSend);
+          deliveryMethod = sent ? "whatsapp_direct" : "whatsapp_failed";
+        }
+      } catch {
+        deliveryMethod = "whatsapp_link";
+      }
+    }
 
     const whatsappRecord = {
       id: `wa-${Date.now()}`,
       to: phoneNumber,
-      message: message || defaultMsg,
+      message: msgToSend,
       documentType,
-      status: "sent",
+      status: sent ? "sent" : "link_generated",
       sentAt: new Date().toISOString(),
-      whatsappUrl: `https://wa.me/${phoneNumber.replace(/\D/g, "")}?text=${encodeURIComponent(message || defaultMsg)}`,
+      deliveryMethod,
+      whatsappUrl: !sent ? `https://wa.me/${phoneNumber.replace(/\D/g, "")}?text=${encodeURIComponent(msgToSend)}` : undefined,
     };
 
-    res.json({ success: true, data: whatsappRecord });
+    res.json({
+      success: true,
+      data: whatsappRecord,
+      message: sent
+        ? `${docLabels[documentType] || documentType} sent via WhatsApp to ${phoneNumber}`
+        : `WhatsApp delivery service unavailable. Use the link to send manually.`,
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -4288,6 +4447,21 @@ router.post("/api/tax/validate/pre-filing", async (req: Request, res: Response) 
     const ltcg = Number(data?.capitalGainsDetails?.longTermGains || 0);
     if ((stcg !== 0 || ltcg !== 0) && itrForm === "ITR-1") errors.push({ code: "E006", field: "itrForm", message: "Capital gains not allowed in ITR-1 — use ITR-2 or ITR-3", severity: "error" });
 
+    const businessInc = Number(data?.businessIncome || 0);
+    if (businessInc !== 0 && itrForm === "ITR-1") errors.push({ code: "E008", field: "itrForm", message: "Business/professional income not allowed in ITR-1 — use ITR-3 or ITR-4", severity: "error" });
+
+    const agriIncome = Number(data?.agriculturalIncome || 0);
+    if (agriIncome > 5000 && itrForm === "ITR-1") errors.push({ code: "E009", field: "itrForm", message: "Agricultural income exceeding ₹5,000 not allowed in ITR-1 — use ITR-2", severity: "error" });
+
+    const housePropertyCount = Number(data?.housePropertyCount || data?.numberOfHouseProperties || 0);
+    if (housePropertyCount > 1 && itrForm === "ITR-1") errors.push({ code: "E010", field: "itrForm", message: "Multiple house properties not allowed in ITR-1 — use ITR-2", severity: "error" });
+
+    const sec80GG = Number(data?.deductionDetails?.section80GG || 0);
+    if (sec80GG > 0 && data?.taxRegime === "old") {
+      const maxGG = Math.min(60000, Math.round(Number(data?.grossTotalIncome || 0) * 0.25));
+      if (sec80GG > maxGG) errors.push({ code: "E011", field: "section80GG", message: `Section 80GG deduction cannot exceed ₹60,000/year or 25% of total income (max: ₹${maxGG.toLocaleString("en-IN")})`, severity: "error" });
+    }
+
     const tds = Number(data?.taxPaymentDetails?.tdsDeducted || 0);
     const grossTotal = salary - stdDeduction + stcg + ltcg + Number(data?.otherIncomeDetails?.interestIncome || 0);
     if (tds > grossTotal * 0.5) warnings.push({ code: "W003", field: "tds", message: "TDS exceeds 50% of gross income — verify 26AS data", severity: "warning" });
@@ -4308,6 +4482,18 @@ router.post("/api/tax/validate/pre-filing", async (req: Request, res: Response) 
 
     if (data?.bankDetails?.accountNumber && !data?.bankDetails?.ifscCode) {
       warnings.push({ code: "W007", field: "bankIfsc", message: "Bank IFSC code missing — required for refund credit", severity: "warning" });
+    }
+
+    if (data?.residentialStatus === "NRI" && itrForm === "ITR-1") {
+      errors.push({ code: "E012", field: "itrForm", message: "Non-residents cannot file ITR-1 — use ITR-2 or higher", severity: "error" });
+    }
+
+    if (data?.isDirectorInCompany && itrForm === "ITR-1") {
+      errors.push({ code: "E013", field: "itrForm", message: "Directors of companies cannot file ITR-1 — use ITR-2", severity: "error" });
+    }
+
+    if (data?.hasForeignAssets && itrForm === "ITR-1") {
+      errors.push({ code: "E014", field: "itrForm", message: "Taxpayers with foreign assets/income cannot file ITR-1 — use ITR-2 with Schedule FA", severity: "error" });
     }
 
     info.push({ code: "I001", message: `Filing ${itrForm || "ITR-1"} for AY ${assessmentYear || "2025-26"}` });

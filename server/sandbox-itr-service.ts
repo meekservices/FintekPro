@@ -446,99 +446,107 @@ class SandboxITRService {
     employerTAN?: string;
     bankDetails?: { accountNumber: string; ifscCode: string; bankName?: string; accountType?: string };
   }): Promise<ITRCalculationResponse> {
-    const totalCapitalGains = wizardData.capitalGainsSTCG + wizardData.capitalGainsLTCG - wizardData.capitalGainsExemptions;
-    const ftc = wizardData.foreignTaxCredit || 0;
+    try {
+      const totalCapitalGains = wizardData.capitalGainsSTCG + wizardData.capitalGainsLTCG - wizardData.capitalGainsExemptions;
+      const ftc = wizardData.foreignTaxCredit || 0;
 
-    const combined80C = Math.min(
-      (wizardData.section80C || 0) + (wizardData.section80CCC || 0) + (wizardData.section80CCD1 || 0),
-      150000
-    );
+      const combined80C = Math.min(
+        (wizardData.section80C || 0) + (wizardData.section80CCC || 0) + (wizardData.section80CCD1 || 0),
+        150000
+      );
 
-    const payload: Record<string, any> = {
-      assessment_year: wizardData.assessmentYear,
-      entity_type: wizardData.entityType,
-      income_details: {
-        salary_income: wizardData.salaryIncome,
-        business_income: wizardData.businessIncome,
-        capital_gains: Math.max(0, totalCapitalGains),
-        capital_gains_stcg: wizardData.capitalGainsSTCG,
-        capital_gains_ltcg: wizardData.capitalGainsLTCG,
-        capital_gains_exemptions: wizardData.capitalGainsExemptions,
-        other_income: wizardData.otherIncome,
-        interest_income: wizardData.interestIncome,
-        rental_income: wizardData.housePropertyIncome,
-        dividend_income: wizardData.dividendIncome,
-        agricultural_income: wizardData.agriculturalIncome || 0,
-      },
-      deductions: {
-        section_80c: combined80C,
-        section_80ccd_1b: Math.min(wizardData.section80CCD1B || 0, 50000),
-        section_80ccd_2: wizardData.section80CCD2 || 0,
-        section_80d: Math.min(wizardData.section80D, 100000),
-        section_80dd: Math.min(wizardData.section80DD || 0, 125000),
-        section_80ddb: Math.min(wizardData.section80DDB || 0, 100000),
-        section_80e: wizardData.section80E,
-        section_80eea: Math.min(wizardData.section80EEA || 0, 150000),
-        section_80eeb: Math.min(wizardData.section80EEB || 0, 150000),
-        section_80g: wizardData.section80G,
-        section_80gg: Math.min(wizardData.section80GG || 0, 60000),
-        section_80tta: Math.min(wizardData.section80TTA, 10000),
-        section_80ttb: Math.min(wizardData.section80TTB || 0, 50000),
-        section_80u: Math.min(wizardData.section80U || 0, 125000),
-        standard_deduction: wizardData.standardDeduction,
-        professional_tax: wizardData.professionalTax,
-        home_loan_interest: wizardData.homeLoanInterest,
-        other_deductions: wizardData.otherDeductions,
-      },
-      tax_payments: {
-        tds_deducted: wizardData.tdsDeducted,
-        tds_salary: wizardData.tdsSalary || 0,
-        tds_other_than_salary: wizardData.tdsOtherThanSalary || 0,
-        tds_on_property: wizardData.tdsOnProperty || 0,
-        tcs_collected: wizardData.tcsCollected || 0,
-        advance_tax_paid: wizardData.advanceTaxPaid,
-        self_assessment_tax: wizardData.selfAssessmentTax,
-        relief_us_89: wizardData.reliefUs89 || 0,
-      },
-    };
+      const payload: Record<string, any> = {
+        assessment_year: wizardData.assessmentYear,
+        entity_type: wizardData.entityType,
+        income_details: {
+          salary_income: wizardData.salaryIncome,
+          business_income: wizardData.businessIncome,
+          capital_gains: Math.max(0, totalCapitalGains),
+          capital_gains_stcg: wizardData.capitalGainsSTCG,
+          capital_gains_ltcg: wizardData.capitalGainsLTCG,
+          capital_gains_exemptions: wizardData.capitalGainsExemptions,
+          other_income: wizardData.otherIncome,
+          interest_income: wizardData.interestIncome,
+          rental_income: wizardData.housePropertyIncome,
+          dividend_income: wizardData.dividendIncome,
+          agricultural_income: wizardData.agriculturalIncome || 0,
+        },
+        deductions: {
+          section_80c: combined80C,
+          section_80ccd_1b: Math.min(wizardData.section80CCD1B || 0, 50000),
+          section_80ccd_2: wizardData.section80CCD2 || 0,
+          section_80d: Math.min(wizardData.section80D, 100000),
+          section_80dd: Math.min(wizardData.section80DD || 0, 125000),
+          section_80ddb: Math.min(wizardData.section80DDB || 0, 100000),
+          section_80e: wizardData.section80E,
+          section_80eea: Math.min(wizardData.section80EEA || 0, 150000),
+          section_80eeb: Math.min(wizardData.section80EEB || 0, 150000),
+          section_80g: wizardData.section80G,
+          section_80gg: Math.min(wizardData.section80GG || 0, 60000),
+          section_80tta: Math.min(wizardData.section80TTA, 10000),
+          section_80ttb: Math.min(wizardData.section80TTB || 0, 50000),
+          section_80u: Math.min(wizardData.section80U || 0, 125000),
+          standard_deduction: wizardData.standardDeduction,
+          professional_tax: wizardData.professionalTax,
+          home_loan_interest: wizardData.homeLoanInterest,
+          other_deductions: wizardData.otherDeductions,
+        },
+        tax_payments: {
+          tds_deducted: wizardData.tdsDeducted,
+          tds_salary: wizardData.tdsSalary || 0,
+          tds_other_than_salary: wizardData.tdsOtherThanSalary || 0,
+          tds_on_property: wizardData.tdsOnProperty || 0,
+          tcs_collected: wizardData.tcsCollected || 0,
+          advance_tax_paid: wizardData.advanceTaxPaid,
+          self_assessment_tax: wizardData.selfAssessmentTax,
+          relief_us_89: wizardData.reliefUs89 || 0,
+        },
+      };
 
-    if (ftc > 0) {
-      payload.tax_relief = {
-        section_90_91: ftc,
-        country: wizardData.foreignIncomeCountry || 'US',
-        dtaa_applicable: true,
+      if (ftc > 0) {
+        payload.tax_relief = {
+          section_90_91: ftc,
+          country: wizardData.foreignIncomeCountry || 'US',
+          dtaa_applicable: true,
+        };
+      }
+
+      if (wizardData.bankDetails) {
+        payload.bank_details = {
+          account_number: wizardData.bankDetails.accountNumber,
+          ifsc_code: wizardData.bankDetails.ifscCode,
+          bank_name: wizardData.bankDetails.bankName || '',
+          account_type: wizardData.bankDetails.accountType || 'savings',
+        };
+      }
+
+      const response = await this.makeAPICall(
+        '/it/calculator/income_tax/itr',
+        payload,
+        'POST'
+      );
+
+      return {
+        success: true,
+        data: {
+          totalIncome: response.data?.total_income ?? response.total_income ?? 0,
+          taxableIncome: response.data?.taxable_income ?? response.taxable_income ?? 0,
+          totalDeductions: response.data?.total_deductions ?? response.total_deductions ?? 0,
+          taxLiability: response.data?.tax_liability ?? response.tax_liability ?? 0,
+          taxPaid: response.data?.tax_paid ?? response.tax_paid ?? 0,
+          refundAmount: response.data?.refund_amount ?? response.refund_amount ?? 0,
+          taxPayable: response.data?.tax_payable ?? response.tax_payable ?? 0,
+          effectiveTaxRate: response.data?.effective_tax_rate ?? response.effective_tax_rate ?? 0,
+        },
+        message: 'Tax calculated via Sandbox.co.in API',
+      };
+    } catch (error) {
+      console.error('[Sandbox ITR] Wizard tax calculation failed:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Wizard tax calculation failed — Sandbox API error',
       };
     }
-
-    if (wizardData.bankDetails) {
-      payload.bank_details = {
-        account_number: wizardData.bankDetails.accountNumber,
-        ifsc_code: wizardData.bankDetails.ifscCode,
-        bank_name: wizardData.bankDetails.bankName || '',
-        account_type: wizardData.bankDetails.accountType || 'savings',
-      };
-    }
-
-    const response = await this.makeAPICall(
-      '/it/calculator/income_tax/itr',
-      payload,
-      'POST'
-    );
-
-    return {
-      success: true,
-      data: {
-        totalIncome: response.data?.total_income ?? response.total_income ?? 0,
-        taxableIncome: response.data?.taxable_income ?? response.taxable_income ?? 0,
-        totalDeductions: response.data?.total_deductions ?? response.total_deductions ?? 0,
-        taxLiability: response.data?.tax_liability ?? response.tax_liability ?? 0,
-        taxPaid: response.data?.tax_paid ?? response.tax_paid ?? 0,
-        refundAmount: response.data?.refund_amount ?? response.refund_amount ?? 0,
-        taxPayable: response.data?.tax_payable ?? response.tax_payable ?? 0,
-        effectiveTaxRate: response.data?.effective_tax_rate ?? response.effective_tax_rate ?? 0,
-      },
-      message: 'Tax calculated via Sandbox.co.in API',
-    };
   }
 
   async prepareITR(formData: ITRFormData): Promise<ITRFilingResponse> {
