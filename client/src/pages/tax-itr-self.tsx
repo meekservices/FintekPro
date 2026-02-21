@@ -13,6 +13,8 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { 
   ArrowLeft, 
@@ -42,7 +44,10 @@ import {
   Scale,
   Globe,
   Plus,
-  Trash2
+  Trash2,
+  Users,
+  Banknote,
+  Lightbulb
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -206,6 +211,189 @@ interface CFLEntry {
   businessLoss: number;
   speculativeBusinessLoss: number;
   specifiedBusinessLoss: number;
+}
+
+interface ScheduleSPIEntry {
+  nameOfPerson: string;
+  panOfPerson: string;
+  relationshipCode: "spouse" | "son" | "daughter" | "son_wife" | "minor_son" | "minor_daughter";
+  incomeType: "salary" | "house_property" | "business" | "capital_gains" | "other_sources";
+  amountIncluded: number;
+  section: "64(1)(ii)" | "64(1)(iv)" | "64(1A)";
+  remarks: string;
+}
+
+interface Schedule5ADetails {
+  isApplicable: boolean;
+  nameOfSpouse: string;
+  panOfSpouse: string;
+  totalIncomeOfAssessee: number;
+  totalIncomeOfSpouse: number;
+  apportionedIncomeAssessee: number;
+  apportionedIncomeSpouse: number;
+  headwiseBreakdown: {
+    salary: { assessee: number; spouse: number };
+    houseProperty: { assessee: number; spouse: number };
+    business: { assessee: number; spouse: number };
+    capitalGains: { assessee: number; spouse: number };
+    otherSources: { assessee: number; spouse: number };
+  };
+}
+
+interface ScheduleIFEntry {
+  firmName: string;
+  firmPAN: string;
+  firmAddress: string;
+  assessmentYear: string;
+  shareOfProfit: number;
+  shareOfSalary: number;
+  shareOfInterest: number;
+  shareOfBonus: number;
+  shareOfCommission: number;
+  capitalBalanceOnApril1: number;
+  capitalBalanceOnMarch31: number;
+  isPartnerInAOP: boolean;
+}
+
+interface MATDetails {
+  isApplicable: boolean;
+  bookProfitBeforeAdjustments: number;
+  additionsToBookProfit: {
+    incomeTaxProvision: number;
+    deferredTax: number;
+    dividendPaid: number;
+    carriedForwardLosses: number;
+    unabsorbedDepreciation: number;
+    transferToReserve: number;
+    provisionForDiminution: number;
+    expenditureRelatingExemptIncome: number;
+    notionalGain: number;
+    otherAdditions: number;
+  };
+  deductionsFromBookProfit: {
+    withdrawalFromReserve: number;
+    incomeExemptUs10: number;
+    incomeExemptUs11_12: number;
+    depreciationExcludingRevaluation: number;
+    withdrawalFromProvision: number;
+    lowerOfUnabsorbedDepOrBroughtForwardLoss: number;
+    notionalLoss: number;
+    otherDeductions: number;
+  };
+  adjustedBookProfit: number;
+  matRate: number;
+  matTaxAmount: number;
+  surchargeOnMAT: number;
+  cessOnMAT: number;
+  totalMATLiability: number;
+  normalTaxLiability: number;
+  isMATApplicable: boolean;
+  taxPayableHigherOfMATOrNormal: number;
+}
+
+interface MATCreditDetails {
+  isApplicable: boolean;
+  creditEntries: Array<{
+    assessmentYear: string;
+    matPaid: number;
+    normalTaxPayable: number;
+    matCreditAvailable: number;
+    matCreditUtilized: number;
+    matCreditLapsed: boolean;
+    expiryYear: string;
+  }>;
+  totalCreditBroughtForward: number;
+  creditUtilizedCurrentYear: number;
+  creditCarriedForward: number;
+  creditSetOffLimit: number;
+}
+
+interface AMTDetails {
+  isApplicable: boolean;
+  adjustedTotalIncome: number;
+  additions: {
+    deduction80H_80RRB: number;
+    deduction10AA: number;
+    deduction35AD: number;
+    deduction80IA_80IB: number;
+    deduction80JJA: number;
+    deduction80P: number;
+    otherChapter6ADeductions: number;
+  };
+  totalAdjustedIncome: number;
+  amtRate: number;
+  amtAmount: number;
+  surchargeOnAMT: number;
+  cessOnAMT: number;
+  totalAMTLiability: number;
+  normalTaxLiability: number;
+  isAMTApplicable: boolean;
+  taxPayableHigherOfAMTOrNormal: number;
+}
+
+interface AMTCreditDetails {
+  isApplicable: boolean;
+  creditEntries: Array<{
+    assessmentYear: string;
+    amtPaid: number;
+    normalTaxPayable: number;
+    amtCreditAvailable: number;
+    amtCreditUtilized: number;
+    amtCreditLapsed: boolean;
+    expiryYear: string;
+  }>;
+  totalCreditBroughtForward: number;
+  creditUtilizedCurrentYear: number;
+  creditCarriedForward: number;
+}
+
+interface TDS1Entry {
+  employerTAN: string;
+  employerName: string;
+  salaryUnderSection: "17(1)" | "17(2)" | "17(3)";
+  incomeCredited: number;
+  tdsDeducted: number;
+  tdsClaimedCurrentYear: number;
+}
+
+interface TDS2Entry {
+  deductorTAN: string;
+  deductorName: string;
+  incomeType: "interest" | "dividend" | "rent" | "professional_fees" | "commission" | "winnings" | "sale_of_property" | "other";
+  section: string;
+  dateOfPayment: string;
+  incomeCredited: number;
+  tdsDeducted: number;
+  tdsClaimedCurrentYear: number;
+}
+
+interface TCSEntry {
+  collectorTAN: string;
+  collectorName: string;
+  amountPaid: number;
+  tcsCollected: number;
+  tcsClaimedCurrentYear: number;
+}
+
+interface Section234FDetails {
+  isApplicable: boolean;
+  filingDueDate: string;
+  actualFilingDate: string;
+  totalIncome: number;
+  lateFee: number;
+  isSmallTaxpayer: boolean;
+}
+
+interface Section87ADetails {
+  isEligible: boolean;
+  taxableIncome: number;
+  normalTaxLiability: number;
+  rebateAmount: number;
+  maxRebateOldRegime: number;
+  maxRebateNewRegime: number;
+  incomeThresholdOld: number;
+  incomeThresholdNew: number;
+  taxAfterRebate: number;
 }
 
 interface DirectorshipEntry {
@@ -557,6 +745,11 @@ const STEPS = [
   { id: "schedule_al", title: "Schedule AL", icon: Scale, description: "Assets & liabilities disclosure" },
   { id: "loss_adjustment", title: "Loss Adjustment", icon: Scale, description: "CYLA, BFLA, CFL set-off schedules" },
   { id: "schedule_si_ei", title: "Special / Exempt", icon: Shield, description: "Schedule SI & EI — special rate and exempt income" },
+  { id: "schedule_spi", title: "Schedule SPI", icon: Users, description: "Spousal/minor income clubbing (Sec 64)" },
+  { id: "schedule_5a", title: "Schedule 5A", icon: Scale, description: "Portuguese Civil Code apportionment" },
+  { id: "schedule_if", title: "Schedule IF", icon: Building2, description: "Income from partnership firms" },
+  { id: "mat_amt", title: "MAT / AMT", icon: Calculator, description: "Minimum Alternate Tax & credits" },
+  { id: "tds_schedules", title: "TDS Schedules", icon: FileText, description: "TDS1, TDS2, TCS details" },
   { id: "tax_payments", title: "Tax Payments", icon: IndianRupee, description: "TDS, advance tax, self-assessment" },
   { id: "review", title: "Review & File", icon: CheckCircle, description: "Verify and submit" }
 ];
@@ -833,6 +1026,51 @@ export default function TaxITRSelfPage() {
       { quarter: "Q4 (Mar 15)", dueDate: "2025-03-15", amountDue: 0, amountPaid: 0, paidDate: "" },
     ],
   });
+  const [scheduleSPI, setScheduleSPI] = useState<ScheduleSPIEntry[]>([]);
+  const [schedule5A, setSchedule5A] = useState<Schedule5ADetails>({
+    isApplicable: false, nameOfSpouse: "", panOfSpouse: "",
+    totalIncomeOfAssessee: 0, totalIncomeOfSpouse: 0,
+    apportionedIncomeAssessee: 0, apportionedIncomeSpouse: 0,
+    headwiseBreakdown: {
+      salary: { assessee: 0, spouse: 0 }, houseProperty: { assessee: 0, spouse: 0 },
+      business: { assessee: 0, spouse: 0 }, capitalGains: { assessee: 0, spouse: 0 },
+      otherSources: { assessee: 0, spouse: 0 },
+    },
+  });
+  const [scheduleIF, setScheduleIF] = useState<ScheduleIFEntry[]>([]);
+  const [matDetails, setMatDetails] = useState<MATDetails>({
+    isApplicable: false, bookProfitBeforeAdjustments: 0,
+    additionsToBookProfit: { incomeTaxProvision: 0, deferredTax: 0, dividendPaid: 0, carriedForwardLosses: 0, unabsorbedDepreciation: 0, transferToReserve: 0, provisionForDiminution: 0, expenditureRelatingExemptIncome: 0, notionalGain: 0, otherAdditions: 0 },
+    deductionsFromBookProfit: { withdrawalFromReserve: 0, incomeExemptUs10: 0, incomeExemptUs11_12: 0, depreciationExcludingRevaluation: 0, withdrawalFromProvision: 0, lowerOfUnabsorbedDepOrBroughtForwardLoss: 0, notionalLoss: 0, otherDeductions: 0 },
+    adjustedBookProfit: 0, matRate: 15, matTaxAmount: 0, surchargeOnMAT: 0, cessOnMAT: 0,
+    totalMATLiability: 0, normalTaxLiability: 0, isMATApplicable: false, taxPayableHigherOfMATOrNormal: 0,
+  });
+  const [matcDetails, setMatcDetails] = useState<MATCreditDetails>({
+    isApplicable: false, creditEntries: [], totalCreditBroughtForward: 0,
+    creditUtilizedCurrentYear: 0, creditCarriedForward: 0, creditSetOffLimit: 0,
+  });
+  const [amtDetails, setAmtDetails] = useState<AMTDetails>({
+    isApplicable: false, adjustedTotalIncome: 0,
+    additions: { deduction80H_80RRB: 0, deduction10AA: 0, deduction35AD: 0, deduction80IA_80IB: 0, deduction80JJA: 0, deduction80P: 0, otherChapter6ADeductions: 0 },
+    totalAdjustedIncome: 0, amtRate: 18.5, amtAmount: 0, surchargeOnAMT: 0, cessOnAMT: 0,
+    totalAMTLiability: 0, normalTaxLiability: 0, isAMTApplicable: false, taxPayableHigherOfAMTOrNormal: 0,
+  });
+  const [amtcDetails, setAmtcDetails] = useState<AMTCreditDetails>({
+    isApplicable: false, creditEntries: [], totalCreditBroughtForward: 0,
+    creditUtilizedCurrentYear: 0, creditCarriedForward: 0,
+  });
+  const [tds1Entries, setTds1Entries] = useState<TDS1Entry[]>([]);
+  const [tds2Entries, setTds2Entries] = useState<TDS2Entry[]>([]);
+  const [tcsEntries, setTcsEntries] = useState<TCSEntry[]>([]);
+  const [section234F, setSection234F] = useState<Section234FDetails>({
+    isApplicable: false, filingDueDate: "2025-07-31", actualFilingDate: "",
+    totalIncome: 0, lateFee: 0, isSmallTaxpayer: false,
+  });
+  const [section87A, setSection87A] = useState<Section87ADetails>({
+    isEligible: false, taxableIncome: 0, normalTaxLiability: 0, rebateAmount: 0,
+    maxRebateOldRegime: 12500, maxRebateNewRegime: 25000,
+    incomeThresholdOld: 500000, incomeThresholdNew: 700000, taxAfterRebate: 0,
+  });
 
   const [balanceSheet, setBalanceSheet] = useState<BalanceSheetDetails>({
     fixedAssets: 0, investments: 0, currentAssets: 0, loansAndAdvances: 0, otherAssets: 0, totalAssets: 0,
@@ -872,6 +1110,12 @@ export default function TaxITRSelfPage() {
 
   const [documentVault, setDocumentVault] = useState<{ id: string; name: string; type: string; category: string; uploadedAt: string; size: number }[]>([]);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [showChallanDialog, setShowChallanDialog] = useState(false);
+  const [showToolsDialog, setShowToolsDialog] = useState(false);
+  const [challanResult, setChallanResult] = useState<any>(null);
+  const [hraResult, setHraResult] = useState<any>(null);
+  const [form10EResult, setForm10EResult] = useState<any>(null);
+  const [optimizerResult, setOptimizerResult] = useState<any>(null);
 
   const [sandboxTaxResult, setSandboxTaxResult] = useState<SandboxTaxResult | null>(null);
   const [taxCalcError, setTaxCalcError] = useState<string | null>(null);
@@ -1520,6 +1764,41 @@ export default function TaxITRSelfPage() {
       }
       case "loss_adjustment":
         break;
+      case "schedule_spi":
+        scheduleSPI.forEach((entry, idx) => {
+          if (entry.amountIncluded > 0 && !entry.nameOfPerson) errors.push(`SPI Entry ${idx + 1}: Name of person is required.`);
+          if (entry.amountIncluded > 0 && !entry.panOfPerson) warnings.push(`SPI Entry ${idx + 1}: PAN of specified person is recommended.`);
+        });
+        break;
+      case "schedule_5a":
+        if (schedule5A.isApplicable) {
+          if (!schedule5A.nameOfSpouse) errors.push("Spouse name is required for Schedule 5A.");
+          if (!schedule5A.panOfSpouse) warnings.push("PAN of spouse is recommended for Schedule 5A.");
+        }
+        break;
+      case "schedule_if":
+        scheduleIF.forEach((entry, idx) => {
+          if (!entry.firmName) errors.push(`Firm ${idx + 1}: Firm name is required.`);
+          if (!entry.firmPAN) errors.push(`Firm ${idx + 1}: Firm PAN is required.`);
+          if (entry.firmPAN && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(entry.firmPAN)) errors.push(`Firm ${idx + 1}: Invalid PAN format.`);
+        });
+        break;
+      case "mat_amt":
+        if (matDetails.isApplicable && matDetails.bookProfitBeforeAdjustments === 0) {
+          warnings.push("Book profit is zero. Please enter the net profit from P&L account.");
+        }
+        if (amtDetails.isApplicable && amtDetails.adjustedTotalIncome === 0) {
+          warnings.push("Adjusted total income is zero. Please enter the total income before Chapter VI-A deductions.");
+        }
+        break;
+      case "tds_schedules":
+        tds1Entries.forEach((entry, idx) => {
+          if (entry.tdsDeducted > 0 && !entry.employerTAN) errors.push(`TDS1 Entry ${idx + 1}: Employer TAN is required.`);
+        });
+        tds2Entries.forEach((entry, idx) => {
+          if (entry.tdsDeducted > 0 && !entry.deductorTAN) errors.push(`TDS2 Entry ${idx + 1}: Deductor TAN is required.`);
+        });
+        break;
       case "schedule_si_ei":
         if (scheduleSI.stcg111A < 0 || scheduleSI.ltcg112A < 0 || scheduleSI.ltcg112 < 0 || scheduleSI.vdaCrypto115BBH < 0) {
           errors.push("Special rate income amounts cannot be negative.");
@@ -1863,6 +2142,86 @@ export default function TaxITRSelfPage() {
           </Card>
         )}
       </div>
+
+      <Separator />
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Quick Import</CardTitle>
+          <CardDescription>Import data from IT portal, previous year ITR, or broker statements</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <Label className="text-xs mb-1 block">Import ITR JSON from IT Portal</Label>
+              <Input type="file" accept=".json" className="text-xs" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const formData = new FormData();
+                formData.append("file", file);
+                try {
+                  const resp = await fetch("/api/tax/import/itr-json", { method: "POST", body: formData });
+                  const result = await resp.json();
+                  if (result.success) {
+                    const d = result.data;
+                    if (d.salary?.grossSalary) setSalaryDetails(p => ({ ...p, grossSalary: d.salary.grossSalary, standardDeduction: d.salary.standardDeduction || 75000 }));
+                    if (d.capitalGains?.stcg || d.capitalGains?.ltcg) setCapitalGainsDetails(p => ({ ...p, shortTermGains: d.capitalGains.stcg, longTermGains: d.capitalGains.ltcg }));
+                    if (d.otherSources?.interestIncome) setOtherIncomeDetails(p => ({ ...p, interestIncome: d.otherSources.interestIncome, dividendIncome: d.otherSources.dividendIncome }));
+                    if (d.deductions?.section80C) setDeductionDetails(p => ({ ...p, section80C: d.deductions.section80C, section80D: d.deductions.section80D || 0 }));
+                    toast({ title: "Import Successful", description: `Imported ${d.formType} data for AY ${d.assessmentYear || assessmentYear}` });
+                  } else {
+                    toast({ title: "Import Failed", description: result.message, variant: "destructive" });
+                  }
+                } catch { toast({ title: "Import Error", description: "Failed to parse ITR JSON", variant: "destructive" }); }
+              }} data-testid="input-import-itr-json" />
+            </div>
+            <div>
+              <Label className="text-xs mb-1 block">Import Broker CG Statement (CSV)</Label>
+              <Input type="file" accept=".csv,.xlsx" className="text-xs" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const formData = new FormData();
+                formData.append("file", file);
+                formData.append("broker", "generic");
+                try {
+                  const resp = await fetch("/api/tax/import/broker-cg", { method: "POST", body: formData });
+                  const result = await resp.json();
+                  if (result.success) {
+                    setCapitalGainsDetails(p => ({ ...p, shortTermGains: p.shortTermGains + result.data.totalSTCG, longTermGains: p.longTermGains + result.data.totalLTCG }));
+                    toast({ title: "Broker Import Done", description: `${result.data.totalTransactions} transactions parsed. STCG: ₹${result.data.totalSTCG.toLocaleString("en-IN")}, LTCG: ₹${result.data.totalLTCG.toLocaleString("en-IN")}` });
+                  } else {
+                    toast({ title: "Import Failed", description: result.message, variant: "destructive" });
+                  }
+                } catch { toast({ title: "Import Error", description: "Failed to parse broker statement", variant: "destructive" }); }
+              }} data-testid="input-import-broker-cg" />
+            </div>
+            <div>
+              <Label className="text-xs mb-1 block">Export ITR JSON</Label>
+              <Button variant="outline" size="sm" className="w-full text-xs" onClick={async () => {
+                try {
+                  const resp = await fetch("/api/tax/export/itr-json", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      pan: panContext?.pan, assessmentYear, itrForm: recommendedForm,
+                      data: { name: panContext?.name, filingSection, taxRegime, residentialStatus, salaryDetails, capitalGainsDetails, otherIncomeDetails: otherIncomeDetails, deductionDetails, taxPaymentDetails, grossTotalIncome: totals.grossTotalIncome, totalDeductions: totals.totalDeductions, taxableIncome: Math.max(0, totals.grossTotalIncome - totals.totalDeductions) },
+                    }),
+                  });
+                  const result = await resp.json();
+                  if (result.success) {
+                    const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url; a.download = result.fileName; a.click();
+                    URL.revokeObjectURL(url);
+                    toast({ title: "Export Done", description: `${result.fileName} downloaded` });
+                  }
+                } catch { toast({ title: "Export Error", description: "Failed to export ITR JSON", variant: "destructive" }); }
+              }} data-testid="btn-export-itr-json">
+                <FileText className="h-3.5 w-3.5 mr-1" /> Download ITR JSON
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="p-4 flex items-center gap-3">
@@ -5150,6 +5509,236 @@ export default function TaxITRSelfPage() {
           )}
         </Card>
 
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Calculator className="h-4 w-4" /> Export & Tax Tools
+            </CardTitle>
+            <CardDescription>Download returns, prepare challans, and use tax calculators</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async () => {
+                try {
+                  const resp = await fetch("/api/tax/export/itr-json", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      pan: panContext?.pan, assessmentYear, itrForm: recommendedForm,
+                      data: { name: panContext?.name, filingSection, taxRegime, residentialStatus, salaryDetails, capitalGainsDetails, otherIncomeDetails, deductionDetails, taxPaymentDetails, grossTotalIncome: totals.grossTotalIncome, totalDeductions: totals.totalDeductions, taxableIncome: Math.max(0, totals.grossTotalIncome - totals.totalDeductions) },
+                    }),
+                  });
+                  const result = await resp.json();
+                  if (result.success) {
+                    const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a"); a.href = url; a.download = result.fileName; a.click(); URL.revokeObjectURL(url);
+                    toast({ title: "Export Done", description: `${result.fileName} downloaded` });
+                  }
+                } catch { toast({ title: "Export Error", variant: "destructive" }); }
+              }} data-testid="review-export-json">
+                <FileText className="h-3.5 w-3.5 mr-1" /> Download ITR JSON
+              </Button>
+
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async () => {
+                try {
+                  const resp = await fetch("/api/tax/export/computation", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      pan: panContext?.pan, assessmentYear, itrForm: recommendedForm,
+                      data: { name: panContext?.name, taxRegime, salaryDetails, otherIncomeDetails, deductionDetails, taxPaymentDetails, totals },
+                    }),
+                  });
+                  const result = await resp.json();
+                  if (result.success) {
+                    const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a"); a.href = url; a.download = "computation_sheet.json"; a.click(); URL.revokeObjectURL(url);
+                    toast({ title: "Computation Sheet", description: "Downloaded successfully" });
+                  }
+                } catch { toast({ title: "Export Error", variant: "destructive" }); }
+              }} data-testid="review-export-computation">
+                <Calculator className="h-3.5 w-3.5 mr-1" /> Computation Sheet
+              </Button>
+
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={() => setShowChallanDialog(p => !p)} data-testid="review-prepare-challan">
+                <Banknote className="h-3.5 w-3.5 mr-1" /> Prepare Challan 280
+              </Button>
+
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={() => setShowToolsDialog(p => !p)} data-testid="review-tax-tools">
+                <Lightbulb className="h-3.5 w-3.5 mr-1" /> Tax Tools
+              </Button>
+            </div>
+
+            {showChallanDialog && (
+              <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                <h4 className="text-sm font-semibold flex items-center gap-2"><Banknote className="h-4 w-4" /> Challan 280 Preparation</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Challan Type</Label>
+                    <Select defaultValue="self_assessment" onValueChange={(v) => setChallanResult((p: any) => ({ ...p, challanType: v }))}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="advance_tax">Advance Tax (100)</SelectItem>
+                        <SelectItem value="self_assessment">Self Assessment Tax (300)</SelectItem>
+                        <SelectItem value="regular_assessment">Regular Assessment (400)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Tax Amount (₹)</Label>
+                    <Input type="number" className="h-8 text-xs" placeholder="Enter tax amount" onChange={(e) => setChallanResult((p: any) => ({ ...p, taxAmount: Number(e.target.value) }))} />
+                  </div>
+                </div>
+                <Button size="sm" className="text-xs" onClick={async () => {
+                  if (!panContext?.pan) { toast({ title: "PAN Required", description: "Please enter your PAN in the basic info step first", variant: "destructive" }); return; }
+                  if (!challanResult?.taxAmount || challanResult.taxAmount <= 0) { toast({ title: "Invalid Amount", description: "Please enter a valid tax amount greater than zero", variant: "destructive" }); return; }
+                  try {
+                    const resp = await fetch("/api/tax/challan/prepare", {
+                      method: "POST", headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ pan: panContext.pan, assessmentYear, taxAmount: challanResult.taxAmount, challanType: challanResult?.challanType || "self_assessment" }),
+                    });
+                    const result = await resp.json();
+                    if (result.success) {
+                      setChallanResult(result.data);
+                      toast({ title: "Challan Prepared", description: `Challan ${result.data.challanNo} for ₹${result.data.totalAmount.toLocaleString("en-IN")}` });
+                    } else {
+                      toast({ title: "Error", description: result.message, variant: "destructive" });
+                    }
+                  } catch { toast({ title: "Error", variant: "destructive" }); }
+                }} data-testid="btn-generate-challan">Generate Challan</Button>
+                {challanResult?.challanNo && (
+                  <div className="text-xs space-y-1 p-3 bg-background rounded border">
+                    <div className="flex justify-between"><span>Challan No:</span><span className="font-medium">{challanResult.challanNo}</span></div>
+                    <div className="flex justify-between"><span>Tax:</span><span>₹{(challanResult.taxAmount || 0).toLocaleString("en-IN")}</span></div>
+                    <div className="flex justify-between"><span>Surcharge:</span><span>₹{(challanResult.surcharge || 0).toLocaleString("en-IN")}</span></div>
+                    <div className="flex justify-between"><span>Cess:</span><span>₹{(challanResult.educationCess || 0).toLocaleString("en-IN")}</span></div>
+                    <Separator />
+                    <div className="flex justify-between font-semibold"><span>Total:</span><span>₹{(challanResult.totalAmount || 0).toLocaleString("en-IN")}</span></div>
+                    {challanResult.paymentUrl && (
+                      <a href={challanResult.paymentUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline text-[10px] block mt-1">Pay on TIN-NSDL Portal →</a>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {showToolsDialog && (
+              <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+                <Tabs defaultValue="hra">
+                  <TabsList className="grid w-full grid-cols-3 h-8">
+                    <TabsTrigger value="hra" className="text-xs">HRA Calculator</TabsTrigger>
+                    <TabsTrigger value="form10e" className="text-xs">Form 10E Arrears</TabsTrigger>
+                    <TabsTrigger value="optimizer" className="text-xs">Tax Optimizer</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="hra" className="space-y-3 mt-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><Label className="text-xs">Basic Salary (Annual)</Label><Input type="number" className="h-8 text-xs" id="hra-basic" data-testid="hra-basic" /></div>
+                      <div><Label className="text-xs">DA Received</Label><Input type="number" className="h-8 text-xs" id="hra-da" defaultValue="0" /></div>
+                      <div><Label className="text-xs">HRA Received</Label><Input type="number" className="h-8 text-xs" id="hra-received" /></div>
+                      <div><Label className="text-xs">Rent Paid (Annual)</Label><Input type="number" className="h-8 text-xs" id="hra-rent" /></div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox id="hra-metro" defaultChecked /><Label htmlFor="hra-metro" className="text-xs">Metro City (50%)</Label>
+                    </div>
+                    <Button size="sm" className="text-xs" onClick={async () => {
+                      const basic = Number((document.getElementById("hra-basic") as HTMLInputElement)?.value) || 0;
+                      const da = Number((document.getElementById("hra-da") as HTMLInputElement)?.value) || 0;
+                      const hra = Number((document.getElementById("hra-received") as HTMLInputElement)?.value) || 0;
+                      const rent = Number((document.getElementById("hra-rent") as HTMLInputElement)?.value) || 0;
+                      const isMetro = (document.getElementById("hra-metro") as HTMLInputElement)?.getAttribute("data-state") === "checked";
+                      if (!basic || !hra) { toast({ title: "Missing Fields", description: "Basic salary and HRA received are required", variant: "destructive" }); return; }
+                      try {
+                        const resp = await fetch("/api/tax/calculator/hra", {
+                          method: "POST", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ basicSalary: basic, daReceived: da, hraReceived: hra, rentPaid: rent, metroCity: isMetro }),
+                        });
+                        const result = await resp.json();
+                        if (result.success) setHraResult(result.data);
+                        else toast({ title: "Error", description: result.message, variant: "destructive" });
+                      } catch { toast({ title: "Calc Error", variant: "destructive" }); }
+                    }} data-testid="btn-calc-hra">Calculate HRA Exemption</Button>
+                    {hraResult && (
+                      <div className="text-xs p-3 bg-background rounded border space-y-1">
+                        <div className="flex justify-between"><span>Actual HRA:</span><span>₹{hraResult.breakdown.actualHRA.toLocaleString("en-IN")}</span></div>
+                        <div className="flex justify-between"><span>{hraResult.formula}:</span><span>₹{hraResult.breakdown.percentOfBasic.toLocaleString("en-IN")}</span></div>
+                        <div className="flex justify-between"><span>Rent - 10% of Basic:</span><span>₹{hraResult.breakdown.rentMinusTenPercent.toLocaleString("en-IN")}</span></div>
+                        <Separator />
+                        <div className="flex justify-between font-semibold text-green-600"><span>HRA Exemption:</span><span>₹{hraResult.hraExemption.toLocaleString("en-IN")}</span></div>
+                        <div className="flex justify-between"><span>Taxable HRA:</span><span>₹{hraResult.taxableHRA.toLocaleString("en-IN")}</span></div>
+                      </div>
+                    )}
+                  </TabsContent>
+                  <TabsContent value="form10e" className="space-y-3 mt-3">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div><Label className="text-xs">Total Income</Label><Input type="number" className="h-8 text-xs" id="f10e-income" /></div>
+                      <div><Label className="text-xs">Arrears Received</Label><Input type="number" className="h-8 text-xs" id="f10e-arrears" /></div>
+                      <div><Label className="text-xs">Arrear Years</Label><Input type="number" className="h-8 text-xs" id="f10e-years" defaultValue="1" /></div>
+                    </div>
+                    <Button size="sm" className="text-xs" onClick={async () => {
+                      const income = Number((document.getElementById("f10e-income") as HTMLInputElement)?.value) || 0;
+                      const arrears = Number((document.getElementById("f10e-arrears") as HTMLInputElement)?.value) || 0;
+                      const years = Number((document.getElementById("f10e-years") as HTMLInputElement)?.value) || 1;
+                      if (!income || !arrears) { toast({ title: "Missing Fields", description: "Total income and arrears amount are required", variant: "destructive" }); return; }
+                      if (arrears > income) { toast({ title: "Invalid", description: "Arrears cannot exceed total income", variant: "destructive" }); return; }
+                      try {
+                        const resp = await fetch("/api/tax/calculator/form10e", {
+                          method: "POST", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ currentYearArrears: arrears, totalIncome: income, arrearYears: years }),
+                        });
+                        const result = await resp.json();
+                        if (result.success) setForm10EResult(result.data);
+                        else toast({ title: "Error", description: result.message, variant: "destructive" });
+                      } catch { toast({ title: "Calc Error", variant: "destructive" }); }
+                    }} data-testid="btn-calc-form10e">Calculate Relief u/s 89(1)</Button>
+                    {form10EResult && (
+                      <div className="text-xs p-3 bg-background rounded border space-y-1">
+                        <div className="flex justify-between"><span>Tax on Total Income:</span><span>₹{form10EResult.taxOnTotal.toLocaleString("en-IN")}</span></div>
+                        <div className="flex justify-between"><span>Tax without Arrears:</span><span>₹{form10EResult.taxOnWithout.toLocaleString("en-IN")}</span></div>
+                        <div className="flex justify-between"><span>Spread Tax (averaged):</span><span>₹{form10EResult.totalAdditionalTax.toLocaleString("en-IN")}</span></div>
+                        <Separator />
+                        <div className="flex justify-between font-semibold text-green-600"><span>Relief u/s 89(1):</span><span>₹{form10EResult.reliefUs89.toLocaleString("en-IN")}</span></div>
+                        <p className="text-[10px] text-muted-foreground mt-1">{form10EResult.explanation}</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                  <TabsContent value="optimizer" className="space-y-3 mt-3">
+                    <p className="text-xs text-muted-foreground">Get AI-powered suggestions to reduce your tax liability based on your current data.</p>
+                    <Button size="sm" className="text-xs" onClick={async () => {
+                      try {
+                        const resp = await fetch("/api/tax/optimizer/suggestions", {
+                          method: "POST", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ taxableIncome: Math.max(0, totals.grossTotalIncome - totals.totalDeductions), taxRegime, deductions: { section80C: deductionDetails.section80C, section80D: deductionDetails.section80D, section80CCD1B: deductionDetails.section80CCD1B || 0, totalDeductions: totals.totalDeductions } }),
+                        });
+                        const result = await resp.json();
+                        if (result.success) setOptimizerResult(result.data);
+                      } catch { toast({ title: "Error", variant: "destructive" }); }
+                    }} data-testid="btn-run-optimizer">
+                      <Lightbulb className="h-3.5 w-3.5 mr-1" /> Analyze & Suggest
+                    </Button>
+                    {optimizerResult && (
+                      <div className="space-y-2">
+                        {optimizerResult.suggestions.map((s: any, i: number) => (
+                          <div key={i} className="text-xs p-2 bg-background rounded border">
+                            <div className="flex justify-between">
+                              <span className="font-medium">{s.section}</span>
+                              <Badge variant="outline" className="text-[10px] text-green-600">Save ₹{s.taxSaving.toLocaleString("en-IN")}</Badge>
+                            </div>
+                            <p className="text-muted-foreground mt-0.5">{s.description}</p>
+                          </div>
+                        ))}
+                        {optimizerResult.suggestions.length === 0 && <p className="text-xs text-muted-foreground">No additional savings opportunities found for your profile.</p>}
+                        {optimizerResult.totalPotentialSaving > 0 && (
+                          <div className="text-sm font-semibold text-green-600 text-right">Total Potential Saving: ₹{optimizerResult.totalPotentialSaving.toLocaleString("en-IN")}</div>
+                        )}
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription className="text-sm">
@@ -6323,6 +6912,926 @@ export default function TaxITRSelfPage() {
     );
   };
 
+  const renderScheduleSPIStep = () => {
+    const totalClubbedIncome = scheduleSPI.reduce((sum, e) => sum + e.amountIncluded, 0);
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Schedule SPI — Income of Specified Persons (Clubbing)</CardTitle>
+            <CardDescription>Income from spouse, minor child, or son's wife that is clubbed with your income under Section 64</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200">
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Under Section 64, income from assets transferred to spouse, minor child, or son's wife without adequate consideration is clubbed with the transferor's income. Each minor child gets ₹1,500 exemption u/s 10(32).
+              </AlertDescription>
+            </Alert>
+
+            {scheduleSPI.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <Users className="h-10 w-10 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">No clubbing entries added yet</p>
+                <p className="text-xs mt-1">Click below to add income of specified persons</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {scheduleSPI.map((entry, idx) => (
+                  <Card key={idx} className="border-dashed">
+                    <CardContent className="pt-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="outline" className="text-xs">Person {idx + 1}</Badge>
+                        <Button variant="ghost" size="sm" onClick={() => setScheduleSPI(prev => prev.filter((_, i) => i !== idx))}>
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Name of Person</Label>
+                          <Input value={entry.nameOfPerson} onChange={e => setScheduleSPI(prev => prev.map((p, i) => i === idx ? { ...p, nameOfPerson: e.target.value } : p))} placeholder="Full name" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">PAN of Person</Label>
+                          <Input value={entry.panOfPerson} onChange={e => setScheduleSPI(prev => prev.map((p, i) => i === idx ? { ...p, panOfPerson: e.target.value.toUpperCase() } : p))} placeholder="AAAAA0000A" maxLength={10} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Relationship <FieldHint text="Relationship of specified person with the assessee" /></Label>
+                          <Select value={entry.relationshipCode} onValueChange={v => setScheduleSPI(prev => prev.map((p, i) => i === idx ? { ...p, relationshipCode: v as ScheduleSPIEntry['relationshipCode'] } : p))}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="spouse">Spouse</SelectItem>
+                              <SelectItem value="son">Son (Major)</SelectItem>
+                              <SelectItem value="daughter">Daughter (Major)</SelectItem>
+                              <SelectItem value="son_wife">Son's Wife</SelectItem>
+                              <SelectItem value="minor_son">Minor Son</SelectItem>
+                              <SelectItem value="minor_daughter">Minor Daughter</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Section Applicable</Label>
+                          <Select value={entry.section} onValueChange={v => setScheduleSPI(prev => prev.map((p, i) => i === idx ? { ...p, section: v as ScheduleSPIEntry['section'] } : p))}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="64(1)(ii)">Sec 64(1)(ii) — Spouse</SelectItem>
+                              <SelectItem value="64(1)(iv)">Sec 64(1)(iv) — Spouse/Son's wife</SelectItem>
+                              <SelectItem value="64(1A)">Sec 64(1A) — Minor child</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Type of Income</Label>
+                          <Select value={entry.incomeType} onValueChange={v => setScheduleSPI(prev => prev.map((p, i) => i === idx ? { ...p, incomeType: v as ScheduleSPIEntry['incomeType'] } : p))}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="salary">Salary</SelectItem>
+                              <SelectItem value="house_property">House Property</SelectItem>
+                              <SelectItem value="business">Business / Profession</SelectItem>
+                              <SelectItem value="capital_gains">Capital Gains</SelectItem>
+                              <SelectItem value="other_sources">Other Sources</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Amount Included (₹)</Label>
+                          <CurrencyInput id={`spi-amount-${idx}`} value={entry.amountIncluded} onChange={v => setScheduleSPI(prev => prev.map((p, i) => i === idx ? { ...p, amountIncluded: v } : p))} />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Remarks</Label>
+                        <Input value={entry.remarks} onChange={e => setScheduleSPI(prev => prev.map((p, i) => i === idx ? { ...p, remarks: e.target.value } : p))} placeholder="Nature of income / asset transferred" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            <Button variant="outline" size="sm" onClick={() => setScheduleSPI(prev => [...prev, { nameOfPerson: "", panOfPerson: "", relationshipCode: "spouse", incomeType: "other_sources", amountIncluded: 0, section: "64(1)(ii)", remarks: "" }])} data-testid="btn-add-spi">
+              <Plus className="h-3.5 w-3.5 mr-1" /> Add Specified Person
+            </Button>
+
+            {scheduleSPI.length > 0 && (
+              <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                <div className="flex justify-between font-semibold">
+                  <span>Total Clubbed Income</span>
+                  <span>₹{totalClubbedIncome.toLocaleString("en-IN")}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">This amount will be added to your Gross Total Income</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  const renderSchedule5AStep = () => {
+    const totalAssessee = schedule5A.headwiseBreakdown.salary.assessee + schedule5A.headwiseBreakdown.houseProperty.assessee + schedule5A.headwiseBreakdown.business.assessee + schedule5A.headwiseBreakdown.capitalGains.assessee + schedule5A.headwiseBreakdown.otherSources.assessee;
+    const totalSpouse = schedule5A.headwiseBreakdown.salary.spouse + schedule5A.headwiseBreakdown.houseProperty.spouse + schedule5A.headwiseBreakdown.business.spouse + schedule5A.headwiseBreakdown.capitalGains.spouse + schedule5A.headwiseBreakdown.otherSources.spouse;
+
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Schedule 5A — Apportionment of Income (Portuguese Civil Code)</CardTitle>
+            <CardDescription>For residents of Goa and Union Territories of Dadra & Nagar Haveli and Daman & Diu married under Portuguese Civil Code</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Switch checked={schedule5A.isApplicable} onCheckedChange={v => setSchedule5A(p => ({ ...p, isApplicable: v }))} />
+              <Label className="text-sm">Portuguese Civil Code is applicable to me</Label>
+            </div>
+
+            {schedule5A.isApplicable && (
+              <>
+                <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    Under Portuguese Civil Code, income earned by either spouse is apportioned equally (50:50) between husband and wife. Each spouse reports their 50% share in their individual ITR.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Name of Spouse</Label>
+                    <Input value={schedule5A.nameOfSpouse} onChange={e => setSchedule5A(p => ({ ...p, nameOfSpouse: e.target.value }))} placeholder="Spouse's full name" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">PAN of Spouse</Label>
+                    <Input value={schedule5A.panOfSpouse} onChange={e => setSchedule5A(p => ({ ...p, panOfSpouse: e.target.value.toUpperCase() }))} placeholder="AAAAA0000A" maxLength={10} />
+                  </div>
+                </div>
+
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-4">Head-wise Income Apportionment</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2 px-2">Income Head</th>
+                        <th className="text-right py-2 px-2">Your Share (₹)</th>
+                        <th className="text-right py-2 px-2">Spouse Share (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(["salary", "houseProperty", "business", "capitalGains", "otherSources"] as const).map(head => (
+                        <tr key={head} className="border-b">
+                          <td className="py-2 px-2 capitalize">{head === "houseProperty" ? "House Property" : head === "capitalGains" ? "Capital Gains" : head === "otherSources" ? "Other Sources" : head}</td>
+                          <td className="py-1 px-2">
+                            <Input type="number" className="h-8 text-xs text-right" value={schedule5A.headwiseBreakdown[head].assessee || ""} onChange={e => setSchedule5A(p => ({ ...p, headwiseBreakdown: { ...p.headwiseBreakdown, [head]: { ...p.headwiseBreakdown[head], assessee: Number(e.target.value) } } }))} />
+                          </td>
+                          <td className="py-1 px-2">
+                            <Input type="number" className="h-8 text-xs text-right" value={schedule5A.headwiseBreakdown[head].spouse || ""} onChange={e => setSchedule5A(p => ({ ...p, headwiseBreakdown: { ...p.headwiseBreakdown, [head]: { ...p.headwiseBreakdown[head], spouse: Number(e.target.value) } } }))} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="font-semibold border-t-2">
+                        <td className="py-2 px-2">Total</td>
+                        <td className="py-2 px-2 text-right">₹{totalAssessee.toLocaleString("en-IN")}</td>
+                        <td className="py-2 px-2 text-right">₹{totalSpouse.toLocaleString("en-IN")}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  const renderScheduleIFStep = () => {
+    const totalFirmIncome = scheduleIF.reduce((sum, e) => sum + e.shareOfProfit + e.shareOfSalary + e.shareOfInterest + e.shareOfBonus + e.shareOfCommission, 0);
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Schedule IF — Information regarding Partnership Firms</CardTitle>
+            <CardDescription>Details of firms in which you are a partner and income received from such firms</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200">
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Share of profit from a partnership firm is exempt u/s 10(2A). However, salary, interest on capital, bonus, and commission received from the firm are taxable under "Business/Profession".
+              </AlertDescription>
+            </Alert>
+
+            {scheduleIF.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <Building2 className="h-10 w-10 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">No partnership firm entries</p>
+                <p className="text-xs mt-1">Add details if you are a partner in any firm</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {scheduleIF.map((entry, idx) => (
+                  <Card key={idx} className="border-dashed">
+                    <CardContent className="pt-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="outline" className="text-xs">Firm {idx + 1}</Badge>
+                        <Button variant="ghost" size="sm" onClick={() => setScheduleIF(prev => prev.filter((_, i) => i !== idx))}>
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Name of Firm</Label>
+                          <Input value={entry.firmName} onChange={e => setScheduleIF(prev => prev.map((p, i) => i === idx ? { ...p, firmName: e.target.value } : p))} placeholder="Firm name" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">PAN of Firm</Label>
+                          <Input value={entry.firmPAN} onChange={e => setScheduleIF(prev => prev.map((p, i) => i === idx ? { ...p, firmPAN: e.target.value.toUpperCase() } : p))} placeholder="AAAAA0000A" maxLength={10} />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <Label className="text-xs">Address of Firm</Label>
+                          <Input value={entry.firmAddress} onChange={e => setScheduleIF(prev => prev.map((p, i) => i === idx ? { ...p, firmAddress: e.target.value } : p))} placeholder="Complete address" />
+                        </div>
+                      </div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Income from Firm</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div>
+                          <Label className="text-xs">Share of Profit (₹) <FieldHint text="Exempt u/s 10(2A)" /></Label>
+                          <CurrencyInput id={`if-profit-${idx}`} value={entry.shareOfProfit} onChange={v => setScheduleIF(prev => prev.map((p, i) => i === idx ? { ...p, shareOfProfit: v } : p))} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Salary (₹) <FieldHint text="Taxable under Business/Profession" /></Label>
+                          <CurrencyInput id={`if-salary-${idx}`} value={entry.shareOfSalary} onChange={v => setScheduleIF(prev => prev.map((p, i) => i === idx ? { ...p, shareOfSalary: v } : p))} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Interest on Capital (₹)</Label>
+                          <CurrencyInput id={`if-interest-${idx}`} value={entry.shareOfInterest} onChange={v => setScheduleIF(prev => prev.map((p, i) => i === idx ? { ...p, shareOfInterest: v } : p))} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Bonus (₹)</Label>
+                          <CurrencyInput id={`if-bonus-${idx}`} value={entry.shareOfBonus} onChange={v => setScheduleIF(prev => prev.map((p, i) => i === idx ? { ...p, shareOfBonus: v } : p))} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Commission (₹)</Label>
+                          <CurrencyInput id={`if-commission-${idx}`} value={entry.shareOfCommission} onChange={v => setScheduleIF(prev => prev.map((p, i) => i === idx ? { ...p, shareOfCommission: v } : p))} />
+                        </div>
+                      </div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Capital Balance</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Balance on 1st April (₹)</Label>
+                          <CurrencyInput id={`if-cap-open-${idx}`} value={entry.capitalBalanceOnApril1} onChange={v => setScheduleIF(prev => prev.map((p, i) => i === idx ? { ...p, capitalBalanceOnApril1: v } : p))} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Balance on 31st March (₹)</Label>
+                          <CurrencyInput id={`if-cap-close-${idx}`} value={entry.capitalBalanceOnMarch31} onChange={v => setScheduleIF(prev => prev.map((p, i) => i === idx ? { ...p, capitalBalanceOnMarch31: v } : p))} />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            <Button variant="outline" size="sm" onClick={() => setScheduleIF(prev => [...prev, { firmName: "", firmPAN: "", firmAddress: "", assessmentYear: "2025-26", shareOfProfit: 0, shareOfSalary: 0, shareOfInterest: 0, shareOfBonus: 0, shareOfCommission: 0, capitalBalanceOnApril1: 0, capitalBalanceOnMarch31: 0, isPartnerInAOP: false }])} data-testid="btn-add-if">
+              <Plus className="h-3.5 w-3.5 mr-1" /> Add Partnership Firm
+            </Button>
+
+            {scheduleIF.length > 0 && (
+              <div className="bg-muted/50 rounded-lg p-3 text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span>Total Taxable Income from Firms</span>
+                  <span className="font-semibold">₹{(totalFirmIncome - scheduleIF.reduce((s, e) => s + e.shareOfProfit, 0)).toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground text-xs">
+                  <span>Exempt Profit Share u/s 10(2A)</span>
+                  <span>₹{scheduleIF.reduce((s, e) => s + e.shareOfProfit, 0).toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  const renderMATAMTStep = () => {
+    const computeMAT = () => {
+      const additions = Object.values(matDetails.additionsToBookProfit).reduce((s, v) => s + v, 0);
+      const deductions = Object.values(matDetails.deductionsFromBookProfit).reduce((s, v) => s + v, 0);
+      const adjustedBookProfit = matDetails.bookProfitBeforeAdjustments + additions - deductions;
+      const matTax = Math.round(adjustedBookProfit * matDetails.matRate / 100);
+      const surcharge = adjustedBookProfit > 10000000 ? Math.round(matTax * 0.07) : 0;
+      const cess = Math.round((matTax + surcharge) * 0.04);
+      const totalMAT = matTax + surcharge + cess;
+      const isMATApplicable = totalMAT > matDetails.normalTaxLiability;
+      setMatDetails(p => ({
+        ...p, adjustedBookProfit, matTaxAmount: matTax, surchargeOnMAT: surcharge, cessOnMAT: cess,
+        totalMATLiability: totalMAT, isMATApplicable,
+        taxPayableHigherOfMATOrNormal: Math.max(totalMAT, p.normalTaxLiability),
+      }));
+    };
+    const computeAMT = () => {
+      const totalAdditions = Object.values(amtDetails.additions).reduce((s, v) => s + v, 0);
+      const adjustedTotalIncome = amtDetails.adjustedTotalIncome + totalAdditions;
+      const amtAmount = Math.round(adjustedTotalIncome * amtDetails.amtRate / 100);
+      const surcharge = adjustedTotalIncome > 5000000 ? Math.round(amtAmount * 0.10) : 0;
+      const cess = Math.round((amtAmount + surcharge) * 0.04);
+      const totalAMT = amtAmount + surcharge + cess;
+      const isAMTApplicable = totalAMT > amtDetails.normalTaxLiability;
+      setAmtDetails(p => ({
+        ...p, totalAdjustedIncome: adjustedTotalIncome, amtAmount, surchargeOnAMT: surcharge,
+        cessOnAMT: cess, totalAMTLiability: totalAMT, isAMTApplicable,
+        taxPayableHigherOfAMTOrNormal: Math.max(totalAMT, p.normalTaxLiability),
+      }));
+    };
+    return (
+      <div className="space-y-4">
+        <Tabs defaultValue="mat" className="w-full">
+          <TabsList className="grid grid-cols-4 w-full">
+            <TabsTrigger value="mat" className="text-xs">MAT (115JB)</TabsTrigger>
+            <TabsTrigger value="matc" className="text-xs">MAT Credit</TabsTrigger>
+            <TabsTrigger value="amt" className="text-xs">AMT (115JC)</TabsTrigger>
+            <TabsTrigger value="amtc" className="text-xs">AMT Credit</TabsTrigger>
+          </TabsList>
+          <TabsContent value="mat">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">MAT Computation — Section 115JB</CardTitle>
+                <CardDescription>Minimum Alternate Tax applicable to companies when normal tax is less than 15% of book profit</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Switch checked={matDetails.isApplicable} onCheckedChange={v => setMatDetails(p => ({ ...p, isApplicable: v }))} />
+                  <Label className="text-sm">MAT is applicable (Company filing ITR-6)</Label>
+                </div>
+                {matDetails.isApplicable && (
+                  <>
+                    <div>
+                      <Label className="text-xs">Net Profit as per P&L (Book Profit before adjustments) (₹)</Label>
+                      <CurrencyInput id="mat-book-profit" value={matDetails.bookProfitBeforeAdjustments} onChange={v => setMatDetails(p => ({ ...p, bookProfitBeforeAdjustments: v }))} />
+                    </div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Additions to Book Profit</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {([
+                        ["incomeTaxProvision", "Income Tax Provision"],
+                        ["deferredTax", "Deferred Tax (if debited)"],
+                        ["dividendPaid", "Dividend Paid/Proposed"],
+                        ["carriedForwardLosses", "Carried Forward Losses"],
+                        ["unabsorbedDepreciation", "Unabsorbed Depreciation"],
+                        ["transferToReserve", "Transfer to Reserve"],
+                        ["provisionForDiminution", "Provision for Diminution"],
+                        ["expenditureRelatingExemptIncome", "Expenditure on Exempt Income"],
+                        ["notionalGain", "Notional Gain on Transfer"],
+                        ["otherAdditions", "Other Additions"],
+                      ] as const).map(([key, label]) => (
+                        <div key={key}>
+                          <Label className="text-xs">{label} (₹)</Label>
+                          <CurrencyInput id={`mat-add-${key}`} value={matDetails.additionsToBookProfit[key]} onChange={v => setMatDetails(p => ({ ...p, additionsToBookProfit: { ...p.additionsToBookProfit, [key]: v } }))} />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Deductions from Book Profit</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {([
+                        ["withdrawalFromReserve", "Withdrawal from Reserve"],
+                        ["incomeExemptUs10", "Income Exempt u/s 10"],
+                        ["incomeExemptUs11_12", "Income Exempt u/s 11/12"],
+                        ["depreciationExcludingRevaluation", "Depreciation (excl. revaluation)"],
+                        ["withdrawalFromProvision", "Withdrawal from Provision"],
+                        ["lowerOfUnabsorbedDepOrBroughtForwardLoss", "Lower of Unabsorbed Dep / BF Loss"],
+                        ["notionalLoss", "Notional Loss on Transfer"],
+                        ["otherDeductions", "Other Deductions"],
+                      ] as const).map(([key, label]) => (
+                        <div key={key}>
+                          <Label className="text-xs">{label} (₹)</Label>
+                          <CurrencyInput id={`mat-ded-${key}`} value={matDetails.deductionsFromBookProfit[key]} onChange={v => setMatDetails(p => ({ ...p, deductionsFromBookProfit: { ...p.deductionsFromBookProfit, [key]: v } }))} />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Normal Tax Liability (₹)</Label>
+                        <CurrencyInput id="mat-normal-tax" value={matDetails.normalTaxLiability} onChange={v => setMatDetails(p => ({ ...p, normalTaxLiability: v }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">MAT Rate (%)</Label>
+                        <Input type="number" value={matDetails.matRate} onChange={e => setMatDetails(p => ({ ...p, matRate: Number(e.target.value) }))} />
+                      </div>
+                    </div>
+                    <Button onClick={computeMAT} className="w-full" data-testid="btn-compute-mat">
+                      <Calculator className="h-4 w-4 mr-2" /> Compute MAT
+                    </Button>
+                    {matDetails.adjustedBookProfit > 0 && (
+                      <div className="bg-muted/50 rounded-lg p-3 text-sm space-y-1">
+                        <div className="flex justify-between"><span>Adjusted Book Profit</span><span>₹{matDetails.adjustedBookProfit.toLocaleString("en-IN")}</span></div>
+                        <div className="flex justify-between"><span>MAT @ {matDetails.matRate}%</span><span>₹{matDetails.matTaxAmount.toLocaleString("en-IN")}</span></div>
+                        <div className="flex justify-between"><span>Surcharge</span><span>₹{matDetails.surchargeOnMAT.toLocaleString("en-IN")}</span></div>
+                        <div className="flex justify-between"><span>Health & Education Cess (4%)</span><span>₹{matDetails.cessOnMAT.toLocaleString("en-IN")}</span></div>
+                        <div className="flex justify-between font-semibold border-t pt-1"><span>Total MAT Liability</span><span>₹{matDetails.totalMATLiability.toLocaleString("en-IN")}</span></div>
+                        <div className="flex justify-between"><span>Normal Tax Liability</span><span>₹{matDetails.normalTaxLiability.toLocaleString("en-IN")}</span></div>
+                        <div className={`flex justify-between font-bold ${matDetails.isMATApplicable ? "text-red-600" : "text-green-600"}`}>
+                          <span>{matDetails.isMATApplicable ? "MAT Applicable — Higher" : "Normal Tax Applicable"}</span>
+                          <span>₹{matDetails.taxPayableHigherOfMATOrNormal.toLocaleString("en-IN")}</span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="matc">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">MAT Credit — Section 115JAA</CardTitle>
+                <CardDescription>MAT credit can be carried forward for up to 15 years and set off against normal tax liability</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Switch checked={matcDetails.isApplicable} onCheckedChange={v => setMatcDetails(p => ({ ...p, isApplicable: v }))} />
+                  <Label className="text-sm">I have MAT credit to claim</Label>
+                </div>
+                {matcDetails.isApplicable && (
+                  <>
+                    {matcDetails.creditEntries.map((entry, idx) => (
+                      <Card key={idx} className="border-dashed">
+                        <CardContent className="pt-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Badge variant="outline" className="text-xs">AY {entry.assessmentYear}</Badge>
+                            <Button variant="ghost" size="sm" onClick={() => setMatcDetails(p => ({ ...p, creditEntries: p.creditEntries.filter((_, i) => i !== idx) }))}>
+                              <XCircle className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <div>
+                              <Label className="text-xs">Assessment Year</Label>
+                              <Input value={entry.assessmentYear} onChange={e => setMatcDetails(p => ({ ...p, creditEntries: p.creditEntries.map((c, i) => i === idx ? { ...c, assessmentYear: e.target.value } : c) }))} placeholder="20XX-XX" />
+                            </div>
+                            <div>
+                              <Label className="text-xs">MAT Paid (₹)</Label>
+                              <CurrencyInput id={`matc-paid-${idx}`} value={entry.matPaid} onChange={v => setMatcDetails(p => ({ ...p, creditEntries: p.creditEntries.map((c, i) => i === idx ? { ...c, matPaid: v } : c) }))} />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Normal Tax (₹)</Label>
+                              <CurrencyInput id={`matc-normal-${idx}`} value={entry.normalTaxPayable} onChange={v => setMatcDetails(p => ({ ...p, creditEntries: p.creditEntries.map((c, i) => i === idx ? { ...c, normalTaxPayable: v, matCreditAvailable: Math.max(0, (entry.matPaid || 0) - v) } : c) }))} />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Credit Available (₹)</Label>
+                              <Input type="number" value={entry.matCreditAvailable} disabled className="bg-muted" />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Credit Utilized (₹)</Label>
+                              <CurrencyInput id={`matc-util-${idx}`} value={entry.matCreditUtilized} onChange={v => setMatcDetails(p => ({ ...p, creditEntries: p.creditEntries.map((c, i) => i === idx ? { ...c, matCreditUtilized: v } : c) }))} />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    <Button variant="outline" size="sm" onClick={() => setMatcDetails(p => ({ ...p, creditEntries: [...p.creditEntries, { assessmentYear: "", matPaid: 0, normalTaxPayable: 0, matCreditAvailable: 0, matCreditUtilized: 0, matCreditLapsed: false, expiryYear: "" }] }))}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Add MAT Credit Year
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="amt">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">AMT Computation — Section 115JC</CardTitle>
+                <CardDescription>Alternate Minimum Tax for non-corporate assessees claiming certain deductions</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Switch checked={amtDetails.isApplicable} onCheckedChange={v => setAmtDetails(p => ({ ...p, isApplicable: v }))} />
+                  <Label className="text-sm">AMT is applicable (Non-corporate with Chapter VI-A deductions)</Label>
+                </div>
+                {amtDetails.isApplicable && (
+                  <>
+                    <div>
+                      <Label className="text-xs">Total Income (before Chapter VI-A deductions) (₹)</Label>
+                      <CurrencyInput id="amt-adj-income" value={amtDetails.adjustedTotalIncome} onChange={v => setAmtDetails(p => ({ ...p, adjustedTotalIncome: v }))} />
+                    </div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Additions (Deductions under Chapter VI-A)</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {([
+                        ["deduction80H_80RRB", "Sec 80H to 80RRB"],
+                        ["deduction10AA", "Sec 10AA (SEZ)"],
+                        ["deduction35AD", "Sec 35AD (Specified Business)"],
+                        ["deduction80IA_80IB", "Sec 80IA / 80IB"],
+                        ["deduction80JJA", "Sec 80JJA"],
+                        ["deduction80P", "Sec 80P (Cooperative)"],
+                        ["otherChapter6ADeductions", "Other Chapter VI-A"],
+                      ] as const).map(([key, label]) => (
+                        <div key={key}>
+                          <Label className="text-xs">{label} (₹)</Label>
+                          <CurrencyInput id={`amt-add-${key}`} value={amtDetails.additions[key]} onChange={v => setAmtDetails(p => ({ ...p, additions: { ...p.additions, [key]: v } }))} />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Normal Tax Liability (₹)</Label>
+                        <CurrencyInput id="amt-normal-tax" value={amtDetails.normalTaxLiability} onChange={v => setAmtDetails(p => ({ ...p, normalTaxLiability: v }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">AMT Rate (%)</Label>
+                        <Input type="number" value={amtDetails.amtRate} onChange={e => setAmtDetails(p => ({ ...p, amtRate: Number(e.target.value) }))} />
+                      </div>
+                    </div>
+                    <Button onClick={computeAMT} className="w-full" data-testid="btn-compute-amt">
+                      <Calculator className="h-4 w-4 mr-2" /> Compute AMT
+                    </Button>
+                    {amtDetails.totalAdjustedIncome > 0 && (
+                      <div className="bg-muted/50 rounded-lg p-3 text-sm space-y-1">
+                        <div className="flex justify-between"><span>Adjusted Total Income</span><span>₹{amtDetails.totalAdjustedIncome.toLocaleString("en-IN")}</span></div>
+                        <div className="flex justify-between"><span>AMT @ {amtDetails.amtRate}%</span><span>₹{amtDetails.amtAmount.toLocaleString("en-IN")}</span></div>
+                        <div className="flex justify-between"><span>Surcharge</span><span>₹{amtDetails.surchargeOnAMT.toLocaleString("en-IN")}</span></div>
+                        <div className="flex justify-between"><span>H&E Cess (4%)</span><span>₹{amtDetails.cessOnAMT.toLocaleString("en-IN")}</span></div>
+                        <div className="flex justify-between font-semibold border-t pt-1"><span>Total AMT Liability</span><span>₹{amtDetails.totalAMTLiability.toLocaleString("en-IN")}</span></div>
+                        <div className={`flex justify-between font-bold ${amtDetails.isAMTApplicable ? "text-red-600" : "text-green-600"}`}>
+                          <span>{amtDetails.isAMTApplicable ? "AMT Applicable — Higher" : "Normal Tax Applicable"}</span>
+                          <span>₹{amtDetails.taxPayableHigherOfAMTOrNormal.toLocaleString("en-IN")}</span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="amtc">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">AMT Credit — Section 115JD</CardTitle>
+                <CardDescription>AMT credit can be carried forward for up to 15 years</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Switch checked={amtcDetails.isApplicable} onCheckedChange={v => setAmtcDetails(p => ({ ...p, isApplicable: v }))} />
+                  <Label className="text-sm">I have AMT credit to claim</Label>
+                </div>
+                {amtcDetails.isApplicable && (
+                  <>
+                    {amtcDetails.creditEntries.map((entry, idx) => (
+                      <Card key={idx} className="border-dashed">
+                        <CardContent className="pt-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Badge variant="outline" className="text-xs">AY {entry.assessmentYear}</Badge>
+                            <Button variant="ghost" size="sm" onClick={() => setAmtcDetails(p => ({ ...p, creditEntries: p.creditEntries.filter((_, i) => i !== idx) }))}>
+                              <XCircle className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <div>
+                              <Label className="text-xs">Assessment Year</Label>
+                              <Input value={entry.assessmentYear} onChange={e => setAmtcDetails(p => ({ ...p, creditEntries: p.creditEntries.map((c, i) => i === idx ? { ...c, assessmentYear: e.target.value } : c) }))} />
+                            </div>
+                            <div>
+                              <Label className="text-xs">AMT Paid (₹)</Label>
+                              <CurrencyInput id={`amtc-paid-${idx}`} value={entry.amtPaid} onChange={v => setAmtcDetails(p => ({ ...p, creditEntries: p.creditEntries.map((c, i) => i === idx ? { ...c, amtPaid: v } : c) }))} />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Normal Tax (₹)</Label>
+                              <CurrencyInput id={`amtc-normal-${idx}`} value={entry.normalTaxPayable} onChange={v => setAmtcDetails(p => ({ ...p, creditEntries: p.creditEntries.map((c, i) => i === idx ? { ...c, normalTaxPayable: v, amtCreditAvailable: Math.max(0, (entry.amtPaid || 0) - v) } : c) }))} />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Credit Available (₹)</Label>
+                              <Input type="number" value={entry.amtCreditAvailable} disabled className="bg-muted" />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Credit Utilized (₹)</Label>
+                              <CurrencyInput id={`amtc-util-${idx}`} value={entry.amtCreditUtilized} onChange={v => setAmtcDetails(p => ({ ...p, creditEntries: p.creditEntries.map((c, i) => i === idx ? { ...c, amtCreditUtilized: v } : c) }))} />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    <Button variant="outline" size="sm" onClick={() => setAmtcDetails(p => ({ ...p, creditEntries: [...p.creditEntries, { assessmentYear: "", amtPaid: 0, normalTaxPayable: 0, amtCreditAvailable: 0, amtCreditUtilized: 0, amtCreditLapsed: false, expiryYear: "" }] }))}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Add AMT Credit Year
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    );
+  };
+
+  const renderTDSSchedulesStep = () => {
+    const totalTDS1 = tds1Entries.reduce((s, e) => s + e.tdsDeducted, 0);
+    const totalTDS2 = tds2Entries.reduce((s, e) => s + e.tdsDeducted, 0);
+    const totalTCS = tcsEntries.reduce((s, e) => s + e.tcsCollected, 0);
+    const compute234F = () => {
+      if (!section234F.actualFilingDate || !section234F.filingDueDate) return;
+      const dueDate = new Date(section234F.filingDueDate);
+      const filingDate = new Date(section234F.actualFilingDate);
+      if (filingDate <= dueDate) {
+        setSection234F(p => ({ ...p, lateFee: 0, isApplicable: false }));
+        return;
+      }
+      const totalIncome = section234F.totalIncome;
+      const isSmall = totalIncome <= 500000;
+      setSection234F(p => ({ ...p, lateFee: totalIncome <= 0 ? 0 : isSmall ? 1000 : 5000, isApplicable: true, isSmallTaxpayer: isSmall }));
+    };
+    const compute87A = () => {
+      const threshold = taxRegime === "old" ? section87A.incomeThresholdOld : section87A.incomeThresholdNew;
+      const maxRebate = taxRegime === "old" ? section87A.maxRebateOldRegime : section87A.maxRebateNewRegime;
+      const isEligible = section87A.taxableIncome <= threshold && residentialStatus === "resident";
+      const rebate = isEligible ? Math.min(section87A.normalTaxLiability, maxRebate) : 0;
+      setSection87A(p => ({ ...p, isEligible, rebateAmount: rebate, taxAfterRebate: Math.max(0, p.normalTaxLiability - rebate) }));
+    };
+    return (
+      <div className="space-y-4">
+        <Tabs defaultValue="tds1" className="w-full">
+          <TabsList className="grid grid-cols-5 w-full">
+            <TabsTrigger value="tds1" className="text-xs">TDS1 (Salary)</TabsTrigger>
+            <TabsTrigger value="tds2" className="text-xs">TDS2 (Other)</TabsTrigger>
+            <TabsTrigger value="tcs" className="text-xs">TCS</TabsTrigger>
+            <TabsTrigger value="234f" className="text-xs">234F Fee</TabsTrigger>
+            <TabsTrigger value="87a" className="text-xs">87A Rebate</TabsTrigger>
+          </TabsList>
+          <TabsContent value="tds1">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Schedule TDS1 — TDS on Salary</CardTitle>
+                <CardDescription>Details of tax deducted at source from salary (as per Form 16)</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {tds1Entries.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground text-sm">No TDS on salary entries. Add from Form 16.</div>
+                ) : (
+                  tds1Entries.map((entry, idx) => (
+                    <Card key={idx} className="border-dashed">
+                      <CardContent className="pt-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Badge variant="outline" className="text-xs">Employer {idx + 1}</Badge>
+                          <Button variant="ghost" size="sm" onClick={() => setTds1Entries(prev => prev.filter((_, i) => i !== idx))}>
+                            <XCircle className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">Employer TAN</Label>
+                            <Input value={entry.employerTAN} onChange={e => setTds1Entries(p => p.map((x, i) => i === idx ? { ...x, employerTAN: e.target.value.toUpperCase() } : x))} placeholder="AAAA00000A" maxLength={10} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Employer Name</Label>
+                            <Input value={entry.employerName} onChange={e => setTds1Entries(p => p.map((x, i) => i === idx ? { ...x, employerName: e.target.value } : x))} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Income Credited (₹)</Label>
+                            <CurrencyInput id={`tds1-income-${idx}`} value={entry.incomeCredited} onChange={v => setTds1Entries(p => p.map((x, i) => i === idx ? { ...x, incomeCredited: v } : x))} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">TDS Deducted (₹)</Label>
+                            <CurrencyInput id={`tds1-tds-${idx}`} value={entry.tdsDeducted} onChange={v => setTds1Entries(p => p.map((x, i) => i === idx ? { ...x, tdsDeducted: v } : x))} />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+                <Button variant="outline" size="sm" onClick={() => setTds1Entries(p => [...p, { employerTAN: "", employerName: "", salaryUnderSection: "17(1)" as const, incomeCredited: 0, tdsDeducted: 0, tdsClaimedCurrentYear: 0 }])}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Employer TDS
+                </Button>
+                {tds1Entries.length > 0 && (
+                  <div className="bg-muted/50 rounded-lg p-3 text-sm font-semibold flex justify-between">
+                    <span>Total TDS on Salary</span><span>₹{totalTDS1.toLocaleString("en-IN")}</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="tds2">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Schedule TDS2 — TDS on Income other than Salary</CardTitle>
+                <CardDescription>Details of tax deducted on interest, rent, professional fees, etc. (as per Form 26AS)</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {tds2Entries.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground text-sm">No TDS entries. Add from Form 26AS.</div>
+                ) : (
+                  tds2Entries.map((entry, idx) => (
+                    <Card key={idx} className="border-dashed">
+                      <CardContent className="pt-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Badge variant="outline" className="text-xs">Entry {idx + 1}</Badge>
+                          <Button variant="ghost" size="sm" onClick={() => setTds2Entries(prev => prev.filter((_, i) => i !== idx))}>
+                            <XCircle className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">Deductor TAN</Label>
+                            <Input value={entry.deductorTAN} onChange={e => setTds2Entries(p => p.map((x, i) => i === idx ? { ...x, deductorTAN: e.target.value.toUpperCase() } : x))} placeholder="AAAA00000A" maxLength={10} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Deductor Name</Label>
+                            <Input value={entry.deductorName} onChange={e => setTds2Entries(p => p.map((x, i) => i === idx ? { ...x, deductorName: e.target.value } : x))} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Income Type</Label>
+                            <Select value={entry.incomeType} onValueChange={v => setTds2Entries(p => p.map((x, i) => i === idx ? { ...x, incomeType: v as TDS2Entry['incomeType'] } : x))}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="interest">Interest</SelectItem>
+                                <SelectItem value="dividend">Dividend</SelectItem>
+                                <SelectItem value="rent">Rent</SelectItem>
+                                <SelectItem value="professional_fees">Professional Fees</SelectItem>
+                                <SelectItem value="commission">Commission / Brokerage</SelectItem>
+                                <SelectItem value="winnings">Winnings (Lottery/Gaming)</SelectItem>
+                                <SelectItem value="sale_of_property">Sale of Property</SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Section</Label>
+                            <Input value={entry.section} onChange={e => setTds2Entries(p => p.map((x, i) => i === idx ? { ...x, section: e.target.value } : x))} placeholder="e.g. 194A" />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Income Credited (₹)</Label>
+                            <CurrencyInput id={`tds2-income-${idx}`} value={entry.incomeCredited} onChange={v => setTds2Entries(p => p.map((x, i) => i === idx ? { ...x, incomeCredited: v } : x))} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">TDS Deducted (₹)</Label>
+                            <CurrencyInput id={`tds2-tds-${idx}`} value={entry.tdsDeducted} onChange={v => setTds2Entries(p => p.map((x, i) => i === idx ? { ...x, tdsDeducted: v } : x))} />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+                <Button variant="outline" size="sm" onClick={() => setTds2Entries(p => [...p, { deductorTAN: "", deductorName: "", incomeType: "interest" as const, section: "194A", dateOfPayment: "", incomeCredited: 0, tdsDeducted: 0, tdsClaimedCurrentYear: 0 }])}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add TDS Entry
+                </Button>
+                {tds2Entries.length > 0 && (
+                  <div className="bg-muted/50 rounded-lg p-3 text-sm font-semibold flex justify-between">
+                    <span>Total TDS (Other)</span><span>₹{totalTDS2.toLocaleString("en-IN")}</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="tcs">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Schedule TCS — Tax Collected at Source</CardTitle>
+                <CardDescription>Details of tax collected at source on purchases (as per Form 26AS)</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {tcsEntries.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground text-sm">No TCS entries.</div>
+                ) : (
+                  tcsEntries.map((entry, idx) => (
+                    <Card key={idx} className="border-dashed">
+                      <CardContent className="pt-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Badge variant="outline" className="text-xs">TCS {idx + 1}</Badge>
+                          <Button variant="ghost" size="sm" onClick={() => setTcsEntries(prev => prev.filter((_, i) => i !== idx))}>
+                            <XCircle className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">Collector TAN</Label>
+                            <Input value={entry.collectorTAN} onChange={e => setTcsEntries(p => p.map((x, i) => i === idx ? { ...x, collectorTAN: e.target.value.toUpperCase() } : x))} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Collector Name</Label>
+                            <Input value={entry.collectorName} onChange={e => setTcsEntries(p => p.map((x, i) => i === idx ? { ...x, collectorName: e.target.value } : x))} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Amount Paid (₹)</Label>
+                            <CurrencyInput id={`tcs-amt-${idx}`} value={entry.amountPaid} onChange={v => setTcsEntries(p => p.map((x, i) => i === idx ? { ...x, amountPaid: v } : x))} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">TCS Collected (₹)</Label>
+                            <CurrencyInput id={`tcs-tcs-${idx}`} value={entry.tcsCollected} onChange={v => setTcsEntries(p => p.map((x, i) => i === idx ? { ...x, tcsCollected: v } : x))} />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+                <Button variant="outline" size="sm" onClick={() => setTcsEntries(p => [...p, { collectorTAN: "", collectorName: "", amountPaid: 0, tcsCollected: 0, tcsClaimedCurrentYear: 0 }])}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add TCS Entry
+                </Button>
+                {tcsEntries.length > 0 && (
+                  <div className="bg-muted/50 rounded-lg p-3 text-sm font-semibold flex justify-between">
+                    <span>Total TCS</span><span>₹{totalTCS.toLocaleString("en-IN")}</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="234f">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Section 234F — Late Filing Fee</CardTitle>
+                <CardDescription>Fee for filing return after the due date under Section 139(1)</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200">
+                  <Info className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    Late filing fee: ₹5,000 if total income exceeds ₹5 lakhs, ₹1,000 if total income is up to ₹5 lakhs. No fee if return is filed before due date.
+                  </AlertDescription>
+                </Alert>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Due Date of Filing</Label>
+                    <Input type="date" value={section234F.filingDueDate} onChange={e => setSection234F(p => ({ ...p, filingDueDate: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Actual Filing Date</Label>
+                    <Input type="date" value={section234F.actualFilingDate} onChange={e => setSection234F(p => ({ ...p, actualFilingDate: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Total Income (₹)</Label>
+                    <CurrencyInput id="s234f-income" value={section234F.totalIncome} onChange={v => setSection234F(p => ({ ...p, totalIncome: v }))} />
+                  </div>
+                </div>
+                <Button onClick={compute234F} className="w-full" data-testid="btn-compute-234f">
+                  <Calculator className="h-4 w-4 mr-2" /> Compute Late Fee
+                </Button>
+                {section234F.isApplicable && (
+                  <div className="bg-red-50 dark:bg-red-950 rounded-lg p-3 text-sm space-y-1">
+                    <div className="flex justify-between font-semibold text-red-700 dark:text-red-300">
+                      <span>Late Filing Fee u/s 234F</span>
+                      <span>₹{section234F.lateFee.toLocaleString("en-IN")}</span>
+                    </div>
+                    <p className="text-xs text-red-600 dark:text-red-400">{section234F.isSmallTaxpayer ? "Reduced fee (income ≤ ₹5 lakhs)" : "Standard fee (income > ₹5 lakhs)"}</p>
+                  </div>
+                )}
+                {section234F.actualFilingDate && !section234F.isApplicable && section234F.lateFee === 0 && (
+                  <div className="bg-green-50 dark:bg-green-950 rounded-lg p-3 text-sm text-green-700 dark:text-green-300 font-semibold">
+                    Filed within due date — No late fee applicable
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="87a">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Section 87A — Rebate for Resident Individuals</CardTitle>
+                <CardDescription>Tax rebate for resident individuals with taxable income below threshold</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200">
+                  <Info className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    Old Regime: Rebate up to ₹12,500 if taxable income ≤ ₹5,00,000. New Regime: Rebate up to ₹25,000 if taxable income ≤ ₹7,00,000. Available only for Resident Individuals.
+                  </AlertDescription>
+                </Alert>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Taxable Income (₹)</Label>
+                    <CurrencyInput id="s87a-income" value={section87A.taxableIncome} onChange={v => setSection87A(p => ({ ...p, taxableIncome: v }))} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Normal Tax Liability (₹)</Label>
+                    <CurrencyInput id="s87a-tax" value={section87A.normalTaxLiability} onChange={v => setSection87A(p => ({ ...p, normalTaxLiability: v }))} />
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Current Regime: <Badge variant="outline" className="text-xs">{taxRegime === "old" ? "Old Regime" : "New Regime"}</Badge>
+                  {" "}| Threshold: ₹{(taxRegime === "old" ? section87A.incomeThresholdOld : section87A.incomeThresholdNew).toLocaleString("en-IN")}
+                  {" "}| Max Rebate: ₹{(taxRegime === "old" ? section87A.maxRebateOldRegime : section87A.maxRebateNewRegime).toLocaleString("en-IN")}
+                </div>
+                <Button onClick={compute87A} className="w-full" data-testid="btn-compute-87a">
+                  <Calculator className="h-4 w-4 mr-2" /> Check Eligibility & Compute Rebate
+                </Button>
+                {section87A.isEligible && (
+                  <div className="bg-green-50 dark:bg-green-950 rounded-lg p-3 text-sm space-y-1">
+                    <div className="flex justify-between font-semibold text-green-700 dark:text-green-300">
+                      <span>Rebate u/s 87A</span>
+                      <span>₹{section87A.rebateAmount.toLocaleString("en-IN")}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span>Tax After Rebate</span>
+                      <span>₹{section87A.taxAfterRebate.toLocaleString("en-IN")}</span>
+                    </div>
+                  </div>
+                )}
+                {!section87A.isEligible && section87A.taxableIncome > 0 && (
+                  <div className="bg-amber-50 dark:bg-amber-950 rounded-lg p-3 text-sm text-amber-700 dark:text-amber-300">
+                    {residentialStatus !== "resident" ? "Rebate u/s 87A is available only to Resident Individuals" : `Taxable income exceeds threshold — Rebate not available`}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    );
+  };
+
   const renderCurrentStep = () => {
     const currentStepExists = activeSteps.some(s => s.id === currentStepId);
     if (!currentStepExists) {
@@ -6350,6 +7859,11 @@ export default function TaxITRSelfPage() {
       case "schedule_al": return renderScheduleALStep();
       case "loss_adjustment": return renderLossAdjustmentStep();
       case "schedule_si_ei": return renderScheduleSIEIStep();
+      case "schedule_spi": return renderScheduleSPIStep();
+      case "schedule_5a": return renderSchedule5AStep();
+      case "schedule_if": return renderScheduleIFStep();
+      case "mat_amt": return renderMATAMTStep();
+      case "tds_schedules": return renderTDSSchedulesStep();
       case "tax_payments": return renderTaxPaymentsStep();
       case "review": return renderReviewStep();
       default: return null;

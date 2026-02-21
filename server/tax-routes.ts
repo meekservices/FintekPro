@@ -673,14 +673,16 @@ router.post("/itr/parse-form16", upload.single("file"), async (req: Request, res
     const result = await sandboxITRService.parseForm16(file.buffer, file.originalname || "form16.pdf");
     
     if (result.success && result.data) {
+      const salaryDetails = (result.data as any).salaryDetails || {};
+      const tdsDetails = (result.data as any).tdsDetails || {};
       res.json({
         success: true,
         parsed: {
-          grossSalary: result.data.grossSalary || 0,
-          allowances: result.data.allowances || 0,
-          professionalTax: result.data.professionalTax || 0,
-          employerPF: result.data.employerPF || 0,
-          tdsDeducted: result.data.tdsDeducted || 0,
+          grossSalary: salaryDetails.grossSalary || 0,
+          allowances: salaryDetails.exemptAllowances || 0,
+          professionalTax: salaryDetails.professionalTax || 0,
+          employerPF: 0,
+          tdsDeducted: tdsDetails.tdsDeducted || 0,
         }
       });
     } else {
@@ -1765,8 +1767,8 @@ router.post("/itr/regime-compare", async (req: Request, res: Response) => {
     const data = validation.data;
     
     const [oldRegimeResult, newRegimeResult] = await Promise.all([
-      sandboxITRService.calculateTaxFromWizard({ ...data, taxRegime: 'old' }),
-      sandboxITRService.calculateTaxFromWizard({ ...data, taxRegime: 'new' })
+      sandboxITRService.calculateTaxFromWizard({ ...data, taxRegime: 'old' } as any),
+      sandboxITRService.calculateTaxFromWizard({ ...data, taxRegime: 'new' } as any)
     ]);
 
     const oldTax = oldRegimeResult.data?.taxPayable ?? oldRegimeResult.data?.taxLiability ?? 0;
@@ -2173,9 +2175,8 @@ router.post("/capital-gains/upload", requireTaxAuth, upload.single('file'), asyn
 
     if (fileExt === 'pdf') {
       try {
-        const { UnifiedPDFParser } = await import('./services/unified-pdf-parser');
-        const parser = new UnifiedPDFParser();
-        const parseResult = await parser.parseBuffer(file.buffer);
+        const { unifiedPDFParser } = await import('./services/unified-pdf-parser');
+        const parseResult = await (unifiedPDFParser as any).parseBuffer(file.buffer);
 
         if (parseResult.success) {
           parseConfidence = parseResult.confidenceScore;
@@ -2599,6 +2600,607 @@ router.get("/capital-gains/summary", requireTaxAuth, (req: Request, res: Respons
       hashChainIntact: true,
     }
   });
+});
+
+router.post("/api/tax/import/broker-cg", upload.single("file"), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
+    const broker = req.body.broker || "unknown";
+    const content = req.file.buffer.toString("utf-8");
+    const lines = content.split("\n").filter(l => l.trim());
+    const headers = lines[0]?.split(",").map(h => h.trim().toLowerCase()) || [];
+
+    const transactions: any[] = [];
+    let totalSTCG = 0, totalLTCG = 0;
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(",").map(c => c.trim());
+      if (cols.length < 5) continue;
+
+      let symbol = "", isin = "", buyDate = "", sellDate = "", qty = 0, buyPrice = 0, sellPrice = 0, stt = 0;
+      const headerMap: Record<string, number> = {};
+      headers.forEach((h, idx) => { headerMap[h] = idx; });
+
+      if (broker === "zerodha") {
+        symbol = cols[headerMap["symbol"] ?? headerMap["tradingsymbol"] ?? 0] || "";
+        isin = cols[headerMap["isin"] ?? 1] || "";
+        buyDate = cols[headerMap["buy_date"] ?? headerMap["purchase_date"] ?? 2] || "";
+        sellDate = cols[headerMap["sell_date"] ?? headerMap["sale_date"] ?? 3] || "";
+        qty = Number(cols[headerMap["quantity"] ?? headerMap["qty"] ?? 4]) || 0;
+        buyPrice = Number(cols[headerMap["buy_price"] ?? headerMap["purchase_price"] ?? headerMap["buy_avg"] ?? 5]) || 0;
+        sellPrice = Number(cols[headerMap["sell_price"] ?? headerMap["sale_price"] ?? headerMap["sell_avg"] ?? 6]) || 0;
+        stt = Number(cols[headerMap["stt"] ?? 7]) || 0;
+      } else if (broker === "cams" || broker === "karvy" || broker === "kfintech") {
+        symbol = cols[headerMap["scheme_name"] ?? headerMap["fund_name"] ?? 0] || "";
+        isin = cols[headerMap["isin"] ?? headerMap["isin_no"] ?? 1] || "";
+        buyDate = cols[headerMap["allotment_date"] ?? headerMap["purchase_date"] ?? 2] || "";
+        sellDate = cols[headerMap["redemption_date"] ?? headerMap["sale_date"] ?? 3] || "";
+        qty = Number(cols[headerMap["units"] ?? headerMap["quantity"] ?? 4]) || 0;
+        buyPrice = Number(cols[headerMap["purchase_nav"] ?? headerMap["buy_price"] ?? 5]) || 0;
+        sellPrice = Number(cols[headerMap["redemption_nav"] ?? headerMap["sell_price"] ?? 6]) || 0;
+      } else {
+        symbol = cols[0] || "";
+        isin = cols[1] || "";
+        buyDate = cols[2] || "";
+        sellDate = cols[3] || "";
+        qty = Number(cols[4]) || 0;
+        buyPrice = Number(cols[5]) || 0;
+        sellPrice = Number(cols[6]) || 0;
+      }
+
+      const gain = (sellPrice - buyPrice) * qty;
+      const buyDateObj = new Date(buyDate);
+      const sellDateObj = new Date(sellDate);
+      const holdingDays = Math.floor((sellDateObj.getTime() - buyDateObj.getTime()) / (1000 * 60 * 60 * 24));
+      const isLongTerm = holdingDays > 365;
+
+      if (isLongTerm) totalLTCG += gain; else totalSTCG += gain;
+
+      transactions.push({
+        symbol, isin, buyDate, sellDate, quantity: qty,
+        buyPrice, sellPrice, sttPaid: stt, gain,
+        holdingDays, isLongTerm,
+        gainType: isLongTerm ? "LTCG" : "STCG",
+      });
+    }
+
+    const checksum = createHash("sha256").update(content).digest("hex");
+
+    res.json({
+      success: true,
+      data: {
+        broker,
+        fileName: req.file.originalname,
+        totalTransactions: transactions.length,
+        totalSTCG: Math.round(totalSTCG),
+        totalLTCG: Math.round(totalLTCG),
+        netGain: Math.round(totalSTCG + totalLTCG),
+        transactions: transactions.slice(0, 500),
+        parseConfidence: transactions.length > 0 ? 0.85 : 0,
+        checksum,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Failed to parse broker file" });
+  }
+});
+
+router.post("/api/tax/import/itr-json", upload.single("file"), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
+    const content = req.file.buffer.toString("utf-8");
+    let parsed: any;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      return res.status(400).json({ success: false, message: "Invalid JSON file. Please upload a valid ITR JSON from the IT portal." });
+    }
+
+    const itrData = parsed.ITR || parsed;
+    const formType = Object.keys(itrData).find(k => k.startsWith("ITR")) || "Unknown";
+
+    const personalInfo = itrData[formType]?.PersonalInfo || itrData.PersonalInfo || {};
+    const incomeDetails = itrData[formType]?.IncomeDeductions || itrData.IncomeDeductions || {};
+    const taxPaid = itrData[formType]?.TaxPaid || itrData.TaxPaid || {};
+    const schedCG = itrData[formType]?.ScheduleCGFor23 || itrData[formType]?.ScheduleCG || {};
+    const schedHP = itrData[formType]?.ScheduleHP || itrData.ScheduleHP || {};
+    const schedOS = itrData[formType]?.ScheduleOS || itrData.ScheduleOS || {};
+    const schedBP = itrData[formType]?.ScheduleBP || itrData.ScheduleBP || {};
+    const schedSPI = itrData[formType]?.ScheduleSPI || {};
+    const sched5A = itrData[formType]?.Schedule5A || {};
+    const schedIF = itrData[formType]?.ScheduleIF || {};
+    const partBTI = itrData[formType]?.PartB_TI || itrData.PartB_TI || {};
+    const partBTTI = itrData[formType]?.PartB_TTI || itrData.PartB_TTI || {};
+
+    const extractedData = {
+      formType,
+      assessmentYear: personalInfo?.AssesseeName?.AssessmentYear || personalInfo?.AY || "",
+      pan: personalInfo?.PAN || personalInfo?.AssesseeName?.PAN || "",
+      name: personalInfo?.AssesseeName?.FirstName || personalInfo?.Name || "",
+      filingStatus: personalInfo?.FilingStatus?.ReturnFileSec || "",
+      salary: {
+        grossSalary: incomeDetails?.GrossSalary || partBTI?.Salaries || 0,
+        standardDeduction: incomeDetails?.DeductionUs16 || 0,
+        netSalary: incomeDetails?.IncomeFromSal || 0,
+      },
+      houseProperty: {
+        totalHP: schedHP?.TotalIncomeOfHP || partBTI?.IncFromHP || 0,
+        interestOnLoan: schedHP?.IntOnBorrowCap || 0,
+      },
+      capitalGains: {
+        stcg: schedCG?.ShortTerm?.TotalSTCG || partBTI?.CapGain?.ShortTerm?.TotalSTCG || 0,
+        ltcg: schedCG?.LongTerm?.TotalLTCG || partBTI?.CapGain?.LongTerm?.TotalLTCG || 0,
+      },
+      otherSources: {
+        totalOS: schedOS?.TotIncFromOS || partBTI?.IncFromOS || 0,
+        interestIncome: schedOS?.IntrstFrmSavBank || 0,
+        dividendIncome: schedOS?.DividendInc || 0,
+      },
+      business: {
+        totalBP: schedBP?.ProfIncome || partBTI?.ProfBusGain || 0,
+        is44AD: !!schedBP?.NatOfBus44AD,
+        is44ADA: !!schedBP?.NatOfBus44ADA,
+      },
+      scheduleSPI: schedSPI,
+      schedule5A: sched5A,
+      scheduleIF: schedIF,
+      deductions: {
+        section80C: incomeDetails?.DeductUndChapVIA?.Section80C || 0,
+        section80D: incomeDetails?.DeductUndChapVIA?.Section80D || 0,
+        section80G: incomeDetails?.DeductUndChapVIA?.Section80G || 0,
+        totalDeductions: incomeDetails?.DeductUndChapVIA?.TotalChapVIADeductions || partBTI?.TotalChapVIADeductions || 0,
+      },
+      taxPaid: {
+        tds: taxPaid?.TDS?.TotalTDSSal || 0,
+        tcs: taxPaid?.TCS?.TotalTCS || 0,
+        advanceTax: taxPaid?.AdvanceTax || taxPaid?.TotalAdvanceTax || 0,
+        selfAssessment: taxPaid?.SelfAssessment || taxPaid?.TotalSelfAssessmentTax || 0,
+      },
+      totals: {
+        grossTotalIncome: partBTI?.GrossTotIncome || 0,
+        totalIncome: partBTI?.TotalIncome || partBTTI?.TotalIncome || 0,
+        taxPayable: partBTTI?.TaxPayableOnTI?.TaxPayableOnTotInc || 0,
+        refund: partBTTI?.Refund || 0,
+      },
+    };
+
+    res.json({ success: true, data: extractedData, message: `Successfully parsed ${formType} JSON` });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Failed to parse ITR JSON" });
+  }
+});
+
+router.post("/api/tax/export/itr-json", async (req: Request, res: Response) => {
+  try {
+    const { pan, assessmentYear, itrForm, data } = req.body;
+    if (!pan || !assessmentYear || !itrForm) {
+      return res.status(400).json({ success: false, message: "PAN, assessment year, and ITR form are required" });
+    }
+
+    const itrJSON: any = {
+      [itrForm]: {
+        CreationInfo: {
+          SWVersionNo: "1.0",
+          SWCreatedBy: "FintekPro",
+          JSONCreatedBy: "FintekPro",
+          JSONCreationDate: new Date().toISOString().split("T")[0],
+          IntermediaryCity: "Mumbai",
+          Aboression: "FintekPro Digital Platform",
+        },
+        Form_ITR: { FormName: itrForm, Description: `Income Tax Return - ${itrForm}`, AssessmentYear: assessmentYear, SchemaVer: "Ver1.0" },
+        PersonalInfo: {
+          AssesseeName: { FirstName: data.name || "", PAN: pan },
+          AY: assessmentYear,
+          PAN: pan,
+          FilingStatus: { ReturnFileSec: data.filingSection || "139(1)", OptOutNewTaxRegime: data.taxRegime === "old" ? "Y" : "N" },
+          ResidentialStatus: data.residentialStatus === "resident" ? "RES" : data.residentialStatus === "nri" ? "NRI" : "RNOR",
+        },
+        IncomeDeductions: {
+          GrossSalary: data.salaryDetails?.grossSalary || 0,
+          DeductionUs16: data.salaryDetails?.standardDeduction || 0,
+          IncomeFromSal: Math.max(0, (data.salaryDetails?.grossSalary || 0) - (data.salaryDetails?.standardDeduction || 0)),
+        },
+        PartB_TI: {
+          Salaries: data.salaryDetails?.grossSalary || 0,
+          IncFromHP: data.housePropertyIncome || 0,
+          ProfBusGain: data.businessIncome || 0,
+          CapGain: {
+            ShortTerm: { TotalSTCG: data.capitalGainsDetails?.shortTermGains || 0 },
+            LongTerm: { TotalLTCG: data.capitalGainsDetails?.longTermGains || 0 },
+          },
+          IncFromOS: data.otherIncome || 0,
+          GrossTotIncome: data.grossTotalIncome || 0,
+          TotalChapVIADeductions: data.totalDeductions || 0,
+          TotalIncome: data.taxableIncome || 0,
+        },
+        PartB_TTI: {
+          TotalIncome: data.taxableIncome || 0,
+          TaxPayableOnTotInc: data.taxPayable || 0,
+          Refund: data.refundDue || 0,
+        },
+        TaxPaid: {
+          TDS: { TotalTDSSal: data.taxPaymentDetails?.tdsSalary || 0 },
+          TCS: { TotalTCS: data.taxPaymentDetails?.tcsCollected || 0 },
+          AdvanceTax: data.taxPaymentDetails?.advanceTaxPaid || 0,
+          SelfAssessment: data.taxPaymentDetails?.selfAssessmentTax || 0,
+        },
+        Verification: {
+          Declaration: { AssesseeName: data.name || pan },
+          Place: data.city || "Mumbai",
+          Date: new Date().toISOString().split("T")[0],
+        },
+      },
+    };
+
+    res.json({
+      success: true,
+      data: itrJSON,
+      fileName: `${itrForm}_${pan}_${assessmentYear}.json`,
+      message: `${itrForm} JSON generated successfully`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Failed to generate ITR JSON" });
+  }
+});
+
+router.post("/api/tax/export/computation-sheet", async (req: Request, res: Response) => {
+  try {
+    const { data, pan, assessmentYear, name } = req.body;
+    if (!pan || !assessmentYear) {
+      return res.status(400).json({ success: false, message: "PAN and assessment year are required" });
+    }
+
+    const computationSheet = {
+      title: "COMPUTATION OF TOTAL INCOME AND TAX THEREON",
+      assesseeName: name || pan,
+      pan,
+      assessmentYear,
+      previousYear: `${parseInt(assessmentYear.split("-")[0]) - 1}-${assessmentYear.split("-")[0].slice(2)}`,
+      sections: [
+        {
+          heading: "1. Income under the head Salaries",
+          items: [
+            { label: "Gross Salary", amount: data.salaryDetails?.grossSalary || 0 },
+            { label: "Less: Standard Deduction u/s 16(ia)", amount: -(data.salaryDetails?.standardDeduction || 0) },
+            { label: "Net Salary", amount: Math.max(0, (data.salaryDetails?.grossSalary || 0) - (data.salaryDetails?.standardDeduction || 0)), isBold: true },
+          ],
+        },
+        {
+          heading: "2. Income from House Property",
+          items: [
+            { label: "Net Income from House Property", amount: data.housePropertyIncome || 0, isBold: true },
+          ],
+        },
+        {
+          heading: "3. Profits and Gains from Business or Profession",
+          items: [
+            { label: "Net Business Income", amount: data.businessIncome || 0, isBold: true },
+          ],
+        },
+        {
+          heading: "4. Capital Gains",
+          items: [
+            { label: "Short Term Capital Gains", amount: data.capitalGainsDetails?.shortTermGains || 0 },
+            { label: "Long Term Capital Gains", amount: data.capitalGainsDetails?.longTermGains || 0 },
+            { label: "Total Capital Gains", amount: (data.capitalGainsDetails?.shortTermGains || 0) + (data.capitalGainsDetails?.longTermGains || 0), isBold: true },
+          ],
+        },
+        {
+          heading: "5. Income from Other Sources",
+          items: [
+            { label: "Interest Income", amount: data.otherIncomeDetails?.interestIncome || 0 },
+            { label: "Dividend Income", amount: data.otherIncomeDetails?.dividendIncome || 0 },
+            { label: "Other Sources", amount: data.otherIncomeDetails?.otherSources || 0 },
+            { label: "Total Other Income", amount: (data.otherIncomeDetails?.interestIncome || 0) + (data.otherIncomeDetails?.dividendIncome || 0) + (data.otherIncomeDetails?.otherSources || 0), isBold: true },
+          ],
+        },
+        {
+          heading: "GROSS TOTAL INCOME",
+          items: [{ label: "Gross Total Income", amount: data.grossTotalIncome || 0, isBold: true }],
+        },
+        {
+          heading: "6. Deductions under Chapter VI-A",
+          items: [
+            { label: "Total Deductions", amount: -(data.totalDeductions || 0) },
+          ],
+        },
+        {
+          heading: "TOTAL TAXABLE INCOME",
+          items: [{ label: "Total Taxable Income", amount: data.taxableIncome || 0, isBold: true }],
+        },
+        {
+          heading: "TAX COMPUTATION",
+          items: [
+            { label: "Tax on Total Income", amount: data.taxPayable || 0 },
+            { label: "Less: Rebate u/s 87A", amount: -(data.rebate87A || 0) },
+            { label: "Add: Surcharge", amount: data.surcharge || 0 },
+            { label: "Add: Health & Education Cess (4%)", amount: data.cess || 0 },
+            { label: "Total Tax Liability", amount: data.totalTaxLiability || 0, isBold: true },
+            { label: "Less: TDS", amount: -(data.totalTDS || 0) },
+            { label: "Less: Advance Tax", amount: -(data.advanceTax || 0) },
+            { label: "Less: Self Assessment Tax", amount: -(data.selfAssessmentTax || 0) },
+            { label: data.refundDue > 0 ? "REFUND DUE" : "TAX PAYABLE", amount: data.refundDue > 0 ? data.refundDue : data.taxPayable || 0, isBold: true },
+          ],
+        },
+      ],
+      generatedAt: new Date().toISOString(),
+      generatedBy: "FintekPro Tax Engine",
+    };
+
+    res.json({ success: true, data: computationSheet });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Failed to generate computation sheet" });
+  }
+});
+
+const clientDashboardStorage = new Map<string, any>();
+
+router.get("/api/tax/practice/clients", async (_req: Request, res: Response) => {
+  try {
+    const clients = Array.from(clientDashboardStorage.values());
+    res.json({ success: true, data: clients, total: clients.length });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post("/api/tax/practice/clients", async (req: Request, res: Response) => {
+  try {
+    const { pan, name, email, phone, itrForm, assessmentYear, status } = req.body;
+    if (!pan || !name) return res.status(400).json({ success: false, message: "PAN and name required" });
+    const clientId = `client-${Date.now()}`;
+    const client = {
+      id: clientId, pan, name, email: email || "", phone: phone || "",
+      itrForm: itrForm || "ITR-1", assessmentYear: assessmentYear || "2025-26",
+      status: status || "data_collection",
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      filingStatus: "pending", draftId: null, assignedTo: null,
+    };
+    clientDashboardStorage.set(clientId, client);
+    res.json({ success: true, data: client });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.patch("/api/tax/practice/clients/:clientId", async (req: Request, res: Response) => {
+  try {
+    const client = clientDashboardStorage.get(req.params.clientId);
+    if (!client) return res.status(404).json({ success: false, message: "Client not found" });
+    Object.assign(client, req.body, { updatedAt: new Date().toISOString() });
+    clientDashboardStorage.set(req.params.clientId, client);
+    res.json({ success: true, data: client });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post("/api/tax/challan/prepare", async (req: Request, res: Response) => {
+  try {
+    const { pan, assessmentYear, taxAmount, challanType, paymentMode } = req.body;
+    if (!pan || !taxAmount) return res.status(400).json({ success: false, message: "PAN and tax amount required" });
+
+    const challanData = {
+      challanNo: challanType === "advance_tax" ? "280" : challanType === "self_assessment" ? "280" : "281",
+      bsrCode: "",
+      dateOfDeposit: new Date().toISOString().split("T")[0],
+      pan,
+      assessmentYear: assessmentYear || "2025-26",
+      majorHead: "0021",
+      minorHead: challanType === "advance_tax" ? "100" : challanType === "self_assessment" ? "300" : "400",
+      taxAmount: taxAmount || 0,
+      surcharge: Math.round(taxAmount > 5000000 ? taxAmount * 0.10 : 0),
+      educationCess: Math.round((taxAmount + (taxAmount > 5000000 ? taxAmount * 0.10 : 0)) * 0.04),
+      interest234A: 0,
+      interest234B: 0,
+      interest234C: 0,
+      fee234F: 0,
+      totalAmount: taxAmount,
+      paymentMode: paymentMode || "net_banking",
+      paymentUrl: `https://onlineservices.tin.egov-nsdl.com/etaxnew/tdsnontds.jsp`,
+      generatedAt: new Date().toISOString(),
+    };
+    challanData.totalAmount = challanData.taxAmount + challanData.surcharge + challanData.educationCess + challanData.interest234A + challanData.interest234B + challanData.interest234C + challanData.fee234F;
+
+    res.json({ success: true, data: challanData });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post("/api/tax/form12bb/generate", async (req: Request, res: Response) => {
+  try {
+    const { employeeName, pan, employerName, employerTAN, financialYear, declarations } = req.body;
+    if (!employeeName || !pan) return res.status(400).json({ success: false, message: "Employee name and PAN required" });
+
+    const form12BB = {
+      title: "FORM NO. 12BB",
+      subtitle: "Statement showing particulars of claims by an employee for deduction of tax under section 192",
+      financialYear: financialYear || "2024-25",
+      employee: { name: employeeName, pan, designation: declarations?.designation || "" },
+      employer: { name: employerName || "", tan: employerTAN || "" },
+      declarations: {
+        hra: {
+          isApplicable: declarations?.hra?.isApplicable || false,
+          rentPaid: declarations?.hra?.rentPaid || 0,
+          landlordName: declarations?.hra?.landlordName || "",
+          landlordPAN: declarations?.hra?.landlordPAN || "",
+          landlordAddress: declarations?.hra?.landlordAddress || "",
+        },
+        lta: {
+          isApplicable: declarations?.lta?.isApplicable || false,
+          amount: declarations?.lta?.amount || 0,
+        },
+        homeLoanInterest: {
+          isApplicable: declarations?.homeLoanInterest?.isApplicable || false,
+          lenderName: declarations?.homeLoanInterest?.lenderName || "",
+          lenderPAN: declarations?.homeLoanInterest?.lenderPAN || "",
+          interestAmount: declarations?.homeLoanInterest?.interestAmount || 0,
+        },
+        section80C: declarations?.section80C || 0,
+        section80CCD: declarations?.section80CCD || 0,
+        section80D: declarations?.section80D || 0,
+        section80E: declarations?.section80E || 0,
+        section80G: declarations?.section80G || 0,
+        otherDeductions: declarations?.otherDeductions || 0,
+      },
+      verification: {
+        place: declarations?.place || "",
+        date: new Date().toISOString().split("T")[0],
+        signature: employeeName,
+      },
+      generatedAt: new Date().toISOString(),
+    };
+
+    res.json({ success: true, data: form12BB });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post("/api/tax/calculator/hra", async (req: Request, res: Response) => {
+  try {
+    const { basicSalary, daReceived, hraReceived, rentPaid, metroCity } = req.body;
+    if (!basicSalary) return res.status(400).json({ success: false, message: "Basic salary is required" });
+
+    const basic = Number(basicSalary) || 0;
+    const da = Number(daReceived) || 0;
+    const hra = Number(hraReceived) || 0;
+    const rent = Number(rentPaid) || 0;
+    const isMetro = metroCity !== false;
+
+    const exemption1 = hra;
+    const exemption2 = isMetro ? Math.round((basic + da) * 0.50) : Math.round((basic + da) * 0.40);
+    const exemption3 = Math.max(0, rent - Math.round((basic + da) * 0.10));
+
+    const hraExemption = Math.min(exemption1, exemption2, exemption3);
+    const taxableHRA = Math.max(0, hra - hraExemption);
+
+    res.json({
+      success: true,
+      data: {
+        hraReceived: hra, hraExemption, taxableHRA,
+        breakdown: {
+          actualHRA: exemption1,
+          percentOfBasic: exemption2,
+          rentMinusTenPercent: exemption3,
+        },
+        isMetro: isMetro,
+        formula: isMetro ? "50% of (Basic + DA)" : "40% of (Basic + DA)",
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post("/api/tax/calculator/form10e", async (req: Request, res: Response) => {
+  try {
+    const { currentYearArrears, totalIncome, arrearYears } = req.body;
+    if (!currentYearArrears || !totalIncome) return res.status(400).json({ success: false, message: "Arrears and total income required" });
+
+    const arrears = Number(currentYearArrears) || 0;
+    const income = Number(totalIncome) || 0;
+    const incomeWithoutArrears = income - arrears;
+    const years = Number(arrearYears) || 1;
+
+    const taxOnTotal = computeSimpleTax(income);
+    const taxOnWithout = computeSimpleTax(incomeWithoutArrears);
+    const averageArrears = Math.round(arrears / years);
+    const taxOnWithAverage = computeSimpleTax(incomeWithoutArrears + averageArrears);
+    const additionalTaxOnAverage = taxOnWithAverage - taxOnWithout;
+    const totalAdditionalTax = additionalTaxOnAverage * years;
+
+    const reliefUs89 = Math.max(0, (taxOnTotal - taxOnWithout) - totalAdditionalTax);
+
+    res.json({
+      success: true,
+      data: {
+        totalIncome: income, arrearsReceived: arrears, incomeWithoutArrears,
+        taxOnTotal, taxOnWithout, averageArrears, taxOnWithAverage,
+        additionalTaxOnAverage, totalAdditionalTax, reliefUs89,
+        arrearYears: years,
+        explanation: `Relief u/s 89(1) = Tax on total income (₹${taxOnTotal.toLocaleString("en-IN")}) - Tax without arrears (₹${taxOnWithout.toLocaleString("en-IN")}) - Spread tax (₹${totalAdditionalTax.toLocaleString("en-IN")}) = ₹${reliefUs89.toLocaleString("en-IN")}`,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+function computeSimpleTax(income: number): number {
+  if (income <= 300000) return 0;
+  let tax = 0;
+  const slabs = [
+    { limit: 300000, rate: 0 },
+    { limit: 700000, rate: 0.05 },
+    { limit: 1000000, rate: 0.10 },
+    { limit: 1200000, rate: 0.15 },
+    { limit: 1500000, rate: 0.20 },
+    { limit: Infinity, rate: 0.30 },
+  ];
+  let prev = 0;
+  for (const slab of slabs) {
+    const taxable = Math.min(income, slab.limit) - prev;
+    if (taxable > 0) tax += taxable * slab.rate;
+    prev = slab.limit;
+    if (income <= slab.limit) break;
+  }
+  return Math.round(tax);
+}
+
+router.post("/api/tax/optimizer/suggestions", async (req: Request, res: Response) => {
+  try {
+    const { taxableIncome, taxRegime, deductions, age } = req.body;
+    const income = Number(taxableIncome) || 0;
+    const suggestions: any[] = [];
+
+    if (taxRegime === "old") {
+      const used80C = Number(deductions?.section80C) || 0;
+      if (used80C < 150000) {
+        suggestions.push({
+          section: "80C", potential: 150000 - used80C, taxSaving: Math.round((150000 - used80C) * 0.30),
+          description: "Invest in ELSS, PPF, or NSC to maximize Section 80C deduction",
+        });
+      }
+      const used80D = Number(deductions?.section80D) || 0;
+      const max80D = (age && age >= 60) ? 50000 : 25000;
+      if (used80D < max80D) {
+        suggestions.push({
+          section: "80D", potential: max80D - used80D, taxSaving: Math.round((max80D - used80D) * 0.30),
+          description: "Health insurance premium deduction",
+        });
+      }
+      const used80CCD1B = Number(deductions?.section80CCD1B) || 0;
+      if (used80CCD1B < 50000) {
+        suggestions.push({
+          section: "80CCD(1B)", potential: 50000 - used80CCD1B, taxSaving: Math.round((50000 - used80CCD1B) * 0.30),
+          description: "Additional NPS contribution (over and above 80C)",
+        });
+      }
+    }
+
+    if (income > 500000) {
+      const oldTax = computeSimpleTax(income - (Number(deductions?.totalDeductions) || 0));
+      const newTax = computeSimpleTax(income);
+      if (taxRegime === "old" && newTax < oldTax) {
+        suggestions.push({
+          section: "Regime", potential: oldTax - newTax, taxSaving: oldTax - newTax,
+          description: "Switch to New Regime for lower tax (fewer deductions but lower rates)",
+        });
+      } else if (taxRegime === "new" && oldTax < newTax) {
+        suggestions.push({
+          section: "Regime", potential: newTax - oldTax, taxSaving: newTax - oldTax,
+          description: "Switch to Old Regime and maximize deductions for lower tax",
+        });
+      }
+    }
+
+    const totalSaving = suggestions.reduce((s, sg) => s + sg.taxSaving, 0);
+    res.json({ success: true, data: { suggestions, totalPotentialSaving: totalSaving, currentTax: computeSimpleTax(income) } });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 export { router as taxRoutes, determinePANType, isNRI };
