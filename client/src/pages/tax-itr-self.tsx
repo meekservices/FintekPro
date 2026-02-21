@@ -582,11 +582,11 @@ function FieldHint({ text }: { text: string }) {
   );
 }
 
-function CurrencyInput({ id, value, onChange, placeholder, max, hint, disabled, "data-testid": testId }: {
+function CurrencyInput({ id, value, onChange, placeholder = "Enter amount", max, hint, disabled, "data-testid": testId }: {
   id: string;
   value: number;
   onChange: (val: number) => void;
-  placeholder: string;
+  placeholder?: string;
   max?: number;
   hint?: string;
   disabled?: boolean;
@@ -1616,8 +1616,6 @@ export default function TaxITRSelfPage() {
       salaryDetails,
       housePropertyDetails,
       capitalGainsDetails,
-      businessDetails: incomeSources.hasBusinessIncome ? businessDetails : undefined,
-      foreignIncomeDetails: incomeSources.hasForeignIncome ? foreignIncomeDetails : undefined,
       otherIncomeDetails,
       deductionDetails,
       grossTotalIncome: apiData?.totalIncome ?? totals.grossTotalIncome,
@@ -1675,7 +1673,7 @@ export default function TaxITRSelfPage() {
     }
     if (safeCurrentStep < activeSteps.length - 1) {
       const newStepId = activeSteps[safeCurrentStep + 1]?.id || "basic";
-      setVisitedSteps(prev => new Set([...prev, newStepId]));
+      setVisitedSteps(prev => new Set(Array.from(prev).concat([newStepId])));
       setCurrentStepId(newStepId);
       if (newStepId === "review") {
         taxCalcMutation.mutate();
@@ -2225,7 +2223,7 @@ export default function TaxITRSelfPage() {
       if (data.success && data.aisData) {
         const ais = data.aisData;
         if (ais.salaryIncome > 0) setSalaryDetails(prev => ({ ...prev, basicSalary: ais.salaryIncome }));
-        if (ais.interestIncome > 0) setOtherIncomeDetails(prev => ({ ...prev, savingsInterest: prev.savingsInterest + ais.interestIncome }));
+        if (ais.interestIncome > 0) setOtherIncomeDetails(prev => ({ ...prev, interestIncome: prev.interestIncome + ais.interestIncome }));
         if (ais.dividendIncome > 0) setOtherIncomeDetails(prev => ({ ...prev, dividendIncome: prev.dividendIncome + ais.dividendIncome }));
         if (ais.tdsEntries > 0) setTaxPaymentDetails(prev => ({ ...prev, tdsDeducted: prev.tdsDeducted + (ais.totalTDS || 0) }));
         setAisData({ loaded: true, tdsEntries: ais.tdsEntries || 0, interestIncome: ais.interestIncome || 0, dividendIncome: ais.dividendIncome || 0, salaryIncome: ais.salaryIncome || 0, saleTransactions: ais.saleTransactions || 0, timestamp: new Date().toISOString() });
@@ -5226,12 +5224,12 @@ export default function TaxITRSelfPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Company Type</Label>
-                  <Select value={corporateDetails.companyType} onValueChange={v => setCorporateDetails(p => ({ ...p, companyType: v }))}>
+                  <Select value={corporateDetails.companyType} onValueChange={v => setCorporateDetails(p => ({ ...p, companyType: v as CorporateDetails['companyType'] }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="private">Private Limited</SelectItem>
                       <SelectItem value="public">Public Limited</SelectItem>
-                      <SelectItem value="section8">Section 8 Company</SelectItem>
+                      <SelectItem value="section_8">Section 8 Company</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -5295,14 +5293,14 @@ export default function TaxITRSelfPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Trust Type</Label>
-                  <Select value={trustDetails.trustType} onValueChange={v => setTrustDetails(p => ({ ...p, trustType: v }))}>
+                  <Select value={trustDetails.trustType} onValueChange={v => setTrustDetails(p => ({ ...p, trustType: v as TrustDetails['trustType'] }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="charitable">Charitable Trust</SelectItem>
                       <SelectItem value="religious">Religious Trust</SelectItem>
                       <SelectItem value="educational">Educational Institution</SelectItem>
                       <SelectItem value="medical">Medical Institution</SelectItem>
-                      <SelectItem value="political">Political Party</SelectItem>
+                      <SelectItem value="political_party">Political Party</SelectItem>
                       <SelectItem value="research">Research Association</SelectItem>
                     </SelectContent>
                   </Select>
@@ -5350,25 +5348,25 @@ export default function TaxITRSelfPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <Label className="text-xs">Name</Label>
-                      <Input value={partner.name} onChange={e => {
+                      <Input value={partner.partnerName} onChange={e => {
                         const updated = [...entityProfile.partners];
-                        updated[idx] = { ...updated[idx], name: e.target.value };
+                        updated[idx] = { ...updated[idx], partnerName: e.target.value };
                         setEntityProfile(p => ({ ...p, partners: updated }));
                       }} placeholder="Partner name" />
                     </div>
                     <div>
                       <Label className="text-xs">PAN</Label>
-                      <Input value={partner.pan} onChange={e => {
+                      <Input value={partner.partnerPAN} onChange={e => {
                         const updated = [...entityProfile.partners];
-                        updated[idx] = { ...updated[idx], pan: e.target.value.toUpperCase() };
+                        updated[idx] = { ...updated[idx], partnerPAN: e.target.value.toUpperCase() };
                         setEntityProfile(p => ({ ...p, partners: updated }));
                       }} maxLength={10} />
                     </div>
                     <div>
-                      <Label className="text-xs">Profit Share %</Label>
-                      <Input type="number" value={partner.profitSharePercentage || ""} onChange={e => {
+                      <Label className="text-xs">Share %</Label>
+                      <Input type="number" value={partner.sharePercentage || ""} onChange={e => {
                         const updated = [...entityProfile.partners];
-                        updated[idx] = { ...updated[idx], profitSharePercentage: Number(e.target.value) };
+                        updated[idx] = { ...updated[idx], sharePercentage: Number(e.target.value) };
                         setEntityProfile(p => ({ ...p, partners: updated }));
                       }} />
                     </div>
@@ -5389,17 +5387,17 @@ export default function TaxITRSelfPage() {
                       }} />
                     </div>
                     <div>
-                      <Label className="text-xs">Capital Balance (₹)</Label>
-                      <Input type="number" value={partner.capitalBalance || ""} onChange={e => {
+                      <Label className="text-xs">Capital Contribution (₹)</Label>
+                      <Input type="number" value={partner.capitalContribution || ""} onChange={e => {
                         const updated = [...entityProfile.partners];
-                        updated[idx] = { ...updated[idx], capitalBalance: Number(e.target.value) };
+                        updated[idx] = { ...updated[idx], capitalContribution: Number(e.target.value) };
                         setEntityProfile(p => ({ ...p, partners: updated }));
                       }} />
                     </div>
                   </div>
                 </div>
               ))}
-              <Button variant="outline" size="sm" onClick={() => setEntityProfile(p => ({ ...p, partners: [...p.partners, { name: "", pan: "", profitSharePercentage: 0, remuneration: 0, interestOnCapital: 0, capitalBalance: 0 }] }))}>
+              <Button variant="outline" size="sm" onClick={() => setEntityProfile(p => ({ ...p, partners: [...p.partners, { partnerName: "", partnerPAN: "", sharePercentage: 0, capitalContribution: 0, profitShareRatio: 0, remuneration: 0, interestOnCapital: 0, isManagingPartner: false }] }))}>
                 <Plus className="h-4 w-4 mr-1" /> Add Partner
               </Button>
             </CardContent>
@@ -5551,8 +5549,8 @@ export default function TaxITRSelfPage() {
                   </div>
                   <div>
                     <Label className="text-xs">Rate %</Label>
-                    <Input type="number" value={entry.rate || ""} onChange={e => {
-                      const updated = [...depreciationEntries]; updated[idx] = { ...updated[idx], rate: Number(e.target.value) };
+                    <Input type="number" value={entry.depreciationRate || ""} onChange={e => {
+                      const updated = [...depreciationEntries]; updated[idx] = { ...updated[idx], depreciationRate: Number(e.target.value) };
                       setDepreciationEntries(updated);
                     }} />
                   </div>
@@ -5572,8 +5570,8 @@ export default function TaxITRSelfPage() {
                   </div>
                   <div>
                     <Label className="text-xs">Deletions (₹)</Label>
-                    <Input type="number" value={entry.deletions || ""} onChange={e => {
-                      const updated = [...depreciationEntries]; updated[idx] = { ...updated[idx], deletions: Number(e.target.value) };
+                    <Input type="number" value={entry.disposals || ""} onChange={e => {
+                      const updated = [...depreciationEntries]; updated[idx] = { ...updated[idx], disposals: Number(e.target.value) };
                       setDepreciationEntries(updated);
                     }} />
                   </div>
@@ -5587,13 +5585,13 @@ export default function TaxITRSelfPage() {
                   <div>
                     <Label className="text-xs">Closing WDV (₹)</Label>
                     <div className="text-sm mt-1 font-medium p-2 bg-muted rounded">
-                      ₹{((entry.openingWDV + entry.additions - entry.deletions - entry.depreciationAmount)).toLocaleString('en-IN')}
+                      ₹{((entry.openingWDV + entry.additions - entry.disposals - entry.depreciationAmount)).toLocaleString('en-IN')}
                     </div>
                   </div>
                 </div>
               </div>
             ))}
-            <Button variant="outline" size="sm" onClick={() => setDepreciationEntries(prev => [...prev, { assetBlock: "", rate: 15, openingWDV: 0, additions: 0, deletions: 0, depreciationAmount: 0, closingWDV: 0, method: "WDV" }])}>
+            <Button variant="outline" size="sm" onClick={() => setDepreciationEntries(prev => [...prev, { assetBlock: "", depreciationRate: 15, openingWDV: 0, additions: 0, disposals: 0, depreciationAmount: 0, closingWDV: 0 }])}>
               <Plus className="h-4 w-4 mr-1" /> Add Depreciation Block
             </Button>
           </CardContent>
@@ -5711,11 +5709,11 @@ export default function TaxITRSelfPage() {
                     }} />
                   </div>
                   <div>
-                    <Label className="text-xs">CIN / LLPIN</Label>
-                    <Input value={entry.cin} onChange={e => {
-                      const updated = [...directorships]; updated[idx] = { ...updated[idx], cin: e.target.value };
+                    <Label className="text-xs">Company PAN</Label>
+                    <Input value={entry.companyPAN} onChange={e => {
+                      const updated = [...directorships]; updated[idx] = { ...updated[idx], companyPAN: e.target.value.toUpperCase() };
                       setDirectorships(updated);
-                    }} />
+                    }} maxLength={10} />
                   </div>
                   <div>
                     <Label className="text-xs">DIN</Label>
@@ -5731,17 +5729,10 @@ export default function TaxITRSelfPage() {
                       setDirectorships(updated);
                     }} />
                   </div>
-                  <div className="flex items-center gap-2 pt-5">
-                    <Checkbox checked={entry.listedCompany} onCheckedChange={c => {
-                      const updated = [...directorships]; updated[idx] = { ...updated[idx], listedCompany: !!c };
-                      setDirectorships(updated);
-                    }} />
-                    <Label className="text-xs">Listed Company</Label>
-                  </div>
                 </div>
               </div>
             ))}
-            <Button variant="outline" size="sm" onClick={() => setDirectorships(prev => [...prev, { companyName: "", cin: "", din: "", sharesHeld: 0, listedCompany: false }])}>
+            <Button variant="outline" size="sm" onClick={() => setDirectorships(prev => [...prev, { companyName: "", companyPAN: "", din: "", sharesHeld: 0 }])}>
               <Plus className="h-4 w-4 mr-1" /> Add Directorship
             </Button>
           </CardContent>
@@ -5777,9 +5768,9 @@ export default function TaxITRSelfPage() {
                     }} maxLength={10} />
                   </div>
                   <div>
-                    <Label className="text-xs">No. of Shares</Label>
-                    <Input type="number" value={entry.numberOfShares || ""} onChange={e => {
-                      const updated = [...unlistedShares]; updated[idx] = { ...updated[idx], numberOfShares: Number(e.target.value) };
+                    <Label className="text-xs">Opening Shares</Label>
+                    <Input type="number" value={entry.openingShares || ""} onChange={e => {
+                      const updated = [...unlistedShares]; updated[idx] = { ...updated[idx], openingShares: Number(e.target.value) };
                       setUnlistedShares(updated);
                     }} />
                   </div>
@@ -5791,16 +5782,16 @@ export default function TaxITRSelfPage() {
                     }} />
                   </div>
                   <div>
-                    <Label className="text-xs">FMV at Year End (₹)</Label>
-                    <Input type="number" value={entry.fmvAtYearEnd || ""} onChange={e => {
-                      const updated = [...unlistedShares]; updated[idx] = { ...updated[idx], fmvAtYearEnd: Number(e.target.value) };
+                    <Label className="text-xs">Closing Shares</Label>
+                    <Input type="number" value={entry.closingShares || ""} onChange={e => {
+                      const updated = [...unlistedShares]; updated[idx] = { ...updated[idx], closingShares: Number(e.target.value) };
                       setUnlistedShares(updated);
                     }} />
                   </div>
                 </div>
               </div>
             ))}
-            <Button variant="outline" size="sm" onClick={() => setUnlistedShares(prev => [...prev, { companyName: "", companyPAN: "", numberOfShares: 0, acquisitionCost: 0, fmvAtYearEnd: 0 }])}>
+            <Button variant="outline" size="sm" onClick={() => setUnlistedShares(prev => [...prev, { companyName: "", companyPAN: "", openingShares: 0, closingShares: 0, acquisitionCost: 0 }])}>
               <Plus className="h-4 w-4 mr-1" /> Add Unlisted Share Holding
             </Button>
           </CardContent>
@@ -5875,7 +5866,7 @@ export default function TaxITRSelfPage() {
                 </div>
               </div>
             ))}
-            <Button variant="outline" size="sm" onClick={() => setLossCarryForward(prev => [...prev, { assessmentYear: "", lossType: "short_term_capital", lossAmount: 0, setOffAmount: 0, carriedForwardAmount: 0 }])}>
+            <Button variant="outline" size="sm" onClick={() => setLossCarryForward(prev => [...prev, { assessmentYear: "", lossType: "short_term_capital", lossAmount: 0, setOffAmount: 0, carriedForwardAmount: 0, housePropertyLoss: 0, shortTermCapitalLoss: 0, longTermCapitalLoss: 0, businessLoss: 0, speculativeBusinessLoss: 0, owedSpecifiedBusinessLoss: 0 }])}>
               <Plus className="h-4 w-4 mr-1" /> Add Prior Year Loss
             </Button>
             {lossCarryForward.length > 0 && (
@@ -6461,13 +6452,13 @@ export default function TaxITRSelfPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                 <div className="flex justify-between p-2 bg-muted/50 rounded">
-                  <span>Salary Income</span><span className="font-medium">{formatCurrency(totals.salary)}</span>
+                  <span>Salary Income</span><span className="font-medium">{formatCurrency(totals.salaryIncome)}</span>
                 </div>
                 <div className="flex justify-between p-2 bg-muted/50 rounded">
-                  <span>House Property Income</span><span className="font-medium">{formatCurrency(totals.houseProperty)}</span>
+                  <span>House Property Income</span><span className="font-medium">{formatCurrency(totals.housePropertyIncome)}</span>
                 </div>
                 <div className="flex justify-between p-2 bg-muted/50 rounded">
-                  <span>Business Income</span><span className="font-medium">{formatCurrency(totals.business)}</span>
+                  <span>Business Income</span><span className="font-medium">{formatCurrency(incomeSources.hasBusinessIncome ? businessDetails.isPresumptive ? (businessDetails.presumptiveIncome44AD + businessDetails.presumptiveIncome44ADA + businessDetails.presumptiveIncome44AE) : businessDetails.businessIncome : 0)}</span>
                 </div>
                 <div className="flex justify-between p-2 bg-muted/50 rounded">
                   <span>Capital Gains</span><span className="font-medium">{formatCurrency(totals.capitalGains)}</span>
@@ -6488,7 +6479,7 @@ export default function TaxITRSelfPage() {
               {sandboxTaxResult?.data && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
                   <div className="flex justify-between p-2 bg-red-50 dark:bg-red-950/30 rounded font-medium">
-                    <span>Tax Payable</span><span className="text-red-600">{formatCurrency(sandboxTaxResult.data.totalTaxPayable)}</span>
+                    <span>Tax Payable</span><span className="text-red-600">{formatCurrency(sandboxTaxResult.data.taxPayable)}</span>
                   </div>
                   <div className="flex justify-between p-2 bg-amber-50 dark:bg-amber-950/30 rounded">
                     <span>Tax Regime</span><span>{taxRegime === "new" ? "New Regime" : "Old Regime"}</span>
