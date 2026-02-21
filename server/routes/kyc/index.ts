@@ -526,7 +526,7 @@ export function registerKYCWizardRoutes(app: Express) {
       
       await storage.updateKycVerificationSession(sessionId, {
         aadhaarNumber: await PANConsentService.encryptPAN(last4Digits),
-        currentStep: "aadhaar_otp_verify",
+        currentStep: "aadhaar_verification",
         stepStatus: {
           ...session.stepStatus as any,
           aadhaar_otp_sent: true
@@ -590,7 +590,7 @@ export function registerKYCWizardRoutes(app: Express) {
       await storage.updateKycVerificationSession(sessionId, {
         aadhaarVerified: true,
         aadhaarVerifiedAt: new Date(),
-        currentStep: "ckyc_fetch",
+        currentStep: "data_collection",
         stepStatus: {
           ...session.stepStatus as any,
           aadhaar_verified: true
@@ -606,6 +606,7 @@ export function registerKYCWizardRoutes(app: Express) {
       
       res.json({
         success: true,
+        verified: true,
         message: "Aadhaar verified successfully",
         data: {
           name: "Verified User",
