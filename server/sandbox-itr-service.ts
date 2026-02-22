@@ -1,8 +1,16 @@
 import { z } from 'zod';
 import { indianTaxCalculator } from './services/indian-tax-calculator';
 
-// Sandbox.co.in API Configuration (uses SANDBOX_BASE_URL env var or defaults to production)
-const SANDBOX_BASE_URL = process.env.SANDBOX_BASE_URL || 'https://api.sandbox.co.in';
+// Sandbox.co.in API Configuration
+// Auto-detect environment from API key prefix: key_test_ → test env, key_live_ → production env
+function getSandboxBaseUrl(): string {
+  if (process.env.SANDBOX_BASE_URL) return process.env.SANDBOX_BASE_URL;
+  const apiKey = process.env.SANDBOX_API_KEY || '';
+  if (apiKey.startsWith('key_test')) return 'https://test-api.sandbox.co.in';
+  if (apiKey.startsWith('key_live')) return 'https://api.sandbox.co.in';
+  return 'https://api.sandbox.co.in';
+}
+const SANDBOX_BASE_URL = getSandboxBaseUrl();
 
 // Types for Income Tax Return filing
 export const ITRFormDataSchema = z.object({
@@ -293,6 +301,9 @@ class SandboxITRService {
     
     if (!this.apiKey || !this.apiSecret) {
       console.error('FATAL: Sandbox.co.in API credentials missing. SANDBOX_API_KEY and SANDBOX_API_SECRET are required. No mock data fallback — system will refuse computation.');
+    } else {
+      const env = this.apiKey.startsWith('key_test') ? 'TEST' : this.apiKey.startsWith('key_live') ? 'PRODUCTION' : 'UNKNOWN';
+      console.log(`✅ Sandbox.co.in ITR Service initialized (${env} environment → ${SANDBOX_BASE_URL})`);
     }
   }
 
