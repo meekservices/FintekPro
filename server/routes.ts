@@ -20282,6 +20282,66 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   });
   // ========================
 
+  // AI Provider Switch (Admin)
+  app.get("/api/admin/ai-provider", requireAdmin, async (req, res) => {
+    try {
+      const { aiService } = await import("./services/ai-service");
+      const { unifiedAIRecommendationEngine } = await import("./services/unified-ai-recommendation-engine");
+      
+      const aiDefault = aiService.getDefaultProvider();
+      const unifiedStatus = unifiedAIRecommendationEngine.getStatus();
+      
+      res.json({
+        success: true,
+        provider: {
+          current: aiDefault.provider,
+          model: aiDefault.model,
+          unifiedEnginePrimary: unifiedStatus.primary,
+          openaiAvailable: unifiedStatus.openai,
+          geminiAvailable: unifiedStatus.gemini,
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/admin/ai-provider/switch", requireAdmin, async (req, res) => {
+    try {
+      const { provider } = req.body;
+      if (!provider || !['openai', 'gemini'].includes(provider)) {
+        return res.status(400).json({ success: false, error: 'Invalid provider. Must be "openai" or "gemini"' });
+      }
+
+      const { aiService } = await import("./services/ai-service");
+      const { unifiedAIRecommendationEngine } = await import("./services/unified-ai-recommendation-engine");
+
+      aiService.setDefaultProvider(provider as any);
+      unifiedAIRecommendationEngine.setPrimaryProvider(provider as 'openai' | 'gemini');
+
+      await adminService.logActivity({
+        userId: req.user!.id,
+        action: 'ai_provider_switch',
+        resource: `AI Provider: ${provider}`,
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        details: { provider, previousProvider: provider === 'openai' ? 'gemini' : 'openai' }
+      });
+
+      res.json({
+        success: true,
+        message: `AI provider switched to ${provider === 'openai' ? 'OpenAI' : 'Google Gemini'}`,
+        provider: {
+          current: provider,
+          model: provider === 'openai' ? 'gpt-5' : 'gemini-2.5-flash',
+        }
+      });
+    } catch (error: any) {
+      console.error('Error switching AI provider:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // EMI Calculator
   app.post("/api/bajaj-finance/calculate-emi", async (req, res) => {
     try {

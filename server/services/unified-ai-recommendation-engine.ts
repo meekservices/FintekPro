@@ -259,10 +259,19 @@ const CATEGORY_CONFIG: Record<ProductCategory, {
 class UnifiedAIRecommendationEngine {
   private gemini: GoogleGenAI | null = null;
   private openai: OpenAI | null = null;
-  private modelPreference: 'gemini' | 'openai' = 'gemini';
+  private modelPreference: 'gemini' | 'openai' = 'openai';
 
   constructor() {
     this.initializeModels();
+  }
+
+  setPrimaryProvider(provider: 'openai' | 'gemini') {
+    this.modelPreference = provider;
+    console.log(`[UnifiedAI] Primary provider switched to: ${provider}`);
+  }
+
+  getPrimaryProvider(): string {
+    return this.modelPreference;
   }
 
   private initializeModels() {
@@ -1137,28 +1146,45 @@ Provide analysis as JSON with these fields:
     let result: T;
     let modelUsed: 'gemini' | 'openai' | 'fallback' = 'fallback';
 
+    const useOpenAIFirst = this.modelPreference === 'openai';
+    const primaryClient = useOpenAIFirst ? this.openai : this.gemini;
+    const fallbackClient = useOpenAIFirst ? this.gemini : this.openai;
+    const primaryName: 'openai' | 'gemini' = useOpenAIFirst ? 'openai' : 'gemini';
+    const fallbackName: 'openai' | 'gemini' = useOpenAIFirst ? 'gemini' : 'openai';
+
+    const callOpenAI = async () => {
+      const response = await this.openai!.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt || 'You are a SEBI-registered investment advisor. Respond with valid JSON only.' },
+          { role: 'user', content: prompt },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+      });
+      return response.choices[0]?.message?.content || '{}';
+    };
+
+    const callGemini = async () => {
+      const response = await this.gemini!.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+      });
+      return response.text || '';
+    };
+
+    const callPrimary = primaryName === 'openai' ? callOpenAI : callGemini;
+    const callFallbackFn = fallbackName === 'openai' ? callOpenAI : callGemini;
+
     try {
-      if (this.openai) {
-        const response = await this.openai.chat.completions.create({
-          model: 'gpt-4o',
-          messages: [
-            { role: 'system', content: systemPrompt || 'You are a SEBI-registered investment advisor. Respond with valid JSON only.' },
-            { role: 'user', content: prompt },
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.3,
-        });
-        const text = response.choices[0]?.message?.content || '{}';
+      if (primaryClient) {
+        const text = await callPrimary();
         result = parse(text);
-        modelUsed = 'openai';
-      } else if (this.gemini) {
-        const response = await this.gemini.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: prompt,
-        });
-        const text = response.text || '';
+        modelUsed = primaryName;
+      } else if (fallbackClient) {
+        const text = await callFallbackFn();
         result = parse(text);
-        modelUsed = 'gemini';
+        modelUsed = fallbackName;
       } else if (fallback) {
         result = fallback();
         modelUsed = 'fallback';
@@ -1166,32 +1192,21 @@ Provide analysis as JSON with these fields:
         throw new Error('No AI model available and no fallback provided');
       }
     } catch (error: any) {
-      console.error(`[UnifiedAI:runPrompt] Primary model failed for ${category}:`, error.message);
+      console.error(`[UnifiedAI:runPrompt] ${primaryName} failed for ${category}:`, error.message);
 
-      if (modelUsed === 'openai' || (!this.openai && !this.gemini)) {
-        if (this.gemini && modelUsed !== 'gemini') {
-          try {
-            const response = await this.gemini.models.generateContent({
-              model: 'gemini-2.5-flash',
-              contents: prompt,
-            });
-            const text = response.text || '';
-            result = parse(text);
-            modelUsed = 'gemini';
-          } catch (fallbackError: any) {
-            console.error(`[UnifiedAI:runPrompt] Gemini fallback failed:`, fallbackError.message);
-            if (fallback) {
-              result = fallback();
-              modelUsed = 'fallback';
-            } else {
-              throw fallbackError;
-            }
+      if (fallbackClient && modelUsed !== fallbackName) {
+        try {
+          const text = await callFallbackFn();
+          result = parse(text);
+          modelUsed = fallbackName;
+        } catch (fallbackError: any) {
+          console.error(`[UnifiedAI:runPrompt] ${fallbackName} fallback failed:`, fallbackError.message);
+          if (fallback) {
+            result = fallback();
+            modelUsed = 'fallback';
+          } else {
+            throw fallbackError;
           }
-        } else if (fallback) {
-          result = fallback();
-          modelUsed = 'fallback';
-        } else {
-          throw error;
         }
       } else if (fallback) {
         result = fallback();
@@ -1225,7 +1240,7 @@ Provide analysis as JSON with these fields:
     return {
       gemini: !!this.gemini,
       openai: !!this.openai,
-      primary: this.openai ? 'openai' : this.gemini ? 'gemini' : 'rule_based',
+      primary: this.modelPreference,
     };
   }
 

@@ -60,6 +60,18 @@ export interface AIUsageMetrics {
 
 class AIService {
   private usageMetrics: AIUsageMetrics[] = [];
+  private _defaultProvider: AIProvider = 'openai';
+  private _defaultModel: AIModel = 'gpt-5';
+
+  setDefaultProvider(provider: AIProvider) {
+    this._defaultProvider = provider;
+    this._defaultModel = provider === 'gemini' ? 'gemini-2.5-flash' : 'gpt-5';
+    console.log(`[AIService] Default provider switched to: ${provider} (model: ${this._defaultModel})`);
+  }
+
+  getDefaultProvider(): { provider: AIProvider; model: AIModel } {
+    return { provider: this._defaultProvider, model: this._defaultModel };
+  }
 
   /**
    * Chat completion with automatic fallback
@@ -71,8 +83,8 @@ class AIService {
     options: AIServiceOptions = {}
   ): Promise<{ content: string; usage: AIUsageMetrics }> {
     const {
-      provider = 'openai',
-      model = 'gpt-5',
+      provider = this._defaultProvider,
+      model = this._defaultModel,
       temperature = 0.7,
       maxTokens = 8192,
       stream = false,
@@ -122,8 +134,8 @@ class AIService {
     options: AIServiceOptions = {}
   ): Promise<{ content: string; usage: AIUsageMetrics }> {
     const {
-      provider = 'openai',
-      model = 'gpt-5',
+      provider = this._defaultProvider,
+      model = this._defaultModel,
       temperature = 0.7,
       maxTokens = 8192
     } = options;

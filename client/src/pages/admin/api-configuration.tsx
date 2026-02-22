@@ -9,7 +9,7 @@ import {
   Key, Check, X, AlertCircle, Settings, RefreshCw, Loader2, 
   ExternalLink, Play, Zap, Shield, Cloud, Database, 
   MessageSquare, BarChart, CreditCard, Bot, Mail, Phone,
-  Info, Clock, Activity, Link2, FileText, CheckCircle2, XCircle
+  Info, Clock, Activity, Link2, FileText, CheckCircle2, XCircle,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -67,6 +67,107 @@ const categoryIcons: Record<string, any> = {
   'market-data': BarChart,
   data: Database
 };
+
+function AIProviderToggle() {
+  const { toast } = useToast();
+  
+  const { data: providerData, isLoading } = useQuery<any>({
+    queryKey: ['/api/admin/ai-provider'],
+    refetchInterval: 10000,
+  });
+
+  const switchMutation = useMutation({
+    mutationFn: async (provider: string) => {
+      return await apiRequest('/api/admin/ai-provider/switch', {
+        method: 'POST',
+        body: JSON.stringify({ provider }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: (data: any) => {
+      toast({ title: "AI Provider Switched", description: data.message });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/ai-provider'] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Switch Failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const current = providerData?.provider?.current || 'openai';
+  const openaiAvailable = providerData?.provider?.openaiAvailable ?? false;
+  const geminiAvailable = providerData?.provider?.geminiAvailable ?? false;
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-500/20 rounded-lg">
+              <Bot className="h-5 w-5 text-purple-400" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">AI Provider</CardTitle>
+              <CardDescription>Switch between OpenAI and Gemini across all AI services</CardDescription>
+            </div>
+          </div>
+          {isLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          ) : (
+            <Badge variant="outline" className={current === 'openai' 
+              ? 'bg-green-500/20 text-green-500 border-green-500/50' 
+              : 'bg-blue-500/20 text-blue-400 border-blue-500/50'
+            }>
+              {current === 'openai' ? 'OpenAI (GPT-5)' : 'Gemini 2.5 Flash'}
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center gap-3">
+          <Button
+            variant={current === 'openai' ? 'default' : 'outline'}
+            className={current === 'openai' ? 'bg-green-600 hover:bg-green-700 flex-1' : 'flex-1'}
+            disabled={!openaiAvailable || switchMutation.isPending || current === 'openai'}
+            onClick={() => switchMutation.mutate('openai')}
+          >
+            {switchMutation.isPending && current !== 'openai' ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Zap className="h-4 w-4 mr-2" />
+            )}
+            OpenAI
+            {current === 'openai' && <CheckCircle2 className="h-4 w-4 ml-2" />}
+          </Button>
+          <Button
+            variant={current === 'gemini' ? 'default' : 'outline'}
+            className={current === 'gemini' ? 'bg-blue-600 hover:bg-blue-700 flex-1' : 'flex-1'}
+            disabled={!geminiAvailable || switchMutation.isPending || current === 'gemini'}
+            onClick={() => switchMutation.mutate('gemini')}
+          >
+            {switchMutation.isPending && current !== 'gemini' ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Bot className="h-4 w-4 mr-2" />
+            )}
+            Gemini
+            {current === 'gemini' && <CheckCircle2 className="h-4 w-4 ml-2" />}
+          </Button>
+        </div>
+        <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <span className={`w-2 h-2 rounded-full ${openaiAvailable ? 'bg-green-500' : 'bg-red-500'}`} />
+            OpenAI {openaiAvailable ? 'Available' : 'Unavailable'}
+          </span>
+          <span className="flex items-center gap-1">
+            <span className={`w-2 h-2 rounded-full ${geminiAvailable ? 'bg-green-500' : 'bg-red-500'}`} />
+            Gemini {geminiAvailable ? 'Available' : 'Unavailable'}
+          </span>
+          <span>Model: {providerData?.provider?.model || 'N/A'}</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function APIConfiguration() {
   const { toast } = useToast();
@@ -407,6 +508,8 @@ export default function APIConfiguration() {
           </span>
         </div>
       )}
+
+      <AIProviderToggle />
 
       <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
         <ScrollableTabsList className="bg-card border-border">
