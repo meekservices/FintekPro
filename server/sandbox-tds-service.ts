@@ -262,11 +262,54 @@ class SandboxTDSService {
     }
   }
 
-  private getAuthHeaders(): Record<string, string> {
+  private accessToken: string | null = null;
+  private tokenExpiry: number = 0;
+
+  private async authenticate(): Promise<string> {
+    if (this.accessToken && Date.now() < this.tokenExpiry) {
+      return this.accessToken;
+    }
+
+    console.log('[Sandbox TDS API] Authenticating to get access token...');
+    const response = await fetch(`${SANDBOX_BASE_URL}/authenticate`, {
+      method: 'POST',
+      headers: {
+        'x-api-key': this.apiKey,
+        'x-api-secret': this.apiSecret,
+        'x-api-version': '1.0',
+      },
+    });
+
+    const responseText = await response.text();
+    let parsed: any;
+    try {
+      parsed = JSON.parse(responseText);
+    } catch {
+      throw new Error(`Sandbox TDS authentication returned non-JSON: ${responseText.substring(0, 200)}`);
+    }
+
+    if (!response.ok || parsed.code !== 200) {
+      throw new Error(`Sandbox TDS authentication failed: ${parsed.message || responseText.substring(0, 200)}`);
+    }
+
+    const token = parsed.data?.access_token;
+    if (!token) {
+      throw new Error('Sandbox TDS authentication succeeded but no access_token returned');
+    }
+
+    this.accessToken = token;
+    this.tokenExpiry = Date.now() + 23 * 60 * 60 * 1000;
+    console.log('[Sandbox TDS API] Authentication successful, token cached');
+    return token;
+  }
+
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    const token = await this.authenticate();
     return {
       'Content-Type': 'application/json',
+      'x-access-token': token,
       'x-api-key': this.apiKey,
-      'x-api-secret': this.apiSecret,
+      'x-api-version': '1.0',
       'Accept': 'application/json',
     };
   }
@@ -277,11 +320,30 @@ class SandboxTDSService {
     }
 
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch(`${SANDBOX_BASE_URL}${endpoint}`, {
         method,
-        headers: this.getAuthHeaders(),
+        headers,
         body: method === 'GET' ? undefined : (data ? JSON.stringify(data) : undefined),
       });
+
+      if (response.status === 401) {
+        console.log('[Sandbox TDS API] Token expired, re-authenticating...');
+        this.accessToken = null;
+        this.tokenExpiry = 0;
+        const newHeaders = await this.getAuthHeaders();
+        const retryResponse = await fetch(`${SANDBOX_BASE_URL}${endpoint}`, {
+          method,
+          headers: newHeaders,
+          body: method === 'GET' ? undefined : (data ? JSON.stringify(data) : undefined),
+        });
+        if (!retryResponse.ok) {
+          const errorBody = await retryResponse.text();
+          console.error('Sandbox TDS API retry error:', errorBody);
+          return this.getCalculatedResponse(endpoint, data);
+        }
+        return await retryResponse.json();
+      }
 
       if (!response.ok) {
         const errorBody = await response.text();

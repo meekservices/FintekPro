@@ -218,6 +218,19 @@ export function registerTaxRoutes(app: Express): void {
     }
   });
 
+  app.post("/api/sandbox-itr/calculate-wizard", async (req, res) => {
+    try {
+      const result = await sandboxITRService.calculateTaxFromWizard(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("Wizard tax calculation error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "Wizard tax calculation failed" 
+      });
+    }
+  });
+
   app.post("/api/sandbox-itr/prepare", async (req, res) => {
     try {
       const result = await sandboxITRService.prepareITR(req.body);

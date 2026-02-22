@@ -283,6 +283,8 @@ export interface Form26ASOCRResponse {
 class SandboxITRService {
   private apiKey: string;
   private apiSecret: string;
+  private accessToken: string | null = null;
+  private tokenExpiry: number = 0;
   
   constructor() {
     this.apiKey = process.env.SANDBOX_API_KEY || '';
@@ -293,11 +295,52 @@ class SandboxITRService {
     }
   }
 
-  private getAuthHeaders(): Record<string, string> {
+  private async authenticate(): Promise<string> {
+    if (this.accessToken && Date.now() < this.tokenExpiry) {
+      return this.accessToken;
+    }
+
+    console.log('[Sandbox API] Authenticating to get access token...');
+    const response = await fetch(`${SANDBOX_BASE_URL}/authenticate`, {
+      method: 'POST',
+      headers: {
+        'x-api-key': this.apiKey,
+        'x-api-secret': this.apiSecret,
+        'x-api-version': '1.0',
+      },
+    });
+
+    const responseText = await response.text();
+    let parsed: any;
+    try {
+      parsed = JSON.parse(responseText);
+    } catch {
+      throw new Error(`Sandbox authentication returned non-JSON: ${responseText.substring(0, 200)}`);
+    }
+
+    if (!response.ok || parsed.code !== 200) {
+      console.error(`[Sandbox API] Authentication failed (${response.status}):`, responseText);
+      throw new Error(`Sandbox authentication failed: ${parsed.message || responseText.substring(0, 200)}`);
+    }
+
+    const token = parsed.data?.access_token;
+    if (!token) {
+      throw new Error('Sandbox authentication succeeded but no access_token returned');
+    }
+
+    this.accessToken = token;
+    this.tokenExpiry = Date.now() + 23 * 60 * 60 * 1000;
+    console.log('[Sandbox API] Authentication successful, token cached for 23 hours');
+    return token;
+  }
+
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    const token = await this.authenticate();
     return {
       'Content-Type': 'application/json',
+      'x-access-token': token,
       'x-api-key': this.apiKey,
-      'x-api-secret': this.apiSecret,
+      'x-api-version': '1.0',
       'Accept': 'application/json',
     };
   }
@@ -311,13 +354,36 @@ class SandboxITRService {
     console.log(`[Sandbox API] ${method} ${url}`);
 
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch(url, {
         method,
-        headers: this.getAuthHeaders(),
+        headers,
         body: method === 'GET' ? undefined : (data ? JSON.stringify(data) : undefined),
       });
 
       const responseText = await response.text();
+
+      if (response.status === 401) {
+        console.log('[Sandbox API] Token expired or invalid, re-authenticating...');
+        this.accessToken = null;
+        this.tokenExpiry = 0;
+        const newHeaders = await this.getAuthHeaders();
+        const retryResponse = await fetch(url, {
+          method,
+          headers: newHeaders,
+          body: method === 'GET' ? undefined : (data ? JSON.stringify(data) : undefined),
+        });
+        const retryText = await retryResponse.text();
+        if (!retryResponse.ok) {
+          console.error(`[Sandbox API] Retry Error ${retryResponse.status}: ${retryText}`);
+          throw new Error(`Sandbox API returned ${retryResponse.status}: ${retryText}`);
+        }
+        try {
+          return JSON.parse(retryText);
+        } catch {
+          throw new Error(`Sandbox API returned non-JSON response: ${retryText.substring(0, 200)}`);
+        }
+      }
 
       if (!response.ok) {
         console.error(`[Sandbox API] Error ${response.status}: ${responseText}`);
@@ -331,6 +397,9 @@ class SandboxITRService {
       }
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('Sandbox API')) {
+        throw error;
+      }
+      if (error instanceof Error && error.message.startsWith('Sandbox authentication')) {
         throw error;
       }
       console.error('[Sandbox API] Network/fetch error:', error);
