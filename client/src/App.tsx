@@ -2129,6 +2129,13 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
+      <Route path="/onboarding">
+        {() => (
+          <AgentLayout>
+            <OnboardingPage />
+          </AgentLayout>
+        )}
+      </Route>
       <Route path="/agent/orders">
         {() => (
           <AgentLayout>
