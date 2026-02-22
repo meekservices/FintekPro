@@ -71,8 +71,8 @@ class AIService {
     options: AIServiceOptions = {}
   ): Promise<{ content: string; usage: AIUsageMetrics }> {
     const {
-      provider = 'gemini',
-      model = 'gemini-2.5-flash',
+      provider = 'openai',
+      model = 'gpt-5',
       temperature = 0.7,
       maxTokens = 8192,
       stream = false,
@@ -122,8 +122,8 @@ class AIService {
     options: AIServiceOptions = {}
   ): Promise<{ content: string; usage: AIUsageMetrics }> {
     const {
-      provider = 'gemini',
-      model = 'gemini-2.5-flash',
+      provider = 'openai',
+      model = 'gpt-5',
       temperature = 0.7,
       maxTokens = 8192
     } = options;
