@@ -57,49 +57,108 @@ function validateSignature(rawBody: Buffer | string, signature: string | undefin
   }
 }
 
-async function handleTDSAnalyticsDone(data: any, transactionId: string): Promise<void> {
-  console.log(`[Sandbox Webhook] TDS Analytics completed: ${transactionId}`);
-  console.log('[Sandbox Webhook] Analytics data:', JSON.stringify(data, null, 2));
+// ============================================
+// Income Tax (IT) Calculator Job Handlers
+// Per official docs: /it/calculator/pnl/* and /it/calculator/tax_pnl/*
+// Job entity: in.co.sandbox.it.calculator.{type}.job
+// ============================================
+
+async function handleITCalculatorPnlDone(data: any, transactionId: string, subType: string): Promise<void> {
+  console.log(`[Sandbox Webhook] IT Calculator PnL (${subType}) completed: ${transactionId}`);
+  if (data?.job_id) console.log(`[Sandbox Webhook] Job ID: ${data.job_id}, Status: ${data.status}`);
+  if (data?.url) console.log(`[Sandbox Webhook] Result URL available for download`);
 }
 
-async function handleTDSReportDone(data: any, transactionId: string): Promise<void> {
-  console.log(`[Sandbox Webhook] TDS Report prepared: ${transactionId}`);
-  console.log('[Sandbox Webhook] Report data:', JSON.stringify(data, null, 2));
+async function handleITCalculatorTaxPnlDone(data: any, transactionId: string, subType: string): Promise<void> {
+  console.log(`[Sandbox Webhook] IT Calculator Tax PnL (${subType}) completed: ${transactionId}`);
+  if (data?.job_id) console.log(`[Sandbox Webhook] Job ID: ${data.job_id}, Status: ${data.status}`);
+  if (data?.url) console.log(`[Sandbox Webhook] Result URL available for download`);
 }
 
-async function handleTDSForm16Done(data: any, transactionId: string): Promise<void> {
-  console.log(`[Sandbox Webhook] TDS Form 16 generated: ${transactionId}`);
-  console.log('[Sandbox Webhook] Form 16 data:', JSON.stringify(data, null, 2));
+async function handleITCalculatorITRDone(data: any, transactionId: string): Promise<void> {
+  console.log(`[Sandbox Webhook] IT Calculator ITR completed: ${transactionId}`);
+  if (data?.job_id) console.log(`[Sandbox Webhook] Job ID: ${data.job_id}, Status: ${data.status}`);
 }
 
-async function handleTDSEFileDone(data: any, transactionId: string): Promise<void> {
-  console.log(`[Sandbox Webhook] TDS E-File completed: ${transactionId}`);
-  console.log('[Sandbox Webhook] E-File data:', JSON.stringify(data, null, 2));
+// ============================================
+// Income Tax (IT) Report Job Handlers
+// Per official docs: /it/report/tax_pnl/* and /it/report/capital_gains/*
+// ============================================
+
+async function handleITReportTaxPnlDone(data: any, transactionId: string, subType: string): Promise<void> {
+  console.log(`[Sandbox Webhook] IT Report Tax PnL (${subType}) completed: ${transactionId}`);
+  if (data?.url) console.log(`[Sandbox Webhook] Report download URL available`);
+}
+
+async function handleITReportCapitalGainsDone(data: any, transactionId: string, subType: string): Promise<void> {
+  console.log(`[Sandbox Webhook] IT Report Capital Gains (${subType}) completed: ${transactionId}`);
+  if (data?.url) console.log(`[Sandbox Webhook] Capital gains report URL available`);
+}
+
+// ============================================
+// Income Tax (IT) OCR Job Handlers
+// Per official docs: /it/ocr/form-16/pdf, /it/ocr/form-26as/pdf
+// ============================================
+
+async function handleITOcrForm16Done(data: any, transactionId: string): Promise<void> {
+  console.log(`[Sandbox Webhook] IT OCR Form 16 extraction completed: ${transactionId}`);
+  if (data?.extraction_details) {
+    console.log(`[Sandbox Webhook] Employer: ${data.extraction_details?.employer?.name || 'N/A'}`);
+    console.log(`[Sandbox Webhook] Confidence: ${data.confidence || 'N/A'}`);
+  }
+}
+
+async function handleITOcrForm26ASDone(data: any, transactionId: string): Promise<void> {
+  console.log(`[Sandbox Webhook] IT OCR Form 26AS extraction completed: ${transactionId}`);
+  if (data?.extraction_details) {
+    console.log(`[Sandbox Webhook] TDS entries: ${data.extraction_details?.tds_entries?.length || 0}`);
+  }
+}
+
+// ============================================
+// TDS Job Handlers
+// Per official docs: Analytics, Reports, Compliance (Form16, FVU, E-File, CSI, 206AB)
+// ============================================
+
+async function handleTDSAnalyticsDone(data: any, transactionId: string, variant: string = 'tds'): Promise<void> {
+  console.log(`[Sandbox Webhook] TDS Analytics (${variant.toUpperCase()}) completed: ${transactionId}`);
+  if (data?.job_id) console.log(`[Sandbox Webhook] Job ID: ${data.job_id}, Status: ${data.status}`);
+}
+
+async function handleTDSReportDone(data: any, transactionId: string, variant: string = 'tds'): Promise<void> {
+  console.log(`[Sandbox Webhook] TDS Report (${variant.toUpperCase()}) prepared: ${transactionId}`);
+  if (data?.url) console.log(`[Sandbox Webhook] Report download URL available`);
+}
+
+async function handleTDSComplianceDone(data: any, transactionId: string, action: string): Promise<void> {
+  console.log(`[Sandbox Webhook] TDS Compliance ${action} completed: ${transactionId}`);
+  if (data?.job_id) console.log(`[Sandbox Webhook] Job ID: ${data.job_id}, Status: ${data.status}`);
+  if (data?.url) console.log(`[Sandbox Webhook] Download URL available`);
 }
 
 async function handleTDS206ABDone(data: any, transactionId: string): Promise<void> {
   console.log(`[Sandbox Webhook] TDS 206AB check completed: ${transactionId}`);
-  console.log('[Sandbox Webhook] 206AB data:', JSON.stringify(data, null, 2));
+  if (data?.job_id) console.log(`[Sandbox Webhook] Job ID: ${data.job_id}, Status: ${data.status}`);
 }
 
-async function handleITRReportDone(data: any, transactionId: string): Promise<void> {
-  console.log(`[Sandbox Webhook] ITR Report completed: ${transactionId}`);
-  console.log('[Sandbox Webhook] ITR data:', JSON.stringify(data, null, 2));
+// ============================================
+// GST Job Handlers
+// Per official docs: Analytics (GSTR-2A, GSTR-2B Reconciliation)
+// ============================================
+
+async function handleGSTAnalyticsDone(data: any, transactionId: string, variant: string = 'reconciliation'): Promise<void> {
+  console.log(`[Sandbox Webhook] GST Analytics (${variant}) completed: ${transactionId}`);
+  if (data?.job_id) console.log(`[Sandbox Webhook] Job ID: ${data.job_id}, Status: ${data.status}`);
+  if (data?.url) console.log(`[Sandbox Webhook] Reconciliation report URL available`);
 }
 
-async function handleITRCalculatorDone(data: any, transactionId: string): Promise<void> {
-  console.log(`[Sandbox Webhook] ITR Calculator completed: ${transactionId}`);
-  console.log('[Sandbox Webhook] Calculator data:', JSON.stringify(data, null, 2));
-}
+// ============================================
+// KYC Handlers (synchronous APIs, webhooks unlikely but handled for completeness)
+// ============================================
 
-async function handleGSTAnalyticsDone(data: any, transactionId: string): Promise<void> {
-  console.log(`[Sandbox Webhook] GST Analytics completed: ${transactionId}`);
-  console.log('[Sandbox Webhook] GST data:', JSON.stringify(data, null, 2));
-}
-
-async function handleKYCVerificationDone(data: any, transactionId: string): Promise<void> {
-  console.log(`[Sandbox Webhook] KYC Verification completed: ${transactionId}`);
-  console.log('[Sandbox Webhook] KYC data:', JSON.stringify(data, null, 2));
+async function handleKYCVerificationDone(data: any, transactionId: string, method: string = 'generic'): Promise<void> {
+  console.log(`[Sandbox Webhook] KYC Verification (${method}) completed: ${transactionId}`);
+  if (data?.verified !== undefined) console.log(`[Sandbox Webhook] Verified: ${data.verified}`);
 }
 
 export function registerSandboxWebhookRoutes(app: Express): void {
@@ -158,48 +217,165 @@ export function registerSandboxWebhookRoutes(app: Express): void {
       };
 
       switch (event) {
+        // ========== IT Calculator PnL Jobs (Job-based async) ==========
+        // Per docs: /it/calculator/pnl/securities/domestic, /foreign, /crypto
+        case 'it.calculator.pnl.securities.domestic.done':
+          await handleITCalculatorPnlDone(data, transaction_id, 'domestic_securities');
+          break;
+        case 'it.calculator.pnl.securities.foreign.done':
+          await handleITCalculatorPnlDone(data, transaction_id, 'foreign_securities');
+          break;
+        case 'it.calculator.pnl.crypto.done':
+          await handleITCalculatorPnlDone(data, transaction_id, 'crypto');
+          break;
+        case 'it.calculator.pnl.real_estate.done':
+          await handleITCalculatorPnlDone(data, transaction_id, 'real_estate');
+          break;
+        case 'it.calculator.pnl.other_assets.done':
+          await handleITCalculatorPnlDone(data, transaction_id, 'other_assets');
+          break;
+
+        // ========== IT Calculator Tax PnL Jobs (Job-based async) ==========
+        // Per docs: /it/calculator/tax_pnl/securities/domestic, /foreign, /crypto
+        case 'it.calculator.tax_pnl.securities.domestic.done':
+          await handleITCalculatorTaxPnlDone(data, transaction_id, 'domestic_securities');
+          break;
+        case 'it.calculator.tax_pnl.securities.foreign.done':
+          await handleITCalculatorTaxPnlDone(data, transaction_id, 'foreign_securities');
+          break;
+        case 'it.calculator.tax_pnl.crypto.done':
+          await handleITCalculatorTaxPnlDone(data, transaction_id, 'crypto');
+          break;
+        case 'it.calculator.tax_pnl.real_estate.done':
+          await handleITCalculatorTaxPnlDone(data, transaction_id, 'real_estate');
+          break;
+        case 'it.calculator.tax_pnl.other_assets.done':
+          await handleITCalculatorTaxPnlDone(data, transaction_id, 'other_assets');
+          break;
+
+        // ========== IT Calculator ITR (Synchronous but may emit webhook) ==========
+        case 'it.calculator.done':
+        case 'it.calculator.itr.done':
+          await handleITCalculatorITRDone(data, transaction_id);
+          break;
+
+        // ========== IT Report Tax PnL Jobs (Job-based async) ==========
+        // Per docs: /it/report/tax_pnl/securities/domestic, /foreign
+        case 'it.report.tax_pnl.securities.domestic.done':
+          await handleITReportTaxPnlDone(data, transaction_id, 'domestic_securities');
+          break;
+        case 'it.report.tax_pnl.securities.foreign.done':
+          await handleITReportTaxPnlDone(data, transaction_id, 'foreign_securities');
+          break;
+        case 'it.report.done':
+          await handleITReportTaxPnlDone(data, transaction_id, 'generic');
+          break;
+
+        // ========== IT Report Capital Gains Jobs (Job-based async) ==========
+        // Per docs: /it/report/capital_gains/securities/domestic, /foreign
+        case 'it.report.capital_gains.securities.domestic.done':
+          await handleITReportCapitalGainsDone(data, transaction_id, 'domestic_securities');
+          break;
+        case 'it.report.capital_gains.securities.foreign.done':
+          await handleITReportCapitalGainsDone(data, transaction_id, 'foreign_securities');
+          break;
+        case 'it.report.capital_gains.done':
+          await handleITReportCapitalGainsDone(data, transaction_id, 'generic');
+          break;
+
+        // ========== IT OCR Jobs ==========
+        // Per docs: /it/ocr/form-16/pdf, /it/ocr/form-26as/pdf
+        case 'it.ocr.form_16.done':
+        case 'it.ocr.form-16.done':
+          await handleITOcrForm16Done(data, transaction_id);
+          break;
+        case 'it.ocr.form_26as.done':
+        case 'it.ocr.form-26as.done':
+          await handleITOcrForm26ASDone(data, transaction_id);
+          break;
+
+        // ========== TDS Analytics Jobs (Job-based async) ==========
+        // Per docs: TDS and TCS analytics
         case 'tds.analytics.done':
-          await handleTDSAnalyticsDone(data, transaction_id);
+        case 'tds.analytics.tds.done':
+          await handleTDSAnalyticsDone(data, transaction_id, 'tds');
+          break;
+        case 'tds.analytics.tcs.done':
+          await handleTDSAnalyticsDone(data, transaction_id, 'tcs');
           break;
 
+        // ========== TDS Report Jobs (Job-based async) ==========
+        // Per docs: TDS and TCS reports
         case 'tds.report.done':
-          await handleTDSReportDone(data, transaction_id);
+        case 'tds.reports.tds.done':
+          await handleTDSReportDone(data, transaction_id, 'tds');
+          break;
+        case 'tds.reports.tcs.done':
+          await handleTDSReportDone(data, transaction_id, 'tcs');
           break;
 
+        // ========== TDS Compliance Jobs (Job-based async) ==========
+        // Per docs: Form16 Download, FVU Generation, E-File, CSI Download
         case 'tds.form16.done':
-          await handleTDSForm16Done(data, transaction_id);
+        case 'tds.compliance.form16.done':
+          await handleTDSComplianceDone(data, transaction_id, 'Form 16 Download');
           break;
-
+        case 'tds.compliance.fvu.done':
+          await handleTDSComplianceDone(data, transaction_id, 'FVU Generation');
+          break;
         case 'tds.e-file.done':
-          await handleTDSEFileDone(data, transaction_id);
+        case 'tds.compliance.e-file.done':
+          await handleTDSComplianceDone(data, transaction_id, 'E-File');
           break;
-
+        case 'tds.compliance.csi.done':
+          await handleTDSComplianceDone(data, transaction_id, 'CSI Download');
+          break;
         case 'tds.206-ab.done':
+        case 'tds.206ab.done':
           await handleTDS206ABDone(data, transaction_id);
           break;
 
-        case 'it.report.done':
-          await handleITRReportDone(data, transaction_id);
-          break;
-
-        case 'it.calculator.done':
-          await handleITRCalculatorDone(data, transaction_id);
-          break;
-
+        // ========== GST Analytics Jobs (Job-based async) ==========
+        // Per docs: GSTR-2A Reconciliation, GSTR-2B Reconciliation
         case 'gst.analytics.done':
         case 'gst.reconciliation.done':
-          await handleGSTAnalyticsDone(data, transaction_id);
+          await handleGSTAnalyticsDone(data, transaction_id, 'reconciliation');
+          break;
+        case 'gst.analytics.gstr_2a.done':
+        case 'gst.analytics.gstr-2a.done':
+          await handleGSTAnalyticsDone(data, transaction_id, 'GSTR-2A');
+          break;
+        case 'gst.analytics.gstr_2b.done':
+        case 'gst.analytics.gstr-2b.done':
+          await handleGSTAnalyticsDone(data, transaction_id, 'GSTR-2B');
           break;
 
+        // ========== KYC Verification (sync APIs, webhook unlikely but handled) ==========
         case 'kyc.verification.done':
+          await handleKYCVerificationDone(data, transaction_id, 'generic');
+          break;
         case 'kyc.pan.done':
+          await handleKYCVerificationDone(data, transaction_id, 'PAN');
+          break;
         case 'kyc.aadhaar.done':
+          await handleKYCVerificationDone(data, transaction_id, 'Aadhaar');
+          break;
         case 'kyc.bank.done':
-          await handleKYCVerificationDone(data, transaction_id);
+          await handleKYCVerificationDone(data, transaction_id, 'Bank');
+          break;
+        case 'kyc.mca.done':
+          await handleKYCVerificationDone(data, transaction_id, 'MCA');
+          break;
+        case 'kyc.digilocker.done':
+          await handleKYCVerificationDone(data, transaction_id, 'DigiLocker');
+          break;
+        case 'kyc.entitylocker.done':
+          await handleKYCVerificationDone(data, transaction_id, 'EntityLocker');
           break;
 
         default:
-          console.log(`[Sandbox Webhook] Unknown event type: ${event}`);
+          console.warn(`[Sandbox Webhook] Unhandled event type: ${event} — transaction: ${transaction_id}`);
+          console.log(`[Sandbox Webhook] Payload:`, JSON.stringify(data, null, 2));
       }
 
       webhookEvent.status = 'processed';
@@ -247,19 +423,55 @@ export function registerSandboxWebhookRoutes(app: Express): void {
         processedAt: w.processedAt.toISOString(),
       })),
       supportedEvents: [
-        'tds.analytics.done',
-        'tds.report.done',
-        'tds.form16.done',
-        'tds.e-file.done',
-        'tds.206-ab.done',
-        'it.report.done',
+        'it.calculator.pnl.securities.domestic.done',
+        'it.calculator.pnl.securities.foreign.done',
+        'it.calculator.pnl.crypto.done',
+        'it.calculator.pnl.real_estate.done',
+        'it.calculator.pnl.other_assets.done',
+        'it.calculator.tax_pnl.securities.domestic.done',
+        'it.calculator.tax_pnl.securities.foreign.done',
+        'it.calculator.tax_pnl.crypto.done',
+        'it.calculator.tax_pnl.real_estate.done',
+        'it.calculator.tax_pnl.other_assets.done',
         'it.calculator.done',
+        'it.calculator.itr.done',
+        'it.report.tax_pnl.securities.domestic.done',
+        'it.report.tax_pnl.securities.foreign.done',
+        'it.report.done',
+        'it.report.capital_gains.securities.domestic.done',
+        'it.report.capital_gains.securities.foreign.done',
+        'it.report.capital_gains.done',
+        'it.ocr.form_16.done',
+        'it.ocr.form-16.done',
+        'it.ocr.form_26as.done',
+        'it.ocr.form-26as.done',
+        'tds.analytics.done',
+        'tds.analytics.tds.done',
+        'tds.analytics.tcs.done',
+        'tds.report.done',
+        'tds.reports.tds.done',
+        'tds.reports.tcs.done',
+        'tds.form16.done',
+        'tds.compliance.form16.done',
+        'tds.compliance.fvu.done',
+        'tds.e-file.done',
+        'tds.compliance.e-file.done',
+        'tds.compliance.csi.done',
+        'tds.206-ab.done',
+        'tds.206ab.done',
         'gst.analytics.done',
         'gst.reconciliation.done',
+        'gst.analytics.gstr_2a.done',
+        'gst.analytics.gstr-2a.done',
+        'gst.analytics.gstr_2b.done',
+        'gst.analytics.gstr-2b.done',
         'kyc.verification.done',
         'kyc.pan.done',
         'kyc.aadhaar.done',
         'kyc.bank.done',
+        'kyc.mca.done',
+        'kyc.digilocker.done',
+        'kyc.entitylocker.done',
       ],
     });
   });
