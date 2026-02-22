@@ -1,0 +1,84 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://developer.sandbox.co.in/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Overview
+
+> Overview of Income Tax API by Sandbox - Tax API Stack for India by Quicko.
+
+# Income Tax API
+
+Income tax is a direct tax on income earned by individuals and companies in India. Use these APIs to calculate capital gains tax and extract data from tax documents. Generate profit & loss reports for tax compliance.
+
+Capital gains are taxed by holding period, asset class, and regime under the Income Tax Act, 1961. Tax rates differ for short-term and long-term gains depending on asset category.
+
+## Features
+
+<CardGroup cols={2}>
+  <Card title="Calculator APIs" icon="calculator" href="/api-reference/it/calculator/overview">
+    Calculate profit & loss and capital gains for domestic securities (equity, mutual funds, derivatives), foreign investments, and crypto.
+  </Card>
+
+  <Card title="Report APIs" icon="file-invoice" href="/api-reference/it/report/overview">
+    Get profit & loss reports for securities and crypto tax compliance.
+  </Card>
+
+  <Card title="OCR APIs" icon="file-lines" href="/api-reference/it/ocr/overview">
+    Extract tax documents like Form 16 automatically. Classify and parse data for verification.
+  </Card>
+</CardGroup>
+
+## What you can do
+
+<CardGroup cols={2}>
+  <Card title="IT Recipes" href="/recipes/it/introduction" icon="book-open">
+    Step-by-step guides for common income tax workflows.
+  </Card>
+
+  <Card title="Authentication" href="/api-reference/authenticate" icon="key">
+    How to authenticate your API requests.
+  </Card>
+
+  <Card title="Error handling" href="/guides/developer-resources/errors" icon="triangle-exclamation">
+    API error codes and troubleshooting.
+  </Card>
+
+  <Card title="Rate limits" href="/guides/developer-resources/rate_limits" icon="gauge">
+    API rate limits and best practices.
+  </Card>
+</CardGroup>
+
+## Common use cases
+
+Use the Income Tax API to:
+
+* Calculate capital gains tax for stock trading and portfolio platforms
+* Generate P\&L reports for investment advisory services
+* Automate Form 16 extraction for HR and payroll systems
+* Process cryptocurrency tax filings
+* Estimate tax impact during transactions
+* Build compliance tools for wealth management
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="What is capital gains tax?">
+    Capital gains tax applies to profits from selling investments. Tax rates depend on holding period (short-term vs long-term) and asset type under the Income Tax Act, 1961.
+  </Accordion>
+
+  <Accordion title="Which asset classes do the Calculator APIs support?">
+    The Calculator APIs handle domestic securities (equity, mutual funds, derivatives), foreign securities, and cryptocurrency. Holding periods are classified automatically.
+  </Accordion>
+
+  <Accordion title="What is Form 16?">
+    Form 16 is a TDS (Tax Deducted at Source) certificate from employers showing salary and deductions. The [OCR API](/api-reference/it/ocr/overview) extracts this data from PDFs.
+  </Accordion>
+
+  <Accordion title="How are short-term and long-term capital gains determined?">
+    Holding period determines the classification. Equity and equity mutual funds held over 12 months are long-term. Debt funds and cryptocurrency require 36 months. Tax rates vary by asset class under Income Tax regulations.
+  </Accordion>
+
+  <Accordion title="Can I generate tax reports for multiple financial years?">
+    Yes, the [Report APIs](/api-reference/it/report/overview) generate profit & loss reports for any date range, covering multiple financial years or specific tax periods.
+  </Accordion>
+</AccordionGroup>

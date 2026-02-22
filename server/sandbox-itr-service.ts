@@ -339,7 +339,7 @@ class SandboxITRService {
     const token = await this.authenticate();
     return {
       'Content-Type': 'application/json',
-      'x-access-token': token,
+      'authorization': token,
       'x-api-key': this.apiKey,
       'x-api-version': '1.0',
       'Accept': 'application/json',
@@ -461,7 +461,7 @@ class SandboxITRService {
         };
       } catch (sandboxError) {
         const errMsg = sandboxError instanceof Error ? sandboxError.message : '';
-        if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('Forbidden') || errMsg.includes('Insufficient privilege')) {
+        if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('404') || errMsg.includes('400') || errMsg.includes('Forbidden') || errMsg.includes('Insufficient privilege') || errMsg.includes('saved example') || errMsg.includes('SignedHeaders')) {
           console.log('[Sandbox ITR] Sandbox IT API not accessible, using native Indian Tax Calculator');
           return indianTaxCalculator.calculateTax({
             entityType: validatedData.entityType || 'individual',
@@ -627,7 +627,7 @@ class SandboxITRService {
         };
       } catch (sandboxError) {
         const errMsg = sandboxError instanceof Error ? sandboxError.message : '';
-        if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('Forbidden') || errMsg.includes('Insufficient privilege')) {
+        if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('404') || errMsg.includes('400') || errMsg.includes('Forbidden') || errMsg.includes('Insufficient privilege') || errMsg.includes('saved example') || errMsg.includes('SignedHeaders')) {
           console.log('[Sandbox ITR] Sandbox IT API not accessible, using native Indian Tax Calculator for wizard');
           return indianTaxCalculator.calculateTaxFromWizard(wizardData);
         }
@@ -713,7 +713,7 @@ class SandboxITRService {
         };
       } catch (sandboxError) {
         const errMsg = sandboxError instanceof Error ? sandboxError.message : '';
-        if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('Forbidden') || errMsg.includes('Insufficient privilege')) {
+        if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('404') || errMsg.includes('400') || errMsg.includes('Forbidden') || errMsg.includes('Insufficient privilege') || errMsg.includes('saved example') || errMsg.includes('SignedHeaders')) {
           console.log('[Sandbox ITR] Sandbox IT API not accessible, using native ITR preparation');
           const taxResult = indianTaxCalculator.calculateTax({
             entityType: validatedData.entityType || 'individual',
@@ -782,7 +782,7 @@ class SandboxITRService {
       return response;
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : '';
-      if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('Forbidden')) {
+      if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('404') || errMsg.includes('400') || errMsg.includes('Forbidden') || errMsg.includes('SignedHeaders') || errMsg.includes('saved example')) {
         console.log('[Sandbox ITR] Form 26AS API not accessible — Sandbox IT API upgrade needed');
         return {
           success: true,
@@ -808,7 +808,7 @@ class SandboxITRService {
       return response;
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : '';
-      if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('Forbidden')) {
+      if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('404') || errMsg.includes('400') || errMsg.includes('Forbidden') || errMsg.includes('SignedHeaders') || errMsg.includes('saved example')) {
         console.log('[Sandbox ITR] AIS API not accessible — Sandbox IT API upgrade needed');
         return {
           success: true,
@@ -1194,11 +1194,13 @@ class SandboxITRService {
       const blob = new Blob([fileBuffer], { type: 'application/pdf' });
       formData.append('file', blob, fileName);
 
-      const response = await fetch(`${SANDBOX_BASE_URL}/it/ocr/form16`, {
+      const token = await this.authenticate();
+      const response = await fetch(`${SANDBOX_BASE_URL}/it/ocr/form-16/pdf`, {
         method: 'POST',
         headers: {
+          'authorization': token,
           'x-api-key': this.apiKey,
-          'x-api-secret': this.apiSecret,
+          'x-api-version': '1.0',
           'Accept': 'application/json',
         },
         body: formData,
