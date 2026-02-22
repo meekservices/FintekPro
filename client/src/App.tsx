@@ -2185,6 +2185,15 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
+      <Route path="/profile">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <Profile />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
       <Route>
         {() => (
           <AgentLayout>
