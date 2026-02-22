@@ -903,6 +903,22 @@ class SandboxITRService {
       };
     }
     
+    // ========== ITR-4 (Sugam) for Firms: Partnership firms (not LLPs) with presumptive income ==========
+    // Section 44AD allows partnership firms (not LLPs) to file ITR-4 if:
+    // - Business income under presumptive scheme (up to Rs. 2 crores / Rs. 3 crores with 95% digital)
+    // - No capital gains
+    // - Total income within presumptive limits
+    if (entityType === 'partnership_firm' && 
+        businessIncome > 0 && 
+        businessIncome <= 30000000 && 
+        capitalGains === 0) {
+      return {
+        form: 'ITR-4',
+        reason: 'ITR-4 (Sugam) is applicable for partnership firms opting for presumptive taxation under Section 44AD (business income up to Rs. 2-3 crores, no capital gains)',
+        applicableForms: ['ITR-4', 'ITR-5']
+      };
+    }
+    
     // ========== ITR-5: Firms, LLPs, AOPs, BOIs, Cooperative Societies, Local Authorities ==========
     if (['partnership_firm', 'llp', 'aop', 'boi', 'cooperative_society', 'local_authority'].includes(entityType)) {
       return {
