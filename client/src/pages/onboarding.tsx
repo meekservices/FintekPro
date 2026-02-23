@@ -272,6 +272,10 @@ export default function SmartKYCOnboarding() {
   const [v2AmlInfo, setV2AmlInfo] = useState<{ aml_score: number; risk_level: string; pep: boolean; sanctions: boolean; video_kyc_required: boolean; screening_id: string } | null>(null);
   const [v2TierInfo, setV2TierInfo] = useState<{ kycTier: string; tierStatus: string; productsUnlocked: string[]; upgradeActions: string[] } | null>(null);
   
+  const { data: sandboxInfo } = useQuery<{ isTestEnvironment: boolean; hasCredentials: boolean; testPANs: Array<{ pan: string; description: string }> }>({
+    queryKey: ['/api/kyc/sandbox-info'],
+  });
+
   // Start or resume session
   const startSessionMutation = useMutation({
     mutationFn: async (forceNew: boolean = false) => {
@@ -1147,6 +1151,29 @@ export default function SmartKYCOnboarding() {
                     <strong>Auto-Detection:</strong> We'll read your PAN's 4th character to identify if you're an Individual, Company, HUF, LLP, or Trust - and route you to the correct onboarding flow automatically.
                   </AlertDescription>
                 </Alert>
+
+                {sandboxInfo?.isTestEnvironment && (
+                  <Alert className="bg-amber-50 border-amber-300 dark:bg-amber-950 dark:border-amber-700">
+                    <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <AlertTitle className="text-amber-800 dark:text-amber-200 text-sm">Sandbox Test Environment</AlertTitle>
+                    <AlertDescription className="text-amber-700 dark:text-amber-300 text-xs">
+                      Use test PANs only. Try <button type="button" className="font-mono font-bold underline cursor-pointer" onClick={() => handlePanInputChange('XXXPX1234A')}>XXXPX1234A</button> (Individual, Valid).
+                      {sandboxInfo.testPANs.length > 1 && (
+                        <details className="mt-1">
+                          <summary className="cursor-pointer text-amber-600 dark:text-amber-400">View all test PANs</summary>
+                          <ul className="mt-1 space-y-0.5">
+                            {sandboxInfo.testPANs.map(tp => (
+                              <li key={tp.pan}>
+                                <button type="button" className="font-mono underline cursor-pointer" onClick={() => handlePanInputChange(tp.pan)}>{tp.pan}</button>
+                                <span className="ml-1">- {tp.description}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
                 
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -1619,6 +1646,16 @@ export default function SmartKYCOnboarding() {
                   Smart KYC will automatically fetch your details from government databases after verification
                 </AlertDescription>
               </Alert>
+
+              {sandboxInfo?.isTestEnvironment && (
+                <Alert className="bg-amber-50 border-amber-300 dark:bg-amber-950 dark:border-amber-700">
+                  <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <AlertTitle className="text-amber-800 dark:text-amber-200 text-sm">Sandbox Test Environment</AlertTitle>
+                  <AlertDescription className="text-amber-700 dark:text-amber-300 text-xs">
+                    Use test PANs only. Try <button type="button" className="font-mono font-bold underline cursor-pointer" onClick={() => setPanNumber('XXXPX1234A')}>XXXPX1234A</button> (Individual, Valid) with any name and DOB.
+                  </AlertDescription>
+                </Alert>
+              )}
               
               <div className="space-y-2">
                 <Label htmlFor="pan">PAN Number</Label>
