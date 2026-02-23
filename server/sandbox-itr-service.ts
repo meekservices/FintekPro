@@ -1272,9 +1272,9 @@ class SandboxITRService {
       const response = await fetch(`${SANDBOX_BASE_URL}/it/ocr/form-16/pdf`, {
         method: 'POST',
         headers: {
-          'authorization': token,
+          'Authorization': token,
           'x-api-key': this.apiKey,
-          'x-api-version': '1.0',
+          'x-api-version': '1.0.0',
           'Accept': 'application/json',
         },
         body: formData,

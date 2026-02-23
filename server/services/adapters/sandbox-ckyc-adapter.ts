@@ -5,7 +5,7 @@
  */
 
 import type { ICkycProviderAdapter, CkycVerificationRequest, CkycVerificationResult, CkycProviderHealth } from '../ckyc-provider-adapter';
-import { getSandboxBaseUrl, getSandboxApiKey, getSandboxApiSecret } from '../../utils/sandbox-config';
+import { getSandboxBaseUrl, getSandboxApiKey, getSandboxAccessToken } from '../../utils/sandbox-config';
 
 export class SandboxCkycAdapter implements ICkycProviderAdapter {
   readonly providerCode = 'sandbox';
@@ -13,48 +13,18 @@ export class SandboxCkycAdapter implements ICkycProviderAdapter {
   
   private baseUrl: string;
   private apiKey: string;
-  private apiSecret: string;
-  private cachedToken: string | null = null;
-  private tokenExpiry: number = 0;
   
   constructor() {
     this.baseUrl = getSandboxBaseUrl();
     this.apiKey = getSandboxApiKey();
-    this.apiSecret = getSandboxApiSecret();
   }
   
   isConfigured(): boolean {
-    return !!(this.apiKey && this.apiSecret);
+    return !!this.apiKey;
   }
   
   isInMockMode(): boolean {
     return !this.isConfigured();
-  }
-  
-  private async authenticate(): Promise<string> {
-    if (this.cachedToken && Date.now() < this.tokenExpiry) {
-      return this.cachedToken;
-    }
-    
-    const axios = (await import('axios')).default;
-    
-    const response = await axios.post(
-      `${this.baseUrl}/authenticate`,
-      {},
-      {
-        headers: {
-          'x-api-key': this.apiKey,
-          'x-api-secret': this.apiSecret,
-          'x-api-version': '1.0',
-        },
-      }
-    );
-    
-    this.cachedToken = response.data?.data?.access_token || response.data.access_token;
-    const expiresIn = response.data?.data?.expires_in || response.data.expires_in || 3600;
-    this.tokenExpiry = Date.now() + expiresIn * 1000 - 60000;
-    
-    return this.cachedToken!;
   }
   
   async verify(request: CkycVerificationRequest): Promise<CkycVerificationResult> {
@@ -66,7 +36,7 @@ export class SandboxCkycAdapter implements ICkycProviderAdapter {
       }
       
       const axios = (await import('axios')).default;
-      const token = await this.authenticate();
+      const token = await getSandboxAccessToken();
       
       const dobParts = request.dateOfBirth.split('-');
       const formattedDob = dobParts.length === 3 
@@ -86,8 +56,8 @@ export class SandboxCkycAdapter implements ICkycProviderAdapter {
         {
           headers: {
             'x-api-key': this.apiKey,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
             'X-Accept-Cache': 'true',
           },
@@ -171,7 +141,7 @@ export class SandboxCkycAdapter implements ICkycProviderAdapter {
     }
     
     try {
-      await this.authenticate();
+      await getSandboxAccessToken();
       
       return {
         provider: this.providerCode,

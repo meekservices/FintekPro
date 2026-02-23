@@ -6,17 +6,11 @@
 
 import axios from 'axios';
 
-import { getSandboxBaseUrl, getSandboxApiKey, getSandboxApiSecret } from '../utils/sandbox-config';
+import { getSandboxBaseUrl, getSandboxApiKey, getSandboxApiSecret, getSandboxAccessToken, clearSandboxToken } from '../utils/sandbox-config';
 
 const SANDBOX_BASE_URL = getSandboxBaseUrl();
 const SANDBOX_API_KEY = getSandboxApiKey();
 const SANDBOX_API_SECRET = getSandboxApiSecret();
-
-interface SandboxAuthResponse {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-}
 
 interface MCACompanyDetails {
   cin: string;
@@ -93,55 +87,23 @@ interface IndividualPANDetails {
   lastUpdated: string;
 }
 
+const SANDBOX_AADHAAR_TEST_DATA = {
+  testAadhaar: '123456789012',
+  testOTP: '121212',
+  testReferenceId: '1234567',
+  testName: 'John Doe',
+  testDOB: '21-04-1985',
+  testGender: 'M',
+};
+
 export class SandboxKYCService {
-  private accessToken: string | null = null;
-  private tokenExpiry: number = 0;
-
-  /**
-   * Authenticate with Sandbox API and get access token
-   */
-  private async authenticate(): Promise<string> {
-    // Check if token is still valid
-    if (this.accessToken && Date.now() < this.tokenExpiry) {
-      return this.accessToken;
-    }
-
-    if (!SANDBOX_API_KEY || !SANDBOX_API_SECRET) {
-      throw new Error('Sandbox API credentials not configured');
-    }
-
-    try {
-      // Sandbox API expects x-api-key and x-api-secret in headers, not body
-      const response = await axios.post<SandboxAuthResponse>(
-        `${SANDBOX_BASE_URL}/authenticate`,
-        {},
-        {
-          headers: {
-            'x-api-key': SANDBOX_API_KEY,
-            'x-api-secret': SANDBOX_API_SECRET,
-            'x-api-version': '1.0.0',
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      this.accessToken = response.data?.data?.access_token || response.data.access_token;
-      const expiresIn = response.data?.data?.expires_in || response.data.expires_in || 86400;
-      this.tokenExpiry = Date.now() + (expiresIn - 300) * 1000;
-
-      return this.accessToken;
-    } catch (error: any) {
-      console.error('Sandbox authentication failed:', error.response?.data || error.message);
-      throw new Error('Failed to authenticate with Sandbox API');
-    }
-  }
 
   /**
    * Verify company details via MCA (Ministry of Corporate Affairs)
    * @param cin - Corporate Identification Number
    */
   async verifyCompanyMCA(cin: string): Promise<MCACompanyDetails> {
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.post(
@@ -150,8 +112,8 @@ export class SandboxKYCService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }
@@ -195,7 +157,7 @@ export class SandboxKYCService {
    * @param gstin - 15-digit GSTIN
    */
   async verifyGSTIN(gstin: string): Promise<GSTINDetails> {
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.post(
@@ -204,8 +166,8 @@ export class SandboxKYCService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }
@@ -246,7 +208,7 @@ export class SandboxKYCService {
    * @param name - Company/Entity name as per PAN
    */
   async verifyCorporatePAN(pan: string, name: string): Promise<CorporatePANDetails> {
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.post(
@@ -263,7 +225,7 @@ export class SandboxKYCService {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
             'Authorization': token,
-            'x-api-version': '1.0',
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }
@@ -308,7 +270,7 @@ export class SandboxKYCService {
   async verifyIndividualPAN(pan: string, name: string, dob: string): Promise<IndividualPANDetails> {
     // Try real API first
     try {
-      const token = await this.authenticate();
+      const token = await getSandboxAccessToken();
       const response = await axios.post(
         `${SANDBOX_BASE_URL}/kyc/pan/verify`,
         { 
@@ -323,7 +285,7 @@ export class SandboxKYCService {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
             'Authorization': token,
-            'x-api-version': '1.0',
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }
@@ -381,7 +343,7 @@ export class SandboxKYCService {
    * @param tan - 10-character TAN
    */
   async verifyTAN(tan: string): Promise<TANDetails> {
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.post(
@@ -390,8 +352,8 @@ export class SandboxKYCService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }
@@ -560,7 +522,7 @@ export class SandboxKYCService {
       throw new Error('Reason for verification is required');
     }
 
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.post(
@@ -576,8 +538,8 @@ export class SandboxKYCService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
             'X-Accept-Cache': 'true',
           },
@@ -627,7 +589,7 @@ export class SandboxKYCService {
       throw new Error('Reason for verification is required');
     }
 
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.post(
@@ -641,8 +603,8 @@ export class SandboxKYCService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }
@@ -694,17 +656,17 @@ export class SandboxKYCService {
       throw new Error('Invalid OTP format. Must be 6 digits.');
     }
 
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.post(
-        `${SANDBOX_BASE_URL}/kyc/aadhaar/otp/verify`,
-        { reference_id: referenceId, otp },
+        `${SANDBOX_BASE_URL}/kyc/aadhaar/okyc/otp/verify`,
+        { '@entity': 'in.co.sandbox.kyc.aadhaar.okyc.request', reference_id: referenceId, otp },
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }
@@ -765,7 +727,7 @@ export class SandboxKYCService {
       throw new Error('Invalid IFSC format');
     }
 
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.post(
@@ -777,8 +739,8 @@ export class SandboxKYCService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }
@@ -835,7 +797,7 @@ export class SandboxKYCService {
       throw new Error('Invalid IFSC format. Must be 11 characters: 4 letters + 0 + 6 alphanumeric');
     }
 
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.get(
@@ -843,8 +805,8 @@ export class SandboxKYCService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
             'X-Accept-Cache': 'true',
           },
         }
@@ -1008,7 +970,7 @@ export class SandboxKYCService {
       throw new Error(`Bank with IFSC prefix ${ifsc.substring(0, 4)} does not support Pennyless verification. Use Penny Drop instead.`);
     }
 
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.post(
@@ -1020,8 +982,8 @@ export class SandboxKYCService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
             'X-Accept-Cache': 'true',
           },
@@ -1076,7 +1038,7 @@ export class SandboxKYCService {
       throw new Error('At least one document type is required');
     }
 
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.post(
@@ -1090,8 +1052,8 @@ export class SandboxKYCService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }
@@ -1129,7 +1091,7 @@ export class SandboxKYCService {
       throw new Error('Session ID is required');
     }
 
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.get(
@@ -1137,8 +1099,8 @@ export class SandboxKYCService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
           },
         }
       );
@@ -1185,7 +1147,7 @@ export class SandboxKYCService {
       throw new Error('At least one document type is required');
     }
 
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.post(
@@ -1198,8 +1160,8 @@ export class SandboxKYCService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }
@@ -1250,7 +1212,7 @@ export class SandboxKYCService {
       throw new Error('Document type is required');
     }
 
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.get(
@@ -1258,8 +1220,8 @@ export class SandboxKYCService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
           },
         }
       );
@@ -1318,7 +1280,7 @@ export class SandboxKYCService {
       throw new Error('Document type is required');
     }
 
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.post(
@@ -1330,8 +1292,8 @@ export class SandboxKYCService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }
@@ -1384,7 +1346,7 @@ export class SandboxKYCService {
       throw new Error('Consent expiry must be at least 1 hour from now');
     }
 
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const requestBody: Record<string, any> = {
@@ -1402,8 +1364,8 @@ export class SandboxKYCService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }
@@ -1446,7 +1408,7 @@ export class SandboxKYCService {
       throw new Error('Document type is required');
     }
 
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.post(
@@ -1458,8 +1420,8 @@ export class SandboxKYCService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }
@@ -1483,6 +1445,10 @@ export class SandboxKYCService {
       console.error('EntityLocker fetch error:', error.response?.data || error.message);
       throw new Error(`EntityLocker fetch failed: ${error.response?.data?.message || error.message}`);
     }
+  }
+
+  getAadhaarTestData(): typeof SANDBOX_AADHAAR_TEST_DATA {
+    return { ...SANDBOX_AADHAAR_TEST_DATA };
   }
 }
 

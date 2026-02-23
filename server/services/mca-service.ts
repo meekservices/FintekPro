@@ -13,7 +13,7 @@
 import axios, { AxiosInstance } from 'axios';
 import type { InsertCompanyFinancials } from '@shared/schema';
 
-import { getSandboxBaseUrl, getSandboxApiKey, getSandboxApiSecret } from '../utils/sandbox-config';
+import { getSandboxBaseUrl, getSandboxApiKey, getSandboxApiSecret, getSandboxAccessToken } from '../utils/sandbox-config';
 
 const SANDBOX_API_KEY = getSandboxApiKey();
 const SANDBOX_API_SECRET = getSandboxApiSecret();
@@ -123,46 +123,7 @@ class MCAService {
    * Uses x-api-key and x-api-secret headers for authentication
    */
   private async getAccessToken(): Promise<string> {
-    // Check if we have a valid token
-    if (this.accessToken && this.tokenExpiry && new Date() < this.tokenExpiry) {
-      return this.accessToken;
-    }
-
-    if (!SANDBOX_API_KEY || !SANDBOX_API_SECRET) {
-      throw new Error('Sandbox API credentials not configured');
-    }
-
-    try {
-      console.log('[MCA] Fetching new access token from Sandbox...');
-      
-      // Sandbox.co.in uses x-api-key and x-api-secret headers for authentication
-      const response = await axios.post(
-        `${SANDBOX_BASE_URL}/authenticate`,
-        {},
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': SANDBOX_API_KEY,
-            'x-api-secret': SANDBOX_API_SECRET,
-          },
-        }
-      );
-
-      const extractedToken = response.data?.data?.access_token || response.data?.access_token;
-      if (extractedToken) {
-        const token: string = extractedToken;
-        this.accessToken = token;
-        // Token typically expires in 24 hours, but we refresh at 23 hours to be safe
-        this.tokenExpiry = new Date(Date.now() + 23 * 60 * 60 * 1000);
-        console.log('[MCA] Access token obtained successfully');
-        return token;
-      }
-
-      throw new Error('Failed to obtain access token');
-    } catch (error: any) {
-      console.error('[MCA] Authentication error:', error.response?.data || error.message);
-      throw new Error(`MCA authentication failed: ${error.message}`);
-    }
+    return getSandboxAccessToken();
   }
 
   /**
@@ -191,7 +152,7 @@ class MCAService {
           headers: {
             'Authorization': `Bearer ${token}`,
             'x-api-key': SANDBOX_API_KEY,
-            'x-api-version': '1.0',
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }
@@ -258,7 +219,7 @@ class MCAService {
           headers: {
             'Authorization': `Bearer ${token}`,
             'x-api-key': SANDBOX_API_KEY,
-            'x-api-version': '1.0',
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }

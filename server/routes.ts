@@ -20088,15 +20088,16 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
                   'Content-Type': 'application/json',
                   'x-api-key': process.env.SANDBOX_API_KEY,
                   'x-api-secret': process.env.SANDBOX_API_SECRET,
-                  'x-api-version': '1.0'
+                  'x-api-version': '1.0.0'
                 }
               });
               
               const data = await response.json();
+              const accessToken = data?.data?.access_token || data?.access_token;
               result = {
-                success: data.access_token ? true : false,
-                message: data.access_token ? 'Authentication successful' : 'Authentication failed',
-                details: { hasToken: !!data.access_token },
+                success: accessToken ? true : false,
+                message: accessToken ? 'Authentication successful' : 'Authentication failed',
+                details: { hasToken: !!accessToken },
                 latency: Date.now() - startTime
               };
             } catch (e: any) {

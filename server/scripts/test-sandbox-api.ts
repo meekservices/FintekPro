@@ -244,7 +244,7 @@ async function runAllTests(): Promise<void> {
       consent: 'y',
       reason: 'for KYC and financial analysis'
     },
-    headers: { 'x-api-version': '1.0' },
+    headers: { 'x-api-version': '1.0.0' },
     expectError: true
   });
 

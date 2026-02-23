@@ -111,7 +111,7 @@ export async function verifyBankAccountPennyDrop(
       {
         headers: {
           'x-api-key': apiKey,
-          'authorization': token,
+          'Authorization': token,
           'Content-Type': 'application/json'
         },
         timeout: 30000
