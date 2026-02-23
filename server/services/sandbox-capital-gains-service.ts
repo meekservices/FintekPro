@@ -9,17 +9,11 @@
 
 import axios from 'axios';
 
-import { getSandboxBaseUrl, getSandboxApiKey, getSandboxApiSecret } from '../utils/sandbox-config';
+import { getSandboxBaseUrl, getSandboxApiKey, getSandboxApiSecret, getSandboxAccessToken, clearSandboxToken } from '../utils/sandbox-config';
 
 const SANDBOX_BASE_URL = getSandboxBaseUrl();
 const SANDBOX_API_KEY = getSandboxApiKey();
 const SANDBOX_API_SECRET = getSandboxApiSecret();
-
-interface SandboxAuthResponse {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-}
 
 export type AssetType = 'equity' | 'mutual_fund' | 'etf' | 'bond' | 'derivative' | 'debt_fund';
 export type TransactionType = 'BUY' | 'SELL';
@@ -135,45 +129,9 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_CACHE_SIZE = 1000;
 
 class SandboxCapitalGainsService {
-  private accessToken: string | null = null;
-  private tokenExpiry: number = 0;
-
-  private async authenticate(): Promise<string> {
-    if (this.accessToken && Date.now() < this.tokenExpiry) {
-      return this.accessToken;
-    }
-
-    if (!SANDBOX_API_KEY || !SANDBOX_API_SECRET) {
-      throw new Error('Sandbox API credentials not configured. Please set SANDBOX_API_KEY and SANDBOX_API_SECRET.');
-    }
-
-    try {
-      const response = await axios.post<SandboxAuthResponse>(
-        `${SANDBOX_BASE_URL}/authenticate`,
-        {},
-        {
-          headers: {
-            'x-api-key': SANDBOX_API_KEY,
-            'x-api-secret': SANDBOX_API_SECRET,
-            'x-api-version': '1.0.0',
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      this.accessToken = response.data?.data?.access_token || response.data.access_token;
-      const expiresIn = response.data?.data?.expires_in || response.data.expires_in || 86400;
-      this.tokenExpiry = Date.now() + (expiresIn - 300) * 1000;
-
-      return this.accessToken;
-    } catch (error: any) {
-      console.error('[SandboxCapitalGains] Authentication failed:', error?.response?.data || error.message);
-      throw new Error('Failed to authenticate with Sandbox API');
-    }
-  }
 
   async submitTaxPnLJob(request: TaxPnLJobRequest): Promise<JobSubmitResponse> {
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.post(
@@ -185,8 +143,8 @@ class SandboxCapitalGainsService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }
@@ -241,7 +199,7 @@ class SandboxCapitalGainsService {
   }
 
   async getJobStatus(jobId: string): Promise<JobStatusResponse> {
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
 
     try {
       const response = await axios.get(
@@ -249,8 +207,8 @@ class SandboxCapitalGainsService {
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
-            'x-api-version': '1.0',
+            'Authorization': token,
+            'x-api-version': '1.0.0',
           },
         }
       );

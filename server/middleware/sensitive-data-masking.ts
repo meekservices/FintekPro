@@ -156,6 +156,8 @@ const EXEMPT_PATHS = [
   '/api/kyc/verify-aadhaar',
   '/api/ckyc/search',
   '/api/ckyc/register',
+  '/api/sandbox-itr/test-data',
+  '/api/kyc/sandbox-info',
 ];
 
 function shouldSkipMasking(path: string, method: string): boolean {
@@ -163,11 +165,15 @@ function shouldSkipMasking(path: string, method: string): boolean {
     return true;
   }
   
+  if (EXEMPT_PATHS.some(exemptPath => path === exemptPath)) {
+    return true;
+  }
+  
   if (method !== 'POST') {
     return false;
   }
   
-  return EXEMPT_PATHS.some(exemptPath => path === exemptPath);
+  return false;
 }
 
 /**

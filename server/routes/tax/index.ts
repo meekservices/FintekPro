@@ -377,6 +377,30 @@ export function registerTaxRoutes(app: Express): void {
     }
   });
 
+  app.get("/api/sandbox-itr/test-data", async (_req, res) => {
+    try {
+      res.json({
+        success: true,
+        testPANs: sandboxITRService.getTestPANs(),
+        eriCredentials: sandboxITRService.getERITestCredentials(),
+        message: 'Sandbox.co.in ITR test data for ITR-1 through ITR-7',
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to retrieve test data" });
+    }
+  });
+
+  app.post("/api/sandbox-itr/eri/login", async (req, res) => {
+    try {
+      const { userId, password } = req.body;
+      const result = await sandboxITRService.eriLogin(userId, password);
+      res.json(result);
+    } catch (error) {
+      console.error("ERI login error:", error);
+      res.status(500).json({ success: false, message: error instanceof Error ? error.message : "ERI login failed" });
+    }
+  });
+
   // ============ SANDBOX.CO.IN TDS API ROUTES ============
 
   app.get("/api/tds/status", async (req, res) => {

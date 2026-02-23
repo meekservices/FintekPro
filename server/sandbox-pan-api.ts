@@ -119,7 +119,7 @@ class SandboxPANService {
             'Content-Type': 'application/json',
             'x-api-key': this.apiKey,
             'Authorization': token,
-            'x-api-version': '1.0'
+            'x-api-version': '1.0.0'
           },
           timeout: 30000
         }
@@ -168,7 +168,7 @@ class SandboxPANService {
               `${this.baseUrl}/kyc/pan/verify`,
               { '@entity': 'in.co.sandbox.kyc.pan.verify', pan: panNumber.toUpperCase(), consent: 'Y', reason: 'KYC verification' },
               {
-                headers: { 'Content-Type': 'application/json', 'x-api-key': this.apiKey, 'Authorization': retryToken, 'x-api-version': '1.0' },
+                headers: { 'Content-Type': 'application/json', 'x-api-key': this.apiKey, 'Authorization': retryToken, 'x-api-version': '1.0.0' },
                 timeout: 30000
               }
             );
@@ -301,7 +301,7 @@ class SandboxPANService {
             'Content-Type': 'application/json',
             'x-api-key': this.apiKey,
             'Authorization': token,
-            'x-api-version': '1.0'
+            'x-api-version': '1.0.0'
           },
           timeout: 30000
         }

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { indianTaxCalculator } from './services/indian-tax-calculator';
-import { getSandboxBaseUrl } from './utils/sandbox-config';
+import { getSandboxBaseUrl, getSandboxAccessToken, getSandboxApiKey, clearSandboxToken } from './utils/sandbox-config';
 
 const SANDBOX_BASE_URL = getSandboxBaseUrl();
 
@@ -281,11 +281,26 @@ export interface Form26ASOCRResponse {
   errors?: string[];
 }
 
+const SANDBOX_ERI_TEST_CREDENTIALS = {
+  user_id: 'ERIP000325',
+  password: 'ERIP000325@abc',
+};
+
+const SANDBOX_ITR_TEST_PANS: Record<string, { pan: string; description: string; itrForm: string }> = {
+  'ITR-1': { pan: 'QUIPT2025E', description: 'Salaried individual (Sandbox test)', itrForm: '1' },
+  'ITR-2': { pan: 'ADIPV7548K', description: 'Individual with capital gains (Sandbox test)', itrForm: '2' },
+  'ITR-3': { pan: 'AVPPJ6869G', description: 'Individual with business income (Sandbox test)', itrForm: '3' },
+  'ITR-4': { pan: 'AWGPS6028Q', description: 'Presumptive income (Sandbox test)', itrForm: '4' },
+  'ITR-5': { pan: 'AOFPL2415R', description: 'LLP / Partnership firm (Sandbox test)', itrForm: '5' },
+  'ITR-6': { pan: 'AAACA1234A', description: 'Company (Sandbox test)', itrForm: '6' },
+  'ITR-7': { pan: 'AAETP3993P', description: 'Trust / Charitable (Sandbox test)', itrForm: '7' },
+};
+
 class SandboxITRService {
   private apiKey: string;
   private apiSecret: string;
-  private accessToken: string | null = null;
-  private tokenExpiry: number = 0;
+  private eriUserId: string | null = null;
+  private eriAuthToken: string | null = null;
   
   constructor() {
     this.apiKey = process.env.SANDBOX_API_KEY || '';
@@ -299,53 +314,67 @@ class SandboxITRService {
     }
   }
 
-  private async authenticate(): Promise<string> {
-    if (this.accessToken && Date.now() < this.tokenExpiry) {
-      return this.accessToken;
-    }
-
-    console.log('[Sandbox API] Authenticating to get access token...');
-    const response = await fetch(`${SANDBOX_BASE_URL}/authenticate`, {
-      method: 'POST',
-      headers: {
-        'x-api-key': this.apiKey,
-        'x-api-secret': this.apiSecret,
-        'x-api-version': '1.0',
-      },
-    });
-
-    const responseText = await response.text();
-    let parsed: any;
-    try {
-      parsed = JSON.parse(responseText);
-    } catch {
-      throw new Error(`Sandbox authentication returned non-JSON: ${responseText.substring(0, 200)}`);
-    }
-
-    if (!response.ok || parsed.code !== 200) {
-      console.error(`[Sandbox API] Authentication failed (${response.status}):`, responseText);
-      throw new Error(`Sandbox authentication failed: ${parsed.message || responseText.substring(0, 200)}`);
-    }
-
-    const token = parsed.data?.access_token;
-    if (!token) {
-      throw new Error('Sandbox authentication succeeded but no access_token returned');
-    }
-
-    this.accessToken = token;
-    this.tokenExpiry = Date.now() + 23 * 60 * 60 * 1000;
-    console.log('[Sandbox API] Authentication successful, token cached for 23 hours');
-    return token;
-  }
-
   private async getAuthHeaders(): Promise<Record<string, string>> {
-    const token = await this.authenticate();
+    const token = await getSandboxAccessToken();
     return {
       'Content-Type': 'application/json',
-      'authorization': token,
+      'Authorization': token,
       'x-api-key': this.apiKey,
-      'x-api-version': '1.0',
+      'x-api-version': '1.0.0',
       'Accept': 'application/json',
+    };
+  }
+
+  private async getERIHeaders(): Promise<Record<string, string>> {
+    const baseHeaders = await this.getAuthHeaders();
+    if (!this.eriUserId || !this.eriAuthToken) {
+      await this.eriLogin();
+    }
+    return {
+      ...baseHeaders,
+      'x-user-id': this.eriUserId || '',
+      'x-auth-token': this.eriAuthToken || '',
+    };
+  }
+
+  async eriLogin(userId?: string, password?: string): Promise<{ success: boolean; userId: string; authToken: string; message: string }> {
+    try {
+      const creds = {
+        user_id: userId || SANDBOX_ERI_TEST_CREDENTIALS.user_id,
+        password: password || SANDBOX_ERI_TEST_CREDENTIALS.password,
+      };
+
+      const response = await this.makeAPICall(
+        '/it/compliance/eri/login',
+        creds,
+        'POST'
+      );
+
+      const authToken = response.data?.auth_token || response.auth_token;
+      const eriUserId = creds.user_id;
+
+      if (authToken) {
+        this.eriUserId = eriUserId;
+        this.eriAuthToken = authToken;
+        console.log(`[Sandbox ITR] ERI login successful for ${eriUserId}`);
+        return { success: true, userId: eriUserId, authToken, message: 'ERI login successful' };
+      }
+
+      return { success: false, userId: eriUserId, authToken: '', message: response.message || 'ERI login failed — no auth_token returned' };
+    } catch (error) {
+      console.error('[Sandbox ITR] ERI login failed:', error);
+      return { success: false, userId: '', authToken: '', message: error instanceof Error ? error.message : 'ERI login failed' };
+    }
+  }
+
+  getTestPANs(): Record<string, { pan: string; description: string; itrForm: string }> {
+    return { ...SANDBOX_ITR_TEST_PANS };
+  }
+
+  getERITestCredentials(): { userId: string; passwordHint: string } {
+    return {
+      userId: SANDBOX_ERI_TEST_CREDENTIALS.user_id,
+      passwordHint: 'ERIP000325@abc (Sandbox test)',
     };
   }
 
@@ -369,8 +398,7 @@ class SandboxITRService {
 
       if (response.status === 401) {
         console.log('[Sandbox API] Token expired or invalid, re-authenticating...');
-        this.accessToken = null;
-        this.tokenExpiry = 0;
+        clearSandboxToken();
         const newHeaders = await this.getAuthHeaders();
         const retryResponse = await fetch(url, {
           method,
@@ -754,10 +782,24 @@ class SandboxITRService {
     return this.prepareITR(formData);
   }
 
-  async getITRStatus(acknowledgmentNumber: string): Promise<ITRStatusResponse> {
+  async getITRStatus(acknowledgmentNumber: string, pan?: string): Promise<ITRStatusResponse> {
     try {
       if (!acknowledgmentNumber) {
         throw new Error('Acknowledgment number is required');
+      }
+
+      if (pan) {
+        const eriHeaders = await this.getERIHeaders();
+        const url = `${SANDBOX_BASE_URL}/it/compliance/eri/tax-payers/${pan}/itrs/itr-v?acknowledgement_number=${acknowledgmentNumber}`;
+        console.log(`[Sandbox API] GET ${url}`);
+        const response = await fetch(url, { method: 'GET', headers: eriHeaders });
+        const responseText = await response.text();
+        let parsed: any;
+        try { parsed = JSON.parse(responseText); } catch { parsed = { message: responseText }; }
+        if (!response.ok) {
+          throw new Error(`ITR status API returned ${response.status}: ${parsed.message || responseText.substring(0, 200)}`);
+        }
+        return parsed;
       }
 
       const response = await this.makeAPICall(
@@ -827,7 +869,7 @@ class SandboxITRService {
     }
   }
 
-  async downloadITRV(acknowledgmentNumber: string): Promise<{
+  async downloadITRV(acknowledgmentNumber: string, pan?: string): Promise<{
     success: boolean;
     data?: { downloadUrl: string; fileName: string };
     message: string;
@@ -837,11 +879,24 @@ class SandboxITRService {
         throw new Error('Acknowledgment number is required');
       }
 
-      const response = await this.makeAPICall(
-        `/it/compliance/itr-v/${acknowledgmentNumber}?format=pdf`,
-        undefined,
-        'GET'
-      );
+      let response: any;
+      if (pan) {
+        const eriHeaders = await this.getERIHeaders();
+        const url = `${SANDBOX_BASE_URL}/it/compliance/eri/tax-payers/${pan}/itrs/itr-v?acknowledgement_number=${acknowledgmentNumber}`;
+        console.log(`[Sandbox API] GET ${url}`);
+        const fetchRes = await fetch(url, { method: 'GET', headers: eriHeaders });
+        const responseText = await fetchRes.text();
+        try { response = JSON.parse(responseText); } catch { response = { message: responseText }; }
+        if (!fetchRes.ok) {
+          throw new Error(`ITR-V API returned ${fetchRes.status}: ${response.message || responseText.substring(0, 200)}`);
+        }
+      } else {
+        response = await this.makeAPICall(
+          `/it/compliance/itr-v/${acknowledgmentNumber}?format=pdf`,
+          undefined,
+          'GET'
+        );
+      }
 
       if (response.success) {
         return {
@@ -1446,23 +1501,41 @@ class SandboxITRService {
     };
   }
 
-  async eVerifyITR(acknowledgmentNumber: string, method: string, details: { pan?: string; aadhaarNumber?: string }): Promise<{ success: boolean; message: string; data?: any }> {
+  async eVerifyITR(acknowledgmentNumber: string, method: string, details: { pan?: string; aadhaarNumber?: string; assessmentYear?: string; formCode?: string }): Promise<{ success: boolean; message: string; data?: any }> {
     try {
-      const response = await this.makeAPICall(
-        '/it/compliance/e-verify',
-        {
-          acknowledgment_number: acknowledgmentNumber,
-          verification_method: method,
-          pan: details.pan,
-          aadhaar_number: details.aadhaarNumber,
-        },
-        'POST'
-      );
+      const pan = details.pan;
+      if (!pan) {
+        throw new Error('PAN is required for e-verification');
+      }
+
+      const eriHeaders = await this.getERIHeaders();
+      const queryParams = new URLSearchParams({
+        assessment_year: details.assessmentYear || new Date().getFullYear().toString(),
+        form_code: details.formCode || '1',
+        verification_mode: method === 'aadhaar_otp' ? 'aadhaar' : method,
+        acknowledgement_number: acknowledgmentNumber,
+      });
+
+      const url = `${SANDBOX_BASE_URL}/it/compliance/eri/tax-payers/${pan}/itrs/e-verify/otp?${queryParams.toString()}`;
+      console.log(`[Sandbox API] POST ${url}`);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: eriHeaders,
+      });
+
+      const responseText = await response.text();
+      let parsed: any;
+      try { parsed = JSON.parse(responseText); } catch { parsed = { message: responseText }; }
+
+      if (!response.ok) {
+        throw new Error(`E-verify API returned ${response.status}: ${parsed.message || responseText.substring(0, 200)}`);
+      }
       
       return {
         success: true,
         message: `E-verification ${method === 'aadhaar_otp' ? 'OTP sent to Aadhaar-linked mobile' : 'initiated'} successfully`,
-        data: response.data || response
+        data: parsed.data || parsed
       };
     } catch (error) {
       console.error('[Sandbox ITR] E-verification failed:', error);
