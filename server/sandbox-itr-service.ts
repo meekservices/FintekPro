@@ -1,15 +1,7 @@
 import { z } from 'zod';
 import { indianTaxCalculator } from './services/indian-tax-calculator';
+import { getSandboxBaseUrl } from './utils/sandbox-config';
 
-// Sandbox.co.in API Configuration
-// Auto-detect environment from API key prefix: key_test_ → test env, key_live_ → production env
-function getSandboxBaseUrl(): string {
-  if (process.env.SANDBOX_BASE_URL) return process.env.SANDBOX_BASE_URL;
-  const apiKey = process.env.SANDBOX_API_KEY || '';
-  if (apiKey.startsWith('key_test')) return 'https://test-api.sandbox.co.in';
-  if (apiKey.startsWith('key_live')) return 'https://api.sandbox.co.in';
-  return 'https://api.sandbox.co.in';
-}
 const SANDBOX_BASE_URL = getSandboxBaseUrl();
 
 // Types for Income Tax Return filing

@@ -9,11 +9,11 @@
 
 import axios from 'axios';
 
-// Uses SANDBOX_BASE_URL env var or defaults to production
-const SANDBOX_BASE_URL = process.env.SANDBOX_BASE_URL || 'https://api.sandbox.co.in';
+import { getSandboxBaseUrl, getSandboxApiKey, getSandboxApiSecret } from '../utils/sandbox-config';
 
-const SANDBOX_API_KEY = process.env.SANDBOX_API_KEY;
-const SANDBOX_API_SECRET = process.env.SANDBOX_API_SECRET;
+const SANDBOX_BASE_URL = getSandboxBaseUrl();
+const SANDBOX_API_KEY = getSandboxApiKey();
+const SANDBOX_API_SECRET = getSandboxApiSecret();
 
 interface SandboxAuthResponse {
   access_token: string;

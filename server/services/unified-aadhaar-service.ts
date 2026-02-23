@@ -8,6 +8,7 @@
 
 import { CashfreeAadhaarService } from './cashfree-aadhaar-service';
 import { TruthscreenAadhaarService } from './truthscreen-aadhaar-service';
+import { hasSandboxCredentials } from '../utils/sandbox-config';
 
 export type AadhaarProvider = 'cashfree-bank' | 'truthscreen-aadhaar' | 'sandbox-pan' | 'offline_xml';
 
@@ -143,7 +144,7 @@ class UnifiedAadhaarService {
     truthscreenConfig.isConfigured = TruthscreenAadhaarService.credentialsConfigured();
 
     const sandboxConfig = this.providerConfigs.get('sandbox-pan')!;
-    sandboxConfig.isConfigured = !!(process.env.SANDBOX_API_KEY && process.env.SANDBOX_API_SECRET);
+    sandboxConfig.isConfigured = hasSandboxCredentials();
 
     const offlineXmlConfig = this.providerConfigs.get('offline_xml')!;
     offlineXmlConfig.isConfigured = true;

@@ -11,6 +11,7 @@
 import axios, { AxiosError } from 'axios';
 import { AppError } from './utils/errors';
 import { kycEnvironmentService } from './services/kyc-environment-service';
+import { getSandboxBaseUrl, getSandboxApiKey, getSandboxApiSecret, getSandboxEnvironment } from './utils/sandbox-config';
 
 interface SandboxPANRequest {
   pan: string;
@@ -49,14 +50,6 @@ interface PANAadhaarLinkageResponse {
   error?: string;
 }
 
-function getSandboxBaseUrl(): string {
-  if (process.env.SANDBOX_BASE_URL) return process.env.SANDBOX_BASE_URL;
-  const apiKey = process.env.SANDBOX_API_KEY || '';
-  if (apiKey.startsWith('key_test')) return 'https://test-api.sandbox.co.in';
-  if (apiKey.startsWith('key_live')) return 'https://api.sandbox.co.in';
-  return 'https://api.sandbox.co.in';
-}
-
 class SandboxPANService {
   private baseUrl: string;
   private apiKey: string;
@@ -67,9 +60,9 @@ class SandboxPANService {
 
   constructor() {
     this.baseUrl = getSandboxBaseUrl();
-    this.apiKey = process.env.SANDBOX_API_KEY || '';
-    this.apiSecret = process.env.SANDBOX_API_SECRET || '';
-    this.isTestEnvironment = this.apiKey.startsWith('key_test');
+    this.apiKey = getSandboxApiKey();
+    this.apiSecret = getSandboxApiSecret();
+    this.isTestEnvironment = getSandboxEnvironment() === 'TEST';
 
     if (!this.apiKey || !this.apiSecret) {
       console.warn('⚠️ [Sandbox PAN API] API credentials not configured. Mock mode will be used in sandbox environment only.');

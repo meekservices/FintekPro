@@ -5,6 +5,7 @@
  */
 
 import type { ICkycProviderAdapter, CkycVerificationRequest, CkycVerificationResult, CkycProviderHealth } from '../ckyc-provider-adapter';
+import { getSandboxBaseUrl, getSandboxApiKey, getSandboxApiSecret } from '../../utils/sandbox-config';
 
 export class SandboxCkycAdapter implements ICkycProviderAdapter {
   readonly providerCode = 'sandbox';
@@ -17,9 +18,9 @@ export class SandboxCkycAdapter implements ICkycProviderAdapter {
   private tokenExpiry: number = 0;
   
   constructor() {
-    this.baseUrl = process.env.SANDBOX_BASE_URL || 'https://api.sandbox.co.in';
-    this.apiKey = process.env.SANDBOX_API_KEY || '';
-    this.apiSecret = process.env.SANDBOX_API_SECRET || '';
+    this.baseUrl = getSandboxBaseUrl();
+    this.apiKey = getSandboxApiKey();
+    this.apiSecret = getSandboxApiSecret();
   }
   
   isConfigured(): boolean {

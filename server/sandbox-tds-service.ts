@@ -1,7 +1,7 @@
 import { z } from 'zod';
+import { getSandboxBaseUrl, getSandboxApiKey, getSandboxApiSecret } from './utils/sandbox-config';
 
-// Sandbox.co.in TDS API Configuration (uses SANDBOX_BASE_URL env var or defaults to production)
-const SANDBOX_BASE_URL = process.env.SANDBOX_BASE_URL || 'https://api.sandbox.co.in';
+const SANDBOX_BASE_URL = getSandboxBaseUrl();
 
 // ============ TDS CALCULATOR SCHEMAS ============
 
@@ -254,8 +254,8 @@ class SandboxTDSService {
   private apiSecret: string;
 
   constructor() {
-    this.apiKey = process.env.SANDBOX_API_KEY || '';
-    this.apiSecret = process.env.SANDBOX_API_SECRET || '';
+    this.apiKey = getSandboxApiKey();
+    this.apiSecret = getSandboxApiSecret();
 
     if (!this.apiKey || !this.apiSecret) {
       console.warn('⚠️ Sandbox.co.in API credentials not configured. TDS services will use calculated data.');
