@@ -78,6 +78,8 @@ CASHFREE_ENVIRONMENT = "PRODUCTION"
 NSE_ENVIRONMENT = "production"
 BSE_BOND_ENVIRONMENT = "production"
 NODE_ENV = "production"
+SANDBOX_API_KEY = "key_live_e32d71b200dd476da426bf101f839dce"
+SANDBOX_API_SECRET = "secret_live_c6652c58575f4647849e1c30099498fa"
 
 [userenv.development]
 SANDBOX_API_KEY = "key_test_0126a18d3c8946f19dc2d905041e755d"
