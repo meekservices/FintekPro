@@ -1,0 +1,149 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://developer.sandbox.co.in/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Overview
+
+> Verify customer and business identity in real-time using Aadhaar, PAN, DigiLocker, and bank account APIs. Reduce KYC verification time from days to seconds.
+
+Know Your Customer (KYC) is a mandatory compliance process required by the Reserve Bank of India (RBI) to verify customer identity before establishing financial or business relationships. KYC verification prevents fraud, money laundering, and identity theft while ensuring regulatory compliance under the Prevention of Money Laundering Act (PMLA).
+
+<Info>
+  KYC is mandatory across banking, fintech, insurance, lending, gaming, and any business handling payments or sensitive customer data. According to RBI Master Direction on KYC (2016), all regulated entities must complete customer verification before onboarding.
+</Info>
+
+Sandbox provides a unified KYC and KYB API for India that connects to government data sources including UIDAI (Aadhaar), Income Tax (PAN), Ministry of Corporate Affairs (MCA), DigiLocker, and bank verification networks. Reduce verification time from 2-3 days to under 10 seconds with real-time API responses.
+
+## KYC - Know Your Customer
+
+Verify individual identity using trusted government data sources. Essential for customer onboarding, account opening, loan applications, and any scenario requiring identity confirmation. Enable instant verification to improve conversion rates while maintaining compliance.
+
+**Common use cases:**
+
+* **Customer onboarding**: Verify user identity during sign-up for financial services, fintech apps, and digital platforms
+* **Account opening**: Instant verification for bank accounts, wallets, and payment services
+* **Loan applications**: Validate borrower identity for personal loans, credit cards, and BNPL services
+* **Investment accounts**: KYC compliance for opening trading and demat accounts
+* **Gaming platforms**: Age and identity verification for online gaming and betting platforms
+* **Rental agreements**: Verify tenant identity for property rental and co-living spaces
+
+<CardGroup cols={2}>
+  <Card title="Aadhaar verification" icon="id-card" href="/api-reference/kyc/aadhaar/overview">
+    Most widely accepted proof of identity and address in India, issued by UIDAI.
+  </Card>
+
+  <Card title="DigiLocker" icon="folder-open" href="/api-reference/kyc/digilocker/overview">
+    Consent-based document sharing - Aadhaar, PAN, Driving License, and more.
+  </Card>
+
+  <Card title="Bank account verification" icon="building-columns" href="/api-reference/kyc/bank/overview">
+    Verify bank account ownership for payments and payouts.
+  </Card>
+
+  <Card title="PAN verification" icon="receipt" href="/api-reference/kyc/pan/overview">
+    Verify PAN details and tax compliance for individuals.
+  </Card>
+</CardGroup>
+
+## KYB - Know Your Business
+
+Verify business identity, ownership, and compliance using government data. Critical for vendor onboarding, partner due diligence, B2B customer verification, and supply chain risk management.
+
+**Common use cases:**
+
+* **Vendor onboarding**: Verify supplier legitimacy before establishing business relationships
+* **Partner verification**: Validate distributors, resellers, and business partners
+* **Credit assessment**: Check business credentials before extending credit or payment terms
+* **Compliance checks**: Ensure vendors and partners meet regulatory requirements
+* **Marketplace verification**: Screen sellers and service providers on B2B platforms
+
+Streamline business verification to reduce onboarding time from days to minutes while mitigating fraud and compliance risks.
+
+<CardGroup cols={2}>
+  <Card title="CIN & DIN verification" icon="building" href="/api-reference/kyc/mca/overview">
+    Verify company registration, directors, and structure via Ministry of Corporate Affairs (MCA).
+  </Card>
+
+  <Card title="GSTIN verification" icon="file-invoice" href="/api-reference/gst/compliance/endpoints/public/search_gstin">
+    Verify business GST registration, filing status, and operational details.
+  </Card>
+
+  <Card title="PAN verification" icon="briefcase" href="/api-reference/kyc/pan/overview">
+    Verify business PAN for financial activity and regulatory compliance.
+  </Card>
+
+  <Card title="EntityLocker" icon="lock-keyhole" href="/api-reference/kyc/entitylocker/overview">
+    Consent-based verification for verified business documents and credentials.
+  </Card>
+</CardGroup>
+
+## Why Sandbox
+
+Sandbox abstracts the complexity of integrating with multiple government data sources. Get a single API for all verification methods with consistent response formats, error handling, and documentation.
+
+* **Single integration**: One API for Aadhaar, PAN, bank, MCA, and DigiLocker verification
+* **Real-time verification**: Average response time under 3 seconds for most verification methods
+* **Government-authoritative data**: Direct connections to UIDAI, Income Tax, and MCA databases
+* **99.9% uptime SLA**: Enterprise-grade reliability for mission-critical verification workflows
+
+<Tip>
+  Secure, compliant, and easy to integrate - focus on building while we handle verification infrastructure.
+</Tip>
+
+## Get started
+
+Choose your verification method based on your use case. All APIs follow the same authentication pattern and return consistent response structures.
+
+<CardGroup cols={3}>
+  <Card title="Aadhaar verification" icon="rocket" href="/api-reference/kyc/aadhaar/overview">
+    Most popular KYC method in India
+  </Card>
+
+  <Card title="Bank verification" icon="building-columns" href="/api-reference/kyc/bank/overview">
+    Verify account ownership
+  </Card>
+
+  <Card title="PAN verification" icon="id-card-clip" href="/api-reference/kyc/pan/overview">
+    Tax ID verification
+  </Card>
+
+  <Card title="MCA search" icon="magnifying-glass" href="/api-reference/kyc/mca/overview">
+    Company verification via CIN/DIN
+  </Card>
+
+  <Card title="DigiLocker" icon="folder-open" href="/api-reference/kyc/digilocker/overview">
+    Consent-based document sharing
+  </Card>
+
+  <Card title="EntityLocker" icon="building-lock" href="/api-reference/kyc/entitylocker/overview">
+    Business document verification
+  </Card>
+</CardGroup>
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="What is KYC and why is it required in India?">
+    Know Your Customer (KYC) is a mandatory verification process established by the Reserve Bank of India (RBI) under the Prevention of Money Laundering Act, 2002. All financial institutions, payment service providers, and businesses handling customer funds must verify customer identity before onboarding. KYC helps prevent identity fraud, money laundering, and terrorist financing while ensuring regulatory compliance.
+  </Accordion>
+
+  <Accordion title="What is the difference between KYC and KYB?">
+    KYC (Know Your Customer) verifies individual identity using documents like Aadhaar, PAN, and bank accounts. KYB (Know Your Business) verifies business identity using company registration (CIN), director identification (DIN), GSTIN, and business PAN. Both processes are essential for comprehensive due diligence—KYC for individual customers and KYB for business clients, vendors, and partners.
+  </Accordion>
+
+  <Accordion title="Which verification methods are available through Sandbox KYC APIs?">
+    Sandbox KYC APIs support multiple verification methods: Aadhaar verification (OTP and offline XML), PAN verification and validation, DigiLocker integration for consent-based document retrieval, bank account verification via penny drop and reverse penny drop, and MCA verification for company (CIN) and director (DIN) details. All methods connect directly to government data sources for authoritative verification.
+  </Accordion>
+
+  <Accordion title="How long does KYC verification take using the API?">
+    Sandbox KYC APIs provide real-time verification with average response times under 3 seconds for most methods. Aadhaar OTP verification completes in 5-10 seconds including user OTP entry. Bank account penny drop verification typically takes 2-5 seconds. This reduces traditional manual KYC processes from 2-3 business days to seconds.
+  </Accordion>
+
+  <Accordion title="Is Sandbox KYC API compliant with RBI guidelines?">
+    Sandbox KYC APIs are designed for compliance with RBI Master Direction on KYC (2016) and UIDAI guidelines for Aadhaar-based verification. The APIs support Video KYC (V-KYC), Aadhaar eKYC with consent, and offline Aadhaar verification methods approved by regulators. Businesses using Sandbox APIs can meet their regulatory KYC obligations while maintaining audit trails.
+  </Accordion>
+
+  <Accordion title="What is DigiLocker and how does it work for KYC?">
+    DigiLocker is a government platform under the Digital India initiative that allows citizens to store and share verified documents electronically. Through Sandbox DigiLocker APIs, businesses can request user consent to retrieve government-issued documents like Aadhaar, PAN, driving license, and vehicle registration directly from the user's DigiLocker account. Documents retrieved through DigiLocker are legally equivalent to original documents under the IT Act.
+  </Accordion>
+</AccordionGroup>
