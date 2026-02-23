@@ -5,13 +5,12 @@ const SANDBOX_API_SECRET = process.env.SANDBOX_API_SECRET || '';
 
 export function getSandboxBaseUrl(): string {
   if (process.env.SANDBOX_BASE_URL) return process.env.SANDBOX_BASE_URL;
-  if (SANDBOX_API_KEY.startsWith('key_test')) return 'https://test-api.sandbox.co.in';
   if (SANDBOX_API_KEY.startsWith('key_live')) return 'https://api.sandbox.co.in';
-  return 'https://api.sandbox.co.in';
+  return 'https://test-api.sandbox.co.in';
 }
 
 export function getSandboxEnvironment(): 'TEST' | 'PRODUCTION' {
-  return SANDBOX_API_KEY.startsWith('key_test') ? 'TEST' : 'PRODUCTION';
+  return SANDBOX_API_KEY.startsWith('key_live') ? 'PRODUCTION' : 'TEST';
 }
 
 export function hasSandboxCredentials(): boolean {
@@ -39,19 +38,28 @@ export async function getSandboxAccessToken(): Promise<string> {
   }
 
   const baseUrl = getSandboxBaseUrl();
+  const keyPrefix = SANDBOX_API_KEY.substring(0, 12);
+  console.log(`[Sandbox Auth] Authenticating → ${baseUrl}/authenticate (key prefix: ${keyPrefix}...)`);
 
-  const response = await axios.post(
-    `${baseUrl}/authenticate`,
-    {},
-    {
-      headers: {
-        'x-api-key': SANDBOX_API_KEY,
-        'x-api-secret': SANDBOX_API_SECRET,
-        'x-api-version': '1.0.0',
-        'Content-Type': 'application/json',
-      },
-    }
-  );
+  try {
+    var response = await axios.post(
+      `${baseUrl}/authenticate`,
+      {},
+      {
+        headers: {
+          'x-api-key': SANDBOX_API_KEY,
+          'x-api-secret': SANDBOX_API_SECRET,
+          'x-api-version': '1.0.0',
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  } catch (authError: any) {
+    const status = authError.response?.status;
+    const errData = authError.response?.data;
+    console.error(`[Sandbox Auth] Authentication failed (HTTP ${status}) → ${baseUrl}`, JSON.stringify(errData || authError.message).substring(0, 300));
+    throw new Error(`Sandbox authentication failed (HTTP ${status}): ${errData?.message || authError.message}`);
+  }
 
   const token = response.data?.data?.access_token || response.data?.access_token;
   if (!token) {
