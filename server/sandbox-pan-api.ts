@@ -3,10 +3,14 @@
  * 
  * Handles PAN card verification via Sandbox.co.in API
  * Used for KYC Level 1 upgrade
+ * 
+ * Authentication: OAuth token-based (same as Sandbox KYC service)
+ * Environment: Auto-detects test vs production based on API key prefix
  */
 
 import axios, { AxiosError } from 'axios';
 import { AppError } from './utils/errors';
+import { kycEnvironmentService } from './services/kyc-environment-service';
 
 interface SandboxPANRequest {
   pan: string;
@@ -45,38 +49,92 @@ interface PANAadhaarLinkageResponse {
   error?: string;
 }
 
+function getSandboxBaseUrl(): string {
+  if (process.env.SANDBOX_BASE_URL) return process.env.SANDBOX_BASE_URL;
+  const apiKey = process.env.SANDBOX_API_KEY || '';
+  if (apiKey.startsWith('key_test')) return 'https://test-api.sandbox.co.in';
+  if (apiKey.startsWith('key_live')) return 'https://api.sandbox.co.in';
+  return 'https://api.sandbox.co.in';
+}
+
 class SandboxPANService {
   private baseUrl: string;
   private apiKey: string;
   private apiSecret: string;
+  private accessToken: string | null = null;
+  private tokenExpiry: number = 0;
+  private isTestEnvironment: boolean;
 
   constructor() {
-    this.baseUrl = process.env.SANDBOX_BASE_URL || 'https://api.sandbox.co.in';
+    this.baseUrl = getSandboxBaseUrl();
     this.apiKey = process.env.SANDBOX_API_KEY || '';
     this.apiSecret = process.env.SANDBOX_API_SECRET || '';
+    this.isTestEnvironment = this.apiKey.startsWith('key_test');
 
     if (!this.apiKey || !this.apiSecret) {
-      console.warn('⚠️ [Sandbox PAN API] API credentials not configured. Using mock mode.');
+      console.warn('⚠️ [Sandbox PAN API] API credentials not configured. Mock mode will be used in sandbox environment only.');
+    } else {
+      const env = this.isTestEnvironment ? 'TEST' : 'PRODUCTION';
+      console.log(`✅ [Sandbox PAN API] Initialized (${env} environment → ${this.baseUrl})`);
     }
   }
 
-  /**
-   * Verify PAN card via Sandbox.co.in API
-   */
+  private async authenticate(): Promise<string> {
+    if (this.accessToken && Date.now() < this.tokenExpiry) {
+      return this.accessToken;
+    }
+
+    if (!this.apiKey || !this.apiSecret) {
+      throw new AppError('Sandbox API credentials not configured', 500, 'SANDBOX_CREDENTIALS_MISSING');
+    }
+
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/authenticate`,
+        {},
+        {
+          headers: {
+            'x-api-key': this.apiKey,
+            'x-api-secret': this.apiSecret,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      this.accessToken = response.data.access_token;
+      this.tokenExpiry = Date.now() + (response.data.expires_in - 300) * 1000;
+      return this.accessToken!;
+    } catch (error: any) {
+      console.error('❌ [Sandbox PAN API] Authentication failed:', error.response?.data || error.message);
+      throw new AppError(
+        'Sandbox API authentication failed. Please check API credentials.',
+        401,
+        'SANDBOX_AUTH_FAILED'
+      );
+    }
+  }
+
   async verifyPAN(panNumber: string, fullName?: string, dateOfBirth?: string): Promise<SandboxPANResponse> {
     try {
-      // Validate PAN format
       const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
       if (!panRegex.test(panNumber)) {
         throw new AppError('Invalid PAN format. PAN must be in format: ABCDE1234F', 400, 'INVALID_PAN_FORMAT');
       }
 
-      // If no API credentials, use mock response for development
       if (!this.apiKey || !this.apiSecret) {
-        return this.mockPANVerification(panNumber, fullName);
+        if (kycEnvironmentService.isSandbox()) {
+          console.log('🔧 [Sandbox PAN API] No credentials, using mock (sandbox mode)');
+          return this.mockPANVerification(panNumber, fullName);
+        }
+        throw new AppError(
+          'PAN verification service not configured. Please contact support.',
+          503,
+          'SANDBOX_NOT_CONFIGURED'
+        );
       }
 
-      // Real API call
+      const token = await this.authenticate();
+
       const requestPayload: SandboxPANRequest = {
         pan: panNumber.toUpperCase(),
         consent: 'Y',
@@ -90,7 +148,7 @@ class SandboxPANService {
           headers: {
             'Content-Type': 'application/json',
             'x-api-key': this.apiKey,
-            'x-api-secret': this.apiSecret,
+            'authorization': token,
             'x-api-version': '1.0'
           },
           timeout: 30000
@@ -98,7 +156,7 @@ class SandboxPANService {
       );
 
       if (response.data.status === 'success') {
-        console.log('✅ [Sandbox PAN API] PAN verified successfully:', this.maskPAN(panNumber));
+        console.log(`✅ [Sandbox PAN API] PAN verified successfully: ${this.maskPAN(panNumber)} (${this.isTestEnvironment ? 'TEST' : 'LIVE'})`);
         return response.data;
       } else {
         console.error('❌ [Sandbox PAN API] PAN verification failed:', response.data.message);
@@ -121,12 +179,18 @@ class SandboxPANService {
         console.error('❌ [Sandbox PAN API] API Error:', {
           status: statusCode,
           message: errorMessage,
-          pan: this.maskPAN(panNumber)
+          pan: this.maskPAN(panNumber),
+          environment: this.isTestEnvironment ? 'TEST' : 'LIVE'
         });
 
         if (statusCode === 401 || statusCode === 403) {
-          console.warn('⚠️ [Sandbox PAN API] Auth failed, falling back to mock mode for:', this.maskPAN(panNumber));
-          return this.mockPANVerification(panNumber, fullName);
+          this.accessToken = null;
+          this.tokenExpiry = 0;
+          throw new AppError(
+            'PAN verification authentication failed. API credentials may be invalid or expired.',
+            401,
+            'SANDBOX_AUTH_FAILED'
+          );
         }
 
         throw new AppError(
@@ -141,15 +205,10 @@ class SandboxPANService {
     }
   }
 
-  /**
-   * Mock PAN verification for development/testing
-   */
   private mockPANVerification(panNumber: string, fullName?: string): SandboxPANResponse {
-    console.log('🔧 [Sandbox PAN API] Using mock PAN verification for:', this.maskPAN(panNumber));
+    console.log('🔧 [Sandbox PAN API] Using MOCK PAN verification for:', this.maskPAN(panNumber));
 
-    // Simulate different scenarios based on PAN pattern
     if (panNumber.startsWith('AAAAA')) {
-      // Invalid PAN
       return {
         status: 'success',
         data: {
@@ -163,7 +222,6 @@ class SandboxPANService {
     }
 
     if (panNumber.startsWith('ZZZZZ')) {
-      // Not found PAN
       return {
         status: 'failure',
         message: 'PAN not found in database',
@@ -171,7 +229,6 @@ class SandboxPANService {
       };
     }
 
-    // Simulate INOPERATIVE PAN for testing (Task 2)
     if (panNumber.startsWith('INOPER')) {
       return {
         status: 'success',
@@ -188,39 +245,32 @@ class SandboxPANService {
       };
     }
 
-    // Valid PAN (default)
     return {
       status: 'success',
       data: {
         pan_number: panNumber,
-        full_name: fullName || 'Mock User Name',
+        full_name: fullName || 'Demo User (Sandbox)',
         category: 'Individual',
         status: 'VALID',
         last_updated: new Date().toISOString(),
-        name_on_card: fullName || 'MOCK USER NAME',
-        father_name: 'MOCK FATHER NAME',
+        name_on_card: fullName || 'DEMO USER (SANDBOX)',
+        father_name: 'DEMO FATHER (SANDBOX)',
         date_of_birth: '01/01/1990',
         masked_aadhaar: 'XXXX-XXXX-1234'
       }
     };
   }
 
-  /**
-   * Validate PAN and DOB match
-   */
   async validatePANWithDOB(panNumber: string, dateOfBirth: string): Promise<boolean> {
     try {
       const response = await this.verifyPAN(panNumber);
       
       if (response.status === 'success' && response.data) {
-        // Check if DOB matches (if available in response)
         if (response.data.date_of_birth) {
-          // Normalize date formats for comparison
           const responseDOB = response.data.date_of_birth.replace(/\//g, '-');
           const providedDOB = dateOfBirth.replace(/\//g, '-');
           return responseDOB === providedDOB;
         }
-        // If DOB not available in response, consider PAN valid
         return response.data.status === 'VALID';
       }
       
@@ -231,9 +281,6 @@ class SandboxPANService {
     }
   }
 
-  /**
-   * Check PAN-Aadhaar linkage status (UIDAI Compliance)
-   */
   async checkPANAadhaarLinkage(panNumber: string): Promise<PANAadhaarLinkageResponse> {
     try {
       const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
@@ -241,51 +288,64 @@ class SandboxPANService {
         throw new AppError('Invalid PAN format', 400, 'INVALID_PAN_FORMAT');
       }
 
-      // If no API credentials, use mock response
       if (!this.apiKey || !this.apiSecret) {
-        return this.mockPANAadhaarLinkage(panNumber);
+        if (kycEnvironmentService.isSandbox()) {
+          return this.mockPANAadhaarLinkage(panNumber);
+        }
+        throw new AppError('PAN-Aadhaar linkage service not configured', 503, 'SANDBOX_NOT_CONFIGURED');
       }
 
-      // Real API call to check linkage
+      const token = await this.authenticate();
+
       const response = await axios.get<PANAadhaarLinkageResponse>(
         `${this.baseUrl}/pans/${panNumber}/aadhaar-link-status`,
         {
           headers: {
             'Content-Type': 'application/json',
             'x-api-key': this.apiKey,
-            'x-api-secret': this.apiSecret,
+            'authorization': token,
             'x-api-version': '1.0'
           },
           timeout: 30000
         }
       );
 
-      console.log('✅ [Sandbox PAN API] PAN-Aadhaar linkage checked:', this.maskPAN(panNumber));
+      console.log(`✅ [Sandbox PAN API] PAN-Aadhaar linkage checked: ${this.maskPAN(panNumber)} (${this.isTestEnvironment ? 'TEST' : 'LIVE'})`);
       return response.data;
     } catch (error) {
       if (error instanceof AppError) throw error;
 
       if (axios.isAxiosError(error)) {
         const axiosError = error as AxiosError<any>;
-        console.error('❌ [Sandbox PAN API] Linkage check error:', axiosError.response?.data);
+        const statusCode = axiosError.response?.status;
+        const errorMessage = axiosError.response?.data?.message || axiosError.message;
+        console.error('❌ [Sandbox PAN API] Linkage check error:', { status: statusCode, message: errorMessage });
         
-        // Return mock on API failure to not block KYC
-        console.log('⚠️ [Sandbox PAN API] Falling back to mock linkage response');
-        return this.mockPANAadhaarLinkage(panNumber);
+        if (statusCode === 401 || statusCode === 403) {
+          this.accessToken = null;
+          this.tokenExpiry = 0;
+          throw new AppError(
+            'PAN-Aadhaar linkage check authentication failed.',
+            401,
+            'SANDBOX_AUTH_FAILED'
+          );
+        }
+
+        throw new AppError(
+          `PAN-Aadhaar linkage check failed: ${errorMessage}`,
+          statusCode || 500,
+          'SANDBOX_API_ERROR'
+        );
       }
 
       console.error('❌ [Sandbox PAN API] Unexpected linkage check error:', error);
-      return this.mockPANAadhaarLinkage(panNumber);
+      throw new AppError('PAN-Aadhaar linkage check failed', 500, 'SANDBOX_API_ERROR');
     }
   }
 
-  /**
-   * Mock PAN-Aadhaar linkage for development
-   */
   private mockPANAadhaarLinkage(panNumber: string): PANAadhaarLinkageResponse {
-    console.log('🔧 [Sandbox PAN API] Using mock PAN-Aadhaar linkage for:', this.maskPAN(panNumber));
+    console.log('🔧 [Sandbox PAN API] Using MOCK PAN-Aadhaar linkage for:', this.maskPAN(panNumber));
 
-    // Simulate unlinked PAN for testing
     if (panNumber.startsWith('UNLINK')) {
       return {
         status: 'success',
@@ -299,7 +359,6 @@ class SandboxPANService {
       };
     }
 
-    // Default: linked
     return {
       status: 'success',
       data: {
@@ -311,17 +370,10 @@ class SandboxPANService {
     };
   }
 
-  /**
-   * Check if PAN is inoperative (Income Tax compliance)
-   */
   isPANInoperative(panStatus: string): boolean {
     return panStatus === 'INOPERATIVE';
   }
 
-  /**
-   * Comprehensive PAN validation with all compliance checks
-   * Returns validation result with linkage and operative status
-   */
   async validatePANComprehensive(panNumber: string, fullName?: string, dateOfBirth?: string): Promise<{
     isValid: boolean;
     isOperative: boolean;
@@ -337,7 +389,6 @@ class SandboxPANService {
     let linkageData: PANAadhaarLinkageResponse['data'] | undefined;
 
     try {
-      // Step 1: Verify PAN
       const panResponse = await this.verifyPAN(panNumber, fullName, dateOfBirth);
       
       if (panResponse.status !== 'success' || !panResponse.data) {
@@ -347,18 +398,21 @@ class SandboxPANService {
 
       panData = panResponse.data;
 
-      // Step 2: Check if PAN is inoperative
       if (this.isPANInoperative(panData.status)) {
         errors.push('PAN is inoperative. Please link your PAN with Aadhaar on the Income Tax portal.');
         return { isValid: false, isOperative: false, isAadhaarLinked: false, panData, errors, warnings };
       }
 
-      // Step 3: Check PAN-Aadhaar linkage
-      const linkageResponse = await this.checkPANAadhaarLinkage(panNumber);
-      linkageData = linkageResponse.data;
+      try {
+        const linkageResponse = await this.checkPANAadhaarLinkage(panNumber);
+        linkageData = linkageResponse.data;
 
-      if (!linkageData?.aadhaar_linked) {
-        warnings.push('PAN is not linked with Aadhaar. You may proceed, but linking is recommended for compliance.');
+        if (!linkageData?.aadhaar_linked) {
+          warnings.push('PAN is not linked with Aadhaar. You may proceed, but linking is recommended for compliance.');
+        }
+      } catch (linkageError) {
+        console.warn('⚠️ [Sandbox PAN API] Linkage check failed, proceeding without linkage data:', linkageError);
+        warnings.push('PAN-Aadhaar linkage status could not be verified. Please check on the Income Tax portal.');
       }
 
       return {
@@ -372,20 +426,28 @@ class SandboxPANService {
       };
     } catch (error) {
       console.error('❌ [Sandbox PAN API] Comprehensive validation error:', error);
-      errors.push('PAN validation service temporarily unavailable');
+      if (error instanceof AppError) {
+        errors.push(error.message);
+      } else {
+        errors.push('PAN validation service temporarily unavailable');
+      }
       return { isValid: false, isOperative: false, isAadhaarLinked: false, errors, warnings };
     }
   }
 
-  /**
-   * Mask PAN for logging (show only last 4 chars) - PII Protection
-   */
   private maskPAN(pan: string): string {
     if (!pan || pan.length < 4) return 'XXXX';
     return `XXXXXX${pan.slice(-4)}`;
   }
+
+  getEnvironmentInfo(): { baseUrl: string; isTest: boolean; hasCredentials: boolean } {
+    return {
+      baseUrl: this.baseUrl,
+      isTest: this.isTestEnvironment,
+      hasCredentials: !!(this.apiKey && this.apiSecret),
+    };
+  }
 }
 
-// Export singleton instance
 export const sandboxPANService = new SandboxPANService();
 export type { SandboxPANResponse, SandboxPANRequest, PANAadhaarLinkageResponse };
