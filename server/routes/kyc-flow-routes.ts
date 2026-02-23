@@ -120,6 +120,15 @@ function refreshConfigStatus() {
         case 'cashfree_bank':
           provider.isConfigured = !!(process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY);
           break;
+        case 'aadhaar_address': {
+          const hasAnyAadhaarProvider = !!(
+            (process.env.SANDBOX_API_KEY && process.env.SANDBOX_API_SECRET) ||
+            (process.env.TRUTHSCREEN_USERNAME && process.env.TRUTHSCREEN_PASSWORD) ||
+            (process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY)
+          );
+          provider.isConfigured = hasAnyAadhaarProvider;
+          break;
+        }
         case 'digilocker':
           provider.isConfigured = !!(process.env.DIGILOCKER_CLIENT_ID);
           break;

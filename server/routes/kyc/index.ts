@@ -691,10 +691,22 @@ export function registerKYCWizardRoutes(app: Express) {
         }
       });
       
+      const profileUpdate: any = {
+        aadhaarVerifiedViaSmartKyc: true,
+      };
+      
+      if (verificationData.address) {
+        const addr = verificationData.address;
+        const addressParts = [addr.house, addr.street, addr.landmark, addr.locality].filter(Boolean);
+        profileUpdate.address = addressParts.join(', ') || addr.addressLine || '';
+        profileUpdate.city = addr.district || addr.city || '';
+        profileUpdate.state = addr.state || '';
+        profileUpdate.pincode = addr.pincode || addr.zip || '';
+        console.log(`[KYC] Address saved from Aadhaar eKYC for user ${userId}: ${profileUpdate.city}, ${profileUpdate.state} ${profileUpdate.pincode}`);
+      }
+      
       await db.update(schema.userProfiles)
-        .set({
-          aadhaarVerifiedViaSmartKyc: true,
-        })
+        .set(profileUpdate)
         .where(eq(schema.userProfiles.userId, userId));
       
       await kycOrchestratorService.logAuditEvent({
@@ -1973,10 +1985,29 @@ export function registerKYCWizardRoutes(app: Express) {
       }
       
       const result = await sandboxKYCService.verifyAadhaarOTP(refId, otp);
-      console.log(`[KYC] Aadhaar verified via Sandbox API for user ${req.user!.id}`);
+      const userId = req.user!.id;
+      console.log(`[KYC] Aadhaar verified via Sandbox API for user ${userId}`);
+
+      const standaloneProfileUpdate: any = {
+        aadhaarVerifiedViaSmartKyc: true,
+      };
+      
+      if (result.address) {
+        const addr = result.address;
+        const addressParts = [addr.house, addr.street, addr.landmark, addr.locality].filter(Boolean);
+        standaloneProfileUpdate.address = addressParts.join(', ') || '';
+        standaloneProfileUpdate.city = addr.district || addr.city || '';
+        standaloneProfileUpdate.state = addr.state || '';
+        standaloneProfileUpdate.pincode = addr.pincode || addr.zip || '';
+        console.log(`[KYC] Address saved from Aadhaar eKYC for user ${userId}: ${standaloneProfileUpdate.city}, ${standaloneProfileUpdate.state} ${standaloneProfileUpdate.pincode}`);
+      }
+      
+      await db.update(schema.userProfiles)
+        .set(standaloneProfileUpdate)
+        .where(eq(schema.userProfiles.userId, userId));
 
       await kycOrchestratorService.logAuditEvent({
-        userId: req.user!.id,
+        userId,
         action: 'AADHAAR_VERIFIED',
         step: 'aadhaar_otp',
         details: { 
@@ -1984,7 +2015,7 @@ export function registerKYCWizardRoutes(app: Express) {
           name: result.fullName,
           endpoint: 'standalone',
         },
-        performedBy: req.user!.id,
+        performedBy: userId,
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
       });
