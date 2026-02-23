@@ -148,8 +148,9 @@ class MCAService {
         }
       );
 
-      if (response.data?.access_token) {
-        const token: string = response.data.access_token;
+      const extractedToken = response.data?.data?.access_token || response.data?.access_token;
+      if (extractedToken) {
+        const token: string = extractedToken;
         this.accessToken = token;
         // Token typically expires in 24 hours, but we refresh at 23 hours to be safe
         this.tokenExpiry = new Date(Date.now() + 23 * 60 * 60 * 1000);

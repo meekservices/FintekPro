@@ -47,17 +47,20 @@ export async function getSandboxAccessToken(): Promise<string> {
       headers: {
         'x-api-key': SANDBOX_API_KEY,
         'x-api-secret': SANDBOX_API_SECRET,
+        'x-api-version': '1.0.0',
         'Content-Type': 'application/json',
       },
     }
   );
 
-  if (!response.data?.access_token) {
+  const token = response.data?.data?.access_token || response.data?.access_token;
+  if (!token) {
+    console.error('[Sandbox Auth] Unexpected response structure:', JSON.stringify(response.data).substring(0, 200));
     throw new Error('Sandbox authentication succeeded but no access_token returned');
   }
 
-  cachedToken = response.data.access_token;
-  const expiresIn = response.data.expires_in || 86400;
+  cachedToken = token;
+  const expiresIn = response.data?.data?.expires_in || response.data?.expires_in || 86400;
   tokenExpiry = Date.now() + (expiresIn - 300) * 1000;
 
   return cachedToken!;

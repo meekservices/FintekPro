@@ -50,8 +50,9 @@ export class SandboxCkycAdapter implements ICkycProviderAdapter {
       }
     );
     
-    this.cachedToken = response.data.access_token;
-    this.tokenExpiry = Date.now() + (response.data.expires_in || 3600) * 1000 - 60000;
+    this.cachedToken = response.data?.data?.access_token || response.data.access_token;
+    const expiresIn = response.data?.data?.expires_in || response.data.expires_in || 3600;
+    this.tokenExpiry = Date.now() + expiresIn * 1000 - 60000;
     
     return this.cachedToken!;
   }

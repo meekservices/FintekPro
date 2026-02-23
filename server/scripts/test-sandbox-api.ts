@@ -49,16 +49,18 @@ async function authenticate(): Promise<string | null> {
       }
     );
 
-    if (response.data?.access_token) {
+    const accessToken = response.data?.data?.access_token || response.data?.access_token;
+    const expiresIn = response.data?.data?.expires_in || response.data?.expires_in;
+    if (accessToken) {
       results.push({
         endpoint: '/authenticate',
         service: 'Core',
         status: 'PASS',
-        message: `Token obtained (expires in ${response.data.expires_in}s)`,
+        message: `Token obtained (expires in ${expiresIn}s)`,
         responseTime: Date.now() - startTime
       });
       console.log('✅ Authentication successful');
-      return response.data.access_token;
+      return accessToken;
     } else {
       results.push({
         endpoint: '/authenticate',

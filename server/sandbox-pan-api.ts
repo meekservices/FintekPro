@@ -11,7 +11,7 @@
 import axios, { AxiosError } from 'axios';
 import { AppError } from './utils/errors';
 import { kycEnvironmentService } from './services/kyc-environment-service';
-import { getSandboxBaseUrl, getSandboxApiKey, getSandboxApiSecret, getSandboxEnvironment } from './utils/sandbox-config';
+import { getSandboxBaseUrl, getSandboxApiKey, getSandboxEnvironment, getSandboxAccessToken, clearSandboxToken, hasSandboxCredentials } from './utils/sandbox-config';
 
 interface SandboxPANRequest {
   pan: string;
@@ -53,18 +53,14 @@ interface PANAadhaarLinkageResponse {
 class SandboxPANService {
   private baseUrl: string;
   private apiKey: string;
-  private apiSecret: string;
-  private accessToken: string | null = null;
-  private tokenExpiry: number = 0;
   private isTestEnvironment: boolean;
 
   constructor() {
     this.baseUrl = getSandboxBaseUrl();
     this.apiKey = getSandboxApiKey();
-    this.apiSecret = getSandboxApiSecret();
     this.isTestEnvironment = getSandboxEnvironment() === 'TEST';
 
-    if (!this.apiKey || !this.apiSecret) {
+    if (!hasSandboxCredentials()) {
       console.warn('⚠️ [Sandbox PAN API] API credentials not configured. Mock mode will be used in sandbox environment only.');
     } else {
       const env = this.isTestEnvironment ? 'TEST' : 'PRODUCTION';
@@ -73,32 +69,10 @@ class SandboxPANService {
   }
 
   private async authenticate(): Promise<string> {
-    if (this.accessToken && Date.now() < this.tokenExpiry) {
-      return this.accessToken;
-    }
-
-    if (!this.apiKey || !this.apiSecret) {
-      throw new AppError('Sandbox API credentials not configured', 500, 'SANDBOX_CREDENTIALS_MISSING');
-    }
-
     try {
-      const response = await axios.post(
-        `${this.baseUrl}/authenticate`,
-        {},
-        {
-          headers: {
-            'x-api-key': this.apiKey,
-            'x-api-secret': this.apiSecret,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      this.accessToken = response.data.access_token;
-      this.tokenExpiry = Date.now() + (response.data.expires_in - 300) * 1000;
-      return this.accessToken!;
+      return await getSandboxAccessToken();
     } catch (error: any) {
-      console.error('❌ [Sandbox PAN API] Authentication failed:', error.response?.data || error.message);
+      console.error('❌ [Sandbox PAN API] Authentication failed:', error.message);
       throw new AppError(
         'Sandbox API authentication failed. Please check API credentials.',
         401,
@@ -114,7 +88,7 @@ class SandboxPANService {
         throw new AppError('Invalid PAN format. PAN must be in format: ABCDE1234F', 400, 'INVALID_PAN_FORMAT');
       }
 
-      if (!this.apiKey || !this.apiSecret) {
+      if (!hasSandboxCredentials()) {
         if (kycEnvironmentService.isSandbox()) {
           console.log('🔧 [Sandbox PAN API] No credentials, using mock (sandbox mode)');
           return this.mockPANVerification(panNumber, fullName);
@@ -128,33 +102,43 @@ class SandboxPANService {
 
       const token = await this.authenticate();
 
-      const requestPayload: SandboxPANRequest = {
+      const requestPayload: any = {
+        '@entity': 'in.co.sandbox.kyc.pan.verify',
         pan: panNumber.toUpperCase(),
+        name_as_per_pan: fullName || '',
+        date_of_birth: dateOfBirth || '',
         consent: 'Y',
         reason: 'KYC verification for financial services'
       };
 
       const response = await axios.post<SandboxPANResponse>(
-        `${this.baseUrl}/pans/${panNumber}/verify`,
+        `${this.baseUrl}/kyc/pan/verify`,
         requestPayload,
         {
           headers: {
             'Content-Type': 'application/json',
             'x-api-key': this.apiKey,
-            'authorization': token,
+            'Authorization': token,
             'x-api-version': '1.0'
           },
           timeout: 30000
         }
       );
 
-      if (response.data.status === 'success') {
+      const responseData = response.data?.data || response.data;
+      const normalizedResponse: SandboxPANResponse = {
+        status: (response.data?.code === 200 || responseData?.status === 'VALID' || response.data?.status === 'success') ? 'success' : 'failure',
+        data: responseData?.pan_number ? responseData : responseData?.data || responseData,
+        message: response.data?.message,
+      };
+
+      if (normalizedResponse.status === 'success' && normalizedResponse.data) {
         console.log(`✅ [Sandbox PAN API] PAN verified successfully: ${this.maskPAN(panNumber)} (${this.isTestEnvironment ? 'TEST' : 'LIVE'})`);
-        return response.data;
+        return normalizedResponse;
       } else {
-        console.error('❌ [Sandbox PAN API] PAN verification failed:', response.data.message);
+        console.error('❌ [Sandbox PAN API] PAN verification failed:', normalizedResponse.message || JSON.stringify(response.data).substring(0, 200));
         throw new AppError(
-          response.data.message || 'PAN verification failed',
+          normalizedResponse.message || 'PAN verification failed',
           400,
           'PAN_VERIFICATION_FAILED'
         );
@@ -176,9 +160,23 @@ class SandboxPANService {
           environment: this.isTestEnvironment ? 'TEST' : 'LIVE'
         });
 
-        if (statusCode === 401 || statusCode === 403) {
-          this.accessToken = null;
-          this.tokenExpiry = 0;
+        if (statusCode === 401 || statusCode === 403 || (statusCode === 400 && errorMessage?.includes('Authorization'))) {
+          clearSandboxToken();
+          const retryToken = await this.authenticate();
+          try {
+            const retryResponse = await axios.post(
+              `${this.baseUrl}/kyc/pan/verify`,
+              { '@entity': 'in.co.sandbox.kyc.pan.verify', pan: panNumber.toUpperCase(), consent: 'Y', reason: 'KYC verification' },
+              {
+                headers: { 'Content-Type': 'application/json', 'x-api-key': this.apiKey, 'Authorization': retryToken, 'x-api-version': '1.0' },
+                timeout: 30000
+              }
+            );
+            const retryData = retryResponse.data?.data || retryResponse.data;
+            return { status: 'success' as const, data: retryData?.pan_number ? retryData : retryData?.data || retryData };
+          } catch (retryError) {
+            console.error('❌ [Sandbox PAN API] Retry also failed:', retryError);
+          }
           throw new AppError(
             'PAN verification authentication failed. API credentials may be invalid or expired.',
             401,
@@ -281,7 +279,7 @@ class SandboxPANService {
         throw new AppError('Invalid PAN format', 400, 'INVALID_PAN_FORMAT');
       }
 
-      if (!this.apiKey || !this.apiSecret) {
+      if (!hasSandboxCredentials()) {
         if (kycEnvironmentService.isSandbox()) {
           return this.mockPANAadhaarLinkage(panNumber);
         }
@@ -290,21 +288,28 @@ class SandboxPANService {
 
       const token = await this.authenticate();
 
-      const response = await axios.get<PANAadhaarLinkageResponse>(
-        `${this.baseUrl}/pans/${panNumber}/aadhaar-link-status`,
+      const response = await axios.post<PANAadhaarLinkageResponse>(
+        `${this.baseUrl}/kyc/pan/aadhaar-link-status`,
+        {
+          '@entity': 'in.co.sandbox.kyc.pan.aadhaar_link_status',
+          pan: panNumber.toUpperCase(),
+          consent: 'Y',
+          reason: 'PAN-Aadhaar linkage check'
+        },
         {
           headers: {
             'Content-Type': 'application/json',
             'x-api-key': this.apiKey,
-            'authorization': token,
+            'Authorization': token,
             'x-api-version': '1.0'
           },
           timeout: 30000
         }
       );
 
+      const linkageData = response.data?.data || response.data;
       console.log(`✅ [Sandbox PAN API] PAN-Aadhaar linkage checked: ${this.maskPAN(panNumber)} (${this.isTestEnvironment ? 'TEST' : 'LIVE'})`);
-      return response.data;
+      return { status: 'success' as const, data: linkageData };
     } catch (error) {
       if (error instanceof AppError) throw error;
 
@@ -314,9 +319,8 @@ class SandboxPANService {
         const errorMessage = axiosError.response?.data?.message || axiosError.message;
         console.error('❌ [Sandbox PAN API] Linkage check error:', { status: statusCode, message: errorMessage });
         
-        if (statusCode === 401 || statusCode === 403) {
-          this.accessToken = null;
-          this.tokenExpiry = 0;
+        if (statusCode === 401 || statusCode === 403 || (statusCode === 400 && errorMessage?.includes('Authorization'))) {
+          clearSandboxToken();
           throw new AppError(
             'PAN-Aadhaar linkage check authentication failed.',
             401,
@@ -437,7 +441,7 @@ class SandboxPANService {
     return {
       baseUrl: this.baseUrl,
       isTest: this.isTestEnvironment,
-      hasCredentials: !!(this.apiKey && this.apiSecret),
+      hasCredentials: hasSandboxCredentials(),
     };
   }
 }

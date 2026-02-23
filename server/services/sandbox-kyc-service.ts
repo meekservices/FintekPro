@@ -124,9 +124,9 @@ export class SandboxKYCService {
         }
       );
 
-      this.accessToken = response.data.access_token;
-      // Set expiry 5 minutes before actual expiry for safety
-      this.tokenExpiry = Date.now() + (response.data.expires_in - 300) * 1000;
+      this.accessToken = response.data?.data?.access_token || response.data.access_token;
+      const expiresIn = response.data?.data?.expires_in || response.data.expires_in || 86400;
+      this.tokenExpiry = Date.now() + (expiresIn - 300) * 1000;
 
       return this.accessToken;
     } catch (error: any) {
