@@ -138,7 +138,6 @@ import { platformStatsCache } from './services/platform-stats-cache';
 import * as schema from "@shared/schema";
 import adminMutualFundsRoutes from "./routes/admin-mutual-funds-routes";
 import adminGlobalInstrumentsRoutes from "./routes/admin-global-instruments";
-import adminAadhaarRoutes from "./routes/admin-aadhaar-routes";
 import adminApiUsageRoutes from "./routes/admin-api-usage-routes";
 import derivativesRoutes from "./routes/derivatives-routes";
 import taxServicesRoutes from "./routes/tax-services-routes";
@@ -182,8 +181,6 @@ import { taxRoutes } from "./tax-routes";
 import meetingBookingsRoutes from "./routes/meeting-bookings";
 import sebiRiskProfilingRoutes from "./routes/sebi-risk-profiling-routes";
 import portfolioReportsRoutes from "./routes/portfolio-reports";
-import ckycProviderRoutes from "./routes/ckyc-provider-routes";
-import panProviderRoutes from "./routes/pan-provider-routes";
 import kycFlowRoutes from "./routes/kyc-flow-routes";
 import kycEngineRoutes from "./routes/kyc-engine-routes";
 import aiRecommendationTrackingRoutes from "./routes/ai-recommendation-tracking-routes";
@@ -745,7 +742,6 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Admin Mutual Funds Management Routes
   app.use("/api/admin", requireAdmin, adminMutualFundsRoutes);
   app.use("/api/admin/global-instruments", requireAdmin, adminGlobalInstrumentsRoutes);
-  app.use(adminAadhaarRoutes);
   app.use(adminApiUsageRoutes);
   app.use("/api/derivatives", derivativesRoutes);
   app.use("/api/admin/tax-services", requireAdmin, taxServicesRoutes);
@@ -820,15 +816,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   console.log("✅ Tester Diagnostics routes registered");
   console.log("✅ AI Recommendation Tracking routes registered");
   
-  // CKYC Provider Configuration Routes
-  app.use("/api/admin/ckyc", requireAdmin, ckycProviderRoutes);
-  console.log("✅ CKYC Provider Configuration routes registered");
-
-  // PAN Provider Configuration Routes
-  app.use("/api/admin/pan", requireAdmin, panProviderRoutes);
-  console.log("✅ PAN Provider Configuration routes registered");
-
-  // KYC Flow Configuration Routes
+  // KYC Flow Configuration Routes (unified single source of truth for all KYC providers)
   app.use("/api/admin/kyc", requireAdmin, kycFlowRoutes);
   console.log("✅ KYC Flow Configuration routes registered");
 
