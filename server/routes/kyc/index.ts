@@ -8,6 +8,7 @@ import { PANConsentService } from '../../services/pan-consent-service';
 import { kycOrchestratorService } from '../../services/kyc-orchestrator-service';
 import { sandboxKYCService } from '../../services/sandbox-kyc-service';
 import { kycEnvironmentService } from '../../services/kyc-environment-service';
+import { getSandboxEnvironment } from '../../utils/sandbox-config';
 import { db } from '../../db';
 import * as schema from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
@@ -16,6 +17,26 @@ import { smsService } from '../../services/sms-service';
 import { emailService } from '../../email-service';
 
 export function registerKYCWizardRoutes(app: Express) {
+  app.get("/api/kyc/sandbox-info", requireClientOrHigher, async (_req: any, res) => {
+    const env = getSandboxEnvironment();
+    const envInfo = sandboxPANService.getEnvironmentInfo();
+    res.json({
+      isTestEnvironment: env === 'TEST',
+      hasCredentials: envInfo.hasCredentials,
+      testPANs: env === 'TEST' ? [
+        { pan: 'XXXPX1234A', description: 'Individual, Valid, Name & DOB match' },
+        { pan: 'XXXPX1234H', description: 'Individual, Valid, Deceased' },
+        { pan: 'XXXPX1234O', description: 'Individual, Valid, Name match, DOB mismatch' },
+        { pan: 'XXXPX1234L', description: 'Individual, Valid, Name & DOB unmatched' },
+        { pan: 'XXXTX1234P', description: 'Trust, Valid, Liquidated' },
+        { pan: 'XXXCX1234B', description: 'Company, Valid, Merged' },
+        { pan: 'XXXAX2345A', description: 'AOP, Valid' },
+        { pan: 'XXXBX3456B', description: 'BOI, Valid' },
+        { pan: 'XXXFX1234J', description: 'Firm, Invalid, Deleted' },
+      ] : []
+    });
+  });
+
   app.get("/api/kyc/status", requireClientOrHigher, async (req: any, res) => {
     try {
       const userId = req.user!.id;
@@ -375,7 +396,19 @@ export function registerKYCWizardRoutes(app: Express) {
         });
       }
       
-      const verification = await sandboxPANService.verifyPAN(panNumber, fullName, dob);
+      let verification;
+      try {
+        verification = await sandboxPANService.verifyPAN(panNumber, fullName, dob);
+      } catch (verifyError: any) {
+        const isTest = getSandboxEnvironment() === 'TEST';
+        const errMsg = verifyError?.message || 'PAN verification failed';
+        const testHint = isTest ? ' In TEST environment, use test PANs like XXXPX1234A.' : '';
+        return res.json({
+          success: false,
+          message: errMsg + testHint,
+          isTestEnvironment: isTest
+        });
+      }
       
       if (!verification || verification.status !== 'success' || !verification.data) {
         return res.json({

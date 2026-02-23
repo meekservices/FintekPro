@@ -213,9 +213,9 @@ async function runAllTests(): Promise<void> {
   await testEndpoint({
     name: 'PAN Verification',
     service: 'sandbox-kyc-service',
-    endpoint: '/pans/verify',
+    endpoint: '/kyc/pan/verify',
     method: 'POST',
-    body: { pan: 'AAAAA0000A', name: 'Test Name' },
+    body: { '@entity': 'in.co.sandbox.kyc.pan.verify', pan: 'XXXPX1234A', name_as_per_pan: 'Test Name', date_of_birth: '', consent: 'Y', reason: 'Test verification' },
     expectError: true
   });
 

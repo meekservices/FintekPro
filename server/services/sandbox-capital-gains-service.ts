@@ -155,6 +155,7 @@ class SandboxCapitalGainsService {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
             'x-api-secret': SANDBOX_API_SECRET,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }

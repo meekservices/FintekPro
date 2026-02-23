@@ -119,6 +119,7 @@ export class SandboxKYCService {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
             'x-api-secret': SANDBOX_API_SECRET,
+            'x-api-version': '1.0.0',
             'Content-Type': 'application/json',
           },
         }
@@ -249,12 +250,19 @@ export class SandboxKYCService {
 
     try {
       const response = await axios.post(
-        `${SANDBOX_BASE_URL}/pans/verify`,
-        { pan, name },
+        `${SANDBOX_BASE_URL}/kyc/pan/verify`,
+        {
+          '@entity': 'in.co.sandbox.kyc.pan.verify',
+          pan: pan.toUpperCase(),
+          name_as_per_pan: name || '',
+          date_of_birth: '',
+          consent: 'Y',
+          reason: 'Corporate PAN verification for financial services'
+        },
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
+            'Authorization': token,
             'x-api-version': '1.0',
             'Content-Type': 'application/json',
           },
@@ -268,11 +276,11 @@ export class SandboxKYCService {
       const data = response.data.data;
 
       return {
-        pan: data.pan,
-        name: data.name,
+        pan: data.pan || data.pan_number || pan,
+        name: data.full_name || data.name || name,
         entityType: data.entity_type || data.category,
         status: data.status,
-        lastUpdated: data.last_updated,
+        lastUpdated: data.last_updated || new Date().toISOString(),
         category: data.category,
       };
     } catch (error: any) {
@@ -302,16 +310,19 @@ export class SandboxKYCService {
     try {
       const token = await this.authenticate();
       const response = await axios.post(
-        `${SANDBOX_BASE_URL}/pans/verify`,
+        `${SANDBOX_BASE_URL}/kyc/pan/verify`,
         { 
-          pan,
-          name,
-          dob
+          '@entity': 'in.co.sandbox.kyc.pan.verify',
+          pan: pan.toUpperCase(),
+          name_as_per_pan: name || '',
+          date_of_birth: dob || '',
+          consent: 'Y',
+          reason: 'KYC verification for financial services'
         },
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
-            'authorization': token,
+            'Authorization': token,
             'x-api-version': '1.0',
             'Content-Type': 'application/json',
           },
