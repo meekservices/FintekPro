@@ -74,6 +74,7 @@ POLYGON_S3_ENDPOINT = "https://files.massive.com"
 POLYGON_S3_BUCKET = "flatfiles"
 ZOHO_DATACENTER = "in"
 TRUTHSCREEN_BASE_URL = "https://www.truthscreen.com"
+KYC_ENVIRONMENT = "production"
 
 [userenv.production]
 CASHFREE_ENVIRONMENT = "PRODUCTION"

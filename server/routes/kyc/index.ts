@@ -6,6 +6,8 @@ import { sandboxPANService } from '../../sandbox-pan-api';
 import { authBridgeCKYCService } from '../../authbridge-ckyc-api';
 import { PANConsentService } from '../../services/pan-consent-service';
 import { kycOrchestratorService } from '../../services/kyc-orchestrator-service';
+import { sandboxKYCService } from '../../services/sandbox-kyc-service';
+import { kycEnvironmentService } from '../../services/kyc-environment-service';
 import { db } from '../../db';
 import * as schema from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
@@ -503,6 +505,13 @@ export function registerKYCWizardRoutes(app: Express) {
         });
       }
       
+      if (!/^\d{12}$/.test(aadhaarNumber)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid Aadhaar number format. Must be 12 digits."
+        });
+      }
+      
       const session = await storage.getKycVerificationSession(sessionId);
       
       if (!session || session.userId !== userId) {
@@ -523,13 +532,35 @@ export function registerKYCWizardRoutes(app: Express) {
       }
       
       const last4Digits = aadhaarNumber.slice(-4);
+      const isDemoMode = kycEnvironmentService.isSandbox();
+      
+      let referenceId = '';
+      let transactionId = '';
+      let message = '';
+      
+      if (isDemoMode) {
+        referenceId = `demo_ref_${Date.now()}`;
+        transactionId = `demo_txn_${Date.now()}`;
+        message = "Demo mode: Use fixed OTP 123456";
+        console.log(`[KYC] Aadhaar OTP in DEMO mode for user ${userId}`);
+      } else {
+        const result = await sandboxKYCService.generateAadhaarOTP(
+          aadhaarNumber,
+          'KYC verification for account opening'
+        );
+        referenceId = result.referenceId;
+        transactionId = result.transactionId;
+        message = "OTP sent to Aadhaar-linked mobile number";
+        console.log(`[KYC] Aadhaar OTP sent via Sandbox API for user ${userId}, ref: ${referenceId}`);
+      }
       
       await storage.updateKycVerificationSession(sessionId, {
         aadhaarNumber: await PANConsentService.encryptPAN(last4Digits),
         currentStep: "aadhaar_verification",
         stepStatus: {
           ...session.stepStatus as any,
-          aadhaar_otp_sent: true
+          aadhaar_otp_sent: true,
+          aadhaar_reference_id: referenceId,
         }
       });
       
@@ -537,31 +568,34 @@ export function registerKYCWizardRoutes(app: Express) {
         userId,
         action: 'AADHAAR_OTP_SENT',
         step: 'aadhaar_otp',
-        details: { maskedAadhaar: `XXXX-XXXX-${last4Digits}`, provider: 'sandbox-pan' },
+        details: { 
+          maskedAadhaar: `XXXX-XXXX-${last4Digits}`, 
+          provider: isDemoMode ? 'demo' : 'sandbox-aadhaar-okyc',
+          referenceId,
+        },
         performedBy: userId,
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
       });
       
-      const isTester = req.user?.roles?.includes('tester') || req.user?.email === 'test@fintekpro.com';
-      
       res.json({
         success: true,
-        message: isTester 
-          ? "Mock OTP mode: Use fixed OTP 123456" 
-          : "OTP sent to Aadhaar-linked mobile number",
+        message,
+        transactionId,
         data: {
-          maskedMobile: `XXXXXX${Math.floor(1000 + Math.random() * 9000)}`,
+          referenceId,
+          maskedMobile: `XXXXXX${last4Digits}`,
           otpValidFor: 300,
-          provider: 'sandbox-pan',
-          ...(isTester ? { testOtp: '123456' } : {})
+          provider: isDemoMode ? 'demo' : 'sandbox-aadhaar-okyc',
+          environment: isDemoMode ? 'sandbox' : 'production',
+          ...(isDemoMode ? { testOtp: '123456' } : {})
         }
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending Aadhaar OTP:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to send OTP'
+        message: error.message || 'Failed to send OTP. Please try again.'
       });
     }
   });
@@ -578,6 +612,13 @@ export function registerKYCWizardRoutes(app: Express) {
         });
       }
       
+      if (!/^\d{6}$/.test(otp)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid OTP format. Must be 6 digits."
+        });
+      }
+      
       const session = await storage.getKycVerificationSession(sessionId);
       
       if (!session || session.userId !== userId) {
@@ -587,37 +628,104 @@ export function registerKYCWizardRoutes(app: Express) {
         });
       }
       
+      const stepStatus = session.stepStatus as any;
+      const referenceId = stepStatus?.aadhaar_reference_id;
+      const isDemoMode = kycEnvironmentService.isSandbox();
+      
+      let verificationData: any = null;
+      
+      if (isDemoMode) {
+        if (otp !== '123456') {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid OTP. In demo mode, use OTP: 123456"
+          });
+        }
+        verificationData = {
+          name: "Demo Verified User",
+          dob: "1990-01-01",
+          gender: "M",
+          address: {
+            house: "123",
+            street: "Demo Street",
+            landmark: "",
+            locality: "Demo City",
+            district: "Demo District",
+            state: "Maharashtra",
+            pincode: "400001",
+            country: "India"
+          },
+          provider: 'demo',
+        };
+        console.log(`[KYC] Aadhaar OTP verified in DEMO mode for user ${userId}`);
+      } else {
+        if (!referenceId) {
+          return res.status(400).json({
+            success: false,
+            message: "No pending Aadhaar OTP request found. Please request a new OTP."
+          });
+        }
+        
+        const result = await sandboxKYCService.verifyAadhaarOTP(referenceId, otp);
+        verificationData = {
+          name: result.fullName,
+          dob: result.dateOfBirth,
+          gender: result.gender,
+          address: result.address,
+          photo: result.photo,
+          maskedAadhaar: result.aadhaarNumber,
+          provider: 'sandbox-aadhaar-okyc',
+        };
+        console.log(`[KYC] Aadhaar OTP verified via Sandbox API for user ${userId}, name: ${result.fullName}`);
+      }
+      
       await storage.updateKycVerificationSession(sessionId, {
         aadhaarVerified: true,
         aadhaarVerifiedAt: new Date(),
+        aadhaarVerificationData: verificationData,
         currentStep: "data_collection",
         stepStatus: {
-          ...session.stepStatus as any,
-          aadhaar_verified: true
+          ...stepStatus,
+          aadhaar_verified: true,
+          aadhaar_reference_id: null,
         }
       });
       
-      // Also persist Aadhaar verification to user profile so progress is retained
       await db.update(schema.userProfiles)
         .set({
           aadhaarVerifiedViaSmartKyc: true,
         })
         .where(eq(schema.userProfiles.userId, userId));
       
+      await kycOrchestratorService.logAuditEvent({
+        userId,
+        action: 'AADHAAR_VERIFIED',
+        step: 'aadhaar_otp',
+        details: { 
+          provider: isDemoMode ? 'demo' : 'sandbox-aadhaar-okyc',
+          name: verificationData.name,
+        },
+        performedBy: userId,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      
       res.json({
         success: true,
         verified: true,
         message: "Aadhaar verified successfully",
-        data: {
-          name: "Verified User",
-          address: "Address from Aadhaar"
-        }
+        data: verificationData
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error verifying Aadhaar OTP:', error);
-      res.status(500).json({
+      const message = error.message?.includes('Invalid OTP') 
+        ? 'Invalid OTP. Please check and try again.'
+        : error.message?.includes('expired')
+        ? 'OTP has expired. Please request a new OTP.'
+        : error.message || 'Failed to verify OTP';
+      res.status(400).json({
         success: false,
-        message: 'Failed to verify OTP'
+        message
       });
     }
   });
@@ -1748,6 +1856,10 @@ export function registerKYCWizardRoutes(app: Express) {
         return res.status(400).json({ success: false, message: "Aadhaar number is required" });
       }
 
+      if (!/^\d{12}$/.test(aadhaarNumber)) {
+        return res.status(400).json({ success: false, message: "Invalid Aadhaar number format. Must be 12 digits." });
+      }
+
       const userRole = req.user?.role || 'user';
       if (['agent', 'partner', 'sub_partner'].includes(userRole)) {
         return res.status(403).json({
@@ -1757,49 +1869,147 @@ export function registerKYCWizardRoutes(app: Express) {
         });
       }
 
-      const isTester = req.user?.email === 'test@fintekpro.com';
-      res.json({
-        success: true,
-        message: isTester ? "Mock OTP mode: Use fixed OTP 123456" : "OTP sent to Aadhaar-linked mobile",
-        data: {
-          maskedMobile: `XXXXXX${Math.floor(1000 + Math.random() * 9000)}`,
-          otpValidFor: 300,
-          provider: 'sandbox-pan',
-          ...(isTester ? { testOtp: '123456' } : {})
+      const isDemoMode = kycEnvironmentService.isSandbox();
+      const last4Digits = aadhaarNumber.slice(-4);
+      
+      if (isDemoMode) {
+        res.json({
+          success: true,
+          message: "Demo mode: Use fixed OTP 123456",
+          data: {
+            referenceId: `demo_ref_${Date.now()}`,
+            maskedMobile: `XXXXXX${last4Digits}`,
+            otpValidFor: 300,
+            provider: 'demo',
+            environment: 'sandbox',
+            testOtp: '123456',
+          }
+        });
+      } else {
+        const result = await sandboxKYCService.generateAadhaarOTP(
+          aadhaarNumber,
+          'KYC verification for account opening'
+        );
+        console.log(`[KYC] Aadhaar OTP sent via Sandbox API for user ${req.user!.id}, ref: ${result.referenceId}`);
+        
+        if (sessionId) {
+          const session = await storage.getKycVerificationSession(sessionId);
+          if (session) {
+            await storage.updateKycVerificationSession(sessionId, {
+              stepStatus: {
+                ...session.stepStatus as any,
+                aadhaar_otp_sent: true,
+                aadhaar_reference_id: result.referenceId,
+              }
+            });
+          }
         }
-      });
-    } catch (error) {
+        
+        await kycOrchestratorService.logAuditEvent({
+          userId: req.user!.id,
+          action: 'AADHAAR_OTP_SENT',
+          step: 'aadhaar_otp',
+          details: { 
+            maskedAadhaar: `XXXX-XXXX-${last4Digits}`, 
+            provider: 'sandbox-aadhaar-okyc',
+            referenceId: result.referenceId,
+            endpoint: 'standalone',
+          },
+          performedBy: req.user!.id,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+        });
+        
+        res.json({
+          success: true,
+          message: "OTP sent to Aadhaar-linked mobile number",
+          data: {
+            referenceId: result.referenceId,
+            maskedMobile: `XXXXXX${last4Digits}`,
+            otpValidFor: result.validFor,
+            provider: 'sandbox-aadhaar-okyc',
+            environment: 'production',
+          }
+        });
+      }
+    } catch (error: any) {
       console.error('Error sending Aadhaar OTP:', error);
-      res.status(500).json({ success: false, message: 'Failed to send OTP' });
+      res.status(500).json({ success: false, message: error.message || 'Failed to send OTP' });
     }
   });
 
   app.post("/api/kyc/aadhaar/otp/verify", requireClientOrHigher, async (req: any, res) => {
     try {
-      const { otp, sessionId } = req.body;
+      const { otp, sessionId, referenceId } = req.body;
       if (!otp) {
         return res.status(400).json({ success: false, message: "OTP is required" });
       }
 
-      const isTester = req.user?.email === 'test@fintekpro.com';
-      const isValid = isTester ? otp === '123456' : false;
-
-      if (!isValid && !isTester) {
-        return res.status(400).json({ success: false, message: "Invalid OTP" });
+      if (!/^\d{6}$/.test(otp)) {
+        return res.status(400).json({ success: false, message: "Invalid OTP format. Must be 6 digits." });
       }
 
-      if (isTester && otp !== '123456') {
-        return res.status(400).json({ success: false, message: "Invalid OTP" });
+      const isDemoMode = kycEnvironmentService.isSandbox();
+      
+      if (isDemoMode) {
+        if (otp !== '123456') {
+          return res.status(400).json({ success: false, message: "Invalid OTP. In demo mode, use OTP: 123456" });
+        }
+        return res.json({
+          success: true,
+          message: "Aadhaar verified successfully",
+          data: { verified: true, provider: 'demo', environment: 'sandbox' }
+        });
       }
+      
+      let refId = referenceId;
+      if (!refId && sessionId) {
+        const session = await storage.getKycVerificationSession(sessionId);
+        refId = (session?.stepStatus as any)?.aadhaar_reference_id;
+      }
+      
+      if (!refId) {
+        return res.status(400).json({ success: false, message: "No pending Aadhaar OTP request found. Please request a new OTP." });
+      }
+      
+      const result = await sandboxKYCService.verifyAadhaarOTP(refId, otp);
+      console.log(`[KYC] Aadhaar verified via Sandbox API for user ${req.user!.id}`);
+
+      await kycOrchestratorService.logAuditEvent({
+        userId: req.user!.id,
+        action: 'AADHAAR_VERIFIED',
+        step: 'aadhaar_otp',
+        details: { 
+          provider: 'sandbox-aadhaar-okyc',
+          name: result.fullName,
+          endpoint: 'standalone',
+        },
+        performedBy: req.user!.id,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
 
       res.json({
         success: true,
         message: "Aadhaar verified successfully",
-        data: { verified: true, provider: 'sandbox-pan' }
+        data: { 
+          verified: true, 
+          provider: 'sandbox-aadhaar-okyc',
+          environment: 'production',
+          name: result.fullName,
+          dob: result.dateOfBirth,
+          gender: result.gender,
+          address: result.address,
+        }
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error verifying Aadhaar OTP:', error);
-      res.status(500).json({ success: false, message: 'Failed to verify OTP' });
+      const message = error.message?.includes('Invalid OTP') 
+        ? 'Invalid OTP. Please check and try again.'
+        : error.message?.includes('expired')
+        ? 'OTP has expired. Please request a new OTP.'
+        : error.message || 'Failed to verify OTP';
+      res.status(400).json({ success: false, message });
     }
   });
 
