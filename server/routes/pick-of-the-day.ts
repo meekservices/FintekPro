@@ -104,6 +104,58 @@ async function enrichPicksWithDataSource(picks: any[]) {
     } else {
       pick.dataFreshness = 'stale';
     }
+
+    if (pick.category === 'listed_stocks' && pick.symbol && pick.keyMetrics) {
+      const km = typeof pick.keyMetrics === 'string' ? JSON.parse(pick.keyMetrics) : pick.keyMetrics;
+      const needsRsi = km.rsi == null;
+      const needsRoic = km.roic == null;
+      if (needsRsi || needsRoic) {
+        try {
+          if (needsRoic) {
+            const stockRow = await db.execute(sql`SELECT roce FROM listed_stocks WHERE symbol = ${pick.symbol} AND roce IS NOT NULL LIMIT 1`);
+            const row = (stockRow as any).rows?.[0];
+            if (row?.roce != null) {
+              km.roic = parseFloat(row.roce);
+            }
+          }
+          if (needsRsi) {
+            const yahooFinance = (await import('yahoo-finance2')).default;
+            const suffixes = ['.NS', '.BO'];
+            for (const suffix of suffixes) {
+              if (km.rsi != null) break;
+              try {
+                const yahooSymbol = `${pick.symbol}${suffix}`;
+                const endDate = new Date();
+                const startDate = new Date();
+                startDate.setDate(startDate.getDate() - 30);
+                const chartResult = await yahooFinance.chart(yahooSymbol, {
+                  period1: startDate,
+                  period2: endDate,
+                  interval: '1d',
+                });
+                const quotes = chartResult?.quotes;
+                if (quotes && quotes.length >= 15) {
+                  const closes = quotes.map((q: any) => q.close).filter((c: any) => c != null);
+                  if (closes.length >= 15) {
+                    let gains = 0, losses = 0;
+                    for (let i = 1; i <= 14; i++) {
+                      const diff = closes[closes.length - i] - closes[closes.length - i - 1];
+                      if (diff > 0) gains += diff;
+                      else losses += Math.abs(diff);
+                    }
+                    const avgGain = gains / 14;
+                    const avgLoss = losses / 14;
+                    km.rsi = avgLoss === 0 ? 100 : Math.round((100 - (100 / (1 + avgGain / avgLoss))) * 100) / 100;
+                  }
+                }
+              } catch {}
+            }
+          }
+          pick.keyMetrics = km;
+        } catch {
+        }
+      }
+    }
   }
   
   return { picks, categoryLastUpdated };

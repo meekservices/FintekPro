@@ -519,6 +519,59 @@ class PickOfTheDayService {
       const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
       const stoplossPrice = Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
 
+      let directRsi: number | null = null;
+      let directRoic: number | null = null;
+      const needsRsi = !topEnriched?.technicals?.rsi;
+      const needsRoic = !topEnriched?.fundamentals?.roic;
+
+      if (needsRoic && topStock.roce) {
+        directRoic = parseFloat(topStock.roce);
+        if (!isNaN(directRoic)) {
+          console.log(`[PickOfTheDay] ROCE fallback for ROIC on ${topStock.symbol}: ${directRoic.toFixed(2)}%`);
+        } else {
+          directRoic = null;
+        }
+      }
+
+      if (needsRsi && topStock.symbol) {
+        try {
+          const yahooFinance = (await import('yahoo-finance2')).default;
+          const suffixes = ['.NS', '.BO'];
+          for (const suffix of suffixes) {
+            if (directRsi != null) break;
+            try {
+              const yahooSymbol = `${topStock.symbol}${suffix}`;
+              const endDate = new Date();
+              const startDate = new Date();
+              startDate.setDate(startDate.getDate() - 30);
+              const chartResult = await yahooFinance.chart(yahooSymbol, {
+                period1: startDate,
+                period2: endDate,
+                interval: '1d',
+              });
+              const quotes = chartResult?.quotes;
+              if (quotes && quotes.length >= 15) {
+                const closes = quotes.map((q: any) => q.close).filter((c: any) => c != null);
+                if (closes.length >= 15) {
+                  let gains = 0, losses = 0;
+                  for (let i = 1; i <= 14; i++) {
+                    const diff = closes[closes.length - i] - closes[closes.length - i - 1];
+                    if (diff > 0) gains += diff;
+                    else losses += Math.abs(diff);
+                  }
+                  const avgGain = gains / 14;
+                  const avgLoss = losses / 14;
+                  directRsi = avgLoss === 0 ? 100 : Math.round((100 - (100 / (1 + avgGain / avgLoss))) * 100) / 100;
+                  console.log(`[PickOfTheDay] Yahoo Finance RSI(14) for ${topStock.symbol} via ${suffix}: ${directRsi}`);
+                }
+              }
+            } catch {}
+          }
+        } catch (err) {
+          console.warn(`[PickOfTheDay] Yahoo Finance RSI calculation failed for ${topStock.symbol}:`, err);
+        }
+      }
+
       const enrichedRationaleData: Record<string, any> = {};
       if (topEnriched) {
         if (topEnriched.dcf?.upsidePercent != null) {
@@ -540,6 +593,12 @@ class PickOfTheDayService {
           enrichedRationaleData.analystAvgTarget = topEnriched.analystTargets.avgPriceTarget;
           enrichedRationaleData.analystCount = topEnriched.analystTargets.count;
         }
+      }
+      if (directRoic != null && !enrichedRationaleData.roic) {
+        enrichedRationaleData.roic = directRoic;
+      }
+      if (directRsi != null && !enrichedRationaleData.rsi) {
+        enrichedRationaleData.rsi = directRsi;
       }
 
       const rationale = await this.generateRationale({
@@ -588,11 +647,11 @@ class PickOfTheDayService {
           marketCap: topStock.marketCap,
           analystRating: topStock.analystRating,
           dividendYield: topStock.dividendYield ? parseFloat(topStock.dividendYield) : null,
-          roic: topEnriched?.fundamentals?.roic ?? null,
+          roic: topEnriched?.fundamentals?.roic ?? directRoic ?? null,
           epsGrowth: topEnriched?.growth?.epsGrowth ?? null,
           dcfUpside: topEnriched?.dcf?.upsidePercent ?? null,
           enrichedRating: topEnriched?.companyRating?.ratingRecommendation ?? null,
-          rsi: topEnriched?.technicals?.rsi ?? null,
+          rsi: topEnriched?.technicals?.rsi ?? directRsi ?? null,
           institutionalHolderCount: topEnriched?.institutional?.totalCount ?? null,
           analystAvgTarget: topEnriched?.analystTargets?.avgPriceTarget ?? null,
         },
