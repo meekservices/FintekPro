@@ -7,7 +7,7 @@ export function KycEnvironmentBanner() {
     success: boolean;
     environment: string;
     fixedOtpEnabled: boolean;
-    providers: Record<string, { provider: string; status: string; environment: string }>;
+    providers: Record<string, { provider: string; displayName?: string; status: string; environment: string }>;
   }>({
     queryKey: ['/api/kyc/environment/status'],
     retry: false,
@@ -41,8 +41,8 @@ export function KycEnvironmentBanner() {
       </div>
       <div className="flex items-center gap-2">
         {data.providers && Object.entries(data.providers).map(([service, info]) => {
-          const statusColor = info.status === 'mock' ? 'text-red-500' : info.status === 'sandbox' ? 'text-yellow-600' : 'text-green-600';
-          const label = info.status === 'mock' ? 'Mock' : info.status === 'sandbox' ? 'Sandbox' : info.provider;
+          const statusColor = info.status === 'mock' ? 'text-red-500' : 'text-green-600';
+          const label = info.displayName || info.provider;
           return (
             <div key={service} className="flex items-center gap-1">
               <Wifi className={`h-3 w-3 ${statusColor}`} />

@@ -1,22 +1,19 @@
 type KycEnvironment = 'sandbox' | 'production';
 
+interface ProviderConfig {
+  pan: string;
+  aadhaar: string;
+  ckyc: string;
+  aml: string;
+}
+
 interface EnvironmentFlags {
   environment: KycEnvironment;
   fixedOtpEnabled: boolean;
   providerFallback: boolean;
   testPanBlockedInProd: boolean;
-  sandboxProviders: {
-    pan: string;
-    aadhaar: string;
-    ckyc: string;
-    aml: string;
-  };
-  prodProviders: {
-    pan: string;
-    aadhaar: string;
-    ckyc: string;
-    aml: string;
-  };
+  sandboxProviders: ProviderConfig;
+  prodProviders: ProviderConfig;
 }
 
 const TEST_PAN_PATTERNS = [
@@ -26,6 +23,33 @@ const TEST_PAN_PATTERNS = [
   /^ZZZZZ\d{4}[A-Z]$/,
   /^TEST/i,
 ];
+
+function detectActiveProvider(service: 'pan' | 'aadhaar' | 'ckyc' | 'aml'): string {
+  const hasSandbox = !!(process.env.SANDBOX_API_KEY && process.env.SANDBOX_API_SECRET);
+  const hasTruthScreen = !!(process.env.TRUTHSCREEN_USERNAME && process.env.TRUTHSCREEN_PASSWORD);
+  const hasCashfree = !!(process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY);
+
+  switch (service) {
+    case 'pan':
+      if (hasSandbox) return 'sandbox';
+      if (hasTruthScreen) return 'truthscreen';
+      if (hasCashfree) return 'cashfree';
+      return 'none';
+    case 'aadhaar':
+      if (hasSandbox) return 'sandbox';
+      if (hasCashfree) return 'cashfree';
+      if (hasTruthScreen) return 'truthscreen';
+      return 'offline_xml';
+    case 'ckyc':
+      if (hasTruthScreen) return 'truthscreen';
+      return 'none';
+    case 'aml':
+      if (hasTruthScreen) return 'truthscreen';
+      return 'none';
+    default:
+      return 'none';
+  }
+}
 
 class KycEnvironmentService {
   private flags: EnvironmentFlags;
@@ -40,19 +64,19 @@ class KycEnvironmentService {
     this.flags = {
       environment: env,
       fixedOtpEnabled: env === 'sandbox',
-      providerFallback: process.env.KYC_PROVIDER_FALLBACK === 'true',
+      providerFallback: true,
       testPanBlockedInProd: true,
       sandboxProviders: {
-        pan: 'sandbox',
-        aadhaar: 'sandbox',
+        pan: detectActiveProvider('pan'),
+        aadhaar: detectActiveProvider('aadhaar'),
         ckyc: hasTruthScreenCreds ? 'sandbox' : 'mock',
         aml: hasTruthScreenCreds ? 'sandbox' : 'mock',
       },
       prodProviders: {
-        pan: process.env.KYC_PAN_PROVIDER || 'cashfree',
-        aadhaar: process.env.KYC_AADHAAR_PROVIDER || 'authbridge',
-        ckyc: process.env.KYC_CKYC_PROVIDER || 'truthscreen',
-        aml: process.env.KYC_AML_PROVIDER || 'truthscreen',
+        pan: detectActiveProvider('pan'),
+        aadhaar: detectActiveProvider('aadhaar'),
+        ckyc: detectActiveProvider('ckyc'),
+        aml: detectActiveProvider('aml'),
       },
     };
 
@@ -60,6 +84,7 @@ class KycEnvironmentService {
     if (this.flags.fixedOtpEnabled) {
       console.log('   ⚠️ Fixed OTP enabled (sandbox mode)');
     }
+    console.log(`   Active providers → Pan: ${this.flags.prodProviders.pan}, Aadhaar: ${this.flags.prodProviders.aadhaar}, CKYC: ${this.flags.prodProviders.ckyc}, AML: ${this.flags.prodProviders.aml}`);
     console.log(`   CKYC: ${this.flags.sandboxProviders.ckyc} | AML: ${this.flags.sandboxProviders.aml} (TruthScreen creds: ${hasTruthScreenCreds ? 'found' : 'missing'})`);
   }
 
@@ -108,18 +133,27 @@ class KycEnvironmentService {
     return { ...this.flags };
   }
 
-  getProviderStatus(): Record<string, { provider: string; status: string; environment: string }> {
+  getProviderStatus(): Record<string, { provider: string; displayName: string; status: string; environment: string }> {
     const providers = this.isSandbox() ? this.flags.sandboxProviders : this.flags.prodProviders;
     const getStatus = (provider: string) => {
-      if (provider === 'mock') return 'mock';
-      if (provider === 'sandbox') return 'sandbox';
+      if (provider === 'mock' || provider === 'none') return 'mock';
       return 'active';
     };
+    const displayNames: Record<string, string> = {
+      sandbox: 'Sandbox.co.in',
+      truthscreen: 'TruthScreen',
+      cashfree: 'Cashfree',
+      authbridge: 'AuthBridge',
+      offline_xml: 'Offline XML',
+      mock: 'Mock',
+      none: 'Not Configured',
+    };
+    const getDisplayName = (id: string) => displayNames[id] || id;
     return {
-      pan: { provider: providers.pan, status: getStatus(providers.pan), environment: this.flags.environment },
-      aadhaar: { provider: providers.aadhaar, status: getStatus(providers.aadhaar), environment: this.flags.environment },
-      ckyc: { provider: providers.ckyc, status: getStatus(providers.ckyc), environment: this.flags.environment },
-      aml: { provider: providers.aml, status: getStatus(providers.aml), environment: this.flags.environment },
+      pan: { provider: providers.pan, displayName: getDisplayName(providers.pan), status: getStatus(providers.pan), environment: this.flags.environment },
+      aadhaar: { provider: providers.aadhaar, displayName: getDisplayName(providers.aadhaar), status: getStatus(providers.aadhaar), environment: this.flags.environment },
+      ckyc: { provider: providers.ckyc, displayName: getDisplayName(providers.ckyc), status: getStatus(providers.ckyc), environment: this.flags.environment },
+      aml: { provider: providers.aml, displayName: getDisplayName(providers.aml), status: getStatus(providers.aml), environment: this.flags.environment },
     };
   }
 }
