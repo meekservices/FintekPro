@@ -78,6 +78,10 @@ NSE_ENVIRONMENT = "production"
 BSE_BOND_ENVIRONMENT = "production"
 NODE_ENV = "production"
 KYC_ENVIRONMENT = "production"
+SANDBOX_API_KEY = "key_live_81be1fe502744157be47d70c3ca6ac1b"
+SANDBOX_API_SECRET = "secret_live_4b03a4b49a284fdea5cf7647b37654d8"
 
 [userenv.development]
 KYC_ENVIRONMENT = "sandbox"
+SANDBOX_API_KEY = "key_test_30cdf12be1bb430cbefe492a20a8d136"
+SANDBOX_API_SECRET = "secret_test_5d8968b4e4e4416fa39b4219f0f16509"
