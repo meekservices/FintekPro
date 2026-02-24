@@ -103,7 +103,7 @@ class SandboxPANService {
       const token = await this.authenticate();
 
       const requestPayload: any = {
-        '@entity': 'in.co.sandbox.kyc.pan.verify',
+        '@entity': 'in.co.sandbox.kyc.pan_verification.request',
         pan: panNumber.toUpperCase(),
         name_as_per_pan: fullName || '',
         date_of_birth: dateOfBirth || '',
@@ -167,7 +167,7 @@ class SandboxPANService {
           try {
             const retryResponse = await axios.post(
               `${this.baseUrl}/kyc/pan/verify`,
-              { '@entity': 'in.co.sandbox.kyc.pan.verify', pan: panNumber.toUpperCase(), consent: 'Y', reason: 'KYC verification' },
+              { '@entity': 'in.co.sandbox.kyc.pan_verification.request', pan: panNumber.toUpperCase(), consent: 'Y', reason: 'KYC verification' },
               {
                 headers: { 'Content-Type': 'application/json', 'x-api-key': this.apiKey, 'Authorization': retryToken, 'x-api-version': '1.0.0' },
                 timeout: 30000
