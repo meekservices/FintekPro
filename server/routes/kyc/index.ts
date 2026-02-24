@@ -698,18 +698,45 @@ export function registerKYCWizardRoutes(app: Express) {
             message: "No pending Aadhaar OTP request found. Please request a new OTP."
           });
         }
-        
-        const result = await sandboxKYCService.verifyAadhaarOTP(referenceId, otp);
-        verificationData = {
-          name: result.fullName,
-          dob: result.dateOfBirth,
-          gender: result.gender,
-          address: result.address,
-          photo: result.photo,
-          maskedAadhaar: result.aadhaarNumber,
-          provider: 'sandbox-aadhaar-okyc',
-        };
-        console.log(`[KYC] Aadhaar OTP verified via Sandbox API for user ${userId}, name: ${result.fullName}`);
+
+        if (referenceId.startsWith('mock_ref_')) {
+          if (otp !== '123456') {
+            return res.status(400).json({
+              success: false,
+              message: "Invalid OTP. In test mode, use OTP: 123456"
+            });
+          }
+          verificationData = {
+            name: "Test Verified User",
+            dob: "1990-01-01",
+            gender: "M",
+            address: {
+              house: "123",
+              street: "Test Street",
+              landmark: "Near Test Park",
+              locality: "Test Colony",
+              district: "Test District",
+              state: "Maharashtra",
+              pincode: "400001",
+              country: "India"
+            },
+            maskedAadhaar: "XXXX-XXXX-9012",
+            provider: 'sandbox-mock',
+          };
+          console.log(`[KYC] Aadhaar OTP verified via MOCK for user ${userId} (test environment)`);
+        } else {
+          const result = await sandboxKYCService.verifyAadhaarOTP(referenceId, otp);
+          verificationData = {
+            name: result.fullName,
+            dob: result.dateOfBirth,
+            gender: result.gender,
+            address: result.address,
+            photo: result.photo,
+            maskedAadhaar: result.aadhaarNumber,
+            provider: 'sandbox-aadhaar-okyc',
+          };
+          console.log(`[KYC] Aadhaar OTP verified via Sandbox API for user ${userId}, name: ${result.fullName}`);
+        }
       }
       
       await storage.updateKycVerificationSession(sessionId, {

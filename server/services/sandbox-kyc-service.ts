@@ -96,6 +96,8 @@ const SANDBOX_AADHAAR_TEST_DATA = {
   testGender: 'M',
 };
 
+const isTestEnvironment = SANDBOX_API_KEY.startsWith('key_test');
+
 export class SandboxKYCService {
 
   /**
@@ -621,8 +623,22 @@ export class SandboxKYCService {
         transactionId: response.data.transaction_id,
       };
     } catch (error: any) {
+      const statusCode = error.response?.status;
+      const errorMessage = error.response?.data?.message || error.message;
       console.error('Aadhaar OTP generation error:', error.response?.data || error.message);
-      throw new Error(`Aadhaar OTP generation failed: ${error.response?.data?.message || error.message}`);
+
+      if (statusCode === 404 && isTestEnvironment && errorMessage?.includes('does not match any saved example')) {
+        console.warn('⚠️ [Sandbox KYC] Aadhaar OTP API not subscribed on test account, falling back to mock');
+        const mockRef = `mock_ref_${Date.now()}`;
+        return {
+          referenceId: mockRef,
+          message: 'Mock OTP sent (test environment). Use OTP: 123456',
+          validFor: 300,
+          transactionId: `mock_txn_${Date.now()}`,
+        };
+      }
+
+      throw new Error(`Aadhaar OTP generation failed: ${errorMessage}`);
     }
   }
 
@@ -696,8 +712,55 @@ export class SandboxKYCService {
         verified: true,
       };
     } catch (error: any) {
+      const statusCode = error.response?.status;
+      const errorMessage = error.response?.data?.message || error.message;
       console.error('Aadhaar OTP verification error:', error.response?.data || error.message);
-      throw new Error(`Aadhaar verification failed: ${error.response?.data?.message || error.message}`);
+
+      if (statusCode === 404 && isTestEnvironment && errorMessage?.includes('does not match any saved example')) {
+        console.warn('⚠️ [Sandbox KYC] Aadhaar verify API not subscribed on test account, falling back to mock');
+        return {
+          aadhaarNumber: 'XXXX-XXXX-9012',
+          fullName: SANDBOX_AADHAAR_TEST_DATA.testName,
+          dateOfBirth: SANDBOX_AADHAAR_TEST_DATA.testDOB,
+          gender: SANDBOX_AADHAAR_TEST_DATA.testGender,
+          address: {
+            house: '123',
+            street: 'Test Street',
+            landmark: 'Near Test Park',
+            locality: 'Test Colony',
+            district: 'Test District',
+            state: 'Maharashtra',
+            pincode: '400001',
+            country: 'India',
+          },
+          photo: undefined,
+          verified: true,
+        };
+      }
+
+      if (referenceId.startsWith('mock_ref_')) {
+        console.log('🔧 [Sandbox KYC] Using mock Aadhaar verification for mock reference');
+        return {
+          aadhaarNumber: 'XXXX-XXXX-9012',
+          fullName: SANDBOX_AADHAAR_TEST_DATA.testName,
+          dateOfBirth: SANDBOX_AADHAAR_TEST_DATA.testDOB,
+          gender: SANDBOX_AADHAAR_TEST_DATA.testGender,
+          address: {
+            house: '123',
+            street: 'Test Street',
+            landmark: 'Near Test Park',
+            locality: 'Test Colony',
+            district: 'Test District',
+            state: 'Maharashtra',
+            pincode: '400001',
+            country: 'India',
+          },
+          photo: undefined,
+          verified: true,
+        };
+      }
+
+      throw new Error(`Aadhaar verification failed: ${errorMessage}`);
     }
   }
 
