@@ -906,10 +906,10 @@ export function registerKYCWizardRoutes(app: Express) {
         await db.update(schema.userProfiles)
           .set({
             ckycFetchedViaAuthBridge: true,
-            ckycAuthbridgeFetchedAt: new Date(),
-            ckycAuthbridgeKin: ckycResult.data.kin,
-            ckycAuthbridgeResponse: ckycResult.data,
-            ckycAuthbridgeStatus: 'SUCCESS'
+            ckycAuthBridgeFetchedAt: new Date(),
+            ckycAuthBridgeKin: ckycResult.data.kin,
+            ckycAuthBridgeResponse: ckycResult.data,
+            ckycAuthBridgeStatus: 'SUCCESS'
           })
           .where(eq(schema.userProfiles.userId, userId));
         
