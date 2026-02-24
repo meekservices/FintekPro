@@ -140,6 +140,7 @@ export default function PickOfTheDayWidget() {
         ) : (
           picks.slice(0, 4).map((pick) => {
             const Icon = categoryIcons[pick.category] || TrendingUp;
+            const effectiveStatus = (pick.status === 'live' && pick.expiryDate && new Date(pick.expiryDate) < new Date()) ? 'expired' : pick.status;
             const upside = pick.targetPrice && pick.recoPrice
               ? ((pick.targetPrice - pick.recoPrice) / pick.recoPrice * 100).toFixed(1)
               : '0.0';
@@ -194,7 +195,7 @@ export default function PickOfTheDayWidget() {
                     {pick.rationale}
                   </p>
                 </div>
-                <div className={`w-2 h-2 rounded-full shrink-0 mt-1 ${statusColors[pick.status]}`} />
+                <div className={`w-2 h-2 rounded-full shrink-0 mt-1 ${statusColors[effectiveStatus]}`} />
               </div>
             );
           })

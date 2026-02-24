@@ -74,8 +74,18 @@ const DATA_SOURCES: Record<string, { name: string; type: string; refreshInterval
 
 async function enrichPicksWithDataSource(picks: any[]) {
   const categoryLastUpdated: Record<string, string> = {};
+  const now = new Date();
+  const expiredPickIds: number[] = [];
   
   for (const pick of picks) {
+    if (pick.status === 'live' && pick.expiryDate) {
+      const expiry = new Date(pick.expiryDate);
+      if (expiry < now) {
+        pick.status = 'expired';
+        if (pick.id) expiredPickIds.push(pick.id);
+      }
+    }
+
     const source = DATA_SOURCES[pick.category];
     pick.priceDataSource = source?.name || 'Unknown';
     pick.priceDataType = source?.type || 'Unknown';
@@ -158,6 +168,17 @@ async function enrichPicksWithDataSource(picks: any[]) {
     }
   }
   
+  if (expiredPickIds.length > 0) {
+    try {
+      await db.execute(
+        sql`UPDATE daily_picks SET status = 'expired', updated_at = NOW() WHERE id = ANY(${expiredPickIds}) AND status = 'live'`
+      );
+      console.log(`[PickOfDay] Auto-expired ${expiredPickIds.length} pick(s): ${expiredPickIds.join(', ')}`);
+    } catch (err) {
+      console.warn('[PickOfDay] Failed to auto-expire picks in DB:', err);
+    }
+  }
+
   return { picks, categoryLastUpdated };
 }
 

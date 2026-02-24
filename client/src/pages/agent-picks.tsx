@@ -443,7 +443,8 @@ export default function AgentPicksPage() {
   const filteredHistory = historyPicks.filter((pick) => {
     if (historyCategoryFilter !== "all" && pick.category !== historyCategoryFilter) return false;
     if (historyCategoryFilter === "global_stocks" && !filterByMarket(pick, historyMarketFilter)) return false;
-    if (statusFilter !== "all" && pick.status !== statusFilter) return false;
+    const effectiveStatus = (pick.status === 'live' && pick.expiryDate && new Date(pick.expiryDate) < new Date()) ? 'expired' : pick.status;
+    if (statusFilter !== "all" && effectiveStatus !== statusFilter) return false;
     return true;
   });
 
@@ -1616,7 +1617,9 @@ function PickCard({
   onShareWhatsApp,
 }: PickCardProps) {
   const Icon = categoryIcons[pick.category] || TrendingUp;
-  const status = statusConfig[pick.status] || statusConfig.live;
+  const isExpiredByDate = pick.status === 'live' && pick.expiryDate && new Date(pick.expiryDate) < new Date();
+  const effectiveStatus = isExpiredByDate ? 'expired' : pick.status;
+  const status = statusConfig[effectiveStatus] || statusConfig.live;
   const StatusIcon = status.icon;
   const horizon = pick.timeHorizon ? horizonConfig[pick.timeHorizon] : null;
   
