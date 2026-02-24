@@ -999,6 +999,8 @@ export const bankerContacts = pgTable("banker_contacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull(),
   financierName: varchar("financier_name", { length: 200 }).notNull(),
+  dsaCode: varchar("dsa_code", { length: 50 }),
+  productNames: text("product_names").array().default(sql`ARRAY[]::text[]`),
   bankerName: varchar("banker_name", { length: 200 }).notNull(),
   bankerMobile: varchar("banker_mobile", { length: 15 }),
   bankerEmail: varchar("banker_email", { length: 200 }),
@@ -1009,11 +1011,14 @@ export const bankerContacts = pgTable("banker_contacts", {
   isActive: boolean("is_active").default(true),
   usageCount: integer("usage_count").default(0),
   lastUsedAt: timestamp("last_used_at"),
+  source: varchar("source", { length: 30 }).default("manual"),
+  zohoCrmId: varchar("zoho_crm_id", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_banker_contacts_agent").on(table.agentId),
   index("idx_banker_contacts_financier").on(table.financierName),
+  index("idx_banker_contacts_dsa_code").on(table.dsaCode),
   uniqueIndex("idx_banker_contacts_unique").on(table.agentId, table.financierName, table.bankerMobile),
 ]);
 

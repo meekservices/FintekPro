@@ -1,8 +1,10 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { db } from "../db";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, or, ilike } from "drizzle-orm";
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import multer from "multer";
+import XLSX from "xlsx";
 import { leadRegistryService } from "../services/lead-registry-service";
 import {
   dsaLoanApplications,
@@ -26,6 +28,7 @@ import {
 } from "@shared/loan-origination.constants";
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const AGENT_ROLES = ["agent", "sub_agent", "master_agent", "associate", "tester"];
 
@@ -35,8 +38,9 @@ async function requireAgentRole(req: Request, res: Response, next: NextFunction)
     return res.status(401).json({ success: false, error: "Unauthorized" });
   }
   
-  const userRole = user.role || user.roles?.[0];
-  if (!userRole || !AGENT_ROLES.includes(userRole)) {
+  const userRoles: string[] = user.roles || (user.role ? [user.role] : []);
+  const hasAgentRole = userRoles.some((r: string) => AGENT_ROLES.includes(r));
+  if (!hasAgentRole) {
     return res.status(403).json({ 
       success: false, 
       error: "Access denied. Agent role required.",
@@ -1286,26 +1290,37 @@ router.get("/banker-contacts", async (req: Request, res: Response) => {
     const agentId = (req as any).user?.id;
     if (!agentId) return res.status(401).json({ success: false, error: "Unauthorized" });
 
-    const search = (req.query.search as string) || "";
+    const search = ((req.query.search as string) || "").trim();
+
+    if (search && search.length < 3) {
+      return res.json({ success: true, data: [], message: "Type at least 3 characters to search" });
+    }
+
+    const conditions = [
+      eq(bankerContacts.isActive, true),
+      or(eq(bankerContacts.agentId, agentId), eq(bankerContacts.agentId, "system")),
+    ];
+
+    if (search) {
+      const searchPattern = `%${search}%`;
+      conditions.push(
+        or(
+          ilike(bankerContacts.financierName, searchPattern),
+          ilike(bankerContacts.bankerName, searchPattern),
+          ilike(bankerContacts.dsaCode, searchPattern),
+          sql`EXISTS (SELECT 1 FROM unnest(${bankerContacts.productNames}) AS p WHERE p ILIKE ${searchPattern})`
+        )!
+      );
+    }
+
     const contacts = await db
       .select()
       .from(bankerContacts)
-      .where(
-        and(
-          eq(bankerContacts.agentId, agentId),
-          eq(bankerContacts.isActive, true)
-        )
-      )
-      .orderBy(desc(bankerContacts.lastUsedAt));
+      .where(and(...conditions))
+      .orderBy(desc(bankerContacts.lastUsedAt))
+      .limit(50);
 
-    const filtered = search
-      ? contacts.filter(c =>
-          c.financierName.toLowerCase().includes(search.toLowerCase()) ||
-          c.bankerName.toLowerCase().includes(search.toLowerCase())
-        )
-      : contacts;
-
-    res.json({ success: true, data: filtered });
+    res.json({ success: true, data: contacts });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -1318,6 +1333,8 @@ router.post("/banker-contacts", async (req: Request, res: Response) => {
 
     const schema = z.object({
       financierName: z.string().min(1),
+      dsaCode: z.string().optional(),
+      productNames: z.array(z.string()).optional(),
       bankerName: z.string().min(1),
       bankerMobile: z.string().optional(),
       bankerEmail: z.string().email().optional().or(z.literal("")),
@@ -1332,10 +1349,13 @@ router.post("/banker-contacts", async (req: Request, res: Response) => {
       agentId,
       ...parsed,
       bankerEmail: parsed.bankerEmail || undefined,
+      source: "manual",
     }).onConflictDoUpdate({
       target: [bankerContacts.agentId, bankerContacts.financierName, bankerContacts.bankerMobile],
       set: {
         bankerName: parsed.bankerName,
+        dsaCode: parsed.dsaCode,
+        productNames: parsed.productNames || [],
         bankerEmail: parsed.bankerEmail || undefined,
         designation: parsed.designation,
         branch: parsed.branch,
@@ -1361,6 +1381,8 @@ router.put("/banker-contacts/:id", async (req: Request, res: Response) => {
 
     const schema = z.object({
       financierName: z.string().min(1).optional(),
+      dsaCode: z.string().optional(),
+      productNames: z.array(z.string()).optional(),
       bankerName: z.string().min(1).optional(),
       bankerMobile: z.string().optional(),
       bankerEmail: z.string().email().optional().or(z.literal("")),
@@ -1375,7 +1397,7 @@ router.put("/banker-contacts/:id", async (req: Request, res: Response) => {
     const [updated] = await db
       .update(bankerContacts)
       .set({ ...parsed, updatedAt: new Date() })
-      .where(and(eq(bankerContacts.id, req.params.id), eq(bankerContacts.agentId, agentId)))
+      .where(and(eq(bankerContacts.id, req.params.id), or(eq(bankerContacts.agentId, agentId), eq(bankerContacts.agentId, "system"))))
       .returning();
 
     if (!updated) return res.status(404).json({ success: false, error: "Contact not found" });
@@ -1393,12 +1415,214 @@ router.delete("/banker-contacts/:id", async (req: Request, res: Response) => {
     const [updated] = await db
       .update(bankerContacts)
       .set({ isActive: false, updatedAt: new Date() })
-      .where(and(eq(bankerContacts.id, req.params.id), eq(bankerContacts.agentId, agentId)))
+      .where(and(eq(bankerContacts.id, req.params.id), or(eq(bankerContacts.agentId, agentId), eq(bankerContacts.agentId, "system"))))
       .returning();
 
     if (!updated) return res.status(404).json({ success: false, error: "Contact not found" });
     res.json({ success: true, message: "Contact removed" });
   } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+function parseProductNames(raw: string): string[] {
+  if (!raw || !raw.trim()) return [];
+  return raw
+    .split(/[,&\/]+/)
+    .map(p => p.trim().toUpperCase())
+    .filter(p => p.length > 0 && !["AND", "LOANS", "LOAN", "AGAINST", "SECURED", "SMALL", "TICKET"].includes(p));
+}
+
+router.post("/banker-contacts/import-excel", upload.single("file"), async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+    const file = (req as any).file;
+    if (!file) return res.status(400).json({ success: false, error: "No file uploaded" });
+
+    const workbook = XLSX.read(file.buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows: any[] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    if (rows.length < 2) {
+      return res.status(400).json({ success: false, error: "Excel file is empty or has no data rows" });
+    }
+
+    const headers = rows[0].map((h: any) => String(h).toLowerCase().trim());
+    const dsaCodeIdx = headers.findIndex((h: string) => h.includes("dsa") || h.includes("code"));
+    const financierIdx = headers.findIndex((h: string) => h.includes("institution") || h.includes("financier") || h.includes("bank"));
+    const productIdx = headers.findIndex((h: string) => h.includes("product"));
+    const nameIdx = headers.findIndex((h: string) => h.includes("banker") || h.includes("name"));
+    const phoneIdx = headers.findIndex((h: string) => h.includes("contact") || h.includes("phone") || h.includes("mobile"));
+
+    if (financierIdx === -1) {
+      return res.status(400).json({ success: false, error: "Could not find financier/institution column in Excel" });
+    }
+
+    let imported = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || !row[financierIdx]) { skipped++; continue; }
+
+      const financierName = String(row[financierIdx]).trim();
+      const dsaCode = dsaCodeIdx >= 0 && row[dsaCodeIdx] ? String(row[dsaCodeIdx]).trim() : undefined;
+      const productRaw = productIdx >= 0 && row[productIdx] ? String(row[productIdx]).trim() : "";
+      const bankerName = nameIdx >= 0 && row[nameIdx] ? String(row[nameIdx]).trim() : "";
+      const phone = phoneIdx >= 0 && row[phoneIdx] ? String(row[phoneIdx]).trim().replace(/\D/g, "").slice(-10) : undefined;
+
+      if (!bankerName && !phone) { skipped++; continue; }
+
+      const productNames = parseProductNames(productRaw);
+
+      try {
+        await db.insert(bankerContacts).values({
+          agentId: "system",
+          financierName,
+          dsaCode: dsaCode || undefined,
+          productNames,
+          bankerName: bankerName || "Unknown",
+          bankerMobile: phone && phone.length === 10 ? phone : undefined,
+          source: "excel_import",
+          isActive: true,
+        }).onConflictDoUpdate({
+          target: [bankerContacts.agentId, bankerContacts.financierName, bankerContacts.bankerMobile],
+          set: {
+            dsaCode: dsaCode || undefined,
+            productNames,
+            bankerName: bankerName || "Unknown",
+            source: "excel_import",
+            updatedAt: new Date(),
+          },
+        });
+        imported++;
+      } catch (rowErr: any) {
+        errors.push(`Row ${i + 1}: ${rowErr.message?.substring(0, 80)}`);
+        skipped++;
+      }
+    }
+
+    console.log(`✅ [BankerContacts] Excel import: ${imported} imported, ${skipped} skipped`);
+    res.json({
+      success: true,
+      data: { imported, skipped, total: rows.length - 1, errors: errors.slice(0, 10) },
+    });
+  } catch (error: any) {
+    console.error("❌ [BankerContacts] Excel import error:", error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/banker-contacts/sync-zoho", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+    const direction = (req.body.direction as string) || "push";
+
+    const { ZohoConnectionResolver } = await import("../zoho/connection-resolver");
+    const { ZohoApiClient } = await import("../zoho/api-client");
+    const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
+    if (!connection) {
+      return res.status(400).json({ success: false, error: "No Zoho CRM connection found for this agent" });
+    }
+
+    const apiClient = new ZohoApiClient(connection.connectionId, "CRM", connection.zohoDataCenter);
+    let synced = 0;
+
+    if (direction === "push" || direction === "both") {
+      const contacts = await db
+        .select()
+        .from(bankerContacts)
+        .where(and(
+          or(eq(bankerContacts.agentId, agentId), eq(bankerContacts.agentId, "system")),
+          eq(bankerContacts.isActive, true)
+        ));
+
+      for (const contact of contacts) {
+        try {
+          const zohoData: Record<string, any> = {
+            Last_Name: contact.bankerName || "Unknown",
+            Company: contact.financierName,
+            Phone: contact.bankerMobile || "",
+            Email: contact.bankerEmail || "",
+            Title: contact.designation || "Banker",
+            Description: `DSA Code: ${contact.dsaCode || "N/A"} | Products: ${(contact.productNames || []).join(", ")}`,
+          };
+
+          if (contact.zohoCrmId) {
+            await apiClient.put(`/Contacts/${contact.zohoCrmId}`, { data: [zohoData] });
+          } else {
+            const resp: any = await apiClient.post("/Contacts", { data: [zohoData] });
+            const zohoId = resp?.data?.[0]?.details?.id;
+            if (zohoId) {
+              await db.update(bankerContacts)
+                .set({ zohoCrmId: zohoId, updatedAt: new Date() })
+                .where(eq(bankerContacts.id, contact.id));
+            }
+          }
+          synced++;
+        } catch (syncErr: any) {
+          console.warn(`[Zoho Sync] Failed to sync contact ${contact.bankerName}:`, syncErr.message);
+        }
+      }
+    }
+
+    if (direction === "pull" || direction === "both") {
+      try {
+        const resp: any = await apiClient.get("/Contacts", {
+          params: { fields: "id,Last_Name,Company,Phone,Email,Title,Description", per_page: "200" }
+        });
+        const zohoContacts = resp?.data || [];
+        for (const zc of zohoContacts) {
+          if (!zc.Company) continue;
+          let dsaCode: string | undefined;
+          let productNames: string[] = [];
+          const desc = zc.Description || "";
+          const dsaMatch = desc.match(/DSA Code:\s*([^\s|]+)/);
+          if (dsaMatch && dsaMatch[1] !== "N/A") dsaCode = dsaMatch[1];
+          const prodMatch = desc.match(/Products:\s*(.+)/);
+          if (prodMatch) productNames = prodMatch[1].split(",").map((p: string) => p.trim()).filter(Boolean);
+
+          try {
+            await db.insert(bankerContacts).values({
+              agentId,
+              financierName: zc.Company,
+              dsaCode,
+              productNames,
+              bankerName: zc.Last_Name || "Unknown",
+              bankerMobile: zc.Phone?.replace(/\D/g, "").slice(-10) || undefined,
+              bankerEmail: zc.Email || undefined,
+              designation: zc.Title || undefined,
+              source: "zoho_sync",
+              zohoCrmId: zc.id,
+            }).onConflictDoUpdate({
+              target: [bankerContacts.agentId, bankerContacts.financierName, bankerContacts.bankerMobile],
+              set: {
+                dsaCode,
+                productNames,
+                bankerName: zc.Last_Name || "Unknown",
+                bankerEmail: zc.Email || undefined,
+                zohoCrmId: zc.id,
+                source: "zoho_sync",
+                updatedAt: new Date(),
+              },
+            });
+            synced++;
+          } catch (_) {}
+        }
+      } catch (pullErr: any) {
+        console.warn("[Zoho Sync] Pull failed:", pullErr.message);
+      }
+    }
+
+    console.log(`✅ [BankerContacts] Zoho CRM sync complete: ${synced} records (direction: ${direction})`);
+    res.json({ success: true, data: { synced, direction } });
+  } catch (error: any) {
+    console.error("❌ [BankerContacts] Zoho sync error:", error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -1479,14 +1703,17 @@ router.get("/financier-suggestions", async (req: Request, res: Response) => {
     const agentId = (req as any).user?.id;
     if (agentId) {
       const contacts = await db
-        .select({ financierName: bankerContacts.financierName })
+        .select({ financierName: bankerContacts.financierName, dsaCode: bankerContacts.dsaCode })
         .from(bankerContacts)
-        .where(and(eq(bankerContacts.agentId, agentId), eq(bankerContacts.isActive, true)));
+        .where(and(
+          or(eq(bankerContacts.agentId, agentId), eq(bankerContacts.agentId, "system")),
+          eq(bankerContacts.isActive, true)
+        ));
 
       const existingNames = new Set(results.map(r => r.name.toLowerCase()));
       for (const c of contacts) {
         if (c.financierName && !existingNames.has(c.financierName.toLowerCase())) {
-          results.push({ name: c.financierName, type: "saved", source: "contact" as const });
+          results.push({ name: c.financierName, type: "saved", source: "contact" as const, dsaCode: c.dsaCode || undefined });
           existingNames.add(c.financierName.toLowerCase());
         }
       }

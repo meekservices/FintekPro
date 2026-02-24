@@ -85,6 +85,7 @@ const loanApplicationSchema = z.object({
   creditScore: z.string().optional(),
   processingMode: z.enum(["PLATFORM", "EXTERNAL_FINANCIER"]).default("PLATFORM"),
   financierName: z.string().optional(),
+  dsaCode: z.string().optional(),
   bankerName: z.string().optional(),
   bankerMobile: z.string().optional(),
   bankerEmail: z.string().email("Valid email required").optional().or(z.literal("")),
@@ -305,6 +306,7 @@ export default function AgentLoanApplyPage() {
       creditScore: "",
       processingMode: "PLATFORM",
       financierName: "",
+      dsaCode: "",
       bankerName: "",
       bankerMobile: "",
       bankerEmail: "",
@@ -376,17 +378,28 @@ export default function AgentLoanApplyPage() {
     enabled: !!isAgentOrPartner,
   });
 
-  const { data: bankerContactsData } = useQuery<{ success: boolean; data: Array<{
-    id: string; financierName: string; bankerName: string;
-    bankerMobile?: string; bankerEmail?: string; designation?: string;
-    branch?: string; usageCount: number; lastUsedAt?: string;
-  }> }>({
-    queryKey: ["/api/agent/loans/banker-contacts"],
+  const [bankerSearchQuery, setBankerSearchQuery] = useState("");
+  const [excelUploading, setExcelUploading] = useState(false);
+  const [addContactOpen, setAddContactOpen] = useState(false);
+
+  const { data: bankerContactsData, isLoading: bankerContactsLoading } = useQuery<{ success: boolean; data: Array<{
+    id: string; financierName: string; dsaCode?: string; productNames?: string[];
+    bankerName: string; bankerMobile?: string; bankerEmail?: string;
+    designation?: string; branch?: string; usageCount: number; lastUsedAt?: string;
+    source?: string;
+  }>; message?: string }>({
+    queryKey: ["/api/agent/loans/banker-contacts", bankerSearchQuery],
+    queryFn: async () => {
+      const params = bankerSearchQuery.length >= 3 ? `?search=${encodeURIComponent(bankerSearchQuery)}` : "";
+      const res = await fetch(`/api/agent/loans/banker-contacts${params}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch contacts");
+      return res.json();
+    },
     enabled: !!isAgent,
   });
   const savedBankerContacts = bankerContactsData?.data || [];
 
-  const { data: financierSuggestionsData, isLoading: financierSuggestionsLoading } = useQuery<{ success: boolean; data: Array<{ name: string; type: string; source: string }> }>({
+  const { data: financierSuggestionsData, isLoading: financierSuggestionsLoading } = useQuery<{ success: boolean; data: Array<{ name: string; type: string; source: string; dsaCode?: string }> }>({
     queryKey: [`/api/agent/loans/financier-suggestions?q=${encodeURIComponent(financierQuery)}`],
     enabled: !!isAgent && financierQuery.length >= 1,
   });
@@ -463,6 +476,7 @@ export default function AgentLoanApplyPage() {
         creditScore: data.creditScore ? parseInt(data.creditScore) : undefined,
         processingMode: data.processingMode,
         financierName: data.processingMode === "EXTERNAL_FINANCIER" ? data.financierName : undefined,
+        dsaCode: data.processingMode === "EXTERNAL_FINANCIER" ? (data.dsaCode || undefined) : undefined,
         bankerName: data.processingMode === "EXTERNAL_FINANCIER" ? (data.bankerName || undefined) : undefined,
         bankerMobile: data.processingMode === "EXTERNAL_FINANCIER" ? (data.bankerMobile || undefined) : undefined,
         bankerEmail: data.processingMode === "EXTERNAL_FINANCIER" && data.bankerEmail ? data.bankerEmail : undefined,
@@ -681,7 +695,7 @@ export default function AgentLoanApplyPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6">
+        <TabsList className="grid w-full grid-cols-3 mb-6">
           <TabsTrigger value="apply" className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
             Submit New Lead
@@ -689,6 +703,10 @@ export default function AgentLoanApplyPage() {
           <TabsTrigger value="track" className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
             My Submissions ({applications.length})
+          </TabsTrigger>
+          <TabsTrigger value="contacts" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Banker Directory
           </TabsTrigger>
         </TabsList>
 
@@ -1531,11 +1549,15 @@ export default function AgentLoanApplyPage() {
                                         onMouseDown={(e) => {
                                           e.preventDefault();
                                           form.setValue("financierName", s.name);
+                                          if (s.dsaCode) form.setValue("dsaCode", s.dsaCode);
                                           setFinancierDropdownOpen(false);
                                           setFinancierQuery("");
                                         }}
                                       >
-                                        <span className="font-medium">{s.name}</span>
+                                        <div>
+                                          <span className="font-medium">{s.name}</span>
+                                          {s.dsaCode && <span className="text-[10px] text-muted-foreground ml-1">({s.dsaCode})</span>}
+                                        </div>
                                         <Badge variant="outline" className="text-[10px] ml-2 capitalize">{s.type}</Badge>
                                       </button>
                                     ))
@@ -1544,6 +1566,19 @@ export default function AgentLoanApplyPage() {
                                   )}
                                 </div>
                               )}
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="dsaCode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>DSA Code</FormLabel>
+                              <FormControl>
+                                <Input placeholder="DSA code (auto-filled)" {...field} />
+                              </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -1987,7 +2022,247 @@ export default function AgentLoanApplyPage() {
             </CardContent>
           </Card>}
         </TabsContent>
+
+        <TabsContent value="contacts">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Banker Contacts Directory
+              </CardTitle>
+              <CardDescription>
+                Search banker contacts by name, financier, DSA code, or product. Type at least 3 characters to search.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name, financier, DSA code, or product (min 3 chars)..."
+                    value={bankerSearchQuery}
+                    onChange={(e) => setBankerSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setExcelUploading(true);
+                        try {
+                          const formData = new FormData();
+                          formData.append("file", file);
+                          const res = await fetch("/api/agent/loans/banker-contacts/import-excel", {
+                            method: "POST",
+                            body: formData,
+                            credentials: "include",
+                          });
+                          const result = await res.json();
+                          if (result.success) {
+                            toast({
+                              title: "Import Successful",
+                              description: `${result.data.imported} contacts imported, ${result.data.skipped} skipped`,
+                            });
+                            queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/banker-contacts"] });
+                          } else {
+                            toast({ title: "Import Failed", description: result.error, variant: "destructive" });
+                          }
+                        } catch (err: any) {
+                          toast({ title: "Upload Error", description: err.message, variant: "destructive" });
+                        } finally {
+                          setExcelUploading(false);
+                          e.target.value = "";
+                        }
+                      }}
+                    />
+                    <Button variant="outline" asChild disabled={excelUploading}>
+                      <span className="flex items-center gap-2">
+                        {excelUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                        Import Excel
+                      </span>
+                    </Button>
+                  </label>
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        await apiRequest("/api/agent/loans/banker-contacts/sync-zoho", {
+                          method: "POST",
+                          body: JSON.stringify({ direction: "both" }),
+                        });
+                        toast({ title: "Zoho Sync Complete", description: "Banker contacts synced with Zoho CRM" });
+                        queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/banker-contacts"] });
+                      } catch (err: any) {
+                        toast({ title: "Sync Failed", description: err.message, variant: "destructive" });
+                      }
+                    }}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1" /> Sync Zoho
+                  </Button>
+                  <Button variant="default" onClick={() => setAddContactOpen(true)}>
+                    <Plus className="h-4 w-4 mr-1" /> Add Contact
+                  </Button>
+                </div>
+              </div>
+
+              {bankerSearchQuery.length > 0 && bankerSearchQuery.length < 3 && (
+                <p className="text-sm text-muted-foreground">Type at least 3 characters to search...</p>
+              )}
+
+              {bankerContactsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                  <span className="text-muted-foreground">Loading contacts...</span>
+                </div>
+              ) : savedBankerContacts.length > 0 ? (
+                <div className="border rounded-lg overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Financier Name</TableHead>
+                        <TableHead>DSA Code</TableHead>
+                        <TableHead>Products</TableHead>
+                        <TableHead>Banker Name</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Source</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {savedBankerContacts.map((contact) => (
+                        <TableRow key={contact.id}>
+                          <TableCell className="font-medium">{contact.financierName}</TableCell>
+                          <TableCell>
+                            {contact.dsaCode ? (
+                              <Badge variant="secondary" className="text-xs">{contact.dsaCode}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {contact.productNames && contact.productNames.length > 0
+                                ? contact.productNames.map((p, idx) => (
+                                    <Badge key={idx} variant="outline" className="text-[10px]">{p}</Badge>
+                                  ))
+                                : <span className="text-muted-foreground text-xs">-</span>
+                              }
+                            </div>
+                          </TableCell>
+                          <TableCell>{contact.bankerName}</TableCell>
+                          <TableCell>{contact.bankerMobile || "-"}</TableCell>
+                          <TableCell>
+                            <Badge variant={contact.source === "excel_import" ? "secondary" : "outline"} className="text-[10px] capitalize">
+                              {contact.source === "excel_import" ? "Excel" : contact.source || "Manual"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                form.setValue("financierName", contact.financierName);
+                                form.setValue("dsaCode", contact.dsaCode || "");
+                                form.setValue("bankerName", contact.bankerName);
+                                form.setValue("bankerMobile", contact.bankerMobile || "");
+                                form.setValue("bankerEmail", contact.bankerEmail || "");
+                                form.setValue("processingMode", "EXTERNAL_FINANCIER");
+                                setActiveTab("apply");
+                                toast({ title: "Contact Applied", description: `${contact.bankerName} details filled in the form` });
+                              }}
+                            >
+                              <ArrowRight className="h-4 w-4 mr-1" /> Use
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : bankerSearchQuery.length >= 3 ? (
+                <div className="text-center py-8 space-y-3">
+                  <p className="text-muted-foreground">No banker contacts found for "{bankerSearchQuery}"</p>
+                  <Button variant="outline" onClick={() => setAddContactOpen(true)}>
+                    <Plus className="h-4 w-4 mr-1" /> Add New Contact
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Search for contacts or import from Excel to get started.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      <Dialog open={addContactOpen} onOpenChange={setAddContactOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Banker Contact</DialogTitle>
+            <DialogDescription>Add a new banker contact to the directory.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            const productRaw = (formData.get("productNames") as string) || "";
+            const products = productRaw.split(/[,&\/]+/).map(p => p.trim().toUpperCase()).filter(Boolean);
+            try {
+              await apiRequest("/api/agent/loans/banker-contacts", {
+                method: "POST",
+                body: JSON.stringify({
+                  financierName: formData.get("financierName"),
+                  dsaCode: formData.get("dsaCode") || undefined,
+                  productNames: products,
+                  bankerName: formData.get("bankerName"),
+                  bankerMobile: formData.get("bankerMobile") || undefined,
+                  bankerEmail: formData.get("bankerEmail") || undefined,
+                }),
+              });
+              toast({ title: "Contact Added" });
+              queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/banker-contacts"] });
+              setAddContactOpen(false);
+            } catch (err: any) {
+              toast({ title: "Error", description: err.message, variant: "destructive" });
+            }
+          }} className="space-y-3">
+            <div className="space-y-2">
+              <Label>Financier Name *</Label>
+              <Input name="financierName" required placeholder="e.g. HDFC Bank" />
+            </div>
+            <div className="space-y-2">
+              <Label>DSA Code</Label>
+              <Input name="dsaCode" placeholder="e.g. MUM01329" />
+            </div>
+            <div className="space-y-2">
+              <Label>Products (comma-separated)</Label>
+              <Input name="productNames" placeholder="e.g. HL, PL, LAP" />
+            </div>
+            <div className="space-y-2">
+              <Label>Banker Name *</Label>
+              <Input name="bankerName" required placeholder="Contact person name" />
+            </div>
+            <div className="space-y-2">
+              <Label>Phone</Label>
+              <Input name="bankerMobile" placeholder="10-digit mobile" />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input name="bankerEmail" type="email" placeholder="email@bank.com" />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setAddContactOpen(false)}>Cancel</Button>
+              <Button type="submit">Save Contact</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={routeDialogOpen} onOpenChange={setRouteDialogOpen}>
         <DialogContent className="max-w-lg">
