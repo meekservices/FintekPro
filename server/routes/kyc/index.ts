@@ -909,9 +909,9 @@ export function registerKYCWizardRoutes(app: Express) {
       let ckycResult: any = null;
       try {
         ckycResult = await authBridgeCKYCService.fetchCKYC({
-          panNumber: rawPan || '',
-          fullName: (session.panVerificationData as any)?.name || '',
-          dob: session.panDob ? new Date(session.panDob).toISOString().split('T')[0] : ''
+          pan: (rawPan || '').toUpperCase(),
+          full_name: (session.panVerificationData as any)?.name || '',
+          date_of_birth: session.panDob ? new Date(session.panDob).toISOString().split('T')[0] : ''
         });
       } catch (ckycErr) {
         console.warn('[KYC Wizard] CKYC/KRA check failed, proceeding with manual KYC flow:', (ckycErr as any)?.message);
@@ -1905,9 +1905,9 @@ export function registerKYCWizardRoutes(app: Express) {
       let ckycResult: any = null;
       try {
         ckycResult = await authBridgeCKYCService.fetchCKYC({
-          panNumber,
-          fullName: fullName || '',
-          dob: dateOfBirth || ''
+          pan: panNumber.toUpperCase(),
+          full_name: fullName || '',
+          date_of_birth: dateOfBirth || ''
         });
       } catch (e) {
         console.warn('[CKYC] Provider call failed:', (e as Error).message);
