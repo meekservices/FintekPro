@@ -161,6 +161,11 @@ class SandboxPANService {
           environment: this.isTestEnvironment ? 'TEST' : 'LIVE'
         });
 
+        if (statusCode === 404 && this.isTestEnvironment && errorMessage?.includes('does not match any saved example')) {
+          console.warn('⚠️ [Sandbox PAN API] PAN API not subscribed on test account, falling back to mock verification');
+          return this.mockPANVerification(panNumber, fullName);
+        }
+
         if (statusCode === 401 || statusCode === 403 || (statusCode === 400 && errorMessage?.includes('Authorization'))) {
           clearSandboxToken();
           const retryToken = await this.authenticate();
@@ -320,6 +325,11 @@ class SandboxPANService {
         const statusCode = axiosError.response?.status;
         const errorMessage = axiosError.response?.data?.message || axiosError.message;
         console.error('❌ [Sandbox PAN API] Linkage check error:', { status: statusCode, message: errorMessage });
+
+        if (statusCode === 404 && this.isTestEnvironment && errorMessage?.includes('does not match any saved example')) {
+          console.warn('⚠️ [Sandbox PAN API] PAN-Aadhaar linkage API not subscribed on test account, falling back to mock');
+          return this.mockPANAadhaarLinkage(panNumber);
+        }
         
         if (statusCode === 401 || statusCode === 403 || (statusCode === 400 && errorMessage?.includes('Authorization'))) {
           clearSandboxToken();
