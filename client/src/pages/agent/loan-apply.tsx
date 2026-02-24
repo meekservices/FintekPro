@@ -277,6 +277,8 @@ export default function AgentLoanApplyPage() {
   const [auditDialogOpen, setAuditDialogOpen] = useState(false);
   const [auditLead, setAuditLead] = useState<Lead | null>(null);
   const [proofDialogOpen, setProofDialogOpen] = useState(false);
+  const [financierQuery, setFinancierQuery] = useState("");
+  const [financierDropdownOpen, setFinancierDropdownOpen] = useState(false);
   const [proofClaim, setProofClaim] = useState<PayoutClaim | null>(null);
   const [proofForm, setProofForm] = useState({
     fileName: "",
@@ -383,6 +385,12 @@ export default function AgentLoanApplyPage() {
     enabled: !!isAgent,
   });
   const savedBankerContacts = bankerContactsData?.data || [];
+
+  const { data: financierSuggestionsData, isLoading: financierSuggestionsLoading } = useQuery<{ success: boolean; data: Array<{ name: string; type: string; source: string }> }>({
+    queryKey: [`/api/agent/loans/financier-suggestions?q=${encodeURIComponent(financierQuery)}`],
+    enabled: !!isAgent && financierQuery.length >= 1,
+  });
+  const financierSuggestions = financierSuggestionsData?.data || [];
 
   const routeMutation = useMutation({
     mutationFn: async ({ applicationId, bankCodes }: { applicationId: string; bankCodes: string[] }) => {
@@ -1484,11 +1492,58 @@ export default function AgentLoanApplyPage() {
                           control={form.control}
                           name="financierName"
                           render={({ field }) => (
-                            <FormItem>
+                            <FormItem className="relative">
                               <FormLabel>Financier / Bank Name *</FormLabel>
                               <FormControl>
-                                <Input placeholder="e.g., HDFC Bank, Bajaj Finance" {...field} />
+                                <Input
+                                  placeholder="Type to search banks & NBFCs..."
+                                  {...field}
+                                  autoComplete="off"
+                                  onChange={(e) => {
+                                    field.onChange(e);
+                                    setFinancierQuery(e.target.value);
+                                    setFinancierDropdownOpen(e.target.value.length >= 1);
+                                  }}
+                                  onFocus={() => {
+                                    if (field.value && field.value.length >= 1) {
+                                      setFinancierQuery(field.value);
+                                      setFinancierDropdownOpen(true);
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    setTimeout(() => setFinancierDropdownOpen(false), 200);
+                                  }}
+                                />
                               </FormControl>
+                              {financierDropdownOpen && (
+                                <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-md border bg-popover shadow-md">
+                                  {financierSuggestionsLoading ? (
+                                    <div className="flex items-center justify-center py-3 text-sm text-muted-foreground">
+                                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                      Searching...
+                                    </div>
+                                  ) : financierSuggestions.length > 0 ? (
+                                    financierSuggestions.map((s, i) => (
+                                      <button
+                                        key={`${s.name}-${i}`}
+                                        type="button"
+                                        className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-accent cursor-pointer text-left"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          form.setValue("financierName", s.name);
+                                          setFinancierDropdownOpen(false);
+                                          setFinancierQuery("");
+                                        }}
+                                      >
+                                        <span className="font-medium">{s.name}</span>
+                                        <Badge variant="outline" className="text-[10px] ml-2 capitalize">{s.type}</Badge>
+                                      </button>
+                                    ))
+                                  ) : (
+                                    <div className="px-3 py-2 text-sm text-muted-foreground">No matches found</div>
+                                  )}
+                                </div>
+                              )}
                               <FormMessage />
                             </FormItem>
                           )}

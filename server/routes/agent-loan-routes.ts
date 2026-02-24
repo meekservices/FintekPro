@@ -1403,4 +1403,103 @@ router.delete("/banker-contacts/:id", async (req: Request, res: Response) => {
   }
 });
 
+const INDIAN_FINANCIERS = [
+  { name: "HDFC Bank", type: "bank" },
+  { name: "ICICI Bank", type: "bank" },
+  { name: "State Bank of India (SBI)", type: "bank" },
+  { name: "Axis Bank", type: "bank" },
+  { name: "Kotak Mahindra Bank", type: "bank" },
+  { name: "Punjab National Bank (PNB)", type: "bank" },
+  { name: "Bank of Baroda", type: "bank" },
+  { name: "IndusInd Bank", type: "bank" },
+  { name: "Yes Bank", type: "bank" },
+  { name: "IDFC First Bank", type: "bank" },
+  { name: "Federal Bank", type: "bank" },
+  { name: "Union Bank of India", type: "bank" },
+  { name: "Canara Bank", type: "bank" },
+  { name: "Bank of India", type: "bank" },
+  { name: "Indian Bank", type: "bank" },
+  { name: "Central Bank of India", type: "bank" },
+  { name: "UCO Bank", type: "bank" },
+  { name: "IDBI Bank", type: "bank" },
+  { name: "Indian Overseas Bank", type: "bank" },
+  { name: "South Indian Bank", type: "bank" },
+  { name: "Karur Vysya Bank", type: "bank" },
+  { name: "City Union Bank", type: "bank" },
+  { name: "Bandhan Bank", type: "bank" },
+  { name: "RBL Bank", type: "bank" },
+  { name: "DCB Bank", type: "bank" },
+  { name: "Dhanlaxmi Bank", type: "bank" },
+  { name: "Tamilnad Mercantile Bank", type: "bank" },
+  { name: "CSB Bank", type: "bank" },
+  { name: "Nainital Bank", type: "bank" },
+  { name: "Jammu & Kashmir Bank", type: "bank" },
+  { name: "Karnataka Bank", type: "bank" },
+  { name: "Bajaj Finance", type: "nbfc" },
+  { name: "Bajaj Finserv", type: "nbfc" },
+  { name: "Tata Capital", type: "nbfc" },
+  { name: "Piramal Finance", type: "nbfc" },
+  { name: "L&T Finance", type: "nbfc" },
+  { name: "Mahindra Finance", type: "nbfc" },
+  { name: "Muthoot Finance", type: "nbfc" },
+  { name: "Manappuram Finance", type: "nbfc" },
+  { name: "Shriram Finance", type: "nbfc" },
+  { name: "Cholamandalam Finance", type: "nbfc" },
+  { name: "Sundaram Finance", type: "nbfc" },
+  { name: "HDB Financial Services", type: "nbfc" },
+  { name: "Aditya Birla Finance", type: "nbfc" },
+  { name: "Hero FinCorp", type: "nbfc" },
+  { name: "IIFL Finance", type: "nbfc" },
+  { name: "JM Financial", type: "nbfc" },
+  { name: "Fullerton India", type: "nbfc" },
+  { name: "InCred Finance", type: "nbfc" },
+  { name: "Poonawalla Fincorp", type: "nbfc" },
+  { name: "DMI Finance", type: "nbfc" },
+  { name: "Northern Arc Capital", type: "nbfc" },
+  { name: "Capri Global Capital", type: "nbfc" },
+  { name: "UGRO Capital", type: "nbfc" },
+  { name: "Lendingkart", type: "nbfc" },
+  { name: "Home First Finance", type: "hfc" },
+  { name: "Aavas Financiers", type: "hfc" },
+  { name: "Aptus Value Housing", type: "hfc" },
+  { name: "Can Fin Homes", type: "hfc" },
+  { name: "GIC Housing Finance", type: "hfc" },
+  { name: "PNB Housing Finance", type: "hfc" },
+  { name: "LIC Housing Finance", type: "hfc" },
+  { name: "HUDCO", type: "hfc" },
+  { name: "Repco Home Finance", type: "hfc" },
+];
+
+router.get("/financier-suggestions", async (req: Request, res: Response) => {
+  try {
+    const query = ((req.query.q as string) || "").toLowerCase().trim();
+
+    let results = INDIAN_FINANCIERS.map(f => ({ ...f, source: "directory" as const }));
+
+    const agentId = (req as any).user?.id;
+    if (agentId) {
+      const contacts = await db
+        .select({ financierName: bankerContacts.financierName })
+        .from(bankerContacts)
+        .where(and(eq(bankerContacts.agentId, agentId), eq(bankerContacts.isActive, true)));
+
+      const existingNames = new Set(results.map(r => r.name.toLowerCase()));
+      for (const c of contacts) {
+        if (c.financierName && !existingNames.has(c.financierName.toLowerCase())) {
+          results.push({ name: c.financierName, type: "saved", source: "contact" as const });
+          existingNames.add(c.financierName.toLowerCase());
+        }
+      }
+    }
+
+    if (query) {
+      results = results.filter(r => r.name.toLowerCase().includes(query));
+    }
+
+    res.json({ success: true, data: results.slice(0, 20) });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export default router;
