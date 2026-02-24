@@ -12,9 +12,10 @@ import { eq, desc } from 'drizzle-orm';
 import { authBridgeESignService } from '../authbridge-esign-service';
 import { proteanESignService } from './protean-esign-service';
 import { dscTokenESignService, DSCSigningRequest, DSCSignatureSubmission } from './dsc-token-esign-service';
+import { truthScreenESignService } from './truthscreen-esign-service';
 import { nanoid } from 'nanoid';
 
-export type ESignProvider = 'authbridge' | 'protean' | 'emudhra' | 'cvl' | 'dsc_token' | 'user_signature';
+export type ESignProvider = 'authbridge' | 'truthscreen' | 'protean' | 'emudhra' | 'cvl' | 'dsc_token' | 'user_signature';
 
 export interface ESignProviderConfig {
   provider: ESignProvider;
@@ -77,6 +78,17 @@ class UnifiedESignService {
   private static readonly PRICING_PREFIX = 'esign_pricing_';
 
   private defaultProviders: Map<ESignProvider, ESignProviderConfig> = new Map([
+    ['truthscreen', {
+      provider: 'truthscreen',
+      displayName: 'TruthScreen Aadhaar eSign',
+      description: 'TruthScreen Aadhaar-based eSign with OTP verification (docType 373)',
+      pricingPerSign: 12.00,
+      pricingCurrency: 'INR',
+      isActive: false,
+      isConfigured: false,
+      features: ['Aadhaar OTP', 'PDF Signing', 'Certificate Generation', 'Audit Trail', 'Redirect-based Flow'],
+      environment: 'sandbox',
+    }],
     ['authbridge', {
       provider: 'authbridge',
       displayName: 'AuthBridge eSign',
@@ -150,6 +162,10 @@ class UnifiedESignService {
   }
 
   private initializeProviderStatus(): void {
+    const truthscreenConfig = this.defaultProviders.get('truthscreen')!;
+    truthscreenConfig.isConfigured = truthScreenESignService.isConfigured();
+    truthscreenConfig.environment = truthScreenESignService.getEnvironment() as 'sandbox' | 'production';
+
     const authbridgeConfig = this.defaultProviders.get('authbridge')!;
     authbridgeConfig.isConfigured = !authBridgeESignService.isInMockMode();
     authbridgeConfig.environment = authBridgeESignService.getEnvironment() as 'sandbox' | 'production';
@@ -163,6 +179,7 @@ class UnifiedESignService {
     dscConfig.environment = dscTokenESignService.getEnvironment() as 'sandbox' | 'production';
 
     console.log('✅ Unified eSign Service initialized');
+    console.log(`   TruthScreen: ${truthscreenConfig.isConfigured ? 'Configured' : 'Mock Mode'}`);
     console.log(`   AuthBridge: ${authbridgeConfig.isConfigured ? 'Configured' : 'Mock Mode'}`);
     console.log(`   Protean: ${proteanConfig.isConfigured ? 'Configured' : 'Mock Mode'}`);
     console.log(`   DSC Token: ${dscConfig.isConfigured ? 'Available' : 'Mock Mode'}`);
@@ -191,6 +208,9 @@ class UnifiedESignService {
   }
 
   detectProviderFromTransactionId(transactionId: string): ESignProvider {
+    if (transactionId.startsWith('TS-ESIGN-')) {
+      return 'truthscreen';
+    }
     if (transactionId.startsWith('PROTEAN-')) {
       return 'protean';
     }
@@ -347,6 +367,19 @@ class UnifiedESignService {
     console.log(`[UnifiedESign] Initiating eSign with provider: ${activeProvider}`);
 
     switch (activeProvider) {
+      case 'truthscreen':
+        const tsResult = await truthScreenESignService.initiateESign({
+          userId: request.userId,
+          documentType: request.documentType,
+          documentName: request.documentName,
+          documentHash: request.documentHash,
+          documentUrl: request.documentUrl,
+          aadhaarNumber: request.aadhaarNumber,
+          fullName: request.fullName,
+          callbackUrl: request.callbackUrl,
+        });
+        return { ...tsResult, provider: 'truthscreen' };
+
       case 'protean':
         const proteanResult = await proteanESignService.initiateESign(request);
         return { ...proteanResult, provider: 'protean-esign' };
@@ -365,6 +398,10 @@ class UnifiedESignService {
     console.log(`[UnifiedESign] Verifying eSign with provider: ${provider} for transaction: ${transactionId}`);
 
     switch (provider) {
+      case 'truthscreen':
+        const tsResult = await truthScreenESignService.verifyESign(request);
+        return { ...tsResult, provider: 'truthscreen' };
+
       case 'protean':
         const proteanResult = await proteanESignService.verifyESign(request);
         return { ...proteanResult, provider: 'protean-esign' };
@@ -380,6 +417,10 @@ class UnifiedESignService {
     const provider = this.detectProviderFromTransactionId(transactionId);
 
     switch (provider) {
+      case 'truthscreen':
+        const tsResult = await truthScreenESignService.resendOTP(transactionId);
+        return { ...tsResult, provider: 'truthscreen' };
+
       case 'protean':
         const proteanResult = await proteanESignService.resendOTP(transactionId);
         return { ...proteanResult, provider: 'protean-esign' };
@@ -403,6 +444,10 @@ class UnifiedESignService {
     const provider = this.detectProviderFromTransactionId(transactionId);
 
     switch (provider) {
+      case 'truthscreen':
+        const tsStatus = await truthScreenESignService.getStatus(transactionId);
+        return { ...tsStatus, provider: 'truthscreen' };
+
       case 'protean':
         const proteanStatus = await proteanESignService.getStatus(transactionId);
         return { ...proteanStatus, provider: 'protean-esign' };
@@ -435,6 +480,13 @@ class UnifiedESignService {
     estimatedCost: number;
   }[]> {
     return [
+      {
+        provider: 'truthscreen',
+        displayName: 'TruthScreen Aadhaar eSign',
+        totalSigns: 0,
+        lastUsed: null,
+        estimatedCost: 0,
+      },
       {
         provider: 'authbridge',
         displayName: 'AuthBridge eSign',
