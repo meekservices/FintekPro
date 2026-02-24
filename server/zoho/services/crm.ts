@@ -860,6 +860,122 @@ export class ZohoCRMService {
     return zohoRecordId;
   }
 
+  async syncLoanLeadToCRM(loanData: {
+    applicationId: string;
+    applicationNumber: string;
+    applicantName: string;
+    applicantEmail?: string;
+    applicantPhone?: string;
+    loanType: string;
+    requestedAmount: string;
+    requestedTenure?: number;
+    loanPurpose?: string;
+    processingMode: string;
+    financierName?: string;
+    bankerName?: string;
+    bankerMobile?: string;
+    bankerEmail?: string;
+    agentId: string;
+    masterAgentZohoAccountId?: string;
+  }): Promise<string> {
+    const nameParts = loanData.applicantName.split(' ');
+    const firstName = nameParts[0] || 'Loan';
+    const lastName = nameParts.slice(1).join(' ') || 'Applicant';
+
+    const { customerCareAgents } = await import('@shared/schema');
+    const [agent] = await db
+      .select()
+      .from(customerCareAgents)
+      .where(eq(customerCareAgents.id, loanData.agentId))
+      .limit(1);
+
+    const descriptionParts = [
+      `Loan Type: ${loanData.loanType}`,
+      `Amount: ₹${Number(loanData.requestedAmount).toLocaleString()}`,
+      `Tenure: ${loanData.requestedTenure || 'N/A'} months`,
+      `Purpose: ${loanData.loanPurpose || 'N/A'}`,
+      `Processing: ${loanData.processingMode === 'EXTERNAL_FINANCIER' ? 'Bank/Financier Direct' : 'Platform'}`,
+      `Agent: ${agent?.fullName || 'Unknown'} (ID: ${loanData.agentId})`,
+      `Application #: ${loanData.applicationNumber}`,
+    ];
+
+    if (loanData.processingMode === 'EXTERNAL_FINANCIER') {
+      if (loanData.financierName) descriptionParts.push(`Financier/Bank: ${loanData.financierName}`);
+      if (loanData.bankerName) descriptionParts.push(`Banker Contact: ${loanData.bankerName}`);
+      if (loanData.bankerMobile) descriptionParts.push(`Banker Mobile: ${loanData.bankerMobile}`);
+      if (loanData.bankerEmail) descriptionParts.push(`Banker Email: ${loanData.bankerEmail}`);
+    }
+
+    const leadData: ZohoCRMLead = {
+      First_Name: firstName,
+      Last_Name: lastName,
+      Email: loanData.applicantEmail || undefined,
+      Phone: loanData.applicantPhone || undefined,
+      Mobile: loanData.applicantPhone || undefined,
+      Company: loanData.financierName || 'Individual',
+      Lead_Source: 'DSA Loan Lead',
+      Lead_Status: 'New',
+      Industry: 'Financial Services',
+      Description: descriptionParts.join('\n'),
+      Tag: ['FintekPro Loan Lead', loanData.loanType, loanData.processingMode === 'EXTERNAL_FINANCIER' ? 'Bank Direct' : 'Platform Processed'],
+      Banker: loanData.financierName || '',
+      Banker_Contact_Person: loanData.bankerName || '',
+      Banker_Mobile: loanData.bankerMobile || '',
+      Banker_Email: loanData.bankerEmail || '',
+    };
+
+    const zohoRecordId = await this.createLead(leadData);
+
+    if (zohoRecordId) {
+      const [existingMapping] = await db
+        .select()
+        .from(zohoEntityMappings)
+        .where(
+          and(
+            eq(zohoEntityMappings.connectionId, this.connectionId),
+            eq(zohoEntityMappings.fintekproEntityType, 'loan_application'),
+            eq(zohoEntityMappings.fintekproEntityId, loanData.applicationId),
+            eq(zohoEntityMappings.zohoModule, 'Leads')
+          )
+        )
+        .limit(1);
+
+      if (existingMapping) {
+        await db
+          .update(zohoEntityMappings)
+          .set({
+            zohoRecordId,
+            zohoRecordData: { id: zohoRecordId, name: loanData.applicantName, loanType: loanData.loanType, applicationNumber: loanData.applicationNumber },
+            parentZohoRecordId: loanData.masterAgentZohoAccountId || existingMapping.parentZohoRecordId,
+            owningAgentId: loanData.agentId,
+            lastSyncedAt: new Date(),
+            syncStatus: 'synced',
+            updatedAt: new Date()
+          })
+          .where(eq(zohoEntityMappings.id, existingMapping.id));
+      } else {
+        await db.insert(zohoEntityMappings).values({
+          connectionId: this.connectionId,
+          fintekproEntityType: 'loan_application',
+          fintekproEntityId: loanData.applicationId,
+          zohoService: 'CRM',
+          zohoModule: 'Leads',
+          zohoRecordId,
+          zohoRecordData: { id: zohoRecordId, name: loanData.applicantName, loanType: loanData.loanType, applicationNumber: loanData.applicationNumber },
+          parentZohoRecordId: loanData.masterAgentZohoAccountId || null,
+          owningAgentId: loanData.agentId,
+          syncDirection: 'to_zoho',
+          lastSyncedAt: new Date(),
+          syncStatus: 'synced'
+        });
+      }
+
+      console.log(`✅ [Zoho CRM] Loan lead ${loanData.applicationNumber} synced to Zoho Lead ${zohoRecordId} (banker: ${loanData.financierName || 'N/A'})`);
+    }
+
+    return zohoRecordId;
+  }
+
   /**
    * Get all deals for a partner
    */

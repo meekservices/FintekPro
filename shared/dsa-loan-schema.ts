@@ -1,4 +1,4 @@
-import { pgTable, varchar, integer, boolean, timestamp, decimal, text, jsonb, date, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, varchar, integer, boolean, timestamp, decimal, text, jsonb, date, pgEnum, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -994,3 +994,36 @@ export type LoanDisbursementTranche = typeof loanDisbursementTranches.$inferSele
 export type InsertLoanDisbursementTranche = z.infer<typeof insertLoanDisbursementTrancheSchema>;
 export type BankProductAppetite = typeof bankProductAppetite.$inferSelect;
 export type InsertBankProductAppetite = z.infer<typeof insertBankProductAppetiteSchema>;
+
+export const bankerContacts = pgTable("banker_contacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  financierName: varchar("financier_name", { length: 200 }).notNull(),
+  bankerName: varchar("banker_name", { length: 200 }).notNull(),
+  bankerMobile: varchar("banker_mobile", { length: 15 }),
+  bankerEmail: varchar("banker_email", { length: 200 }),
+  designation: varchar("designation", { length: 100 }),
+  branch: varchar("branch", { length: 200 }),
+  supportedLoanTypes: text("supported_loan_types").array().default(sql`ARRAY[]::text[]`),
+  notes: text("notes"),
+  isActive: boolean("is_active").default(true),
+  usageCount: integer("usage_count").default(0),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_banker_contacts_agent").on(table.agentId),
+  index("idx_banker_contacts_financier").on(table.financierName),
+  uniqueIndex("idx_banker_contacts_unique").on(table.agentId, table.financierName, table.bankerMobile),
+]);
+
+export const insertBankerContactSchema = createInsertSchema(bankerContacts).omit({
+  id: true,
+  usageCount: true,
+  lastUsedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type BankerContact = typeof bankerContacts.$inferSelect;
+export type InsertBankerContact = z.infer<typeof insertBankerContactSchema>;

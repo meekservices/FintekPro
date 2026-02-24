@@ -14,6 +14,7 @@ import {
   agentLoanStatusHistory,
   dsaCommissionTracking,
   bankInteractionEvents,
+  bankerContacts,
 } from "@shared/dsa-loan-schema";
 import { users, agentClientMappingRequests } from "@shared/schema";
 import {
@@ -328,10 +329,73 @@ router.post("/applications", async (req: Request, res: Response) => {
       req,
     });
 
+    if (parsed.processingMode === "EXTERNAL_FINANCIER" && parsed.financierName) {
+      try {
+        if (parsed.bankerMobile) {
+          await db.insert(bankerContacts).values({
+            agentId,
+            financierName: parsed.financierName,
+            bankerName: parsed.bankerName || "",
+            bankerMobile: parsed.bankerMobile,
+            bankerEmail: parsed.bankerEmail || undefined,
+          }).onConflictDoUpdate({
+            target: [bankerContacts.agentId, bankerContacts.financierName, bankerContacts.bankerMobile],
+            set: {
+              bankerName: parsed.bankerName || "",
+              bankerEmail: parsed.bankerEmail || undefined,
+              usageCount: sql`${bankerContacts.usageCount} + 1`,
+              lastUsedAt: new Date(),
+              updatedAt: new Date(),
+            },
+          });
+        } else {
+          await db.insert(bankerContacts).values({
+            agentId,
+            financierName: parsed.financierName,
+            bankerName: parsed.bankerName || "",
+            bankerEmail: parsed.bankerEmail || undefined,
+          });
+        }
+      } catch (_) {}
+    }
+
+    let zohoLeadId: string | null = null;
+    try {
+      const { ZohoConnectionResolver } = await import("../zoho/connection-resolver");
+      const { ZohoCRMService } = await import("../zoho/services/crm");
+      const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
+      if (connection) {
+        const crmService = new ZohoCRMService(connection.connectionId, connection.zohoDataCenter);
+        const masterZohoAccountId = await ZohoConnectionResolver.getMasterAgentZohoAccountId(connection.connectionId);
+        zohoLeadId = await crmService.syncLoanLeadToCRM({
+          applicationId: application.id,
+          applicationNumber,
+          applicantName: parsed.applicantName,
+          applicantEmail: parsed.applicantEmail,
+          applicantPhone: parsed.applicantPhone,
+          loanType: parsed.loanType,
+          requestedAmount: parsed.requestedAmount.toString(),
+          requestedTenure: parsed.requestedTenure,
+          loanPurpose: parsed.loanPurpose,
+          processingMode: parsed.processingMode,
+          financierName: parsed.financierName,
+          bankerName: parsed.bankerName,
+          bankerMobile: parsed.bankerMobile,
+          bankerEmail: parsed.bankerEmail,
+          agentId,
+          masterAgentZohoAccountId: masterZohoAccountId || undefined,
+        });
+        console.log(`[Zoho CRM] Loan lead ${applicationNumber} synced to Zoho Lead ${zohoLeadId}`);
+      }
+    } catch (zohoError: any) {
+      console.warn("[Zoho CRM] Loan lead sync failed (non-blocking):", zohoError?.message);
+    }
+
     res.status(201).json({
       success: true,
       data: application,
       leadRegistryId,
+      zohoLeadId,
       message: `Loan lead ${parsed.processingMode === "EXTERNAL_FINANCIER" ? "(bank-processed)" : "(agent-processed)"} created successfully`,
     });
   } catch (error: any) {
@@ -1212,6 +1276,128 @@ router.get("/my-applications", async (req: Request, res: Response) => {
       .orderBy(desc(dsaLoanApplications.createdAt));
 
     res.json({ success: true, data: applications });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/banker-contacts", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+    const search = (req.query.search as string) || "";
+    const contacts = await db
+      .select()
+      .from(bankerContacts)
+      .where(
+        and(
+          eq(bankerContacts.agentId, agentId),
+          eq(bankerContacts.isActive, true)
+        )
+      )
+      .orderBy(desc(bankerContacts.lastUsedAt));
+
+    const filtered = search
+      ? contacts.filter(c =>
+          c.financierName.toLowerCase().includes(search.toLowerCase()) ||
+          c.bankerName.toLowerCase().includes(search.toLowerCase())
+        )
+      : contacts;
+
+    res.json({ success: true, data: filtered });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/banker-contacts", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+    const schema = z.object({
+      financierName: z.string().min(1),
+      bankerName: z.string().min(1),
+      bankerMobile: z.string().optional(),
+      bankerEmail: z.string().email().optional().or(z.literal("")),
+      designation: z.string().optional(),
+      branch: z.string().optional(),
+      supportedLoanTypes: z.array(z.string()).optional(),
+      notes: z.string().optional(),
+    });
+    const parsed = schema.parse(req.body);
+
+    const [contact] = await db.insert(bankerContacts).values({
+      agentId,
+      ...parsed,
+      bankerEmail: parsed.bankerEmail || undefined,
+    }).onConflictDoUpdate({
+      target: [bankerContacts.agentId, bankerContacts.financierName, bankerContacts.bankerMobile],
+      set: {
+        bankerName: parsed.bankerName,
+        bankerEmail: parsed.bankerEmail || undefined,
+        designation: parsed.designation,
+        branch: parsed.branch,
+        notes: parsed.notes,
+        updatedAt: new Date(),
+      },
+    }).returning();
+
+    res.status(201).json({ success: true, data: contact });
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ success: false, error: "Validation failed", details: error.errors });
+    } else {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+});
+
+router.put("/banker-contacts/:id", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+    const schema = z.object({
+      financierName: z.string().min(1).optional(),
+      bankerName: z.string().min(1).optional(),
+      bankerMobile: z.string().optional(),
+      bankerEmail: z.string().email().optional().or(z.literal("")),
+      designation: z.string().optional(),
+      branch: z.string().optional(),
+      supportedLoanTypes: z.array(z.string()).optional(),
+      notes: z.string().optional(),
+      isActive: z.boolean().optional(),
+    });
+    const parsed = schema.parse(req.body);
+
+    const [updated] = await db
+      .update(bankerContacts)
+      .set({ ...parsed, updatedAt: new Date() })
+      .where(and(eq(bankerContacts.id, req.params.id), eq(bankerContacts.agentId, agentId)))
+      .returning();
+
+    if (!updated) return res.status(404).json({ success: false, error: "Contact not found" });
+    res.json({ success: true, data: updated });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.delete("/banker-contacts/:id", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+    const [updated] = await db
+      .update(bankerContacts)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(and(eq(bankerContacts.id, req.params.id), eq(bankerContacts.agentId, agentId)))
+      .returning();
+
+    if (!updated) return res.status(404).json({ success: false, error: "Contact not found" });
+    res.json({ success: true, message: "Contact removed" });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }

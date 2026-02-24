@@ -374,6 +374,16 @@ export default function AgentLoanApplyPage() {
     enabled: !!isAgentOrPartner,
   });
 
+  const { data: bankerContactsData } = useQuery<{ success: boolean; data: Array<{
+    id: string; financierName: string; bankerName: string;
+    bankerMobile?: string; bankerEmail?: string; designation?: string;
+    branch?: string; usageCount: number; lastUsedAt?: string;
+  }> }>({
+    queryKey: ["/api/agent/loans/banker-contacts"],
+    enabled: !!isAgent,
+  });
+  const savedBankerContacts = bankerContactsData?.data || [];
+
   const routeMutation = useMutation({
     mutationFn: async ({ applicationId, bankCodes }: { applicationId: string; bankCodes: string[] }) => {
       return apiRequest(`/api/dsa-loans/applications/${applicationId}/route`, {
@@ -460,6 +470,7 @@ export default function AgentLoanApplyPage() {
     onSuccess: () => {
       toast({ title: "Loan Lead Submitted", description: "The loan application has been submitted for processing." });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/my-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/banker-contacts"] });
       clearDraft();
       setUploadedDocuments([]);
       form.reset();
@@ -1433,10 +1444,41 @@ export default function AgentLoanApplyPage() {
 
                   {form.watch("processingMode") === "EXTERNAL_FINANCIER" && (
                     <div className="space-y-4 pt-4 border-t">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertCircle className="h-4 w-4 text-orange-500" />
-                        <p className="text-sm font-medium text-orange-700 dark:text-orange-400">Provide bank/financier details where you are sending this lead</p>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-orange-500" />
+                          <p className="text-sm font-medium text-orange-700 dark:text-orange-400">Provide bank/financier details where you are sending this lead</p>
+                        </div>
                       </div>
+
+                      {savedBankerContacts.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-xs text-muted-foreground font-medium">Select from saved contacts or enter new details below</p>
+                          <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 rounded-md border bg-muted/30">
+                            {savedBankerContacts.map((contact) => (
+                              <Button
+                                key={contact.id}
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-xs h-auto py-1.5 px-3"
+                                onClick={() => {
+                                  form.setValue("financierName", contact.financierName);
+                                  form.setValue("bankerName", contact.bankerName);
+                                  form.setValue("bankerMobile", contact.bankerMobile || "");
+                                  form.setValue("bankerEmail", contact.bankerEmail || "");
+                                }}
+                              >
+                                <Building2 className="h-3 w-3 mr-1.5" />
+                                <span className="font-medium">{contact.financierName}</span>
+                                <span className="mx-1 text-muted-foreground">·</span>
+                                <span>{contact.bankerName}</span>
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
@@ -1491,6 +1533,7 @@ export default function AgentLoanApplyPage() {
                           )}
                         />
                       </div>
+                      <p className="text-xs text-muted-foreground">New banker contacts are automatically saved for future use.</p>
                     </div>
                   )}
                 </CardContent>
