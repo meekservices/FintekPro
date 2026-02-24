@@ -1,0 +1,113 @@
+{
+	"info": {
+		"_postman_id": "6a5908b0-4fae-4090-9dbd-adb6e2fa4cc4",
+		"name": "CKYC (400)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "26810629"
+	},
+	"item": [
+		{
+			"name": "_encryption",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "username",
+						"value": "{{username}}"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\t\t\t\t\t\t\t\t\t\t\t\t\"transID\": \"206772\",\r\n\t\t\t\t\t\t\t\t\t\t\t\t\"docType\": 400,\r\n\t\t\t\t\t\t\t\t\t\t\t\t\"docNumber\": \"\"\r\n\t\t\t\t\t\t\t\t\t\t\t}\r\n\t\t\t\t\t\t\t\t\t\t"
+				},
+				"url": {
+					"raw": "https://www.truthscreen.com/InstantSearch/encrypted_string",
+					"protocol": "https",
+					"host": [
+						"www",
+						"truthscreen",
+						"com"
+					],
+					"path": [
+						"InstantSearch",
+						"encrypted_string"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "_request",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "username",
+						"value": "{{username}}"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"requestData\":\"\"\n\t\n}"
+				},
+				"url": {
+					"raw": "https://www.truthscreen.com/api/v2.2/idsearch",
+					"protocol": "https",
+					"host": [
+						"www",
+						"truthscreen",
+						"com"
+					],
+					"path": [
+						"api",
+						"v2.2",
+						"idsearch"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "_decryption",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "username",
+						"value": "{{username}}"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"responseData\":\"\"}"
+				},
+				"url": {
+					"raw": "https://www.truthscreen.com/InstantSearch/decrypt_encrypted_string",
+					"protocol": "https",
+					"host": [
+						"www",
+						"truthscreen",
+						"com"
+					],
+					"path": [
+						"InstantSearch",
+						"decrypt_encrypted_string"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
