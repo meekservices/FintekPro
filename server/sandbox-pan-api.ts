@@ -111,11 +111,17 @@ class SandboxPANService {
         throw authError;
       }
 
+      let formattedDOB = dateOfBirth || '';
+      if (formattedDOB && formattedDOB.includes('-') && formattedDOB.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = formattedDOB.split('-');
+        formattedDOB = `${day}/${month}/${year}`;
+      }
+
       const requestPayload: any = {
         '@entity': 'in.co.sandbox.kyc.pan_verification.request',
         pan: panNumber.toUpperCase(),
         name_as_per_pan: fullName || '',
-        date_of_birth: dateOfBirth || '',
+        date_of_birth: formattedDOB,
         consent: 'Y',
         reason: 'KYC verification for financial services'
       };
