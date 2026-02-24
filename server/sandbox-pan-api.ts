@@ -125,11 +125,12 @@ class SandboxPANService {
         }
       );
 
-      const responseData = response.data?.data || response.data;
+      const rawData: any = response.data;
+      const responseData: any = rawData?.data || rawData;
       const normalizedResponse: SandboxPANResponse = {
-        status: (response.data?.code === 200 || responseData?.status === 'VALID' || response.data?.status === 'success') ? 'success' : 'failure',
+        status: (rawData?.code === 200 || responseData?.status === 'VALID' || rawData?.status === 'success') ? 'success' : 'failure',
         data: responseData?.pan_number ? responseData : responseData?.data || responseData,
-        message: response.data?.message,
+        message: rawData?.message,
       };
 
       if (normalizedResponse.status === 'success' && normalizedResponse.data) {
@@ -307,9 +308,10 @@ class SandboxPANService {
         }
       );
 
-      const linkageData = response.data?.data || response.data;
+      const linkageRaw: any = response.data;
+      const linkageData = linkageRaw?.data || linkageRaw;
       console.log(`✅ [Sandbox PAN API] PAN-Aadhaar linkage checked: ${this.maskPAN(panNumber)} (${this.isTestEnvironment ? 'TEST' : 'LIVE'})`);
-      return { status: 'success' as const, data: linkageData };
+      return { status: 'success' as const, data: linkageData as PANAadhaarLinkageResponse['data'] };
     } catch (error) {
       if (error instanceof AppError) throw error;
 
