@@ -824,6 +824,10 @@ server.listen({
   app.use('/api/esign/ai', esignAiRoutes.default);
   console.log('✅ eSign AI analysis routes registered');
 
+  const eaadhaarDglRoutes = await import('./routes/truthscreen-eaadhaar-routes');
+  app.use(eaadhaarDglRoutes.default);
+  console.log('✅ TruthScreen E-Aadhaar DigiLocker routes registered');
+
   // Register Document Upload routes
   const documentUploadRoutes = await import('./routes/document-upload-routes');
   app.use('/api/documents', documentUploadRoutes.default);
