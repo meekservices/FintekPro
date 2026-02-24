@@ -13,7 +13,7 @@ import FormData from 'form-data';
 import crypto from 'crypto';
 import { db } from '../db';
 import { esignRequests, esignCertificates } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { AppError } from '../utils/errors';
 
@@ -523,6 +523,57 @@ class TruthScreenESignService {
       success: false,
       message: 'TruthScreen Aadhaar eSign uses redirect-based OTP. Please use the eSign URL to complete signing.',
     };
+  }
+
+  async getUserCertificates(userId: string): Promise<any[]> {
+    const certificates = await db.select()
+      .from(esignCertificates)
+      .where(eq(esignCertificates.userId, userId))
+      .orderBy(desc(esignCertificates.signedAt));
+
+    return certificates.map(cert => ({
+      id: cert.id,
+      userId: cert.userId,
+      transactionId: cert.transactionId,
+      documentType: cert.documentType,
+      documentName: cert.documentName,
+      documentHash: cert.documentHash,
+      signedDocumentUrl: cert.signedDocumentUrl || '',
+      certificateSerial: cert.certificateSerial,
+      signerName: cert.signerName,
+      signerAadhaarMasked: cert.signerAadhaarMasked,
+      signedAt: cert.signedAt,
+      validFrom: cert.validFrom,
+      validTo: cert.validTo,
+      signatureAlgorithm: cert.signatureAlgorithm || 'SHA256withRSA',
+      status: cert.status as 'valid' | 'expired' | 'revoked',
+    }));
+  }
+
+  async verifyCertificate(certificateSerial: string): Promise<{
+    valid: boolean;
+    certificate?: any;
+    message: string;
+  }> {
+    const [cert] = await db.select()
+      .from(esignCertificates)
+      .where(eq(esignCertificates.certificateSerial, certificateSerial))
+      .limit(1);
+
+    if (!cert) {
+      return { valid: false, message: 'Certificate not found' };
+    }
+
+    const now = new Date();
+    if (now > cert.validTo) {
+      return { valid: false, certificate: cert, message: 'Certificate has expired' };
+    }
+
+    if (cert.status === 'revoked') {
+      return { valid: false, certificate: cert, message: 'Certificate has been revoked' };
+    }
+
+    return { valid: true, certificate: cert, message: 'Certificate is valid' };
   }
 }
 

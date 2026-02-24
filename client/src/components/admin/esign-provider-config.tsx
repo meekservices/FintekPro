@@ -292,14 +292,13 @@ export function ESignProviderConfig() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <h4 className="font-medium">AuthBridge (Current)</h4>
+            <h4 className="font-medium">TruthScreen (Primary)</h4>
             <p className="text-sm text-muted-foreground">
               Set the following environment variables:
             </p>
             <code className="block p-2 bg-muted rounded text-xs">
-              AUTHBRIDGE_ESIGN_API_KEY<br/>
-              AUTHBRIDGE_ESIGN_CLIENT_ID<br/>
-              AUTHBRIDGE_ESIGN_CLIENT_SECRET
+              TRUTHSCREEN_USERNAME<br/>
+              TRUTHSCREEN_PASSWORD
             </code>
           </div>
           

@@ -800,10 +800,9 @@ server.listen({
   app.use(aiMFRecommendationRoutes.default);
   console.log('✅ AI MF Recommendation routes registered');
   
-  // Register AuthBridge Aadhaar eSign (DSC) routes
   const esignRoutes = await import('./routes/esign-routes');
   app.use(esignRoutes.default);
-  console.log('✅ AuthBridge eSign routes registered');
+  console.log('✅ TruthScreen eSign routes registered');
   
   // Register Admin eSign Provider Configuration routes
   const adminEsignRoutes = await import('./routes/admin-esign-routes');

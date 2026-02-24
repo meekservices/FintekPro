@@ -2,20 +2,21 @@
  * Unified eSign Service
  * 
  * Provider abstraction layer for Aadhaar-based Digital Signature (eSign)
- * Supports multiple providers: AuthBridge, Protean (NSDL), eMudhra, etc.
+ * Supports multiple providers: TruthScreen (primary), Protean (NSDL), eMudhra, DSC Token, etc.
  * Admin can toggle active provider based on pricing and availability
+ * 
+ * Note: TruthScreen = AuthBridge (same company). Only TruthScreen is used as the provider name.
  */
 
 import { db } from '../db';
 import { systemConfigs, esignRequests, users } from '@shared/schema';
 import { eq, desc } from 'drizzle-orm';
-import { authBridgeESignService } from '../authbridge-esign-service';
 import { proteanESignService } from './protean-esign-service';
 import { dscTokenESignService, DSCSigningRequest, DSCSignatureSubmission } from './dsc-token-esign-service';
 import { truthScreenESignService } from './truthscreen-esign-service';
 import { nanoid } from 'nanoid';
 
-export type ESignProvider = 'authbridge' | 'truthscreen' | 'protean' | 'emudhra' | 'cvl' | 'dsc_token' | 'user_signature';
+export type ESignProvider = 'truthscreen' | 'protean' | 'emudhra' | 'cvl' | 'dsc_token' | 'user_signature';
 
 export interface ESignProviderConfig {
   provider: ESignProvider;
@@ -81,23 +82,12 @@ class UnifiedESignService {
     ['truthscreen', {
       provider: 'truthscreen',
       displayName: 'TruthScreen Aadhaar eSign',
-      description: 'TruthScreen Aadhaar-based eSign with OTP verification (docType 373)',
+      description: 'TruthScreen (AuthBridge) Aadhaar-based eSign with OTP verification (docType 373)',
       pricingPerSign: 12.00,
-      pricingCurrency: 'INR',
-      isActive: false,
-      isConfigured: false,
-      features: ['Aadhaar OTP', 'PDF Signing', 'Certificate Generation', 'Audit Trail', 'Redirect-based Flow'],
-      environment: 'sandbox',
-    }],
-    ['authbridge', {
-      provider: 'authbridge',
-      displayName: 'AuthBridge eSign',
-      description: 'AuthBridge Aadhaar-based DSC with OTP verification',
-      pricingPerSign: 15.00,
       pricingCurrency: 'INR',
       isActive: true,
       isConfigured: false,
-      features: ['Aadhaar OTP', 'PDF Signing', 'Certificate Generation', 'Audit Trail'],
+      features: ['Aadhaar OTP', 'PDF Signing', 'Certificate Generation', 'Audit Trail', 'Redirect-based Flow'],
       environment: 'sandbox',
     }],
     ['protean', {
@@ -166,10 +156,6 @@ class UnifiedESignService {
     truthscreenConfig.isConfigured = truthScreenESignService.isConfigured();
     truthscreenConfig.environment = truthScreenESignService.getEnvironment() as 'sandbox' | 'production';
 
-    const authbridgeConfig = this.defaultProviders.get('authbridge')!;
-    authbridgeConfig.isConfigured = !authBridgeESignService.isInMockMode();
-    authbridgeConfig.environment = authBridgeESignService.getEnvironment() as 'sandbox' | 'production';
-
     const proteanConfig = this.defaultProviders.get('protean')!;
     proteanConfig.isConfigured = !proteanESignService.isInMockMode();
     proteanConfig.environment = proteanESignService.getEnvironment() as 'sandbox' | 'production';
@@ -180,7 +166,6 @@ class UnifiedESignService {
 
     console.log('✅ Unified eSign Service initialized');
     console.log(`   TruthScreen: ${truthscreenConfig.isConfigured ? 'Configured' : 'Mock Mode'}`);
-    console.log(`   AuthBridge: ${authbridgeConfig.isConfigured ? 'Configured' : 'Mock Mode'}`);
     console.log(`   Protean: ${proteanConfig.isConfigured ? 'Configured' : 'Mock Mode'}`);
     console.log(`   DSC Token: ${dscConfig.isConfigured ? 'Available' : 'Mock Mode'}`);
   }
@@ -220,7 +205,7 @@ class UnifiedESignService {
     if (transactionId.startsWith('USIG-')) {
       return 'user_signature';
     }
-    return 'authbridge';
+    return 'truthscreen';
   }
 
   async getActiveProvider(): Promise<ESignProvider> {
@@ -232,12 +217,14 @@ class UnifiedESignService {
 
       if (config && config.value) {
         const parsed = typeof config.value === 'string' ? JSON.parse(config.value) : config.value;
-        return (parsed.activeProvider as ESignProvider) || 'authbridge';
+        const stored = parsed.activeProvider as string;
+        if (stored === 'authbridge') return 'truthscreen';
+        return (stored as ESignProvider) || 'truthscreen';
       }
     } catch (error) {
       console.error('[UnifiedESign] Error fetching active provider:', error);
     }
-    return 'authbridge';
+    return 'truthscreen';
   }
 
   async setActiveProvider(provider: ESignProvider, adminUserId: string): Promise<{ success: boolean; message: string }> {
@@ -349,7 +336,7 @@ class UnifiedESignService {
 
   async getCheapestConfiguredProvider(): Promise<ESignProvider> {
     const configs = await this.getProviderConfigs();
-    let cheapest: ESignProvider = 'authbridge';
+    let cheapest: ESignProvider = 'truthscreen';
     let lowestPrice = Infinity;
 
     for (const config of configs) {
@@ -384,10 +371,18 @@ class UnifiedESignService {
         const proteanResult = await proteanESignService.initiateESign(request);
         return { ...proteanResult, provider: 'protean-esign' };
 
-      case 'authbridge':
       default:
-        const authbridgeResult = await authBridgeESignService.initiateESign(request);
-        return { ...authbridgeResult, provider: 'authbridge' };
+        const defaultResult = await truthScreenESignService.initiateESign({
+          userId: request.userId,
+          documentType: request.documentType,
+          documentName: request.documentName,
+          documentHash: request.documentHash,
+          documentUrl: request.documentUrl,
+          aadhaarNumber: request.aadhaarNumber,
+          fullName: request.fullName,
+          callbackUrl: request.callbackUrl,
+        });
+        return { ...defaultResult, provider: 'truthscreen' };
     }
   }
 
@@ -406,10 +401,9 @@ class UnifiedESignService {
         const proteanResult = await proteanESignService.verifyESign(request);
         return { ...proteanResult, provider: 'protean-esign' };
 
-      case 'authbridge':
       default:
-        const authbridgeResult = await authBridgeESignService.verifyESign(request);
-        return { ...authbridgeResult, provider: 'authbridge' };
+        const defaultVerifyResult = await truthScreenESignService.verifyESign(request);
+        return { ...defaultVerifyResult, provider: 'truthscreen' };
     }
   }
 
@@ -425,10 +419,9 @@ class UnifiedESignService {
         const proteanResult = await proteanESignService.resendOTP(transactionId);
         return { ...proteanResult, provider: 'protean-esign' };
 
-      case 'authbridge':
       default:
-        const authbridgeResult = await authBridgeESignService.resendOTP(transactionId);
-        return { ...authbridgeResult, provider: 'authbridge' };
+        const defaultResendResult = await truthScreenESignService.resendOTP(transactionId);
+        return { ...defaultResendResult, provider: 'truthscreen' };
     }
   }
 
@@ -461,15 +454,14 @@ class UnifiedESignService {
         const userSigStatus = await userSignatureESignService.getSigningStatus(transactionId);
         return { ...userSigStatus, provider: 'user_signature' };
 
-      case 'authbridge':
       default:
-        const authbridgeStatus = await authBridgeESignService.getStatus(transactionId);
-        return { ...authbridgeStatus, provider: 'authbridge' };
+        const defaultStatus = await truthScreenESignService.getStatus(transactionId);
+        return { ...defaultStatus, provider: 'truthscreen' };
     }
   }
 
   generateDocumentHash(documentContent: Buffer | string): string {
-    return authBridgeESignService.generateDocumentHash(documentContent);
+    return truthScreenESignService.generateDocumentHash(documentContent);
   }
 
   async getProviderUsageStats(): Promise<{
@@ -483,13 +475,6 @@ class UnifiedESignService {
       {
         provider: 'truthscreen',
         displayName: 'TruthScreen Aadhaar eSign',
-        totalSigns: 0,
-        lastUsed: null,
-        estimatedCost: 0,
-      },
-      {
-        provider: 'authbridge',
-        displayName: 'AuthBridge eSign',
         totalSigns: 0,
         lastUsed: null,
         estimatedCost: 0,
@@ -596,8 +581,8 @@ class UnifiedESignService {
         agentName: r.userId ? (usersMap.get(r.userId) || 'Unknown') : 'System',
         agentId: r.userId?.toString() || '',
         clientName: r.clientName || r.clientEmail || 'Unknown Client',
-        provider: r.provider || 'authbridge',
-        cost: 15,
+        provider: (r.provider === 'authbridge' ? 'truthscreen' : r.provider) || 'truthscreen',
+        cost: 12,
       }));
     } catch (error) {
       console.error('[UnifiedESign] Error fetching all requests:', error);

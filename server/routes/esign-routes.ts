@@ -2,14 +2,14 @@
  * Unified eSign API Routes
  * 
  * Endpoints for Aadhaar-based Digital Signature Certificate (DSC) operations
- * Uses unified service that routes to active provider (AuthBridge, Protean, etc.)
+ * Uses unified service that routes to active provider (TruthScreen, Protean, etc.)
  */
 
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { eq, desc } from 'drizzle-orm';
 import { unifiedESignService } from '../services/unified-esign-service';
-import { authBridgeESignService } from '../authbridge-esign-service';
+import { truthScreenESignService } from '../services/truthscreen-esign-service';
 import { requireAuth } from '../middleware/roleMiddleware';
 import { db } from '../db';
 import { esignAuditLog } from '@shared/schema';
@@ -195,7 +195,7 @@ router.get('/api/esign/certificates', isAuthenticated, async (req: Request, res:
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const certificates = await authBridgeESignService.getUserCertificates(userId);
+    const certificates = await truthScreenESignService.getUserCertificates(userId);
 
     res.json({ certificates });
   } catch (error) {
@@ -208,7 +208,7 @@ router.get('/api/esign/verify-certificate/:certificateSerial', async (req: Reque
   try {
     const { certificateSerial } = req.params;
 
-    const result = await authBridgeESignService.verifyCertificate(certificateSerial);
+    const result = await truthScreenESignService.verifyCertificate(certificateSerial);
 
     res.json(result);
   } catch (error) {
@@ -224,7 +224,7 @@ router.post('/api/esign/generate-hash', isAuthenticated, async (req: Request, re
       return res.status(400).json({ error: 'Document content is required' });
     }
 
-    const hash = authBridgeESignService.generateDocumentHash(documentContent);
+    const hash = truthScreenESignService.generateDocumentHash(documentContent);
 
     res.json({ hash, algorithm: 'SHA-256' });
   } catch (error) {

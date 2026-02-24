@@ -16,11 +16,11 @@ import { requireAuth, requireRole } from '../middleware/roleMiddleware';
 const router = Router();
 
 const setProviderSchema = z.object({
-  provider: z.enum(['authbridge', 'protean', 'emudhra', 'cvl', 'dsc_token', 'user_signature']),
+  provider: z.enum(['truthscreen', 'protean', 'emudhra', 'cvl', 'dsc_token', 'user_signature']),
 });
 
 const updatePricingSchema = z.object({
-  provider: z.enum(['authbridge', 'protean', 'emudhra', 'cvl', 'dsc_token', 'user_signature']),
+  provider: z.enum(['truthscreen', 'protean', 'emudhra', 'cvl', 'dsc_token', 'user_signature']),
   pricePerSign: z.number().min(0).max(1000),
 });
 
