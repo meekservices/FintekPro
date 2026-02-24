@@ -4,6 +4,7 @@ import { getAccessibleProducts, getUserKYCLevel } from '../../middleware/kyc-lev
 import { storage } from '../../storage';
 import { sandboxPANService } from '../../sandbox-pan-api';
 import { authBridgeCKYCService } from '../../authbridge-ckyc-api';
+import { getAdapter as getCkycAdapter } from '../../services/ckyc-provider-adapter';
 import { PANConsentService } from '../../services/pan-consent-service';
 import { kycOrchestratorService } from '../../services/kyc-orchestrator-service';
 import { sandboxKYCService } from '../../services/sandbox-kyc-service';
@@ -908,19 +909,34 @@ export function registerKYCWizardRoutes(app: Express) {
 
       let ckycResult: any = null;
       try {
-        ckycResult = await authBridgeCKYCService.fetchCKYC({
-          pan: (rawPan || '').toUpperCase(),
-          full_name: (session.panVerificationData as any)?.name || '',
-          date_of_birth: session.panDob ? new Date(session.panDob).toISOString().split('T')[0] : ''
-        });
+        const truthScreenAdapter = await getCkycAdapter('truthscreen');
+        if (truthScreenAdapter.isConfigured()) {
+          const tsResult = await truthScreenAdapter.verify({
+            panNumber: (rawPan || '').toUpperCase(),
+            fullName: (session.panVerificationData as any)?.name || '',
+            dateOfBirth: session.panDob ? new Date(session.panDob).toISOString().split('T')[0] : '',
+            userId
+          });
+          ckycResult = tsResult;
+          console.log(`[KYC Wizard] TruthScreen CKYC check: found=${tsResult.found}, kin=${tsResult.kin || 'N/A'}`);
+        } else {
+          ckycResult = await authBridgeCKYCService.fetchCKYC({
+            pan: (rawPan || '').toUpperCase(),
+            full_name: (session.panVerificationData as any)?.name || '',
+            date_of_birth: session.panDob ? new Date(session.panDob).toISOString().split('T')[0] : ''
+          });
+        }
       } catch (ckycErr) {
         console.warn('[KYC Wizard] CKYC/KRA check failed, proceeding with manual KYC flow:', (ckycErr as any)?.message);
       }
       
+      const isTruthScreenResult = ckycResult?.provider === 'truthscreen';
       const ckycDecision = kycOrchestratorService.computeCkycConfidence(
-        ckycResult?.success && ckycResult?.data
-          ? { found: true, data: ckycResult.data, kin: ckycResult.data?.kin, provider: 'truthscreen-ckyc' }
-          : { found: false, provider: 'truthscreen-ckyc' }
+        isTruthScreenResult
+          ? { found: ckycResult.found, data: ckycResult.data, kin: ckycResult.kin, provider: 'truthscreen' }
+          : (ckycResult?.status === 'success' && ckycResult?.data)
+            ? { found: true, data: ckycResult.data, kin: ckycResult.data?.kin, provider: 'truthscreen-ckyc' }
+            : { found: false, provider: 'truthscreen-ckyc' }
       );
       
       const initiatedBy = (session as any).initiatedBy || 'customer';
@@ -1904,19 +1920,33 @@ export function registerKYCWizardRoutes(app: Express) {
 
       let ckycResult: any = null;
       try {
-        ckycResult = await authBridgeCKYCService.fetchCKYC({
-          pan: panNumber.toUpperCase(),
-          full_name: fullName || '',
-          date_of_birth: dateOfBirth || ''
-        });
+        const truthScreenAdapter = await getCkycAdapter('truthscreen');
+        if (truthScreenAdapter.isConfigured()) {
+          ckycResult = await truthScreenAdapter.verify({
+            panNumber: panNumber.toUpperCase(),
+            fullName: fullName || '',
+            dateOfBirth: dateOfBirth || '',
+            userId: req.user!.id
+          });
+          console.log(`[CKYC] TruthScreen check: found=${ckycResult.found}, kin=${ckycResult.kin || 'N/A'}`);
+        } else {
+          ckycResult = await authBridgeCKYCService.fetchCKYC({
+            pan: panNumber.toUpperCase(),
+            full_name: fullName || '',
+            date_of_birth: dateOfBirth || ''
+          });
+        }
       } catch (e) {
         console.warn('[CKYC] Provider call failed:', (e as Error).message);
       }
 
+      const isTsResult = ckycResult?.provider === 'truthscreen';
       const decision = kycOrchestratorService.computeCkycConfidence(
-        ckycResult?.success && ckycResult?.data
-          ? { found: true, data: ckycResult.data, kin: ckycResult.data?.kin, provider: 'truthscreen-ckyc' }
-          : { found: false, provider: 'truthscreen-ckyc' }
+        isTsResult
+          ? { found: ckycResult.found, data: ckycResult.data, kin: ckycResult.kin, provider: 'truthscreen' }
+          : (ckycResult?.status === 'success' && ckycResult?.data)
+            ? { found: true, data: ckycResult.data, kin: ckycResult.data?.kin, provider: 'truthscreen-ckyc' }
+            : { found: false, provider: 'truthscreen-ckyc' }
       );
 
       res.json({
