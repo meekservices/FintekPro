@@ -1268,7 +1268,7 @@ class SandboxITRService {
       const blob = new Blob([fileBuffer], { type: 'application/pdf' });
       formData.append('file', blob, fileName);
 
-      const token = await this.authenticate();
+      const token = await getSandboxAccessToken();
       const response = await fetch(`${SANDBOX_BASE_URL}/it/ocr/form-16/pdf`, {
         method: 'POST',
         headers: {

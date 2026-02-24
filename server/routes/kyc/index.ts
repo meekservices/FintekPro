@@ -11,7 +11,7 @@ import { kycEnvironmentService } from '../../services/kyc-environment-service';
 import { getSandboxEnvironment } from '../../utils/sandbox-config';
 import { db } from '../../db';
 import * as schema from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { smsService } from '../../services/sms-service';
 import { emailService } from '../../email-service';
@@ -475,6 +475,23 @@ export function registerKYCWizardRoutes(app: Express) {
           .values({ userId, ...profileUpdate });
       }
       
+      try {
+        const existingVault = await db.select({ id: schema.kycVault.id })
+          .from(schema.kycVault)
+          .where(eq(schema.kycVault.userId, userId))
+          .limit(1);
+        if (existingVault.length > 0) {
+          await db.update(schema.kycVault)
+            .set({ panVerifiedAt: new Date(), updatedAt: new Date() })
+            .where(eq(schema.kycVault.userId, userId));
+        } else {
+          await db.insert(schema.kycVault)
+            .values({ userId, panVerifiedAt: new Date(), source: 'sandbox', kycStatus: 'pending' });
+        }
+      } catch (vaultErr) {
+        console.warn('[KYC] Failed to update kycVault for PAN:', vaultErr);
+      }
+
       await kycOrchestratorService.logAuditEvent({
         userId,
         action: 'PAN_VERIFIED',
