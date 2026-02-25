@@ -13,7 +13,8 @@
 
 import { db } from '../db';
 import { mutualFunds, listedStocks } from '@shared/schema';
-import { eq, ilike, or, sql } from 'drizzle-orm';
+import { eq, ilike, or, sql, inArray } from 'drizzle-orm';
+import yahooFinance from 'yahoo-finance2';
 
 export interface FinancialMetric {
   value: number;
@@ -451,17 +452,17 @@ class PortfolioAnalyticsDataService {
   }>): Promise<Map<string, DividendYieldLookup>> {
     const results = new Map<string, DividendYieldLookup>();
     
-    // Helper to create stable lookup key
     const getKey = (s: { name: string; isin?: string }) => s.isin || s.name;
     
     try {
       const isins = stocks.map(s => s.isin).filter(Boolean) as string[];
       
-      let dbStocks: Array<{ isin: string | null; dividendYield: string | null; sector: string | null; broadSector: string | null }> = [];
+      let dbStocks: Array<{ isin: string | null; symbol: string; dividendYield: string | null; sector: string | null; broadSector: string | null }> = [];
       
       if (isins.length > 0) {
         dbStocks = await db.select({
           isin: listedStocks.isin,
+          symbol: listedStocks.symbol,
           dividendYield: listedStocks.dividendYield,
           sector: listedStocks.sector,
           broadSector: listedStocks.broadSector,
@@ -472,25 +473,111 @@ class PortfolioAnalyticsDataService {
       
       const byIsin = new Map(dbStocks.filter(s => s.isin).map(s => [s.isin!, s]));
       
+      // Collect stocks missing dividend yield for Yahoo Finance batch lookup
+      const missingYieldStocks: Array<{ key: string; isin: string; symbol: string; sector: string }> = [];
+      
       for (const stock of stocks) {
         const key = getKey(stock);
         const dbMatch = stock.isin && byIsin.get(stock.isin);
         
-        if (dbMatch?.dividendYield) {
+        if (dbMatch?.dividendYield != null) {
           results.set(key, {
             value: parseFloat(dbMatch.dividendYield),
             source: 'database',
             confidence: 'high',
             assetType: 'stock',
           });
+        } else if (dbMatch?.symbol && stock.isin) {
+          missingYieldStocks.push({
+            key,
+            isin: stock.isin,
+            symbol: dbMatch.symbol,
+            sector: dbMatch.broadSector || dbMatch.sector || stock.sector || 'Default',
+          });
         } else {
-          const sector = dbMatch?.broadSector || dbMatch?.sector || stock.sector || 'Default';
+          const sector = stock.sector || 'Default';
           results.set(key, {
             value: SECTOR_DIVIDEND_YIELDS[sector] || SECTOR_DIVIDEND_YIELDS['Default'],
             source: 'sector_default',
             confidence: 'medium',
             assetType: 'stock',
           });
+        }
+      }
+      
+      // Batch fetch from Yahoo Finance for stocks missing dividend yield (max 10 at a time)
+      if (missingYieldStocks.length > 0) {
+        const batch = missingYieldStocks.slice(0, 10);
+        const yfSymbols = batch.map(s => `${s.symbol}.NS`);
+        
+        try {
+          const quotes = await Promise.allSettled(
+            yfSymbols.map(sym => 
+              yahooFinance.quote(sym, {}, { validateResult: false }).catch(() => null)
+            )
+          );
+          
+          const dbUpdates: Array<{ isin: string; dividendYield: string }> = [];
+          
+          for (let i = 0; i < batch.length; i++) {
+            const stock = batch[i];
+            const quoteResult = quotes[i];
+            const quote = quoteResult.status === 'fulfilled' ? quoteResult.value : null;
+            const yfYield = quote && (quote as any).trailingAnnualDividendYield;
+            
+            if (yfYield != null) {
+              const yieldPercent = yfYield * 100;
+              results.set(stock.key, {
+                value: Math.round(yieldPercent * 100) / 100,
+                source: 'database',
+                confidence: 'high',
+                assetType: 'stock',
+              });
+              // Store even 0% so we know this stock was checked (no repeated YF lookups)
+              dbUpdates.push({ isin: stock.isin, dividendYield: yieldPercent.toFixed(4) });
+            } else {
+              // YF had no data (not rate limit - actual null) → use sector default
+              results.set(stock.key, {
+                value: SECTOR_DIVIDEND_YIELDS[stock.sector] || SECTOR_DIVIDEND_YIELDS['Default'],
+                source: 'sector_default',
+                confidence: 'medium',
+                assetType: 'stock',
+              });
+            }
+          }
+          
+          // Handle remaining stocks (beyond 10) with sector defaults
+          for (let i = 10; i < missingYieldStocks.length; i++) {
+            const stock = missingYieldStocks[i];
+            results.set(stock.key, {
+              value: SECTOR_DIVIDEND_YIELDS[stock.sector] || SECTOR_DIVIDEND_YIELDS['Default'],
+              source: 'sector_default',
+              confidence: 'medium',
+              assetType: 'stock',
+            });
+          }
+          
+          // Persist fetched yields to DB asynchronously
+          if (dbUpdates.length > 0) {
+            Promise.all(
+              dbUpdates.map(u =>
+                db.update(listedStocks)
+                  .set({ dividendYield: u.dividendYield } as any)
+                  .where(eq(listedStocks.isin, u.isin))
+                  .catch(e => console.error('[DividendYield] DB update error:', e))
+              )
+            ).catch(() => {});
+          }
+        } catch (yfErr) {
+          console.error('[DividendYield] Yahoo Finance batch error:', yfErr);
+          for (const stock of missingYieldStocks) {
+            results.set(stock.key, {
+              value: SECTOR_DIVIDEND_YIELDS[stock.sector] || SECTOR_DIVIDEND_YIELDS['Default'],
+              source: 'sector_default',
+              confidence: 'medium',
+              assetType: 'stock',
+            });
+          }
         }
       }
     } catch (error) {
