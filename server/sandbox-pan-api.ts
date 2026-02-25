@@ -209,6 +209,13 @@ class SandboxPANService {
           );
         }
 
+        // In KYC sandbox mode, any API error (400, 422, 5xx, etc.) should fall back to mock
+        // rather than surfacing a hard error to the user — real-API failures are expected in dev
+        if (kycEnvironmentService.isSandbox()) {
+          console.warn(`⚠️ [Sandbox PAN API] API returned HTTP ${statusCode} ("${errorMessage}") in KYC sandbox mode — falling back to mock`);
+          return this.mockPANVerification(panNumber, fullName);
+        }
+
         throw new AppError(
           `PAN verification API error: ${errorMessage}`,
           statusCode || 500,
@@ -370,6 +377,11 @@ class SandboxPANService {
             401,
             'SANDBOX_AUTH_FAILED'
           );
+        }
+
+        if (kycEnvironmentService.isSandbox()) {
+          console.warn(`⚠️ [Sandbox PAN API] Linkage check HTTP ${statusCode} ("${errorMessage}") in KYC sandbox mode — falling back to mock`);
+          return this.mockPANAadhaarLinkage(panNumber);
         }
 
         throw new AppError(
