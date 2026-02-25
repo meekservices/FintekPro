@@ -981,6 +981,26 @@ export default function AuthPage() {
 
                       {/* Register Form */}
                       <TabsContent value="register" className="space-y-4">
+                        {/* Pending OTP verification banner — shows if dialog was closed before completing */}
+                        {registrationStep === "otp" && !registrationOtpDialogOpen && registrationIdentifier && (
+                          <Alert className="border-2" style={{ backgroundColor: "#FEF3C708", borderColor: "#F59E0B" }}>
+                            <Clock className="h-4 w-4 text-amber-500" />
+                            <AlertDescription className="text-sm text-amber-700 dark:text-amber-400">
+                              <strong>Verification pending!</strong> A 6-digit code was sent to <strong>{registrationOtpChannel}</strong>. You must enter it to complete registration.
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="mt-2 w-full"
+                                style={{ backgroundColor: "#F59E0B", color: "white" }}
+                                onClick={() => setRegistrationOtpDialogOpen(true)}
+                              >
+                                <Shield className="h-4 w-4 mr-2" />
+                                Enter Verification Code
+                              </Button>
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
                         <Alert className="border" style={{ backgroundColor: `${portalColor}08`, borderColor: `${portalColor}30` }}>
                           <Info className="h-4 w-4" style={{ color: portalColor }} />
                           <AlertDescription className="text-sm" style={{ color: portalColor }}>
@@ -1199,7 +1219,12 @@ export default function AuthPage() {
 
       {/* Registration OTP Verification Dialog */}
       <Dialog open={registrationOtpDialogOpen} onOpenChange={setRegistrationOtpDialogOpen}>
-        <DialogContent className="sm:max-w-md" data-testid="dialog-registration-otp">
+        <DialogContent
+          className="sm:max-w-md"
+          data-testid="dialog-registration-otp"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5" style={{ color: portalColor }} />
