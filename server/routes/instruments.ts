@@ -5,7 +5,8 @@ import {
   proposalHoldings,
   mutualFunds,
   bondCatalog,
-  unlistedCompanies 
+  unlistedCompanies,
+  listedStocks,
 } from "@shared/schema";
 import { eq, ilike, or, and, sql, desc, inArray } from "drizzle-orm";
 import { NseIndia } from "stock-nse-india";
@@ -276,26 +277,48 @@ router.get("/api/instruments/search", async (req: Request, res: Response) => {
       }
     }
 
-    // Fallback: search hardcoded LISTED_STOCKS for equity when instrumentMaster has few results
-    if (assetClassStr === 'equity' && instruments.length < maxResults) {
-      const query = String(q).toLowerCase();
-      const stockMatches = LISTED_STOCKS.filter(s =>
-        s.name.toLowerCase().includes(query) ||
-        s.symbol.toLowerCase().includes(query) ||
-        s.isin.toLowerCase().includes(query)
-      );
-      for (const stock of stockMatches) {
+    // Fallback: search listed_stocks DB table for equity/stock or general searches
+    const shouldSearchStocks = !assetClassStr || assetClassStr === 'equity' || assetClassStr === 'stock';
+    if (shouldSearchStocks && instruments.length < maxResults) {
+      const remainingSlots = maxResults - instruments.length;
+      const stockResults = await db.select({
+        id: listedStocks.id,
+        symbol: listedStocks.symbol,
+        isin: listedStocks.isin,
+        companyName: listedStocks.companyName,
+        sector: listedStocks.sector,
+        industry: listedStocks.industry,
+        currentPrice: listedStocks.currentPrice,
+        marketCap: listedStocks.marketCap,
+      })
+        .from(listedStocks)
+        .where(
+          and(
+            eq(listedStocks.isPublished, true),
+            or(
+              ilike(listedStocks.companyName, searchTerm),
+              ilike(listedStocks.symbol, searchTerm),
+              ilike(listedStocks.isin, searchTerm)
+            )
+          )
+        )
+        .orderBy(listedStocks.companyName)
+        .limit(remainingSlots + 10);
+
+      for (const stock of stockResults) {
         if (instruments.length >= maxResults) break;
-        if (existingIsins.has(stock.isin)) continue;
+        const stockIsin = stock.isin || `STOCK${stock.id}`;
+        if (existingIsins.has(stockIsin)) continue;
         instruments.push({
-          id: stock.isin, isin: stock.isin, symbol: stock.symbol,
-          name: stock.name, shortName: stock.symbol,
+          id: stock.id, isin: stockIsin, symbol: stock.symbol,
+          name: stock.companyName, shortName: stock.symbol,
           assetClass: 'equity', subType: stock.sector || null,
           category: stock.industry || null, issuer: null,
-          lastPrice: null, currency: 'INR', riskLevel: null,
+          lastPrice: stock.currentPrice ? String(stock.currentPrice) : null,
+          currency: 'INR', riskLevel: null,
           priceUpdatedAt: null,
         });
-        existingIsins.add(stock.isin);
+        existingIsins.add(stockIsin);
       }
     }
 
