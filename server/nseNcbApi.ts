@@ -123,9 +123,8 @@ export class NSENCBApiService {
 
       return response.data.auctions || [];
     } catch (error) {
-      nseWarn('auctions', `[NSE NCB] Auctions fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — using demo data`);
-      // Fallback to demo data
-      return this.getDemoAuctions();
+      nseWarn('auctions', `[NSE NCB] Auctions fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — skipping (production)`);
+      return []; // Never persist demo data in production
     }
   }
 
@@ -464,8 +463,8 @@ export class NSENCBApiService {
 
       return response.data.yieldCurve || [];
     } catch (error) {
-      nseWarn('yieldcurve', `[NSE NCB] Yield curve fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — using demo data`);
-      return this.getDemoYieldCurve();
+      nseWarn('yieldcurve', `[NSE NCB] Yield curve fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — skipping (production)`);
+      return []; // Never persist demo data in production
     }
   }
 
@@ -520,8 +519,8 @@ export class NSENCBApiService {
 
       return response.data.auctions || [];
     } catch (error) {
-      nseWarn('historical', `[NSE NCB] Historical auctions fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — using demo data`);
-      return this.getDemoHistoricalAuctions(params);
+      nseWarn('historical', `[NSE NCB] Historical auctions fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — skipping (production)`);
+      return []; // Never persist demo data in production
     }
   }
 
@@ -583,8 +582,8 @@ export class NSENCBApiService {
 
       return response.data.sgbs || [];
     } catch (error) {
-      nseWarn('sgb', `[NSE NCB] SGB data fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — using demo data`);
-      return this.getDemoSGBData();
+      nseWarn('sgb', `[NSE NCB] SGB data fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — skipping (production)`);
+      return []; // Never persist demo data in production
     }
   }
 
