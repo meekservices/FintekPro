@@ -688,6 +688,66 @@ class ExchangeStockService {
     }
   }
 
+  async lookupAndAddStock(query: string): Promise<{ found: boolean; action?: 'added' | 'updated'; stock?: ExchangeStockData }> {
+    const symbol = query.trim().toUpperCase().replace(/[^A-Z0-9&\-]/g, '');
+    if (!symbol || symbol.length < 2) return { found: false };
+
+    try {
+      console.log(`[Exchange Service] Auto-lookup: "${symbol}" (from query: "${query}")`);
+
+      // Try NSE first
+      let stockData = await this.getNSEStockDetails(symbol);
+
+      // If NSE fails and query looks like a name (has spaces or >8 chars), try BSE via Yahoo Finance
+      if (!stockData && (query.includes(' ') || query.length > 8)) {
+        stockData = await this.getBSEStockDetails('', symbol).catch(() => null);
+      }
+
+      if (!stockData) {
+        console.log(`[Exchange Service] Auto-lookup: "${symbol}" not found on NSE/BSE`);
+        return { found: false };
+      }
+
+      const action = await this.upsertStock(stockData);
+
+      // Publish auto-added stocks so they appear in all searches
+      if (action === 'added') {
+        await db.execute(sql`UPDATE listed_stocks SET is_published = true WHERE symbol = ${stockData.symbol}`);
+      }
+
+      // Mirror into screener_stocks
+      await db.execute(sql`
+        INSERT INTO screener_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, market_cap_value, data_source, created_at, updated_at)
+        VALUES (
+          ${stockData.symbol},
+          ${stockData.companyName},
+          ${stockData.exchange || 'NSE'},
+          ${stockData.isin || null},
+          ${stockData.sector || null},
+          ${stockData.industry || null},
+          ${stockData.marketCap || null},
+          'IN', 'INR', true,
+          ${stockData.currentPrice || null},
+          ${stockData.marketCapValue || null},
+          'auto_lookup',
+          NOW(), NOW()
+        )
+        ON CONFLICT (symbol) DO UPDATE SET
+          company_name = EXCLUDED.company_name,
+          current_price = EXCLUDED.current_price,
+          market_cap_value = EXCLUDED.market_cap_value,
+          sector = COALESCE(EXCLUDED.sector, screener_stocks.sector),
+          updated_at = NOW()
+      `);
+
+      console.log(`[Exchange Service] Auto-lookup: "${symbol}" ${action} in database`);
+      return { found: true, action, stock: stockData };
+    } catch (err: any) {
+      console.warn(`[Exchange Service] Auto-lookup failed for "${query}":`, err.message);
+      return { found: false };
+    }
+  }
+
   private async upsertStock(data: ExchangeStockData): Promise<'added' | 'updated'> {
     const existing = await db.select().from(listedStocks).where(eq(listedStocks.symbol, data.symbol)).limit(1);
 

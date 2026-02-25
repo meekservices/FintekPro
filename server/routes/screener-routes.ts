@@ -6,6 +6,7 @@ import { enrichStockProfiles, enrichFinancialRatios, enrichPriceHistory, seedScr
 import { recalculateAllMetrics } from '../services/screener/derived-metrics-engine';
 import { fmpUsageMonitor } from '../services/screener/fmp-usage-monitor';
 import { runPriorityEnrichmentBatch, enrichSingleTier, getExtendedEnrichmentProgress } from '../services/screener/priority-enrichment-scheduler';
+import { exchangeStockService } from '../services/exchange-stock-service';
 
 const router = Router();
 
@@ -38,6 +39,17 @@ router.get('/api/screener/stocks', async (req, res) => {
     if (req.query.minFintekRating) filters.minFintekRating = parseInt(req.query.minFintekRating as string);
 
     const result = await queryScreener(filters);
+
+    // Auto-add missing stock: when a search query returns 0 results, look it up from NSE/BSE
+    if (result.total === 0 && filters.search && filters.search.trim().length >= 2) {
+      const lookup = await exchangeStockService.lookupAndAddStock(filters.search.trim());
+      if (lookup.found) {
+        console.log(`[Screener] Auto-added "${filters.search}" from exchange — re-querying`);
+        const retryResult = await queryScreener(filters);
+        return res.json({ ...retryResult, autoAdded: true });
+      }
+    }
+
     res.json(result);
   } catch (err: any) {
     console.error('[Screener] Query error:', err.message);
