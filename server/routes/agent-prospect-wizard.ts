@@ -933,7 +933,7 @@ router.post("/proposal-analytics", async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, message: "Authentication required" });
     }
 
-    const { holdings, riskProfile, analysis, sectionsRequested } = req.body;
+    const { holdings, riskProfile, analysis, sectionsRequested, investmentGoals } = req.body;
     if (!holdings || !Array.isArray(holdings)) {
       return res.status(400).json({ success: false, message: "Holdings array required" });
     }
@@ -1015,7 +1015,7 @@ router.post("/proposal-analytics", async (req: Request, res: Response) => {
     }
     if (requestedSections.includes('SIP_RECOMMENDATIONS')) {
       analytics.sipRecommendations = {
-        data: await generateSipRecommendations(riskProfile, analysis),
+        data: await generateSipRecommendations(riskProfile, analysis, Array.isArray(investmentGoals) ? investmentGoals : []),
         assumptions: { minSipAmount: 500, maxFundsPerCategory: 3 },
         dataSource: 'recommendation_engine'
       };
@@ -1642,9 +1642,14 @@ function generatePriorityRecommendations(holdings: NormalizedHolding[], riskProf
   return recommendations.sort((a, b) => a.priority - b.priority);
 }
 
-async function generateSipRecommendations(riskProfile: any, analysis: any) {
+async function generateSipRecommendations(riskProfile: any, analysis: any, goals: Array<{ monthlyContribution?: number; targetAmount?: number; description?: string }> = []) {
   const tolerance = riskProfile?.riskTolerance || 'moderate';
-  const monthlyAmount = analysis?.totalValue ? Math.round(analysis.totalValue * 0.05 / 12) : 10000;
+  
+  // Use the sum of all goal monthly contributions if provided, otherwise derive from portfolio or default
+  const totalGoalSip = goals.reduce((sum, g) => sum + (Number(g.monthlyContribution) || 0), 0);
+  const monthlyAmount = totalGoalSip > 0
+    ? totalGoalSip
+    : analysis?.totalValue ? Math.round(analysis.totalValue * 0.05 / 12) : 10000;
   
   const fundsByRisk: Record<string, Array<{ fundName: string; category: string; suggestedAmount: number; expectedReturn: number; riskLevel: string; rationale: string }>> = {
     conservative: [

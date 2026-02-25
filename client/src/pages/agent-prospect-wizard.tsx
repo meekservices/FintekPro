@@ -2203,7 +2203,7 @@ export default function AgentProspectWizard() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ holdings, riskProfile, analysis: data })
+            body: JSON.stringify({ holdings, riskProfile, analysis: data, investmentGoals: Array.isArray(investmentGoals) ? investmentGoals : [] })
           });
           if (analyticsRes.ok) {
             const analyticsData = await analyticsRes.json();
@@ -2304,7 +2304,7 @@ export default function AgentProspectWizard() {
     mutationFn: async () => {
       return await apiRequest("/api/agent-wizard/proposal-analytics", {
         method: "POST",
-        body: JSON.stringify({ holdings, riskProfile, analysis })
+        body: JSON.stringify({ holdings, riskProfile, analysis, investmentGoals: Array.isArray(investmentGoals) ? investmentGoals : [] })
       });
     },
     onSuccess: (data) => {
