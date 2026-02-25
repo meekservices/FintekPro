@@ -437,10 +437,12 @@ export default function AuthPage() {
       });
       return response;
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (response, variables) => {
+      // Unwrap the API response envelope: { success, data, message }
+      const data = (response as any)?.data || response;
+
       // Check for duplicate warnings first
       if (data.warnings?.hasDuplicates && data.warnings.duplicates?.length > 0) {
-        // Show duplicate warning dialog
         setDuplicateWarnings(data.warnings.duplicates);
         setPendingRegistrationData(data);
         setDuplicateWarningOpen(true);
@@ -452,8 +454,8 @@ export default function AuthPage() {
         setRegistrationStep("otp");
         setRegistrationIdentifier(data.identifier || variables.email);
         setRegistrationOtpChannel(data.otpSentTo || "your email and mobile");
-        setRegistrationToken(data.registrationToken || ""); // Store secure token (NOT password)
-        setRegistrationOtpTimer(300); // Reset timer to 5 minutes
+        setRegistrationToken(data.registrationToken || "");
+        setRegistrationOtpTimer(300);
         setCanResendRegistrationOtp(false);
         setRegistrationOtpDialogOpen(true);
         toast({
@@ -492,9 +494,10 @@ export default function AuthPage() {
       });
       return response;
     },
-    onSuccess: (data) => {
+    onSuccess: (response) => {
+      const data = (response as any)?.data || response;
       setRegistrationOtpSending(false);
-      setRegistrationOtpTimer(300); // Reset timer to 5 minutes
+      setRegistrationOtpTimer(300);
       setCanResendRegistrationOtp(false);
       toast({
         title: "OTP Resent",
@@ -522,22 +525,22 @@ export default function AuthPage() {
       });
       return response;
     },
-    onSuccess: async (data) => {
+    onSuccess: async (response) => {
+      // Unwrap the API response envelope: { success, data, message }
+      const data = (response as any)?.data || response;
+
       setRegistrationStep("complete");
       setRegistrationOtpDialogOpen(false);
       const userId = data.userId || 'N/A';
       setRegisteredUserId(userId);
       setShowUserIdDialog(true);
       registerForm.reset();
-      setRegistrationToken(""); // Clear secure token
-      
-      // Mark user as authenticated BEFORE setting query data to prevent session expired popup race condition
+      setRegistrationToken("");
+
+      // Mark user as authenticated BEFORE setting query data
       markUserAuthenticated();
-      
-      // Auto-login the user and verify session
       queryClient.setQueryData(["/api/user"], data);
-      
-      // Force refetch to verify session persists
+
       try {
         await queryClient.refetchQueries({ queryKey: ["/api/user"] });
         toast({
