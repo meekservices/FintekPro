@@ -574,7 +574,8 @@ export function setupAuth(app: Express) {
           middleName: user.middleName,
           lastName: user.lastName,
           isEmailVerified: user.isEmailVerified,
-          isMobileVerified: user.isMobileVerified
+          isMobileVerified: user.isMobileVerified,
+          roles: user.roles
         }, "Registration successful");
       });
 
