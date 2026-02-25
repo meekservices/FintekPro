@@ -117,8 +117,7 @@ export default function AuthPage() {
   const portalDesc = PORTAL_DESCRIPTIONS[portalType] || PORTAL_DESCRIPTIONS.main;
   const [showPassword, setShowPassword] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const [accountType, setAccountType] = useState<'user' | 'agent'>('user');
-  const effectivePortalType = portalType === 'main' && accountType === 'agent' ? 'agent' : portalType;
+  const effectivePortalType = portalType;
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [resetPasswordStep, setResetPasswordStep] = useState<"request" | "reset">("request");
   const [resetIdentifier, setResetIdentifier] = useState("");
@@ -409,20 +408,6 @@ export default function AuthPage() {
       otpForm.reset();
       clearSessionExpired();
 
-      // If an agent logs in from the main portal, redirect them to agent.fintekpro.com
-      const userRoles: string[] = data.roles || [];
-      const isAgentOnMainPortal = userRoles.includes('agent') && portalType === 'main';
-      if (isAgentOnMainPortal) {
-        toast({
-          title: "Welcome back, Agent!",
-          description: "Redirecting you to the Agent Portal…",
-        });
-        setTimeout(() => {
-          window.location.href = 'https://agent.fintekpro.com';
-        }, 1500);
-        return;
-      }
-
       toast({
         title: "Login successful",
         description: "Welcome back!",
@@ -552,27 +537,13 @@ export default function AuthPage() {
       // Auto-login the user and verify session
       queryClient.setQueryData(["/api/user"], data);
       
-      // Check if user registered as agent from main portal — redirect them to agent portal
-      const registeredRoles: string[] = data.roles || [];
-      const isAgentFromMainPortal = registeredRoles.includes('agent') && portalType === 'main';
-      
       // Force refetch to verify session persists
       try {
         await queryClient.refetchQueries({ queryKey: ["/api/user"] });
-        if (isAgentFromMainPortal) {
-          toast({
-            title: "Agent Account Created!",
-            description: "Redirecting you to the Agent Portal…",
-          });
-          setTimeout(() => {
-            window.location.href = 'https://agent.fintekpro.com';
-          }, 2500);
-        } else {
-          toast({
-            title: "Registration successful!",
-            description: "Your account has been created and verified",
-          });
-        }
+        toast({
+          title: "Registration successful!",
+          description: "Your account has been created and verified",
+        });
       } catch (error) {
         console.error("Session verification failed:", error);
         toast({
@@ -864,6 +835,27 @@ export default function AuthPage() {
                             </AlertDescription>
                           </Alert>
 
+                          {portalType === 'main' && (
+                            <p className="text-xs text-center text-muted-foreground">
+                              Financial Agent?{" "}
+                              <a href="https://agent.fintekpro.com" className="font-medium underline" style={{ color: portalColor }}>
+                                Agent Portal
+                              </a>
+                              {" · "}
+                              <a href="https://partner.fintekpro.com" className="font-medium underline" style={{ color: portalColor }}>
+                                Partner Portal
+                              </a>
+                            </p>
+                          )}
+                          {(portalType === 'agent' || portalType === 'partner') && (
+                            <p className="text-xs text-center text-muted-foreground">
+                              Investor / Client?{" "}
+                              <a href="https://fintekpro.com" className="font-medium underline" style={{ color: portalColor }}>
+                                Login on FintekPro
+                              </a>
+                            </p>
+                          )}
+
                           <Button 
                             type="submit" 
                             className="w-full" 
@@ -1032,36 +1024,10 @@ export default function AuthPage() {
                           </Alert>
                         )}
 
-                        {portalType === 'main' && (
-                          <div className="rounded-lg border overflow-hidden" style={{ borderColor: `${portalColor}40` }}>
-                            <p className="text-xs font-medium px-3 pt-2 pb-1" style={{ color: portalColor }}>I am registering as a:</p>
-                            <div className="flex">
-                              <button
-                                type="button"
-                                onClick={() => setAccountType('user')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium transition-colors ${accountType === 'user' ? 'text-white' : 'text-gray-600 bg-white hover:bg-gray-50'}`}
-                                style={accountType === 'user' ? { backgroundColor: portalColor } : {}}
-                              >
-                                <User className="h-4 w-4" />
-                                Investor / Client
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setAccountType('agent')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium transition-colors border-l ${accountType === 'agent' ? 'text-white' : 'text-gray-600 bg-white hover:bg-gray-50'}`}
-                                style={accountType === 'agent' ? { backgroundColor: '#059669' } : { borderColor: `${portalColor}40` }}
-                              >
-                                <Users className="h-4 w-4" />
-                                Financial Agent
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
                         <Alert className="border" style={{ backgroundColor: `${portalColor}08`, borderColor: `${portalColor}30` }}>
                           <Info className="h-4 w-4" style={{ color: portalColor }} />
                           <AlertDescription className="text-sm" style={{ color: portalColor }}>
-                            {(portalType === 'agent' || effectivePortalType === 'agent')
+                            {portalType === 'agent'
                               ? <>You'll receive a unique Agent ID on registration. Your account will be active immediately — use your email or ID to log in.</>
                               : portalType === 'partner'
                               ? <>Partner accounts are created with <strong>Pending</strong> approval status. Admin will verify and activate your account.</>
@@ -1069,6 +1035,27 @@ export default function AuthPage() {
                             }
                           </AlertDescription>
                         </Alert>
+
+                        {portalType === 'main' && (
+                          <p className="text-xs text-center text-muted-foreground">
+                            Financial Agent?{" "}
+                            <a href="https://agent.fintekpro.com" className="font-medium underline" style={{ color: portalColor }}>
+                              Register on the Agent Portal
+                            </a>
+                            {" · "}
+                            <a href="https://partner.fintekpro.com" className="font-medium underline" style={{ color: portalColor }}>
+                              Partner Portal
+                            </a>
+                          </p>
+                        )}
+                        {(portalType === 'agent' || portalType === 'partner') && (
+                          <p className="text-xs text-center text-muted-foreground">
+                            Client/Investor?{" "}
+                            <a href="https://fintekpro.com" className="font-medium underline" style={{ color: portalColor }}>
+                              Register on FintekPro
+                            </a>
+                          </p>
+                        )}
 
                         <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
                           <div>
