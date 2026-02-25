@@ -29,6 +29,7 @@ const loginSchema = z.object({
 });
 
 const registerSchema = z.object({
+  fullName: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   mobile: z.string().regex(/^[0-9]{10}$/, "Mobile number must be exactly 10 digits"),
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -206,6 +207,7 @@ export default function AuthPage() {
   const registerForm = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
+      fullName: "",
       email: "",
       mobile: "",
       password: "",
@@ -424,9 +426,11 @@ export default function AuthPage() {
       const response = await apiRequest("/api/register", {
         method: "POST",
         body: JSON.stringify({
+          fullName: data.fullName,
           email: data.email,
           mobile: data.mobile,
-          password: data.password
+          password: data.password,
+          portalType: portalType
         })
       });
       return response;
@@ -980,11 +984,33 @@ export default function AuthPage() {
                         <Alert className="border" style={{ backgroundColor: `${portalColor}08`, borderColor: `${portalColor}30` }}>
                           <Info className="h-4 w-4" style={{ color: portalColor }} />
                           <AlertDescription className="text-sm" style={{ color: portalColor }}>
-                            Upon registration, you'll receive a unique User ID in the format <strong>FTP001234</strong>. Save it for future logins!
+                            {portalType === 'agent'
+                              ? <>You'll receive a unique Agent ID on registration. Your account will be active immediately — use your email or ID to log in.</>
+                              : portalType === 'partner'
+                              ? <>Partner accounts are created with <strong>Pending</strong> approval status. Admin will verify and activate your account.</>
+                              : <>Upon registration, you'll receive a unique User ID in the format <strong>FTP001234</strong>. Save it for future logins!</>
+                            }
                           </AlertDescription>
                         </Alert>
 
                         <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
+                          <div>
+                            <Label htmlFor="register-fullName">
+                              {portalType === 'partner' ? 'Company Name' : 'Full Name'}
+                            </Label>
+                            <Input
+                              id="register-fullName"
+                              {...registerForm.register("fullName")}
+                              type="text"
+                              placeholder={portalType === 'partner' ? 'Your company name' : portalType === 'agent' ? 'Your full name' : 'Your full name'}
+                              autoFocus
+                              data-testid="input-register-fullname"
+                            />
+                            {registerForm.formState.errors.fullName && (
+                              <p className="text-sm text-red-600 mt-1">{registerForm.formState.errors.fullName.message}</p>
+                            )}
+                          </div>
+
                           <div>
                             <Label htmlFor="register-email">Email Address</Label>
                             <Input
@@ -992,7 +1018,6 @@ export default function AuthPage() {
                               {...registerForm.register("email")}
                               type="email"
                               placeholder="client@example.com"
-                              autoFocus
                               data-testid="input-register-email"
                             />
                             {registerForm.formState.errors.email && (

@@ -221,7 +221,7 @@ export function setupAuth(app: Express) {
         return apiResponse.forbidden(res, "Registration is not allowed on the admin portal. Please contact an administrator for access.");
       }
 
-      const { email, mobile, password } = req.body;
+      const { email, mobile, password, fullName, portalType } = req.body;
 
       // Require both email AND mobile for registration
       if (!email || !mobile) {
@@ -230,6 +230,10 @@ export function setupAuth(app: Express) {
 
       if (!password) {
         return apiResponse.badRequest(res, "Password is required");
+      }
+
+      if (!fullName || String(fullName).trim().length < 2) {
+        return apiResponse.badRequest(res, "Full name is required (minimum 2 characters)");
       }
 
       // Validate email format
@@ -288,6 +292,8 @@ export function setupAuth(app: Express) {
           email,
           mobile,
           hashedPassword,
+          fullName: String(fullName).trim(),
+          portalType: portalType || 'main',
           registrationToken, // Store token for resend verification
           registrationFlow: true
         }
@@ -384,10 +390,17 @@ export function setupAuth(app: Express) {
         return apiResponse.badRequest(res, "Invalid registration data");
       }
 
-      const { email, mobile, hashedPassword } = metadata;
+      const { email, mobile, hashedPassword, fullName: registeredFullName, portalType: registeredPortal } = metadata;
+      const registeredName = registeredFullName || email.split('@')[0];
+      const roleForPortal = registeredPortal === 'agent' ? ['agent'] : registeredPortal === 'partner' ? ['partner'] : ['user'];
 
       // Generate unique userId with email-based prefix
       const userId = await generateUniqueUserId(email);
+
+      // Split registered name into first/last for the user record
+      const nameParts = registeredName.trim().split(/\s+/);
+      const firstNameFromReg = nameParts[0] || null;
+      const lastNameFromReg = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null;
 
       // Create user with verified status
       const user = await storage.createUser({
@@ -395,9 +408,9 @@ export function setupAuth(app: Express) {
         email,
         mobile,
         password: hashedPassword,
-        firstName: null,
+        firstName: firstNameFromReg,
         middleName: null,
-        lastName: null,
+        lastName: lastNameFromReg,
         profileImageUrl: null,
         isEmailVerified: true, // Set to true since we verified via OTP
         isMobileVerified: true, // Set to true since we verified via OTP
@@ -492,15 +505,51 @@ export function setupAuth(app: Express) {
         aadhaarVerifiedViaSmartKyc: false,
         aadhaarVerificationDate: null,
         smartKycCompletedAt: null,
-        roles: ["user"],
+        roles: roleForPortal,
         isActive: true,
         lastLoginAt: null,
         previousLoginAt: null,
         loginCount: 0,
       });
 
-      // Auto-assign to default agent if only one agent exists
-      await storage.autoAssignDefaultAgent(user.id);
+      // Create portal-specific profile record
+      if (registeredPortal === 'agent') {
+        try {
+          await db.insert(schema.agents).values({
+            userId: user.id,
+            fullName: registeredName,
+            email,
+            phone: mobile,
+            status: 'active',
+            isActive: true,
+            agentType: 'individual',
+          });
+          console.log(`✅ [Register] Agent record created for ${email}`);
+        } catch (agentErr: any) {
+          // Email uniqueness failure means they already have an agent record — non-fatal
+          console.warn(`⚠️ [Register] Agent record creation skipped for ${email}: ${agentErr.message}`);
+        }
+      } else if (registeredPortal === 'partner') {
+        try {
+          await db.insert(schema.partners).values({
+            companyName: registeredName,
+            contactEmail: email,
+            contactPhone: mobile,
+            password: hashedPassword,
+            partnerType: 'distributor',
+            isActive: true,
+            isVerified: false,
+            approvalStatus: 'PENDING',
+            kycStatus: 'PENDING',
+          });
+          console.log(`✅ [Register] Partner record created for ${email}`);
+        } catch (partnerErr: any) {
+          console.warn(`⚠️ [Register] Partner record creation skipped for ${email}: ${partnerErr.message}`);
+        }
+      } else {
+        // Auto-assign client to default agent if only one agent exists
+        await storage.autoAssignDefaultAgent(user.id);
+      }
 
       // Delete the OTP record
       await db.delete(schema.otpVerifications)
