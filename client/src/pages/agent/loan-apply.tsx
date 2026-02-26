@@ -1588,9 +1588,9 @@ export default function AgentLoanApplyPage() {
                           name="bankerName"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Banker / Contact Person Name *</FormLabel>
+                              <FormLabel>SM Name (Sales Manager) *</FormLabel>
                               <FormControl>
-                                <Input placeholder="Bank relationship manager name" {...field} />
+                                <Input placeholder="Sales manager / contact person name" {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -1601,7 +1601,7 @@ export default function AgentLoanApplyPage() {
                           name="bankerMobile"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Banker Mobile *</FormLabel>
+                              <FormLabel>SM Mobile Number *</FormLabel>
                               <FormControl>
                                 <Input placeholder="10-digit mobile number" {...field} />
                               </FormControl>
@@ -1614,9 +1614,9 @@ export default function AgentLoanApplyPage() {
                           name="bankerEmail"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Banker Email *</FormLabel>
+                              <FormLabel>SM Email</FormLabel>
                               <FormControl>
-                                <Input type="email" placeholder="banker@hdfc.com" {...field} />
+                                <Input type="email" placeholder="sm@bank.com" {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -2128,8 +2128,8 @@ export default function AgentLoanApplyPage() {
                         <TableHead>Financier Name</TableHead>
                         <TableHead>DSA Code</TableHead>
                         <TableHead>Products</TableHead>
-                        <TableHead>Banker Name</TableHead>
-                        <TableHead>Phone</TableHead>
+                        <TableHead>SM Name</TableHead>
+                        <TableHead>SM Mobile</TableHead>
                         <TableHead>Source</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -2245,15 +2245,15 @@ export default function AgentLoanApplyPage() {
               <Input name="productNames" placeholder="e.g. HL, PL, LAP" />
             </div>
             <div className="space-y-2">
-              <Label>Banker Name *</Label>
-              <Input name="bankerName" required placeholder="Contact person name" />
+              <Label>SM Name (Sales Manager) *</Label>
+              <Input name="bankerName" required placeholder="Sales manager / contact person name" />
             </div>
             <div className="space-y-2">
-              <Label>Phone</Label>
+              <Label>SM Mobile Number</Label>
               <Input name="bankerMobile" placeholder="10-digit mobile" />
             </div>
             <div className="space-y-2">
-              <Label>Email</Label>
+              <Label>SM Email</Label>
               <Input name="bankerEmail" type="email" placeholder="email@bank.com" />
             </div>
             <DialogFooter>

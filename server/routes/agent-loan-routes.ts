@@ -1450,10 +1450,15 @@ router.post("/banker-contacts/import-excel", upload.single("file"), async (req: 
     }
 
     const headers = rows[0].map((h: any) => String(h).toLowerCase().trim());
-    const dsaCodeIdx = headers.findIndex((h: string) => h.includes("dsa") || h.includes("code"));
+    const dsaCodeIdx = headers.findIndex((h: string) => h.includes("dsa") || h === "code");
     const financierIdx = headers.findIndex((h: string) => h.includes("institution") || h.includes("financier") || h.includes("bank"));
     const productIdx = headers.findIndex((h: string) => h.includes("product"));
-    const nameIdx = headers.findIndex((h: string) => h.includes("banker") || h.includes("name"));
+    // "SM Name" / "Banker Name" — avoid matching "institutionname" or "financiername"
+    const nameIdx = headers.findIndex((h: string) =>
+      h === "sm name" || h === "sm_name" || h.includes("banker") ||
+      (h === "name") ||
+      (h.includes("name") && !h.includes("institution") && !h.includes("financier") && !h.includes("product") && !h.includes("dsa"))
+    );
     const phoneIdx = headers.findIndex((h: string) => h.includes("contact") || h.includes("phone") || h.includes("mobile"));
 
     if (financierIdx === -1) {
