@@ -1338,8 +1338,11 @@ router.post("/banker-contacts", async (req: Request, res: Response) => {
       bankerName: z.string().min(1),
       bankerMobile: z.string().optional(),
       bankerEmail: z.string().email().optional().or(z.literal("")),
-      designation: z.string().optional(),
       branch: z.string().optional(),
+      rmName: z.string().optional(),
+      rmEmail: z.string().email().optional().or(z.literal("")),
+      rmMobile: z.string().optional(),
+      designation: z.string().optional(),
       supportedLoanTypes: z.array(z.string()).optional(),
       notes: z.string().optional(),
     });
@@ -1349,6 +1352,7 @@ router.post("/banker-contacts", async (req: Request, res: Response) => {
       agentId,
       ...parsed,
       bankerEmail: parsed.bankerEmail || undefined,
+      rmEmail: parsed.rmEmail || undefined,
       source: "manual",
     }).onConflictDoUpdate({
       target: [bankerContacts.agentId, bankerContacts.financierName, bankerContacts.bankerMobile],
@@ -1357,8 +1361,11 @@ router.post("/banker-contacts", async (req: Request, res: Response) => {
         dsaCode: parsed.dsaCode,
         productNames: parsed.productNames || [],
         bankerEmail: parsed.bankerEmail || undefined,
-        designation: parsed.designation,
         branch: parsed.branch,
+        rmName: parsed.rmName,
+        rmEmail: parsed.rmEmail || undefined,
+        rmMobile: parsed.rmMobile,
+        designation: parsed.designation,
         notes: parsed.notes,
         updatedAt: new Date(),
       },
@@ -1386,8 +1393,11 @@ router.put("/banker-contacts/:id", async (req: Request, res: Response) => {
       bankerName: z.string().min(1).optional(),
       bankerMobile: z.string().optional(),
       bankerEmail: z.string().email().optional().or(z.literal("")),
-      designation: z.string().optional(),
       branch: z.string().optional(),
+      rmName: z.string().optional(),
+      rmEmail: z.string().email().optional().or(z.literal("")),
+      rmMobile: z.string().optional(),
+      designation: z.string().optional(),
       supportedLoanTypes: z.array(z.string()).optional(),
       notes: z.string().optional(),
       isActive: z.boolean().optional(),
@@ -1396,7 +1406,7 @@ router.put("/banker-contacts/:id", async (req: Request, res: Response) => {
 
     const [updated] = await db
       .update(bankerContacts)
-      .set({ ...parsed, updatedAt: new Date() })
+      .set({ ...parsed, bankerEmail: parsed.bankerEmail || undefined, rmEmail: parsed.rmEmail || undefined, updatedAt: new Date() })
       .where(and(eq(bankerContacts.id, req.params.id), or(eq(bankerContacts.agentId, agentId), eq(bankerContacts.agentId, "system"))))
       .returning();
 

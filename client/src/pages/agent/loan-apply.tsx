@@ -89,6 +89,10 @@ const loanApplicationSchema = z.object({
   bankerName: z.string().optional(),
   bankerMobile: z.string().optional(),
   bankerEmail: z.string().email("Valid email required").optional().or(z.literal("")),
+  branch: z.string().optional(),
+  rmName: z.string().optional(),
+  rmEmail: z.string().email("Valid email required").optional().or(z.literal("")),
+  rmMobile: z.string().optional(),
   routingMode: z.enum(["auto", "manual"]).default("auto"),
   routingStrategy: z.enum(["parallel", "waterfall", "priority_first"]).default("parallel"),
   targetBanks: z.array(z.string()).optional(),
@@ -310,6 +314,10 @@ export default function AgentLoanApplyPage() {
       bankerName: "",
       bankerMobile: "",
       bankerEmail: "",
+      branch: "",
+      rmName: "",
+      rmEmail: "",
+      rmMobile: "",
       routingMode: "auto",
       routingStrategy: "parallel",
       targetBanks: [],
@@ -385,8 +393,8 @@ export default function AgentLoanApplyPage() {
   const { data: bankerContactsData, isLoading: bankerContactsLoading } = useQuery<{ success: boolean; data: Array<{
     id: string; financierName: string; dsaCode?: string; productNames?: string[];
     bankerName: string; bankerMobile?: string; bankerEmail?: string;
-    designation?: string; branch?: string; usageCount: number; lastUsedAt?: string;
-    source?: string;
+    branch?: string; rmName?: string; rmEmail?: string; rmMobile?: string;
+    designation?: string; usageCount: number; lastUsedAt?: string; source?: string;
   }>; message?: string }>({
     queryKey: ["/api/agent/loans/banker-contacts", bankerSearchQuery],
     queryFn: async () => {
@@ -480,6 +488,10 @@ export default function AgentLoanApplyPage() {
         bankerName: data.processingMode === "EXTERNAL_FINANCIER" ? (data.bankerName || undefined) : undefined,
         bankerMobile: data.processingMode === "EXTERNAL_FINANCIER" ? (data.bankerMobile || undefined) : undefined,
         bankerEmail: data.processingMode === "EXTERNAL_FINANCIER" && data.bankerEmail ? data.bankerEmail : undefined,
+        branch: data.processingMode === "EXTERNAL_FINANCIER" ? (data.branch || undefined) : undefined,
+        rmName: data.processingMode === "EXTERNAL_FINANCIER" ? (data.rmName || undefined) : undefined,
+        rmMobile: data.processingMode === "EXTERNAL_FINANCIER" ? (data.rmMobile || undefined) : undefined,
+        rmEmail: data.processingMode === "EXTERNAL_FINANCIER" && data.rmEmail ? data.rmEmail : undefined,
         routingMode: data.processingMode === "PLATFORM" ? data.routingMode : undefined,
         targetBanks: data.processingMode === "PLATFORM" && data.routingMode === "manual" ? data.targetBanks : undefined,
         loanPurpose: data.loanPurpose || undefined,
@@ -1493,6 +1505,10 @@ export default function AgentLoanApplyPage() {
                                   form.setValue("bankerName", contact.bankerName);
                                   form.setValue("bankerMobile", contact.bankerMobile || "");
                                   form.setValue("bankerEmail", contact.bankerEmail || "");
+                                  form.setValue("branch", contact.branch || "");
+                                  form.setValue("rmName", contact.rmName || "");
+                                  form.setValue("rmMobile", contact.rmMobile || "");
+                                  form.setValue("rmEmail", contact.rmEmail || "");
                                 }}
                               >
                                 <Building2 className="h-3 w-3 mr-1.5" />
@@ -1617,6 +1633,58 @@ export default function AgentLoanApplyPage() {
                               <FormLabel>SM Email</FormLabel>
                               <FormControl>
                                 <Input type="email" placeholder="sm@bank.com" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="branch"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>SM Branch</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g. Bangalore - Whitefield" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="rmName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>RM Name (Relationship Manager)</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Relationship manager name" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="rmMobile"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>RM Mobile Number</FormLabel>
+                              <FormControl>
+                                <Input placeholder="10-digit mobile number" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="rmEmail"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>RM Email</FormLabel>
+                              <FormControl>
+                                <Input type="email" placeholder="rm@bank.com" {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -2130,6 +2198,9 @@ export default function AgentLoanApplyPage() {
                         <TableHead>Products</TableHead>
                         <TableHead>SM Name</TableHead>
                         <TableHead>SM Mobile</TableHead>
+                        <TableHead>SM Branch</TableHead>
+                        <TableHead>RM Name</TableHead>
+                        <TableHead>RM Mobile</TableHead>
                         <TableHead>Source</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -2157,6 +2228,9 @@ export default function AgentLoanApplyPage() {
                           </TableCell>
                           <TableCell>{contact.bankerName}</TableCell>
                           <TableCell>{contact.bankerMobile || "-"}</TableCell>
+                          <TableCell>{contact.branch || "-"}</TableCell>
+                          <TableCell>{contact.rmName || "-"}</TableCell>
+                          <TableCell>{contact.rmMobile || "-"}</TableCell>
                           <TableCell>
                             <Badge variant={contact.source === "excel_import" ? "secondary" : "outline"} className="text-[10px] capitalize">
                               {contact.source === "excel_import" ? "Excel" : contact.source || "Manual"}
@@ -2172,6 +2246,10 @@ export default function AgentLoanApplyPage() {
                                 form.setValue("bankerName", contact.bankerName);
                                 form.setValue("bankerMobile", contact.bankerMobile || "");
                                 form.setValue("bankerEmail", contact.bankerEmail || "");
+                                form.setValue("branch", contact.branch || "");
+                                form.setValue("rmName", contact.rmName || "");
+                                form.setValue("rmMobile", contact.rmMobile || "");
+                                form.setValue("rmEmail", contact.rmEmail || "");
                                 form.setValue("processingMode", "EXTERNAL_FINANCIER");
                                 setActiveTab("apply");
                                 toast({ title: "Contact Applied", description: `${contact.bankerName} details filled in the form` });
@@ -2223,6 +2301,10 @@ export default function AgentLoanApplyPage() {
                   bankerName: formData.get("bankerName"),
                   bankerMobile: formData.get("bankerMobile") || undefined,
                   bankerEmail: formData.get("bankerEmail") || undefined,
+                  branch: formData.get("branch") || undefined,
+                  rmName: formData.get("rmName") || undefined,
+                  rmMobile: formData.get("rmMobile") || undefined,
+                  rmEmail: formData.get("rmEmail") || undefined,
                 }),
               });
               toast({ title: "Contact Added" });
@@ -2255,6 +2337,22 @@ export default function AgentLoanApplyPage() {
             <div className="space-y-2">
               <Label>SM Email</Label>
               <Input name="bankerEmail" type="email" placeholder="email@bank.com" />
+            </div>
+            <div className="space-y-2">
+              <Label>SM Branch</Label>
+              <Input name="branch" placeholder="e.g. Bangalore - Whitefield" />
+            </div>
+            <div className="space-y-2">
+              <Label>RM Name (Relationship Manager)</Label>
+              <Input name="rmName" placeholder="Relationship manager name" />
+            </div>
+            <div className="space-y-2">
+              <Label>RM Mobile Number</Label>
+              <Input name="rmMobile" placeholder="10-digit mobile" />
+            </div>
+            <div className="space-y-2">
+              <Label>RM Email</Label>
+              <Input name="rmEmail" type="email" placeholder="rm@bank.com" />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setAddContactOpen(false)}>Cancel</Button>
