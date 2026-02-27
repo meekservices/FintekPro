@@ -78,7 +78,8 @@ import {
   FileSignature,
   Palette,
   FileText,
-  Scale
+  Scale,
+  ShieldAlert
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -133,6 +134,7 @@ const navCategories: NavCategory[] = [
     icon: Briefcase,
     items: [
       { title: "KYC Management", href: "/admin/kyc-compliance", icon: FileCheck, description: "Review KYC submissions" },
+      { title: "KYC V2 Management", href: "/admin/kyc-v2-management", icon: ShieldAlert, description: "Video KYC, approvals & direct rejection" },
       { title: "Transaction Queue", href: "/admin/financial-operations", icon: ClipboardList, description: "Pending transactions" },
       { title: "E-Sign Documents", href: "/admin/esign-management", icon: FileSignature, description: "Electronic signatures" },
       { title: "Store Management", href: "/admin/store-management", icon: Store, description: "Categories & products" },

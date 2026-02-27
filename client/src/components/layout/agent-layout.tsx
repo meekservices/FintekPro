@@ -54,6 +54,7 @@ import {
   Microscope,
   Filter,
   ListChecks,
+  ShieldAlert,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -107,6 +108,7 @@ const agentNavCategories: NavCategory[] = [
     items: [
       { title: "My Clients", href: "/agent/clients", icon: Users, description: "Client portfolio" },
       { title: "Onboard Client", href: "/agent/onboard-client", icon: UserPlus, description: "New client KYC" },
+      { title: "KYC Rejection", href: "/kyc-rejections", icon: ShieldAlert, description: "Reject client KYC sessions" },
     ]
   },
   {
