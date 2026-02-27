@@ -58,6 +58,8 @@ interface Scheme {
   isPublished?: boolean;
   publishedAt?: string;
   publishedBy?: string;
+  complianceStatus?: string;
+  namingValidationStatus?: string;
 }
 
 interface ImportProgress {
@@ -699,6 +701,8 @@ export default function MutualFundsSeeding() {
                           <TableHead>Category</TableHead>
                           <TableHead>AMC</TableHead>
                           <TableHead className="text-center">Status</TableHead>
+                          <TableHead className="text-center">SEBI 2026</TableHead>
+                          <TableHead className="text-center">Naming</TableHead>
                           <TableHead className="text-center">Action</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -706,6 +710,14 @@ export default function MutualFundsSeeding() {
                         {schemes.map((scheme) => {
                           const amc = amcs.find(a => a.name === scheme.fundHouse);
                           const amcEnabled = amc?.regularPlansEnabled ?? false;
+                          const compStatus = scheme.complianceStatus;
+                          const namingStatus = scheme.namingValidationStatus;
+                          const compBadgeClass = compStatus === 'VALIDATED' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                            : compStatus === 'APPROVED' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                            : compStatus === 'BLOCKED' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                            : (compStatus === 'OVERLAP_BREACH' || compStatus === 'GLIDE_PATH_INVALID') ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+                            : compStatus === 'REQUIRES_REVIEW' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+                            : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
                           
                           return (
                             <TableRow key={scheme.id} data-testid={`row-scheme-${scheme.schemeCode}`}>
@@ -732,6 +744,24 @@ export default function MutualFundsSeeding() {
                                     <EyeOff className="h-3 w-3 mr-1" />
                                     Unpublished
                                   </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {compStatus ? (
+                                  <Badge className={`text-xs ${compBadgeClass}`}>
+                                    {compStatus.replace(/_/g, " ")}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {namingStatus === "PASSED" ? (
+                                  <Badge className="text-xs bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">PASSED</Badge>
+                                ) : namingStatus === "FAILED" ? (
+                                  <Badge className="text-xs bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">FAILED</Badge>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
                                 )}
                               </TableCell>
                               <TableCell className="text-center">

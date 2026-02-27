@@ -91,6 +91,7 @@ const RevenueAnalytics = lazyWithRetry(() => import("@/pages/admin/revenue-analy
 const UserActivityTimeline = lazyWithRetry(() => import("@/pages/admin/user-activity-timeline"));
 const BulkOperations = lazyWithRetry(() => import("@/pages/admin/bulk-operations"));
 const ComplianceDashboardPage = lazyWithRetry(() => import("@/pages/admin/compliance-dashboard"));
+const SEBIMFCompliance = lazyWithRetry(() => import("@/pages/admin/sebi-mf-compliance"));
 const NotificationManagement = lazyWithRetry(() => import("@/pages/admin/notification-management"));
 const FeatureFlags = lazyWithRetry(() => import("@/pages/admin/feature-flags"));
 const ParserConfigPage = lazyWithRetry(() => import("@/pages/admin/parser-config"));
@@ -927,6 +928,15 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <ComplianceDashboardPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/sebi-mf-compliance">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <SEBIMFCompliance />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
