@@ -264,8 +264,8 @@ class KycOrchestrationEngine {
         return { success: true, data: { verified: true, source: "cashfree_bank" } };
 
       default:
-        console.log(`[KYC-ENGINE] Unknown provider code: ${providerCode}, returning stub success`);
-        return { success: true, data: { verified: true, source: providerCode } };
+        console.error(`[KYC-ENGINE] Unknown provider code: ${providerCode} — no implementation registered`);
+        return { success: false, errorCode: 'UNKNOWN_PROVIDER', errorMessage: `No implementation for provider code: ${providerCode}` };
     }
   }
 

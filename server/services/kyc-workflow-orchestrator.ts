@@ -22,6 +22,7 @@ import { kycReuseTokenService } from './kyc-reuse-token-service';
 import { encryptionService } from '../encryption-service';
 import { kycVaultDecryptionService } from './kyc-vault-decryption-service';
 import { eq } from 'drizzle-orm';
+import { createHmac } from 'crypto';
 
 interface OKYCData {
   aadhaarNumber: string;
@@ -430,10 +431,10 @@ export class KYCWorkflowOrchestrator {
 
       const consentText = `I hereby consent to share my KYC data with authorized financial institutions and service providers for the purpose of account opening, investment processing, and regulatory compliance. I understand that my data will be encrypted and stored securely.`;
 
-      // Create HMAC signature for consent
-      const crypto = require('crypto');
-      const consentSignature = crypto
-        .createHmac('sha256', process.env.ENCRYPTION_MASTER_KEY || 'fallback-key')
+      // Create HMAC signature for consent — key must be set; never silently fall back
+      const hmacKey = process.env.ENCRYPTION_MASTER_KEY;
+      if (!hmacKey) throw new Error('ENCRYPTION_MASTER_KEY is not configured — cannot sign KYC consent');
+      const consentSignature = createHmac('sha256', hmacKey)
         .update(JSON.stringify({ userId, consentText, timestamp: Date.now() }))
         .digest('hex');
 

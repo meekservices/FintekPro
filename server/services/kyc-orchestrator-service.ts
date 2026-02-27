@@ -161,7 +161,8 @@ class KycOrchestratorService {
     userAgent?: string;
   }): Promise<KycSessionState> {
     const sessionId = nanoid(24);
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    // 7 days — must accommodate 24-48 hour CKYC polling windows
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const existingProfile = await db.select()
       .from(schema.userProfiles)
@@ -216,6 +217,25 @@ class KycOrchestratorService {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
+
+    try {
+      await db.insert(schema.kycVerificationSessions).values({
+        id: sessionId,
+        userId: params.userId,
+        initiatedBy: params.initiatedBy,
+        createdByAgentId: params.agentId || null,
+        entityType,
+        entityLocked: stepStatus.entity_locked,
+        currentStep,
+        stepStatus,
+        ipAddress: params.ipAddress || null,
+        userAgent: params.userAgent || null,
+        expiresAt,
+        isActive: true,
+      });
+    } catch (dbErr: any) {
+      console.error('[KYC_ORCHESTRATOR] Failed to persist session to DB:', dbErr?.message);
+    }
 
     return state;
   }
@@ -443,13 +463,34 @@ class KycOrchestratorService {
       .digest('hex')
       .substring(0, 16);
 
+    const auditMeta = {
+      step: params.step,
+      payloadHash,
+      regulation: 'SEBI_KYC_Master_2024',
+      provider_stack: ['Sandbox', 'TruthScreen'],
+      ...params.details,
+    };
+
+    try {
+      await db.insert(schema.complianceAuditTrail).values({
+        userId: params.userId,
+        action: params.action,
+        fieldChanged: params.step,
+        performedBy: params.performedBy,
+        ipAddress: params.ipAddress || null,
+        userAgent: params.userAgent || null,
+        metadata: auditMeta,
+        complianceImpact: 'major',
+      });
+    } catch (dbErr: any) {
+      console.error('[KYC_AUDIT] Failed to persist audit event to DB:', dbErr?.message);
+    }
+
     console.log(`[KYC_AUDIT] ${params.action}`, {
       userId: params.userId,
       step: params.step,
       performedBy: params.performedBy,
       payloadHash,
-      regulation: 'SEBI_KYC_Master_2024',
-      provider_stack: ['Sandbox', 'TruthScreen'],
       timestamp: new Date().toISOString(),
     });
   }
@@ -461,8 +502,9 @@ class KycOrchestratorService {
   }
 
   generateCustomerKycLink(sessionId: string, userId: string): string {
+    // Stable hash — no timestamp so the same session always produces the same link
     const token = createHash('sha256')
-      .update(`${sessionId}:${userId}:${Date.now()}`)
+      .update(`${sessionId}:${userId}`)
       .digest('hex')
       .substring(0, 32);
     return `/kyc/continue?session=${sessionId}&token=${token}`;
