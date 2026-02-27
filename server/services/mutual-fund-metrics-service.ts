@@ -313,20 +313,18 @@ export class MutualFundMetricsService {
       const returns = await this.calculateReturnsForScheme(schemeCode);
       const fiscalYear = getCurrentFiscalYear();
 
-      const fund = await db.select({ id: mutualFunds.id, schemeName: mutualFunds.schemeName, category: mutualFunds.category })
+      const fund = await db.select({ id: mutualFunds.id })
         .from(mutualFunds)
         .where(eq(mutualFunds.schemeCode, schemeCode))
         .limit(1);
 
       const fundId = fund[0]?.id || null;
-      const schemeName = fund[0]?.schemeName || null;
-      const fundCategory = fund[0]?.category || null;
 
       await db.execute(sql`
-        INSERT INTO mutual_fund_metrics (scheme_code, scheme_name, fund_id, fiscal_year, fund_category,
+        INSERT INTO mutual_fund_metrics (scheme_code, fund_id, fiscal_year,
           return_1y, return_3y, return_5y, data_source, last_updated)
         VALUES (
-          ${schemeCode}, ${schemeName}, ${fundId}, ${fiscalYear}, ${fundCategory},
+          ${schemeCode}, ${fundId}, ${fiscalYear},
           ${returns.returns1y?.toString() || null},
           ${returns.returns3y?.toString() || null},
           ${returns.returns5y?.toString() || null},
@@ -338,8 +336,6 @@ export class MutualFundMetricsService {
           return_3y = COALESCE(EXCLUDED.return_3y, mutual_fund_metrics.return_3y),
           return_5y = COALESCE(EXCLUDED.return_5y, mutual_fund_metrics.return_5y),
           fund_id = COALESCE(EXCLUDED.fund_id, mutual_fund_metrics.fund_id),
-          scheme_name = COALESCE(EXCLUDED.scheme_name, mutual_fund_metrics.scheme_name),
-          fund_category = COALESCE(EXCLUDED.fund_category, mutual_fund_metrics.fund_category),
           data_source = EXCLUDED.data_source,
           last_updated = NOW()
       `);
