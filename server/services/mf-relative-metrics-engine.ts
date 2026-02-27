@@ -1,7 +1,15 @@
 import { db } from '../db';
-import { mutualFunds, mfNavHistory, marketIndexNav, marketIndices, mfBenchmarkMap } from '@shared/schema';
+import { mutualFunds, mutualFundMetrics, mfNavHistory, marketIndexNav, marketIndices, mfBenchmarkMap } from '@shared/schema';
 import { eq, and, gte, lte, sql } from 'drizzle-orm';
 import { mfBenchmarkMappingService } from './mf-benchmark-mapping-service';
+
+function getCurrentFiscalYear(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const startYear = month >= 4 ? year : year - 1;
+  return `FY${String(startYear).slice(2)}-${String(startYear + 1).slice(2)}`;
+}
 
 interface AlignedTimeSeries {
   fundReturns: number[];
@@ -219,29 +227,34 @@ class MfRelativeMetricsEngine {
     const alignedData = await this.alignTimeSeries(schemeCode, benchmarkMapping.indexCode);
     
     if (!alignedData) {
-      await db.update(mutualFunds)
-        .set({
-          alphaAvailable: false,
-          betaAvailable: false,
-          treynorAvailable: false,
-          informationRatioAvailable: false,
-        })
-        .where(eq(mutualFunds.schemeCode, schemeCode));
       return false;
     }
 
     const metrics = this.calculateRelativeMetrics(alignedData);
+    const fiscalYear = getCurrentFiscalYear();
+
+    await db.execute(sql`
+      INSERT INTO mutual_fund_metrics (scheme_code, fiscal_year,
+        alpha, beta, treynor_ratio, information_ratio, last_updated)
+      VALUES (
+        ${schemeCode}, ${fiscalYear},
+        ${metrics.alpha?.toString() ?? null},
+        ${metrics.beta?.toString() ?? null},
+        ${metrics.treynorRatio?.toString() ?? null},
+        ${metrics.informationRatio?.toString() ?? null},
+        NOW()
+      )
+      ON CONFLICT (scheme_code, fiscal_year)
+      DO UPDATE SET
+        alpha = COALESCE(EXCLUDED.alpha, mutual_fund_metrics.alpha),
+        beta = COALESCE(EXCLUDED.beta, mutual_fund_metrics.beta),
+        treynor_ratio = COALESCE(EXCLUDED.treynor_ratio, mutual_fund_metrics.treynor_ratio),
+        information_ratio = COALESCE(EXCLUDED.information_ratio, mutual_fund_metrics.information_ratio),
+        last_updated = NOW()
+    `);
 
     await db.update(mutualFunds)
       .set({
-        alpha: metrics.alpha?.toString() ?? null,
-        beta: metrics.beta?.toString() ?? null,
-        treynorRatio: metrics.treynorRatio?.toString() ?? null,
-        informationRatio: metrics.informationRatio?.toString() ?? null,
-        alphaAvailable: metrics.alpha !== null,
-        betaAvailable: metrics.beta !== null,
-        treynorAvailable: metrics.treynorRatio !== null,
-        informationRatioAvailable: metrics.informationRatio !== null,
         benchmarkIndexCode: benchmarkMapping.indexCode,
         benchmarkConfidenceScore: benchmarkMapping.confidenceScore.toString(),
         lastUpdated: new Date(),

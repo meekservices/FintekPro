@@ -3663,7 +3663,7 @@ System Security Data:`;
           COUNT(CASE WHEN aum IS NOT NULL THEN 1 END) as with_aum,
           COUNT(CASE WHEN expense_ratio IS NOT NULL THEN 1 END) as with_ter,
           COUNT(CASE WHEN risk_level IS NOT NULL THEN 1 END) as with_risk,
-          COUNT(CASE WHEN sharpe_ratio IS NOT NULL THEN 1 END) as with_sharpe
+          (SELECT COUNT(DISTINCT scheme_code) FROM mutual_fund_metrics WHERE sharpe_ratio IS NOT NULL) as with_sharpe
         FROM mutual_funds
       `);
       const row = countsResult.rows[0] as any;
@@ -3686,13 +3686,20 @@ System Security Data:`;
       }
 
       const lastSyncedResult = await db.execute(sql`
-        SELECT scheme_code, scheme_name, isin, expense_ratio, aum, risk_level,
-               returns_1y, returns_3y, returns_5y, 
-               sharpe_ratio, sortino_ratio, standard_deviation, max_drawdown,
-               alpha, beta, last_updated 
-        FROM mutual_funds 
-        WHERE returns_1y IS NOT NULL 
-        ORDER BY last_updated DESC NULLS LAST
+        SELECT mf.scheme_code, mf.scheme_name, mf.isin, mf.expense_ratio, mf.aum, mf.risk_level,
+               mf.returns_1y, mf.returns_3y, mf.returns_5y,
+               m.sharpe_ratio, m.sortino_ratio, m.standard_deviation, m.max_drawdown,
+               m.alpha, m.beta, mf.last_updated
+        FROM mutual_funds mf
+        LEFT JOIN LATERAL (
+          SELECT sharpe_ratio, sortino_ratio, standard_deviation, max_drawdown, alpha, beta
+          FROM mutual_fund_metrics
+          WHERE scheme_code = mf.scheme_code
+          ORDER BY last_updated DESC
+          LIMIT 1
+        ) m ON true
+        WHERE mf.returns_1y IS NOT NULL 
+        ORDER BY mf.last_updated DESC NULLS LAST
         LIMIT 5
       `);
       
@@ -4691,7 +4698,7 @@ System Security Data:`;
           (SELECT COUNT(*) FROM mutual_funds) as total_mf,
           (SELECT SUM(CASE WHEN returns_1y IS NULL THEN 1 ELSE 0 END) FROM mutual_funds) as mf_missing_returns,
           (SELECT SUM(CASE WHEN expense_ratio IS NULL THEN 1 ELSE 0 END) FROM mutual_funds) as mf_missing_expense,
-          (SELECT SUM(CASE WHEN sharpe_ratio IS NULL THEN 1 ELSE 0 END) FROM mutual_funds) as mf_missing_sharpe,
+          (SELECT COUNT(*) FROM mutual_funds) - (SELECT COUNT(DISTINCT scheme_code) FROM mutual_fund_metrics WHERE sharpe_ratio IS NOT NULL) as mf_missing_sharpe,
           (SELECT COUNT(*) FROM listed_stocks) as total_stocks,
           (SELECT SUM(CASE WHEN pe_ratio IS NULL THEN 1 ELSE 0 END) FROM listed_stocks) as stocks_missing_pe,
           (SELECT COUNT(*) FROM historical_nav_data) as total_nav_records,
