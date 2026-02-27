@@ -333,7 +333,57 @@ export class IndianTaxCalculator {
     return Math.max(0, tax);
   }
 
-  private computeIndividualTaxNewRegime(taxableIncome: number): number {
+  /**
+   * Budget 2025-26 new regime slabs (AY 2026-27 onwards):
+   * Nil → ₹4,00,000 | 5% → ₹8,00,000 | 10% → ₹12,00,000
+   * 15% → ₹16,00,000 | 20% → ₹20,00,000 | 25% → ₹24,00,000 | 30% above
+   * 87A rebate: ₹60,000 for taxable income ≤ ₹12,00,000 (effective nil tax up to ₹12L)
+   */
+  private computeIndividualTaxNewRegimeAY2026(taxableIncome: number): number {
+    if (taxableIncome <= 400000) return 0;
+
+    let tax = 0;
+    let remaining = taxableIncome;
+
+    if (remaining > 2400000) {
+      tax += (remaining - 2400000) * 0.30;
+      remaining = 2400000;
+    }
+    if (remaining > 2000000) {
+      tax += (remaining - 2000000) * 0.25;
+      remaining = 2000000;
+    }
+    if (remaining > 1600000) {
+      tax += (remaining - 1600000) * 0.20;
+      remaining = 1600000;
+    }
+    if (remaining > 1200000) {
+      tax += (remaining - 1200000) * 0.15;
+      remaining = 1200000;
+    }
+    if (remaining > 800000) {
+      tax += (remaining - 800000) * 0.10;
+      remaining = 800000;
+    }
+    if (remaining > 400000) {
+      tax += (remaining - 400000) * 0.05;
+    }
+
+    if (taxableIncome <= 1200000) {
+      const rebate = Math.min(tax, 60000);
+      tax -= rebate;
+    }
+
+    return Math.max(0, tax);
+  }
+
+  /**
+   * AY 2025-26 and earlier new regime slabs:
+   * Nil → ₹3,00,000 | 5% → ₹7,00,000 | 10% → ₹10,00,000
+   * 15% → ₹12,00,000 | 20% → ₹15,00,000 | 30% above
+   * 87A rebate: ₹25,000 for taxable income ≤ ₹7,00,000
+   */
+  private computeIndividualTaxNewRegimeAY2025(taxableIncome: number): number {
     if (taxableIncome <= 300000) return 0;
 
     let tax = 0;
@@ -367,6 +417,13 @@ export class IndianTaxCalculator {
     return Math.max(0, tax);
   }
 
+  private computeIndividualTaxNewRegime(taxableIncome: number, assessmentYear?: string): number {
+    if (assessmentYear === '2026-27') {
+      return this.computeIndividualTaxNewRegimeAY2026(taxableIncome);
+    }
+    return this.computeIndividualTaxNewRegimeAY2025(taxableIncome);
+  }
+
   private computeFirmTax(taxableIncome: number): number {
     return taxableIncome * 0.30;
   }
@@ -392,6 +449,7 @@ export class IndianTaxCalculator {
     basicTax: number,
     taxableIncome: number,
     regime: TaxRegime,
+    assessmentYear?: string,
   ): number {
     let rate = 0;
     if (taxableIncome > 50000000) rate = 0.37;
@@ -407,7 +465,7 @@ export class IndianTaxCalculator {
 
     if (rate > 0) {
       const prevThreshold = this.getSurchargeThreshold(rate);
-      const taxAtThreshold = this.computeTaxAtThreshold(prevThreshold, regime);
+      const taxAtThreshold = this.computeTaxAtThreshold(prevThreshold, regime, assessmentYear);
       const prevRate = this.getPrevSurchargeRate(rate);
       const prevSurcharge = taxAtThreshold * prevRate;
       const prevCess = (taxAtThreshold + prevSurcharge) * 0.04;
@@ -442,8 +500,8 @@ export class IndianTaxCalculator {
     return 0;
   }
 
-  private computeTaxAtThreshold(threshold: number, regime: TaxRegime): number {
-    if (regime === 'new') return this.computeIndividualTaxNewRegime(threshold);
+  private computeTaxAtThreshold(threshold: number, regime: TaxRegime, assessmentYear?: string): number {
+    if (regime === 'new') return this.computeIndividualTaxNewRegime(threshold, assessmentYear);
     return this.computeIndividualTaxOldRegime(threshold, false, false);
   }
 
@@ -483,16 +541,18 @@ export class IndianTaxCalculator {
       companyTurnover?: number;
       companySection?: '115BAA' | '115BAB' | 'normal';
       aopMembersIdentifiable?: boolean;
+      assessmentYear?: string;
     } = {},
   ): ITRCalculationResponse['data'] {
     const taxableIncome = Math.max(0, grossIncome - totalDeductions);
+    const ay = options.assessmentYear;
 
     let basicTax = 0;
     let surcharge = 0;
 
     if (this.isIndividualOrHUF(entityType)) {
       if (regime === 'new') {
-        basicTax = this.computeIndividualTaxNewRegime(taxableIncome);
+        basicTax = this.computeIndividualTaxNewRegime(taxableIncome, ay);
       } else {
         basicTax = this.computeIndividualTaxOldRegime(
           taxableIncome,
@@ -500,7 +560,7 @@ export class IndianTaxCalculator {
           options.isSuperSeniorCitizen || false,
         );
       }
-      surcharge = this.computeSurchargeIndividual(basicTax, taxableIncome, regime);
+      surcharge = this.computeSurchargeIndividual(basicTax, taxableIncome, regime, ay);
     } else if (this.isFirmOrLLP(entityType)) {
       basicTax = this.computeFirmTax(taxableIncome);
       surcharge = this.computeSurchargeFirm(basicTax, taxableIncome);
@@ -510,25 +570,25 @@ export class IndianTaxCalculator {
     } else if (this.isAOPBOI(entityType)) {
       if (options.aopMembersIdentifiable) {
         if (regime === 'new') {
-          basicTax = this.computeIndividualTaxNewRegime(taxableIncome);
+          basicTax = this.computeIndividualTaxNewRegime(taxableIncome, ay);
         } else {
           basicTax = this.computeIndividualTaxOldRegime(taxableIncome, false, false);
         }
-        surcharge = this.computeSurchargeIndividual(basicTax, taxableIncome, regime);
+        surcharge = this.computeSurchargeIndividual(basicTax, taxableIncome, regime, ay);
       } else {
         basicTax = taxableIncome * 0.30;
-        surcharge = this.computeSurchargeIndividual(basicTax, taxableIncome, regime);
+        surcharge = this.computeSurchargeIndividual(basicTax, taxableIncome, regime, ay);
       }
     } else if (this.isTrustOrInstitution(entityType)) {
       basicTax = taxableIncome * 0.30;
-      surcharge = this.computeSurchargeIndividual(basicTax, taxableIncome, regime);
+      surcharge = this.computeSurchargeIndividual(basicTax, taxableIncome, regime, ay);
     } else {
       if (regime === 'new') {
-        basicTax = this.computeIndividualTaxNewRegime(taxableIncome);
+        basicTax = this.computeIndividualTaxNewRegime(taxableIncome, ay);
       } else {
         basicTax = this.computeIndividualTaxOldRegime(taxableIncome, false, false);
       }
-      surcharge = this.computeSurchargeIndividual(basicTax, taxableIncome, regime);
+      surcharge = this.computeSurchargeIndividual(basicTax, taxableIncome, regime, ay);
     }
 
     const cess = Math.round((basicTax + surcharge) * 0.04);
@@ -591,18 +651,21 @@ export class IndianTaxCalculator {
         (params.taxPayments.advanceTaxPaid || 0) +
         (params.taxPayments.selfAssessmentTax || 0);
 
+      const assessmentYear = params.filingDetails?.assessmentYear || '2025-26';
+
       const data = this.computeFull(grossIncome, totalDeductions, taxPaid, entityType, regime, {
         isSeniorCitizen,
         isSuperSeniorCitizen,
         companyTurnover: params.companyTurnover,
         companySection: params.companySection,
         aopMembersIdentifiable: params.aopMembersIdentifiable,
+        assessmentYear,
       });
 
       return {
         success: true,
         data: data!,
-        message: `Tax calculated using native Indian Tax Calculator (${regime.toUpperCase()} regime, AY ${params.filingDetails?.assessmentYear || '2025-26'})`,
+        message: `Tax calculated using native Indian Tax Calculator (${regime.toUpperCase()} regime, AY ${assessmentYear})`,
       };
     } catch (error) {
       console.error('[IndianTaxCalculator] calculateTax error:', error);
@@ -663,6 +726,7 @@ export class IndianTaxCalculator {
         companyTurnover: wizardData.companyTurnover,
         companySection: wizardData.companySection,
         aopMembersIdentifiable: wizardData.aopMembersIdentifiable,
+        assessmentYear: wizardData.assessmentYear,
       });
 
       if (data) {

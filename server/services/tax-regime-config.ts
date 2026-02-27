@@ -7,13 +7,12 @@
  * All services (capital-gains-calculator, lot-tax-calculator, proposal-capital-gains)
  * MUST import tax rules from this module. No hardcoded rates elsewhere.
  * 
- * PROVISIONAL DISCLAIMER:
- * Post-Budget 2024 debt fund rates (STCG 20%, LTCG 12.5%, 730-day threshold)
- * are PROPOSED rates awaiting final gazette notification. These may change.
- * All outputs using these rates must include the provisional disclaimer.
+ * Finance Act 2024 (enacted July 23, 2024): Debt fund rates (STCG slab rate,
+ * LTCG 12.5%, 730-day threshold) are now enacted law — no longer provisional.
+ * Budget 2025-26: New regime slabs revised for AY 2026-27, 87A rebate ₹60,000.
  */
 
-export const TAX_REGIME_VERSION = '2024-07-23-v2';
+export const TAX_REGIME_VERSION = '2025-02-01-v1';
 
 export const BUDGET_2024_EFFECTIVE_DATE = new Date('2024-07-23');
 
@@ -48,19 +47,16 @@ export interface TaxRateRule {
   provisionalNote?: string;
 }
 
-const DEBT_PROVISIONAL_NOTE =
-  'Post-Budget 2024 debt fund rates (STCG 20%, LTCG 12.5%) are proposed rates awaiting final gazette notification. Actual rates may differ.';
-
 export const POST_BUDGET_2024_RATES: Record<TaxAssetClass, TaxRateRule> = {
   equity:       { stcg: 0.20, ltcg: 0.125, ltcgExemption: 125000, ltcgThresholdDays: 365,  isProvisional: false },
   hybrid_equity:{ stcg: 0.20, ltcg: 0.125, ltcgExemption: 125000, ltcgThresholdDays: 365,  isProvisional: false },
   elss:         { stcg: 0.20, ltcg: 0.125, ltcgExemption: 125000, ltcgThresholdDays: 1095, isProvisional: false },
   index:        { stcg: 0.20, ltcg: 0.125, ltcgExemption: 125000, ltcgThresholdDays: 365,  isProvisional: false },
   sectoral:     { stcg: 0.20, ltcg: 0.125, ltcgExemption: 125000, ltcgThresholdDays: 365,  isProvisional: false },
-  debt:         { stcg: 0.20, ltcg: 0.125, ltcgExemption: 0,      ltcgThresholdDays: 730,  isProvisional: true, provisionalNote: DEBT_PROVISIONAL_NOTE },
-  hybrid_debt:  { stcg: 0.20, ltcg: 0.125, ltcgExemption: 0,      ltcgThresholdDays: 730,  isProvisional: true, provisionalNote: DEBT_PROVISIONAL_NOTE },
-  liquid:       { stcg: 0.20, ltcg: 0.125, ltcgExemption: 0,      ltcgThresholdDays: 730,  isProvisional: true, provisionalNote: DEBT_PROVISIONAL_NOTE },
-  overnight:    { stcg: 0.20, ltcg: 0.125, ltcgExemption: 0,      ltcgThresholdDays: 730,  isProvisional: true, provisionalNote: DEBT_PROVISIONAL_NOTE },
+  debt:         { stcg: 0.20, ltcg: 0.125, ltcgExemption: 0,      ltcgThresholdDays: 730,  isProvisional: false },
+  hybrid_debt:  { stcg: 0.20, ltcg: 0.125, ltcgExemption: 0,      ltcgThresholdDays: 730,  isProvisional: false },
+  liquid:       { stcg: 0.20, ltcg: 0.125, ltcgExemption: 0,      ltcgThresholdDays: 730,  isProvisional: false },
+  overnight:    { stcg: 0.20, ltcg: 0.125, ltcgExemption: 0,      ltcgThresholdDays: 730,  isProvisional: false },
   gold:         { stcg: 0.20, ltcg: 0.125, ltcgExemption: 0,      ltcgThresholdDays: 730,  isProvisional: false },
   international:{ stcg: 0.20, ltcg: 0.125, ltcgExemption: 0,      ltcgThresholdDays: 730,  isProvisional: false },
   unknown:      { stcg: 0.20, ltcg: 0.125, ltcgExemption: 125000, ltcgThresholdDays: 365,  isProvisional: false },

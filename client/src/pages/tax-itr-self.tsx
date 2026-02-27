@@ -727,7 +727,7 @@ interface StepValidation {
   warnings: string[];
 }
 
-const ASSESSMENT_YEARS = ["2025-26", "2024-25", "2023-24"];
+const ASSESSMENT_YEARS = ["2026-27", "2025-26", "2024-25", "2023-24"];
 
 const STEPS = [
   { id: "basic", title: "Basic Info", icon: FileText, description: "Your PAN and assessment year" },
@@ -2283,7 +2283,7 @@ export default function TaxITRSelfPage() {
 
   const renderIncomeSourcesStep = () => (
     <div className="space-y-6">
-      <p className="text-muted-foreground">Select all sources of income for FY {assessmentYear === "2025-26" ? "2024-25" : assessmentYear === "2024-25" ? "2023-24" : "2022-23"}. The system will automatically select the correct ITR form — just like TaxCloudIndia, schedules adjust internally.</p>
+      <p className="text-muted-foreground">Select all sources of income for FY {assessmentYear === "2026-27" ? "2025-26" : assessmentYear === "2025-26" ? "2024-25" : assessmentYear === "2024-25" ? "2023-24" : "2022-23"}. The system will automatically select the correct ITR form — just like TaxCloudIndia, schedules adjust internally.</p>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {[
