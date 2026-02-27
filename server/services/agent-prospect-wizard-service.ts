@@ -26,6 +26,9 @@ import { schemeGovernanceService } from "./scheme-governance-service";
 import { signalOrchestrator, OrchestratedRecommendation } from './signal-orchestrator';
 import { pickOfTheDayService } from './pick-of-the-day-service';
 import { quantOrchestrator } from './quant/quant-orchestrator';
+import { mfSebiOverlapService } from './mf-sebi-overlap-service';
+
+const SEBI_BLOCKED_STATUSES = new Set(['BLOCKED', 'OVERLAP_BREACH', 'GLIDE_PATH_INVALID']);
 
 // Format amount in Indian currency format (₹X.XX L for lakhs, ₹X.XX Cr for crores)
 const formatAmount = (amount: number): string => {
@@ -594,6 +597,16 @@ async function selectEligibleFundsForLumpsum(candidateFunds: any[], maxFunds: nu
   const alternatives: string[] = [];
 
   for (const fund of candidateFunds) {
+    // ── SEBI 2026 Compliance Gate (checked before lumpsum restriction) ─────
+    if (fund.sebiBlocked === true) {
+      console.log(`[SEBICompliance] Excluding ${fund.name}: status=${fund.sebiComplianceStatus}${fund.sebiBlockReason ? ` — ${fund.sebiBlockReason}` : ''}`);
+      continue;
+    }
+    if (fund.namingFailed === true) {
+      console.log(`[SEBICompliance] Excluding ${fund.name}: naming_validation_status=FAILED`);
+      continue;
+    }
+
     const restriction = await checkFundLumpsumEligibility(fund.name);
     if (restriction.restricted) {
       console.log(`[FundRestriction] Excluding ${fund.name} from lumpsum: ${restriction.reason}`);
@@ -756,6 +769,17 @@ const liveReturnsCache = new Map<string, {
   syncedAt: Date;
 }>();
 
+const sebiComplianceCache = new Map<string, {
+  sebiComplianceStatus: string;
+  sebiTaxonomyVersion: string;
+  sebiNamingStatus: string;
+  sebiBlocked: boolean;
+  namingFailed: boolean;
+  sebiBlockReason: string | null;
+  schemeCode: string | null;
+  cachedAt: Date;
+}>();
+
 /**
  * Update live returns cache (called by scheduler after sync)
  */
@@ -850,6 +874,18 @@ async function sanitizeFundForDisplayAsync(fund: any): Promise<any> {
     sanitized.returns3Y = cachedReturns.returns3Y;
     sanitized.returns5Y = cachedReturns.returns5Y;
     sanitized.dataSource = cachedReturns.dataSource;
+    // Merge SEBI compliance flags from compliance cache (populated on first DB lookup)
+    const normalizedName = fund.name.toLowerCase().replace(/\s+/g, ' ').trim();
+    const cachedSebi = sebiComplianceCache.get(normalizedName);
+    if (cachedSebi) {
+      sanitized.sebiComplianceStatus = cachedSebi.sebiComplianceStatus;
+      sanitized.sebiTaxonomyVersion = cachedSebi.sebiTaxonomyVersion;
+      sanitized.sebiNamingStatus = cachedSebi.sebiNamingStatus;
+      sanitized.sebiBlocked = cachedSebi.sebiBlocked;
+      sanitized.namingFailed = cachedSebi.namingFailed;
+      sanitized.sebiBlockReason = cachedSebi.sebiBlockReason;
+      sanitized.schemeCode = cachedSebi.schemeCode;
+    }
     return sanitized;
   }
   
@@ -857,29 +893,61 @@ async function sanitizeFundForDisplayAsync(fund: any): Promise<any> {
   try {
     const dbResult = await db.select({
       schemeName: mutualFunds.schemeName,
+      schemeCode: mutualFunds.schemeCode,
       returns1y: mutualFunds.returns1y,
       returns3y: mutualFunds.returns3y,
-      returns5y: mutualFunds.returns5y
+      returns5y: mutualFunds.returns5y,
+      complianceStatus: mutualFunds.complianceStatus,
+      namingValidationStatus: mutualFunds.namingValidationStatus,
+      complianceBlockedReason: mutualFunds.complianceBlockedReason,
+      taxonomyVersion: mutualFunds.taxonomyVersion,
     })
     .from(mutualFunds)
     .where(sql`LOWER(${mutualFunds.schemeName}) LIKE LOWER(${'%' + fund.name.split(' ').slice(0, 3).join(' ') + '%'})`)
     .limit(1);
     
-    if (dbResult[0] && (dbResult[0].returns1y || dbResult[0].returns3y)) {
-      sanitized.returns1Y = dbResult[0].returns1y ? parseFloat(dbResult[0].returns1y as string).toFixed(1) : 'N/A';
-      sanitized.returns3Y = dbResult[0].returns3y ? parseFloat(dbResult[0].returns3y as string).toFixed(1) : 'N/A';
-      sanitized.returns5Y = dbResult[0].returns5y ? parseFloat(dbResult[0].returns5y as string).toFixed(1) : 'N/A';
-      sanitized.dataSource = 'live';
-      
-      // Update cache for future requests
-      updateLiveReturnsCache(fund.name, {
-        returns1Y: dbResult[0].returns1y ? parseFloat(dbResult[0].returns1y as string) : null,
-        returns3Y: dbResult[0].returns3y ? parseFloat(dbResult[0].returns3y as string) : null,
-        returns5Y: dbResult[0].returns5y ? parseFloat(dbResult[0].returns5y as string) : null,
-        dataSource: 'live'
+    if (dbResult[0]) {
+      const row = dbResult[0];
+
+      // ── SEBI 2026 Compliance Gate ─────────────────────────────────────────
+      const compStatus = row.complianceStatus || 'PENDING';
+      const namingStatus = row.namingValidationStatus || 'PENDING';
+      sanitized.sebiComplianceStatus = compStatus;
+      sanitized.sebiTaxonomyVersion = row.taxonomyVersion || 'SEBI_2017';
+      sanitized.sebiNamingStatus = namingStatus;
+      sanitized.schemeCode = row.schemeCode;
+      sanitized.sebiBlocked = SEBI_BLOCKED_STATUSES.has(compStatus);
+      sanitized.sebiBlockReason = row.complianceBlockedReason || null;
+      sanitized.namingFailed = namingStatus === 'FAILED';
+
+      // Persist to SEBI compliance cache so subsequent cache-hit calls also get flags
+      const normalizedFundName = fund.name.toLowerCase().replace(/\s+/g, ' ').trim();
+      sebiComplianceCache.set(normalizedFundName, {
+        sebiComplianceStatus: compStatus,
+        sebiTaxonomyVersion: row.taxonomyVersion || 'SEBI_2017',
+        sebiNamingStatus: namingStatus,
+        sebiBlocked: sanitized.sebiBlocked,
+        namingFailed: sanitized.namingFailed,
+        sebiBlockReason: row.complianceBlockedReason || null,
+        schemeCode: row.schemeCode || null,
+        cachedAt: new Date(),
       });
-      
-      return sanitized;
+
+      if (row.returns1y || row.returns3y) {
+        sanitized.returns1Y = row.returns1y ? parseFloat(row.returns1y as string).toFixed(1) : 'N/A';
+        sanitized.returns3Y = row.returns3y ? parseFloat(row.returns3y as string).toFixed(1) : 'N/A';
+        sanitized.returns5Y = row.returns5y ? parseFloat(row.returns5y as string).toFixed(1) : 'N/A';
+        sanitized.dataSource = 'live';
+
+        updateLiveReturnsCache(fund.name, {
+          returns1Y: row.returns1y ? parseFloat(row.returns1y as string) : null,
+          returns3Y: row.returns3y ? parseFloat(row.returns3y as string) : null,
+          returns5Y: row.returns5y ? parseFloat(row.returns5y as string) : null,
+          dataSource: 'live'
+        });
+
+        return sanitized;
+      }
     }
   } catch (error) {
     // Database query failed - continue to fallback
@@ -2658,7 +2726,88 @@ class AgentProspectWizardService {
     if (totalValue === 0) {
       return recommendations;
     }
-    
+
+    // ── SEBI 2026 Blocked Fund Exit Pass ─────────────────────────────────────
+    // Check all MF-type holdings against compliance_status. BLOCKED/OVERLAP_BREACH
+    // holdings must be exited regardless of performance. Run before drift analysis.
+    const mfLikeTypes = new Set(['mutual_fund', 'mf', 'equity', 'debt', 'hybrid', 'index_fund', 'etf', 'gold_fof', 'silver_fof']);
+    const sebiExitedNames = new Set<string>();
+
+    try {
+      for (const holding of normalizedHoldings) {
+        const holdingType = (holding.productType || holding.assetType || '').toLowerCase();
+        if (!mfLikeTypes.has(holdingType)) continue;
+
+        const searchName = (holding.name || holding.productName || '').replace(/- Regular \(G\)|- Growth|- Direct.*$/gi, '').trim();
+        if (!searchName) continue;
+
+        const [dbFund] = await db.select({
+          schemeCode: mutualFunds.schemeCode,
+          schemeName: mutualFunds.schemeName,
+          category: mutualFunds.category,
+          complianceStatus: mutualFunds.complianceStatus,
+          complianceBlockedReason: mutualFunds.complianceBlockedReason,
+        })
+        .from(mutualFunds)
+        .where(sql`LOWER(${mutualFunds.schemeName}) LIKE LOWER(${'%' + searchName.split(' ').slice(0, 3).join(' ') + '%'})`)
+        .limit(1);
+
+        if (!dbFund || !SEBI_BLOCKED_STATUSES.has(dbFund.complianceStatus || '')) continue;
+
+        const holdingName = holding.name || holding.productName || 'Unknown';
+        sebiExitedNames.add(holdingName.toLowerCase());
+
+        console.log(`[SEBICompliance] Rebalancing: marking ${holdingName} for SELL — compliance_status=${dbFund.complianceStatus}`);
+
+        // Find a compliant substitute from the same category
+        const [substitute] = await db.select({
+          schemeName: mutualFunds.schemeName,
+          schemeCode: mutualFunds.schemeCode,
+          category: mutualFunds.category,
+          returns1y: mutualFunds.returns1y,
+        })
+        .from(mutualFunds)
+        .where(
+          sql`${mutualFunds.isPublished} = true
+            AND ${mutualFunds.category} = ${dbFund.category || ''}
+            AND ${mutualFunds.complianceStatus} IN ('VALIDATED', 'APPROVED', 'PENDING')
+            AND LOWER(${mutualFunds.schemeName}) NOT LIKE LOWER(${'%' + searchName.split(' ').slice(0, 3).join(' ') + '%'})`
+        )
+        .orderBy(sql`${mutualFunds.returns1y}::numeric DESC NULLS LAST`)
+        .limit(1);
+
+        // SELL recommendation for the blocked fund
+        recommendations.push({
+          action: 'SELL',
+          productType: holding.productType || holding.assetType || 'mutual_fund',
+          productName: holdingName,
+          currentValue: holding.currentValue,
+          suggestedValue: 0,
+          changeAmount: -holding.currentValue,
+          rationale: `[SEBI 2026 EXIT] This fund is non-compliant (${dbFund.complianceStatus}). ${dbFund.complianceBlockedReason ? `Reason: ${dbFund.complianceBlockedReason}. ` : ''}Mandatory exit per SEBI Circular SEBI/HO/IMD/CIR/P/2026/26.`,
+          priority: 'urgent',
+          sebi_exit: true,
+        } as any);
+
+        // BUY recommendation for the compliant substitute
+        if (substitute) {
+          recommendations.push({
+            action: 'BUY',
+            productType: 'mutual_fund',
+            productName: substitute.schemeName,
+            currentValue: 0,
+            suggestedValue: holding.currentValue,
+            changeAmount: holding.currentValue,
+            rationale: `[SEBI 2026 SUBSTITUTE] Compliant replacement for exited fund in the same category (${dbFund.category || 'N/A'}). SEBI 2026 validated.`,
+            priority: 'urgent',
+            sebi_substitute: true,
+          } as any);
+        }
+      }
+    } catch (sebiErr) {
+      console.error('[SEBICompliance] Blocked fund exit check failed (non-fatal):', sebiErr);
+    }
+
     // Default allocations by risk profile (expanded with new asset classes and global regions)
     const defaultAllocations: Record<string, { 
       equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number; etf: number;
@@ -3980,6 +4129,48 @@ class AgentProspectWizardService {
       selectedCategories
     );
 
+    // ── SEBI 2026 Proposal-Level Scheme-to-Scheme Overlap Warnings ────────────
+    // For each pair of recommended MFs, compute overlap and warn if SEBI thresholds are breached.
+    // Advisory only — does NOT block proposal generation.
+    const sebiOverlapWarnings: Array<{
+      schemeA: string; schemeB: string;
+      overlapPercent: number; threshold: number; message: string;
+    }> = [];
+    try {
+      const mfSuggestions = freshInvestments.filter(f =>
+        ['mutual_fund', 'mf', 'equity', 'debt', 'hybrid'].includes((f.productType || '').toLowerCase()) &&
+        (f as any).schemeCode
+      );
+      for (let i = 0; i < mfSuggestions.length; i++) {
+        for (let j = i + 1; j < mfSuggestions.length; j++) {
+          const codeA = (mfSuggestions[i] as any).schemeCode;
+          const codeB = (mfSuggestions[j] as any).schemeCode;
+          if (!codeA || !codeB) continue;
+          const overlapPct = await mfSebiOverlapService.computeOverlap(codeA, codeB);
+          if (overlapPct === null) continue;
+          const catA = (mfSuggestions[i].category || '').toLowerCase();
+          const catB = (mfSuggestions[j].category || '').toLowerCase();
+          const isThematicOrSectoral = catA.includes('thematic') || catA.includes('sectoral') ||
+            catB.includes('thematic') || catB.includes('sectoral');
+          const threshold = isThematicOrSectoral ? 50 : 60;
+          if (overlapPct > threshold) {
+            sebiOverlapWarnings.push({
+              schemeA: mfSuggestions[i].productName,
+              schemeB: mfSuggestions[j].productName,
+              overlapPercent: overlapPct,
+              threshold,
+              message: `SEBI 2026: ${mfSuggestions[i].productName} and ${mfSuggestions[j].productName} have ${overlapPct.toFixed(1)}% portfolio overlap (SEBI threshold: ${threshold}%). Consider replacing one with a fund from a different subcategory.`,
+            });
+          }
+        }
+      }
+      if (sebiOverlapWarnings.length > 0) {
+        console.log(`[SEBICompliance] ${sebiOverlapWarnings.length} proposal-level overlap warning(s) generated`);
+      }
+    } catch (overlapErr) {
+      console.error('[SEBICompliance] Overlap check failed (non-fatal):', overlapErr);
+    }
+
     // Fetch agent details
     const [agent] = await db.select({
       firstName: users.firstName,
@@ -4202,7 +4393,8 @@ class AgentProspectWizardService {
       portfolioComparison,
       fundingSummary,
       detailedRecommendations,
-      taxSummary
+      taxSummary,
+      sebiOverlapWarnings,
     };
   }
 
