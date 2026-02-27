@@ -45,6 +45,12 @@ import { requireLevel2 } from '../middleware/kyc-level-gate';
 import { requireAuth } from '../middleware/roleMiddleware';
 import { orderAuditHook } from '../services/order-audit-hook';
 import { dataEnrichmentService } from '../services/data-enrichment-service';
+import { unlistedValuationGovernanceService } from '../services/unlisted-valuation-governance-service';
+import {
+  insertUnlistedEquityValuationHistorySchema,
+  clientUnlistedDisclosureLog,
+  unlistedEquityValuationHistory,
+} from '@shared/schema';
 
 // Admin middleware for unlisted marketplace admin routes
 const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
@@ -8160,5 +8166,163 @@ router.post('/admin/compliance/verify-source-of-funds', requireAdmin, async (req
 });
 
 // ==================== END REGULATORY COMPLIANCE API ROUTES ====================
+
+// ==================== INSTITUTIONAL VALUATION GOVERNANCE API ROUTES ====================
+
+/**
+ * POST /api/unlisted/companies/:id/valuation
+ * Append-only valuation entry for an unlisted instrument (Admin only).
+ * Rules: must include valuation_method + valuation_date + price.
+ * Supporting document URL optional. Never overwrites existing rows.
+ */
+router.post('/companies/:id/valuation', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const schema = z.object({
+      valuationMethod: z.enum(['dcf', 'nav', 'comparable', 'book_value', 'market_implied', 'ca_certified', 'other']),
+      price: z.number().positive('Price must be positive'),
+      valuationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
+      supportingDocumentUrl: z.string().url().optional(),
+      notes: z.string().max(1000).optional(),
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return apiResponse.badRequest(res, parsed.error.errors[0].message);
+    }
+
+    const result = await unlistedValuationGovernanceService.addValuation(id, {
+      ...parsed.data,
+      addedBy: (req.user as any)?.id,
+    });
+
+    return apiResponse.success(res, result, 'Valuation recorded successfully');
+  } catch (error: any) {
+    console.error('[ValuationGovernance] Error adding valuation:', error);
+    if (error.message?.includes('not found')) {
+      return apiResponse.notFound(res, error.message);
+    }
+    return apiResponse.serverError(res, 'Failed to record valuation');
+  }
+});
+
+/**
+ * GET /api/unlisted/companies/:id/valuation
+ * Full versioned valuation history for a company (newest first).
+ */
+router.get('/companies/:id/valuation', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const [history, latest] = await Promise.all([
+      unlistedValuationGovernanceService.getValuationHistory(id),
+      unlistedValuationGovernanceService.getLatestValuation(id),
+    ]);
+
+    return apiResponse.success(res, {
+      companyId: id,
+      latestValuation: latest,
+      history,
+      totalEntries: history.length,
+    });
+  } catch (error: any) {
+    console.error('[ValuationGovernance] Error fetching history:', error);
+    return apiResponse.serverError(res, 'Failed to fetch valuation history');
+  }
+});
+
+/**
+ * POST /api/unlisted/client-disclosure
+ * Log a client's acknowledgment of the unlisted equity risk disclosure.
+ * Required before any unlisted instrument appears in a finalized proposal.
+ */
+router.post('/client-disclosure', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      companyId: z.string().optional(),
+      proposalId: z.string().optional(),
+      disclosureVersion: z.string().default('1.0.0'),
+      disclosureHash: z.string().length(64),
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return apiResponse.badRequest(res, parsed.error.errors[0].message);
+    }
+
+    const clientId = (req.user as any)?.id;
+    if (!clientId) return apiResponse.unauthorized(res, 'Authentication required');
+
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+      || req.socket?.remoteAddress
+      || null;
+
+    await db.insert(clientUnlistedDisclosureLog).values({
+      clientId,
+      companyId: parsed.data.companyId ?? null,
+      proposalId: parsed.data.proposalId ?? null,
+      disclosureVersion: parsed.data.disclosureVersion,
+      disclosureHash: parsed.data.disclosureHash,
+      ipAddress: ip,
+      userAgent: req.headers['user-agent'] ?? null,
+    } as any);
+
+    return apiResponse.success(res, { acknowledged: true, acknowledgedAt: new Date().toISOString() });
+  } catch (error: any) {
+    console.error('[Disclosure] Error logging disclosure:', error);
+    return apiResponse.serverError(res, 'Failed to log disclosure acknowledgment');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/health
+ * Institutional monitoring dashboard: stale valuations, compliance flags, enrichment failures.
+ */
+router.get('/admin/health', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const report = await unlistedValuationGovernanceService.getHealthReport();
+    return apiResponse.success(res, report);
+  } catch (error: any) {
+    console.error('[UnlistedHealth] Error generating report:', error);
+    return apiResponse.serverError(res, 'Failed to generate health report');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/valuation/check-stale
+ * Manually trigger the valuation staleness sweep (also runs quarterly via cron).
+ */
+router.post('/admin/valuation/check-stale', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const report = await unlistedValuationGovernanceService.runStalenessSweep();
+    return apiResponse.success(res, report, `Staleness sweep complete: ${report.markedStale} newly marked stale`);
+  } catch (error: any) {
+    console.error('[UnlistedHealth] Error in staleness sweep:', error);
+    return apiResponse.serverError(res, 'Failed to run staleness sweep');
+  }
+});
+
+/**
+ * GET /api/unlisted/companies/:id/proposal-modifiers
+ * Returns the unlisted-specific portfolio modifiers for a given instrument
+ * (liquidity_weight=0, rebalance_eligible=false, stress_haircut=40%).
+ * Used by the proposal engine before generating allocation.
+ */
+router.get('/companies/:id/proposal-modifiers', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const modifiers = unlistedValuationGovernanceService.getProposalModifiers(id);
+    const latest = await unlistedValuationGovernanceService.getLatestValuation(id);
+    return apiResponse.success(res, {
+      companyId: id,
+      ...modifiers,
+      latestValuation: latest,
+    });
+  } catch (error: any) {
+    console.error('[ProposalModifiers] Error:', error);
+    return apiResponse.serverError(res, 'Failed to fetch proposal modifiers');
+  }
+});
+
+// ==================== END INSTITUTIONAL VALUATION GOVERNANCE API ROUTES ====================
 
 export default router;

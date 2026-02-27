@@ -13654,7 +13654,15 @@ export const unlistedCompanies = pgTable("unlisted_companies", {
   tradingSuspendedAt: timestamp("trading_suspended_at"),
   tradingSuspendedBy: varchar("trading_suspended_by").references(() => users.id),
   tradingSuspendedReason: text("trading_suspended_reason"),
-  
+
+  // Institutional Governance (Epic: Unlisted Asset Lifecycle)
+  riskCategory: varchar("risk_category").default("very_high"),        // very_high (default for all unlisted)
+  rebalanceEligible: boolean("rebalance_eligible").default(false),     // always false for unlisted
+  liquidityWeight: decimal("liquidity_weight", { precision: 5, scale: 2 }).default("0"), // 0 = fully illiquid
+  valuationStatus: varchar("valuation_status").default("pending"),     // pending | current | stale
+  lastValuationDate: date("last_valuation_date"),
+  enrichmentFailedAt: timestamp("enrichment_failed_at"),               // null = last attempt succeeded
+
   // Additional Info
   website: varchar("website"),
   description: text("description"),
@@ -14258,6 +14266,65 @@ export const insertUnlistedSTRFlagsSchema = createInsertSchema(unlistedSTRFlags)
 });
 export type UnlistedSTRFlags = typeof unlistedSTRFlags.$inferSelect;
 export type InsertUnlistedSTRFlags = z.infer<typeof insertUnlistedSTRFlagsSchema>;
+
+// ==================== INSTITUTIONAL VALUATION GOVERNANCE ====================
+
+/**
+ * Append-only versioned valuation history for unlisted equity instruments.
+ * No record may ever be updated or deleted — new valuations are always INSERTs.
+ * A valuation is considered STALE when current_date - valuation_date > 90 days.
+ */
+export const unlistedEquityValuationHistory = pgTable("unlisted_equity_valuation_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
+  valuationMethod: varchar("valuation_method", { length: 50 }).notNull(), // dcf, nav, comparable, book_value, market_implied, ca_certified
+  price: decimal("price", { precision: 20, scale: 2 }).notNull(),
+  valuationDate: date("valuation_date").notNull(),
+  supportingDocumentUrl: text("supporting_document_url"),
+  notes: text("notes"),
+  addedBy: varchar("added_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_unlisted_val_history_company").on(table.companyId),
+  index("idx_unlisted_val_history_date").on(table.valuationDate),
+  index("idx_unlisted_val_history_method").on(table.valuationMethod),
+]);
+
+export const insertUnlistedEquityValuationHistorySchema = createInsertSchema(unlistedEquityValuationHistory).omit({
+  id: true,
+  createdAt: true,
+});
+export type UnlistedEquityValuationHistory = typeof unlistedEquityValuationHistory.$inferSelect;
+export type InsertUnlistedEquityValuationHistory = z.infer<typeof insertUnlistedEquityValuationHistorySchema>;
+
+/**
+ * Client disclosure acknowledgment log.
+ * Mandatory before any unlisted equity is included in a finalized proposal.
+ * Immutable — records the exact disclosure version the client accepted.
+ */
+export const clientUnlistedDisclosureLog = pgTable("client_unlisted_disclosure_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id),
+  proposalId: varchar("proposal_id"),
+  disclosureVersion: varchar("disclosure_version", { length: 20 }).notNull(), // semver e.g. "1.2.0"
+  disclosureHash: varchar("disclosure_hash", { length: 64 }).notNull(),       // SHA-256 of disclosure text
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  acknowledgedAt: timestamp("acknowledged_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_disclosure_log_client").on(table.clientId),
+  index("idx_disclosure_log_company").on(table.companyId),
+  index("idx_disclosure_log_proposal").on(table.proposalId),
+  index("idx_disclosure_log_acknowledged").on(table.acknowledgedAt),
+]);
+
+export const insertClientUnlistedDisclosureLogSchema = createInsertSchema(clientUnlistedDisclosureLog).omit({
+  id: true,
+  acknowledgedAt: true,
+});
+export type ClientUnlistedDisclosureLog = typeof clientUnlistedDisclosureLog.$inferSelect;
+export type InsertClientUnlistedDisclosureLog = z.infer<typeof insertClientUnlistedDisclosureLogSchema>;
 
 // ==================== END REGULATORY COMPLIANCE TABLES ====================
 

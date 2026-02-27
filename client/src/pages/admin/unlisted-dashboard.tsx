@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { LoadingState } from "@/components/LoadingState";
 import { Link } from "wouter";
 import { format } from "date-fns";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import {
   Building2,
   TrendingUp,
@@ -28,7 +30,36 @@ import {
   AlertCircle,
   Info,
   Ban,
+  Gavel,
+  Zap,
 } from "lucide-react";
+
+interface HealthReport {
+  staleValuations: Array<{
+    companyId: string;
+    companyName: string;
+    lastValuationDate: string | null;
+    daysSinceValuation: number | null;
+    valuationStatus: string;
+  }>;
+  complianceFlagged: Array<{
+    companyId: string;
+    companyName: string;
+    complianceStatus: string;
+    blockReasons: unknown;
+  }>;
+  enrichmentFailures: Array<{
+    companyId: string;
+    companyName: string;
+    enrichmentFailedAt: string;
+  }>;
+  summary: {
+    totalStale: number;
+    totalComplianceFlagged: number;
+    totalEnrichmentFailed: number;
+    reportGeneratedAt: string;
+  };
+}
 
 interface DashboardMetrics {
   totalCompanies: number;
@@ -163,10 +194,26 @@ const AlertItem = ({ alert }: { alert: ComplianceAlert }) => {
 
 export default function UnlistedDashboard() {
   const { user, isLoading: authLoading } = useAuth();
-  
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const { data: responseData, isLoading, error, refetch } = useQuery<{ success: boolean; data: DashboardData }>({
     queryKey: ['/api/unlisted/admin/dashboard-metrics'],
     refetchInterval: 60000,
+  });
+
+  const { data: healthData, isLoading: healthLoading, refetch: refetchHealth } = useQuery<{ success: boolean; data: HealthReport }>({
+    queryKey: ['/api/unlisted/admin/health'],
+    refetchInterval: 300000,
+  });
+
+  const stalenessMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/unlisted/admin/valuation/check-stale'),
+    onSuccess: (data: any) => {
+      toast({ title: 'Staleness sweep complete', description: data?.message || 'Valuation statuses updated.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/health'] });
+    },
+    onError: () => toast({ title: 'Sweep failed', description: 'Could not run staleness check.', variant: 'destructive' }),
   });
   
   if (authLoading) {
@@ -420,6 +467,121 @@ export default function UnlistedDashboard() {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Institutional Governance Health ── */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Gavel className="h-5 w-5 text-primary" />
+              <CardTitle className="text-foreground text-lg">Institutional Governance Health</CardTitle>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => refetchHealth()} disabled={healthLoading}>
+                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${healthLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => stalenessMutation.mutate()}
+                disabled={stalenessMutation.isPending}
+              >
+                <Zap className="h-3.5 w-3.5 mr-1" />
+                {stalenessMutation.isPending ? 'Running…' : 'Run Staleness Sweep'}
+              </Button>
+            </div>
+          </div>
+          <CardDescription className="text-muted-foreground">
+            Valuation governance, compliance flags, and enrichment status
+            {healthData?.data?.summary?.reportGeneratedAt && (
+              <span className="ml-2 text-xs">
+                · Last checked {format(new Date(healthData.data.summary.reportGeneratedAt), 'dd MMM yyyy HH:mm')}
+              </span>
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {healthLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading health report…</span>
+            </div>
+          ) : healthData?.data ? (
+            <div className="space-y-4">
+              {/* Summary Badges */}
+              <div className="flex flex-wrap gap-3">
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${healthData.data.summary.totalStale > 0 ? 'bg-red-950/30 border-red-800' : 'bg-green-950/30 border-green-800'}`}>
+                  <Clock className={`h-4 w-4 ${healthData.data.summary.totalStale > 0 ? 'text-red-400' : 'text-green-400'}`} />
+                  <span className="text-sm font-medium text-foreground">{healthData.data.summary.totalStale}</span>
+                  <span className="text-xs text-muted-foreground">Stale Valuations</span>
+                </div>
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${healthData.data.summary.totalComplianceFlagged > 0 ? 'bg-yellow-950/30 border-yellow-800' : 'bg-green-950/30 border-green-800'}`}>
+                  <Shield className={`h-4 w-4 ${healthData.data.summary.totalComplianceFlagged > 0 ? 'text-yellow-400' : 'text-green-400'}`} />
+                  <span className="text-sm font-medium text-foreground">{healthData.data.summary.totalComplianceFlagged}</span>
+                  <span className="text-xs text-muted-foreground">Compliance Flagged</span>
+                </div>
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${healthData.data.summary.totalEnrichmentFailed > 0 ? 'bg-orange-950/30 border-orange-800' : 'bg-green-950/30 border-green-800'}`}>
+                  <AlertCircle className={`h-4 w-4 ${healthData.data.summary.totalEnrichmentFailed > 0 ? 'text-orange-400' : 'text-green-400'}`} />
+                  <span className="text-sm font-medium text-foreground">{healthData.data.summary.totalEnrichmentFailed}</span>
+                  <span className="text-xs text-muted-foreground">Enrichment Failures</span>
+                </div>
+              </div>
+
+              {/* Stale Valuations List */}
+              {healthData.data.staleValuations.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Stale / Unvalued Instruments</p>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {healthData.data.staleValuations.slice(0, 10).map((item) => (
+                      <div key={item.companyId} className="flex items-center justify-between p-2 rounded bg-muted/40 text-sm">
+                        <span className="font-medium text-foreground truncate max-w-[50%]">{item.companyName}</span>
+                        <div className="flex items-center gap-2">
+                          {item.daysSinceValuation !== null ? (
+                            <span className="text-xs text-muted-foreground">{item.daysSinceValuation}d ago</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Never valued</span>
+                          )}
+                          <Badge variant="destructive" className="text-xs">{item.valuationStatus}</Badge>
+                        </div>
+                      </div>
+                    ))}
+                    {healthData.data.staleValuations.length > 10 && (
+                      <p className="text-xs text-muted-foreground text-center pt-1">+{healthData.data.staleValuations.length - 10} more</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Enrichment Failures */}
+              {healthData.data.enrichmentFailures.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Enrichment Failures</p>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {healthData.data.enrichmentFailures.slice(0, 8).map((item) => (
+                      <div key={item.companyId} className="flex items-center justify-between p-2 rounded bg-muted/40 text-sm">
+                        <span className="font-medium text-foreground truncate max-w-[60%]">{item.companyName}</span>
+                        <span className="text-xs text-orange-400">{format(new Date(item.enrichmentFailedAt), 'dd MMM HH:mm')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {healthData.data.summary.totalStale === 0 &&
+               healthData.data.summary.totalComplianceFlagged === 0 &&
+               healthData.data.summary.totalEnrichmentFailed === 0 && (
+                <div className="flex items-center gap-2 text-sm text-green-400 py-2">
+                  <CheckCircle className="h-4 w-4" />
+                  All instruments are current — no governance issues detected.
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Health data unavailable. Refresh to retry.</p>
+          )}
         </CardContent>
       </Card>
     </div>

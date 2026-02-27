@@ -944,3 +944,74 @@ if (isProductionEnvironment()) {
 } else {
   console.log('⏭️ [FixedIncomeStatus] Skipped (development mode - production only)');
 }
+
+// ==================== UNLISTED VALUATION GOVERNANCE CRONS ====================
+
+// Daily MCA Enrichment Sweep - 2:00 AM IST (8:30 PM UTC previous day)
+// Only processes companies whose enrichment is stale (>90 days since last sync)
+if (isProductionEnvironment()) {
+  cron.schedule('30 20 * * *', async () => {
+    console.log('[CRON][UnlistedEnrichment] Starting daily MCA enrichment sweep...');
+    try {
+      const { db } = await import('./db');
+      const { sql } = await import('drizzle-orm');
+      const { enrichUnlistedCompanyWithMCAData } = await import('./services/probe42-service');
+
+      const staleRows = await db.execute(sql`
+        SELECT id, name, cin FROM unlisted_companies
+        WHERE cin IS NOT NULL
+          AND (last_synced_at IS NULL OR last_synced_at < NOW() - INTERVAL '90 days')
+          AND status = 'active'
+        LIMIT 50
+      `);
+
+      let succeeded = 0;
+      let failed = 0;
+
+      for (const row of staleRows.rows as any[]) {
+        try {
+          await enrichUnlistedCompanyWithMCAData(row.id, row.cin);
+          await db.execute(sql`
+            UPDATE unlisted_companies
+            SET last_synced_at = NOW(), enrichment_failed_at = NULL
+            WHERE id = ${row.id}
+          `);
+          succeeded++;
+        } catch (err: any) {
+          await db.execute(sql`
+            UPDATE unlisted_companies
+            SET enrichment_failed_at = NOW()
+            WHERE id = ${row.id}
+          `);
+          failed++;
+          console.error(`[CRON][UnlistedEnrichment] Failed for ${row.name} (${row.cin}):`, err.message);
+        }
+      }
+
+      console.log(`[CRON][UnlistedEnrichment] Sweep done: ${succeeded} enriched, ${failed} failed out of ${staleRows.rows.length} candidates`);
+    } catch (error: any) {
+      console.error('[CRON][UnlistedEnrichment] Sweep job failed:', error.message);
+    }
+  }, { timezone: 'Asia/Kolkata' });
+  console.log('📊 [UnlistedEnrichment] Daily MCA enrichment cron scheduled (2:00 AM IST)');
+} else {
+  console.log('⏭️ [UnlistedEnrichment] Daily enrichment cron skipped (development mode - production only)');
+}
+
+// Quarterly Valuation Staleness Sweep - 3:00 AM IST on the 1st of Jan, Apr, Jul, Oct
+// Marks any instrument with no valuation in 90+ days as STALE and logs to audit trail
+if (isProductionEnvironment()) {
+  cron.schedule('0 21 1 */3 *', async () => {
+    console.log('[CRON][ValuationGovernance] Starting quarterly staleness sweep...');
+    try {
+      const { unlistedValuationGovernanceService } = await import('./services/unlisted-valuation-governance-service');
+      const report = await unlistedValuationGovernanceService.runStalenessSweep();
+      console.log(`[CRON][ValuationGovernance] Sweep complete: ${report.markedStale} newly stale, ${report.alreadyStale} already stale, ${report.neverValued} never valued (of ${report.totalChecked} checked)`);
+    } catch (error: any) {
+      console.error('[CRON][ValuationGovernance] Quarterly sweep failed:', error.message);
+    }
+  }, { timezone: 'Asia/Kolkata' });
+  console.log('📊 [ValuationGovernance] Quarterly staleness cron scheduled (3:00 AM IST, 1st of Jan/Apr/Jul/Oct)');
+} else {
+  console.log('⏭️ [ValuationGovernance] Quarterly staleness cron skipped (development mode - production only)');
+}
