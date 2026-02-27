@@ -812,11 +812,7 @@ class MFComprehensiveEnrichmentService {
       id: mutualFunds.id,
       schemeCode: mutualFunds.schemeCode,
     }).from(mutualFunds).where(
-      or(
-        isNull(mutualFunds.returns1y),
-        isNull(mutualFunds.sharpeRatio),
-        isNull(mutualFunds.standardDeviation)
-      )
+      isNull(mutualFunds.returns1y)
     ).limit(maxFunds);
 
     for (let i = 0; i < funds.length; i++) {
@@ -836,10 +832,8 @@ class MFComprehensiveEnrichmentService {
         if (returns.returns3y !== null) updates.returns3y = returns.returns3y.toFixed(4);
         if (returns.returns5y !== null) updates.returns5y = returns.returns5y.toFixed(4);
 
-        if (ratios.standardDeviation !== null) updates.standardDeviation = ratios.standardDeviation.toString();
-        if (ratios.sharpeRatio !== null) updates.sharpeRatio = ratios.sharpeRatio.toString();
-        if (ratios.sortinoRatio !== null) updates.sortinoRatio = ratios.sortinoRatio.toString();
-        if (ratios.maxDrawdown !== null) updates.maxDrawdown = ratios.maxDrawdown.toString();
+        // Calculated metrics (sharpe, sortino, stddev, maxDrawdown) are written exclusively
+        // to mutual_fund_metrics below — not to mutual_funds
 
         if (Object.keys(updates).length > 1) {
           await getEnrichmentWriteDb().update(mutualFunds).set(updates).where(eq(mutualFunds.id, fund.id));
@@ -1149,11 +1143,7 @@ class MFComprehensiveEnrichmentService {
       minLumpsumNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.minLumpsumAmount} IS NULL)`,
       launchDateNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.launchDate} IS NULL)`,
       subCategoryNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.schemeSubCategory} IS NULL)`,
-      sharpeNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.sharpeRatio} IS NULL)`,
-      stdDevNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.standardDeviation} IS NULL)`,
-      sortinoNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.sortinoRatio} IS NULL)`,
-      alphaNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.alpha} IS NULL)`,
-      betaNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.beta} IS NULL)`,
+      metricsRowsCount: sql<number>`(SELECT COUNT(DISTINCT scheme_code) FROM mutual_fund_metrics)`,
       benchmarkNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.benchmarkIndex} IS NULL)`,
       isinNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.isin} IS NULL)`,
       smartRatingNull: sql<number>`COUNT(*) FILTER (WHERE ${mutualFunds.crisilRating} IS NULL)`,
@@ -1175,11 +1165,6 @@ class MFComprehensiveEnrichmentService {
       min_lumpsum_amount: Number(stats?.minLumpsumNull || 0),
       launch_date: Number(stats?.launchDateNull || 0),
       scheme_sub_category: Number(stats?.subCategoryNull || 0),
-      sharpe_ratio: Number(stats?.sharpeNull || 0),
-      standard_deviation: Number(stats?.stdDevNull || 0),
-      sortino_ratio: Number(stats?.sortinoNull || 0),
-      alpha: Number(stats?.alphaNull || 0),
-      beta: Number(stats?.betaNull || 0),
       benchmark_index: Number(stats?.benchmarkNull || 0),
       isin: Number(stats?.isinNull || 0),
       fintekpro_smart_rating: Number(stats?.smartRatingNull || 0),
@@ -1191,6 +1176,12 @@ class MFComprehensiveEnrichmentService {
     for (const [col, nullCount] of Object.entries(columns)) {
       result[col] = { nullCount, filledCount: total - nullCount, total };
     }
+    const metricsWithData = Number(stats?.metricsRowsCount || 0);
+    result['risk_metrics_in_metrics_table'] = {
+      nullCount: total - metricsWithData,
+      filledCount: metricsWithData,
+      total,
+    };
     return result;
   }
 }

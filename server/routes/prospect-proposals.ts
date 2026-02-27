@@ -7,6 +7,7 @@ import {
   users,
   customerCareAgents,
   mutualFunds,
+  mutualFundMetrics,
   corporateBonds,
   aifMaster,
   pmsMaster,
@@ -81,13 +82,29 @@ async function getStoreEligibleMutualFunds(options: {
       category: mutualFunds.category,
       fundHouse: mutualFunds.fundHouse,
       nav: mutualFunds.nav,
-      returns1y: mutualFunds.returns1y,
-      returns3y: mutualFunds.returns3y,
-      returns5y: mutualFunds.returns5y,
+      returns1y: sql<string>`COALESCE(${mutualFunds.returns1y}, ${mutualFundMetrics.return1y})`,
+      returns3y: sql<string>`COALESCE(${mutualFunds.returns3y}, ${mutualFundMetrics.return3y})`,
+      returns5y: sql<string>`COALESCE(${mutualFunds.returns5y}, ${mutualFundMetrics.return5y})`,
       riskLevel: mutualFunds.riskLevel,
       planType: mutualFunds.planType,
+      sharpeRatio: mutualFundMetrics.sharpeRatio,
+      alpha: mutualFundMetrics.alpha,
+      beta: mutualFundMetrics.beta,
+      maxDrawdown: mutualFundMetrics.maxDrawdown,
+      standardDeviation: mutualFundMetrics.standardDeviation,
     })
     .from(mutualFunds)
+    .leftJoin(
+      mutualFundMetrics,
+      and(
+        eq(mutualFunds.schemeCode, mutualFundMetrics.schemeCode),
+        eq(mutualFundMetrics.fiscalYear, sql`(
+          SELECT fiscal_year FROM mutual_fund_metrics m2
+          WHERE m2.scheme_code = ${mutualFunds.schemeCode}
+          ORDER BY m2.calculated_at DESC LIMIT 1
+        )`)
+      )
+    )
     .where(and(...conditions))
     .limit(limit);
 }

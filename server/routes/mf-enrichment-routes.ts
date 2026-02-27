@@ -51,10 +51,10 @@ export function registerMFEnrichmentRoutes(app: Express) {
         exitLoadDays: mutualFunds.exitLoadDays,
         minSipAmount: mutualFunds.minSipAmount,
         minLumpsumAmount: mutualFunds.minLumpsumAmount,
-        sharpeRatio: sql<string>`COALESCE(${mutualFundMetrics.sharpeRatio}, ${mutualFunds.sharpeRatio})`.as('sharpe_ratio'),
-        sortinoRatio: sql<string>`COALESCE(${mutualFundMetrics.sortinoRatio}, ${mutualFunds.sortinoRatio})`.as('sortino_ratio'),
-        standardDeviation: sql<string>`COALESCE(${mutualFundMetrics.standardDeviation}, ${mutualFunds.standardDeviation})`.as('standard_deviation'),
-        maxDrawdown: sql<string>`COALESCE(${mutualFundMetrics.maxDrawdown}, ${mutualFunds.maxDrawdown})`.as('max_drawdown'),
+        sharpeRatio: mutualFundMetrics.sharpeRatio,
+        sortinoRatio: mutualFundMetrics.sortinoRatio,
+        standardDeviation: mutualFundMetrics.standardDeviation,
+        maxDrawdown: mutualFundMetrics.maxDrawdown,
         lastUpdated: mutualFunds.lastUpdated,
       })
       .from(mutualFunds)
