@@ -1,7 +1,8 @@
 import { db } from "../db";
 import { 
   listedStocks, 
-  mutualFunds, 
+  mutualFunds,
+  mutualFundMetrics,
   governmentSecurities, 
   corporateBonds,
   reits,
@@ -11,7 +12,7 @@ import {
   aifMaster,
   userProfiles
 } from "@shared/schema";
-import { eq, and, desc, gte, lte, inArray, isNotNull, or, ilike } from "drizzle-orm";
+import { eq, and, desc, gte, lte, inArray, isNotNull, or, ilike, sql } from "drizzle-orm";
 import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 import { aiService, getComplexAnalysisModel, isGpt52Available } from "./ai-service";
 import { 
@@ -197,11 +198,52 @@ class AIInvestmentOrchestratorService {
           return normalizeProducts(stocks, 'STOCK');
           
         case 'MF':
-          const funds = await db.select().from(mutualFunds)
-            .where(eq(mutualFunds.isPublished, true))
-            .orderBy(desc(mutualFunds.crisilPercentile))
-            .limit(this.config.maxProductsPerType);
-          return normalizeProducts(funds, 'MF');
+          const fundsWithMetrics = await db.select({
+            id: mutualFunds.id,
+            schemeCode: mutualFunds.schemeCode,
+            schemeName: mutualFunds.schemeName,
+            fundHouse: mutualFunds.fundHouse,
+            category: mutualFunds.category,
+            schemeSubCategory: mutualFunds.schemeSubCategory,
+            nav: mutualFunds.nav,
+            aum: mutualFunds.aum,
+            expenseRatio: mutualFunds.expenseRatio,
+            riskLevel: mutualFunds.riskLevel,
+            returns1y: sql<string>`COALESCE(${mutualFunds.returns1y}, ${mutualFundMetrics.return1y})`,
+            returns3y: sql<string>`COALESCE(${mutualFunds.returns3y}, ${mutualFundMetrics.return3y})`,
+            returns5y: sql<string>`COALESCE(${mutualFunds.returns5y}, ${mutualFundMetrics.return5y})`,
+            crisilRating: mutualFunds.crisilRating,
+            crisilPercentile: mutualFunds.crisilPercentile,
+            crisilOverallScore: mutualFunds.crisilOverallScore,
+            isin: mutualFunds.isin,
+            planType: mutualFunds.planType,
+            isPublished: mutualFunds.isPublished,
+            lastUpdated: mutualFunds.lastUpdated,
+            sharpeRatio: mutualFundMetrics.sharpeRatio,
+            sortinoRatio: mutualFundMetrics.sortinoRatio,
+            standardDeviation: mutualFundMetrics.standardDeviation,
+            maxDrawdown: mutualFundMetrics.maxDrawdown,
+            alpha: mutualFundMetrics.alpha,
+            beta: mutualFundMetrics.beta,
+            treynorRatio: mutualFundMetrics.treynorRatio,
+            informationRatio: mutualFundMetrics.informationRatio,
+          })
+          .from(mutualFunds)
+          .leftJoin(
+            mutualFundMetrics,
+            and(
+              eq(mutualFunds.schemeCode, mutualFundMetrics.schemeCode),
+              eq(mutualFundMetrics.fiscalYear, sql`(
+                SELECT fiscal_year FROM mutual_fund_metrics m2
+                WHERE m2.scheme_code = ${mutualFunds.schemeCode}
+                ORDER BY calculated_at DESC LIMIT 1
+              )`)
+            )
+          )
+          .where(eq(mutualFunds.isPublished, true))
+          .orderBy(desc(mutualFunds.crisilPercentile))
+          .limit(this.config.maxProductsPerType);
+          return normalizeProducts(fundsWithMetrics, 'MF');
           
         case 'BOND':
           const govBonds = await db.select().from(governmentSecurities)
