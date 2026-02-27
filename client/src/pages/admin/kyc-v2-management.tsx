@@ -1413,6 +1413,293 @@ function StepResetTab() {
   );
 }
 
+function DirectRejectTab() {
+  const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<{ userId: string; name: string; email: string } | null>(null);
+  const [reasonCode, setReasonCode] = useState("");
+  const [notes, setNotes] = useState("");
+  const [requireReKyc, setRequireReKyc] = useState(true);
+
+  const { data: submissionsData, isLoading: submissionsLoading } = useQuery<{
+    success: boolean;
+    submissions: Array<{ id: string; userId: string; firstName: string; lastName: string; userEmail: string; status: string; submittedAt: string }>;
+  }>({
+    queryKey: ["/api/admin/kyc/submissions", debouncedSearch],
+    queryFn: () => {
+      const url = debouncedSearch
+        ? `/api/admin/kyc/submissions?search=${encodeURIComponent(debouncedSearch)}&limit=30`
+        : `/api/admin/kyc/submissions?limit=30`;
+      return fetch(url).then(r => r.json());
+    },
+  });
+
+  const { data: activeSessionData, isLoading: sessionLoading } = useQuery<{
+    success: boolean;
+    session: {
+      sessionId: string;
+      currentStep: string;
+      entityType: string | null;
+      createdAt: string;
+      initiatedBy: string | null;
+      panMasked: string | null;
+      userName: string | null;
+      userEmail: string | null;
+    } | null;
+  }>({
+    queryKey: ["/api/kyc/active-session", selectedUser?.userId],
+    queryFn: () => fetch(`/api/kyc/active-session/${selectedUser!.userId}`).then(r => r.json()),
+    enabled: !!selectedUser?.userId && rejectDialogOpen,
+  });
+
+  const { data: reasonsData } = useQuery<{ success: boolean; reasons: Record<string, string> }>({
+    queryKey: ["/api/kyc/rejection-reasons"],
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (params: { sessionId: string; userId: string; reasonCode: string; notes: string; requireReKyc: boolean }) => {
+      return await apiRequest("/api/kyc/reject", {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "KYC rejected", description: "The client's KYC session has been deactivated and logged." });
+      setRejectDialogOpen(false);
+      setSelectedUser(null);
+      setReasonCode("");
+      setNotes("");
+      setRequireReKyc(true);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/kyc/submissions"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Rejection failed", description: error.message || "Please try again.", variant: "destructive" });
+    },
+  });
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    clearTimeout((window as any).__kycSearchTimer);
+    (window as any).__kycSearchTimer = setTimeout(() => setDebouncedSearch(val), 400);
+  };
+
+  const openRejectDialog = (user: { userId: string; name: string; email: string }) => {
+    setSelectedUser(user);
+    setReasonCode("");
+    setNotes("");
+    setRequireReKyc(true);
+    setRejectDialogOpen(true);
+  };
+
+  const handleConfirmReject = () => {
+    const session = activeSessionData?.session;
+    if (!session || !selectedUser) return;
+    if (!reasonCode) {
+      toast({ title: "Reason required", description: "Please select a rejection reason.", variant: "destructive" });
+      return;
+    }
+    if (notes.trim().length < 10) {
+      toast({ title: "Notes too short", description: "Notes must be at least 10 characters.", variant: "destructive" });
+      return;
+    }
+    rejectMutation.mutate({
+      sessionId: session.sessionId,
+      userId: selectedUser.userId,
+      reasonCode,
+      notes: notes.trim(),
+      requireReKyc,
+    });
+  };
+
+  const submissions = submissionsData?.submissions || [];
+  const reasons = reasonsData?.reasons || {};
+  const activeSession = activeSessionData?.session;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-lg font-semibold">Direct KYC Rejection</h3>
+        <p className="text-sm text-muted-foreground">Search for a user and reject their active KYC session with a reason and audit log.</p>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, email, or PAN..."
+            value={search}
+            onChange={e => handleSearchChange(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      </div>
+
+      {submissionsLoading ? (
+        <LoadingTable />
+      ) : submissions.length === 0 ? (
+        <EmptyState icon={Users} title="No submissions found" description="Try a different search term." />
+      ) : (
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Submitted</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {submissions.map((sub) => (
+                <TableRow key={sub.id}>
+                  <TableCell className="font-medium">{sub.firstName} {sub.lastName}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{sub.userEmail}</TableCell>
+                  <TableCell>
+                    <Badge variant={sub.status === "approved" ? "default" : sub.status === "rejected" ? "destructive" : "secondary"}>
+                      {sub.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {sub.submittedAt ? new Date(sub.submittedAt).toLocaleDateString() : "—"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => openRejectDialog({
+                        userId: sub.userId,
+                        name: `${sub.firstName} ${sub.lastName}`.trim(),
+                        email: sub.userEmail,
+                      })}
+                    >
+                      <Ban className="h-4 w-4 mr-1" />
+                      Reject KYC
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Ban className="h-5 w-5" />
+              Reject KYC — {selectedUser?.name || selectedUser?.email || "User"}
+            </DialogTitle>
+            <DialogDescription>
+              This will immediately deactivate the client's active KYC session and create an audit log entry.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {sessionLoading ? (
+              <Skeleton className="h-20 w-full" />
+            ) : !activeSession ? (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>No active session</AlertTitle>
+                <AlertDescription>This user has no active KYC session to reject.</AlertDescription>
+              </Alert>
+            ) : (
+              <div className="rounded-md border bg-muted/40 p-3 space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Session ID</span>
+                  <span className="font-mono">{activeSession.sessionId.slice(0, 12)}...</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Current Step</span>
+                  <span>{activeSession.currentStep}</span>
+                </div>
+                {activeSession.entityType && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Entity Type</span>
+                    <span>{activeSession.entityType}</span>
+                  </div>
+                )}
+                {activeSession.panMasked && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">PAN</span>
+                    <span className="font-mono">{activeSession.panMasked}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Started</span>
+                  <span>{activeSession.createdAt ? new Date(activeSession.createdAt).toLocaleString() : "—"}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <Label>Rejection Reason <span className="text-destructive">*</span></Label>
+              <Select value={reasonCode} onValueChange={setReasonCode} disabled={!activeSession}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a reason..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(reasons).map(([code, desc]) => (
+                    <SelectItem key={code} value={code}>{code} — {String(desc)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Notes <span className="text-destructive">*</span></Label>
+              <Textarea
+                placeholder="Enter reviewer notes (min 10 characters)..."
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                disabled={!activeSession}
+                className="resize-none"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div>
+                <p className="text-sm font-medium">Require Re-KYC</p>
+                <p className="text-xs text-muted-foreground">Client must restart the KYC process</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={requireReKyc}
+                onClick={() => setRequireReKyc(v => !v)}
+                disabled={!activeSession}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${requireReKyc ? "bg-destructive" : "bg-muted"} disabled:opacity-50`}
+              >
+                <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${requireReKyc ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmReject}
+              disabled={!activeSession || rejectMutation.isPending || sessionLoading}
+            >
+              {rejectMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Rejecting...</>
+              ) : (
+                <><Ban className="h-4 w-4 mr-2" /> Confirm Reject</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function KycV2ManagementPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -1427,7 +1714,7 @@ export default function KycV2ManagementPage() {
       <EnvironmentBanner />
 
       <Tabs defaultValue="video-kyc" className="space-y-4">
-        <TabsList className="grid grid-cols-3 md:grid-cols-7 w-full">
+        <TabsList className="grid grid-cols-4 md:grid-cols-8 w-full">
           <TabsTrigger value="video-kyc" className="text-xs sm:text-sm">
             <Video className="h-4 w-4 mr-1 hidden sm:inline" />
             Video KYC
@@ -1435,6 +1722,10 @@ export default function KycV2ManagementPage() {
           <TabsTrigger value="maker-checker" className="text-xs sm:text-sm">
             <Users className="h-4 w-4 mr-1 hidden sm:inline" />
             Approvals
+          </TabsTrigger>
+          <TabsTrigger value="direct-reject" className="text-xs sm:text-sm">
+            <Ban className="h-4 w-4 mr-1 hidden sm:inline" />
+            Reject
           </TabsTrigger>
           <TabsTrigger value="rejections" className="text-xs sm:text-sm">
             <AlertTriangle className="h-4 w-4 mr-1 hidden sm:inline" />
@@ -1464,6 +1755,10 @@ export default function KycV2ManagementPage() {
 
         <TabsContent value="maker-checker">
           <MakerCheckerTab />
+        </TabsContent>
+
+        <TabsContent value="direct-reject">
+          <DirectRejectTab />
         </TabsContent>
 
         <TabsContent value="rejections">

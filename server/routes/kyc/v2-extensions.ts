@@ -9,8 +9,8 @@ import { kycEnvironmentService } from '../../services/kyc-environment-service';
 import { kycRateLimiterService } from '../../services/kyc-rate-limiter-service';
 import { kycEncryptionService } from '../../services/kyc-encryption-service';
 import { db } from '../../db';
-import { kycVerificationSessions, kycStepResets, kycAuditLogs } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { kycVerificationSessions, kycStepResets, kycAuditLogs, users } from '@shared/schema';
+import { eq, desc } from 'drizzle-orm';
 
 function hasRole(user: any, requiredRoles: string[]): boolean {
   if (!user) return false;
@@ -664,5 +664,67 @@ export function registerKycV2ExtensionRoutes(app: Express) {
     }
   });
 
-  console.log('✅ KYC v2 Extension routes registered (Video KYC, Maker-Checker, Rejection, Eligibility, Audit Pack, Webhooks, Environment, Rate Limits, Agent Step Reset)');
+  // ============================================================
+  // ACTIVE SESSION LOOKUP (BE-KYC-014) — admin + agent
+  // ============================================================
+
+  app.get("/api/kyc/active-session/:userId", requireAdminOrAgent, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      if (!userId) {
+        return res.status(400).json({ success: false, error: 'userId is required' });
+      }
+
+      const [sessionRow] = await db
+        .select({
+          sessionId: kycVerificationSessions.id,
+          currentStep: kycVerificationSessions.currentStep,
+          entityType: kycVerificationSessions.entityType,
+          createdAt: kycVerificationSessions.createdAt,
+          initiatedBy: kycVerificationSessions.initiatedBy,
+          panNumber: kycVerificationSessions.panNumber,
+          userId: kycVerificationSessions.userId,
+        })
+        .from(kycVerificationSessions)
+        .where(eq(kycVerificationSessions.userId, userId))
+        .orderBy(desc(kycVerificationSessions.createdAt))
+        .limit(1);
+
+      if (!sessionRow) {
+        return res.json({ success: true, session: null });
+      }
+
+      const [userRow] = await db
+        .select({
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      const pan = sessionRow.panNumber || '';
+      const panMasked = pan.length > 4 ? `****${pan.slice(-4)}` : (pan ? '****' : null);
+
+      return res.json({
+        success: true,
+        session: {
+          sessionId: sessionRow.sessionId,
+          currentStep: sessionRow.currentStep,
+          entityType: sessionRow.entityType,
+          createdAt: sessionRow.createdAt,
+          initiatedBy: sessionRow.initiatedBy,
+          panMasked,
+          userName: userRow ? `${userRow.firstName || ''} ${userRow.lastName || ''}`.trim() || null : null,
+          userEmail: userRow?.email || null,
+        },
+      });
+    } catch (error) {
+      console.error('[KYC Active Session] Error:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch active session' });
+    }
+  });
+
+  console.log('✅ KYC v2 Extension routes registered (Video KYC, Maker-Checker, Rejection, Eligibility, Audit Pack, Webhooks, Environment, Rate Limits, Agent Step Reset, Active Session Lookup)');
 }

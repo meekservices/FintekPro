@@ -77,9 +77,17 @@ export default function KycRejectionRekyc() {
   const [disputeDialogOpen, setDisputeDialogOpen] = useState(false);
   const [disputeRejectionId, setDisputeRejectionId] = useState<number | null>(null);
   const [disputeNotes, setDisputeNotes] = useState("");
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [agentRejectReasonCode, setAgentRejectReasonCode] = useState("");
+  const [agentRejectNotes, setAgentRejectNotes] = useState("");
+  const [agentRequireReKyc, setAgentRequireReKyc] = useState(true);
 
-  const userId = user?.id;
   const isAgent = user?.role === "agent";
+
+  const params = new URLSearchParams(window.location.search);
+  const clientUserId = isAgent ? (params.get("userId") || undefined) : undefined;
+
+  const userId = clientUserId || user?.id;
 
   const { data: rejectionsData, isLoading: rejectionsLoading } = useQuery<{
     success: boolean;
@@ -96,6 +104,65 @@ export default function KycRejectionRekyc() {
     queryKey: ["/api/kyc/rejection-reasons"],
     enabled: !!userId,
   });
+
+  const { data: activeSessionData, isLoading: activeSessionLoading } = useQuery<{
+    success: boolean;
+    session: {
+      sessionId: string;
+      currentStep: string;
+      entityType: string | null;
+      createdAt: string;
+      initiatedBy: string | null;
+      panMasked: string | null;
+      userName: string | null;
+      userEmail: string | null;
+    } | null;
+  }>({
+    queryKey: ["/api/kyc/active-session", clientUserId],
+    queryFn: () => fetch(`/api/kyc/active-session/${clientUserId}`).then(r => r.json()),
+    enabled: isAgent && !!clientUserId,
+  });
+
+  const agentRejectMutation = useMutation({
+    mutationFn: async (params: { sessionId: string; userId: string; reasonCode: string; notes: string; requireReKyc: boolean }) => {
+      return await apiRequest("/api/kyc/reject", {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "KYC rejected", description: "The client's KYC session has been deactivated." });
+      setRejectDialogOpen(false);
+      setAgentRejectReasonCode("");
+      setAgentRejectNotes("");
+      setAgentRequireReKyc(true);
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc/rejections/user", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/kyc/active-session", clientUserId] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Rejection failed", description: error.message || "Please try again.", variant: "destructive" });
+    },
+  });
+
+  const handleAgentReject = () => {
+    const session = activeSessionData?.session;
+    if (!session || !clientUserId) return;
+    if (!agentRejectReasonCode) {
+      toast({ title: "Reason required", description: "Please select a rejection reason.", variant: "destructive" });
+      return;
+    }
+    if (agentRejectNotes.trim().length < 10) {
+      toast({ title: "Notes too short", description: "Notes must be at least 10 characters.", variant: "destructive" });
+      return;
+    }
+    agentRejectMutation.mutate({
+      sessionId: session.sessionId,
+      userId: clientUserId,
+      reasonCode: agentRejectReasonCode,
+      notes: agentRejectNotes.trim(),
+      requireReKyc: agentRequireReKyc,
+    });
+  };
 
   const resubmitMutation = useMutation({
     mutationFn: async (oldSessionId: string) => {
@@ -176,12 +243,82 @@ export default function KycRejectionRekyc() {
         </div>
       </div>
 
-      {isAgent && (
+      {isAgent && clientUserId && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-destructive" />
+              Client's Active KYC Session
+            </CardTitle>
+            <CardDescription>
+              You can reject the client's active session if verification cannot proceed.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {activeSessionLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+              </div>
+            ) : !activeSessionData?.session ? (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>No active session</AlertTitle>
+                <AlertDescription>This client has no KYC session currently in progress.</AlertDescription>
+              </Alert>
+            ) : (
+              <div className="space-y-3">
+                <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Session</span>
+                    <span className="font-mono">{activeSessionData.session.sessionId.slice(0, 12)}...</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Current Step</span>
+                    <span>{activeSessionData.session.currentStep}</span>
+                  </div>
+                  {activeSessionData.session.entityType && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Entity Type</span>
+                      <span>{activeSessionData.session.entityType}</span>
+                    </div>
+                  )}
+                  {activeSessionData.session.panMasked && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">PAN</span>
+                      <span className="font-mono">{activeSessionData.session.panMasked}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Started</span>
+                    <span>{new Date(activeSessionData.session.createdAt).toLocaleString()}</span>
+                  </div>
+                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    setAgentRejectReasonCode("");
+                    setAgentRejectNotes("");
+                    setAgentRequireReKyc(true);
+                    setRejectDialogOpen(true);
+                  }}
+                >
+                  <Ban className="h-4 w-4 mr-2" />
+                  Reject This KYC
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {isAgent && !clientUserId && (
         <Alert>
           <Info className="h-4 w-4" />
           <AlertTitle>Agent View</AlertTitle>
           <AlertDescription>
-            You are viewing this in read-only mode. Only the customer can re-submit KYC or file disputes.
+            To view or reject a client's KYC, navigate here with a <code>?userId=</code> parameter. You can reject an active session; only the client can file disputes or re-submit KYC.
           </AlertDescription>
         </Alert>
       )}
@@ -317,6 +454,81 @@ export default function KycRejectionRekyc() {
           })}
         </div>
       )}
+
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Ban className="h-5 w-5" />
+              Reject Client KYC
+            </DialogTitle>
+            <DialogDescription>
+              This will immediately deactivate the client's active session. The client will need to restart verification.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <Alert variant="destructive">
+              <ShieldAlert className="h-4 w-4" />
+              <AlertDescription>
+                This action is irreversible. The rejection will be logged in the audit trail.
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Rejection Reason <span className="text-destructive">*</span></label>
+              <select
+                value={agentRejectReasonCode}
+                onChange={e => setAgentRejectReasonCode(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Select a reason...</option>
+                {Object.entries(reasonsData?.reasons || {}).map(([code, desc]) => (
+                  <option key={code} value={code}>{code} — {String(desc)}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Notes <span className="text-destructive">*</span></label>
+              <Textarea
+                placeholder="Enter reviewer notes (min 10 characters)..."
+                value={agentRejectNotes}
+                onChange={e => setAgentRejectNotes(e.target.value)}
+                className="resize-none"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div>
+                <p className="text-sm font-medium">Require Re-KYC</p>
+                <p className="text-xs text-muted-foreground">Client must restart the KYC process</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={agentRequireReKyc}
+                onClick={() => setAgentRequireReKyc(v => !v)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${agentRequireReKyc ? "bg-destructive" : "bg-muted"}`}
+              >
+                <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${agentRequireReKyc ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={handleAgentReject}
+              disabled={agentRejectMutation.isPending}
+            >
+              {agentRejectMutation.isPending ? "Rejecting..." : "Confirm Rejection"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={disputeDialogOpen} onOpenChange={setDisputeDialogOpen}>
         <DialogContent>
