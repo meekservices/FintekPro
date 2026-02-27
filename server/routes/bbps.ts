@@ -4,6 +4,7 @@ import { digilockerService } from '../services/digilockerService';
 import { CashfreeAadhaarService } from '../services/cashfree-aadhaar-service';
 import { sandboxKYCService } from '../services/sandbox-kyc-service';
 import { storage } from '../storage';
+import { getAppBaseUrl } from '../utils/app-url';
 
 export async function registerBBPSRoutes(app: Express): Promise<void> {
   await BBPSService.initializeBBPSData();
@@ -73,7 +74,7 @@ export async function registerBBPSRoutes(app: Express): Promise<void> {
       }
 
       const { docTypes = ['aadhaar', 'pan'], flow = 'signin' } = req.body;
-      const redirectUri = `${process.env.REPLIT_DEV_DOMAIN ? 'https://' + process.env.REPLIT_DEV_DOMAIN : 'https://fintekpro.com'}/api/digilocker/callback`;
+      const redirectUri = `${getAppBaseUrl()}/api/digilocker/callback`;
 
       try {
         const session = await sandboxKYCService.initiateDigiLockerSession(redirectUri, docTypes, flow);
