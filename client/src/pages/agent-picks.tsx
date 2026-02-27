@@ -1852,7 +1852,7 @@ function PickCard({
                 {Object.entries(pick.keyMetrics).filter(([, value]) => typeof value !== 'object' || value === null).slice(0, 4).map(([key, value]) => (
                   <div key={key}>
                     <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}: </span>
-                    <span className="font-medium">{typeof value === 'number' ? (value ?? 0).toFixed(2) : (value ?? '—')}</span>
+                    <span className="font-medium">{typeof value === 'number' ? value.toFixed(2) : typeof value === 'boolean' ? (value ? 'Yes' : 'No') : typeof value === 'string' ? value : '—'}</span>
                   </div>
                 ))}
               </div>
@@ -1917,7 +1917,15 @@ function PickCard({
                 {pick.keyMetrics.legs && (
                   <div className="mt-2 p-2 bg-muted/50 rounded text-xs">
                     <span className="text-muted-foreground">Legs: </span>
-                    <span className="font-mono">{pick.keyMetrics.legs}</span>
+                    <span className="font-mono">
+                      {Array.isArray(pick.keyMetrics.legs)
+                        ? pick.keyMetrics.legs.map((leg: any) =>
+                            `${String(leg.action ?? '').toUpperCase()} ${leg.quantity ?? ''}x ${String(leg.type ?? '').toUpperCase()}${leg.strikePrice ? ` @${leg.strikePrice}` : ''}${leg.premium ? ` (₹${leg.premium})` : ''}`
+                          ).join(' | ')
+                        : typeof pick.keyMetrics.legs === 'string'
+                          ? pick.keyMetrics.legs
+                          : '—'}
+                    </span>
                   </div>
                 )}
               </div>
