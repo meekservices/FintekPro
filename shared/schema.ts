@@ -4265,22 +4265,6 @@ export const mutualFunds = pgTable("mutual_funds", {
   exitLoadDays: integer("exit_load_days"), // Exit load applicable days
   schemeSubCategory: varchar("scheme_sub_category"), // AMFI scheme sub-category
   
-  // Financial ratios (calculated from NAV data)
-  alpha: decimal("alpha", { precision: 8, scale: 4 }), // Jensen's Alpha - excess returns vs benchmark
-  beta: decimal("beta", { precision: 8, scale: 4 }), // Beta - volatility relative to market
-  sharpeRatio: decimal("sharpe_ratio", { precision: 8, scale: 4 }), // Sharpe Ratio - risk-adjusted returns
-  sortinoRatio: decimal("sortino_ratio", { precision: 8, scale: 4 }), // Sortino Ratio - downside risk-adjusted returns
-  standardDeviation: decimal("standard_deviation", { precision: 8, scale: 4 }), // Standard Deviation - volatility measure
-  treynorRatio: decimal("treynor_ratio", { precision: 8, scale: 4 }), // Treynor Ratio - return per unit of market risk
-  informationRatio: decimal("information_ratio", { precision: 8, scale: 4 }), // Information Ratio - consistency vs benchmark
-  maxDrawdown: decimal("max_drawdown", { precision: 8, scale: 4 }), // Maximum Drawdown - worst peak-to-trough decline
-  
-  // Metric availability flags (TRUE only if benchmark confidence >= 0.7 and sufficient data)
-  alphaAvailable: boolean("alpha_available").default(false),
-  betaAvailable: boolean("beta_available").default(false),
-  treynorAvailable: boolean("treynor_available").default(false),
-  informationRatioAvailable: boolean("information_ratio_available").default(false),
-  
   // Benchmark mapping reference
   benchmarkIndex: varchar("benchmark_index"), // Raw AMFI benchmark name e.g., 'NIFTY 50 TRI', 'S&P BSE SENSEX TRI'
   benchmarkIndexCode: varchar("benchmark_index_code"), // e.g., NIFTY50, NIFTY_MIDCAP_150
@@ -29931,7 +29915,6 @@ export const mutualFundMetrics = pgTable("mutual_fund_metrics", {
   id: serial("id").primaryKey(),
   fundId: varchar("fund_id"),
   schemeCode: varchar("scheme_code").notNull(),
-  schemeName: varchar("scheme_name"),
   fiscalYear: varchar("fiscal_year", { length: 10 }).notNull(),
   
   // === RISK-ADJUSTED RETURNS ===
@@ -29994,7 +29977,6 @@ export const mutualFundMetrics = pgTable("mutual_fund_metrics", {
   
   // === METADATA ===
   benchmarkIndex: varchar("benchmark_index"),
-  fundCategory: varchar("fund_category"),
   dataSource: varchar("data_source", { length: 50 }),
   calculatedAt: timestamp("calculated_at").defaultNow(),
   lastUpdated: timestamp("last_updated").defaultNow(),
