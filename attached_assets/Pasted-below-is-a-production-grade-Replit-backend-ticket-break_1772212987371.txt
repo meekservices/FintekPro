@@ -1,0 +1,277 @@
+below is a production-grade Replit backend ticket breakdown for implementing Unlisted Shares Infrastructure inside FintekPro.
+This is structured as:
+Epic
+Stories
+Atomic Tasks
+API Contracts
+DB Migrations
+Cron Jobs
+Compliance Hooks
+Risk Engine Modifications
+Everything is implementation-ready.
+📦 EPIC: Unlisted Equity Infrastructure (Institution-Grade)
+{
+  "epic_name": "Unlisted Equity Infrastructure",
+  "description": "Build full lifecycle management for unlisted shares including ingestion, enrichment, valuation versioning, compliance tagging, and proposal engine integration.",
+  "priority": "High",
+  "owner": "Backend Team",
+  "milestones": [
+    "Schema & Master Table",
+    "Bulk Seeding Engine",
+    "Enrichment Service",
+    "Valuation Engine",
+    "Compliance Layer",
+    "Proposal Engine Integration",
+    "Audit & Monitoring"
+  ]
+}
+🧱 STORY 1: Database Schema & Core Tables
+{
+  "story": "Create Unlisted Equity Master Schema",
+  "tasks": [
+    {
+      "task_name": "Create unlisted_equity_master table",
+      "type": "migration",
+      "acceptance_criteria": [
+        "UUID primary key",
+        "CIN unique index",
+        "Company name indexed",
+        "Sector indexed",
+        "Liquidity type enum",
+        "Compliance status enum"
+      ]
+    },
+    {
+      "task_name": "Create unlisted_equity_valuation_history table",
+      "type": "migration",
+      "acceptance_criteria": [
+        "Foreign key to unlisted_equity_master",
+        "Versioned valuation storage",
+        "Supporting document URL",
+        "Valuation method enum",
+        "No overwrite allowed"
+      ]
+    },
+    {
+      "task_name": "Create unlisted_equity_documents table",
+      "type": "migration",
+      "acceptance_criteria": [
+        "Store CA certificates",
+        "Store MCA filings snapshot",
+        "Linked to instrument ID"
+      ]
+    }
+  ]
+}
+🔄 STORY 2: Bulk Seeding Engine
+{
+  "story": "Implement Bulk Upload & Validation Engine",
+  "tasks": [
+    {
+      "task_name": "Create POST /unlisted/bulk-upload",
+      "type": "api",
+      "acceptance_criteria": [
+        "Accept CSV",
+        "Async background processing",
+        "Row-level validation report",
+        "Duplicate CIN detection",
+        "Partial success allowed"
+      ]
+    },
+    {
+      "task_name": "CIN validation logic",
+      "type": "service",
+      "acceptance_criteria": [
+        "Regex validation",
+        "Check existing record",
+        "Mark invalid rows"
+      ]
+    },
+    {
+      "task_name": "Sector classification mapper",
+      "type": "service",
+      "acceptance_criteria": [
+        "Map to SEBI sector taxonomy",
+        "Fallback to 'Unclassified'"
+      ]
+    }
+  ]
+}
+🧠 STORY 3: Enrichment Engine (MCA + Financial Updates)
+{
+  "story": "Build Unlisted Equity Enrichment Service",
+  "tasks": [
+    {
+      "task_name": "Create enrichment microservice",
+      "type": "service",
+      "acceptance_criteria": [
+        "Pull MCA data",
+        "Update capital structure",
+        "Update director changes",
+        "Version log changes"
+      ]
+    },
+    {
+      "task_name": "Daily cron job for enrichment",
+      "type": "cron",
+      "schedule": "0 2 * * *",
+      "acceptance_criteria": [
+        "Only update stale records (>90 days)",
+        "Log success/failure",
+        "Retry on failure"
+      ]
+    },
+    {
+      "task_name": "Change detection engine",
+      "type": "service",
+      "acceptance_criteria": [
+        "Detect change in paid-up capital",
+        "Detect status change (Active/Struck Off)",
+        "Trigger compliance flag"
+      ]
+    }
+  ]
+}
+💰 STORY 4: Valuation Engine (Versioned, Auditable)
+{
+  "story": "Implement Valuation Governance Engine",
+  "tasks": [
+    {
+      "task_name": "Create POST /unlisted/{id}/valuation",
+      "type": "api",
+      "acceptance_criteria": [
+        "Require valuation method",
+        "Require valuation date",
+        "Upload supporting document",
+        "Append-only write"
+      ]
+    },
+    {
+      "task_name": "Valuation staleness detector",
+      "type": "service",
+      "acceptance_criteria": [
+        "If >90 days old → mark STALE",
+        "Trigger admin notification"
+      ]
+    },
+    {
+      "task_name": "Quarterly valuation cron",
+      "type": "cron",
+      "schedule": "0 3 1 */3 *",
+      "acceptance_criteria": [
+        "Flag instruments needing revaluation",
+        "Send dashboard alerts"
+      ]
+    }
+  ]
+}
+⚖️ STORY 5: Compliance & Risk Layer
+{
+  "story": "Add Compliance Classification for Unlisted Shares",
+  "tasks": [
+    {
+      "task_name": "Add risk classification logic",
+      "type": "service",
+      "acceptance_criteria": [
+        "Default risk = Very High",
+        "Liquidity weight = 0",
+        "Rebalance eligible = false"
+      ]
+    },
+    {
+      "task_name": "Lock-in & transfer restrictions engine",
+      "type": "service",
+      "acceptance_criteria": [
+        "Board approval flag",
+        "Lock-in expiry tracking",
+        "Suitability gate"
+      ]
+    },
+    {
+      "task_name": "Disclosure trigger hook",
+      "type": "integration",
+      "acceptance_criteria": [
+        "Force client disclosure before proposal finalization",
+        "Audit trail stored"
+      ]
+    }
+  ]
+}
+📊 STORY 6: Proposal Builder Integration
+{
+  "story": "Integrate Unlisted Shares into Portfolio Engine",
+  "tasks": [
+    {
+      "task_name": "Modify portfolio optimizer",
+      "type": "core-logic",
+      "acceptance_criteria": [
+        "Exclude unlisted from auto-sell logic",
+        "Include in net worth calculation",
+        "Include in asset allocation exposure"
+      ]
+    },
+    {
+      "task_name": "Stress testing logic update",
+      "type": "risk-engine",
+      "acceptance_criteria": [
+        "Apply 30-50% downside scenario",
+        "No daily volatility assumption"
+      ]
+    }
+  ]
+}
+📜 STORY 7: Audit & Governance
+{
+  "story": "Full Audit & Observability",
+  "tasks": [
+    {
+      "task_name": "Audit trail logging",
+      "type": "logging",
+      "acceptance_criteria": [
+        "Log valuation changes",
+        "Log compliance changes",
+        "Log enrichment updates"
+      ]
+    },
+    {
+      "task_name": "Admin monitoring dashboard API",
+      "type": "api",
+      "acceptance_criteria": [
+        "Show stale valuations",
+        "Show compliance flagged instruments",
+        "Show enrichment failures"
+      ]
+    }
+  ]
+}
+🔐 Role-Based Access Controls
+{
+  "roles": {
+    "admin": ["create", "update", "valuation", "approve"],
+    "compliance_officer": ["approve", "flag", "audit"],
+    "advisor": ["view", "propose"],
+    "client": ["view_only"]
+  }
+}
+🏗 Recommended Microservice Structure
+services/
+  unlisted-service/
+    controllers/
+    services/
+    validators/
+    cron/
+    repositories/
+    events/
+⚙️ Performance & Scaling Considerations
+Use async job queue for bulk upload
+Separate valuation history from master table
+Index CIN + Company Name
+Cache active unlisted instruments
+Event-driven compliance triggers
+📌 Final Outcome After This Epic
+FintekPro will have:
+✔ Institutional-grade unlisted asset lifecycle
+✔ Audit-ready valuation governance
+✔ Compliance-safe proposal integration
+✔ MCA enrichment automation
+✔ Illiquidity-aware optimization
