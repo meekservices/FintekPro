@@ -1,4 +1,5 @@
 import { eq, and } from "drizzle-orm";
+import { getAppBaseUrl } from '../utils/app-url';
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import {
@@ -329,7 +330,7 @@ export class BBPSService {
         phone: userPhone,
         email: userEmail,
         name: userName,
-        returnUrl: `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/api/bbps/payment-callback`,
+        returnUrl: `${getAppBaseUrl()}/api/bbps/payment-callback`,
       });
 
       if (!cashfreeOrder.success || !cashfreeOrder.orderId) {

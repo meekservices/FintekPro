@@ -1,4 +1,5 @@
 import { getTwilioClient, isTwilioConfigured } from './twilio-client';
+import { getAppBaseUrl } from '../utils/app-url';
 
 interface VoiceCallResult {
   success: boolean;
@@ -20,9 +21,7 @@ class TwilioVoiceService {
   constructor() {
     const voiceNumber = process.env.TWILIO_VOICE_NUMBER;
     
-    this.baseUrl = process.env.REPLIT_DEV_DOMAIN 
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-      : 'http://localhost:5000';
+    this.baseUrl = getAppBaseUrl();
 
     if (voiceNumber) {
       this.fromNumber = voiceNumber.startsWith('+') ? voiceNumber : `+${voiceNumber}`;

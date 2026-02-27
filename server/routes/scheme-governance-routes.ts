@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { schemeGovernanceService } from "../services/scheme-governance-service";
-import { PURCHASE_RESTRICTED_FUNDS } from "../services/agent-prospect-wizard-service";
+import { LEGACY_PURCHASE_RESTRICTED_FUNDS } from "../services/agent-prospect-wizard-service";
 
 const router = Router();
 
@@ -31,7 +31,7 @@ router.get("/transaction-rules", async (req: Request, res: Response) => {
 router.post("/transaction-rules/seed", async (req: Request, res: Response) => {
   try {
     const result = await schemeGovernanceService.seedTransactionRulesFromRegistry(
-      PURCHASE_RESTRICTED_FUNDS
+      LEGACY_PURCHASE_RESTRICTED_FUNDS
     );
     res.json({ success: true, ...result });
   } catch (error: any) {

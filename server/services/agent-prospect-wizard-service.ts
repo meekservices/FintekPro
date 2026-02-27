@@ -458,10 +458,10 @@ const REAL_FUND_RECOMMENDATIONS = {
  * effectiveFrom: When the restriction started (for audit trail)
  * alternativeFund: Suggested replacement fund when this fund is excluded
  */
-// LEGACY: These restrictions are now seeded to scheme_transaction_rules by amfiSubscriptionSyncService.
+// RETIRED: These restrictions are now seeded to scheme_transaction_rules by amfiSubscriptionSyncService.
 // The DB (scheme_transaction_rules) is the live gate. This list is kept ONLY as a last-resort
 // fallback when the DB is unreachable. Do NOT add new entries here — use the DB instead.
-export const PURCHASE_RESTRICTED_FUNDS: Array<{
+export const LEGACY_PURCHASE_RESTRICTED_FUNDS: Array<{
   fundNamePattern: string;
   restrictionType: 'lumpsum' | 'sip' | 'both';
   reason: string;
@@ -492,7 +492,7 @@ export const PURCHASE_RESTRICTED_FUNDS: Array<{
 ];
 
 export function isLumpsumRestricted(fundName: string): { restricted: boolean; reason?: string; alternative?: string } {
-  const match = PURCHASE_RESTRICTED_FUNDS.find(
+  const match = LEGACY_PURCHASE_RESTRICTED_FUNDS.find(
     r => fundName.toLowerCase().includes(r.fundNamePattern.toLowerCase()) && 
          (r.restrictionType === 'lumpsum' || r.restrictionType === 'both')
   );
@@ -503,7 +503,7 @@ export function isLumpsumRestricted(fundName: string): { restricted: boolean; re
 }
 
 export function isSipRestricted(fundName: string): { restricted: boolean; reason?: string; alternative?: string } {
-  const match = PURCHASE_RESTRICTED_FUNDS.find(
+  const match = LEGACY_PURCHASE_RESTRICTED_FUNDS.find(
     r => fundName.toLowerCase().includes(r.fundNamePattern.toLowerCase()) && 
          (r.restrictionType === 'sip' || r.restrictionType === 'both')
   );

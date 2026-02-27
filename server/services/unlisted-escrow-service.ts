@@ -9,6 +9,7 @@
  */
 
 import { CashfreeService, cashfreeService } from '../cashfree-service';
+import { getAppBaseUrl } from '../utils/app-url';
 import { storage } from '../storage';
 import { db } from '../db';
 import { unlistedDeals } from '@shared/schema';
@@ -147,7 +148,7 @@ export class UnlistedEscrowService {
       
       const escrowId = `escrow_${deal.id}_${Date.now()}`;
       const returnUrl = request.returnUrl || 
-        `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/api/unlisted/payment/callback`;
+        `${getAppBaseUrl()}/api/unlisted/payment/callback`;
 
       const orderResult = await this.cashfree.createOrder({
         amount: fees.buyerTotal,

@@ -11,6 +11,7 @@ import {
   regulatoryInvestabilityService,
   isOverseasFund as sharedIsOverseasFund,
   isFundInvestable as sharedIsFundInvestable,
+  isFundInvestableAsync as sharedIsFundInvestableAsync,
   logFilteredInstrument
 } from "./regulatory-investability-service";
 
@@ -256,8 +257,8 @@ class AIMFRecommendationService {
             isLiveData: true
           };
           
-          // Check regulatory and operational investability
-          const investability = this.isFundInvestable(enhancedFund);
+          // Check regulatory and operational investability (async → DB-driven per-fund check)
+          const investability = await this.isFundInvestable(enhancedFund);
           
           if (investability.investable) {
             enhancedFunds.push(enhancedFund);
@@ -590,9 +591,9 @@ class AIMFRecommendationService {
     return sharedIsOverseasFund(fund);
   }
 
-  // Delegate to shared regulatory investability service
-  private isFundInvestable(fund: any): { investable: boolean; reason: string | null } {
-    return sharedIsFundInvestable(fund);
+  // Delegate to shared regulatory investability service (async — DB-first per-fund check)
+  private async isFundInvestable(fund: any): Promise<{ investable: boolean; reason: string | null }> {
+    return sharedIsFundInvestableAsync(fund);
   }
 
   // Delegate to shared regulatory investability service

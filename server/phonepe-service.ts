@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import axios, { AxiosInstance } from 'axios';
+import { getAppBaseUrl } from './utils/app-url';
 
 export interface PhonePePaymentRequest {
   amount: number;
@@ -89,9 +90,8 @@ export class PhonePeService {
   async createOrder(paymentRequest: PhonePePaymentRequest): Promise<PhonePeOrderResponse> {
     try {
       const merchantTransactionId = this.generateTransactionId();
-      const callbackUrl = `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/api/payments/phonepe/callback`;
-      const redirectUrl = paymentRequest.redirectUrl || 
-        `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/payment-success`;
+      const callbackUrl = `${getAppBaseUrl()}/api/payments/phonepe/callback`;
+      const redirectUrl = paymentRequest.redirectUrl || `${getAppBaseUrl()}/payment-success`;
 
       // Prepare payload
       const payload = {

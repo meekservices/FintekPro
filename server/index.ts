@@ -1189,12 +1189,12 @@ server.listen({
 
       try {
         const { schemeGovernanceService } = await import('./services/scheme-governance-service');
-        const { PURCHASE_RESTRICTED_FUNDS } = await import('./services/agent-prospect-wizard-service');
+        const { LEGACY_PURCHASE_RESTRICTED_FUNDS } = await import('./services/agent-prospect-wizard-service');
         const ruleCount = await db.execute(sql`SELECT COUNT(*) as cnt FROM scheme_transaction_rules`);
         const existingRules = parseInt(String((ruleCount.rows[0] as any)?.cnt || '0'));
-        if (existingRules === 0 && PURCHASE_RESTRICTED_FUNDS.length > 0) {
+        if (existingRules === 0 && LEGACY_PURCHASE_RESTRICTED_FUNDS.length > 0) {
           console.log('🔄 [Bootstrap] Seeding scheme transaction rules from restriction registry...');
-          const seedResult = await schemeGovernanceService.seedTransactionRulesFromRegistry(PURCHASE_RESTRICTED_FUNDS);
+          const seedResult = await schemeGovernanceService.seedTransactionRulesFromRegistry(LEGACY_PURCHASE_RESTRICTED_FUNDS);
           console.log(`✅ [Bootstrap] Scheme transaction rules seeded: ${seedResult.seeded} rules, ${seedResult.errors} errors`);
         } else {
           console.log(`✅ [Bootstrap] ${existingRules} scheme transaction rules already exist`);

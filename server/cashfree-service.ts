@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import crypto from 'crypto';
+import { getAppBaseUrl } from './utils/app-url';
 
 export interface CashfreePaymentRequest {
   amount: number;
@@ -94,8 +95,7 @@ export class CashfreeService {
   async createOrder(paymentRequest: CashfreePaymentRequest): Promise<CashfreeOrderResponse> {
     try {
       const orderId = this.generateOrderId();
-      const returnUrl = paymentRequest.returnUrl || 
-        `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/api/payments/cashfree/callback`;
+      const returnUrl = paymentRequest.returnUrl || `${getAppBaseUrl()}/api/payments/cashfree/callback`;
 
       const requestBody = {
         order_amount: paymentRequest.amount,
@@ -412,7 +412,7 @@ export class CashfreeService {
           account_holder_name: accountHolderName
         },
         authorization_mode: 'DEBIT_CARD', // or NET_BANKING
-        return_url: `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/api/kyc/wizard/emandate-callback`
+        return_url: `${getAppBaseUrl()}/api/kyc/wizard/emandate-callback`
       };
 
       console.log(`📝 Cashfree: Creating eMandate for user ${userId}, max amount ₹${maxAmount}`);
