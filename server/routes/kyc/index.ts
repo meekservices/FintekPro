@@ -2127,10 +2127,29 @@ export function registerKYCWizardRoutes(app: Express) {
       }
 
       const isDemoMode = kycEnvironmentService.isSandbox();
-      
+      const userId = req.user!.id;
+
       if (isDemoMode) {
         if (otp !== '123456') {
           return res.status(400).json({ success: false, message: "Invalid OTP. In demo mode, use OTP: 123456" });
+        }
+        // Demo mode: persist verification so the status system reflects Aadhaar as done
+        await db.update(schema.userProfiles)
+          .set({ aadhaarVerifiedViaSmartKyc: true })
+          .where(eq(schema.userProfiles.userId, userId));
+        try {
+          const existingVaultDemo = await db.select({ id: schema.kycVault.id })
+            .from(schema.kycVault).where(eq(schema.kycVault.userId, userId)).limit(1);
+          if (existingVaultDemo.length > 0) {
+            await db.update(schema.kycVault)
+              .set({ aadhaarVerifiedAt: new Date(), updatedAt: new Date() })
+              .where(eq(schema.kycVault.userId, userId));
+          } else {
+            await db.insert(schema.kycVault)
+              .values({ userId, aadhaarVerifiedAt: new Date(), source: 'demo', kycStatus: 'pending' });
+          }
+        } catch (demoVaultErr) {
+          console.warn('[KYC] Failed to update kycVault for Aadhaar (demo):', demoVaultErr);
         }
         return res.json({
           success: true,
@@ -2150,7 +2169,6 @@ export function registerKYCWizardRoutes(app: Express) {
       }
       
       const result = await sandboxKYCService.verifyAadhaarOTP(refId, otp);
-      const userId = req.user!.id;
       console.log(`[KYC] Aadhaar verified via Sandbox API for user ${userId}`);
 
       const standaloneProfileUpdate: any = {
@@ -2170,6 +2188,22 @@ export function registerKYCWizardRoutes(app: Express) {
       await db.update(schema.userProfiles)
         .set(standaloneProfileUpdate)
         .where(eq(schema.userProfiles.userId, userId));
+
+      // Persist to kycVault so upgrade notification service can detect Aadhaar completion
+      try {
+        const existingVaultStandalone = await db.select({ id: schema.kycVault.id })
+          .from(schema.kycVault).where(eq(schema.kycVault.userId, userId)).limit(1);
+        if (existingVaultStandalone.length > 0) {
+          await db.update(schema.kycVault)
+            .set({ aadhaarVerifiedAt: new Date(), updatedAt: new Date() })
+            .where(eq(schema.kycVault.userId, userId));
+        } else {
+          await db.insert(schema.kycVault)
+            .values({ userId, aadhaarVerifiedAt: new Date(), source: 'sandbox', kycStatus: 'pending' });
+        }
+      } catch (vaultErrStandalone) {
+        console.warn('[KYC] Failed to update kycVault for Aadhaar (standalone):', vaultErrStandalone);
+      }
 
       await kycOrchestratorService.logAuditEvent({
         userId,
