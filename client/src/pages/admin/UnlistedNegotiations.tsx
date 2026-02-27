@@ -263,6 +263,7 @@ export default function UnlistedNegotiations() {
                   <Input
                     id="minPrice"
                     type="number"
+                    step="0.01"
                     placeholder="0"
                     value={minPrice}
                     onChange={(e) => {
@@ -278,6 +279,7 @@ export default function UnlistedNegotiations() {
                   <Input
                     id="maxPrice"
                     type="number"
+                    step="0.01"
                     placeholder="No limit"
                     value={maxPrice}
                     onChange={(e) => {

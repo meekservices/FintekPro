@@ -1055,6 +1055,7 @@ export default function SeedUnlistedPage() {
               <label className="text-xs text-muted-foreground block mb-1">Buy Price (₹)</label>
               <Input
                 type="number"
+                step="0.01"
                 value={prices.buyPrice}
                 onChange={(e) => updatePrice(company.id, 'buyPrice', e.target.value)}
                 placeholder="Enter buy price"
@@ -1066,6 +1067,7 @@ export default function SeedUnlistedPage() {
               <label className="text-xs text-muted-foreground block mb-1">Sell Price (₹)</label>
               <Input
                 type="number"
+                step="0.01"
                 value={prices.sellPrice}
                 onChange={(e) => updatePrice(company.id, 'sellPrice', e.target.value)}
                 placeholder="Enter sell price"

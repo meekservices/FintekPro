@@ -587,6 +587,7 @@ function CompanyListView({
                           <Label className="text-muted-foreground">Percentage Change (%)</Label>
                           <Input
                             type="number"
+                            step="0.01"
                             placeholder="e.g. 5 for +5%, -10 for -10%"
                             value={bulkPricePercentage}
                             onChange={(e) => setBulkPricePercentage(e.target.value)}
@@ -599,6 +600,7 @@ function CompanyListView({
                           <Label className="text-muted-foreground">New Fixed Price (₹)</Label>
                           <Input
                             type="number"
+                            step="0.01"
                             placeholder="Enter new price"
                             value={bulkPriceValue}
                             onChange={(e) => setBulkPriceValue(e.target.value)}
@@ -2993,6 +2995,7 @@ function ListingTransitionDialog({ onClose }: { onClose: () => void }) {
               <Label className="text-muted-foreground">IPO Price (₹)</Label>
               <Input
                 type="number"
+                step="0.01"
                 value={ipoPrice}
                 onChange={(e) => setIpoPrice(e.target.value)}
                 placeholder="Enter IPO price"
@@ -3046,6 +3049,7 @@ function ListingTransitionDialog({ onClose }: { onClose: () => void }) {
                 <Label className="text-muted-foreground">List Price (₹)</Label>
                 <Input
                   type="number"
+                  step="0.01"
                   value={listPrice}
                   onChange={(e) => setListPrice(e.target.value)}
                   placeholder="Enter listing price"
