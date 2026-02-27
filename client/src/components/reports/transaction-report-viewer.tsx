@@ -203,11 +203,11 @@ export function TransactionReportViewer() {
     }
   };
 
-  const filteredReports = reports?.filter((report: TransactionReport) => {
+  const filteredReports = (Array.isArray(reports) ? reports : []).filter((report: TransactionReport) => {
     if (selectedSource !== 'all' && report.source !== selectedSource) return false;
     if (selectedAssetType !== 'all' && report.assetType !== selectedAssetType) return false;
     return true;
-  }) || [];
+  });
 
   if (isLoading) {
     return (

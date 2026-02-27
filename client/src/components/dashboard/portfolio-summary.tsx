@@ -22,7 +22,7 @@ export function PortfolioSummary({ userId }: PortfolioSummaryProps) {
 
   // Calculate portfolio summary from real holdings data
   const getPortfolioSummary = () => {
-    if (!holdings || holdings.length === 0) {
+    if (!holdings || !Array.isArray(holdings) || holdings.length === 0) {
       return {
         totalValue: 0,
         todayPnL: 0,

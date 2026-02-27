@@ -831,23 +831,23 @@ export default function AgentStockAI() {
                                 <div className="grid grid-cols-5 gap-4 text-xs">
                                   <div className="text-center">
                                     <span className="text-muted-foreground block">Delta</span>
-                                    <span className="text-foreground font-medium">{derivative.greeks.delta.toFixed(2)}</span>
+                                    <span className="text-foreground font-medium">{typeof derivative.greeks.delta === 'number' ? derivative.greeks.delta.toFixed(2) : 'N/A'}</span>
                                   </div>
                                   <div className="text-center">
                                     <span className="text-muted-foreground block">Gamma</span>
-                                    <span className="text-foreground font-medium">{derivative.greeks.gamma.toFixed(4)}</span>
+                                    <span className="text-foreground font-medium">{typeof derivative.greeks.gamma === 'number' ? derivative.greeks.gamma.toFixed(4) : 'N/A'}</span>
                                   </div>
                                   <div className="text-center">
                                     <span className="text-muted-foreground block">Theta</span>
-                                    <span className="text-red-400 font-medium">{derivative.greeks.theta.toFixed(2)}</span>
+                                    <span className="text-red-400 font-medium">{typeof derivative.greeks.theta === 'number' ? derivative.greeks.theta.toFixed(2) : 'N/A'}</span>
                                   </div>
                                   <div className="text-center">
                                     <span className="text-muted-foreground block">Vega</span>
-                                    <span className="text-foreground font-medium">{derivative.greeks.vega.toFixed(2)}</span>
+                                    <span className="text-foreground font-medium">{typeof derivative.greeks.vega === 'number' ? derivative.greeks.vega.toFixed(2) : 'N/A'}</span>
                                   </div>
                                   <div className="text-center">
                                     <span className="text-muted-foreground block">IV</span>
-                                    <span className="text-purple-400 font-medium">{derivative.greeks.iv.toFixed(1)}%</span>
+                                    <span className="text-purple-400 font-medium">{typeof derivative.greeks.iv === 'number' ? `${derivative.greeks.iv.toFixed(1)}%` : 'N/A'}</span>
                                   </div>
                                 </div>
                               </div>

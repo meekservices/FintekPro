@@ -211,7 +211,7 @@ export default function AgentDSAPerformance() {
                 </div>
               </div>
               <span className="text-2xl font-bold text-green-600">
-                {stats.overview.approvalRate.toFixed(1)}%
+                {(stats.overview.approvalRate ?? 0).toFixed(1)}%
               </span>
             </div>
             <div className="flex items-center justify-between">

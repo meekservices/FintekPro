@@ -1906,7 +1906,11 @@ function PickCard({
                   {pick.keyMetrics.greeks && (
                     <div>
                       <span className="text-muted-foreground">Greeks: </span>
-                      <span className="font-medium">Δ{pick.keyMetrics.greeks.delta} Θ{pick.keyMetrics.greeks.theta} V{pick.keyMetrics.greeks.vega}</span>
+                      <span className="font-medium">
+                        Δ{typeof pick.keyMetrics.greeks.delta === 'number' ? pick.keyMetrics.greeks.delta.toFixed(4) : (pick.keyMetrics.greeks.delta ?? 'N/A')}{' '}
+                        Θ{typeof pick.keyMetrics.greeks.theta === 'number' ? pick.keyMetrics.greeks.theta.toFixed(2) : (pick.keyMetrics.greeks.theta ?? 'N/A')}{' '}
+                        V{typeof pick.keyMetrics.greeks.vega === 'number' ? pick.keyMetrics.greeks.vega.toFixed(2) : (pick.keyMetrics.greeks.vega ?? 'N/A')}
+                      </span>
                     </div>
                   )}
                 </div>
