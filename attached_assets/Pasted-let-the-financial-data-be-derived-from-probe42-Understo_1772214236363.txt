@@ -1,0 +1,174 @@
+let the financial data be derived from probe42
+Understood. If financial data is to be derived from Probe42, the architecture becomes significantly cleaner and legally safer. Below is the exact institutional-grade integration blueprint for FintekPro.
+✅ Strategic Positioning
+Probe42 becomes the primary financial data authority for:
+Financial statements
+Revenue / PAT
+Balance sheet items
+Charge filings
+Director changes
+Company status
+Shareholding patterns
+MCA portal should no longer be scraped or parsed directly.
+🏗 Target Architecture (Revised)
+Probe42 API
+     ↓
+Vendor Adapter Layer
+     ↓
+Unlisted Enrichment Service
+     ↓
+Versioned Financial Store
+     ↓
+Risk Engine + Compliance Engine
+     ↓
+Proposal Builder
+1️⃣ Integration Design (Production-Grade)
+🔹 Create Vendor Abstraction Layer
+Do NOT directly call Probe42 in business logic.
+Create:
+
+services/vendor-adapters/probe42.adapter.ts
+Interface:
+interface CorporateDataProvider {
+  fetchCompanyProfile(cin: string): Promise<CompanyProfile>
+  fetchFinancials(cin: string): Promise<FinancialStatement[]>
+  fetchDirectors(cin: string): Promise<Director[]>
+  fetchCharges(cin: string): Promise<Charge[]>
+}
+Then implement:
+class Probe42Adapter implements CorporateDataProvider
+This ensures future provider switch flexibility.
+2️⃣ Database Expansion for Financial Versioning
+🔹 Financial Statements Table (Append-Only)
+CREATE TABLE unlisted_financials (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    unlisted_equity_id UUID REFERENCES unlisted_equity_master(id),
+    financial_year VARCHAR(10),
+    revenue NUMERIC,
+    ebitda NUMERIC,
+    pat NUMERIC,
+    total_assets NUMERIC,
+    total_liabilities NUMERIC,
+    net_worth NUMERIC,
+    debt NUMERIC,
+    source VARCHAR(50) DEFAULT 'probe42',
+    fetched_at TIMESTAMP DEFAULT NOW(),
+    checksum TEXT
+);
+Never update historical financials. Always append.
+3️⃣ Enrichment Flow Using Redis (Updated)
+Event: unlisted.enrichment.requested
+Payload:
+{
+  "instrument_id": "uuid",
+  "cin": "U12345MH2010PTC123456"
+}
+Worker Steps:
+Call Probe42 adapter
+Compare checksum of financial_year
+Insert only new years
+Update:
+company_status
+director list
+charge count
+Emit:
+unlisted.financial.updated
+unlisted.risk.recalculate
+4️⃣ Financial Data Usage in Risk Engine
+Now that Probe42 provides structured financials, we can enhance modeling.
+📐 Enhanced Risk Model for Unlisted Assets
+Instead of static haircut only, derive risk from financial ratios.
+Let:
+
+ROE = PAT / Net Worth
+Leverage = Debt / Net Worth
+Revenue Growth = CAGR(Revenue)
+Step 1 — Financial Health Score (FHS)
+Normalize:
+FHS = w1*(ROE_zscore)
+    + w2*(RevenueGrowth_zscore)
+    - w3*(Leverage_zscore)
+Scale FHS between 0 and 1.
+Step 2 — Convert to Volatility Proxy
+σ_unlisted = BaseSectorVol × (1 + RiskMultiplier)
+Where:
+RiskMultiplier = (1 - FHS)
+So weaker financials → higher volatility proxy.
+Step 3 — Liquidity Adjustment
+Still apply:
+LiquidityPenalty = λ × w_unlisted²
+This preserves illiquidity premium.
+5️⃣ Valuation Integration with Financial Data
+You can now compute:
+🔹 Implied PE
+PE = Valuation / PAT
+🔹 Implied EV/EBITDA
+EV = Valuation + Debt - Cash
+If PE > sector average × threshold → flag overvaluation.
+Add compliance rule:
+
+IF PE > 2× sector PE
+    mark valuation_flag = "AGGRESSIVE"
+This strengthens governance.
+6️⃣ Compliance Enhancement with Probe42
+Auto-flag if:
+Company status ≠ "Active"
+Charges increasing YoY
+Auditor resigned
+Net worth negative
+Continuous PAT losses 2+ years
+Emit:
+unlisted.compliance.alert
+7️⃣ Probe42 API Rate Governance
+Implement:
+API rate limiter middleware
+Cache last response for 24 hours
+Exponential backoff retry
+API health monitor endpoint
+Store:
+vendor_call_logs
+Fields:
+cin
+endpoint
+status_code
+latency
+cost_unit (if billed per call)
+You must track cost exposure.
+8️⃣ Cron Policy (Cost-Controlled)
+Do NOT enrich all companies daily.
+Instead:
+
+Condition	Action
+New instrument	Immediate enrichment
+>90 days old	Re-enrich
+Valuation added	Refresh financials
+Proposal generated	If >180 days stale → refresh
+Cron:
+0 2 * * *
+Filter by staleness.
+9️⃣ Optimizer Integration Update
+Proposal engine must now:
+Use Financial Health Score to rank internal quality
+Penalize low FHS in allocation constraint
+Maintain rebalance_eligible = false
+Include exposure in asset allocation view
+Constraint:
+w_unlisted ≤ 20% for Moderate risk clients
+w_unlisted ≤ 35% for High risk clients
+🔟 Observability & Governance
+Expose admin endpoint:
+GET /admin/unlisted/financial-health
+Return:
+Top weak balance sheets
+Negative net worth companies
+Highly leveraged exposures
+Companies without financials
+🎯 Resulting System Strength
+After integrating Probe42:
+✔ Legally compliant financial ingestion
+✔ Structured financial versioning
+✔ Ratio-driven risk modeling
+✔ Automated compliance flagging
+✔ Cost-controlled enrichment
+✔ Institutional credibility
+

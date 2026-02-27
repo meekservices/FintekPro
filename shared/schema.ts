@@ -14326,6 +14326,38 @@ export const insertClientUnlistedDisclosureLogSchema = createInsertSchema(client
 export type ClientUnlistedDisclosureLog = typeof clientUnlistedDisclosureLog.$inferSelect;
 export type InsertClientUnlistedDisclosureLog = z.infer<typeof insertClientUnlistedDisclosureLogSchema>;
 
+// ==================== VENDOR API CALL GOVERNANCE ====================
+
+/**
+ * Tracks every outbound call to external corporate data vendors (Probe42, etc.).
+ * Used for rate governance, cost tracking, and debugging.
+ */
+export const vendorApiCallLog = pgTable("vendor_api_call_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendor: varchar("vendor", { length: 50 }).notNull(),         // 'probe42', 'sandbox', 'mca'
+  endpoint: varchar("endpoint", { length: 200 }).notNull(),    // '/entities/{cin}/kyc'
+  cin: varchar("cin", { length: 21 }),
+  companyId: varchar("company_id"),
+  statusCode: integer("status_code"),
+  latencyMs: integer("latency_ms"),
+  success: boolean("success").notNull(),
+  errorMessage: text("error_message"),
+  costUnit: integer("cost_unit").default(1),                   // API credits consumed per call
+  calledAt: timestamp("called_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_vendor_call_log_vendor").on(table.vendor),
+  index("idx_vendor_call_log_cin").on(table.cin),
+  index("idx_vendor_call_log_called_at").on(table.calledAt),
+  index("idx_vendor_call_log_success").on(table.success),
+]);
+
+export const insertVendorApiCallLogSchema = createInsertSchema(vendorApiCallLog).omit({
+  id: true,
+  calledAt: true,
+});
+export type VendorApiCallLog = typeof vendorApiCallLog.$inferSelect;
+export type InsertVendorApiCallLog = z.infer<typeof insertVendorApiCallLogSchema>;
+
 // ==================== END REGULATORY COMPLIANCE TABLES ====================
 
 

@@ -46,6 +46,7 @@ import { requireAuth } from '../middleware/roleMiddleware';
 import { orderAuditHook } from '../services/order-audit-hook';
 import { dataEnrichmentService } from '../services/data-enrichment-service';
 import { unlistedValuationGovernanceService } from '../services/unlisted-valuation-governance-service';
+import { unlistedFinancialEnrichmentService } from '../services/unlisted-financial-enrichment-service';
 import {
   insertUnlistedEquityValuationHistorySchema,
   clientUnlistedDisclosureLog,
@@ -8324,5 +8325,115 @@ router.get('/companies/:id/proposal-modifiers', requireAuth, async (req: Request
 });
 
 // ==================== END INSTITUTIONAL VALUATION GOVERNANCE API ROUTES ====================
+
+// ==================== PROBE42 FINANCIAL ENRICHMENT API ROUTES ====================
+
+/**
+ * GET /api/unlisted/admin/financial-health
+ * Admin dashboard: negative NW companies, high leverage, no financials, consecutive losses.
+ * Fully derived from Probe42 data stored in company_financials / company_ratios.
+ */
+router.get('/admin/financial-health', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const report = await unlistedFinancialEnrichmentService.getFinancialHealthReport();
+    return apiResponse.success(res, report);
+  } catch (error: any) {
+    console.error('[FinancialHealth] Error generating report:', error);
+    return apiResponse.serverError(res, 'Failed to generate financial health report');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/companies/:id/enrich
+ * Trigger on-demand Probe42 enrichment for a single company.
+ * Useful immediately after adding a new instrument or after subscription upgrade.
+ */
+router.post('/admin/companies/:id/enrich', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const result = await unlistedFinancialEnrichmentService.enrichCompany(id);
+    return apiResponse.success(res, result, `Enrichment complete. FHS: ${result.fhs?.toFixed(3) ?? 'N/A'}`);
+  } catch (error: any) {
+    console.error('[FinancialEnrichment] Error:', error);
+    if (error.message?.includes('not found')) return apiResponse.notFound(res, error.message);
+    return apiResponse.serverError(res, 'Enrichment failed: ' + error.message);
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/enrich/batch
+ * Trigger batch enrichment for all stale companies (>90 days without sync).
+ * Rate-controlled: max 50 companies per call, 200ms inter-call delay.
+ */
+router.post('/admin/enrich/batch', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const result = await unlistedFinancialEnrichmentService.enrichStaleBatch(limit);
+    return apiResponse.success(res, result,
+      `Batch enrichment: ${result.succeeded} succeeded, ${result.failed} failed of ${result.processed} processed`);
+  } catch (error: any) {
+    console.error('[FinancialEnrichment] Batch error:', error);
+    return apiResponse.serverError(res, 'Batch enrichment failed');
+  }
+});
+
+/**
+ * GET /api/unlisted/companies/:id/fhs
+ * Compute Financial Health Score for a company from stored ratio data.
+ * Returns FHS [0,1], volatility proxy, and risk label.
+ */
+router.get('/companies/:id/fhs', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const fhs = await unlistedFinancialEnrichmentService.computeFHSFromDb(id);
+    return apiResponse.success(res, { companyId: id, ...fhs });
+  } catch (error: any) {
+    console.error('[FHS] Error computing FHS:', error);
+    return apiResponse.serverError(res, 'Failed to compute financial health score');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/vendor-calls
+ * View Probe42 API call log (rate/cost monitoring).
+ */
+router.get('/admin/vendor-calls', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { vendor = 'probe42', limit = '100', success } = req.query;
+    const { db: dbConn } = await import('../db');
+    const { vendorApiCallLog } = await import('@shared/schema');
+    const { desc: descOrd, eq: eqOp, and: andOp } = await import('drizzle-orm');
+
+    const filters: any[] = [eqOp(vendorApiCallLog.vendor, String(vendor))];
+    if (success !== undefined) {
+      filters.push(eqOp(vendorApiCallLog.success, success === 'true'));
+    }
+
+    const rows = await dbConn
+      .select()
+      .from(vendorApiCallLog)
+      .where(filters.length === 1 ? filters[0] : andOp(...filters))
+      .orderBy(descOrd(vendorApiCallLog.calledAt))
+      .limit(Math.min(Number(limit), 500));
+
+    const totalCost = rows.reduce((sum, r) => sum + (r.costUnit ?? 1), 0);
+    const errorRate = rows.length ? rows.filter(r => !r.success).length / rows.length : 0;
+
+    return apiResponse.success(res, {
+      rows,
+      summary: {
+        totalCalls: rows.length,
+        totalCostUnits: totalCost,
+        errorRate: (errorRate * 100).toFixed(1) + '%',
+        vendor: String(vendor),
+      },
+    });
+  } catch (error: any) {
+    console.error('[VendorCalls] Error:', error);
+    return apiResponse.serverError(res, 'Failed to fetch vendor call log');
+  }
+});
+
+// ==================== END PROBE42 FINANCIAL ENRICHMENT API ROUTES ====================
 
 export default router;

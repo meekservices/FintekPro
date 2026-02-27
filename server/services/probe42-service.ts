@@ -658,12 +658,64 @@ class Probe42Service {
       throw new ValidationError('Company ID is required');
     }
 
-    // Skip Probe42 /kyc endpoint - subscription tier does not include access
-    // Financial data will be fetched from MCA Intelligence Service instead
-    console.log(`[Probe42] Skipping /kyc endpoint for ${probe42CompanyId} - using MCA for financial data`);
-    
-    // Return empty array - callers should use MCA service for financial data
+    // Retained stub for backward compatibility — existing callers get empty results.
+    // New code should call getCompanyFinancialsFromKyc() via the Probe42Adapter.
     return [];
+  }
+
+  /**
+   * Attempt to fetch full financial statements from the Probe42 /kyc endpoint.
+   * This endpoint requires a higher subscription tier than /base-details.
+   * - On success: returns structured financial data for up to `years` fiscal years
+   * - On 402/403/subscription error: throws so the adapter can log and fall back
+   * - Always preferred over MCA for unlisted equity financial data
+   */
+  async getCompanyFinancialsFromKyc(
+    cin: string,
+    years: number = 5
+  ): Promise<Probe42FinancialData[]> {
+    if (!cin) throw new ValidationError('CIN is required');
+
+    if (!this.isConfigured) {
+      throw new ExternalServiceError(
+        'Probe42',
+        'Probe42 API key is not configured.',
+        null,
+        false
+      );
+    }
+
+    console.log(`[Probe42] Fetching /kyc financials for: ${cin} (${years} years)`);
+    const response = await this.client.get(`/entities/${cin}/kyc`);
+    const data = response.data?.data || response.data;
+    if (!data) return [];
+
+    // Probe42 /kyc may return financials as data.financials[] or data.financial_statements[]
+    const statements: any[] = data.financials || data.financial_statements || [];
+
+    return statements.slice(0, years).map((s: any) => ({
+      financial_year: s.financial_year || s.fy || s.year,
+      period_start: s.period_start || null,
+      period_end: s.period_end || null,
+      revenue: s.revenue ?? s.total_income ?? null,
+      ebitda: s.ebitda ?? null,
+      ebit: s.ebit ?? null,
+      pbt: s.pbt ?? s.profit_before_tax ?? null,
+      pat: s.pat ?? s.profit_after_tax ?? null,
+      net_profit: s.net_profit ?? s.pat ?? null,
+      total_assets: s.total_assets ?? null,
+      total_liabilities: s.total_liabilities ?? null,
+      networth: s.networth ?? s.net_worth ?? null,
+      share_capital: s.share_capital ?? null,
+      reserves: s.reserves ?? null,
+      total_debt: s.total_debt ?? s.borrowings ?? null,
+      long_term_debt: s.long_term_debt ?? null,
+      short_term_debt: s.short_term_debt ?? null,
+      operating_cash_flow: s.operating_cash_flow ?? null,
+      investing_cash_flow: s.investing_cash_flow ?? null,
+      financing_cash_flow: s.financing_cash_flow ?? null,
+      free_cash_flow: s.free_cash_flow ?? null,
+    }));
   }
 
   /**
