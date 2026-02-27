@@ -7,6 +7,7 @@ import {
   reits,
   invits,
 } from '@shared/schema';
+import sebiCategoryEngine from './services/mf-sebi-category-engine';
 
 const NSE_INDICES = [
   { indexCode: 'NIFTY50', indexName: 'NIFTY 50', provider: 'NSE', description: 'Top 50 companies by market cap on NSE' },
@@ -146,6 +147,7 @@ interface BootstrapResult {
   existing: number;
   seeded: number;
   total: number;
+  error?: string;
 }
 
 export async function runProductionBootstrap(): Promise<BootstrapResult[]> {
@@ -160,10 +162,78 @@ export async function runProductionBootstrap(): Promise<BootstrapResult[]> {
   results.push(await seedScreenerStocks());
   results.push(await triggerBondCatalogRefresh());
   results.push(await seedAifFunds());
+  results.push(await seedSEBI2026Taxonomy());
 
   const summary = results.map(r => `${r.category}: ${r.seeded} new (${r.total} total)`).join(', ');
   console.log(`[ProductionBootstrap] Complete: ${summary}`);
   return results;
+}
+
+// ── SEBI 2026 Taxonomy Seeding ───────────────────────────────────────────────
+async function seedSEBI2026Taxonomy(): Promise<BootstrapResult> {
+  try {
+    // Check if already seeded
+    const existingResult = await db.execute(sql`
+      SELECT COUNT(*) as cnt FROM mf_taxonomy_versions WHERE version = 'SEBI_2026'
+    `);
+    const existingCount = parseInt(String((existingResult.rows[0] as any)?.cnt || '0'));
+
+    if (existingCount === 0) {
+      console.log('[ProductionBootstrap] SEBI 2026: Seeding taxonomy (first run)...');
+      await sebiCategoryEngine.seedSEBI2026Taxonomy();
+    } else {
+      console.log('[ProductionBootstrap] SEBI 2026: Taxonomy already seeded — ensuring subcategories are current...');
+      await sebiCategoryEngine.seedSEBI2026Taxonomy();
+    }
+
+    // Solution-Oriented backfill: flag these for REQUIRES_REVIEW under SEBI 2026
+    const backfillResult = await db.execute(sql`
+      UPDATE mutual_funds
+      SET
+        taxonomy_version = 'SEBI_2017',
+        compliance_status = 'REQUIRES_REVIEW'
+      WHERE
+        (category ILIKE '%solution%' OR category ILIKE '%retirement%' OR category ILIKE '%children%')
+        AND (taxonomy_version IS NULL OR taxonomy_version = 'SEBI_2017')
+        AND (compliance_status IS NULL OR compliance_status = 'PENDING')
+    `);
+
+    const backfilledRows = (backfillResult as any).rowCount || 0;
+
+    if (backfilledRows > 0) {
+      console.log(`[ProductionBootstrap] SEBI 2026: Flagged ${backfilledRows} solution-oriented schemes as REQUIRES_REVIEW`);
+
+      // Audit log the migration
+      await db.execute(sql`
+        INSERT INTO mf_categorization_audit_log (
+          scheme_code, old_category, new_category, old_subcategory, new_subcategory,
+          triggered_by, taxonomy_version
+        )
+        SELECT
+          scheme_code, category, category, scheme_sub_category, scheme_sub_category,
+          'SEBI_2026_MIGRATION', 'SEBI_2017'
+        FROM mutual_funds
+        WHERE (category ILIKE '%solution%' OR category ILIKE '%retirement%' OR category ILIKE '%children%')
+          AND compliance_status = 'REQUIRES_REVIEW'
+        ON CONFLICT DO NOTHING
+      `);
+    }
+
+    const subcatCountResult = await db.execute(sql`
+      SELECT COUNT(*) as cnt FROM mf_subcategory_master WHERE taxonomy_version = 'SEBI_2026'
+    `);
+    const subcatCount = parseInt(String((subcatCountResult.rows[0] as any)?.cnt || '0'));
+
+    return {
+      category: 'sebi_2026_taxonomy',
+      existing: existingCount > 0 ? subcatCount : 0,
+      seeded: existingCount === 0 ? subcatCount : 0,
+      total: subcatCount,
+    };
+  } catch (error: any) {
+    console.error('[ProductionBootstrap] SEBI 2026 taxonomy seeding failed:', error.message);
+    return { category: 'sebi_2026_taxonomy', existing: 0, seeded: 0, total: 0, error: error.message };
+  }
 }
 
 async function seedAifFunds(): Promise<BootstrapResult> {

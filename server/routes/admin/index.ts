@@ -6,6 +6,7 @@ import { signalOrchestrator } from '../../services/signal-orchestrator';
 import { storage } from '../../storage';
 import { adminService } from '../../admin-service';
 import ckycDeferredRoutes from './ckyc-deferred-routes';
+import { registerSEBIComplianceRoutes } from './sebi-compliance-routes';
 import { auditIntegrityChecker } from '../../services/audit-integrity-checker';
 import { platformStatsCache } from '../../services/platform-stats-cache';
 import { riaValidationService } from '../../services/ria-validation-service';
@@ -4930,6 +4931,8 @@ System Security Data:`;
   });
 
   console.log("✅ Signal Orchestrator admin routes registered");
+
+  registerSEBIComplianceRoutes(app);
 
   console.log("✅ Admin Panel routes registered");
 }

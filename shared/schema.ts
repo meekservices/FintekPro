@@ -4269,7 +4269,17 @@ export const mutualFunds = pgTable("mutual_funds", {
   benchmarkIndex: varchar("benchmark_index"), // Raw AMFI benchmark name e.g., 'NIFTY 50 TRI', 'S&P BSE SENSEX TRI'
   benchmarkIndexCode: varchar("benchmark_index_code"), // e.g., NIFTY50, NIFTY_MIDCAP_150
   benchmarkConfidenceScore: decimal("benchmark_confidence_score", { precision: 3, scale: 2 }), // 0.00-1.00
-  
+
+  // === SEBI 2026 CIRCULAR COMPLIANCE FIELDS ===
+  taxonomyVersion: varchar("taxonomy_version", { length: 20 }).default("SEBI_2017"),
+  // Compliance state machine — values: PENDING, VALIDATED, BLOCKED, OVERLAP_BREACH, GLIDE_PATH_INVALID, REQUIRES_REVIEW, APPROVED
+  complianceStatus: varchar("compliance_status", { length: 30 }).default("PENDING"),
+  // True-to-Label naming check — values: PENDING, PASSED, FAILED
+  namingValidationStatus: varchar("naming_validation_status", { length: 10 }).default("PENDING"),
+  // Lifecycle/target-date fund glide path: { maturityYear: number, glidePathSteps: [{year, equityPct, debtPct}] }
+  lifecycleMetadata: jsonb("lifecycle_metadata"),
+  complianceBlockedReason: text("compliance_blocked_reason"),
+
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
@@ -32429,3 +32439,140 @@ export const enrichmentRetryQueue = pgTable("enrichment_retry_queue", {
 ]);
 
 export type EnrichmentRetryQueueEntry = typeof enrichmentRetryQueue.$inferSelect;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEBI 2026 CIRCULAR COMPLIANCE — MF TAXONOMY & COMPLIANCE TABLES
+// Implements: SEBI circular on Fund Categorisation (Feb 26, 2026)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── SEBI Taxonomy Versions — version-controlled circular references ──
+export const mfTaxonomyVersions = pgTable("mf_taxonomy_versions", {
+  id: serial("id").primaryKey(),
+  version: varchar("version", { length: 20 }).notNull().unique(), // e.g., SEBI_2017, SEBI_2026
+  sebiCircularRef: varchar("sebi_circular_ref", { length: 100 }).notNull(),
+  effectiveDate: date("effective_date").notNull(),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_mf_taxonomy_versions_active").on(table.isActive),
+]);
+
+export type MfTaxonomyVersion = typeof mfTaxonomyVersions.$inferSelect;
+export type InsertMfTaxonomyVersion = typeof mfTaxonomyVersions.$inferInsert;
+
+// ── SEBI Category Master — top-level category groups per taxonomy version ──
+export const mfCategoryMaster = pgTable("mf_category_master", {
+  id: serial("id").primaryKey(),
+  taxonomyVersion: varchar("taxonomy_version", { length: 20 }).notNull(), // SEBI_2017, SEBI_2026
+  groupCode: varchar("group_code", { length: 20 }).notNull(), // EQUITY, DEBT, HYBRID, LIFECYCLE, OTHER
+  groupName: varchar("group_name", { length: 100 }).notNull(),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+}, (table) => [
+  uniqueIndex("idx_mf_category_master_version_code").on(table.taxonomyVersion, table.groupCode),
+]);
+
+export type MfCategoryMaster = typeof mfCategoryMaster.$inferSelect;
+export type InsertMfCategoryMaster = typeof mfCategoryMaster.$inferInsert;
+
+// ── SEBI Subcategory Master — subcategories with SEBI allocation bands ──
+export const mfSubcategoryMaster = pgTable("mf_subcategory_master", {
+  id: serial("id").primaryKey(),
+  taxonomyVersion: varchar("taxonomy_version", { length: 20 }).notNull(),
+  groupCode: varchar("group_code", { length: 20 }).notNull(), // FK to mf_category_master.group_code
+  subcategoryCode: varchar("subcategory_code", { length: 60 }).notNull().unique(), // e.g., EQUITY_LARGE_CAP
+  subcategoryName: varchar("subcategory_name", { length: 100 }).notNull(), // e.g., Large Cap Fund
+  minEquityPct: decimal("min_equity_pct", { precision: 5, scale: 2 }), // SEBI minimum equity allocation
+  maxEquityPct: decimal("max_equity_pct", { precision: 5, scale: 2 }), // SEBI maximum equity allocation
+  minDebtPct: decimal("min_debt_pct", { precision: 5, scale: 2 }),
+  maxDebtPct: decimal("max_debt_pct", { precision: 5, scale: 2 }),
+  maxStocks: integer("max_stocks"), // e.g. Focused fund: max 30 stocks
+  lockInDays: integer("lock_in_days"), // e.g. ELSS: 1095 days
+  overlapThresholdPct: decimal("overlap_threshold_pct", { precision: 5, scale: 2 }).default("60"),
+  // Thematic/Sectoral use 50%, all others 60%
+  notes: text("notes"),
+  isActive: boolean("is_active").default(true),
+}, (table) => [
+  index("idx_mf_subcategory_master_version").on(table.taxonomyVersion),
+  index("idx_mf_subcategory_master_group").on(table.groupCode),
+]);
+
+export type MfSubcategoryMaster = typeof mfSubcategoryMaster.$inferSelect;
+export type InsertMfSubcategoryMaster = typeof mfSubcategoryMaster.$inferInsert;
+
+// ── MF Portfolio Holdings — scheme-level ISIN holdings for SEBI overlap computation ──
+// Distinct from user-level mf_holdings. Populated from mf_scheme_stock_holdings.
+export const mfPortfolioHoldings = pgTable("mf_portfolio_holdings", {
+  id: serial("id").primaryKey(),
+  schemeCode: varchar("scheme_code").notNull(),
+  isin: varchar("isin", { length: 20 }).notNull(),
+  stockName: varchar("stock_name", { length: 200 }),
+  weightPercent: decimal("weight_percent", { precision: 8, scale: 4 }).notNull(),
+  asOfDate: date("as_of_date").notNull(),
+  source: varchar("source").default("mf_scheme_stock_holdings"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_mf_portfolio_holdings_unique").on(table.schemeCode, table.isin, table.asOfDate),
+  index("idx_mf_portfolio_holdings_scheme").on(table.schemeCode),
+  index("idx_mf_portfolio_holdings_isin").on(table.isin),
+]);
+
+export type MfPortfolioHolding = typeof mfPortfolioHoldings.$inferSelect;
+export type InsertMfPortfolioHolding = typeof mfPortfolioHoldings.$inferInsert;
+
+// ── MF Overlap Matrix — pairwise SEBI regulatory overlap between AMC schemes ──
+export const mfOverlapMatrix = pgTable("mf_overlap_matrix", {
+  id: serial("id").primaryKey(),
+  schemeCodeA: varchar("scheme_code_a").notNull(),
+  schemeCodeB: varchar("scheme_code_b").notNull(),
+  overlapPercent: decimal("overlap_percent", { precision: 7, scale: 4 }).notNull(),
+  breachFlag: boolean("breach_flag").default(false),
+  // Breach threshold: thematic/sectoral > 50%, others > 60%
+  computedAt: timestamp("computed_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_mf_overlap_matrix_pair").on(table.schemeCodeA, table.schemeCodeB),
+  index("idx_mf_overlap_matrix_a").on(table.schemeCodeA),
+  index("idx_mf_overlap_matrix_b").on(table.schemeCodeB),
+  index("idx_mf_overlap_matrix_breach").on(table.breachFlag),
+]);
+
+export type MfOverlapMatrix = typeof mfOverlapMatrix.$inferSelect;
+export type InsertMfOverlapMatrix = typeof mfOverlapMatrix.$inferInsert;
+
+// ── MF Compliance State Log — audit trail for all compliance state transitions ──
+export const mfComplianceStateLog = pgTable("mf_compliance_state_log", {
+  id: serial("id").primaryKey(),
+  schemeCode: varchar("scheme_code").notNull(),
+  fromStatus: varchar("from_status", { length: 30 }),
+  toStatus: varchar("to_status", { length: 30 }).notNull(),
+  reason: text("reason"),
+  triggeredBy: varchar("triggered_by", { length: 100 }).notNull(), // system, admin userId, or engine name
+  triggeredAt: timestamp("triggered_at").defaultNow(),
+}, (table) => [
+  index("idx_mf_compliance_state_log_scheme").on(table.schemeCode),
+  index("idx_mf_compliance_state_log_at").on(table.triggeredAt),
+]);
+
+export type MfComplianceStateLog = typeof mfComplianceStateLog.$inferSelect;
+export type InsertMfComplianceStateLog = typeof mfComplianceStateLog.$inferInsert;
+
+// ── MF Categorization Audit Log — tracks every category re-assignment ──
+export const mfCategorizationAuditLog = pgTable("mf_categorization_audit_log", {
+  id: serial("id").primaryKey(),
+  schemeCode: varchar("scheme_code").notNull(),
+  oldCategory: varchar("old_category", { length: 100 }),
+  newCategory: varchar("new_category", { length: 100 }),
+  oldSubcategory: varchar("old_subcategory", { length: 100 }),
+  newSubcategory: varchar("new_subcategory", { length: 100 }),
+  triggeredBy: varchar("triggered_by", { length: 100 }).notNull(),
+  changedAt: timestamp("changed_at").defaultNow(),
+  taxonomyVersion: varchar("taxonomy_version", { length: 20 }).notNull(),
+}, (table) => [
+  index("idx_mf_categorization_audit_scheme").on(table.schemeCode),
+  index("idx_mf_categorization_audit_at").on(table.changedAt),
+  index("idx_mf_categorization_audit_version").on(table.taxonomyVersion),
+]);
+
+export type MfCategorizationAuditLog = typeof mfCategorizationAuditLog.$inferSelect;
+export type InsertMfCategorizationAuditLog = typeof mfCategorizationAuditLog.$inferInsert;
