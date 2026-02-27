@@ -88,6 +88,9 @@ export class KycUpgradeNotificationService {
           kycTier: userProfiles.kycTier,
           kycLevel: userProfiles.kycLevel,
           isProfileCompleted: userProfiles.isProfileCompleted,
+          aadhaarVerifiedViaSmartKyc: userProfiles.aadhaarVerifiedViaSmartKyc,
+          ckycFetchedViaAuthBridge: userProfiles.ckycFetchedViaAuthBridge,
+          ckycAuthBridgeStatus: userProfiles.ckycAuthBridgeStatus,
         })
         .from(users)
         .leftJoin(userProfiles, eq(users.id, userProfiles.userId))
@@ -140,15 +143,22 @@ export class KycUpgradeNotificationService {
         completedSteps++;
       }
 
-      // Check Aadhaar
-      if (!vaultData?.aadhaarVerifiedAt) {
+      // Check Aadhaar — accept vault timestamp OR profile flag OR CKYC (which bypasses Aadhaar)
+      const aadhaarDone = !!(
+        vaultData?.aadhaarVerifiedAt ||
+        user.aadhaarVerifiedViaSmartKyc ||
+        user.ckycFetchedViaAuthBridge ||
+        user.ckycAuthBridgeStatus === 'found' ||
+        user.ckycAuthBridgeStatus === 'verified'
+      );
+      if (!aadhaarDone) {
         missingSteps.push('aadhaar_verification');
       } else {
         completedSteps++;
       }
 
-      // Check Bank (use kycLevel >= 2 as proxy for bank verification)
-      if (user.kycLevel !== '2') {
+      // Check Bank (kycLevel >= 2 means bank verification is done)
+      if (parseInt(user.kycLevel || '0', 10) < 2) {
         missingSteps.push('bank_verification');
       } else {
         completedSteps++;
@@ -161,8 +171,16 @@ export class KycUpgradeNotificationService {
         completedSteps++;
       }
 
-      // Check CKYC
-      if (vaultData?.ckycStatus !== 'created' && vaultData?.ckycStatus !== 'verified' && vaultData?.ckycStatus !== 'found') {
+      // Check CKYC — accept vault status OR profile flag
+      const ckycDone = !!(
+        vaultData?.ckycStatus === 'created' ||
+        vaultData?.ckycStatus === 'verified' ||
+        vaultData?.ckycStatus === 'found' ||
+        user.ckycFetchedViaAuthBridge ||
+        user.ckycAuthBridgeStatus === 'found' ||
+        user.ckycAuthBridgeStatus === 'verified'
+      );
+      if (!ckycDone) {
         missingSteps.push('ckyc_registration');
       } else {
         completedSteps++;

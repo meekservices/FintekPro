@@ -213,19 +213,59 @@ export function registerKYCWizardRoutes(app: Express) {
       }
 
       if (existingSession && !forceNew) {
+        // Reconcile session's currentStep with the user's actual verified profile state.
+        // A session can be stuck at an earlier step if the user completed a verification
+        // outside the wizard (e.g. DigiLocker callback, previous session, agent-assisted).
+        let reconciledStep: string = existingSession.currentStep;
+        let reconciledStatus: any = { ...(existingSession.stepStatus as any) };
+
+        const profile = existingUserProfile;
+        if (profile) {
+          if ((profile.panVerifiedViaSandbox || profile.panSandboxStatus === 'VALID') && !reconciledStatus.pan_verified) {
+            reconciledStatus.pan_verified = true;
+            if (reconciledStep === 'pan_verification') reconciledStep = 'ckyc_kra_check';
+          }
+          if ((profile.ckycFetchedViaAuthBridge || profile.ckycAuthBridgeStatus === 'found') && !reconciledStatus.ckyc_fetched) {
+            reconciledStatus.ckyc_fetched = true;
+            reconciledStatus.kra_verified = true;
+            if (['pan_verification', 'ckyc_kra_check', 'aadhaar_otp', 'aadhaar_otp_verify'].includes(reconciledStep)) {
+              reconciledStep = 'risk_profiling';
+            }
+          } else if (profile.aadhaarVerifiedViaSmartKyc && !reconciledStatus.aadhaar_verified) {
+            reconciledStatus.aadhaar_verified = true;
+            reconciledStatus.aadhaar_otp_sent = true;
+            if (['pan_verification', 'ckyc_kra_check', 'aadhaar_otp', 'aadhaar_otp_verify'].includes(reconciledStep)) {
+              reconciledStep = 'risk_profiling';
+            }
+          }
+        }
+
+        // Persist the reconciled step back to DB so next reload is also correct
+        if (reconciledStep !== existingSession.currentStep) {
+          console.log(`[KYC Wizard] Reconciled session ${existingSession.id}: ${existingSession.currentStep} → ${reconciledStep}`);
+          try {
+            await storage.updateKycVerificationSession(existingSession.id, {
+              currentStep: reconciledStep,
+              stepStatus: reconciledStatus,
+            });
+          } catch (reconcileErr) {
+            console.warn('[KYC Wizard] Failed to persist reconciled step:', reconcileErr);
+          }
+        }
+
         return res.json({
           success: true,
           data: {
             sessionId: existingSession.id,
-            currentStep: existingSession.currentStep,
-            stepStatus: existingSession.stepStatus,
+            currentStep: reconciledStep,
+            stepStatus: reconciledStatus,
             expiresAt: existingSession.expiresAt,
             isResumed: true,
-            panVerified: (existingSession.stepStatus as any)?.pan_verified,
+            panVerified: reconciledStatus.pan_verified,
             panVerificationData: existingSession.panVerificationData,
             panNumber: existingSession.panNumber,
-            aadhaarOtpSent: (existingSession.stepStatus as any)?.aadhaar_otp_sent,
-            aadhaarVerified: existingSession.aadhaarVerified,
+            aadhaarOtpSent: reconciledStatus.aadhaar_otp_sent,
+            aadhaarVerified: existingSession.aadhaarVerified || reconciledStatus.aadhaar_verified,
             aadhaarVerificationData: existingSession.aadhaarVerificationData
           }
         });
@@ -786,6 +826,24 @@ export function registerKYCWizardRoutes(app: Express) {
       await db.update(schema.userProfiles)
         .set(profileUpdate)
         .where(eq(schema.userProfiles.userId, userId));
+
+      // Persist Aadhaar verification to kycVault so upgrade notification service can detect it
+      try {
+        const existingVaultAadhaar = await db.select({ id: schema.kycVault.id })
+          .from(schema.kycVault)
+          .where(eq(schema.kycVault.userId, userId))
+          .limit(1);
+        if (existingVaultAadhaar.length > 0) {
+          await db.update(schema.kycVault)
+            .set({ aadhaarVerifiedAt: new Date(), updatedAt: new Date() })
+            .where(eq(schema.kycVault.userId, userId));
+        } else {
+          await db.insert(schema.kycVault)
+            .values({ userId, aadhaarVerifiedAt: new Date(), source: 'sandbox', kycStatus: 'pending' });
+        }
+      } catch (vaultErr) {
+        console.warn('[KYC] Failed to update kycVault for Aadhaar:', vaultErr);
+      }
       
       await kycOrchestratorService.logAuditEvent({
         userId,
