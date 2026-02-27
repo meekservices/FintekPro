@@ -458,6 +458,9 @@ const REAL_FUND_RECOMMENDATIONS = {
  * effectiveFrom: When the restriction started (for audit trail)
  * alternativeFund: Suggested replacement fund when this fund is excluded
  */
+// LEGACY: These restrictions are now seeded to scheme_transaction_rules by amfiSubscriptionSyncService.
+// The DB (scheme_transaction_rules) is the live gate. This list is kept ONLY as a last-resort
+// fallback when the DB is unreachable. Do NOT add new entries here — use the DB instead.
 export const PURCHASE_RESTRICTED_FUNDS: Array<{
   fundNamePattern: string;
   restrictionType: 'lumpsum' | 'sip' | 'both';
@@ -534,7 +537,8 @@ function findFundInCatalog(fundName: string): any | null {
 
 /**
  * DB-driven eligibility check for a single fund.
- * Queries scheme_transaction_rules first, falls back to hardcoded registry.
+ * Queries scheme_transaction_rules first (DB is the live gate).
+ * Falls back to LEGACY hardcoded registry only if DB is unreachable — logs a warning when fallback fires.
  */
 async function checkFundLumpsumEligibility(fundName: string): Promise<{
   restricted: boolean;
@@ -546,12 +550,13 @@ async function checkFundLumpsumEligibility(fundName: string): Promise<{
     if (!eligibility.lumpsumAllowed) {
       return {
         restricted: true,
-        reason: eligibility.restrictionReason || "Lumpsum not allowed per AMC rules",
+        reason: eligibility.restrictionReason || "Lumpsum not allowed per subscription rules",
         alternativeName: eligibility.alternativeSchemeName || undefined,
       };
     }
+    return { restricted: false };
   } catch (err) {
-    // DB unavailable — fall through to hardcoded registry
+    console.warn(`[SubscriptionSync] DB lookup failed for "${fundName}" — using legacy hardcoded fallback. Fix DB connectivity.`);
   }
   const hardcoded = isLumpsumRestricted(fundName);
   return {
@@ -571,12 +576,13 @@ async function checkFundSipEligibility(fundName: string): Promise<{
     if (!eligibility.sipAllowed) {
       return {
         restricted: true,
-        reason: eligibility.restrictionReason || "SIP not allowed per AMC rules",
+        reason: eligibility.restrictionReason || "SIP not allowed per subscription rules",
         alternativeName: eligibility.alternativeSchemeName || undefined,
       };
     }
+    return { restricted: false };
   } catch (err) {
-    // DB unavailable — fall through to hardcoded registry
+    console.warn(`[SubscriptionSync] DB lookup failed for "${fundName}" — using legacy hardcoded fallback. Fix DB connectivity.`);
   }
   const hardcoded = isSipRestricted(fundName);
   return {

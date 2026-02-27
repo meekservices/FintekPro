@@ -1,14 +1,20 @@
 /**
  * Regulatory Investability Service
- * 
+ *
  * Shared utility for detecting overseas/international funds and checking
- * investability status based on SEBI/RBI regulatory limits.
- * 
+ * investability status based on per-fund DB rules (scheme_transaction_rules).
+ *
  * Regulatory Context:
- * - SEBI overseas MF investment limit: USD 7B (frozen since Feb 2022)
- * - SEBI overseas ETF limit: USD 1B (frozen since April 2024)
- * - These limits are industry-wide caps set by SEBI circulars
+ * - SEBI overseas MF investment limit: industry-wide cap, but per-fund status
+ *   is now determined dynamically via amfiSubscriptionSyncService which writes
+ *   to scheme_transaction_rules.
+ * - Binary `overseasInvestmentFrozen` flag is kept as an emergency override only
+ *   (defaults to false — DB is the gate).
  */
+
+import { db } from '../db';
+import { schemeTransactionRules } from '@shared/schema';
+import { ilike } from 'drizzle-orm';
 
 export interface InvestabilityResult {
   investable: boolean;
@@ -49,9 +55,12 @@ const OVERSEAS_FUND_HOUSE_PATTERNS = [
 
 class RegulatoryInvestabilityService {
   private static instance: RegulatoryInvestabilityService;
-  
-  private overseasInvestmentFrozen = true;
-  private overseasETFFrozen = true;
+
+  // Emergency override flags (default false — DB is the live gate).
+  // Set to true only as a circuit breaker if a new SEBI circular mandates
+  // blanket suspension of all overseas investments.
+  private overseasInvestmentFrozen = false;
+  private overseasETFFrozen = false;
   private lastUpdated = new Date();
 
   private constructor() {
@@ -69,38 +78,119 @@ class RegulatoryInvestabilityService {
     const category = (fund.category || '').toLowerCase();
     const schemeName = (fund.schemeName || fund.name || '').toLowerCase();
     const combined = `${category} ${schemeName}`;
-    
+
     for (const keyword of OVERSEAS_KEYWORDS) {
-      if (combined.includes(keyword)) {
-        return true;
-      }
+      if (combined.includes(keyword)) return true;
     }
-    
+
     for (const pattern of OVERSEAS_FUND_HOUSE_PATTERNS) {
       if (schemeName.includes(pattern.fundHouse) && schemeName.includes(pattern.pattern)) {
         return true;
       }
     }
-    
+
     return false;
   }
 
   isOverseasETF(instrument: { name?: string; schemeName?: string; category?: string }): boolean {
     const name = (instrument.name || instrument.schemeName || '').toLowerCase();
     const category = (instrument.category || '').toLowerCase();
-    
+
     const isETF = name.includes('etf') || category.includes('etf');
     if (!isETF) return false;
-    
+
     for (const keyword of OVERSEAS_KEYWORDS) {
-      if (name.includes(keyword) || category.includes(keyword)) {
-        return true;
-      }
+      if (name.includes(keyword) || category.includes(keyword)) return true;
     }
-    
+
     return false;
   }
 
+  /**
+   * Async version: checks scheme_transaction_rules for per-fund status.
+   * Falls back to the legacy binary flag only if the emergency override is set.
+   */
+  async isFundInvestableAsync(fund: {
+    schemeName?: string;
+    name?: string;
+    category?: string;
+    extendedData?: any;
+    purchaseAllowed?: boolean;
+  }): Promise<InvestabilityResult> {
+    const extendedData = fund.extendedData || {};
+    const fundName = fund.schemeName || fund.name || '';
+
+    // 1. Explicit purchaseAllowed=false on fund object (data from FMP/extended enrichment)
+    if (extendedData.purchaseAllowed === false || fund.purchaseAllowed === false) {
+      return {
+        investable: false,
+        reason: 'Fresh investment not allowed by fund house (AMC restriction)',
+        restrictionType: 'fund_house',
+      };
+    }
+
+    // 2. Emergency override — if set, block all overseas
+    if (this.isOverseasFund(fund)) {
+      const schemeName = fundName.toLowerCase();
+      const isETF = schemeName.includes('etf');
+
+      if (isETF && this.overseasETFFrozen) {
+        return {
+          investable: false,
+          reason: 'SEBI overseas ETF limit reached — emergency freeze active',
+          restrictionType: 'overseas_etf',
+        };
+      }
+      if (this.overseasInvestmentFrozen) {
+        return {
+          investable: false,
+          reason: 'SEBI overseas investment limit reached — emergency freeze active',
+          restrictionType: 'overseas_mf',
+        };
+      }
+
+      // 3. DB-driven per-fund check (primary path)
+      try {
+        const [rule] = await db
+          .select({
+            lumpsumAllowed: schemeTransactionRules.lumpsumAllowed,
+            sipAllowed: schemeTransactionRules.sipAllowed,
+            subscriptionStatus: schemeTransactionRules.subscriptionStatus,
+            restrictionReason: schemeTransactionRules.restrictionReason,
+          })
+          .from(schemeTransactionRules)
+          .where(ilike(schemeTransactionRules.schemeName, `%${fundName.substring(0, 40)}%`))
+          .limit(1);
+
+        if (rule) {
+          if (!rule.lumpsumAllowed) {
+            return {
+              investable: false,
+              reason: rule.restrictionReason || `Subscription status: ${rule.subscriptionStatus}`,
+              restrictionType: rule.subscriptionStatus === 'DISCONTINUED' ? 'discontinued' : 'overseas_mf',
+            };
+          }
+          return { investable: true, reason: null };
+        }
+
+        // 4. No DB row — fund has not been synced yet, default to investable for open-ended
+        // (avoids false positives while sync is pending)
+        return { investable: true, reason: null };
+
+      } catch (dbErr: any) {
+        // DB error — don't block on infra issue, log and pass
+        console.warn(`[Regulatory] DB lookup failed for "${fundName}": ${dbErr.message}`);
+        return { investable: true, reason: null };
+      }
+    }
+
+    return { investable: true, reason: null };
+  }
+
+  /**
+   * Sync version — kept for backward compatibility with callers that don't await.
+   * Only checks the emergency override flags. For full DB-driven check use isFundInvestableAsync.
+   */
   isFundInvestable(fund: {
     schemeName?: string;
     name?: string;
@@ -110,38 +200,33 @@ class RegulatoryInvestabilityService {
   }): InvestabilityResult {
     const extendedData = fund.extendedData || {};
     const schemeName = (fund.schemeName || fund.name || '').toLowerCase();
-    
+
     if (extendedData.purchaseAllowed === false || fund.purchaseAllowed === false) {
-      const isOverseas = this.isOverseasFund(fund);
       return {
         investable: false,
-        reason: isOverseas 
-          ? 'Investment restricted: SEBI overseas investment limit reached (USD 7B cap)'
-          : 'Fresh investment not allowed by fund house',
-        restrictionType: isOverseas ? 'overseas_mf' : 'fund_house'
+        reason: 'Fresh investment not allowed by fund house (AMC restriction)',
+        restrictionType: 'fund_house',
       };
     }
-    
+
     if (this.isOverseasFund(fund)) {
       const isETF = schemeName.includes('etf');
-      
       if (isETF && this.overseasETFFrozen) {
         return {
           investable: false,
-          reason: 'SEBI overseas ETF limit (USD 1B) reached - new investments frozen since April 2024',
-          restrictionType: 'overseas_etf'
+          reason: 'SEBI overseas ETF limit reached — emergency freeze active',
+          restrictionType: 'overseas_etf',
         };
       }
-      
       if (this.overseasInvestmentFrozen) {
         return {
           investable: false,
-          reason: 'SEBI overseas investment limit (USD 7B) reached - new investments frozen since Feb 2022',
-          restrictionType: 'overseas_mf'
+          reason: 'SEBI overseas investment limit reached — emergency freeze active',
+          restrictionType: 'overseas_mf',
         };
       }
     }
-    
+
     return { investable: true, reason: null };
   }
 
@@ -155,25 +240,24 @@ class RegulatoryInvestabilityService {
       if (this.overseasETFFrozen) {
         return {
           investable: false,
-          reason: 'SEBI overseas ETF limit (USD 1B) reached - new investments frozen since April 2024',
-          restrictionType: 'overseas_etf'
+          reason: 'SEBI overseas ETF limit reached — emergency freeze active',
+          restrictionType: 'overseas_etf',
         };
       }
     }
-    
     return { investable: true, reason: null };
   }
 
   updateOverseasInvestmentStatus(frozen: boolean): void {
     this.overseasInvestmentFrozen = frozen;
     this.lastUpdated = new Date();
-    console.log(`[Regulatory] Overseas investment status updated: ${frozen ? 'FROZEN' : 'OPEN'}`);
+    console.log(`[Regulatory] Emergency overseas investment override: ${frozen ? 'FROZEN' : 'RELEASED (DB is gate)'}`);
   }
 
   updateOverseasETFStatus(frozen: boolean): void {
     this.overseasETFFrozen = frozen;
     this.lastUpdated = new Date();
-    console.log(`[Regulatory] Overseas ETF status updated: ${frozen ? 'FROZEN' : 'OPEN'}`);
+    console.log(`[Regulatory] Emergency overseas ETF override: ${frozen ? 'FROZEN' : 'RELEASED (DB is gate)'}`);
   }
 
   getStatus(): RegulatoryStatus {
@@ -211,6 +295,16 @@ export function isFundInvestable(fund: {
   purchaseAllowed?: boolean;
 }): InvestabilityResult {
   return regulatoryInvestabilityService.isFundInvestable(fund);
+}
+
+export async function isFundInvestableAsync(fund: {
+  schemeName?: string;
+  name?: string;
+  category?: string;
+  extendedData?: any;
+  purchaseAllowed?: boolean;
+}): Promise<InvestabilityResult> {
+  return regulatoryInvestabilityService.isFundInvestableAsync(fund);
 }
 
 export function isETFInvestable(etf: {

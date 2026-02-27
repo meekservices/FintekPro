@@ -993,6 +993,23 @@ server.listen({
     console.log('⏭️ [CKYCProvider] Seeding skipped (development mode - production only)');
   }
   
+  // Initialize AMFI Subscription Sync Service (production only - syncs per-fund subscription status from mfapi.in)
+  if (isProductionEnvironment()) {
+    try {
+      import('./services/amfi-subscription-sync-service').then(({ amfiSubscriptionSyncService }) => {
+        amfiSubscriptionSyncService.sync().catch(err =>
+          console.error('❌ [SubscriptionSync] Boot-time sync failed:', err)
+        );
+      }).catch(error => {
+        console.error('❌ Failed to import amfi-subscription-sync-service:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error initializing subscription sync:', error);
+    }
+  } else {
+    console.log('⏭️ [SubscriptionSync] Boot-time sync skipped (development mode - production only)');
+  }
+
   // Initialize Retention Cleanup Service (production only - deletes old data per PMLA/RBI compliance)
   if (isProductionEnvironment()) {
     try {

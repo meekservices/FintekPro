@@ -7,6 +7,7 @@ import mfNamingComplianceService from '../../services/mf-naming-compliance-servi
 import mfLifecycleGlidePathService from '../../services/mf-lifecycle-glide-path-service';
 import mfSebiOverlapService from '../../services/mf-sebi-overlap-service';
 import sebiCategoryEngine from '../../services/mf-sebi-category-engine';
+import { amfiSubscriptionSyncService } from '../../services/amfi-subscription-sync-service';
 
 const requireAdmin = async (req: any, res: Response, next: any) => {
   if (!req.user) {
@@ -350,6 +351,32 @@ export function registerSEBIComplianceRoutes(app: Express): void {
       res.json({ success: true, ...result });
     } catch (err: any) {
       console.error('[SEBI Admin] taxonomy seed error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // ── POST /api/admin/subscription-sync/trigger ──────────────────────────────
+  // Manually trigger a full AMFI subscription status sync.
+  // Fetches scheme_type from mfapi.in for all overseas + legacy-restricted funds
+  // and upserts results to scheme_transaction_rules.
+  app.post('/api/admin/subscription-sync/trigger', requireAdmin, async (req, res) => {
+    try {
+      const result = await amfiSubscriptionSyncService.sync();
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      console.error('[SubscriptionSync] Manual trigger error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // ── GET /api/admin/subscription-sync/status ────────────────────────────────
+  // Returns the current sync status and counts from scheme_transaction_rules.
+  app.get('/api/admin/subscription-sync/status', requireAdmin, async (req, res) => {
+    try {
+      const summary = await amfiSubscriptionSyncService.getStatusSummary();
+      res.json({ success: true, ...summary });
+    } catch (err: any) {
+      console.error('[SubscriptionSync] Status error:', err);
       res.status(500).json({ success: false, error: err.message });
     }
   });
