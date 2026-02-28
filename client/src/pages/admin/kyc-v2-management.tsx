@@ -363,7 +363,7 @@ function MakerCheckerTab() {
     success: boolean;
     approvals: any[];
   }>({
-    queryKey: ["/api/kyc/approval/history", "limit=50"],
+    queryKey: ["/api/kyc/approval/history?limit=50"],
     enabled: activeView === "history",
   });
 
