@@ -423,7 +423,7 @@ export default function AgentLoanApplyPage() {
     onSuccess: (_data, variables) => {
       toast({ title: "Banks Assigned", description: "Application has been routed to selected banks." });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/my-applications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/agent/loans/applications", variables.applicationId, "routing-history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dsa-loans/applications", variables.applicationId, "routing-history"] });
       setRouteDialogOpen(false);
       setSelectedApp(null);
       setSelectedBanks([]);
