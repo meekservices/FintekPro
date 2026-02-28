@@ -104,11 +104,11 @@ const PAN_ENTITY_MAP: Record<string, KycEntityType> = {
   'A': 'AOP',
   'B': 'AOP',
   'C': 'COMPANY',
-  'F': 'LLP',
+  'F': 'PARTNERSHIP',
   'G': 'GOVERNMENT',
   'H': 'HUF',
   'J': 'AOP',
-  'L': 'LLP',
+  'L': 'GOVERNMENT',
   'P': 'INDIVIDUAL',
   'T': 'TRUST',
 };
