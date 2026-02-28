@@ -81,9 +81,10 @@ ${errorSummaryText}
 Total: ${errors.length} errors, ${criticalErrors.length} critical, ${resolvedErrors.length} resolved`;
 
         const aiResponse = await aiService.chat([{ role: 'user', content: aiPrompt }]);
+        const aiText = aiResponse?.content;
         
-        if (aiResponse) {
-          const lines = aiResponse.split('\n').filter(l => l.trim());
+        if (aiText) {
+          const lines = aiText.split('\n').filter(l => l.trim());
           aiSummary = lines.slice(0, 3).join(' ').trim();
           
           aiRecommendations = lines
@@ -91,7 +92,7 @@ Total: ${errors.length} errors, ${criticalErrors.length} critical, ${resolvedErr
             .slice(0, 5)
             .map(l => l.replace(/^\d+\.\s*|-\s*|•\s*/g, '').trim());
           
-          const trendMatch = aiResponse.match(/trend[^.]*\./i);
+          const trendMatch = aiText.match(/trend[^.]*\./i);
           if (trendMatch) {
             trendAnalysis = trendMatch[0];
           }
@@ -248,11 +249,11 @@ Total: ${errors.length} errors, ${criticalErrors.length} critical, ${resolvedErr
 
       let aiAnalysis = "AI analysis unavailable";
       try {
-        const analysis = await aiService.chat([{
+        const analysisResult = await aiService.chat([{
           role: 'user',
           content: `Briefly analyze this critical production error and suggest a fix (2-3 sentences):\nError: ${error.errorCode}\nMessage: ${error.message}\nModule: ${error.module}\nStack: ${error.stackTrace?.substring(0, 500)}`
         }]);
-        if (analysis) aiAnalysis = analysis;
+        if (analysisResult?.content) aiAnalysis = analysisResult.content;
       } catch (e) {
         console.error('[ErrorDigest] AI analysis for critical alert failed:', e);
       }
