@@ -546,12 +546,13 @@ export default function AdminAiRecommendationTracking() {
                 <BarChart data={assetTypeMetrics || []}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="assetType" />
-                  <YAxis unit="%" />
+                  <YAxis yAxisId="left" unit="%" orientation="left" />
+                  <YAxis yAxisId="right" orientation="right" />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="successRate" fill="#22c55e" name="Success Rate %" />
-                  <Bar dataKey="avgReturn" fill="#3b82f6" name="Avg Return %" />
-                  <Bar dataKey="total" fill="#6b7280" name="Total Count" yAxisId="right" />
+                  <Bar yAxisId="left" dataKey="successRate" fill="#22c55e" name="Success Rate %" />
+                  <Bar yAxisId="left" dataKey="avgReturn" fill="#3b82f6" name="Avg Return %" />
+                  <Bar yAxisId="right" dataKey="total" fill="#6b7280" name="Total Count" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
