@@ -1967,15 +1967,15 @@ export function registerMarketingRoutes(app: any) {
   app.post('/api/admin/marketing/intelligence/sync-all', requireAdmin, async (req: any, res: Response) => {
     try {
       // Get all users who need intelligence sync
-      const users = await db.select({
-        id: schema.users.id,
-        email: schema.users.email,
-        firstName: schema.users.firstName,
-        lastName: schema.users.lastName
-      }).from(schema.users).limit(100);
+      const allUsers = await db.select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName
+      }).from(users).limit(100);
 
       let syncedCount = 0;
-      for (const user of users) {
+      for (const user of allUsers) {
         try {
           // Check if intelligence record exists
           const existing = await db.select()
@@ -2023,8 +2023,8 @@ export function registerMarketingRoutes(app: any) {
 
       // Get user data
       const user = await db.select()
-        .from(schema.users)
-        .where(eq(schema.users.id, userId))
+        .from(users)
+        .where(eq(users.id, userId))
         .limit(1);
 
       if (!user.length) {

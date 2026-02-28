@@ -187,43 +187,43 @@ export default function AdminAiRecommendationTracking() {
             </Card>
           ))}
         </div>
-      ) : metrics && (
+      ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card data-testid="card-total-recommendations">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Recommendations</p>
-                  <p className="text-3xl font-bold">{metrics.totalRecommendations}</p>
+                  <p className="text-3xl font-bold">{metrics?.totalRecommendations ?? 0}</p>
                 </div>
                 <Activity className="h-8 w-8 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
-          
+
           <Card data-testid="card-success-rate">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Success Rate</p>
-                  <p className="text-3xl font-bold text-green-600">{metrics.successRate}%</p>
+                  <p className="text-3xl font-bold text-green-600">{metrics?.successRate ?? 0}%</p>
                 </div>
                 <Target className="h-8 w-8 text-green-600" />
               </div>
-              <Progress value={metrics.successRate} className="mt-2" />
+              <Progress value={metrics?.successRate ?? 0} className="mt-2" />
             </CardContent>
           </Card>
-          
+
           <Card data-testid="card-average-return">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Average Return</p>
-                  <p className={`text-3xl font-bold ${metrics.averageReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {metrics.averageReturn >= 0 ? '+' : ''}{metrics.averageReturn}%
+                  <p className={`text-3xl font-bold ${(metrics?.averageReturn ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {(metrics?.averageReturn ?? 0) >= 0 ? '+' : ''}{metrics?.averageReturn ?? 0}%
                   </p>
                 </div>
-                {metrics.averageReturn >= 0 ? (
+                {(metrics?.averageReturn ?? 0) >= 0 ? (
                   <TrendingUp className="h-8 w-8 text-green-600" />
                 ) : (
                   <TrendingDown className="h-8 w-8 text-red-600" />
@@ -231,25 +231,25 @@ export default function AdminAiRecommendationTracking() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card data-testid="card-pending">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Pending</p>
-                  <p className="text-3xl font-bold text-blue-600">{metrics.pendingRecommendations}</p>
+                  <p className="text-3xl font-bold text-blue-600">{metrics?.pendingRecommendations ?? 0}</p>
                 </div>
                 <Clock className="h-8 w-8 text-blue-600" />
               </div>
             </CardContent>
           </Card>
-          
+
           <Card data-testid="card-avg-confidence">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Avg Confidence</p>
-                  <p className="text-3xl font-bold">{metrics.averageConfidence}%</p>
+                  <p className="text-3xl font-bold">{metrics?.averageConfidence ?? 0}%</p>
                 </div>
                 <BarChart3 className="h-8 w-8 text-muted-foreground" />
               </div>
