@@ -359,9 +359,22 @@ class PickOfTheDayService {
       .from(dailyPicks)
       .where(eq(dailyPicks.recoDate, today));
     
-    if (existingPicks.length > 0) {
-      console.log(`[PickOfTheDay] Picks already exist for ${today}`);
+    // Per-category check: only generate for categories not yet covered by admin or prior run
+    const ALL_CATEGORIES: PickCategory[] = [
+      'listed_stocks', 'mutual_funds', 'bonds', 'unlisted',
+      'global_stocks', 'etf', 'sgb', 'reit_invit',
+      'fixed_deposits', 'derivatives',
+    ];
+    const existingCategories = new Set(existingPicks.map(p => p.category));
+    const missingCategories = ALL_CATEGORIES.filter(c => !existingCategories.has(c));
+
+    if (missingCategories.length === 0) {
+      console.log(`[PickOfTheDay] Picks already exist for ${today}: ${existingPicks.length} picks (all categories covered)`);
       return existingPicks.map(this.transformPick);
+    }
+
+    if (existingPicks.length > 0) {
+      console.log(`[PickOfTheDay] Partial picks for ${today} (${existingPicks.length} exist). Auto-generating missing: ${missingCategories.join(', ')}`);
     }
 
     let currentRegime: string | null = null;
@@ -384,37 +397,52 @@ class PickOfTheDayService {
 
     this.clearRotationCache();
 
-    const picks: DailyPickData[] = [];
+    // Start with admin-created picks that already exist
+    const picks: DailyPickData[] = existingPicks.map(this.transformPick);
 
-    const stockPick = await this.generateStockPick();
-    if (stockPick) picks.push(stockPick);
+    // Only generate for categories not already covered
+    const need = (cat: PickCategory) => missingCategories.includes(cat);
 
-    const mfPick = await this.generateMutualFundPick();
-    if (mfPick) picks.push(mfPick);
-
-    const bondPick = await this.generateBondPick();
-    if (bondPick) picks.push(bondPick);
-
-    const unlistedPick = await this.generateUnlistedPick();
-    if (unlistedPick) picks.push(unlistedPick);
-
-    const globalStockPick = await this.generateGlobalStockPick();
-    if (globalStockPick) picks.push(globalStockPick);
-
-    const etfPick = await this.generateETFPick();
-    if (etfPick) picks.push(etfPick);
-
-    const sgbPick = await this.generateSGBPick();
-    if (sgbPick) picks.push(sgbPick);
-
-    const reitPick = await this.generateREITInvITPick();
-    if (reitPick) picks.push(reitPick);
-
-    const fdPick = await this.generateFixedDepositPick();
-    if (fdPick) picks.push(fdPick);
-
-    const derivativesPick = await this.generateDerivativesPick();
-    if (derivativesPick) picks.push(derivativesPick);
+    if (need('listed_stocks')) {
+      const p = await this.generateStockPick();
+      if (p) picks.push(p);
+    }
+    if (need('mutual_funds')) {
+      const p = await this.generateMutualFundPick();
+      if (p) picks.push(p);
+    }
+    if (need('bonds')) {
+      const p = await this.generateBondPick();
+      if (p) picks.push(p);
+    }
+    if (need('unlisted')) {
+      const p = await this.generateUnlistedPick();
+      if (p) picks.push(p);
+    }
+    if (need('global_stocks')) {
+      const p = await this.generateGlobalStockPick();
+      if (p) picks.push(p);
+    }
+    if (need('etf')) {
+      const p = await this.generateETFPick();
+      if (p) picks.push(p);
+    }
+    if (need('sgb')) {
+      const p = await this.generateSGBPick();
+      if (p) picks.push(p);
+    }
+    if (need('reit_invit')) {
+      const p = await this.generateREITInvITPick();
+      if (p) picks.push(p);
+    }
+    if (need('fixed_deposits')) {
+      const p = await this.generateFixedDepositPick();
+      if (p) picks.push(p);
+    }
+    if (need('derivatives')) {
+      const p = await this.generateDerivativesPick();
+      if (p) picks.push(p);
+    }
 
     if (currentRegime) {
       this.applyRegimeAdjustments(picks, currentRegime);
@@ -744,12 +772,26 @@ class PickOfTheDayService {
         sectorCategory: topFund.category,
         keyMetrics: {
           cmp: currentNav,
+          nav: currentNav,
           returns1y: topFund.returns1Y ? parseFloat(topFund.returns1Y) : null,
           returns3y: topFund.returns3Y ? parseFloat(topFund.returns3Y) : null,
+          returns5y: topFund.returns5y ? parseFloat(topFund.returns5y) : null,
           smartRating: topFund.crisilRating,
+          riskAdjustedScore: topFund.crisilRiskAdjustedScore ? parseFloat(topFund.crisilRiskAdjustedScore) : null,
           fundHouse: topFund.fundHouse,
           category: topFund.category,
+          subCategory: topFund.schemeSubCategory || null,
           expenseRatio: topFund.expenseRatio ? parseFloat(topFund.expenseRatio) : null,
+          aum: topFund.aum ? parseFloat(topFund.aum) : null,
+          exitLoadPercent: topFund.exitLoadPercent ? parseFloat(topFund.exitLoadPercent) : null,
+          exitLoadDays: topFund.exitLoadDays || null,
+          minSipAmount: topFund.minSipAmount ? parseFloat(topFund.minSipAmount) : null,
+          benchmarkIndex: topFund.benchmarkIndex || null,
+          riskLevel: topFund.riskLevel,
+          planType: topFund.planType,
+          schemeStatus: topFund.schemeStatus,
+          isin: topFund.isin || null,
+          launchDate: topFund.launchDate || null,
         },
       };
     } catch (error) {
@@ -829,11 +871,26 @@ class PickOfTheDayService {
         sectorCategory: topBond.creditRating || 'Fixed Income',
         keyMetrics: {
           cmp: currentPrice,
-          yield: topBond.yieldToMaturity ? parseFloat(topBond.yieldToMaturity) : null,
+          yieldToMaturity: topBond.yieldToMaturity ? parseFloat(topBond.yieldToMaturity) : null,
+          yieldToCall: topBond.yieldToCall ? parseFloat(topBond.yieldToCall) : null,
           couponRate: topBond.couponRate ? parseFloat(topBond.couponRate) : null,
+          couponType: topBond.couponType,
+          couponFrequency: topBond.couponFrequency,
           creditRating: topBond.creditRating,
+          ratingAgency: topBond.ratingAgency,
+          outlookStatus: topBond.outlookStatus,
           issuer: topBond.issuerName,
+          bondType: topBond.bondType,
+          faceValue: topBond.faceValue ? parseFloat(topBond.faceValue) : null,
+          tenorYears: topBond.tenorYears ? parseFloat(topBond.tenorYears) : null,
+          duration: topBond.duration ? parseFloat(topBond.duration) : null,
+          modifiedDuration: topBond.modifiedDuration ? parseFloat(topBond.modifiedDuration) : null,
+          issueDate: topBond.issueDate,
           maturityDate: topBond.maturityDate,
+          secured: topBond.secured,
+          securityType: topBond.securityType,
+          minimumInvestment: topBond.minimumInvestment ? parseFloat(topBond.minimumInvestment) : null,
+          exchange,
         },
       };
     } catch (error) {
@@ -1366,11 +1423,21 @@ class PickOfTheDayService {
       suitableFor: ['Conservative', 'Balanced'],
       keyMetrics: {
         seriesCode: sgb.seriesCode,
-        interestRate: sgb.interestRate,
-        tenorYears: sgb.tenorYears,
+        issuePrice: issuePrice,
+        issuePricePerGram: issuePrice,
+        gramsPerUnit: 1,
+        goldPurity: '24k',
+        interestRate: sgb.interestRate ? parseFloat(String(sgb.interestRate)) : null,
+        interestPaymentFrequency: 'semi_annual',
+        tenorYears: sgb.tenorYears ? parseFloat(String(sgb.tenorYears)) : null,
+        issueDate: sgb.issueDate || null,
         maturityDate: sgb.maturityDate,
         issueStatus: sgb.issueStatus,
-        capitalGainsTaxExempt: sgb.capitalGainsTaxExempt,
+        openDate: sgb.openDate || null,
+        closeDate: sgb.closeDate || null,
+        capitalGainsTaxExempt: sgb.capitalGainsTaxExempt ?? true,
+        underlying: 'Gold (24 Carat)',
+        exchange: 'NSE/BSE',
       },
     };
   }
@@ -2725,26 +2792,147 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
     };
   }
 
+  async updateLivePricesDaily(): Promise<void> {
+    try {
+      const livePicks = await db.select().from(dailyPicks).where(eq(dailyPicks.status, 'live'));
+      if (livePicks.length === 0) return;
+
+      let updated = 0;
+
+      for (const pick of livePicks) {
+        try {
+          let newPrice: number | null = null;
+
+          switch (pick.category) {
+            case 'listed_stocks':
+            case 'etf': {
+              if (pick.symbol) {
+                const rows = await db.select({ p: listedStocks.currentPrice }).from(listedStocks).where(eq(listedStocks.symbol, pick.symbol)).limit(1);
+                newPrice = rows[0]?.p ? parseFloat(rows[0].p) : null;
+              }
+              if (newPrice == null && pick.isin) {
+                const rows = await db.select({ p: listedStocks.currentPrice }).from(listedStocks).where(eq(listedStocks.isin, pick.isin)).limit(1);
+                newPrice = rows[0]?.p ? parseFloat(rows[0].p) : null;
+              }
+              break;
+            }
+            case 'mutual_funds': {
+              const schemeCode = pick.instrumentId || pick.symbol;
+              if (schemeCode) {
+                const rows = await db.select({ p: mutualFunds.nav }).from(mutualFunds).where(eq(mutualFunds.schemeCode, schemeCode)).limit(1);
+                newPrice = rows[0]?.p ? parseFloat(rows[0].p) : null;
+              }
+              if (newPrice == null && pick.isin) {
+                const rows = await db.select({ p: mutualFunds.nav }).from(mutualFunds).where(eq(mutualFunds.isin, pick.isin)).limit(1);
+                newPrice = rows[0]?.p ? parseFloat(rows[0].p) : null;
+              }
+              break;
+            }
+            case 'bonds': {
+              if (pick.instrumentId) {
+                const rows = await db.select({ p: bondCatalog.cleanPrice }).from(bondCatalog).where(eq(bondCatalog.id, pick.instrumentId)).limit(1);
+                newPrice = rows[0]?.p ? parseFloat(rows[0].p) : null;
+              }
+              if (newPrice == null && pick.isin) {
+                const rows = await db.select({ p: bondCatalog.cleanPrice }).from(bondCatalog).where(eq(bondCatalog.isin, pick.isin)).limit(1);
+                newPrice = rows[0]?.p ? parseFloat(rows[0].p) : null;
+              }
+              break;
+            }
+            case 'global_stocks': {
+              if (pick.symbol) {
+                const rows = await db.select({ p: globalInstruments.lastPrice }).from(globalInstruments).where(eq(globalInstruments.symbol, pick.symbol)).limit(1);
+                newPrice = rows[0]?.p ? parseFloat(String(rows[0].p)) : null;
+              }
+              break;
+            }
+            case 'reit_invit': {
+              if (pick.isin) {
+                const reit = await db.execute(sql`SELECT current_price FROM reits WHERE isin_code = ${pick.isin} LIMIT 1`);
+                if (reit.rows[0]?.current_price) {
+                  newPrice = parseFloat(String(reit.rows[0].current_price));
+                } else {
+                  const invit = await db.execute(sql`SELECT current_price FROM invits WHERE isin_code = ${pick.isin} LIMIT 1`);
+                  if (invit.rows[0]?.current_price) newPrice = parseFloat(String(invit.rows[0].current_price));
+                }
+              }
+              break;
+            }
+            case 'derivatives': {
+              // Auto-expire derivatives whose F&O contract has passed
+              if (pick.expiryDate && new Date(pick.expiryDate) < new Date()) {
+                await db.update(dailyPicks).set({ status: 'expired', statusUpdatedAt: new Date(), updatedAt: new Date() }).where(eq(dailyPicks.id, pick.id));
+              }
+              continue;
+            }
+            // No daily price for sgb, unlisted, fixed_deposits
+            default:
+              continue;
+          }
+
+          if (newPrice && newPrice > 0) {
+            const recoPrice = parseFloat(String(pick.recoPrice));
+            const returnPct = recoPrice > 0 ? ((newPrice - recoPrice) / recoPrice) * 100 : null;
+            const targetPrice = pick.targetPrice ? parseFloat(String(pick.targetPrice)) : null;
+            const stoplossPrice = pick.stoplossPrice ? parseFloat(String(pick.stoplossPrice)) : null;
+
+            let newStatus: string = pick.status;
+            if (targetPrice && newPrice >= targetPrice) newStatus = 'target_hit';
+            else if (stoplossPrice && stoplossPrice > 0 && newPrice <= stoplossPrice) newStatus = 'stoploss_hit';
+
+            await db.update(dailyPicks).set({
+              currentPrice: String(Math.round(newPrice * 10000) / 10000),
+              returnPct: returnPct != null ? String(Math.round(returnPct * 100) / 100) : null,
+              status: newStatus as any,
+              updatedAt: new Date(),
+              ...(newStatus !== pick.status ? { statusUpdatedAt: new Date() } : {}),
+            }).where(eq(dailyPicks.id, pick.id));
+            updated++;
+          }
+        } catch (err) {
+          console.warn(`[PickOfTheDay] Price update failed for ${pick.instrumentName}:`, err);
+        }
+      }
+
+      console.log(`✅ [PickOfTheDay] Daily price refresh: updated ${updated}/${livePicks.length} live picks`);
+    } catch (error) {
+      console.error('[PickOfTheDay] Failed to run daily price refresh:', error);
+    }
+  }
+
   async startDailyScheduler(): Promise<void> {
     await this.catchUpIfNeeded();
 
     const now = new Date();
     const istOffset = 5.5 * 60 * 60 * 1000;
     const istNow = new Date(now.getTime() + istOffset);
-    const target = new Date(istNow);
-    target.setHours(9, 0, 0, 0);
-    if (istNow >= target) {
-      target.setDate(target.getDate() + 1);
-    }
-    const msUntilNext = target.getTime() - istNow.getTime();
+
+    // Schedule pick generation at 9:00 AM IST
+    const genTarget = new Date(istNow);
+    genTarget.setHours(9, 0, 0, 0);
+    if (istNow >= genTarget) genTarget.setDate(genTarget.getDate() + 1);
+    const msUntilGen = genTarget.getTime() - istNow.getTime();
 
     setTimeout(() => {
       this.scheduledGenerate();
       setInterval(() => this.scheduledGenerate(), 24 * 60 * 60 * 1000);
-    }, msUntilNext);
+    }, msUntilGen);
 
-    const hoursUntil = Math.round(msUntilNext / (1000 * 60 * 60) * 10) / 10;
-    console.log(`📅 [PickOfTheDay] Daily auto-generation scheduled at 9:00 AM IST (next run in ${hoursUntil}h)`);
+    // Schedule daily price refresh at 4:00 PM IST (30 min after market close at 3:30 PM IST)
+    const priceTarget = new Date(istNow);
+    priceTarget.setHours(16, 0, 0, 0);
+    if (istNow >= priceTarget) priceTarget.setDate(priceTarget.getDate() + 1);
+    const msUntilPrice = priceTarget.getTime() - istNow.getTime();
+
+    setTimeout(() => {
+      this.updateLivePricesDaily();
+      setInterval(() => this.updateLivePricesDaily(), 24 * 60 * 60 * 1000);
+    }, msUntilPrice);
+
+    const hoursUntilGen = Math.round(msUntilGen / (1000 * 60 * 60) * 10) / 10;
+    const hoursUntilPrice = Math.round(msUntilPrice / (1000 * 60 * 60) * 10) / 10;
+    console.log(`📅 [PickOfTheDay] Daily auto-generation scheduled at 9:00 AM IST (next run in ${hoursUntilGen}h)`);
+    console.log(`📈 [PickOfTheDay] Daily price refresh scheduled at 4:00 PM IST (next run in ${hoursUntilPrice}h)`);
   }
 
   private async catchUpIfNeeded(): Promise<void> {
