@@ -710,8 +710,18 @@ class PickOfTheDayService {
         return null;
       }
 
+      // Strip ETF-type schemes — must not appear in the MF category pick
+      const nonEtfFunds = funds.filter(fund => {
+        const name = (fund.schemeName || '').toUpperCase();
+        const cat = (fund.category || '').toUpperCase();
+        const isEtf = name.includes('ETF') || name.includes('BEES') || name.includes('EXCHANGE TRADED') ||
+          cat.includes('ETF') || cat.includes('EXCHANGE TRADED');
+        if (isEtf) logFilteredInstrument('mutual_fund', fund.schemeName, 'ETF scheme filtered from MF category');
+        return !isEtf;
+      });
+
       // Filter out non-investable funds (overseas funds with frozen limits, etc.)
-      const investableFunds = funds.filter(fund => {
+      const investableFunds = nonEtfFunds.filter(fund => {
         const investability = isFundInvestable(fund);
         if (!investability.investable) {
           logFilteredInstrument('mutual_fund', fund.schemeName, investability.reason || 'Unknown');
