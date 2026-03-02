@@ -2281,6 +2281,31 @@ class PickOfTheDayService {
     return Math.max(0, score);
   }
 
+  private extractRationaleText(raw: string): string {
+    // Strip markdown code fences
+    let text = raw.replace(/^```[\w]*\n?/gm, '').replace(/```$/gm, '').trim();
+    // If the AI returned a JSON object, extract the actual text field
+    if (text.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(text);
+        const extracted =
+          parsed.investment_rationale?.rationale ??
+          parsed.investment_rationale ??
+          parsed.rationale ??
+          parsed.content ??
+          parsed.text ??
+          null;
+        if (typeof extracted === 'string' && extracted.length > 10) return extracted.trim();
+        if (typeof extracted === 'object' && extracted !== null) {
+          return (extracted.rationale || extracted.content || JSON.stringify(extracted)).trim();
+        }
+      } catch {
+        // Not valid JSON — return as-is
+      }
+    }
+    return text;
+  }
+
   private async generateRationale(params: any): Promise<string> {
     try {
       const prompt = this.buildRationalePrompt(params);
@@ -2291,7 +2316,8 @@ class PickOfTheDayService {
         responseParser: (text: string) => text,
         fallback: () => this.generateFallbackRationale(params),
       });
-      return result || this.generateFallbackRationale(params);
+      const raw = result || this.generateFallbackRationale(params);
+      return this.extractRationaleText(raw);
     } catch (error) {
       console.error("[PickOfTheDay] AI rationale generation failed:", error);
       return this.generateFallbackRationale(params);
