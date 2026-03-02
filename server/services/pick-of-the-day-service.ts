@@ -698,7 +698,9 @@ class PickOfTheDayService {
         .where(
           and(
             eq(mutualFunds.isPublished, true),
-            sql`${mutualFunds.nav} IS NOT NULL`
+            sql`${mutualFunds.nav} IS NOT NULL`,
+            sql`(${mutualFunds.category} IS NULL OR ${mutualFunds.category} NOT ILIKE '%ETF%')`,
+            sql`${mutualFunds.schemeName} NOT ILIKE '%ETF%'`
           )
         )
         .limit(100);

@@ -275,6 +275,29 @@ const marketFilters = [
   { key: "other", label: "Other Markets" },
 ];
 
+function parseRationale(raw: string | undefined | null): string {
+  if (!raw) return "";
+  const text = raw.replace(/^```[\w]*\n?/gm, "").replace(/```$/gm, "").trim();
+  if (text.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(text);
+      const extracted =
+        parsed.investment_rationale?.rationale ??
+        parsed.investment_rationale ??
+        parsed.rationale ??
+        parsed.content ??
+        parsed.text ??
+        null;
+      if (typeof extracted === "string" && extracted.length > 10) return extracted.trim();
+      if (typeof extracted === "object" && extracted !== null)
+        return (extracted.rationale || extracted.content || text).trim();
+    } catch {
+      // not JSON — fall through and return as-is
+    }
+  }
+  return text;
+}
+
 export default function AgentPicksPage() {
   const { toast } = useToast();
   const [todayCategoryFilter, setTodayCategoryFilter] = useState<string>("all");
@@ -988,7 +1011,7 @@ export default function AgentPicksPage() {
                                   <Brain className="h-4 w-4" />
                                   AI Rationale
                                 </h4>
-                                <p className="text-sm text-muted-foreground">{selectedAIStock.rationale}</p>
+                                <p className="text-sm text-muted-foreground">{parseRationale(selectedAIStock.rationale)}</p>
                               </div>
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -1839,7 +1862,7 @@ function PickCard({
               </div>
             )}
 
-            <p className="text-sm text-muted-foreground mt-3">{pick.rationale}</p>
+            <p className="text-sm text-muted-foreground mt-3">{parseRationale(pick.rationale)}</p>
 
             <div className="flex items-center gap-2 mt-3 flex-wrap">
               <Badge variant="outline" className={riskColors[pick.riskLevel] || riskColors.medium}>
