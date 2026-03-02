@@ -428,13 +428,18 @@ export default function AgentPicksPage() {
     return pick.market === marketFilter;
   };
 
+  const isPickExpired = (p: DailyPick) =>
+    p.status === 'expired' || (p.expiryDate != null && new Date(p.expiryDate) < new Date());
+
   const filteredTodayPicks = todayPicks.filter(p => {
+    if (isPickExpired(p)) return false;
     if (todayCategoryFilter !== "all" && p.category !== todayCategoryFilter) return false;
     if (todayCategoryFilter === "global_stocks" && !filterByMarket(p, todayMarketFilter)) return false;
     return true;
   });
 
   const filteredLivePicks = livePicks.filter(p => {
+    if (isPickExpired(p)) return false;
     if (liveCategoryFilter !== "all" && p.category !== liveCategoryFilter) return false;
     if (liveCategoryFilter === "global_stocks" && !filterByMarket(p, liveMarketFilter)) return false;
     return true;

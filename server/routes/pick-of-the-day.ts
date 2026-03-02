@@ -220,7 +220,9 @@ router.get("/today", async (req, res) => {
 router.get("/live", async (req, res) => {
   try {
     const rawPicks = await pickOfTheDayService.getLivePicks();
-    const { picks, categoryLastUpdated } = await enrichPicksWithDataSource(rawPicks);
+    const { picks: allPicks, categoryLastUpdated } = await enrichPicksWithDataSource(rawPicks);
+    // Exclude picks that were just auto-expired by enrichment (expiryDate passed)
+    const picks = allPicks.filter(p => p.status !== 'expired');
     const lastUpdated = await db.select({ maxUpdated: sql<string>`MAX(updated_at)` }).from(dailyPicks).where(eq(dailyPicks.status, 'live'));
 
     res.json({
