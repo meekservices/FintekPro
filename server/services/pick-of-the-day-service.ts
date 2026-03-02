@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, globalInstruments, instrumentMaster, sgbPrimaryIssues, stockFinancialMetrics, reits, invits, pickWatchlist, userNotifications } from "@shared/schema";
+import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, companyRatios, companyFinancials, globalInstruments, instrumentMaster, sgbPrimaryIssues, stockFinancialMetrics, reits, invits, pickWatchlist, userNotifications } from "@shared/schema";
 import { eq, and, desc, gte, sql, ilike, or } from "drizzle-orm";
 import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 import { FinancialMetricsCalculator } from "./financial-metrics-calculator";
@@ -844,53 +844,173 @@ class PickOfTheDayService {
 
   private async generateUnlistedPick(): Promise<DailyPickData | null> {
     try {
-      // Check for companies with published or draft prices
+      // Fetch all active unlisted companies — no price gate (auto-publish from AI scoring)
       const companies = await db
         .select()
         .from(unlistedCompanies)
         .where(
           and(
             eq(unlistedCompanies.status, 'active'),
-            sql`(${unlistedCompanies.publishedBuyPrice} IS NOT NULL OR ${unlistedCompanies.draftBuyPrice} IS NOT NULL)`
+            sql`${unlistedCompanies.tradingSuspended} = false`
           )
         )
-        .limit(20);
+        .limit(40);
 
       if (companies.length === 0) {
-        console.log("[PickOfTheDay] No suitable unlisted companies found (no prices available)");
+        console.log("[PickOfTheDay] No active unlisted companies found");
         return null;
       }
 
       const recentIds = await this.getRecentlyPickedIds('unlisted');
       const freshCompanies = this.filterRecentPicks(companies, recentIds, c => c.id);
 
-      const scoredCompanies = freshCompanies.map(company => ({
-        company,
-        score: this.scoreUnlisted(company),
-      })).sort((a, b) => b.score - a.score);
+      // Fetch latest financial ratios for all candidates in one query
+      const companyIds = freshCompanies.map(c => c.id);
+      const ratiosRows = await db
+        .select()
+        .from(companyRatios)
+        .where(sql`${companyRatios.companyId} = ANY(ARRAY[${sql.raw(companyIds.map(id => `'${id}'`).join(','))}]::varchar[])`)
+        .orderBy(desc(companyRatios.financialYear));
 
-      const topCompany = scoredCompanies[0].company;
-      const currentPrice = parseFloat(topCompany.publishedBuyPrice || topCompany.draftBuyPrice || "0");
+      // Build a ratios map (latest FY per company)
+      const ratiosMap = new Map<string, typeof ratiosRows[0]>();
+      for (const row of ratiosRows) {
+        if (!ratiosMap.has(row.companyId)) {
+          ratiosMap.set(row.companyId, row);
+        }
+      }
+
+      // Fetch latest financials for revenue and cash flow data
+      const financialsRows = await db
+        .select()
+        .from(companyFinancials)
+        .where(sql`${companyFinancials.companyId} = ANY(ARRAY[${sql.raw(companyIds.map(id => `'${id}'`).join(','))}]::varchar[])`)
+        .orderBy(desc(companyFinancials.financialYear));
+
+      const financialsMap = new Map<string, typeof financialsRows[0]>();
+      for (const row of financialsRows) {
+        if (!financialsMap.has(row.companyId)) {
+          financialsMap.set(row.companyId, row);
+        }
+      }
+
+      // Score each company using financial metrics (same logic as main portal recommendations)
+      const scoredCompanies = freshCompanies.map(company => {
+        const ratios = ratiosMap.get(company.id);
+        const financials = financialsMap.get(company.id);
+        const score = this.scoreUnlistedWithRatios(company, ratios, financials);
+        return { company, ratios, financials, score };
+      }).sort((a, b) => b.score - a.score);
+
+      // Require minimum score to auto-publish (prevents low-quality picks)
+      const top = scoredCompanies[0];
+      if (top.score < 10) {
+        console.log(`[PickOfTheDay] Top unlisted company score too low (${top.score}), skipping`);
+        return null;
+      }
+
+      const { company, ratios, financials } = top;
+
+      // Auto-price: publishedBuyPrice → draftBuyPrice → book value → faceValue → 100
+      let currentPrice = 0;
+      let priceSource = 'published';
+      if (company.publishedBuyPrice && parseFloat(company.publishedBuyPrice) > 0) {
+        currentPrice = parseFloat(company.publishedBuyPrice);
+        priceSource = 'published';
+      } else if (company.draftBuyPrice && parseFloat(company.draftBuyPrice) > 0) {
+        currentPrice = parseFloat(company.draftBuyPrice);
+        priceSource = 'draft';
+      } else if (financials?.networth && company.totalShares && company.totalShares > 0) {
+        currentPrice = Math.round((parseFloat(financials.networth) / company.totalShares) * 100) / 100;
+        priceSource = 'book_value';
+      } else if (company.faceValue && parseFloat(company.faceValue) > 0) {
+        currentPrice = parseFloat(company.faceValue);
+        priceSource = 'face_value';
+      } else {
+        currentPrice = 100;
+        priceSource = 'placeholder';
+      }
+
       const { targetPct, stoplossPct } = this.getDynamicTargetStoploss('unlisted');
       const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
       const stoplossPrice = Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
 
+      // Build rich keyMetrics from all available ratio data
+      const keyMetrics: Record<string, any> = {
+        cin: company.cin,
+        isin: company.isin,
+        sector: company.sector,
+        industry: company.industry,
+        listingStage: company.listingStage,
+        lotSize: (company as any).minOrderQuantity,
+        pricingStatus: company.pricingStatus,
+        priceSource,
+        identityConfidence: company.identityConfidence ? parseFloat(company.identityConfidence) : null,
+        complianceStatus: company.complianceStatus,
+        riskCategory: company.riskCategory,
+        paidUpCapital: company.paidUpCapital ? parseFloat(company.paidUpCapital) : null,
+        totalShares: company.totalShares,
+        faceValue: company.faceValue ? parseFloat(company.faceValue) : null,
+      };
+
+      // Add ratio data if available
+      if (ratios) {
+        if (ratios.roe != null) keyMetrics.roe = parseFloat(ratios.roe);
+        if (ratios.roce != null) keyMetrics.roce = parseFloat(ratios.roce);
+        if (ratios.roa != null) keyMetrics.roa = parseFloat(ratios.roa);
+        if (ratios.debtEquity != null) keyMetrics.debtToEquity = parseFloat(ratios.debtEquity);
+        if (ratios.revenueGrowth != null) keyMetrics.revenueGrowth = parseFloat(ratios.revenueGrowth);
+        if (ratios.profitGrowth != null) keyMetrics.profitGrowth = parseFloat(ratios.profitGrowth);
+        if (ratios.marginEbitda != null) keyMetrics.ebitdaMargin = parseFloat(ratios.marginEbitda);
+        if (ratios.marginPat != null) keyMetrics.patMargin = parseFloat(ratios.marginPat);
+        if (ratios.marginOperating != null) keyMetrics.operatingMargin = parseFloat(ratios.marginOperating);
+        if (ratios.peRatio != null) keyMetrics.peRatio = parseFloat(ratios.peRatio);
+        if (ratios.pbRatio != null) keyMetrics.pbRatio = parseFloat(ratios.pbRatio);
+        if (ratios.evEbitda != null) keyMetrics.evEbitda = parseFloat(ratios.evEbitda);
+        if (ratios.currentRatio != null) keyMetrics.currentRatio = parseFloat(ratios.currentRatio);
+        if (ratios.interestCoverage != null) keyMetrics.interestCoverage = parseFloat(ratios.interestCoverage);
+        if (ratios.assetTurnover != null) keyMetrics.assetTurnover = parseFloat(ratios.assetTurnover);
+        keyMetrics.ratiosFY = ratios.financialYear;
+      }
+
+      // Add income statement and cash flow data if available
+      if (financials) {
+        if (financials.revenue != null) keyMetrics.revenue = parseFloat(financials.revenue);
+        if (financials.ebitda != null) keyMetrics.ebitda = parseFloat(financials.ebitda);
+        if (financials.pat != null) keyMetrics.pat = parseFloat(financials.pat);
+        if (financials.networth != null) keyMetrics.networth = parseFloat(financials.networth);
+        if (financials.totalDebt != null) keyMetrics.totalDebt = parseFloat(financials.totalDebt);
+        if (financials.freeCashFlow != null) keyMetrics.freeCashFlow = parseFloat(financials.freeCashFlow);
+        if (financials.operatingCashFlow != null) keyMetrics.operatingCashFlow = parseFloat(financials.operatingCashFlow);
+        keyMetrics.financialsFY = financials.financialYear;
+        keyMetrics.dataSource = financials.dataSource;
+        keyMetrics.dataQualityScore = financials.dataQualityScore;
+      }
+
+      keyMetrics.aiScore = top.score;
+
       const rationale = await this.generateRationale({
         category: 'unlisted',
-        name: topCompany.name,
-        sector: topCompany.sector,
+        name: company.name,
+        sector: company.sector,
         currentPrice,
         targetPrice,
         stoplossPrice,
-        listingStage: topCompany.listingStage,
+        listingStage: company.listingStage,
+        roe: keyMetrics.roe,
+        debtToEquity: keyMetrics.debtToEquity,
+        revenueGrowth: keyMetrics.revenueGrowth,
+        ebitdaMargin: keyMetrics.ebitdaMargin,
+        pbRatio: keyMetrics.pbRatio,
+        priceSource,
       });
 
       return {
         category: 'unlisted',
-        instrumentId: topCompany.id,
-        instrumentName: topCompany.name,
-        isin: topCompany.isin || undefined,
-        symbol: topCompany.cin || undefined, // Use CIN as symbol for unlisted companies
+        instrumentId: company.id,
+        instrumentName: company.name,
+        isin: company.isin || undefined,
+        symbol: company.cin || undefined,
         recoDate: new Date().toISOString().split('T')[0],
         recoPrice: currentPrice,
         targetPrice,
@@ -902,14 +1022,9 @@ class PickOfTheDayService {
         riskLevel: 'high',
         suitableFor: ['Aggressive'],
         timeHorizon: this.getTimeHorizon('unlisted'),
-        confidenceScore: this.getConfidenceScore('unlisted', scoredCompanies[0].score, 50),
-        sectorCategory: topCompany.sector || 'Pre-IPO',
-        keyMetrics: {
-          cin: topCompany.cin,
-          sector: topCompany.sector,
-          listingStage: topCompany.listingStage,
-          lotSize: topCompany.minOrderQuantity,
-        },
+        confidenceScore: this.getConfidenceScore('unlisted', top.score, 100),
+        sectorCategory: company.sector || 'Pre-IPO / Unlisted',
+        keyMetrics,
       };
     } catch (error) {
       console.error("[PickOfTheDay] Error generating unlisted pick:", error);
@@ -2017,27 +2132,86 @@ class PickOfTheDayService {
     return score;
   }
 
-  private scoreUnlisted(company: any): number {
+  private scoreUnlistedWithRatios(company: any, ratios: any, financials: any): number {
     let score = 0;
-    
-    // Pre-IPO companies get higher score
-    if (company.listingStage === 'pre_ipo') score += 30;
-    else if (company.listingStage === 'growth') score += 20;
-    
-    // Score by sector
-    if (company.sector?.toLowerCase().includes('tech')) score += 15;
-    if (company.sector?.toLowerCase().includes('fintech')) score += 15;
-    if (company.sector?.toLowerCase().includes('financial')) score += 10;
-    
-    // Score by pricing status - prefer published prices
-    if (company.pricingStatus === 'published') score += 20;
-    
-    // Score by identity confidence
+
+    // ── Listing stage (growth potential signal) ──────────────────────────────
+    if (company.listingStage === 'pre_ipo') score += 25;
+    else if (company.listingStage === 'growth') score += 15;
+    else if (company.listingStage === 'mature') score += 8;
+
+    // ── Sector preference (same weights as main portal AI) ──────────────────
+    const sector = company.sector?.toLowerCase() || '';
+    if (sector.includes('tech') || sector.includes('software')) score += 12;
+    if (sector.includes('fintech')) score += 12;
+    if (sector.includes('financial') || sector.includes('banking')) score += 8;
+    if (sector.includes('pharma') || sector.includes('health')) score += 6;
+    if (sector.includes('consumer') || sector.includes('fmcg')) score += 5;
+
+    // ── ROE: primary profitability signal (weight 35%) ───────────────────────
+    const roe = ratios?.roe != null ? parseFloat(ratios.roe) : null;
+    if (roe != null) {
+      if (roe > 20) score += 20;
+      else if (roe > 15) score += 15;
+      else if (roe > 10) score += 10;
+      else if (roe > 0) score += 5;
+      else score -= 10; // Negative ROE is a red flag
+    }
+
+    // ── Revenue growth (weight 30%) ──────────────────────────────────────────
+    const revGrowth = ratios?.revenueGrowth != null ? parseFloat(ratios.revenueGrowth) : null;
+    if (revGrowth != null) {
+      if (revGrowth > 30) score += 18;
+      else if (revGrowth > 20) score += 13;
+      else if (revGrowth > 10) score += 8;
+      else if (revGrowth > 0) score += 3;
+      else score -= 5;
+    }
+
+    // ── Debt-to-equity (weight 35% — lower is better) ───────────────────────
+    const de = ratios?.debtEquity != null ? parseFloat(ratios.debtEquity) : null;
+    if (de != null) {
+      if (de < 0.3) score += 20;
+      else if (de < 0.7) score += 12;
+      else if (de < 1.2) score += 6;
+      else if (de < 2.0) score -= 5;
+      else score -= 15;
+    }
+
+    // ── Profitability margins ────────────────────────────────────────────────
+    const ebitdaMargin = ratios?.marginEbitda != null ? parseFloat(ratios.marginEbitda) : null;
+    if (ebitdaMargin != null) {
+      if (ebitdaMargin > 25) score += 10;
+      else if (ebitdaMargin > 15) score += 6;
+      else if (ebitdaMargin > 5) score += 3;
+    }
+
+    // ── Profit growth ────────────────────────────────────────────────────────
+    const profitGrowth = ratios?.profitGrowth != null ? parseFloat(ratios.profitGrowth) : null;
+    if (profitGrowth != null) {
+      if (profitGrowth > 30) score += 8;
+      else if (profitGrowth > 10) score += 5;
+      else if (profitGrowth < 0) score -= 5;
+    }
+
+    // ── Free cash flow positivity ────────────────────────────────────────────
+    const fcf = financials?.freeCashFlow != null ? parseFloat(financials.freeCashFlow) : null;
+    if (fcf != null && fcf > 0) score += 5;
+
+    // ── Pricing status bonus (price confirmed = more investable) ────────────
+    if (company.pricingStatus === 'published') score += 10;
+    else if (company.draftBuyPrice) score += 5;
+
+    // ── Identity/data confidence ─────────────────────────────────────────────
     const confidence = company.identityConfidence ? parseFloat(company.identityConfidence) : 0;
-    if (confidence >= 0.9) score += 15;
-    else if (confidence >= 0.7) score += 10;
-    
-    return score;
+    if (confidence >= 0.9) score += 8;
+    else if (confidence >= 0.7) score += 5;
+
+    // ── Compliance clearance ─────────────────────────────────────────────────
+    if (company.complianceStatus === 'cleared') score += 5;
+    else if (company.complianceStatus === 'blocked') score -= 30;
+
+    return Math.max(0, score);
   }
 
   private async generateRationale(params: any): Promise<string> {
