@@ -79,7 +79,8 @@ import {
   Palette,
   FileText,
   Scale,
-  ShieldAlert
+  ShieldAlert,
+  GitBranch
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -196,6 +197,7 @@ const navCategories: NavCategory[] = [
     title: "Finance",
     icon: DollarSign,
     items: [
+      { title: "Partner Hierarchy", href: "/admin/partner-hierarchy", icon: GitBranch, description: "Partner approvals & commissions" },
       { title: "Commission Master", href: "/admin/commission-master", icon: TrendingUp, description: "Commission configuration" },
       { title: "Revenue Analytics", href: "/admin/revenue-analytics", icon: BarChart3, description: "Revenue & performance" },
       { title: "Partner Payouts", href: "/admin/payouts", icon: Wallet, description: "Agent & partner payouts" },
