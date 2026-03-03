@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import mainLogoImg from "@assets/fintekpro_favicon_1772531115807.png";
 import agentLogoImg from "@assets/fintekpro_agent_1772531488530.png";
-import partnerLogoImg from "@assets/fintekpro_partners_1771386089261.png";
+import partnerLogoImg from "@assets/fintekpro_partners_1772531783909.png";
 import adminLogoImg from "@assets/fintekpro_admin_1772531371614.png";
 
 interface PortalMeta {

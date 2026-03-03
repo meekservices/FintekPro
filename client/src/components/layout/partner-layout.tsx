@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
-import fintekproLogo from "@assets/fintekpro_favicon_1772531115807.png";
+import fintekproLogo from "@assets/fintekpro_partners_1772531783909.png";
 import { PortalLogo } from "@/components/portal/PortalLogo";
 import { Button } from "@/components/ui/button";
 import { getPortalQueryParams } from "@/hooks/useSubdomain";
