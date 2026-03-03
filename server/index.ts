@@ -633,6 +633,10 @@ server.listen({
   // Register Zoho integration routes
   const zohoRoutes = await import('./zoho/routes');
   app.use('/api/zoho', zohoRoutes.default);
+
+  // Register Firm Inventory (DP Holdings) routes — MS FintekPro Advisors LLP
+  const { registerFirmInventoryRoutes } = await import('./routes/firm-inventory');
+  registerFirmInventoryRoutes(app);
   
   // Register Agent Onboarding routes
   const agentRoutes = await import('./agent-routes');

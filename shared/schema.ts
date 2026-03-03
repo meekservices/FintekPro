@@ -32743,3 +32743,69 @@ export const webauthnAuditLog = pgTable("webauthn_audit_log", {
 
 export type WebauthnAuditLog = typeof webauthnAuditLog.$inferSelect;
 export type InsertWebauthnAuditLog = typeof webauthnAuditLog.$inferInsert;
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FIRM INVENTORY SYSTEM — MS FintekPro Advisors LLP DP Holdings & Transactions
+// ══════════════════════════════════════════════════════════════════════════════
+
+export const firmDpHoldings = pgTable("firm_dp_holdings", {
+  id: serial("id").primaryKey(),
+  partnerId: varchar("partner_id", { length: 100 }).notNull().default('platform-partner-001'),
+  companyId: varchar("company_id", { length: 100 }),
+  isin: varchar("isin", { length: 20 }),
+  securityName: varchar("security_name", { length: 500 }).notNull(),
+  securityType: varchar("security_type", { length: 50 }).notNull().default('unlisted_equity'),
+  quantity: numeric("quantity", { precision: 18, scale: 4 }).notNull().default('0'),
+  avgCostPrice: numeric("avg_cost_price", { precision: 18, scale: 4 }),
+  currentPrice: numeric("current_price", { precision: 18, scale: 4 }),
+  totalCostValue: numeric("total_cost_value", { precision: 18, scale: 4 }),
+  currentMarketValue: numeric("current_market_value", { precision: 18, scale: 4 }),
+  zohoItemId: varchar("zoho_item_id", { length: 100 }),
+  zohoItemSku: varchar("zoho_item_sku", { length: 100 }),
+  lastZohoSyncAt: timestamp("last_zoho_sync_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_firm_dp_holdings_partner").on(table.partnerId),
+  index("idx_firm_dp_holdings_isin").on(table.isin),
+]);
+
+export type FirmDpHolding = typeof firmDpHoldings.$inferSelect;
+export type InsertFirmDpHolding = typeof firmDpHoldings.$inferInsert;
+
+export const firmTransactions = pgTable("firm_transactions", {
+  id: serial("id").primaryKey(),
+  partnerId: varchar("partner_id", { length: 100 }).notNull().default('platform-partner-001'),
+  holdingId: integer("holding_id").references(() => firmDpHoldings.id),
+  transactionType: varchar("transaction_type", { length: 50 }).notNull(),
+  securityName: varchar("security_name", { length: 500 }).notNull(),
+  isin: varchar("isin", { length: 20 }),
+  companyId: varchar("company_id", { length: 100 }),
+  quantity: numeric("quantity", { precision: 18, scale: 4 }).notNull(),
+  pricePerShare: numeric("price_per_share", { precision: 18, scale: 4 }),
+  totalValue: numeric("total_value", { precision: 18, scale: 4 }).notNull(),
+  charges: numeric("charges", { precision: 18, scale: 4 }).default('0'),
+  netValue: numeric("net_value", { precision: 18, scale: 4 }).notNull(),
+  transactionDate: varchar("transaction_date", { length: 20 }).notNull(),
+  counterpartyName: varchar("counterparty_name", { length: 500 }),
+  counterpartyId: varchar("counterparty_id", { length: 100 }),
+  reference: varchar("reference", { length: 200 }),
+  notes: text("notes"),
+  zohoStatus: varchar("zoho_status", { length: 30 }).default('pending'),
+  zohoInvoiceId: varchar("zoho_invoice_id", { length: 100 }),
+  zohoBillId: varchar("zoho_bill_id", { length: 100 }),
+  zohoSyncedAt: timestamp("zoho_synced_at"),
+  zohoSyncError: text("zoho_sync_error"),
+  zohoSourceEventId: varchar("zoho_source_event_id", { length: 200 }),
+  createdBy: varchar("created_by", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_firm_txn_partner").on(table.partnerId),
+  index("idx_firm_txn_date").on(table.transactionDate),
+  index("idx_firm_txn_zoho_status").on(table.zohoStatus),
+  index("idx_firm_txn_holding").on(table.holdingId),
+]);
+
+export type FirmTransaction = typeof firmTransactions.$inferSelect;
+export type InsertFirmTransaction = typeof firmTransactions.$inferInsert;
