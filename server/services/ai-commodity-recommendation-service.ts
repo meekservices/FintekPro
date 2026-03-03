@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { commodities, userProfiles, Commodity } from "@shared/schema";
+import { commodities, commodityPrices, userProfiles, Commodity } from "@shared/schema";
 import { eq, and, desc, gte, lte, or, sql, inArray } from "drizzle-orm";
 import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 
@@ -106,6 +106,25 @@ class AICommodityRecommendationService {
       if (result.length === 0) {
         throw new Error('Commodity data API not configured. Live commodity market data service required.');
       }
+
+      // Enrich commodities missing a live price from the commodity_prices sync table
+      const needsPrice = result.filter(c => !c.currentPrice || parseFloat(c.currentPrice.toString()) <= 0);
+      if (needsPrice.length > 0) {
+        try {
+          const syncedPrices = await db.select().from(commodityPrices);
+          const priceBySymbol = new Map(syncedPrices.map(p => [p.symbol.toUpperCase(), parseFloat(p.price)]));
+          for (const commodity of needsPrice) {
+            const livePrice = priceBySymbol.get((commodity.symbol || '').toUpperCase());
+            if (livePrice && livePrice > 0) {
+              (commodity as any).currentPrice = livePrice.toString();
+              console.log(`[CommodityAI] Price enrichment: ${commodity.symbol} → ₹${livePrice} from sync table`);
+            }
+          }
+        } catch (enrichErr) {
+          console.warn('[CommodityAI] commodity_prices enrichment failed:', (enrichErr as Error).message);
+        }
+      }
+
       return result;
     } catch (error) {
       console.error('Error fetching commodities:', error);

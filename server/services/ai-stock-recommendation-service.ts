@@ -4,6 +4,7 @@ import { eq, and, desc, asc, gte, lte, sql, inArray, ilike, or, isNotNull } from
 import { financialMetricsCalculator } from "./financial-metrics-calculator";
 import { getEnrichedStockSnapshot, type EnrichedStockSnapshot } from './screener/enriched-stock-data';
 import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
+import { unifiedStockPriceService } from "./unified-stock-price-service";
 
 export interface StockRecommendation {
   id: string;
@@ -219,7 +220,22 @@ class AIStockRecommendationService {
       { symbol: 'ADANIENT', companyName: 'Adani Enterprises', sector: 'Infrastructure', marketCap: 'Large Cap', currentPrice: 2987.60, peRatio: 92.3, roe: 8.2, returns1Y: -15.6 },
       { symbol: 'TATASTEEL', companyName: 'Tata Steel Ltd', sector: 'Metals', marketCap: 'Large Cap', currentPrice: 145.80, peRatio: 6.2, roe: 8.9, returns1Y: -12.3 }
     ];
-    return defaultStocks;
+
+    // Enrich with live prices from the unified stock price service (NSE → BSE → Yahoo → FMP)
+    try {
+      const symbols = defaultStocks.map(s => s.symbol);
+      const batchResult = await unifiedStockPriceService.getBatchPrices(symbols, 'NSE');
+      return defaultStocks.map(stock => {
+        const live = batchResult.prices.get(stock.symbol);
+        if (live?.price && live.price > 0) {
+          return { ...stock, currentPrice: live.price };
+        }
+        return stock;
+      });
+    } catch (err) {
+      console.warn('[StockAI] Live price enrichment for default pool failed, using reference prices:', (err as Error).message);
+      return defaultStocks;
+    }
   }
 
   private readonly FUNDAMENTALS_CACHE: Record<string, any> = {

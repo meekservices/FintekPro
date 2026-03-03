@@ -5,6 +5,7 @@ import { reits, invits, reitInvitOrders, reitInvitHoldings, users, userProfiles 
 import { z } from 'zod';
 import { reitInvitDataService } from '../services/reit-invit-data-service';
 import { aiReitInvitService, ReitInvitAsset } from '../services/ai-reit-invit-service';
+import { unifiedStockPriceService } from '../services/unified-stock-price-service';
 
 const router = Router();
 
@@ -489,14 +490,32 @@ router.get('/invits/:symbol', async (req: Request, res: Response) => {
 router.get('/ai-recommendations', async (req: Request, res: Response) => {
   try {
     const { riskProfile, investmentHorizon, investmentGoal, investmentAmount } = req.query;
-    
+
+    // Fetch live prices for all REIT/InvIT symbols (NSE listed) in one batch
+    const allSymbols = [
+      ...SAMPLE_REITS.map(r => r.symbol),
+      ...SAMPLE_INVITS.map(i => i.symbol),
+    ];
+    let livePriceMap = new Map<string, number>();
+    try {
+      const batchResult = await unifiedStockPriceService.getBatchPrices(allSymbols, 'NSE');
+      for (const [symbol, data] of batchResult.prices.entries()) {
+        if (data?.price > 0) livePriceMap.set(symbol.toUpperCase(), data.price);
+      }
+    } catch (_) { /* non-blocking — fall back to sample prices */ }
+
+    const resolvePrice = (symbol: string, fallback: string): string => {
+      const live = livePriceMap.get(symbol.toUpperCase());
+      return live ? live.toFixed(2) : fallback;
+    };
+
     const allAssets: ReitInvitAsset[] = [
       ...SAMPLE_REITS.map(r => ({ 
         type: 'reit' as const,
         symbol: r.symbol,
         name: r.name,
         sector: r.sector,
-        currentPrice: r.currentPrice,
+        currentPrice: resolvePrice(r.symbol, r.currentPrice),
         distributionYield: r.distributionYield,
         returns1Y: r.returns1Y,
         riskLevel: r.riskLevel,
@@ -510,7 +529,7 @@ router.get('/ai-recommendations', async (req: Request, res: Response) => {
         symbol: i.symbol,
         name: i.name,
         sector: i.sector,
-        currentPrice: i.currentPrice,
+        currentPrice: resolvePrice(i.symbol, i.currentPrice),
         distributionYield: i.distributionYield,
         returns1Y: i.returns1Y,
         riskLevel: i.riskLevel,
