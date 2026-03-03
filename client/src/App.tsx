@@ -249,6 +249,7 @@ const AIChat = lazyWithRetry(() => import("@/pages/ai-chat"));
 const CorporateKYCPage = lazyWithRetry(() => import("@/pages/CorporateKYCPage"));
 const AlertsPage = lazyWithRetry(() => import("@/pages/alerts"));
 const SettingsPage = lazyWithRetry(() => import("@/pages/settings"));
+const BiometricSettingsPage = lazyWithRetry(() => import("@/pages/biometric-settings"));
 const CreditReportPage = lazyWithRetry(() => import("@/pages/credit-report"));
 const DerivativesPage = lazyWithRetry(() => import("@/pages/derivatives"));
 const CommoditiesPage = lazyWithRetry(() => import("@/pages/commodities"));
@@ -553,6 +554,7 @@ function UserProtectedRoutes() {
         <Route path="/corporate-kyc" component={CorporateKYCPage} />
         {/* New Pages */}
         <Route path="/settings" component={SettingsPage} />
+        <Route path="/biometric-settings" component={BiometricSettingsPage} />
         <Route path="/credit-report" component={CreditReportPage} />
         <Route path="/derivatives" component={DerivativesPage} />
         <Route path="/expenses-budgets" component={ExpensesBudgets} />

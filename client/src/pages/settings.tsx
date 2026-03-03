@@ -35,8 +35,11 @@ import {
   PanelTop,
   Dock,
   PenTool,
-  RotateCcw
+  RotateCcw,
+  Fingerprint,
+  ChevronRight
 } from "lucide-react";
+import { Link } from "wouter";
 import { SignatureManagement } from "@/components/esign/SignatureManagement";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -613,6 +616,22 @@ export default function SettingsPage() {
 
         {/* Security Tab */}
         <TabsContent value="security" className="space-y-6">
+          <Link href="/biometric-settings">
+            <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
+              <CardContent className="py-4 flex items-center gap-4">
+                <div className="p-2 rounded-full bg-blue-50 dark:bg-blue-950">
+                  <Fingerprint className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium">Biometric Authentication</div>
+                  <div className="text-sm text-muted-foreground">
+                    Set up Face ID or Fingerprint for passwordless sign-in
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          </Link>
           <Card>
             <CardHeader>
               <CardTitle>Change Password</CardTitle>

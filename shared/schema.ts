@@ -32675,3 +32675,65 @@ export const mfCategorizationAuditLog = pgTable("mf_categorization_audit_log", {
 
 export type MfCategorizationAuditLog = typeof mfCategorizationAuditLog.$inferSelect;
 export type InsertMfCategorizationAuditLog = typeof mfCategorizationAuditLog.$inferInsert;
+
+// ── WebAuthn Biometric Authentication ──────────────────────────────────────
+
+export const userWebauthnCredentials = pgTable("user_webauthn_credentials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  credentialId: text("credential_id").notNull().unique(),
+  publicKey: text("public_key").notNull(),
+  signCount: integer("sign_count").notNull().default(0),
+  deviceType: varchar("device_type", { length: 50 }),
+  deviceName: varchar("device_name", { length: 100 }),
+  aaguid: varchar("aaguid", { length: 100 }),
+  backedUp: boolean("backed_up").default(false),
+  transports: text("transports").array(),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_webauthn_creds_user").on(table.userId),
+  index("idx_webauthn_creds_credential_id").on(table.credentialId),
+]);
+
+export type UserWebauthnCredential = typeof userWebauthnCredentials.$inferSelect;
+export type InsertUserWebauthnCredential = typeof userWebauthnCredentials.$inferInsert;
+
+export const webauthnChallenges = pgTable("webauthn_challenges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  challenge: text("challenge").notNull(),
+  type: varchar("type", { length: 20 }).notNull(), // 'registration' | 'authentication'
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_webauthn_challenges_user").on(table.userId),
+  index("idx_webauthn_challenges_expires").on(table.expiresAt),
+]);
+
+export type WebauthnChallenge = typeof webauthnChallenges.$inferSelect;
+export type InsertWebauthnChallenge = typeof webauthnChallenges.$inferInsert;
+
+export const webauthnAuditLog = pgTable("webauthn_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  event: varchar("event", { length: 50 }).notNull(), // 'registration_success' | 'auth_success' | 'auth_failure' | 'replay_blocked' | 'credential_deleted'
+  credentialId: text("credential_id"),
+  ipAddress: varchar("ip_address", { length: 100 }),
+  userAgent: text("user_agent"),
+  deviceType: varchar("device_type", { length: 50 }),
+  riskScore: integer("risk_score"),
+  riskFactors: jsonb("risk_factors"),
+  stepUpRequired: varchar("step_up_required", { length: 30 }),
+  success: boolean("success").notNull(),
+  failureReason: text("failure_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_webauthn_audit_user").on(table.userId),
+  index("idx_webauthn_audit_event").on(table.event),
+  index("idx_webauthn_audit_created").on(table.createdAt),
+]);
+
+export type WebauthnAuditLog = typeof webauthnAuditLog.$inferSelect;
+export type InsertWebauthnAuditLog = typeof webauthnAuditLog.$inferInsert;

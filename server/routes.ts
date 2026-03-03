@@ -25,6 +25,7 @@ import agentLoanRoutes from "./routes/agent-loan-routes";
 import adminAgentPayoutRoutes from "./routes/admin-agent-payout-routes";
 import developerFinanceRoutes from "./routes/developer-finance-routes";
 import { registerFinancialDataRoutes } from './routes/financial-data-routes';
+import { webauthnRouter } from './routes/webauthn-routes';
 import knowledgeHubRoutes from './routes/knowledge-hub-routes';
 import mcaIntelligenceRoutes from './routes/mca-intelligence-routes';
 import mcaDirectPaymentRoutes from './routes/mca-direct-payment-routes';
@@ -29109,6 +29110,8 @@ Provide analysis in JSON format with these sections:
   
   // Document Lifecycle Management (DLM) System
   registerFinancialDataRoutes(app);
+  app.use("/api/webauthn", webauthnRouter);
+  console.log("✅ WebAuthn Biometric Authentication routes registered");
   registerDLMRoutes(app);
   
   return server;
