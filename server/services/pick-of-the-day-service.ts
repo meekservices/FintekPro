@@ -972,6 +972,10 @@ class PickOfTheDayService {
       }).sort((a, b) => b.score - a.score);
 
       // Require minimum score to auto-publish (prevents low-quality picks)
+      if (scoredCompanies.length === 0) {
+        console.log("[PickOfTheDay] No scorable unlisted companies found");
+        return null;
+      }
       const top = scoredCompanies[0];
       if (top.score < 10) {
         console.log(`[PickOfTheDay] Top unlisted company score too low (${top.score}), skipping`);
@@ -2218,6 +2222,7 @@ class PickOfTheDayService {
     if (company.listingStage === 'pre_ipo') score += 25;
     else if (company.listingStage === 'growth') score += 15;
     else if (company.listingStage === 'mature') score += 8;
+    else if (company.listingStage === 'unlisted' || !company.listingStage) score += 5; // baseline for data-sparse companies
 
     // ── Sector preference (same weights as main portal AI) ──────────────────
     const sector = company.sector?.toLowerCase() || '';
@@ -2278,8 +2283,8 @@ class PickOfTheDayService {
     if (fcf != null && fcf > 0) score += 5;
 
     // ── Pricing status bonus (price confirmed = more investable) ────────────
-    if (company.pricingStatus === 'published') score += 10;
-    else if (company.draftBuyPrice) score += 5;
+    if (company.publishedBuyPrice && parseFloat(company.publishedBuyPrice) > 0) score += 10;
+    else if (company.draftBuyPrice && parseFloat(company.draftBuyPrice) > 0) score += 5;
 
     // ── Identity/data confidence ─────────────────────────────────────────────
     const confidence = company.identityConfidence ? parseFloat(company.identityConfidence) : 0;
