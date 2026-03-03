@@ -4035,6 +4035,103 @@ router.get('/admin/transition/rules/:stage', requireAdmin, async (req: Request, 
 // ===================================================================
 
 /**
+ * Auto-publish a single unlisted company to the store without admin intervention.
+ * Safe to call repeatedly — silently skips if already published.
+ * Returns the store product ID, or null if skipped/failed.
+ */
+async function autoPublishCompanyToStore(company: any): Promise<string | null> {
+  try {
+    const existing = await storage.getStoreProductBySourceCompanyId(company.id);
+    if (existing) return existing.id.toString();
+
+    // Resolve best available price: DB fields → MoneyControl market price → null
+    let resolvedPrice: string | null =
+      company.publishedBuyPrice?.toString() ||
+      company.draftBuyPrice?.toString() ||
+      company.currentPrice?.toString() ||
+      null;
+    let priceSource = 'db';
+
+    if (!resolvedPrice || parseFloat(resolvedPrice) <= 0) {
+      const mcPrice = await moneyControlReconciliation.lookupMarketPrice(company.name, company.isin);
+      if (mcPrice && mcPrice > 0) {
+        resolvedPrice = mcPrice.toString();
+        priceSource = 'moneycontrol';
+        console.log(`[AutoPublish] ${company.name}: price from MoneyControl ₹${mcPrice}`);
+      }
+    }
+
+    let unlistedCategory = await storage.getStoreCategoryBySlug('unlisted-stocks');
+    if (!unlistedCategory) {
+      unlistedCategory = await storage.createStoreCategory({
+        name: 'Unlisted Stocks',
+        description: 'Trade shares of unlisted companies before they go public. Enhanced KYC required.',
+        slug: 'unlisted-stocks',
+        icon: 'Building2',
+        displayOrder: 10,
+        isActive: true,
+      });
+    }
+
+    const sectorSlug = (company.sector || 'others').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    let subcategory = await storage.getStoreSubcategoryBySlug(sectorSlug);
+    if (!subcategory) {
+      subcategory = await storage.createStoreSubcategory({
+        name: company.sector || 'Others',
+        description: `Unlisted stocks in the ${company.sector || 'Others'} sector`,
+        slug: sectorSlug,
+        categoryId: unlistedCategory.id,
+        displayOrder: 0,
+        isActive: true,
+      });
+    }
+
+    const priceNum = resolvedPrice ? parseFloat(resolvedPrice) : null;
+    const riskMapping: Record<string, string> = { low: 'low', medium: 'medium', moderate: 'medium', high: 'high', very_high: 'high' };
+    const product = await storage.createStoreProduct({
+      name: company.name,
+      shortDescription: `Unlisted shares of ${company.name} - ${company.sector || 'Technology'} sector`,
+      fullDescription: company.description || `Invest in ${company.name}, an unlisted company in the ${company.sector || 'Technology'} sector. ${company.listingStage === 'pre_ipo' ? 'Pre-IPO opportunity.' : 'Growth stage investment.'}`,
+      categoryId: unlistedCategory.id,
+      subcategoryId: subcategory?.id,
+      productType: 'unlisted_stock',
+      productKey: `UNLISTED-${company.cin || company.id}`,
+      price: priceNum,
+      currency: 'INR',
+      minimumInvestment: company.minLotSize && priceNum ? String(Number(company.minLotSize) * priceNum) : '10000',
+      riskLevel: riskMapping[(company.riskRating || 'high').toLowerCase()] || 'high',
+      expectedReturns: company.expectedReturns || null,
+      features: JSON.stringify(['Enhanced KYC Required', 'Pre-IPO Investment Opportunity', company.listingStage === 'pre_ipo' ? 'Expected to list soon' : 'Growth stage company', `Sector: ${company.sector || 'Technology'}`]),
+      eligibility: JSON.stringify({ kycLevel: 'enhanced', minNetWorth: 2500000, investorType: ['accredited', 'qualified'], description: 'Enhanced/Accredited KYC tier required for unlisted stock trading' }),
+      documents: JSON.stringify(['PAN Card', 'Address Proof', 'Bank Statement', 'Net Worth Certificate', 'Risk Acknowledgment Form']),
+      provider: company.name,
+      providerCode: company.cin || company.id,
+      regulatory: JSON.stringify({ cin: company.cin, isin: company.isin, sector: company.sector, listingStage: company.listingStage, dataSource: 'unlisted_marketplace' }),
+      isActive: true,
+      isFeatured: false,
+      displayOrder: 0,
+      visibleToClients: true,
+      visibleToPartners: true,
+      visibleToAgents: true,
+      visibleToGuests: false,
+      showInquiryForm: true,
+      inquiryMessage: 'Contact our team for unlisted stock investment opportunities',
+      sourceCompanyId: company.id,
+      lotSize: company.minLotSize || 1,
+      faceValue: company.faceValue || null,
+      marketCap: company.marketCap || null,
+      peRatio: company.peRatio || null,
+    });
+
+    console.log(`[AutoPublish] ${company.name} auto-published to store as product ${product.id}`);
+    return product.id.toString();
+  } catch (err: any) {
+    console.warn(`[AutoPublish] Skipped ${company.name}: ${err.message}`);
+    return null;
+  }
+}
+
+/**
  * POST /api/unlisted/admin/publish-existing-to-store
  * Publish an existing unlisted company as a product in the store (Admin only)
  */
@@ -7934,10 +8031,11 @@ router.get('/ai-recommendations', async (req: Request, res: Response) => {
   try {
     const { riskProfile, investmentHorizon, investmentGoal, investmentAmount } = req.query;
     
-    const companies = await storage.getAllUnlistedCompanies({ 
-      status: 'active',
-      storePublishedOnly: true 
-    });
+    // Fetch all active companies — no store-publish gate on AI picks
+    const allCompanies = await storage.getAllUnlistedCompanies({ status: 'active' });
+    
+    // Only exclude suspended instruments; AI can recommend even without a published price
+    const companies = (allCompanies as any[]).filter(c => !c.tradingSuspended);
     
     if (!companies || companies.length === 0) {
       return apiResponse.success(res, {
@@ -7948,6 +8046,43 @@ router.get('/ai-recommendations', async (req: Request, res: Response) => {
         },
       });
     }
+
+    // Auto-publish any company not yet in the store — fire-and-forget, non-blocking
+    setImmediate(async () => {
+      try {
+        const publishTasks = companies.map(c => autoPublishCompanyToStore(c));
+        const results = await Promise.allSettled(publishTasks);
+        const published = results.filter(r => r.status === 'fulfilled' && (r as any).value).length;
+        if (published > 0) {
+          console.log(`[AutoPublish] Auto-published ${published} unlisted companies to store`);
+        }
+      } catch (e) { /* non-blocking */ }
+    });
+
+    // Pre-fetch MoneyControl prices once (6h cache) to enrich companies missing a price
+    let mcPriceByIsin = new Map<string, number>();
+    let mcPriceByName = new Map<string, number>();
+    try {
+      const mcCompanies = await moneyControlReconciliation.fetchAndCacheMoneyControlCompanies();
+      for (const mc of mcCompanies) {
+        if (mc.price > 0) {
+          if (mc.isin) mcPriceByIsin.set(mc.isin.toUpperCase(), mc.price);
+          mcPriceByName.set(mc.name.toLowerCase().trim(), mc.price);
+        }
+      }
+    } catch (_) { /* non-blocking enrichment */ }
+
+    const resolveMarketPrice = (company: any): string | undefined => {
+      const dbPrice = company.publishedBuyPrice || company.draftBuyPrice || company.currentPrice;
+      if (dbPrice && parseFloat(dbPrice) > 0) return dbPrice.toString();
+      if (company.isin) {
+        const byIsin = mcPriceByIsin.get(company.isin.toUpperCase());
+        if (byIsin) return byIsin.toString();
+      }
+      const byName = mcPriceByName.get(company.name.toLowerCase().trim());
+      if (byName) return byName.toString();
+      return undefined;
+    };
     
     const assets: UnlistedStockAsset[] = companies.map((company: any) => ({
       id: company.id,
@@ -7956,7 +8091,7 @@ router.get('/ai-recommendations', async (req: Request, res: Response) => {
       sector: company.sector,
       industry: company.industry,
       listingStage: company.listingStage,
-      publishedBuyPrice: company.publishedBuyPrice?.toString(),
+      publishedBuyPrice: resolveMarketPrice(company),
       publishedSellPrice: company.publishedSellPrice?.toString(),
       paidUpCapital: company.paidUpCapital?.toString(),
       revenue: company.latestFinancials?.revenue?.toString(),

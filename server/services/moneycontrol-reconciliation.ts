@@ -258,6 +258,44 @@ class MoneyControlReconciliationService {
     return { success, failed };
   }
 
+  /**
+   * Lookup the MoneyControl market price for a single company.
+   * Matches by ISIN first (exact), then by name similarity (score >= 70).
+   * Returns the price as a number, or null if no confident match found.
+   * Uses the 6-hour in-memory cache — safe to call per-request.
+   */
+  async lookupMarketPrice(name: string, isin?: string | null): Promise<number | null> {
+    try {
+      const mcCompanies = await this.fetchAndCacheMoneyControlCompanies();
+
+      if (isin) {
+        const byIsin = mcCompanies.find(c => c.isin?.toUpperCase() === isin.toUpperCase());
+        if (byIsin && byIsin.price > 0) return byIsin.price;
+      }
+
+      let bestScore = 0;
+      let bestPrice: number | null = null;
+      for (const mc of mcCompanies) {
+        if (!mc.price || mc.price <= 0) continue;
+        const score = this.calculateMatchScore(name, mc.name);
+        if (score > bestScore) {
+          bestScore = score;
+          bestPrice = mc.price;
+        }
+      }
+
+      if (bestScore >= 70 && bestPrice !== null) {
+        console.log(`[MC Reconciliation] Price lookup: "${name}" → ₹${bestPrice} (score: ${bestScore})`);
+        return bestPrice;
+      }
+
+      return null;
+    } catch (err: any) {
+      console.warn(`[MC Reconciliation] lookupMarketPrice failed for "${name}": ${err.message}`);
+      return null;
+    }
+  }
+
   getCacheStatus(): { 
     isCached: boolean; 
     scrapedAt: Date | null; 
