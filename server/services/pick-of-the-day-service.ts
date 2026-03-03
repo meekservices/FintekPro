@@ -29,6 +29,25 @@ export type PickCategory =
 
 export type PickStatus = 'live' | 'target_hit' | 'stoploss_hit' | 'expired';
 
+export const SCORER_VERSION = "2.0.0";
+export const SCORER_MIN_THRESHOLD = 15;
+
+export interface ScoreBreakdown {
+  listingStageScore: number;
+  pricingScore: number;
+  sectorScore: number;
+  governanceScore: number;
+  riskAdjustment: number;
+  fundamentalsScore: number;
+  totalScore: number;
+  scoringVersion: string;
+  threshold: number;
+  rankPosition?: number;
+  totalCandidatesEvaluated?: number;
+  eligibleCandidates?: number;
+  riskBand?: 'Moderate' | 'Growth' | 'HighConviction';
+}
+
 export interface DailyPickData {
   id?: number;
   category: PickCategory;
@@ -56,6 +75,8 @@ export interface DailyPickData {
   sectorCategory?: string;
   updatedAt?: Date | string;
   statusUpdatedAt?: Date | string;
+  scoringBreakdown?: ScoreBreakdown;
+  riskScore?: number;
 }
 
 interface StockCandidate {
@@ -963,24 +984,39 @@ class PickOfTheDayService {
         }
       }
 
-      // Score each company using financial metrics (same logic as main portal recommendations)
+      // Score each company — returns a full ScoreBreakdown for SEBI audit traceability
       const scoredCompanies = freshCompanies.map(company => {
         const ratios = ratiosMap.get(company.id);
         const financials = financialsMap.get(company.id);
-        const score = this.scoreUnlistedWithRatios(company, ratios, financials);
-        return { company, ratios, financials, score };
-      }).sort((a, b) => b.score - a.score);
+        const breakdown = this.scoreUnlistedWithRatios(company, ratios, financials);
+        return { company, ratios, financials, breakdown };
+      }).sort((a, b) => b.breakdown.totalScore - a.breakdown.totalScore);
 
-      // Require minimum score to auto-publish (prevents low-quality picks)
+      const eligibleCompanies = scoredCompanies.filter(c => c.breakdown.totalScore >= SCORER_MIN_THRESHOLD);
+
+      // Structured telemetry — satisfies observability requirement
+      console.log("[UNLISTED_PICK_SCORING]", JSON.stringify({
+        scoringVersion: SCORER_VERSION,
+        totalCandidates: freshCompanies.length,
+        eligibleCount: eligibleCompanies.length,
+        threshold: SCORER_MIN_THRESHOLD,
+        topScore: scoredCompanies[0]?.breakdown.totalScore ?? 0,
+        topCompany: scoredCompanies[0]?.company.name ?? 'none',
+      }));
+
       if (scoredCompanies.length === 0) {
         console.log("[PickOfTheDay] No scorable unlisted companies found");
         return null;
       }
-      const top = scoredCompanies[0];
-      if (top.score < 10) {
-        console.log(`[PickOfTheDay] Top unlisted company score too low (${top.score}), skipping`);
-        return null;
+      if (eligibleCompanies.length === 0) {
+        throw new Error(`No companies met scoring threshold of ${SCORER_MIN_THRESHOLD} — top score: ${scoredCompanies[0].breakdown.totalScore}`);
       }
+
+      const top = eligibleCompanies[0];
+      // Annotate breakdown with rank and audit context
+      top.breakdown.rankPosition = 1;
+      top.breakdown.totalCandidatesEvaluated = freshCompanies.length;
+      top.breakdown.eligibleCandidates = eligibleCompanies.length;
 
       const { company, ratios, financials } = top;
 
@@ -1060,7 +1096,10 @@ class PickOfTheDayService {
         keyMetrics.dataQualityScore = financials.dataQualityScore;
       }
 
-      keyMetrics.aiScore = top.score;
+      keyMetrics.aiScore = top.breakdown.totalScore;
+      keyMetrics.scoringVersion = SCORER_VERSION;
+      keyMetrics.riskBand = top.breakdown.riskBand;
+      keyMetrics.scoringBreakdown = top.breakdown;
 
       const rationale = await this.generateRationale({
         category: 'unlisted',
@@ -1095,9 +1134,11 @@ class PickOfTheDayService {
         riskLevel: 'high',
         suitableFor: ['Aggressive'],
         timeHorizon: this.getTimeHorizon('unlisted'),
-        confidenceScore: this.getConfidenceScore('unlisted', top.score, 100),
+        confidenceScore: this.getConfidenceScore('unlisted', top.breakdown.totalScore, 100),
         sectorCategory: company.sector || 'Pre-IPO / Unlisted',
         keyMetrics,
+        scoringBreakdown: top.breakdown,
+        riskScore: top.breakdown.riskAdjustment,
       };
     } catch (error) {
       console.error("[PickOfTheDay] Error generating unlisted pick:", error);
@@ -2215,87 +2256,122 @@ class PickOfTheDayService {
     return score;
   }
 
-  private scoreUnlistedWithRatios(company: any, ratios: any, financials: any): number {
-    let score = 0;
+  private getRiskBand(score: number): 'Moderate' | 'Growth' | 'HighConviction' {
+    if (score >= 60) return 'HighConviction';
+    if (score >= 40) return 'Growth';
+    return 'Moderate';
+  }
 
-    // ── Listing stage (growth potential signal) ──────────────────────────────
-    if (company.listingStage === 'pre_ipo') score += 25;
-    else if (company.listingStage === 'growth') score += 15;
-    else if (company.listingStage === 'mature') score += 8;
-    else if (company.listingStage === 'unlisted' || !company.listingStage) score += 5; // baseline for data-sparse companies
+  private scoreUnlistedWithRatios(company: any, ratios: any, financials: any): ScoreBreakdown {
 
-    // ── Sector preference (same weights as main portal AI) ──────────────────
+    // ── Bucket 1: Listing Stage ───────────────────────────────────────────────
+    // Unlisted = highest upside (undiscovered); pre_ipo = more validated but lower delta
+    let listingStageScore = 0;
+    if (company.listingStage === 'unlisted' || !company.listingStage) listingStageScore = 10;
+    else if (company.listingStage === 'pre_ipo') listingStageScore = 8;
+    else if (company.listingStage === 'growth') listingStageScore = 6;
+    else if (company.listingStage === 'mature') listingStageScore = 4;
+
+    // ── Bucket 2: Pricing Validation ─────────────────────────────────────────
+    let pricingScore = 0;
+    if (company.publishedBuyPrice && parseFloat(company.publishedBuyPrice) > 0) pricingScore = 10;
+    else if (company.draftBuyPrice && parseFloat(company.draftBuyPrice) > 0) pricingScore = 5;
+
+    // ── Bucket 3: Sector Conviction ──────────────────────────────────────────
+    let sectorScore = 0;
     const sector = company.sector?.toLowerCase() || '';
-    if (sector.includes('tech') || sector.includes('software')) score += 12;
-    if (sector.includes('fintech')) score += 12;
-    if (sector.includes('financial') || sector.includes('banking')) score += 8;
-    if (sector.includes('pharma') || sector.includes('health')) score += 6;
-    if (sector.includes('consumer') || sector.includes('fmcg')) score += 5;
+    if (sector.includes('tech') || sector.includes('software')) sectorScore += 12;
+    if (sector.includes('fintech')) sectorScore += 12;
+    if (sector.includes('financial') || sector.includes('banking')) sectorScore += 8;
+    if (sector.includes('pharma') || sector.includes('health')) sectorScore += 6;
+    if (sector.includes('consumer') || sector.includes('fmcg')) sectorScore += 5;
+    if (sector.includes('ev') || sector.includes('electric')) sectorScore += 10;
+    if (sector.includes('ai') || sector.includes('deeptech')) sectorScore += 10;
+    sectorScore = Math.min(sectorScore, 20); // cap to prevent sector double-dipping
 
-    // ── ROE: primary profitability signal (weight 35%) ───────────────────────
+    // ── Bucket 4: Governance & Data Quality ──────────────────────────────────
+    let governanceScore = 0;
+    const confidence = company.identityConfidence ? parseFloat(company.identityConfidence) : 0;
+    if (confidence >= 0.9) governanceScore += 8;
+    else if (confidence >= 0.7) governanceScore += 5;
+    if (company.complianceStatus === 'cleared') governanceScore += 5;
+    else if (company.complianceStatus === 'blocked') governanceScore -= 30;
+
+    // ── Bucket 5: Risk Adjustment (inverse volatility via D/E proxy) ─────────
+    // D/E is the best available proxy for financial risk on unlisted companies
+    let riskAdjustment = 0;
+    const de = ratios?.debtEquity != null ? parseFloat(ratios.debtEquity) : null;
+    if (de == null) riskAdjustment = 5;       // no data → neutral
+    else if (de < 0.3) riskAdjustment = 10;   // very low leverage → low risk
+    else if (de < 0.7) riskAdjustment = 7;
+    else if (de < 1.2) riskAdjustment = 4;
+    else if (de < 2.0) riskAdjustment = 0;
+    else riskAdjustment = -5;                  // high leverage → risk penalty
+
+    // ── Bucket 6: Financial Fundamentals ─────────────────────────────────────
+    let fundamentalsScore = 0;
+
+    // ROE (primary profitability signal)
     const roe = ratios?.roe != null ? parseFloat(ratios.roe) : null;
     if (roe != null) {
-      if (roe > 20) score += 20;
-      else if (roe > 15) score += 15;
-      else if (roe > 10) score += 10;
-      else if (roe > 0) score += 5;
-      else score -= 10; // Negative ROE is a red flag
+      if (roe > 20) fundamentalsScore += 20;
+      else if (roe > 15) fundamentalsScore += 15;
+      else if (roe > 10) fundamentalsScore += 10;
+      else if (roe > 0) fundamentalsScore += 5;
+      else fundamentalsScore -= 10;
     }
 
-    // ── Revenue growth (weight 30%) ──────────────────────────────────────────
+    // Revenue growth
     const revGrowth = ratios?.revenueGrowth != null ? parseFloat(ratios.revenueGrowth) : null;
     if (revGrowth != null) {
-      if (revGrowth > 30) score += 18;
-      else if (revGrowth > 20) score += 13;
-      else if (revGrowth > 10) score += 8;
-      else if (revGrowth > 0) score += 3;
-      else score -= 5;
+      if (revGrowth > 30) fundamentalsScore += 18;
+      else if (revGrowth > 20) fundamentalsScore += 13;
+      else if (revGrowth > 10) fundamentalsScore += 8;
+      else if (revGrowth > 0) fundamentalsScore += 3;
+      else fundamentalsScore -= 5;
     }
 
-    // ── Debt-to-equity (weight 35% — lower is better) ───────────────────────
-    const de = ratios?.debtEquity != null ? parseFloat(ratios.debtEquity) : null;
-    if (de != null) {
-      if (de < 0.3) score += 20;
-      else if (de < 0.7) score += 12;
-      else if (de < 1.2) score += 6;
-      else if (de < 2.0) score -= 5;
-      else score -= 15;
-    }
-
-    // ── Profitability margins ────────────────────────────────────────────────
+    // EBITDA margin
     const ebitdaMargin = ratios?.marginEbitda != null ? parseFloat(ratios.marginEbitda) : null;
     if (ebitdaMargin != null) {
-      if (ebitdaMargin > 25) score += 10;
-      else if (ebitdaMargin > 15) score += 6;
-      else if (ebitdaMargin > 5) score += 3;
+      if (ebitdaMargin > 25) fundamentalsScore += 10;
+      else if (ebitdaMargin > 15) fundamentalsScore += 6;
+      else if (ebitdaMargin > 5) fundamentalsScore += 3;
     }
 
-    // ── Profit growth ────────────────────────────────────────────────────────
+    // Profit growth
     const profitGrowth = ratios?.profitGrowth != null ? parseFloat(ratios.profitGrowth) : null;
     if (profitGrowth != null) {
-      if (profitGrowth > 30) score += 8;
-      else if (profitGrowth > 10) score += 5;
-      else if (profitGrowth < 0) score -= 5;
+      if (profitGrowth > 30) fundamentalsScore += 8;
+      else if (profitGrowth > 10) fundamentalsScore += 5;
+      else if (profitGrowth < 0) fundamentalsScore -= 5;
     }
 
-    // ── Free cash flow positivity ────────────────────────────────────────────
+    // Free cash flow (financial momentum)
     const fcf = financials?.freeCashFlow != null ? parseFloat(financials.freeCashFlow) : null;
-    if (fcf != null && fcf > 0) score += 5;
+    if (fcf != null && fcf > 0) fundamentalsScore += 5;
 
-    // ── Pricing status bonus (price confirmed = more investable) ────────────
-    if (company.publishedBuyPrice && parseFloat(company.publishedBuyPrice) > 0) score += 10;
-    else if (company.draftBuyPrice && parseFloat(company.draftBuyPrice) > 0) score += 5;
+    const totalScore = Math.max(0,
+      listingStageScore +
+      pricingScore +
+      sectorScore +
+      governanceScore +
+      riskAdjustment +
+      fundamentalsScore
+    );
 
-    // ── Identity/data confidence ─────────────────────────────────────────────
-    const confidence = company.identityConfidence ? parseFloat(company.identityConfidence) : 0;
-    if (confidence >= 0.9) score += 8;
-    else if (confidence >= 0.7) score += 5;
-
-    // ── Compliance clearance ─────────────────────────────────────────────────
-    if (company.complianceStatus === 'cleared') score += 5;
-    else if (company.complianceStatus === 'blocked') score -= 30;
-
-    return Math.max(0, score);
+    return {
+      listingStageScore,
+      pricingScore,
+      sectorScore,
+      governanceScore,
+      riskAdjustment,
+      fundamentalsScore,
+      totalScore,
+      scoringVersion: SCORER_VERSION,
+      threshold: SCORER_MIN_THRESHOLD,
+      riskBand: this.getRiskBand(totalScore),
+    };
   }
 
   private extractRationaleText(raw: string): string {
@@ -2484,7 +2560,10 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
       confidenceScore: pick.confidenceScore || 70,
       sectorCategory: pick.sectorCategory,
       generatedBy: 'ai',
-    });
+      scoringVersion: pick.scoringBreakdown?.scoringVersion ?? null,
+      scoringBreakdown: pick.scoringBreakdown ?? null,
+      riskScore: pick.riskScore ?? null,
+    } as any);
   }
 
   async updatePickStatuses(): Promise<{ updated: number; details: string[] }> {

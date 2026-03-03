@@ -29718,6 +29718,12 @@ export const dailyPicks = pgTable("daily_picks", {
   }>(),
   
   generatedBy: varchar("generated_by", { length: 50 }).default("ai"),
+
+  // Scoring audit trail (SEBI-aligned reproducibility)
+  scoringVersion: varchar("scoring_version", { length: 20 }),
+  scoringBreakdown: jsonb("scoring_breakdown"),
+  riskScore: integer("risk_score"),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
