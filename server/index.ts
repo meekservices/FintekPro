@@ -79,6 +79,7 @@ import { randomBytes } from "crypto";
 import fs from "fs";
 import path from "path";
 import "./services/sms-service"; // Initialize SMS service
+import { registerAuthEventConsumers } from "./services/auth-event-consumers";
 
 // Global boot state - tracks server initialization progress
 export const bootState = {
@@ -177,6 +178,11 @@ app.use(helmet({
       formAction: ["'self'"],
       frameAncestors: ["'self'", "https://*.replit.dev", "https://*.replit.com"],
     },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
   },
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -597,6 +603,9 @@ server.listen({
   // Auth is now ready
   bootState.authReady = true;
   console.log(`✅ Auth ready (${bootState.getBootTime()}ms)`);
+
+  // Register auth event consumers (structured logging + high-risk DB persistence)
+  registerAuthEventConsumers();
   
   // CSRF token endpoint (must be after session middleware)
   app.get('/api/csrf-token', (req: Request, res: Response) => {

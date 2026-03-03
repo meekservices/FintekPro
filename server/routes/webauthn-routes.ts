@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { webauthnService } from "../services/webauthn-service";
+import { authEventBus } from "../services/auth-event-bus";
 
 const router = Router();
 
@@ -56,6 +57,15 @@ router.post("/register/verify", requireAuth, async (req, res) => {
     }
 
     const credential = await webauthnService.verifyRegistration(userId, req.body, ip, ua);
+
+    authEventBus.emit("CREDENTIAL_ENROLLED", {
+      userId,
+      ip,
+      credentialId: credential.id,
+      deviceType: credential.deviceType || "unknown",
+      deviceName: credential.deviceType === "platform" ? "Platform Authenticator" : "Security Key",
+    });
+
     res.json({ success: true, credentialId: credential.id, deviceType: credential.deviceType });
   } catch (err: any) {
     console.error("[WebAuthn] Registration verify error:", err);
@@ -96,6 +106,35 @@ router.post("/authenticate/verify", requireAuth, async (req, res) => {
     (req.session as any).biometricVerifiedAt = new Date().toISOString();
     req.session!.save(() => {});
 
+    authEventBus.emit("AUTH_SUCCESS", {
+      userId,
+      ip,
+      ua,
+      credentialId: result.credentialId,
+      riskScore: result.risk.score,
+      riskLevel: result.risk.level as any,
+    });
+
+    if (result.risk.stepUpRequired !== "none") {
+      authEventBus.emit("AUTH_STEPUP_REQUIRED", {
+        userId,
+        ip,
+        stepUpType: result.risk.stepUpRequired,
+        riskScore: result.risk.score,
+        riskLevel: result.risk.level as any,
+      });
+    }
+
+    if (result.risk.level === "HIGH" || result.risk.level === "CRITICAL") {
+      authEventBus.emit("HIGH_RISK_TXN", {
+        userId,
+        ip,
+        riskScore: result.risk.score,
+        riskLevel: result.risk.level as any,
+        reason: `Risk factors: ${Object.keys(result.risk.factors || {}).join(", ") || "elevated score"}`,
+      });
+    }
+
     res.json({
       success: true,
       risk: result.risk,
@@ -130,9 +169,17 @@ router.patch("/credentials/:id", requireAuth, async (req, res) => {
 
 router.delete("/credentials/:id", requireAuth, async (req, res) => {
   try {
+    const userId: string = req.user!.id;
     const ip = req.ip || req.socket.remoteAddress || "unknown";
-    const deleted = await webauthnService.deleteCredential(req.user!.id, req.params.id, ip);
+    const deleted = await webauthnService.deleteCredential(userId, req.params.id, ip);
     if (!deleted) return res.status(404).json({ error: "Credential not found" });
+
+    authEventBus.emit("CREDENTIAL_DELETED", {
+      userId,
+      ip,
+      credentialId: req.params.id,
+    });
+
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
