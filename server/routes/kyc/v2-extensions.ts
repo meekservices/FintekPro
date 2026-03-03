@@ -10,7 +10,7 @@ import { kycRateLimiterService } from '../../services/kyc-rate-limiter-service';
 import { kycEncryptionService } from '../../services/kyc-encryption-service';
 import { db } from '../../db';
 import { kycVerificationSessions, kycStepResets, kycAuditLogs, users } from '@shared/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, sql as drizzleSql } from 'drizzle-orm';
 
 function hasRole(user: any, requiredRoles: string[]): boolean {
   if (!user) return false;
@@ -723,6 +723,85 @@ export function registerKycV2ExtensionRoutes(app: Express) {
     } catch (error) {
       console.error('[KYC Active Session] Error:', error);
       res.status(500).json({ success: false, error: 'Failed to fetch active session' });
+    }
+  });
+
+  // ============================================================
+  // ALL KYC SESSIONS VIEW (Admin oversight — all users)
+  // ============================================================
+
+  app.get("/api/admin/kyc/sessions", requireAdmin, async (req: any, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string || '100'), 200);
+      const outcome = (req.query.outcome as string) || null;
+
+      const whereClause = outcome
+        ? `WHERE kvs.session_outcome = '${outcome.replace(/'/g, "''")}'`
+        : '';
+
+      const rows = await db.execute(drizzleSql.raw(`
+        SELECT
+          kvs.id AS "sessionId",
+          kvs.user_id AS "userId",
+          kvs.current_step AS "currentStep",
+          kvs.session_outcome AS "sessionOutcome",
+          kvs.is_active AS "isActive",
+          kvs.started_at AS "startedAt",
+          kvs.completed_at AS "completedAt",
+          kvs.aml_risk_level AS "amlRiskLevel",
+          kvs.pan_verified AS "panVerified",
+          kvs.aadhaar_otp_verified AS "aadhaarOtpVerified",
+          kvs.entity_type_detected AS "entityType",
+          u.email,
+          u.first_name AS "firstName",
+          u.last_name AS "lastName",
+          u.kyc_status AS "kycStatus"
+        FROM kyc_verification_sessions kvs
+        LEFT JOIN users u ON u.id = kvs.user_id
+        ${whereClause}
+        ORDER BY kvs.started_at DESC
+        LIMIT ${limit}
+      `));
+
+      const sessions = rows.rows ?? rows;
+      res.json({ success: true, sessions, total: (sessions as any[]).length });
+    } catch (error) {
+      console.error('[Admin KYC Sessions]', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch KYC sessions' });
+    }
+  });
+
+  app.post("/api/admin/kyc/reset", requireAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.body;
+
+      if (userId) {
+        const safeId = userId.replace(/'/g, "''");
+        await db.execute(drizzleSql.raw(`
+          UPDATE kyc_verification_sessions
+          SET session_outcome = 'reset_by_admin', is_active = false
+          WHERE user_id = '${safeId}'
+        `));
+        await db.execute(drizzleSql.raw(`
+          UPDATE users SET kyc_status = NULL, ckyc_status = NULL
+          WHERE id = '${safeId}'
+        `));
+        return res.json({ success: true, message: `KYC reset for user ${userId}` });
+      }
+
+      await db.execute(drizzleSql.raw(`
+        UPDATE kyc_verification_sessions
+        SET session_outcome = 'reset_by_admin', is_active = false
+      `));
+      await db.execute(drizzleSql.raw(`
+        UPDATE users SET kyc_status = NULL, ckyc_status = NULL
+        WHERE role NOT IN ('admin', 'superadmin')
+      `));
+
+      res.json({ success: true, message: 'KYC reset for all non-admin users' });
+    } catch (error) {
+      console.error('[Admin KYC Reset]', error);
+      res.status(500).json({ success: false, error: 'Failed to reset KYC' });
     }
   });
 

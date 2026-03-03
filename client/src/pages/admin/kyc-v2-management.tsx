@@ -1700,6 +1700,177 @@ function DirectRejectTab() {
   );
 }
 
+function AllKycSessionsTab() {
+  const { toast } = useToast();
+  const [outcomeFilter, setOutcomeFilter] = useState("all");
+  const [confirmResetAll, setConfirmResetAll] = useState(false);
+
+  const { data, isLoading, refetch } = useQuery<{ success: boolean; sessions: any[]; total: number }>({
+    queryKey: ["/api/admin/kyc/sessions", outcomeFilter],
+    queryFn: async () => {
+      const param = outcomeFilter !== "all" ? `?outcome=${outcomeFilter}` : "";
+      const r = await fetch(`/api/admin/kyc/sessions${param}`);
+      if (!r.ok) throw new Error("Failed");
+      return r.json();
+    },
+  });
+
+  const resetAll = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/admin/kyc/reset", {}),
+    onSuccess: () => {
+      toast({ title: "KYC Reset Complete", description: "All user KYC has been reset. Users must redo KYC." });
+      setConfirmResetAll(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/kyc/sessions"] });
+    },
+    onError: (e: any) => toast({ title: "Reset Failed", description: e.message, variant: "destructive" }),
+  });
+
+  const resetOne = useMutation({
+    mutationFn: (userId: string) => apiRequest("POST", "/api/admin/kyc/reset", { userId }),
+    onSuccess: () => {
+      toast({ title: "KYC Reset", description: "User KYC has been reset." });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/kyc/sessions"] });
+    },
+  });
+
+  const sessions = data?.sessions ?? [];
+
+  function stepBadge(step: string | null) {
+    if (!step) return <Badge variant="secondary">—</Badge>;
+    const color =
+      step === "completed" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" :
+      step === "pan_verification" ? "bg-blue-100 text-blue-800" :
+      step === "aadhaar_otp" ? "bg-purple-100 text-purple-800" :
+      "bg-gray-100 text-gray-700";
+    return <Badge className={color}>{step.replace(/_/g, " ")}</Badge>;
+  }
+
+  function outcomeBadge(outcome: string | null) {
+    if (!outcome) return <Badge variant="outline" className="text-yellow-700 border-yellow-400">In Progress</Badge>;
+    if (outcome === "reset_by_admin") return <Badge variant="outline" className="text-orange-700 border-orange-400">Reset</Badge>;
+    if (outcome === "completed") return <Badge className="bg-green-100 text-green-800">Completed</Badge>;
+    if (outcome === "failed") return <Badge className="bg-red-100 text-red-800">Failed</Badge>;
+    return <Badge variant="secondary">{outcome}</Badge>;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />All KYC Sessions</CardTitle>
+            <CardDescription>Every KYC verification session across all users — {sessions.length} sessions</CardDescription>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Select value={outcomeFilter} onValueChange={setOutcomeFilter}>
+              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sessions</SelectItem>
+                <SelectItem value="null">In Progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="reset_by_admin">Admin Reset</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4 mr-1" />Refresh
+            </Button>
+            <Button variant="destructive" size="sm" onClick={() => setConfirmResetAll(true)}>
+              <RotateCcw className="h-4 w-4 mr-1" />Reset All KYC
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        {isLoading ? (
+          <div className="p-4 space-y-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
+        ) : sessions.length === 0 ? (
+          <div className="py-16 text-center text-muted-foreground">
+            <Users className="h-10 w-10 mx-auto mb-3 opacity-40" />
+            <p className="font-medium">No KYC sessions found</p>
+            <p className="text-sm mt-1">Users will appear here once they start the KYC process</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Current Step</TableHead>
+                <TableHead>Outcome</TableHead>
+                <TableHead>PAN</TableHead>
+                <TableHead>Aadhaar OTP</TableHead>
+                <TableHead>AML Risk</TableHead>
+                <TableHead>Started</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sessions.map((s: any) => (
+                <TableRow key={s.sessionId}>
+                  <TableCell>
+                    <div className="font-medium text-sm">{s.email || "—"}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {s.firstName || s.lastName ? `${s.firstName || ""} ${s.lastName || ""}`.trim() : s.userId?.slice(0, 8)}
+                    </div>
+                  </TableCell>
+                  <TableCell>{stepBadge(s.currentStep)}</TableCell>
+                  <TableCell>{outcomeBadge(s.sessionOutcome)}</TableCell>
+                  <TableCell>
+                    {s.panVerified
+                      ? <Badge className="bg-green-100 text-green-800 text-xs">Verified</Badge>
+                      : <Badge variant="outline" className="text-xs text-muted-foreground">Pending</Badge>}
+                  </TableCell>
+                  <TableCell>
+                    {s.aadhaarOtpVerified
+                      ? <Badge className="bg-green-100 text-green-800 text-xs">Verified</Badge>
+                      : <Badge variant="outline" className="text-xs text-muted-foreground">Pending</Badge>}
+                  </TableCell>
+                  <TableCell>
+                    {s.amlRiskLevel
+                      ? <Badge className={s.amlRiskLevel === "HIGH" ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"} >{s.amlRiskLevel}</Badge>
+                      : <span className="text-xs text-muted-foreground">—</span>}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {s.startedAt ? new Date(s.startedAt).toLocaleDateString("en-IN") : "—"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => resetOne.mutate(s.userId)}
+                      disabled={resetOne.isPending}
+                      title="Reset this user's KYC"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 mr-1" />Reset
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+
+      <Dialog open={confirmResetAll} onOpenChange={setConfirmResetAll}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Reset KYC for All Users?</DialogTitle>
+            <DialogDescription>
+              This will clear KYC status and expire all KYC sessions for every non-admin user. All users will have to redo their KYC. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmResetAll(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => resetAll.mutate()} disabled={resetAll.isPending}>
+              {resetAll.isPending ? "Resetting…" : "Yes, Reset All KYC"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
 export default function KycV2ManagementPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -1713,8 +1884,12 @@ export default function KycV2ManagementPage() {
 
       <EnvironmentBanner />
 
-      <Tabs defaultValue="video-kyc" className="space-y-4">
-        <TabsList className="grid grid-cols-4 md:grid-cols-8 w-full">
+      <Tabs defaultValue="all-sessions" className="space-y-4">
+        <TabsList className="grid grid-cols-4 md:grid-cols-9 w-full">
+          <TabsTrigger value="all-sessions" className="text-xs sm:text-sm">
+            <Activity className="h-4 w-4 mr-1 hidden sm:inline" />
+            All Sessions
+          </TabsTrigger>
           <TabsTrigger value="video-kyc" className="text-xs sm:text-sm">
             <Video className="h-4 w-4 mr-1 hidden sm:inline" />
             Video KYC
@@ -1748,6 +1923,10 @@ export default function KycV2ManagementPage() {
             Step Resets
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="all-sessions">
+          <AllKycSessionsTab />
+        </TabsContent>
 
         <TabsContent value="video-kyc">
           <VideoKycTab />
