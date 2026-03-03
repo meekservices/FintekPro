@@ -733,7 +733,7 @@ export default function AuthPage() {
             <Card className="w-full max-w-md shadow-lg">
               <CardHeader className="space-y-1 text-center">
                 <div className="flex items-center justify-center mb-4">
-                  <Shield className="h-12 w-12" style={{ color: portalColor }} />
+                  <PortalLogo size="lg" iconOnly />
                 </div>
                 <CardTitle className="text-2xl">Sign In to {portalLabel}</CardTitle>
                 <CardDescription>
