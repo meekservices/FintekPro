@@ -49,10 +49,11 @@ export function usePortfolios(userId: string) {
 
 export function usePortfoliosByPan() {
   const { isAuthenticated } = useAuth();
-  return useQuery<Portfolio[]>({
+  return useQuery<Portfolio[], Error, Portfolio[]>({
     queryKey: ['/api/portfolios/by-pan'],
     retry: false,
     enabled: isAuthenticated,
+    select: (data) => (Array.isArray(data) ? data : []),
   });
 }
 

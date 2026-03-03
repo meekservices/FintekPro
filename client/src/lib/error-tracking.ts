@@ -139,8 +139,8 @@ export async function trackError(options: TrackErrorOptions): Promise<string | n
       }
     });
     
-    const result = await response.json();
-    return result.errorId || null;
+    const result = typeof response?.json === 'function' ? await response.json() : response;
+    return (result as any)?.errorId || null;
   } catch (err) {
     console.error('[ErrorTracking] Failed to ingest error to API:', err);
     return null;

@@ -9373,15 +9373,12 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       }
       
       if (!user.panNumber) {
-        return res.status(400).json({ 
-          error: "PAN card required", 
-          details: "Please complete your KYC by adding your PAN card to access portfolio data" 
-        });
+        return res.json([]);
       }
       
       // Get portfolios linked to user's PAN card
       const portfolios = await storage.getPortfoliosByUserPan(user.panNumber);
-      res.json(portfolios);
+      res.json(Array.isArray(portfolios) ? portfolios : []);
     } catch (error) {
       console.error("Error fetching portfolios by PAN:", error);
       res.status(500).json({ error: "Failed to fetch portfolios" });
