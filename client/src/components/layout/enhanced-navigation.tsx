@@ -81,7 +81,8 @@ import {
   Phone,
   UserPlus,
   Layers,
-  Zap
+  Zap,
+  GitBranch
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
@@ -545,6 +546,7 @@ export function EnhancedNavigation() {
       {
         title: "Admin: Financial",
         items: [
+          { name: "Partner Hierarchy", href: "/admin/partner-hierarchy", icon: GitBranch, description: "Manage partners & commissions" },
           { name: "Commission Engine", href: "/admin/commission-master", icon: CircleDollarSign, description: "Configure payouts" },
           { name: "Agent Payouts", href: "/admin/agent-payouts", icon: Banknote, description: "Payout management" },
           { name: "Platform Fees", href: "/admin/global-fee-model", icon: DollarSign, description: "Fee configuration" },

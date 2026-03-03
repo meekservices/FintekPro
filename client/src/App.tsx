@@ -295,6 +295,7 @@ const UnlistedRegulatoryCompliance = lazyWithRetry(() => import("@/pages/admin/u
 const FixedIncomeAdmin = lazyWithRetry(() => import("@/pages/admin/FixedIncomeAdmin"));
 const BondCommissionSettings = lazyWithRetry(() => import("@/pages/admin/bond-commission-settings"));
 const CommissionMaster = lazyWithRetry(() => import("@/pages/admin/commission-master"));
+const AdminPartnerHierarchy = lazyWithRetry(() => import("@/pages/admin/partner-hierarchy"));
 const AdminLoanManagement = lazyWithRetry(() => import("@/pages/admin-loan-management"));
 const AdminDsaLoanDashboard = lazyWithRetry(() => import("@/pages/admin/dsa-loan-dashboard"));
 const CommissionLedger = lazyWithRetry(() => import("@/pages/admin/commission-ledger"));
@@ -1196,6 +1197,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <BondCommissionSettings />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/partner-hierarchy">
+        {() => (
+          <AdminLayout>
+            <AdminPartnerHierarchy />
           </AdminLayout>
         )}
       </Route>

@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { partners, partnerHierarchyAgreements, partnerClientOwnership, users } from "@shared/schema";
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, and, isNull, sql, desc } from "drizzle-orm";
 
 export class PartnerHierarchyService {
   private static instance: PartnerHierarchyService;
@@ -300,6 +300,30 @@ export class PartnerHierarchyService {
   async getPendingApprovals(): Promise<any[]> {
     return db.select().from(partners)
       .where(eq(partners.approvalStatus, 'PENDING'));
+  }
+
+  // Get all partners for admin listing
+  async getAllPartners(limit = 100, offset = 0): Promise<any[]> {
+    return db.select({
+      id: partners.id,
+      companyName: partners.companyName,
+      contactEmail: partners.contactEmail,
+      contactPhone: partners.contactPhone,
+      partnerType: partners.partnerType,
+      partnerLevel: partners.partnerLevel,
+      hierarchyPartnerType: partners.hierarchyPartnerType,
+      hierarchyStatus: partners.hierarchyStatus,
+      approvalStatus: partners.approvalStatus,
+      kycStatus: partners.kycStatus,
+      isActive: partners.isActive,
+      commissionRate: partners.commissionRate,
+      parentPartnerId: partners.parentPartnerId,
+      arnCode: partners.arnCode,
+      createdAt: partners.createdAt,
+    }).from(partners)
+      .orderBy(desc(partners.createdAt))
+      .limit(limit)
+      .offset(offset);
   }
 
   // Suspend a partner

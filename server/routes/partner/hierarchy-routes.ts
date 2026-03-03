@@ -232,6 +232,19 @@ export function registerPartnerHierarchyRoutes(app: Express) {
     }
   });
 
+  // List all partners (admin)
+  app.get("/api/partner-hierarchy/partners", requireAdmin, async (req: any, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string || "100"), 500);
+      const offset = parseInt(req.query.offset as string || "0");
+      const all = await partnerHierarchyService.getAllPartners(limit, offset);
+      res.json(all);
+    } catch (error: any) {
+      console.error("Error fetching partners:", error);
+      res.status(500).json({ error: "Failed to fetch partners" });
+    }
+  });
+
   // Get pending approvals
   app.get("/api/partner-hierarchy/partners/pending", requireAdmin, async (req: any, res) => {
     try {
