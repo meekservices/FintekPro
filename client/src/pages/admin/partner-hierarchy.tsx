@@ -37,6 +37,8 @@ interface Partner {
   parentPartnerId?: string;
   arnCode?: string;
   createdAt?: string;
+  sourceType?: 'hierarchy' | 'user_account';
+  roles?: string[];
 }
 
 interface CommissionRule {
@@ -72,16 +74,31 @@ function statusBadge(status: string | undefined | null) {
 }
 
 function PartnerRow({ partner, onAction }: { partner: Partner; onAction: (action: string, partner: Partner) => void }) {
+  const isUserAccount = partner.sourceType === 'user_account';
   return (
-    <TableRow>
+    <TableRow className={isUserAccount ? "bg-blue-50/30 dark:bg-blue-950/20" : ""}>
       <TableCell>
-        <div className="font-medium">{partner.companyName}</div>
+        <div className="font-medium flex items-center gap-2">
+          {partner.companyName}
+          {isUserAccount && (
+            <Badge variant="outline" className="text-[10px] px-1 py-0 border-blue-400 text-blue-600 dark:text-blue-400">
+              User Account
+            </Badge>
+          )}
+        </div>
         <div className="text-xs text-muted-foreground flex items-center gap-1">
           <Mail className="h-3 w-3" />{partner.contactEmail}
         </div>
         {partner.contactPhone && (
           <div className="text-xs text-muted-foreground flex items-center gap-1">
             <Phone className="h-3 w-3" />{partner.contactPhone}
+          </div>
+        )}
+        {isUserAccount && partner.roles && (
+          <div className="flex gap-1 mt-1 flex-wrap">
+            {partner.roles.filter(r => ['partner','agent','admin','superadmin'].includes(r)).map(r => (
+              <span key={r} className="text-[10px] bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded px-1">{r}</span>
+            ))}
           </div>
         )}
       </TableCell>
@@ -267,12 +284,16 @@ export default function AdminPartnerHierarchy() {
     onError: (e: any) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
   });
 
-  const filteredPartners = allPartners.filter(p =>
-    !search ||
-    p.companyName.toLowerCase().includes(search.toLowerCase()) ||
-    p.contactEmail.toLowerCase().includes(search.toLowerCase()) ||
-    p.arnCode?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredPartners = allPartners.filter(p => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      (p.companyName || "").toLowerCase().includes(q) ||
+      (p.contactEmail || "").toLowerCase().includes(q) ||
+      (p.arnCode || "").toLowerCase().includes(q) ||
+      (p.roles || []).some(r => r.toLowerCase().includes(q))
+    );
+  });
 
   function handlePartnerAction(action: string, partner: Partner) {
     if (action === "downline") setDownlineDialog(partner);

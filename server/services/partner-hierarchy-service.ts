@@ -302,9 +302,11 @@ export class PartnerHierarchyService {
       .where(eq(partners.approvalStatus, 'PENDING'));
   }
 
-  // Get all partners for admin listing
+  // Get all partners for admin listing — includes hierarchy-registered partners
+  // AND users with partner/agent roles who haven't been added to the hierarchy yet
   async getAllPartners(limit = 100, offset = 0): Promise<any[]> {
-    return db.select({
+    // 1. Registered hierarchy partners
+    const hierarchyPartners = await db.select({
       id: partners.id,
       companyName: partners.companyName,
       contactEmail: partners.contactEmail,
@@ -321,9 +323,77 @@ export class PartnerHierarchyService {
       arnCode: partners.arnCode,
       createdAt: partners.createdAt,
     }).from(partners)
-      .orderBy(desc(partners.createdAt))
-      .limit(limit)
-      .offset(offset);
+      .orderBy(desc(partners.createdAt));
+
+    // Build set of emails already in hierarchy so we don't duplicate
+    const registeredEmails = new Set(hierarchyPartners.map(p => p.contactEmail?.toLowerCase()));
+
+    // 2. Users with partner/agent roles not yet in hierarchy
+    const partnerUsers = await db.execute(sql`
+      SELECT
+        id,
+        COALESCE(first_name || ' ' || COALESCE(last_name, ''), email) AS company_name,
+        email,
+        NULL::varchar AS contact_phone,
+        CASE
+          WHEN 'agent' = ANY(roles) AND 'partner' = ANY(roles) THEN 'distributor'
+          WHEN 'agent' = ANY(roles) THEN 'agent'
+          ELSE 'distributor'
+        END AS partner_type,
+        'L1' AS partner_level,
+        'AGENT' AS hierarchy_partner_type,
+        'ACTIVE' AS hierarchy_status,
+        'PENDING' AS approval_status,
+        'PENDING' AS kyc_status,
+        true AS is_active,
+        '0.00' AS commission_rate,
+        NULL::varchar AS parent_partner_id,
+        NULL::varchar AS arn_code,
+        created_at,
+        roles
+      FROM users
+      WHERE (
+        'partner' = ANY(roles)
+        OR 'agent' = ANY(roles)
+      )
+    `);
+
+    const userRows = (partnerUsers.rows as any[])
+      .filter(u => !registeredEmails.has((u.email as string)?.toLowerCase()))
+      .map(u => ({
+        id: u.id as string,
+        companyName: u.company_name as string,
+        contactEmail: u.email as string,
+        contactPhone: u.contact_phone as string | null,
+        partnerType: u.partner_type as string,
+        partnerLevel: u.partner_level as string,
+        hierarchyPartnerType: u.hierarchy_partner_type as string,
+        hierarchyStatus: u.hierarchy_status as string,
+        approvalStatus: u.approval_status as string,
+        kycStatus: u.kyc_status as string,
+        isActive: u.is_active as boolean,
+        commissionRate: u.commission_rate as string,
+        parentPartnerId: u.parent_partner_id as string | null,
+        arnCode: u.arn_code as string | null,
+        createdAt: u.created_at as Date,
+        sourceType: 'user_account' as const,
+        roles: u.roles as string[],
+      }));
+
+    // Merge: hierarchy partners first (they have full data), then user-sourced partners
+    const merged = [
+      ...hierarchyPartners.map(p => ({ ...p, sourceType: 'hierarchy' as const })),
+      ...userRows,
+    ];
+
+    // Sort by createdAt desc and apply pagination
+    merged.sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    return merged.slice(offset, offset + limit);
   }
 
   // Suspend a partner
