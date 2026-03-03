@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import fintekproLogo from "@assets/fintekpro_favicon_1772531115807.png";
+import fintekproLogo from "@assets/fintekpro_main_1772539048013.png";
 import { 
   Facebook, Twitter, Linkedin, Instagram, Home, UserCheck, Briefcase, Calculator, 
   Store, TrendingUp, CreditCard, Receipt, Users, Bell, Settings, HelpCircle, Shield,

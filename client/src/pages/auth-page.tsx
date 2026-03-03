@@ -21,11 +21,11 @@ import { useSubdomain } from "@/hooks/useSubdomain";
 import { SessionConflictDialog } from "@/components/SessionConflictDialog";
 import { useSession } from "@/contexts/session-context";
 import { Loader2, Eye, EyeOff, Shield, TrendingUp, BarChart3, MessageSquare, CheckCircle2, Mail, Smartphone, User, Info, Clock, RefreshCw, AlertCircle, Phone, LogIn, Users } from "lucide-react";
-import { usePortalMeta, PortalLogo } from "@/components/portal/PortalLogo";
-import mainLogoImg from "@assets/fintekpro_favicon_1772531115807.png";
-import adminLogoImg from "@assets/fintekpro_admin_1772531371614.png";
-import agentLogoImg from "@assets/fintekpro_agent_1772531488530.png";
-import partnerLogoImg from "@assets/fintekpro_partners_1772531783909.png";
+import { usePortalMeta } from "@/components/portal/PortalLogo";
+import mainLogoImg from "@assets/fintekpro_main_1772539048013.png";
+import adminLogoImg from "@assets/fintekpro_admin_1772539048012.png";
+import agentLogoImg from "@assets/fintekpro_agent_1772539048012.png";
+import partnerLogoImg from "@assets/fintekpro_partners_1772539048013.png";
 
 const PORTAL_LOGO_MAP: Record<string, string> = {
   main: mainLogoImg,
@@ -712,13 +712,6 @@ export default function AuthPage() {
           {/* Hero Section */}
           <div className="lg:pr-8">
             <div className="text-center lg:text-left">
-              <div className="mb-6">
-                <img
-                  src={PORTAL_LOGO_MAP[portalType] || PORTAL_LOGO_MAP.main}
-                  alt={portalLabel}
-                  className="h-10 object-contain mx-auto lg:mx-0"
-                />
-              </div>
               <h1 className="text-4xl font-bold text-foreground mb-2">
                 Welcome to <span style={{ color: portalColor }}>{portalLabel}</span>
               </h1>
@@ -751,7 +744,7 @@ export default function AuthPage() {
                   <img
                     src={PORTAL_LOGO_MAP[portalType] || PORTAL_LOGO_MAP.main}
                     alt={portalLabel}
-                    className="h-14 object-contain"
+                    className="h-20 object-contain"
                   />
                 </div>
                 <CardTitle className="text-2xl">Sign In to {portalLabel}</CardTitle>
