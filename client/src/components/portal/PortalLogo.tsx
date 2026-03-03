@@ -39,7 +39,7 @@ export function usePortalMeta() {
 
 interface PortalLogoProps {
   className?: string;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   showTagline?: boolean;
   iconOnly?: boolean;
 }
@@ -52,6 +52,7 @@ export function PortalLogo({ className, size = "md", showTagline = false, iconOn
     sm: { icon: "h-7 w-7", text: "text-base", tagline: "text-[10px]" },
     md: { icon: "h-9 w-9", text: "text-lg", tagline: "text-xs" },
     lg: { icon: "h-12 w-12", text: "text-xl", tagline: "text-sm" },
+    xl: { icon: "h-16 w-16", text: "text-2xl", tagline: "text-base" },
   };
 
   const s = sizeMap[size];
@@ -89,6 +90,7 @@ export function PortalLogo({ className, size = "md", showTagline = false, iconOn
       sm: "h-8",
       md: "h-10",
       lg: "h-14",
+      xl: "h-24",
     };
     return (
       <div className={cn("flex items-center gap-2", className)}>

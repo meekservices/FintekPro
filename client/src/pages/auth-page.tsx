@@ -732,8 +732,8 @@ export default function AuthPage() {
           <div className="flex justify-center lg:justify-end">
             <Card className="w-full max-w-md shadow-lg">
               <CardHeader className="space-y-1 text-center">
-                <div className="flex items-center justify-center mb-4">
-                  <PortalLogo size="lg" iconOnly />
+                <div className="flex items-center justify-center mb-6">
+                  <PortalLogo size="xl" showTagline={false} />
                 </div>
                 <CardTitle className="text-2xl">Sign In to {portalLabel}</CardTitle>
                 <CardDescription>
