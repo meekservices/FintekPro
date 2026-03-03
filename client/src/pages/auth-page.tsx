@@ -22,6 +22,17 @@ import { SessionConflictDialog } from "@/components/SessionConflictDialog";
 import { useSession } from "@/contexts/session-context";
 import { Loader2, Eye, EyeOff, Shield, TrendingUp, BarChart3, MessageSquare, CheckCircle2, Mail, Smartphone, User, Info, Clock, RefreshCw, AlertCircle, Phone, LogIn, Users } from "lucide-react";
 import { usePortalMeta, PortalLogo } from "@/components/portal/PortalLogo";
+import mainLogoImg from "@assets/fintekpro_favicon_1772531115807.png";
+import adminLogoImg from "@assets/fintekpro_admin_1772531371614.png";
+import agentLogoImg from "@assets/fintekpro_agent_1772531488530.png";
+import partnerLogoImg from "@assets/fintekpro_partners_1772531783909.png";
+
+const PORTAL_LOGO_MAP: Record<string, string> = {
+  main: mainLogoImg,
+  admin: adminLogoImg,
+  agent: agentLogoImg,
+  partner: partnerLogoImg,
+};
 
 const loginSchema = z.object({
   identifier: z.string().min(1, "Email, mobile, or User ID is required"),
@@ -702,7 +713,11 @@ export default function AuthPage() {
           <div className="lg:pr-8">
             <div className="text-center lg:text-left">
               <div className="mb-6">
-                <PortalLogo size="lg" showTagline={false} />
+                <img
+                  src={PORTAL_LOGO_MAP[portalType] || PORTAL_LOGO_MAP.main}
+                  alt={portalLabel}
+                  className="h-16 object-contain mx-auto lg:mx-0"
+                />
               </div>
               <h1 className="text-4xl font-bold text-foreground mb-2">
                 Welcome to <span style={{ color: portalColor }}>{portalLabel}</span>
@@ -733,7 +748,11 @@ export default function AuthPage() {
             <Card className="w-full max-w-md shadow-lg">
               <CardHeader className="space-y-1 text-center">
                 <div className="flex items-center justify-center mb-6">
-                  <PortalLogo size="xl" showTagline={false} />
+                  <img
+                    src={PORTAL_LOGO_MAP[portalType] || PORTAL_LOGO_MAP.main}
+                    alt={portalLabel}
+                    className="h-24 object-contain"
+                  />
                 </div>
                 <CardTitle className="text-2xl">Sign In to {portalLabel}</CardTitle>
                 <CardDescription>
