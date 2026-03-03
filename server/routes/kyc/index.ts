@@ -1306,8 +1306,8 @@ export function registerKYCWizardRoutes(app: Express) {
         lockReasons['panNumber'] = 'PAN verified via Sandbox API - cannot be changed. Contact support for assistance.';
       }
       
-      // DOB is locked if PAN is verified (DOB comes from PAN)
-      if (userProfile?.panVerifiedViaSandbox) {
+      // DOB is locked only if PAN is verified AND DOB already has a value
+      if (userProfile?.panVerifiedViaSandbox && userProfile?.dateOfBirth) {
         lockedFields.push('dateOfBirth');
         lockReasons['dateOfBirth'] = 'Date of birth verified via PAN - cannot be changed.';
       }
@@ -1370,7 +1370,16 @@ export function registerKYCWizardRoutes(app: Express) {
       const currentProfile = profiles[0];
       
       if (!currentProfile) {
-        return res.status(404).json({ success: false, message: 'Profile not found' });
+        // Create a minimal profile on first edit instead of erroring
+        await db.insert(schema.userProfiles).values({ userId } as any).onConflictDoNothing();
+        const created = await db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId)).limit(1);
+        if (!created[0]) {
+          return res.status(404).json({ success: false, message: 'Profile could not be created. Please contact support.' });
+        }
+        // Re-assign to the created profile
+        (profiles as any).push(created[0]);
+        (profiles as any).splice(0, 0, created[0]);
+        Object.assign(currentProfile as any, created[0]);
       }
       
       const errors: string[] = [];
