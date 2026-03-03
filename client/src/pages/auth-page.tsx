@@ -712,6 +712,13 @@ export default function AuthPage() {
           {/* Hero Section */}
           <div className="lg:pr-8">
             <div className="text-center lg:text-left">
+              <div className="mb-4">
+                <img
+                  src={PORTAL_LOGO_MAP[portalType] || PORTAL_LOGO_MAP.main}
+                  alt={portalLabel}
+                  className="h-12 object-contain mx-auto lg:mx-0"
+                />
+              </div>
               <h1 className="text-4xl font-bold text-foreground mb-2">
                 Welcome to <span style={{ color: portalColor }}>{portalLabel}</span>
               </h1>
@@ -740,12 +747,8 @@ export default function AuthPage() {
           <div className="flex justify-center lg:justify-end">
             <Card className="w-full max-w-md shadow-lg">
               <CardHeader className="space-y-1 text-center">
-                <div className="flex items-center justify-center mb-6">
-                  <img
-                    src={PORTAL_LOGO_MAP[portalType] || PORTAL_LOGO_MAP.main}
-                    alt={portalLabel}
-                    className="h-20 object-contain"
-                  />
+                <div className="flex items-center justify-center mb-4">
+                  <Shield className="h-14 w-14" style={{ color: portalColor }} />
                 </div>
                 <CardTitle className="text-2xl">Sign In to {portalLabel}</CardTitle>
                 <CardDescription>
