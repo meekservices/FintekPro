@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import mainLogoImg from "@assets/fintekpro_favicon_1772531115807.png";
 import agentLogoImg from "@assets/fintekpro_agent_1771385897174.png";
 import partnerLogoImg from "@assets/fintekpro_partners_1771386089261.png";
 import adminLogoImg from "@assets/fintekpro_admin_1771386297119.png";
@@ -56,6 +57,7 @@ export function PortalLogo({ className, size = "md", showTagline = false, iconOn
   const s = sizeMap[size];
 
   const customLogoMap: Record<string, string> = {
+    main: mainLogoImg,
     agent: agentLogoImg,
     partner: partnerLogoImg,
     admin: adminLogoImg,
@@ -136,6 +138,7 @@ export function PortalSvgLogo({ className, size = "md" }: { className?: string; 
   const s = sizeMap[size];
 
   const customLogoMap: Record<string, string> = {
+    main: mainLogoImg,
     agent: agentLogoImg,
     partner: partnerLogoImg,
     admin: adminLogoImg,
