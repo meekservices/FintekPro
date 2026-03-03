@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Building2, IndianRupee, TrendingUp, TrendingDown, Activity, BarChart3, Calculator } from "lucide-react";
 
 interface MSEIEquity {
