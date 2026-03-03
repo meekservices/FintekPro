@@ -716,7 +716,7 @@ export default function AuthPage() {
                 <img
                   src={PORTAL_LOGO_MAP[portalType] || PORTAL_LOGO_MAP.main}
                   alt={portalLabel}
-                  className="h-16 object-contain mx-auto lg:mx-0"
+                  className="h-10 object-contain mx-auto lg:mx-0"
                 />
               </div>
               <h1 className="text-4xl font-bold text-foreground mb-2">
@@ -751,7 +751,7 @@ export default function AuthPage() {
                   <img
                     src={PORTAL_LOGO_MAP[portalType] || PORTAL_LOGO_MAP.main}
                     alt={portalLabel}
-                    className="h-24 object-contain"
+                    className="h-14 object-contain"
                   />
                 </div>
                 <CardTitle className="text-2xl">Sign In to {portalLabel}</CardTitle>

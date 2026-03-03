@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { webauthnService } from "../services/webauthn-service";
-import { authEventBus } from "../services/auth-event-bus";
+import { authEventBus, type RiskLevel } from "../services/auth-event-bus";
 
 const router = Router();
 
@@ -112,7 +112,7 @@ router.post("/authenticate/verify", requireAuth, async (req, res) => {
       ua,
       credentialId: result.credentialId,
       riskScore: result.risk.score,
-      riskLevel: result.risk.level as any,
+      riskLevel: result.risk.level as RiskLevel,
     });
 
     if (result.risk.stepUpRequired !== "none") {
@@ -121,7 +121,7 @@ router.post("/authenticate/verify", requireAuth, async (req, res) => {
         ip,
         stepUpType: result.risk.stepUpRequired,
         riskScore: result.risk.score,
-        riskLevel: result.risk.level as any,
+        riskLevel: result.risk.level as RiskLevel,
       });
     }
 
@@ -130,7 +130,7 @@ router.post("/authenticate/verify", requireAuth, async (req, res) => {
         userId,
         ip,
         riskScore: result.risk.score,
-        riskLevel: result.risk.level as any,
+        riskLevel: result.risk.level as RiskLevel,
         reason: `Risk factors: ${Object.keys(result.risk.factors || {}).join(", ") || "elevated score"}`,
       });
     }
