@@ -37,7 +37,9 @@ import {
   Car,
   Wifi,
   Info,
-  Star
+  Star,
+  Lock,
+  Search
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -201,6 +203,9 @@ export default function ReitInvitPage() {
   const [selectedInvit, setSelectedInvit] = useState<InvitData | null>(null);
   const [reitFilters, setReitFilters] = useState({ sector: 'all', riskLevel: 'all', aiSignal: 'all' });
   const [invitFilters, setInvitFilters] = useState({ sector: 'all', riskLevel: 'all', aiSignal: 'all' });
+  const [unlistedReitSearch, setUnlistedReitSearch] = useState('');
+  const [unlistedInvitSearch, setUnlistedInvitSearch] = useState('');
+  const [unlistedInvitIndustry, setUnlistedInvitIndustry] = useState('all');
   const { toast } = useToast();
 
   const { data: marketOverview, isLoading: overviewLoading } = useQuery({
@@ -236,8 +241,33 @@ export default function ReitInvitPage() {
     },
   });
 
+  const { data: unlistedReitsData, isLoading: unlistedReitsLoading } = useQuery({
+    queryKey: ['/api/reit-invit/unlisted-reits', unlistedReitSearch],
+    queryFn: async () => {
+      const qs = unlistedReitSearch ? `?search=${encodeURIComponent(unlistedReitSearch)}` : '';
+      const res = await fetch(`/api/reit-invit/unlisted-reits${qs}`);
+      if (!res.ok) throw new Error('Failed');
+      return res.json();
+    },
+  });
+
+  const { data: unlistedInvitsData, isLoading: unlistedInvitsLoading } = useQuery({
+    queryKey: ['/api/reit-invit/unlisted-invits', unlistedInvitSearch, unlistedInvitIndustry],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (unlistedInvitSearch) params.set('search', unlistedInvitSearch);
+      if (unlistedInvitIndustry !== 'all') params.set('industry', unlistedInvitIndustry);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const res = await fetch(`/api/reit-invit/unlisted-invits${qs}`);
+      if (!res.ok) throw new Error('Failed');
+      return res.json();
+    },
+  });
+
   const reits = reitsData?.data || [];
   const invits = invitsData?.data || [];
+  const unlistedReits: any[] = unlistedReitsData?.data || [];
+  const unlistedInvits: any[] = unlistedInvitsData?.data || [];
   const recommendations = aiRecommendations?.recommendations || [];
   const overview = marketOverview;
 
@@ -261,7 +291,7 @@ export default function ReitInvitPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 lg:w-auto lg:inline-flex">
           <TabsTrigger value="overview" data-testid="tab-overview">
             <BarChart3 className="h-4 w-4 mr-2" />
             Overview
@@ -273,6 +303,14 @@ export default function ReitInvitPage() {
           <TabsTrigger value="invits" data-testid="tab-invits">
             <Power className="h-4 w-4 mr-2" />
             InvITs
+          </TabsTrigger>
+          <TabsTrigger value="unlisted-reits" data-testid="tab-unlisted-reits">
+            <Lock className="h-4 w-4 mr-2" />
+            Unlisted REITs
+          </TabsTrigger>
+          <TabsTrigger value="unlisted-invits" data-testid="tab-unlisted-invits">
+            <Lock className="h-4 w-4 mr-2" />
+            Unlisted InvITs
           </TabsTrigger>
           <TabsTrigger value="ai" data-testid="tab-ai">
             <Brain className="h-4 w-4 mr-2" />
@@ -744,6 +782,162 @@ export default function ReitInvitPage() {
                       <ChevronRight className="h-4 w-4 ml-2" />
                     </Button>
                   </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── Unlisted REITs ─────────────────────────────── */}
+        <TabsContent value="unlisted-reits" className="space-y-6">
+          <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                <Lock className="h-5 w-5" />
+                Unlisted & Pre-IPO REITs
+              </CardTitle>
+              <CardDescription>
+                SEBI-registered REITs not yet listed on exchanges. Register your interest to be notified when they open for investment.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                className="w-full pl-9 pr-4 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="Search unlisted REITs…"
+                value={unlistedReitSearch}
+                onChange={e => setUnlistedReitSearch(e.target.value)}
+              />
+            </div>
+            <Badge variant="secondary">{unlistedReits.length} found</Badge>
+          </div>
+
+          {unlistedReitsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-40" />)}
+            </div>
+          ) : unlistedReits.length === 0 ? (
+            <Card><CardContent className="py-12 text-center text-muted-foreground">No unlisted REITs found.</CardContent></Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {unlistedReits.map((r: any) => (
+                <Card key={r.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-base leading-snug">{r.name}</CardTitle>
+                      <Badge variant="outline" className="shrink-0 text-amber-700 border-amber-300 bg-amber-50 dark:bg-amber-950/30 capitalize text-[10px]">
+                        {r.listingStage?.replace('_', ' ') || 'Unlisted'}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Building className="h-4 w-4 shrink-0" />
+                      <span>{r.industry || r.sector || 'Real Estate'}</span>
+                    </div>
+                    {r.sector && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        <span className="capitalize">{r.sector}</span>
+                      </div>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full border-amber-300 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700"
+                      onClick={() => toast({ title: 'Interest Registered', description: `We'll notify you when ${r.name} opens for investment.` })}
+                    >
+                      Register Interest
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── Unlisted InvITs ─────────────────────────────── */}
+        <TabsContent value="unlisted-invits" className="space-y-6">
+          <Card className="border-purple-200 dark:border-purple-800 bg-purple-50/40 dark:bg-purple-950/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-purple-800 dark:text-purple-300">
+                <Lock className="h-5 w-5" />
+                Unlisted & Pre-IPO InvITs
+              </CardTitle>
+              <CardDescription>
+                SEBI-registered infrastructure investment trusts not yet listed on exchanges. Covering roads, energy, telecom, logistics and more.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                className="w-full pl-9 pr-4 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="Search unlisted InvITs…"
+                value={unlistedInvitSearch}
+                onChange={e => setUnlistedInvitSearch(e.target.value)}
+              />
+            </div>
+            <Select value={unlistedInvitIndustry} onValueChange={setUnlistedInvitIndustry}>
+              <SelectTrigger className="w-52">
+                <SelectValue placeholder="All sectors" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sectors</SelectItem>
+                <SelectItem value="roads">Roads & Highways</SelectItem>
+                <SelectItem value="energy">Energy</SelectItem>
+                <SelectItem value="renewable">Renewable Energy</SelectItem>
+                <SelectItem value="telecom">Telecom & Digital</SelectItem>
+                <SelectItem value="logistics">Logistics & Warehousing</SelectItem>
+                <SelectItem value="education">Education Infrastructure</SelectItem>
+              </SelectContent>
+            </Select>
+            <Badge variant="secondary">{unlistedInvits.length} found</Badge>
+          </div>
+
+          {unlistedInvitsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-40" />)}
+            </div>
+          ) : unlistedInvits.length === 0 ? (
+            <Card><CardContent className="py-12 text-center text-muted-foreground">No unlisted InvITs found.</CardContent></Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {unlistedInvits.map((r: any) => (
+                <Card key={r.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-base leading-snug">{r.name}</CardTitle>
+                      <Badge variant="outline" className="shrink-0 text-purple-700 border-purple-300 bg-purple-50 dark:bg-purple-950/30 capitalize text-[10px]">
+                        {r.listingStage?.replace('_', ' ') || 'Unlisted'}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Power className="h-4 w-4 shrink-0" />
+                      <span>{r.industry || r.sector || 'Infrastructure'}</span>
+                    </div>
+                    {r.sector && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        <span className="capitalize">{r.sector}</span>
+                      </div>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full border-purple-300 text-purple-700 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-700"
+                      onClick={() => toast({ title: 'Interest Registered', description: `We'll notify you when ${r.name} opens for investment.` })}
+                    >
+                      Register Interest
+                    </Button>
+                  </CardContent>
                 </Card>
               ))}
             </div>

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { eq, and, sql, desc, ilike, or, gte, lte, asc } from 'drizzle-orm';
-import { reits, invits, reitInvitOrders, reitInvitHoldings, users, userProfiles } from '@shared/schema';
+import { reits, invits, reitInvitOrders, reitInvitHoldings, users, userProfiles, unlistedCompanies } from '@shared/schema';
 import { z } from 'zod';
 import { reitInvitDataService } from '../services/reit-invit-data-service';
 import { aiReitInvitService, ReitInvitAsset } from '../services/ai-reit-invit-service';
@@ -1254,6 +1254,49 @@ router.post('/data-refresh/scheduler/stop', async (req: Request, res: Response) 
   } catch (error) {
     console.error('Error stopping scheduler:', error);
     res.status(500).json({ error: 'Failed to stop scheduler' });
+  }
+});
+
+// Unlisted REITs — from unlisted_companies table
+router.get('/unlisted-reits', async (req: Request, res: Response) => {
+  try {
+    const { search } = req.query;
+    let query = db.select().from(unlistedCompanies)
+      .where(ilike(unlistedCompanies.industry, '%REIT%'))
+      .orderBy(asc(unlistedCompanies.name));
+
+    const rows = await query;
+    const filtered = search
+      ? rows.filter(r => r.name.toLowerCase().includes((search as string).toLowerCase()))
+      : rows;
+
+    res.json({ success: true, data: filtered, total: filtered.length });
+  } catch (error) {
+    console.error('Error fetching unlisted REITs:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch unlisted REITs' });
+  }
+});
+
+// Unlisted InvITs — from unlisted_companies table
+router.get('/unlisted-invits', async (req: Request, res: Response) => {
+  try {
+    const { search, industry } = req.query;
+    const rows = await db.select().from(unlistedCompanies)
+      .where(ilike(unlistedCompanies.industry, '%InvIT%'))
+      .orderBy(asc(unlistedCompanies.name));
+
+    let filtered = rows;
+    if (search) {
+      filtered = filtered.filter(r => r.name.toLowerCase().includes((search as string).toLowerCase()));
+    }
+    if (industry && industry !== 'all') {
+      filtered = filtered.filter(r => r.industry?.toLowerCase().includes((industry as string).toLowerCase()));
+    }
+
+    res.json({ success: true, data: filtered, total: filtered.length });
+  } catch (error) {
+    console.error('Error fetching unlisted InvITs:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch unlisted InvITs' });
   }
 });
 
