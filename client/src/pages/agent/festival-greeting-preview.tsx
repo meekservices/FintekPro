@@ -42,10 +42,10 @@ const festivals: FestivalTemplate[] = [
     name: 'Diwali',
     emoji: '🪔',
     category: 'major',
-    gradient: 'linear-gradient(135deg, #1a0a2e 0%, #2d1b4e 30%, #4a2c6a 60%, #6b3d8a 100%)',
+    gradient: 'linear-gradient(135deg, #2b0f54 0%, #4a1680 35%, #5c1e8c 65%, #7b2fbe 100%)',
     primaryColor: '#ffd700',
     secondaryColor: '#ff8c00',
-    message: 'May this festival of lights bring joy, prosperity, and success to you and your family',
+    message: 'Wishing you and your family a Diwali filled with prosperity, happiness, and financial success',
     decorEmojis: ['🪔', '✨', '⭐', '🎇']
   },
   {
@@ -53,10 +53,10 @@ const festivals: FestivalTemplate[] = [
     name: 'Holi',
     emoji: '🎨',
     category: 'major',
-    gradient: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 25%, #f368e0 50%, #5f27cd 75%, #0abde3 100%)',
+    gradient: 'linear-gradient(135deg, #c0392b 0%, #e74c3c 20%, #e91e8c 45%, #7b1fa2 70%, #1565c0 100%)',
     primaryColor: '#ffffff',
     secondaryColor: '#ffeb3b',
-    message: 'May your life be filled with vibrant colors of happiness, love, and prosperity',
+    message: 'May your portfolio — like Holi — be rich in color, balanced in mix, and vibrant with returns',
     decorEmojis: ['🎨', '🌈', '💜', '💛']
   },
   {
@@ -64,10 +64,10 @@ const festivals: FestivalTemplate[] = [
     name: 'Eid',
     emoji: '🌙',
     category: 'major',
-    gradient: 'linear-gradient(135deg, #004d40 0%, #00695c 50%, #00897b 100%)',
+    gradient: 'linear-gradient(135deg, #003d2e 0%, #00574b 40%, #007a68 75%, #009688 100%)',
     primaryColor: '#ffd700',
     secondaryColor: '#c0ca33',
-    message: 'Wishing you and your family a blessed Eid filled with peace, happiness, and prosperity',
+    message: 'Wishing you and your family a blessed Eid filled with peace, prosperity, and sound investments',
     decorEmojis: ['🌙', '⭐', '🕌', '✨']
   },
   {
@@ -75,10 +75,10 @@ const festivals: FestivalTemplate[] = [
     name: 'Christmas',
     emoji: '🎄',
     category: 'major',
-    gradient: 'linear-gradient(135deg, #b71c1c 0%, #c62828 50%, #1b5e20 100%)',
+    gradient: 'linear-gradient(135deg, #880e0e 0%, #b71c1c 40%, #1a3d1a 75%, #2e7d32 100%)',
     primaryColor: '#ffd700',
     secondaryColor: '#ffffff',
-    message: 'Wishing you a Merry Christmas filled with love, joy, and wonderful blessings',
+    message: 'Wishing you a season of joy, peace, and the gift of lasting financial wellbeing',
     decorEmojis: ['🎄', '🎅', '⭐', '🎁']
   },
   {
@@ -86,10 +86,10 @@ const festivals: FestivalTemplate[] = [
     name: 'Ganesh Chaturthi',
     emoji: '🐘',
     category: 'major',
-    gradient: 'linear-gradient(135deg, #ff5722 0%, #ff7043 50%, #ffab40 100%)',
+    gradient: 'linear-gradient(135deg, #bf360c 0%, #e64a19 40%, #ff7043 70%, #ffab40 100%)',
     primaryColor: '#ffffff',
     secondaryColor: '#ffeb3b',
-    message: 'May Lord Ganesha remove all obstacles and shower you with wisdom and prosperity',
+    message: 'May Lord Ganesha remove every obstacle on your path to wealth, wisdom, and wellbeing',
     decorEmojis: ['🐘', '🪷', '🙏', '✨']
   },
   {
@@ -97,10 +97,10 @@ const festivals: FestivalTemplate[] = [
     name: 'Durga Puja',
     emoji: '🪷',
     category: 'major',
-    gradient: 'linear-gradient(135deg, #d32f2f 0%, #f44336 30%, #ffb300 70%, #ffc107 100%)',
+    gradient: 'linear-gradient(135deg, #b71c1c 0%, #c62828 35%, #e65100 65%, #ff8f00 100%)',
     primaryColor: '#ffffff',
     secondaryColor: '#ffd700',
-    message: 'May Goddess Durga bless you with strength, courage, and happiness',
+    message: 'May Goddess Durga bless you with the strength to build lasting wealth and the courage to invest wisely',
     decorEmojis: ['🪷', '🙏', '✨', '🔔']
   },
   {
@@ -108,10 +108,10 @@ const festivals: FestivalTemplate[] = [
     name: 'Onam',
     emoji: '🌸',
     category: 'major',
-    gradient: 'linear-gradient(135deg, #f57c00 0%, #ff9800 50%, #ffc107 100%)',
+    gradient: 'linear-gradient(135deg, #e65100 0%, #f57c00 45%, #ff9800 75%, #ffc107 100%)',
     primaryColor: '#ffffff',
     secondaryColor: '#4caf50',
-    message: 'Wishing you a harvest of happiness, health, and prosperity this Onam',
+    message: 'May this Onam harvest a life of health, happiness, and flourishing financial growth',
     decorEmojis: ['🌸', '🌺', '🛶', '🌾']
   },
   {
@@ -119,10 +119,10 @@ const festivals: FestivalTemplate[] = [
     name: 'Pongal',
     emoji: '🌾',
     category: 'major',
-    gradient: 'linear-gradient(135deg, #e65100 0%, #ef6c00 50%, #ff9800 100%)',
+    gradient: 'linear-gradient(135deg, #bf360c 0%, #d84315 45%, #f4511e 75%, #ff7043 100%)',
     primaryColor: '#ffffff',
     secondaryColor: '#ffeb3b',
-    message: 'May this Pongal bring abundant harvest of happiness and prosperity to you',
+    message: 'May this Pongal bring an abundant harvest of health, happiness, and growing wealth',
     decorEmojis: ['🌾', '☀️', '🐂', '🍚']
   },
   {
@@ -130,10 +130,10 @@ const festivals: FestivalTemplate[] = [
     name: 'New Year',
     emoji: '🎆',
     category: 'major',
-    gradient: 'linear-gradient(135deg, #0d47a1 0%, #1565c0 30%, #1976d2 60%, #1e88e5 100%)',
+    gradient: 'linear-gradient(135deg, #0a1172 0%, #1a237e 35%, #283593 65%, #3949ab 100%)',
     primaryColor: '#ffd700',
     secondaryColor: '#ffffff',
-    message: 'Wishing you a year filled with new hopes, new joys, and new beginnings',
+    message: 'May the new year bring compounding growth in your wealth, health, and happiness',
     decorEmojis: ['🎆', '🎉', '✨', '🥂']
   },
   // Regional Festivals
@@ -145,7 +145,7 @@ const festivals: FestivalTemplate[] = [
     gradient: 'linear-gradient(135deg, #2e7d32 0%, #43a047 50%, #66bb6a 100%)',
     primaryColor: '#ffd700',
     secondaryColor: '#ffffff',
-    message: 'May this Ugadi usher in new hopes, opportunities, and prosperity',
+    message: 'May this Ugadi open a new chapter of opportunity, growth, and financial abundance',
     decorEmojis: ['🌿', '🥭', '🌺', '✨']
   },
   {
@@ -153,10 +153,10 @@ const festivals: FestivalTemplate[] = [
     name: 'Vishu',
     emoji: '🌻',
     category: 'regional',
-    gradient: 'linear-gradient(135deg, #f9a825 0%, #fbc02d 50%, #ffeb3b 100%)',
+    gradient: 'linear-gradient(135deg, #e65100 0%, #f9a825 50%, #ffeb3b 100%)',
     primaryColor: '#1a237e',
     secondaryColor: '#ffffff',
-    message: 'Wishing you a Vishu filled with the golden glow of happiness and prosperity',
+    message: 'May Vishu bring you the golden fortune of good health, happiness, and a thriving portfolio',
     decorEmojis: ['🌻', '🪔', '🌾', '✨']
   },
   {
@@ -164,10 +164,10 @@ const festivals: FestivalTemplate[] = [
     name: 'Bihu',
     emoji: '🎋',
     category: 'regional',
-    gradient: 'linear-gradient(135deg, #f57f17 0%, #f9a825 50%, #4caf50 100%)',
+    gradient: 'linear-gradient(135deg, #1b5e20 0%, #388e3c 40%, #f9a825 100%)',
     primaryColor: '#ffffff',
     secondaryColor: '#ffeb3b',
-    message: 'Wishing you joy, prosperity, and new beginnings this Bihu',
+    message: 'May Bihu bring you the joy of new beginnings and a harvest of financial prosperity',
     decorEmojis: ['🎋', '🌾', '💃', '🪘']
   },
   {
@@ -175,10 +175,10 @@ const festivals: FestivalTemplate[] = [
     name: 'Baisakhi',
     emoji: '🌾',
     category: 'regional',
-    gradient: 'linear-gradient(135deg, #ff6f00 0%, #ff8f00 50%, #ffa000 100%)',
+    gradient: 'linear-gradient(135deg, #e65100 0%, #ff8f00 50%, #ffa000 100%)',
     primaryColor: '#ffffff',
     secondaryColor: '#4caf50',
-    message: 'May the spirit of Baisakhi bring you abundance, happiness, and prosperity',
+    message: 'May the spirit of Baisakhi bring an abundant harvest of joy, good health, and growing wealth',
     decorEmojis: ['🌾', '💫', '🙏', '☀️']
   },
   {
@@ -186,10 +186,10 @@ const festivals: FestivalTemplate[] = [
     name: 'Lohri',
     emoji: '🔥',
     category: 'regional',
-    gradient: 'linear-gradient(135deg, #bf360c 0%, #e64a19 50%, #ff5722 100%)',
+    gradient: 'linear-gradient(135deg, #7f1800 0%, #bf360c 40%, #e64a19 75%, #ff7043 100%)',
     primaryColor: '#ffd700',
     secondaryColor: '#ffffff',
-    message: 'May the warmth of Lohri bonfire bring love and happiness to your life',
+    message: 'May the warmth of the Lohri bonfire kindle lasting prosperity and happiness in your life',
     decorEmojis: ['🔥', '🥜', '🎉', '✨']
   },
   {
@@ -197,10 +197,10 @@ const festivals: FestivalTemplate[] = [
     name: 'Makar Sankranti',
     emoji: '🪁',
     category: 'regional',
-    gradient: 'linear-gradient(135deg, #0288d1 0%, #039be5 50%, #4fc3f7 100%)',
+    gradient: 'linear-gradient(135deg, #01579b 0%, #0288d1 50%, #4fc3f7 100%)',
     primaryColor: '#ffeb3b',
     secondaryColor: '#ffffff',
-    message: 'May your life soar high with success like the colorful kites in the sky',
+    message: 'May your financial goals soar as high and free as the kites this Makar Sankranti',
     decorEmojis: ['🪁', '☀️', '🌾', '✨']
   },
   {
@@ -208,10 +208,10 @@ const festivals: FestivalTemplate[] = [
     name: 'Raksha Bandhan',
     emoji: '🎀',
     category: 'regional',
-    gradient: 'linear-gradient(135deg, #ec407a 0%, #f48fb1 50%, #f8bbd9 100%)',
+    gradient: 'linear-gradient(135deg, #880e4f 0%, #c2185b 45%, #e91e63 75%, #f48fb1 100%)',
     primaryColor: '#ffffff',
     secondaryColor: '#ffd700',
-    message: 'Celebrating the beautiful bond of love, care, and protection',
+    message: 'Celebrating the timeless bond of trust, care, and the promise of a secure financial future',
     decorEmojis: ['🎀', '💝', '🤝', '✨']
   },
   {
@@ -219,10 +219,10 @@ const festivals: FestivalTemplate[] = [
     name: 'Navratri',
     emoji: '🙏',
     category: 'regional',
-    gradient: 'linear-gradient(135deg, #c62828 0%, #ef5350 30%, #ff8a65 60%, #ffcc80 100%)',
+    gradient: 'linear-gradient(135deg, #7b1fa2 0%, #c62828 35%, #ff8a65 70%, #ffcc80 100%)',
     primaryColor: '#ffffff',
     secondaryColor: '#ffd700',
-    message: 'May the divine blessings of Goddess Durga bring you strength and prosperity',
+    message: 'May the divine energy of Navratri fill your life with strength, success, and lasting prosperity',
     decorEmojis: ['🙏', '💃', '🔔', '✨']
   },
   {
@@ -230,10 +230,10 @@ const festivals: FestivalTemplate[] = [
     name: 'Maha Shivaratri',
     emoji: '🔱',
     category: 'major',
-    gradient: 'linear-gradient(135deg, #1a237e 0%, #283593 30%, #3949ab 60%, #5c6bc0 100%)',
+    gradient: 'linear-gradient(135deg, #0d1b6e 0%, #1a237e 35%, #3949ab 65%, #5c6bc0 100%)',
     primaryColor: '#e0e0e0',
     secondaryColor: '#b0bec5',
-    message: 'May Lord Shiva bless you with peace, prosperity, and spiritual awakening',
+    message: 'May Lord Shiva bless you with inner peace, clarity of thought, and the wisdom to build lasting wealth',
     decorEmojis: ['🔱', '🙏', '📿', '✨']
   },
   {
@@ -483,6 +483,15 @@ export default function FestivalGreetingPreview() {
     }
   }, [marketingProfile]);
 
+  // Load Playfair Display for premium typography
+  useEffect(() => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap';
+    document.head.appendChild(link);
+    return () => { document.head.removeChild(link); };
+  }, []);
+
   const handleSaveProfile = () => {
     saveProfileMutation.mutate(editForm);
   };
@@ -490,22 +499,37 @@ export default function FestivalGreetingPreview() {
   const captureGreetingCanvas = async () => {
     const el = templateRef.current!;
     const html2canvas = (await import('html2canvas')).default;
+    // Capture at natural size then scale to 1200×1200
+    const SIZE = 1200;
+    const naturalSize = el.offsetWidth;
+    const scale = Math.ceil(SIZE / naturalSize);
     return html2canvas(el, {
-      scale: 3,
+      scale,
       useCORS: true,
       allowTaint: true,
       backgroundColor: null,
       logging: false,
       onclone: (_doc, clonedEl) => {
-        // html2canvas does not support backdrop-filter — replace with opaque fallback
         clonedEl.querySelectorAll<HTMLElement>('*').forEach((node) => {
           const s = node.style;
+          // html2canvas does not support backdrop-filter
           if (s.backdropFilter || s.webkitBackdropFilter) {
             s.backdropFilter = 'none';
             s.webkitBackdropFilter = 'none';
-            if (!s.backgroundColor || s.backgroundColor === 'rgba(0, 0, 0, 0)') {
-              s.backgroundColor = 'rgba(0,0,0,0.60)';
-            }
+          }
+          // html2canvas does not support 8-digit hex colors (#rrggbbaa)
+          // Convert border colors like #ffd70045 → rgba equivalent
+          if (s.borderColor && s.borderColor.match(/^#[0-9a-f]{8}$/i)) {
+            const hex = s.borderColor;
+            const r = parseInt(hex.slice(1,3), 16);
+            const g = parseInt(hex.slice(3,5), 16);
+            const b = parseInt(hex.slice(5,7), 16);
+            const a = (parseInt(hex.slice(7,9), 16) / 255).toFixed(2);
+            s.borderColor = `rgba(${r},${g},${b},${a})`;
+          }
+          // Replace semi-transparent backgrounds with opaque fallback
+          if (s.backgroundColor === 'rgba(0, 0, 0, 0)' || s.backgroundColor === 'transparent') {
+            s.backgroundColor = 'rgba(0,0,0,0.55)';
           }
         });
       },
@@ -1445,18 +1469,14 @@ export default function FestivalGreetingPreview() {
                   }} />
 
                 {/* ── Layer 6: Corner ornaments ── */}
-                {/* Top-left corner bracket */}
-                <div className="absolute top-4 left-4 w-8 h-8"
-                  style={{ borderTop: `2px solid ${selectedFestival.primaryColor}70`, borderLeft: `2px solid ${selectedFestival.primaryColor}70` }} />
-                {/* Top-right corner bracket */}
-                <div className="absolute top-4 right-4 w-8 h-8"
-                  style={{ borderTop: `2px solid ${selectedFestival.primaryColor}70`, borderRight: `2px solid ${selectedFestival.primaryColor}70` }} />
-                {/* Bottom-left corner bracket */}
-                <div className="absolute bottom-4 left-4 w-8 h-8"
-                  style={{ borderBottom: `2px solid ${selectedFestival.primaryColor}70`, borderLeft: `2px solid ${selectedFestival.primaryColor}70` }} />
-                {/* Bottom-right corner bracket */}
-                <div className="absolute bottom-4 right-4 w-8 h-8"
-                  style={{ borderBottom: `2px solid ${selectedFestival.primaryColor}70`, borderRight: `2px solid ${selectedFestival.primaryColor}70` }} />
+                <div className="absolute top-4 left-4 w-10 h-10"
+                  style={{ borderTop: `2px solid ${selectedFestival.primaryColor}90`, borderLeft: `2px solid ${selectedFestival.primaryColor}90` }} />
+                <div className="absolute top-4 right-4 w-10 h-10"
+                  style={{ borderTop: `2px solid ${selectedFestival.primaryColor}90`, borderRight: `2px solid ${selectedFestival.primaryColor}90` }} />
+                <div className="absolute bottom-4 left-4 w-10 h-10"
+                  style={{ borderBottom: `2px solid ${selectedFestival.primaryColor}90`, borderLeft: `2px solid ${selectedFestival.primaryColor}90` }} />
+                <div className="absolute bottom-4 right-4 w-10 h-10"
+                  style={{ borderBottom: `2px solid ${selectedFestival.primaryColor}90`, borderRight: `2px solid ${selectedFestival.primaryColor}90` }} />
 
                 {/* ── Layer 7: Floating emoji decorations ── */}
                 {selectedFestival.decorEmojis.map((emoji, idx) => (
@@ -1502,11 +1522,11 @@ export default function FestivalGreetingPreview() {
                     <h1
                       className="font-extrabold leading-none mb-3"
                       style={{
-                        fontSize: selectedFestival.name.length > 10 ? '2.4rem' : selectedFestival.name.length > 7 ? '3rem' : '3.6rem',
+                        fontSize: selectedFestival.name.length > 10 ? '2.2rem' : selectedFestival.name.length > 7 ? '2.8rem' : '3.4rem',
                         color: selectedFestival.primaryColor,
-                        fontFamily: 'Georgia, "Times New Roman", serif',
-                        letterSpacing: '0.04em',
-                        filter: `drop-shadow(0 2px 12px ${selectedFestival.primaryColor}90) drop-shadow(0 0 30px ${selectedFestival.primaryColor}50)`,
+                        fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif',
+                        letterSpacing: '0.06em',
+                        filter: `drop-shadow(0 2px 14px ${selectedFestival.primaryColor}a0) drop-shadow(0 0 32px ${selectedFestival.primaryColor}55)`,
                         textTransform: 'uppercase',
                       }}
                     >
@@ -1533,20 +1553,24 @@ export default function FestivalGreetingPreview() {
 
                   {/* Agent Info Card — absolutely pinned to bottom, always fully visible */}
                   <div
-                    className="absolute inset-x-4 bottom-4 rounded-xl p-3 flex items-center gap-3"
+                    className="absolute inset-x-4 bottom-4 rounded-2xl p-3 flex items-center gap-3"
                     style={{
-                      background: 'rgba(0,0,0,0.55)',
-                      backdropFilter: 'blur(12px)',
-                      boxShadow: '0 4px 24px rgba(0,0,0,0.40)',
+                      background: 'rgba(0,0,0,0.48)',
+                      backdropFilter: 'blur(16px)',
+                      border: `1px solid ${selectedFestival.primaryColor}45`,
+                      boxShadow: `0 2px 16px rgba(0,0,0,0.35)`,
                     }}
                   >
-                    {/* Avatar circle */}
+                    {/* Avatar circle — premium gold ring */}
                     <div
-                      className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-base font-bold"
+                      className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-base font-bold"
                       style={{
-                        background: `linear-gradient(135deg, ${selectedFestival.primaryColor}50, ${selectedFestival.secondaryColor}40)`,
-                        border: `1.5px solid ${selectedFestival.primaryColor}60`,
-                        color: selectedFestival.primaryColor,
+                        background: `linear-gradient(135deg, ${selectedFestival.primaryColor}70, ${selectedFestival.secondaryColor}55)`,
+                        border: `2px solid ${selectedFestival.primaryColor}80`,
+                        color: '#fff',
+                        fontFamily: '"Playfair Display", Georgia, serif',
+                        fontSize: '1rem',
+                        textShadow: `0 1px 4px rgba(0,0,0,0.5)`,
                       }}
                     >
                       {(agentInfo.name || 'Y').charAt(0).toUpperCase()}
