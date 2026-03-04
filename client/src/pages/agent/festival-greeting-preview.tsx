@@ -1008,45 +1008,96 @@ export default function FestivalGreetingPreview() {
                   background: selectedFestival.gradient,
                 }}
               >
-                {/* Soft radial overlay for depth */}
-                <div
-                  className="absolute inset-0"
+                {/* ── Layer 1: Bokeh light spheres ── */}
+                <div className="absolute inset-0 overflow-hidden">
+                  {/* Large diffused sphere — top-left */}
+                  <div className="absolute rounded-full"
+                    style={{
+                      width: '260px', height: '260px',
+                      top: '-60px', left: '-60px',
+                      background: `radial-gradient(circle, ${selectedFestival.primaryColor}28 0%, transparent 70%)`,
+                      filter: 'blur(30px)',
+                    }} />
+                  {/* Medium sphere — top-right */}
+                  <div className="absolute rounded-full"
+                    style={{
+                      width: '200px', height: '200px',
+                      top: '-40px', right: '-30px',
+                      background: `radial-gradient(circle, ${selectedFestival.secondaryColor}22 0%, transparent 70%)`,
+                      filter: 'blur(25px)',
+                    }} />
+                  {/* Small hot-spot — center */}
+                  <div className="absolute rounded-full"
+                    style={{
+                      width: '160px', height: '160px',
+                      top: '28%', left: '50%',
+                      transform: 'translateX(-50%)',
+                      background: `radial-gradient(circle, rgba(255,255,255,0.14) 0%, transparent 70%)`,
+                      filter: 'blur(18px)',
+                    }} />
+                  {/* Accent sphere — bottom-right */}
+                  <div className="absolute rounded-full"
+                    style={{
+                      width: '180px', height: '180px',
+                      bottom: '-40px', right: '-40px',
+                      background: `radial-gradient(circle, ${selectedFestival.primaryColor}20 0%, transparent 70%)`,
+                      filter: 'blur(28px)',
+                    }} />
+                </div>
+
+                {/* ── Layer 2: Subtle dot-grid texture ── */}
+                <div className="absolute inset-0"
                   style={{
-                    background: `radial-gradient(ellipse at 50% 30%, rgba(255,255,255,0.12) 0%, transparent 65%)`,
-                  }}
-                />
+                    backgroundImage: `radial-gradient(circle, ${selectedFestival.primaryColor}22 1px, transparent 1px)`,
+                    backgroundSize: '28px 28px',
+                    opacity: 0.6,
+                  }} />
 
-                {/* Bottom dark fade to anchor the agent card */}
-                <div
-                  className="absolute inset-x-0 bottom-0 h-2/5"
+                {/* ── Layer 3: Diagonal gloss shimmer (top-left highlight) ── */}
+                <div className="absolute inset-0"
                   style={{
-                    background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)',
-                  }}
-                />
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 40%, transparent 60%)',
+                  }} />
 
-                {/* Decorative large ring — top right */}
-                <div
-                  className="absolute -top-12 -right-12 w-52 h-52 rounded-full opacity-15"
-                  style={{ border: `3px solid ${selectedFestival.primaryColor}` }}
-                />
-                {/* Decorative small ring — bottom left */}
-                <div
-                  className="absolute -bottom-8 -left-8 w-36 h-36 rounded-full opacity-10"
-                  style={{ border: `2px solid ${selectedFestival.secondaryColor}` }}
-                />
+                {/* ── Layer 4: Vignette — dark edges, bright centre ── */}
+                <div className="absolute inset-0"
+                  style={{
+                    background: 'radial-gradient(ellipse at 50% 45%, transparent 40%, rgba(0,0,0,0.45) 100%)',
+                  }} />
 
-                {/* Floating emoji decorations */}
+                {/* ── Layer 5: Bottom scrim for agent card legibility ── */}
+                <div className="absolute inset-x-0 bottom-0 h-[45%]"
+                  style={{
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.20) 60%, transparent 100%)',
+                  }} />
+
+                {/* ── Layer 6: Corner ornaments ── */}
+                {/* Top-left corner bracket */}
+                <div className="absolute top-4 left-4 w-8 h-8"
+                  style={{ borderTop: `2px solid ${selectedFestival.primaryColor}70`, borderLeft: `2px solid ${selectedFestival.primaryColor}70` }} />
+                {/* Top-right corner bracket */}
+                <div className="absolute top-4 right-4 w-8 h-8"
+                  style={{ borderTop: `2px solid ${selectedFestival.primaryColor}70`, borderRight: `2px solid ${selectedFestival.primaryColor}70` }} />
+                {/* Bottom-left corner bracket */}
+                <div className="absolute bottom-4 left-4 w-8 h-8"
+                  style={{ borderBottom: `2px solid ${selectedFestival.primaryColor}70`, borderLeft: `2px solid ${selectedFestival.primaryColor}70` }} />
+                {/* Bottom-right corner bracket */}
+                <div className="absolute bottom-4 right-4 w-8 h-8"
+                  style={{ borderBottom: `2px solid ${selectedFestival.primaryColor}70`, borderRight: `2px solid ${selectedFestival.primaryColor}70` }} />
+
+                {/* ── Layer 7: Floating emoji decorations ── */}
                 {selectedFestival.decorEmojis.map((emoji, idx) => (
                   <div
                     key={idx}
                     className="absolute select-none animate-pulse"
                     style={{
-                      top: idx === 0 ? '8%' : idx === 1 ? '22%' : idx === 2 ? '55%' : '72%',
-                      left: idx % 2 === 0 ? '4%' : '88%',
-                      fontSize: idx === 0 ? '2.2rem' : '1.6rem',
-                      animationDelay: `${idx * 0.4}s`,
-                      animationDuration: '3s',
-                      filter: `drop-shadow(0 0 6px ${selectedFestival.primaryColor}80)`,
+                      top: idx === 0 ? '7%' : idx === 1 ? '23%' : idx === 2 ? '52%' : '69%',
+                      left: idx % 2 === 0 ? '5%' : '87%',
+                      fontSize: idx === 0 ? '2rem' : '1.5rem',
+                      animationDelay: `${idx * 0.5}s`,
+                      animationDuration: '3.5s',
+                      filter: `drop-shadow(0 0 8px ${selectedFestival.primaryColor}90)`,
+                      opacity: 0.85,
                     }}
                   >
                     {emoji}
