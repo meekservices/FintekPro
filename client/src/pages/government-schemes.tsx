@@ -168,17 +168,16 @@ export default function GovernmentSchemes() {
     enabled: isAuthenticated && !!userId,
   });
 
-  const toArr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
-
   const { data: epfData, isLoading: loadingEpf } = useQuery<EpfHolding[], Error, EpfHolding[]>({
     queryKey: ['/api/government-schemes/epf', userId],
     queryFn: async () => {
       const response = await fetch(`/api/government-schemes/epf`);
       if (!response.ok) throw new Error('Failed to fetch EPF data');
       const result = await response.json();
-      return toArr<EpfHolding>(result.data ?? result);
+      const raw = result?.data ?? result;
+      return Array.isArray(raw) ? raw : [];
     },
-    select: toArr<EpfHolding>,
+    select: (data) => Array.isArray(data) ? data : [],
     enabled: isAuthenticated && !!userId && activeTab === 'epf',
   });
 
@@ -188,9 +187,10 @@ export default function GovernmentSchemes() {
       const response = await fetch(`/api/government-schemes/nps`);
       if (!response.ok) throw new Error('Failed to fetch NPS data');
       const result = await response.json();
-      return toArr<NpsAccount>(result.data ?? result);
+      const raw = result?.data ?? result;
+      return Array.isArray(raw) ? raw : [];
     },
-    select: toArr<NpsAccount>,
+    select: (data) => Array.isArray(data) ? data : [],
     enabled: isAuthenticated && !!userId && activeTab === 'nps',
   });
 
@@ -200,9 +200,10 @@ export default function GovernmentSchemes() {
       const response = await fetch(`/api/government-schemes/ppf`);
       if (!response.ok) throw new Error('Failed to fetch PPF data');
       const result = await response.json();
-      return toArr<PpfHolding>(result.data ?? result);
+      const raw = result?.data ?? result;
+      return Array.isArray(raw) ? raw : [];
     },
-    select: toArr<PpfHolding>,
+    select: (data) => Array.isArray(data) ? data : [],
     enabled: isAuthenticated && !!userId && activeTab === 'ppf',
   });
 
@@ -212,9 +213,10 @@ export default function GovernmentSchemes() {
       const response = await fetch(`/api/government-schemes/apy`);
       if (!response.ok) throw new Error('Failed to fetch APY data');
       const result = await response.json();
-      return toArr<ApyAccount>(result.data ?? result);
+      const raw = result?.data ?? result;
+      return Array.isArray(raw) ? raw : [];
     },
-    select: toArr<ApyAccount>,
+    select: (data) => Array.isArray(data) ? data : [],
     enabled: isAuthenticated && !!userId && activeTab === 'apy',
   });
 
@@ -224,9 +226,10 @@ export default function GovernmentSchemes() {
       const response = await fetch(`/api/government-schemes/insurance`);
       if (!response.ok) throw new Error('Failed to fetch insurance data');
       const result = await response.json();
-      return toArr<InsurancePolicy>(result.data ?? result);
+      const raw = result?.data ?? result;
+      return Array.isArray(raw) ? raw : [];
     },
-    select: toArr<InsurancePolicy>,
+    select: (data) => Array.isArray(data) ? data : [],
     enabled: isAuthenticated && !!userId && activeTab === 'insurance',
   });
 
