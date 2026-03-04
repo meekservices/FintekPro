@@ -4183,7 +4183,7 @@ export default function AgentProspectWizard() {
                       </div>
                     )}
                     {showProductDropdown && productSearchResults.length > 0 && (
-                      <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
+                      <div className="absolute z-50 left-0 mt-1 bg-background border rounded-md shadow-lg max-h-72 overflow-auto" style={{ minWidth: 'max(100%, 480px)' }}>
                         {productSearchResults.map((instrument, idx) => (
                           <button
                             key={instrument.id || idx}
@@ -4191,7 +4191,7 @@ export default function AgentProspectWizard() {
                             onClick={() => selectProduct(instrument)}
                             type="button"
                           >
-                            <div className="font-medium truncate">{instrument.name || instrument.shortName}</div>
+                            <div className="font-medium whitespace-normal leading-snug">{instrument.name || instrument.shortName}</div>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               {instrument.isin && <span className="font-mono">{instrument.isin}</span>}
                               {instrument.lastPrice && <span>₹{parseFloat(instrument.lastPrice).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>}
@@ -4202,6 +4202,9 @@ export default function AgentProspectWizard() {
                       </div>
                     )}
                   </div>
+                  {newHolding.productName && newHolding.productName.length > 30 && (
+                    <p className="text-xs text-foreground/70 leading-snug break-words">{newHolding.productName}</p>
+                  )}
                   {newHolding.isin && (
                     <p className="text-xs text-muted-foreground">ISIN: {newHolding.isin}</p>
                   )}
