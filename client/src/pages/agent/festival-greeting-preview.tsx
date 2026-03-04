@@ -500,73 +500,48 @@ export default function FestivalGreetingPreview() {
     const el = templateRef.current!;
     const html2canvas = (await import('html2canvas')).default;
 
-    // ── Off-screen 1200×1200 export canvas ──────────────────────────────────
-    // Save current inline styles
-    const saved = {
-      width: el.style.width,
-      height: el.style.height,
-      maxWidth: el.style.maxWidth,
-      position: el.style.position,
-      left: el.style.left,
-      top: el.style.top,
-      zIndex: el.style.zIndex,
-      borderRadius: el.style.borderRadius,
-    };
+    // Scale up to 1200px output — content stays at natural rendered size, scale multiplies it
+    const TARGET = 1200;
+    const naturalW = el.offsetWidth;
+    const scale = Math.max(1, Math.round(TARGET / naturalW));
 
-    // Move element off-screen at 1200×1200 so capture is viewport-independent
-    Object.assign(el.style, {
-      width: '1200px',
-      height: '1200px',
-      maxWidth: 'none',
-      position: 'fixed',
-      left: '-2000px',
-      top: '0px',
-      zIndex: '-1',
-      borderRadius: '0px',   // html2canvas clips to element bounds anyway
+    const rect = el.getBoundingClientRect();
+
+    return html2canvas(el, {
+      scale,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: null,
+      logging: false,
+      x: rect.left + window.scrollX,
+      y: rect.top + window.scrollY,
+      width: naturalW,
+      height: el.offsetHeight,
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight,
+      onclone: (_doc, clonedEl) => {
+        clonedEl.querySelectorAll<HTMLElement>('*').forEach((node) => {
+          const s = node.style;
+          // Remove CSS properties html2canvas cannot render
+          s.backdropFilter = 'none';
+          (s as any).webkitBackdropFilter = 'none';
+          // Freeze animations — capture is a still frame
+          s.animation = 'none';
+          s.animationDelay = '0s';
+          s.transition = 'none';
+          s.transform = 'none';
+          // Convert 8-digit hex border colors (#rrggbbaa) → rgba()
+          if (s.borderColor && /^#[0-9a-f]{8}$/i.test(s.borderColor)) {
+            const h = s.borderColor;
+            const r2 = parseInt(h.slice(1, 3), 16);
+            const g2 = parseInt(h.slice(3, 5), 16);
+            const b2 = parseInt(h.slice(5, 7), 16);
+            const a2 = (parseInt(h.slice(7, 9), 16) / 255).toFixed(2);
+            s.borderColor = `rgba(${r2},${g2},${b2},${a2})`;
+          }
+        });
+      },
     });
-
-    // Two animation frames to let layout settle
-    await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-    let canvas: HTMLCanvasElement;
-    try {
-      canvas = await html2canvas(el, {
-        scale: 1,          // 1200px × scale 1 = exactly 1200×1200
-        width: 1200,
-        height: 1200,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: null,
-        logging: false,
-        onclone: (_doc, clonedEl) => {
-          clonedEl.querySelectorAll<HTMLElement>('*').forEach((node) => {
-            const s = node.style;
-            // Remove unsupported CSS
-            s.backdropFilter = 'none';
-            (s as any).webkitBackdropFilter = 'none';
-            // Kill animations so capture is a still frame
-            s.animation = 'none';
-            s.animationDelay = '0s';
-            s.transition = 'none';
-            s.transform = 'none';
-            // Convert 8-digit hex border colors (#rrggbbaa) to rgba()
-            if (s.borderColor && /^#[0-9a-f]{8}$/i.test(s.borderColor)) {
-              const h = s.borderColor;
-              const r2 = parseInt(h.slice(1,3), 16);
-              const g2 = parseInt(h.slice(3,5), 16);
-              const b2 = parseInt(h.slice(5,7), 16);
-              const a2 = (parseInt(h.slice(7,9), 16) / 255).toFixed(2);
-              s.borderColor = `rgba(${r2},${g2},${b2},${a2})`;
-            }
-          });
-        },
-      });
-    } finally {
-      // Always restore original styles even if capture throws
-      Object.assign(el.style, saved);
-    }
-
-    return canvas;
   };
 
   const handleDownload = async () => {
@@ -1536,7 +1511,7 @@ export default function FestivalGreetingPreview() {
                   {/* Festival text block — centered in the upper portion, leaving room for agent card */}
                   <div
                     className="absolute inset-x-0 top-0 flex flex-col items-center justify-center text-center px-6"
-                    style={{ bottom: 'max(110px, 14%)' }}
+                    style={{ bottom: '110px' }}
                   >
                     {/* HAPPY label */}
                     <div
@@ -1588,9 +1563,9 @@ export default function FestivalGreetingPreview() {
                   <div
                     className="absolute rounded-2xl p-3 flex items-center gap-3"
                     style={{
-                      bottom: 'max(16px, 4%)',
-                      left: 'max(16px, 5%)',
-                      right: 'max(16px, 5%)',
+                      bottom: '16px',
+                      left: '16px',
+                      right: '16px',
                       background: 'rgba(0,0,0,0.48)',
                       backdropFilter: 'blur(16px)',
                       border: `1px solid ${selectedFestival.primaryColor}45`,
