@@ -1000,7 +1000,7 @@ export default function FestivalGreetingPreview() {
             <CardContent>
               <div
                 ref={templateRef}
-                className="relative overflow-hidden rounded-xl shadow-2xl mx-auto"
+                className="relative overflow-hidden rounded-2xl shadow-2xl mx-auto"
                 style={{
                   width: '100%',
                   maxWidth: '500px',
@@ -1008,112 +1008,175 @@ export default function FestivalGreetingPreview() {
                   background: selectedFestival.gradient,
                 }}
               >
-                {/* Decorative Elements */}
-                <div className="absolute inset-0">
-                  {selectedFestival.decorEmojis.map((emoji, idx) => (
-                    <div
-                      key={idx}
-                      className="absolute animate-pulse"
-                      style={{
-                        top: `${10 + (idx * 20)}%`,
-                        left: idx % 2 === 0 ? '5%' : '85%',
-                        fontSize: idx === 0 ? '2.5rem' : '2rem',
-                        animationDelay: `${idx * 0.3}s`,
-                      }}
-                    >
-                      {emoji}
-                    </div>
-                  ))}
-                  
-                  {/* Decorative circle pattern */}
-                  <div 
-                    className="absolute bottom-24 left-1/2 transform -translate-x-1/2 opacity-20"
-                    style={{ borderColor: selectedFestival.primaryColor }}
+                {/* Soft radial overlay for depth */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: `radial-gradient(ellipse at 50% 30%, rgba(255,255,255,0.12) 0%, transparent 65%)`,
+                  }}
+                />
+
+                {/* Bottom dark fade to anchor the agent card */}
+                <div
+                  className="absolute inset-x-0 bottom-0 h-2/5"
+                  style={{
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)',
+                  }}
+                />
+
+                {/* Decorative large ring — top right */}
+                <div
+                  className="absolute -top-12 -right-12 w-52 h-52 rounded-full opacity-15"
+                  style={{ border: `3px solid ${selectedFestival.primaryColor}` }}
+                />
+                {/* Decorative small ring — bottom left */}
+                <div
+                  className="absolute -bottom-8 -left-8 w-36 h-36 rounded-full opacity-10"
+                  style={{ border: `2px solid ${selectedFestival.secondaryColor}` }}
+                />
+
+                {/* Floating emoji decorations */}
+                {selectedFestival.decorEmojis.map((emoji, idx) => (
+                  <div
+                    key={idx}
+                    className="absolute select-none animate-pulse"
+                    style={{
+                      top: idx === 0 ? '8%' : idx === 1 ? '22%' : idx === 2 ? '55%' : '72%',
+                      left: idx % 2 === 0 ? '4%' : '88%',
+                      fontSize: idx === 0 ? '2.2rem' : '1.6rem',
+                      animationDelay: `${idx * 0.4}s`,
+                      animationDuration: '3s',
+                      filter: `drop-shadow(0 0 6px ${selectedFestival.primaryColor}80)`,
+                    }}
                   >
-                    <div 
-                      className="w-48 h-48 rounded-full border-4"
-                      style={{ borderColor: selectedFestival.primaryColor }}
-                    ></div>
+                    {emoji}
                   </div>
-                </div>
+                ))}
 
                 {/* Main Content */}
-                <div className="relative z-10 h-full flex flex-col items-center justify-center p-6 text-center">
-                  {/* Festival Name */}
-                  <div className="mb-2">
-                    <span 
-                      className="text-lg font-medium tracking-widest uppercase"
-                      style={{ color: selectedFestival.primaryColor }}
+                <div className="relative z-10 h-full flex flex-col items-center p-6 text-center">
+
+                  {/* Top section — HAPPY + festival name */}
+                  <div className="flex-1 flex flex-col items-center justify-center">
+
+                    {/* HAPPY label */}
+                    <div
+                      className="text-xs font-bold tracking-[0.35em] uppercase mb-2 px-4 py-1 rounded-full"
+                      style={{
+                        color: selectedFestival.primaryColor,
+                        background: `${selectedFestival.primaryColor}18`,
+                        border: `1px solid ${selectedFestival.primaryColor}35`,
+                        letterSpacing: '0.3em',
+                      }}
                     >
-                      Happy
-                    </span>
+                      ✦ HAPPY ✦
+                    </div>
+
+                    {/* Festival name — solid color + glow shadow (no WebkitBackgroundClip) */}
+                    <h1
+                      className="font-extrabold leading-none mb-3"
+                      style={{
+                        fontSize: selectedFestival.name.length > 10 ? '2.4rem' : selectedFestival.name.length > 7 ? '3rem' : '3.6rem',
+                        color: selectedFestival.primaryColor,
+                        fontFamily: 'Georgia, "Times New Roman", serif',
+                        letterSpacing: '0.04em',
+                        filter: `drop-shadow(0 2px 12px ${selectedFestival.primaryColor}90) drop-shadow(0 0 30px ${selectedFestival.primaryColor}50)`,
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {selectedFestival.name}
+                    </h1>
+
+                    {/* Decorative divider */}
+                    <div className="flex items-center gap-3 mb-4">
+                      <div
+                        className="h-px w-16"
+                        style={{
+                          background: `linear-gradient(to right, transparent, ${selectedFestival.primaryColor}aa)`,
+                        }}
+                      />
+                      <span
+                        className="text-xl"
+                        style={{ filter: `drop-shadow(0 0 5px ${selectedFestival.primaryColor}90)` }}
+                      >
+                        {selectedFestival.emoji}
+                      </span>
+                      <div
+                        className="h-px w-16"
+                        style={{
+                          background: `linear-gradient(to left, transparent, ${selectedFestival.primaryColor}aa)`,
+                        }}
+                      />
+                    </div>
+
+                    {/* Message */}
+                    <p
+                      className="text-sm leading-relaxed max-w-[260px] italic"
+                      style={{
+                        color: 'rgba(255,255,255,0.90)',
+                        textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+                      }}
+                    >
+                      "{selectedFestival.message}"
+                    </p>
                   </div>
-                  
-                  {/* Main Title */}
-                  <h1 
-                    className="text-5xl md:text-6xl font-bold mb-3"
+
+                  {/* Agent Info Card — anchored to bottom */}
+                  <div
+                    className="w-full max-w-sm rounded-xl p-3 flex items-center gap-3"
                     style={{
-                      background: `linear-gradient(180deg, ${selectedFestival.primaryColor} 0%, ${selectedFestival.secondaryColor} 100%)`,
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      textShadow: `0 0 30px ${selectedFestival.primaryColor}50`,
-                      fontFamily: 'Georgia, serif',
+                      background: 'rgba(0,0,0,0.38)',
+                      backdropFilter: 'blur(12px)',
+                      border: `1px solid ${selectedFestival.primaryColor}30`,
+                      boxShadow: `0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 ${selectedFestival.primaryColor}20`,
                     }}
                   >
-                    {selectedFestival.name.toUpperCase()}
-                  </h1>
-
-                  {/* Decorative Line */}
-                  <div className="flex items-center gap-3 mb-4">
-                    <div 
-                      className="h-px w-12"
-                      style={{ background: `linear-gradient(to right, transparent, ${selectedFestival.primaryColor})` }}
-                    ></div>
-                    <span className="text-2xl">{selectedFestival.emoji}</span>
-                    <div 
-                      className="h-px w-12"
-                      style={{ background: `linear-gradient(to left, transparent, ${selectedFestival.primaryColor})` }}
-                    ></div>
-                  </div>
-
-                  {/* Blessing Message */}
-                  <p 
-                    className="text-sm md:text-base mb-6 max-w-xs font-light italic opacity-90"
-                    style={{ color: selectedFestival.secondaryColor === '#ffffff' ? '#ffffff' : `${selectedFestival.primaryColor}ee` }}
-                  >
-                    "{selectedFestival.message}"
-                  </p>
-
-                  {/* Agent Info Card */}
-                  <div 
-                    className="mt-auto w-full max-w-xs rounded-lg p-4"
-                    style={{
-                      background: `linear-gradient(135deg, ${selectedFestival.primaryColor}20 0%, ${selectedFestival.secondaryColor}15 100%)`,
-                      backdropFilter: 'blur(10px)',
-                      border: `1px solid ${selectedFestival.primaryColor}40`,
-                    }}
-                  >
-                    <div className="text-foreground font-semibold text-lg mb-1">
-                      {agentInfo.name || 'Your Name'}
-                    </div>
-                    <div 
-                      className="text-xs mb-2 opacity-80"
-                      style={{ color: selectedFestival.primaryColor }}
+                    {/* Avatar circle */}
+                    <div
+                      className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-base font-bold"
+                      style={{
+                        background: `linear-gradient(135deg, ${selectedFestival.primaryColor}50, ${selectedFestival.secondaryColor}40)`,
+                        border: `1.5px solid ${selectedFestival.primaryColor}60`,
+                        color: selectedFestival.primaryColor,
+                      }}
                     >
-                      {agentInfo.designation || 'Financial Advisor'}
+                      {(agentInfo.name || 'Y').charAt(0).toUpperCase()}
                     </div>
-                    <div className="text-xs space-y-0.5 opacity-70" style={{ color: '#ffffff' }}>
-                      <div>📧 {agentInfo.email || 'email@example.com'}</div>
-                      <div>📞 {agentInfo.phone || '+91 XXXXX XXXXX'}</div>
+
+                    {/* Text info */}
+                    <div className="flex-1 text-left min-w-0">
+                      <div
+                        className="font-semibold text-sm leading-tight truncate"
+                        style={{ color: '#ffffff' }}
+                      >
+                        {agentInfo.name || 'Your Name'}
+                      </div>
+                      <div
+                        className="text-xs leading-tight truncate mt-0.5"
+                        style={{ color: selectedFestival.primaryColor, opacity: 0.9 }}
+                      >
+                        {agentInfo.designation || 'Financial Advisor'}
+                      </div>
+                      <div className="text-xs mt-0.5 space-y-0" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                        {agentInfo.email && (
+                          <div className="truncate">✉ {agentInfo.email}</div>
+                        )}
+                        {agentInfo.phone && (
+                          <div>☎ {agentInfo.phone}</div>
+                        )}
+                      </div>
                     </div>
-                    
-                    {/* Logo at bottom corner */}
-                    <div className="absolute bottom-3 right-3 opacity-80">
-                      <img 
-                        src="/icon-192.png" 
-                        alt="FintekPro" 
-                        className="w-8 h-8 rounded"
-                        style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.3))' }}
+
+                    {/* FintekPro logo badge */}
+                    <div className="flex-shrink-0">
+                      <img
+                        src="/icon-192.png"
+                        alt="FintekPro"
+                        className="w-8 h-8 rounded-lg"
+                        style={{
+                          filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.25))',
+                          opacity: 0.85,
+                        }}
                       />
                     </div>
                   </div>
