@@ -168,58 +168,65 @@ export default function GovernmentSchemes() {
     enabled: isAuthenticated && !!userId,
   });
 
-  const { data: epfData, isLoading: loadingEpf } = useQuery<EpfHolding[]>({
+  const toArr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+
+  const { data: epfData, isLoading: loadingEpf } = useQuery<EpfHolding[], Error, EpfHolding[]>({
     queryKey: ['/api/government-schemes/epf', userId],
     queryFn: async () => {
       const response = await fetch(`/api/government-schemes/epf`);
       if (!response.ok) throw new Error('Failed to fetch EPF data');
       const result = await response.json();
-      return result.data || [];
+      return toArr<EpfHolding>(result.data ?? result);
     },
+    select: toArr<EpfHolding>,
     enabled: isAuthenticated && !!userId && activeTab === 'epf',
   });
 
-  const { data: npsData, isLoading: loadingNps } = useQuery<NpsAccount[]>({
+  const { data: npsData, isLoading: loadingNps } = useQuery<NpsAccount[], Error, NpsAccount[]>({
     queryKey: ['/api/government-schemes/nps', userId],
     queryFn: async () => {
       const response = await fetch(`/api/government-schemes/nps`);
       if (!response.ok) throw new Error('Failed to fetch NPS data');
       const result = await response.json();
-      return result.data || [];
+      return toArr<NpsAccount>(result.data ?? result);
     },
+    select: toArr<NpsAccount>,
     enabled: isAuthenticated && !!userId && activeTab === 'nps',
   });
 
-  const { data: ppfData, isLoading: loadingPpf } = useQuery<PpfHolding[]>({
+  const { data: ppfData, isLoading: loadingPpf } = useQuery<PpfHolding[], Error, PpfHolding[]>({
     queryKey: ['/api/government-schemes/ppf', userId],
     queryFn: async () => {
       const response = await fetch(`/api/government-schemes/ppf`);
       if (!response.ok) throw new Error('Failed to fetch PPF data');
       const result = await response.json();
-      return result.data || [];
+      return toArr<PpfHolding>(result.data ?? result);
     },
+    select: toArr<PpfHolding>,
     enabled: isAuthenticated && !!userId && activeTab === 'ppf',
   });
 
-  const { data: apyData, isLoading: loadingApy } = useQuery<ApyAccount[]>({
+  const { data: apyData, isLoading: loadingApy } = useQuery<ApyAccount[], Error, ApyAccount[]>({
     queryKey: ['/api/government-schemes/apy', userId],
     queryFn: async () => {
       const response = await fetch(`/api/government-schemes/apy`);
       if (!response.ok) throw new Error('Failed to fetch APY data');
       const result = await response.json();
-      return result.data || [];
+      return toArr<ApyAccount>(result.data ?? result);
     },
+    select: toArr<ApyAccount>,
     enabled: isAuthenticated && !!userId && activeTab === 'apy',
   });
 
-  const { data: insuranceData, isLoading: loadingInsurance } = useQuery<InsurancePolicy[]>({
+  const { data: insuranceData, isLoading: loadingInsurance } = useQuery<InsurancePolicy[], Error, InsurancePolicy[]>({
     queryKey: ['/api/government-schemes/insurance', userId],
     queryFn: async () => {
       const response = await fetch(`/api/government-schemes/insurance`);
       if (!response.ok) throw new Error('Failed to fetch insurance data');
       const result = await response.json();
-      return result.data || [];
+      return toArr<InsurancePolicy>(result.data ?? result);
     },
+    select: toArr<InsurancePolicy>,
     enabled: isAuthenticated && !!userId && activeTab === 'insurance',
   });
 
