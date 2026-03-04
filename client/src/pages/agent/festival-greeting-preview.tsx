@@ -490,19 +490,25 @@ export default function FestivalGreetingPreview() {
   const captureGreetingCanvas = async () => {
     const el = templateRef.current!;
     const html2canvas = (await import('html2canvas')).default;
-    const W = el.offsetWidth;
-    const H = el.offsetHeight;
     return html2canvas(el, {
       scale: 3,
       useCORS: true,
+      allowTaint: true,
       backgroundColor: null,
-      width: W,
-      height: H,
-      windowWidth: W,
-      windowHeight: H,
-      scrollX: -window.scrollX,
-      scrollY: -window.scrollY,
       logging: false,
+      onclone: (_doc, clonedEl) => {
+        // html2canvas does not support backdrop-filter — replace with opaque fallback
+        clonedEl.querySelectorAll<HTMLElement>('*').forEach((node) => {
+          const s = node.style;
+          if (s.backdropFilter || s.webkitBackdropFilter) {
+            s.backdropFilter = 'none';
+            s.webkitBackdropFilter = 'none';
+            if (!s.backgroundColor || s.backgroundColor === 'rgba(0, 0, 0, 0)') {
+              s.backgroundColor = 'rgba(0,0,0,0.60)';
+            }
+          }
+        });
+      },
     });
   };
 
