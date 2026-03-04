@@ -32809,3 +32809,23 @@ export const firmTransactions = pgTable("firm_transactions", {
 
 export type FirmTransaction = typeof firmTransactions.$inferSelect;
 export type InsertFirmTransaction = typeof firmTransactions.$inferInsert;
+
+// ========================================
+// Agent Notifications Table
+// ========================================
+export const agentNotifications = pgTable("agent_notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  agentId: varchar("agent_id", { length: 100 }).notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  type: varchar("type", { length: 30 }).notNull().default('prospect'),
+  link: text("link"),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_notifications_agent").on(table.agentId),
+  index("idx_agent_notifications_created").on(table.createdAt),
+]);
+
+export type AgentNotification = typeof agentNotifications.$inferSelect;
+export type InsertAgentNotification = typeof agentNotifications.$inferInsert;

@@ -1224,6 +1224,11 @@ export interface IStorage {
   approveCartItem(id: string): Promise<UnifiedCartItem | undefined>;
   getAllUnifiedCartItemsForAdmin(filters?: { userId?: string; category?: string; source?: string; status?: string }): Promise<UnifiedCartItem[]>;
   checkoutCartItems(userId: string, cartItemIds: string[]): Promise<any[]>;
+
+  // Agent Notification methods
+  createAgentNotification(data: { agentId: string; title: string; body: string; type?: string; link?: string }): Promise<void>;
+  getAgentNotifications(agentId: string): Promise<any[]>;
+  markAgentNotificationRead(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -9011,6 +9016,40 @@ export class DatabaseStorage implements IStorage {
     }
     
     return createdOrders;
+  }
+
+  async createAgentNotification(data: { agentId: string; title: string; body: string; type?: string; link?: string }): Promise<void> {
+    await db.execute(sql`
+      INSERT INTO agent_notifications (agent_id, title, body, type, link)
+      VALUES (${data.agentId}, ${data.title}, ${data.body}, ${data.type || 'prospect'}, ${data.link || null})
+    `);
+  }
+
+  async getAgentNotifications(agentId: string): Promise<any[]> {
+    const result = await db.execute(sql`
+      SELECT id, agent_id, title, body, type, link, read_at, created_at
+      FROM agent_notifications
+      WHERE agent_id = ${agentId}
+      ORDER BY created_at DESC
+      LIMIT 50
+    `);
+    return (result.rows || []).map((r: any) => ({
+      id: r.id,
+      agentId: r.agent_id,
+      title: r.title,
+      body: r.body,
+      type: r.type,
+      link: r.link,
+      readAt: r.read_at,
+      createdAt: r.created_at,
+      unread: !r.read_at,
+    }));
+  }
+
+  async markAgentNotificationRead(id: string): Promise<void> {
+    await db.execute(sql`
+      UPDATE agent_notifications SET read_at = now() WHERE id = ${id}
+    `);
   }
 }
 

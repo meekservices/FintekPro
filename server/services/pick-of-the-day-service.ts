@@ -383,7 +383,7 @@ class PickOfTheDayService {
     // Per-category check: only generate for categories not yet covered by admin or prior run
     const ALL_CATEGORIES: PickCategory[] = [
       'listed_stocks', 'mutual_funds', 'bonds', 'unlisted',
-      'global_stocks', 'etf', 'sgb', 'reit_invit',
+      'global_stocks', 'etfs', 'sgb', 'reits_invits',
       'fixed_deposits', 'derivatives',
     ];
     const existingCategories = new Set(existingPicks.map(p => p.category));
@@ -444,7 +444,7 @@ class PickOfTheDayService {
       const p = await this.generateGlobalStockPick();
       if (p) picks.push(p);
     }
-    if (need('etf')) {
+    if (need('etfs')) {
       const p = await this.generateETFPick();
       if (p) picks.push(p);
     }
@@ -452,7 +452,7 @@ class PickOfTheDayService {
       const p = await this.generateSGBPick();
       if (p) picks.push(p);
     }
-    if (need('reit_invit')) {
+    if (need('reits_invits')) {
       const p = await this.generateREITInvITPick();
       if (p) picks.push(p);
     }
@@ -1336,7 +1336,7 @@ class PickOfTheDayService {
       const investableETFs = etfs.filter(etf => {
         const investability = isETFInvestable(etf);
         if (!investability.investable) {
-          logFilteredInstrument('etf', etf.name, investability.reason || 'Unknown');
+          logFilteredInstrument('etfs', etf.name, investability.reason || 'Unknown');
           return false;
         }
         return true;

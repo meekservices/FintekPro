@@ -702,6 +702,13 @@ export function MultiStepKYCWizard() {
     retry: false
   });
 
+  // Load backend-verified KYC milestone percentage
+  const { data: kycStatus } = useQuery<{ percentComplete: number }>({
+    queryKey: ["/api/kyc/notification-status"],
+    retry: false,
+    select: (d: any) => ({ percentComplete: d?.percentComplete ?? 0 }),
+  });
+
   // Auto-save mutation
   const saveProgressMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -820,10 +827,10 @@ export function MultiStepKYCWizard() {
             Step {currentStep} of {steps.length}
           </p>
           <p className="text-sm font-medium text-primary">
-            {Math.round(((currentStep - 1) / (steps.length - 1)) * 100)}% Complete
+            {kycStatus?.percentComplete ?? 0}% Verified
           </p>
         </div>
-        <Progress value={((currentStep - 1) / (steps.length - 1)) * 100} className="h-2.5" />
+        <Progress value={kycStatus?.percentComplete ?? 0} className="h-2.5" />
       </div>
 
       {/* Stepper */}

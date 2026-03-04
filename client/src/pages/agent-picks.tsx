@@ -319,6 +319,7 @@ export default function AgentPicksPage() {
   const [shareClientsPick, setShareClientsPick] = useState<DailyPick | null>(null);
   const [shareClientsSelected, setShareClientsSelected] = useState<string[]>([]);
   const [shareClientsChannel, setShareClientsChannel] = useState<'email' | 'whatsapp'>('whatsapp');
+  const [hideUnreachable, setHideUnreachable] = useState(true);
   const [stockRiskLevel, setStockRiskLevel] = useState("moderate");
   const [stockTimeHorizon, setStockTimeHorizon] = useState("medium_term");
   const [stockSector, setStockSector] = useState("all");
@@ -1713,22 +1714,33 @@ export default function AgentPicksPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <Label className="text-sm font-medium">Select Contacts</Label>
-                <button
-                  className="text-xs text-primary hover:underline"
-                  onClick={() => {
-                    const reachable = (marketingContacts as any[]).filter(c =>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      className="h-3 w-3 cursor-pointer"
+                      checked={hideUnreachable}
+                      onChange={e => setHideUnreachable(e.target.checked)}
+                    />
+                    Hide unreachable
+                  </label>
+                  <button
+                    className="text-xs text-primary hover:underline"
+                    onClick={() => {
+                      const reachable = (marketingContacts as any[]).filter(c =>
+                        shareClientsChannel === 'email' ? !!c.email : (!!c.phone && !c.phone.startsWith('+XXXX'))
+                      ).map(c => c.id);
+                      setShareClientsSelected(prev =>
+                        reachable.every(id => prev.includes(id)) ? [] : reachable
+                      );
+                    }}
+                  >
+                    {(marketingContacts as any[]).filter(c =>
                       shareClientsChannel === 'email' ? !!c.email : (!!c.phone && !c.phone.startsWith('+XXXX'))
-                    ).map(c => c.id);
-                    setShareClientsSelected(prev =>
-                      reachable.every(id => prev.includes(id)) ? [] : reachable
-                    );
-                  }}
-                >
-                  {(marketingContacts as any[]).filter(c =>
-                    shareClientsChannel === 'email' ? !!c.email : (!!c.phone && !c.phone.startsWith('+XXXX'))
-                  ).every(c => shareClientsSelected.includes(c.id))
-                    ? 'Deselect All' : 'Select All'}
-                </button>
+                    ).every(c => shareClientsSelected.includes(c.id))
+                      ? 'Deselect All' : 'Select All'}
+                  </button>
+                </div>
               </div>
               <ScrollArea className="h-52 border rounded-lg p-2">
                 {(marketingContacts as any[]).length === 0 ? (
@@ -1737,7 +1749,12 @@ export default function AgentPicksPage() {
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    {(marketingContacts as any[]).map((c: any) => {
+                    {(marketingContacts as any[]).filter((c: any) => {
+                      const reachable = shareClientsChannel === 'email'
+                        ? !!c.email
+                        : (!!c.phone && !c.phone.startsWith('+XXXX'));
+                      return !hideUnreachable || reachable;
+                    }).map((c: any) => {
                       const reachable = shareClientsChannel === 'email'
                         ? !!c.email
                         : (!!c.phone && !c.phone.startsWith('+XXXX'));

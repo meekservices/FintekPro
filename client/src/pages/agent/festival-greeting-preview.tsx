@@ -599,6 +599,7 @@ export default function FestivalGreetingPreview() {
   const [marketingChannel, setMarketingChannel] = useState<'email' | 'whatsapp'>('email');
   const [searchQuery, setSearchQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'client' | 'prospect'>('all');
+  const [hideUnreachable, setHideUnreachable] = useState(true);
   const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
   const [editingEmailValue, setEditingEmailValue] = useState('');
 
@@ -647,12 +648,15 @@ export default function FestivalGreetingPreview() {
     const matchesSearch = !searchQuery || c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.email?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSource = sourceFilter === 'all' || c.source === sourceFilter;
-    return matchesSearch && matchesSource;
+    const matchesReachable = !hideUnreachable || isReachable(c);
+    return matchesSearch && matchesSource && matchesReachable;
   });
 
   // Send greetings mutation
+  const [greetingImageUploading, setGreetingImageUploading] = useState(false);
+
   const sendGreetingsMutation = useMutation({
-    mutationFn: async (data: { festivalId: string; clientIds: string[]; channel: string }) => {
+    mutationFn: async (data: { festivalId: string; clientIds: string[]; channel: string; imageUrl?: string }) => {
       return apiRequest('/api/agent/marketing/send-greetings', {
         method: 'POST',
         body: JSON.stringify(data),
@@ -675,7 +679,7 @@ export default function FestivalGreetingPreview() {
     },
   });
 
-  const handleSendToClients = () => {
+  const handleSendToClients = async () => {
     if (selectedClients.length === 0) {
       toast({
         title: 'Select Clients',
@@ -684,10 +688,33 @@ export default function FestivalGreetingPreview() {
       });
       return;
     }
+
+    let imageUrl: string | undefined;
+
+    // For WhatsApp, capture and upload the greeting card image
+    if (marketingChannel === 'whatsapp' && templateRef.current) {
+      try {
+        setGreetingImageUploading(true);
+        const canvas = await captureGreetingCanvas();
+        const imageBase64 = canvas.toDataURL('image/png');
+        const uploadRes = await apiRequest('/api/agent/marketing/upload-greeting-image', {
+          method: 'POST',
+          body: JSON.stringify({ imageBase64, festivalId: selectedFestival.id }),
+          headers: { 'Content-Type': 'application/json' },
+        });
+        imageUrl = (uploadRes as any)?.url;
+      } catch (err) {
+        console.warn('Greeting image upload failed, sending without image:', err);
+      } finally {
+        setGreetingImageUploading(false);
+      }
+    }
+
     sendGreetingsMutation.mutate({
       festivalId: selectedFestival.id,
       clientIds: selectedClients,
       channel: marketingChannel,
+      imageUrl,
     });
   };
 
@@ -817,14 +844,25 @@ export default function FestivalGreetingPreview() {
                   </div>
                 )}
 
-                {/* Channel-aware info banner */}
+                {/* Channel-aware info banner with hide-unreachable toggle */}
                 {allClients.length > 0 && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2 bg-muted/50 rounded px-3 py-2">
-                    <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
-                    {marketingChannel === 'email'
-                      ? `${filteredClients.filter(c => !c.email).length} contacts have no email — they appear greyed out. Click the pencil to add an email.`
-                      : `${filteredClients.filter(c => isMaskedPhone(c.phone)).length} contacts have masked/unknown phone numbers — they cannot receive WhatsApp messages.`
-                    }
+                  <div className="flex items-center justify-between gap-2 mt-2 bg-muted/50 rounded px-3 py-2">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                      {marketingChannel === 'email'
+                        ? `${allClients.filter(c => !c.email).length} contacts have no email — click the pencil to add one.`
+                        : `${allClients.filter(c => isMaskedPhone(c.phone)).length} contacts have masked phone numbers.`
+                      }
+                    </div>
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none flex-shrink-0">
+                      <input
+                        type="checkbox"
+                        className="h-3 w-3 cursor-pointer"
+                        checked={hideUnreachable}
+                        onChange={e => setHideUnreachable(e.target.checked)}
+                      />
+                      Hide unreachable
+                    </label>
                   </div>
                 )}
               </CardHeader>
@@ -1048,10 +1086,10 @@ export default function FestivalGreetingPreview() {
                   className="w-full" 
                   size="lg"
                   onClick={handleSendToClients}
-                  disabled={selectedClients.length === 0 || sendGreetingsMutation.isPending}
+                  disabled={selectedClients.length === 0 || sendGreetingsMutation.isPending || greetingImageUploading}
                 >
                   <Send className="h-4 w-4 mr-2" />
-                  {sendGreetingsMutation.isPending ? 'Sending...' : 'Send Greetings'}
+                  {greetingImageUploading ? 'Preparing image…' : sendGreetingsMutation.isPending ? 'Sending...' : 'Send Greetings'}
                 </Button>
               </CardContent>
             </Card>

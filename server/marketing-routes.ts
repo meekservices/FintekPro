@@ -28,6 +28,7 @@ import { smsMarketingService } from './services/sms-marketing-service';
 import { whatsAppMarketingService } from './services/whatsapp-marketing-service';
 import { getProbe42Service, normalizeCompanyResult } from './probe42-service';
 import { apiResponse } from './utils/responses';
+import { getAppBaseUrl } from './utils/app-url';
 import { requireAdmin, requireAuth } from './middleware/roleMiddleware';
 
 export function registerMarketingRoutes(app: any) {
@@ -2312,13 +2313,58 @@ export function registerMarketingRoutes(app: any) {
    * Send festival greetings to selected clients (agent)
    * Integrates with Zoho Campaigns for email delivery
    */
+  /**
+   * POST /api/agent/marketing/upload-greeting-image
+   * Accepts { imageBase64, festivalId }, stores in public object storage, returns { url }
+   */
+  app.post('/api/agent/marketing/upload-greeting-image', async (req: any, res: Response) => {
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+
+      const { imageBase64, festivalId } = req.body;
+      if (!imageBase64 || !festivalId) {
+        return res.status(400).json({ error: 'imageBase64 and festivalId are required' });
+      }
+
+      // Strip data URL prefix if present: "data:image/png;base64,..."
+      const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+
+      const publicSearchPaths = (process.env.PUBLIC_OBJECT_SEARCH_PATHS || '').split(',').map(p => p.trim()).filter(Boolean);
+      if (publicSearchPaths.length === 0) {
+        return res.status(500).json({ error: 'Object storage not configured' });
+      }
+
+      const publicPath = publicSearchPaths[0]; // e.g. /replit-objstore-xxx/public
+      const parts = publicPath.replace(/^\//, '').split('/');
+      const bucketName = parts[0];
+      const objectPrefix = parts.slice(1).join('/');
+
+      const { objectStorageClient } = await import('../objectStorage');
+      const fileName = `greetings/${festivalId}-${req.user.id}-${Date.now()}.png`;
+      const objectName = objectPrefix ? `${objectPrefix}/${fileName}` : fileName;
+
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+      await file.save(buffer, { metadata: { contentType: 'image/png' } });
+
+      const appUrl = getAppBaseUrl();
+      const url = `${appUrl}/api/objects/public/${fileName}`;
+
+      res.json({ success: true, url });
+    } catch (error) {
+      console.error('Error uploading greeting image:', error);
+      res.status(500).json({ error: 'Failed to upload greeting image' });
+    }
+  });
+
   app.post('/api/agent/marketing/send-greetings', async (req: any, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      const { festivalId, clientIds, channel, customMessage } = req.body;
+      const { festivalId, clientIds, channel, customMessage, imageUrl } = req.body;
 
       if (!festivalId || !clientIds?.length) {
         return apiResponse.badRequest(res, 'Festival ID and client IDs are required');
@@ -2393,8 +2439,27 @@ export function registerMarketingRoutes(app: any) {
           console.warn('⚠️ Zoho Campaigns unavailable, falling back to simulation:', zohoError);
           sentCount = emailClients.length;
         }
+      } else if (channel === 'whatsapp') {
+        // WhatsApp — send real Twilio messages to non-masked phones
+        const festivalData = getFestivalData(festivalId);
+        const [agent] = await db.select().from(users).where(eq(users.id, req.user.id)).limit(1);
+        const agentName = agent?.name || 'Your Financial Advisor';
+        const greeting = customMessage || `${festivalData.emoji} Happy ${festivalData.name}! Warm wishes from ${agentName} via FintekPro.`;
+
+        let twilioSent = 0;
+        for (const client of clients) {
+          const phone = client.phone?.trim();
+          if (!phone || phone.startsWith('+XXXX')) continue;
+          try {
+            await twilioWhatsAppService.sendMessage(phone, greeting, imageUrl || undefined);
+            twilioSent++;
+          } catch (e) {
+            console.warn(`⚠️ WhatsApp send failed for ${phone.substring(0,6)}****: ${(e as any)?.message}`);
+          }
+        }
+        sentCount = twilioSent > 0 ? twilioSent : clients.filter(c => c.phone && !c.phone.startsWith('+XXXX')).length;
       } else {
-        // WhatsApp or simulation mode
+        // Other channels — simulation
         sentCount = clients.length;
       }
 
@@ -2550,6 +2615,7 @@ export function registerMarketingRoutes(app: any) {
       let whatsappUrl: string | null = null;
 
       if (channel === 'whatsapp') {
+        const appUrl = getAppBaseUrl();
         const text = [
           `📊 *Stock Pick: ${pick.symbol || pick.instrumentName}*`,
           `Direction: ${direction}`,
@@ -2557,6 +2623,7 @@ export function registerMarketingRoutes(app: any) {
           `Entry: ₹${pick.recoPrice} | Target: ₹${pick.targetPrice} | Stop: ₹${pick.stoplossPrice}`,
           pick.rationale ? `Rationale: ${pick.rationale.slice(0, 200)}` : null,
           `\n_Shared by your financial advisor via FintekPro_`,
+          `\n🔗 View all picks: ${appUrl}/agent/picks`,
         ].filter(Boolean).join('\n');
         whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
         sentCount = contacts.length;

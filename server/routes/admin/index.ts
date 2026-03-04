@@ -2830,12 +2830,25 @@ System Security Data:`;
   });
 
 
-  app.get("/api/agent/notifications", async (req, res) => {
+  app.get("/api/agent/notifications", async (req: any, res) => {
     try {
-      res.json([]);
+      const agentId = req.user?.id;
+      if (!agentId) return res.status(401).json({ error: "Unauthorized" });
+      const notifications = await storage.getAgentNotifications(agentId);
+      res.json(notifications);
     } catch (error) {
       console.error("Error fetching agent notifications:", error);
       res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  app.post("/api/agent/notifications/:id/read", async (req: any, res) => {
+    try {
+      await storage.markAgentNotificationRead(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notification read:", error);
+      res.status(500).json({ error: "Failed to mark notification read" });
     }
   });
 

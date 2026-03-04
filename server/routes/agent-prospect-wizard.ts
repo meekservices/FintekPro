@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { storage } from "../storage";
 import multer from "multer";
 import { 
   agentProspectWizardService, 
@@ -230,6 +231,17 @@ router.post("/prospects", async (req: Request, res: Response) => {
 
     const data = createProspectSchema.parse(req.body);
     const result = await agentProspectWizardService.createProspect(agentId, data);
+    
+    // Fire notification asynchronously so it never blocks the response
+    if (typeof result === 'string') {
+      storage.createAgentNotification({
+        agentId,
+        title: 'New Prospect Added',
+        body: `${data.name} has been added as a prospect.`,
+        type: 'prospect',
+        link: `/agent-prospect-wizard?edit=${result}`,
+      }).catch(() => {});
+    }
     
     // Check if result is a duplicate check response
     if (typeof result === 'object' && 'isDuplicate' in result) {
@@ -2205,6 +2217,14 @@ router.post("/zoho/import/leads", async (req: Request, res: Response) => {
       const prospectId = await agentProspectWizardService.createProspect(targetAgentId, prospectData);
       
       if (typeof prospectId === 'string') {
+        storage.createAgentNotification({
+          agentId: targetAgentId,
+          title: 'Prospect Imported from Zoho CRM',
+          body: `${prospectData.name} was imported from Zoho CRM as a new prospect.`,
+          type: 'prospect',
+          link: `/agent-prospect-wizard?edit=${prospectId}`,
+        }).catch(() => {});
+
         // Create entity mapping for two-way sync
         const { db } = await import('../db');
         const { zohoEntityMappings } = await import('@shared/schema');
@@ -2332,6 +2352,14 @@ router.post("/zoho/import/contacts", async (req: Request, res: Response) => {
       const prospectId = await agentProspectWizardService.createProspect(targetAgentId, prospectData);
       
       if (typeof prospectId === 'string') {
+        storage.createAgentNotification({
+          agentId: targetAgentId,
+          title: 'Prospect Imported from Zoho CRM',
+          body: `${prospectData.name} was imported from Zoho CRM (Contact) as a new prospect.`,
+          type: 'prospect',
+          link: `/agent-prospect-wizard?edit=${prospectId}`,
+        }).catch(() => {});
+
         const { db } = await import('../db');
         const { zohoEntityMappings } = await import('@shared/schema');
         

@@ -584,6 +584,12 @@ export default function AgentProspectWizard() {
   const [sipLots, setSipLots] = useState<Array<{ purchaseDate: string; units: number; investedAmount?: number }>>([
     { purchaseDate: '', units: 0 }
   ]);
+  const [sipCsvOpen, setSipCsvOpen] = useState(false);
+  const [sipCsvText, setSipCsvText] = useState('');
+  const [sipCsvStatus, setSipCsvStatus] = useState<string | null>(null);
+
+  // Inline field errors for manual holding entry
+  const [holdingErrors, setHoldingErrors] = useState<{ productName?: string; currentValue?: string }>({});
   
   // Product search state for autocomplete
   const [productSearchQuery, setProductSearchQuery] = useState("");
@@ -2617,10 +2623,14 @@ export default function AgentProspectWizard() {
       return;
     }
     
-    if (!newHolding.productName || !newHolding.currentValue) {
-      toast({ title: "Missing Fields", description: "Enter product name and value.", variant: "destructive" });
+    const errs: { productName?: string; currentValue?: string } = {};
+    if (!newHolding.productName) errs.productName = 'Product name is required';
+    if (!newHolding.currentValue) errs.currentValue = 'Current value is required';
+    if (Object.keys(errs).length > 0) {
+      setHoldingErrors(errs);
       return;
     }
+    setHoldingErrors({});
     
     const holdingToAdd = newHolding as PortfolioHolding;
     
@@ -2709,6 +2719,36 @@ export default function AgentProspectWizard() {
   // SIP Lot management
   const addSipLot = () => {
     setSipLots([...sipLots, { purchaseDate: '', units: 0 }]);
+  };
+
+  const parseSipCsv = () => {
+    const lines = sipCsvText.trim().split('\n').filter(l => l.trim() && !l.toLowerCase().startsWith('date'));
+    let loaded = 0; let skipped = 0;
+    const parsed: Array<{ purchaseDate: string; units: number; investedAmount?: number }> = [];
+    for (const line of lines) {
+      const parts = line.split(',').map(p => p.trim());
+      if (parts.length < 2) { skipped++; continue; }
+      let [rawDate, rawUnits, rawAmt] = parts;
+      // Normalise date formats: DD/MM/YYYY or MM/DD/YYYY or YYYY-MM-DD
+      let isoDate = '';
+      if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+        isoDate = rawDate;
+      } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawDate)) {
+        const [d, m, y] = rawDate.split('/');
+        isoDate = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+      } else if (/^\d{2}-\d{2}-\d{4}$/.test(rawDate)) {
+        const [d, m, y] = rawDate.split('-');
+        isoDate = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+      } else { skipped++; continue; }
+      const units = parseFloat(rawUnits);
+      if (isNaN(units) || units <= 0) { skipped++; continue; }
+      const investedAmount = rawAmt ? parseFloat(rawAmt) : undefined;
+      parsed.push({ purchaseDate: isoDate, units, investedAmount: isNaN(investedAmount!) ? undefined : investedAmount });
+      loaded++;
+    }
+    if (parsed.length > 0) setSipLots(parsed);
+    setSipCsvStatus(`Loaded ${loaded} lot${loaded !== 1 ? 's' : ''}${skipped > 0 ? ` · ${skipped} row${skipped !== 1 ? 's' : ''} skipped — check format` : ''}`);
+    if (loaded > 0) { setSipCsvOpen(false); setSipCsvText(''); }
   };
   
   const removeSipLot = (index: number) => {
@@ -4165,6 +4205,9 @@ export default function AgentProspectWizard() {
                   {newHolding.isin && (
                     <p className="text-xs text-muted-foreground">ISIN: {newHolding.isin}</p>
                   )}
+                  {holdingErrors.productName && (
+                    <p className="text-xs text-destructive mt-1">{holdingErrors.productName}</p>
+                  )}
                 </div>
                 {/* Single Entry Mode Fields */}
                 {!sipMode && (
@@ -4210,6 +4253,9 @@ export default function AgentProspectWizard() {
                       {selectedInstrumentPrice && newHolding.quantity ? (
                         <p className="text-xs text-green-600">Auto: {newHolding.quantity} × ₹{selectedInstrumentPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
                       ) : null}
+                      {holdingErrors.currentValue && (
+                        <p className="text-xs text-destructive mt-1">{holdingErrors.currentValue}</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label className="flex items-center gap-1">
@@ -4261,15 +4307,48 @@ export default function AgentProspectWizard() {
                     <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200">
                       SIP Purchase Lots for {newHolding.productName}
                     </h4>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={addSipLot}
-                      className="text-blue-600 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:bg-blue-900/30"
-                    >
-                      <Plus className="h-3 w-3 mr-1" /> Add Lot
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="text-xs text-blue-600 underline hover:no-underline"
+                        onClick={() => { setSipCsvOpen(!sipCsvOpen); setSipCsvStatus(null); }}
+                      >
+                        {sipCsvOpen ? '↑ Hide CSV' : '↳ Paste from spreadsheet'}
+                      </button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={addSipLot}
+                        className="text-blue-600 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:bg-blue-900/30"
+                      >
+                        <Plus className="h-3 w-3 mr-1" /> Add Lot
+                      </Button>
+                    </div>
                   </div>
+
+                  {sipCsvOpen && (
+                    <div className="space-y-2 border border-blue-200 dark:border-blue-700 rounded p-2 bg-blue-100/40 dark:bg-blue-900/30">
+                      <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">Paste CSV — one row per lot</p>
+                      <textarea
+                        rows={5}
+                        className="w-full text-xs font-mono p-2 rounded border border-blue-200 dark:border-blue-700 bg-white dark:bg-blue-950 resize-y"
+                        placeholder={"date,units,amount\n01/04/2023,100,5000\n01/05/2023,100,5100"}
+                        value={sipCsvText}
+                        onChange={(e) => setSipCsvText(e.target.value)}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" onClick={parseSipCsv} disabled={!sipCsvText.trim()}
+                          className="h-7 text-xs"
+                        >
+                          Parse & Load
+                        </Button>
+                        {sipCsvStatus && (
+                          <p className="text-xs text-blue-700 dark:text-blue-300">{sipCsvStatus}</p>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Supported date formats: DD/MM/YYYY · DD-MM-YYYY · YYYY-MM-DD. First header row (if any) is auto-skipped.</p>
+                    </div>
+                  )}
                   
                   <div className="space-y-2">
                     {sipLots.map((lot, idx) => (

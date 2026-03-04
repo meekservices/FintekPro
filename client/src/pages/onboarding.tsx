@@ -195,6 +195,7 @@ export default function SmartKYCOnboarding() {
   const [editDocuments, setEditDocuments] = useState<{id: string, type: string, name: string}[]>([]);
   const [editDocumentType, setEditDocumentType] = useState('');
   const [editDocumentUploading, setEditDocumentUploading] = useState(false);
+  const [saveAttempted, setSaveAttempted] = useState(false);
   const [nameChanged, setNameChanged] = useState(false);
   const [addressChanged, setAddressChanged] = useState(false);
   
@@ -4232,7 +4233,7 @@ export default function SmartKYCOnboarding() {
                     </div>
                   )}
                   
-                  {editDocuments.length === 0 && (
+                  {saveAttempted && editDocuments.length === 0 && (
                     <Alert variant="destructive" className="mt-2">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>
@@ -4272,6 +4273,9 @@ export default function SmartKYCOnboarding() {
                                           editFormData.city !== editFieldRules?.currentValues?.city ||
                                           editFormData.pincode !== editFieldRules?.currentValues?.pincode;
                   
+                  if (hasNameChange || hasAddressChange) {
+                    setSaveAttempted(true);
+                  }
                   if ((hasNameChange || hasAddressChange) && editDocuments.length === 0) {
                     errors.push('Please upload supporting documents for name/address changes');
                   }

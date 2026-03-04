@@ -35,6 +35,7 @@ import {
   Download,
   Trash2,
   MessageSquare,
+  Mail,
   BarChart3,
   Target,
   User,
@@ -68,6 +69,8 @@ interface Proposal {
   clientActionAt?: string;
   expiresAt?: string;
   source?: 'proposal_builder' | 'wizard';
+  shareToken?: string;
+  prospectEmail?: string;
 }
 
 interface ProposalItem {
@@ -424,6 +427,36 @@ export default function AgentProposalsPage() {
                                     >
                                       <Eye className="h-4 w-4" />
                                     </Button>
+                                    {proposal.shareToken && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        title="Share via WhatsApp"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const link = `${window.location.origin}/proposal/${proposal.shareToken}`;
+                                          const msg = `Hi ${proposal.clientName || 'there'}, your investment proposal is ready. Please review it here: ${link}`;
+                                          window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                                        }}
+                                      >
+                                        <MessageSquare className="h-4 w-4 text-green-600" />
+                                      </Button>
+                                    )}
+                                    {proposal.prospectEmail && proposal.shareToken && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        title="Share via Email"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const link = `${window.location.origin}/proposal/${proposal.shareToken}`;
+                                          const msg = `Hi ${proposal.clientName || 'there'},\n\nYour investment proposal is ready for your review.\n\nPlease click the link below to view it:\n${link}\n\nFor any questions, please reach out to your financial advisor.`;
+                                          window.location.href = `mailto:${proposal.prospectEmail}?subject=${encodeURIComponent('Your Investment Proposal')}&body=${encodeURIComponent(msg)}`;
+                                        }}
+                                      >
+                                        <Mail className="h-4 w-4 text-blue-600" />
+                                      </Button>
+                                    )}
                                     {['draft', 'pending_review'].includes(proposal.status) && (
                                       <Button 
                                         variant="ghost" 
