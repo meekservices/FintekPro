@@ -1471,15 +1471,17 @@ export default function FestivalGreetingPreview() {
                   </div>
                 ))}
 
-                {/* Main Content */}
-                <div className="relative z-10 h-full flex flex-col items-center px-6 pt-5 pb-4 text-center">
+                {/* Main Content — festival text centered in upper 65%, agent card pinned to bottom */}
+                <div className="absolute inset-0 z-10">
 
-                  {/* Top section — HAPPY + festival name */}
-                  <div className="flex-1 min-h-0 flex flex-col items-center justify-center overflow-hidden">
-
+                  {/* Festival text block — centered in the upper portion, leaving room for agent card */}
+                  <div
+                    className="absolute inset-x-0 top-0 flex flex-col items-center justify-center text-center px-6"
+                    style={{ bottom: '110px' }}
+                  >
                     {/* HAPPY label */}
                     <div
-                      className="text-xs font-bold tracking-[0.35em] uppercase mb-2 px-4 py-1 rounded-full"
+                      className="text-xs font-bold uppercase mb-2 px-4 py-1 rounded-full"
                       style={{
                         color: selectedFestival.primaryColor,
                         background: `${selectedFestival.primaryColor}18`,
@@ -1490,7 +1492,7 @@ export default function FestivalGreetingPreview() {
                       ✦ HAPPY ✦
                     </div>
 
-                    {/* Festival name — solid color + glow shadow (no WebkitBackgroundClip) */}
+                    {/* Festival name */}
                     <h1
                       className="font-extrabold leading-none mb-3"
                       style={{
@@ -1506,44 +1508,28 @@ export default function FestivalGreetingPreview() {
                     </h1>
 
                     {/* Decorative divider */}
-                    <div className="flex items-center gap-3 mb-4">
-                      <div
-                        className="h-px w-16"
-                        style={{
-                          background: `linear-gradient(to right, transparent, ${selectedFestival.primaryColor}aa)`,
-                        }}
-                      />
-                      <span
-                        className="text-xl"
-                        style={{ filter: `drop-shadow(0 0 5px ${selectedFestival.primaryColor}90)` }}
-                      >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="h-px w-16" style={{ background: `linear-gradient(to right, transparent, ${selectedFestival.primaryColor}aa)` }} />
+                      <span className="text-xl" style={{ filter: `drop-shadow(0 0 5px ${selectedFestival.primaryColor}90)` }}>
                         {selectedFestival.emoji}
                       </span>
-                      <div
-                        className="h-px w-16"
-                        style={{
-                          background: `linear-gradient(to left, transparent, ${selectedFestival.primaryColor}aa)`,
-                        }}
-                      />
+                      <div className="h-px w-16" style={{ background: `linear-gradient(to left, transparent, ${selectedFestival.primaryColor}aa)` }} />
                     </div>
 
                     {/* Message */}
                     <p
                       className="text-sm leading-relaxed max-w-[260px] italic"
-                      style={{
-                        color: 'rgba(255,255,255,0.90)',
-                        textShadow: '0 1px 3px rgba(0,0,0,0.5)',
-                      }}
+                      style={{ color: 'rgba(255,255,255,0.90)', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}
                     >
                       "{selectedFestival.message}"
                     </p>
                   </div>
 
-                  {/* Agent Info Card — anchored to bottom */}
+                  {/* Agent Info Card — absolutely pinned to bottom, always fully visible */}
                   <div
-                    className="flex-shrink-0 w-full max-w-sm rounded-xl p-3 flex items-center gap-3 mt-3"
+                    className="absolute inset-x-4 bottom-4 rounded-xl p-3 flex items-center gap-3"
                     style={{
-                      background: 'rgba(0,0,0,0.38)',
+                      background: 'rgba(0,0,0,0.42)',
                       backdropFilter: 'blur(12px)',
                       border: `1px solid ${selectedFestival.primaryColor}30`,
                       boxShadow: `0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 ${selectedFestival.primaryColor}20`,
@@ -1563,25 +1549,15 @@ export default function FestivalGreetingPreview() {
 
                     {/* Text info */}
                     <div className="flex-1 text-left min-w-0">
-                      <div
-                        className="font-semibold text-sm leading-tight truncate"
-                        style={{ color: '#ffffff' }}
-                      >
+                      <div className="font-semibold text-sm leading-tight truncate" style={{ color: '#ffffff' }}>
                         {agentInfo.name || 'Your Name'}
                       </div>
-                      <div
-                        className="text-xs leading-tight truncate mt-0.5"
-                        style={{ color: selectedFestival.primaryColor, opacity: 0.9 }}
-                      >
+                      <div className="text-xs leading-tight truncate mt-0.5" style={{ color: selectedFestival.primaryColor, opacity: 0.9 }}>
                         {agentInfo.designation || 'Financial Advisor'}
                       </div>
-                      <div className="text-xs mt-0.5 space-y-0" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                        {agentInfo.email && (
-                          <div className="truncate">✉ {agentInfo.email}</div>
-                        )}
-                        {agentInfo.phone && (
-                          <div>☎ {agentInfo.phone}</div>
-                        )}
+                      <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                        {agentInfo.email && <div className="truncate">✉ {agentInfo.email}</div>}
+                        {agentInfo.phone && <div>☎ {agentInfo.phone}</div>}
                       </div>
                     </div>
 
@@ -1591,10 +1567,7 @@ export default function FestivalGreetingPreview() {
                         src="/icon-192.png"
                         alt="FintekPro"
                         className="w-8 h-8 rounded-lg"
-                        style={{
-                          filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.25))',
-                          opacity: 0.85,
-                        }}
+                        style={{ filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.25))', opacity: 0.85 }}
                       />
                     </div>
                   </div>
