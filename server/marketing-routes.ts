@@ -2264,26 +2264,44 @@ export function registerMarketingRoutes(app: any) {
         .where(eq(prospectClients.agentId, agentId))
         .limit(200);
 
-      const combined = [
+      const raw = [
         ...assignedLeads.map(p => ({
           id: p.id,
-          name: p.companyName,
-          email: p.primaryEmail,
-          phone: p.primaryMobile,
+          name: p.companyName || '',
+          email: p.primaryEmail || null,
+          phone: p.primaryMobile || null,
           status: p.status || 'active',
           source: 'client' as const,
         })),
         ...ownProspects.map(p => ({
           id: p.id,
-          name: p.name,
-          email: p.email,
-          phone: p.mobile,
+          name: p.name || '',
+          email: p.email || null,
+          phone: p.mobile || null,
           status: p.state || 'prospect',
           source: 'prospect' as const,
         })),
       ];
 
-      res.json(combined);
+      // Deduplicate by phone — prefer 'prospect' source; skip contacts with both
+      // email and phone missing or with masked phone numbers (JustDial format)
+      const isMaskedPhone = (ph: string | null) => !ph || ph.startsWith('+XXXX');
+      const seen = new Map<string, typeof raw[number]>();
+      for (const contact of raw) {
+        const isUnreachable = !contact.email && isMaskedPhone(contact.phone);
+        if (isUnreachable) continue;
+
+        const key = contact.phone && !isMaskedPhone(contact.phone)
+          ? `phone:${contact.phone}`
+          : `email:${contact.email}`;
+
+        const existing = seen.get(key);
+        if (!existing || contact.source === 'prospect') {
+          seen.set(key, contact);
+        }
+      }
+
+      res.json(Array.from(seen.values()));
     } catch (error) {
       console.error('Error fetching agent clients:', error);
       return apiResponse.serverError(res, 'Failed to fetch clients');
@@ -2380,20 +2398,19 @@ export function registerMarketingRoutes(app: any) {
         sentCount = clients.length;
       }
 
-      // Log the activity
-      await db.insert(leadActivities).values({
-        leadId: clients[0]?.id,
-        activityType: 'festival_greeting',
-        title: `${festivalId} Greetings Sent`,
-        description: `Sent ${festivalId} festival greetings to ${sentCount} clients via ${channel}`,
-        createdBy: req.user.id,
-        metadata: {
-          festivalId,
-          channel,
-          clientCount: sentCount,
-          zohoCampaignKey,
-        },
-      });
+      // Log the activity — only against a valid prospectLeads row (FK constraint)
+      const leadIdForLog = leadsRows[0]?.id ?? null;
+      if (leadIdForLog) {
+        try {
+          await db.insert(leadActivities).values({
+            leadId: leadIdForLog,
+            activityType: 'festival_greeting',
+            subject: `${festivalId} Greetings Sent`,
+            description: `Sent ${festivalId} festival greetings to ${sentCount} clients via ${channel}`,
+            performedBy: req.user.id,
+          } as any);
+        } catch (_logErr) { /* non-fatal */ }
+      }
 
       res.json({
         success: true,
@@ -2405,6 +2422,168 @@ export function registerMarketingRoutes(app: any) {
     } catch (error) {
       console.error('Error sending agent greetings:', error);
       return apiResponse.serverError(res, 'Failed to send greetings');
+    }
+  });
+
+  /**
+   * PATCH /api/agent/marketing/contacts/:id/email
+   * Update email for a prospect or assigned lead
+   */
+  app.patch('/api/agent/marketing/contacts/:id/email', async (req: any, res: Response) => {
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+
+      const { id } = req.params;
+      const { email, source } = req.body;
+
+      if (!email || !source) {
+        return apiResponse.badRequest(res, 'email and source are required');
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return apiResponse.badRequest(res, 'Invalid email format');
+      }
+
+      if (source === 'prospect') {
+        await db
+          .update(prospectClients)
+          .set({ email })
+          .where(and(eq(prospectClients.id, id), eq(prospectClients.agentId, req.user.id)));
+      } else {
+        await db
+          .update(prospectLeads)
+          .set({ primaryEmail: email })
+          .where(and(eq(prospectLeads.id, id), eq(prospectLeads.assignedTo, req.user.id)));
+      }
+
+      res.json({ success: true, email });
+    } catch (error) {
+      console.error('Error updating contact email:', error);
+      return apiResponse.serverError(res, 'Failed to update email');
+    }
+  });
+
+  /**
+   * GET /api/agent/marketing/greeting-history
+   * Returns the agent's festival greeting send history from leadActivities
+   */
+  app.get('/api/agent/marketing/greeting-history', async (req: any, res: Response) => {
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+
+      const rows = await db
+        .select()
+        .from(leadActivities)
+        .where(
+          and(
+            eq(leadActivities.performedBy, req.user.id),
+            eq(leadActivities.activityType, 'festival_greeting'),
+          )
+        )
+        .orderBy(desc(leadActivities.createdAt))
+        .limit(50);
+
+      const history = rows.map(r => {
+        // Description: "Sent diwali festival greetings to 5 clients via email"
+        const descMatch = r.description?.match(/^Sent (\S+) festival greetings to (\d+) .* via (\S+)/) || [];
+        return {
+          id: r.id,
+          festivalId: descMatch[1] || 'unknown',
+          clientCount: parseInt(descMatch[2] || '0', 10),
+          channel: descMatch[3] || 'email',
+          sentAt: r.createdAt,
+          description: r.description,
+        };
+      });
+
+      res.json(history);
+    } catch (error) {
+      console.error('Error fetching greeting history:', error);
+      return apiResponse.serverError(res, 'Failed to fetch greeting history');
+    }
+  });
+
+  /**
+   * POST /api/agent/marketing/share-pick
+   * Bulk-share a daily pick with selected clients/prospects via email or WhatsApp
+   */
+  app.post('/api/agent/marketing/share-pick', async (req: any, res: Response) => {
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+
+      const { pickId, clientIds, channel } = req.body;
+      if (!pickId || !clientIds?.length || !channel) {
+        return apiResponse.badRequest(res, 'pickId, clientIds and channel are required');
+      }
+
+      // Fetch the pick
+      const { dailyPicks } = await import('../shared/schema');
+      const { eq: eqOp } = await import('drizzle-orm');
+      const [pick] = await db
+        .select()
+        .from(dailyPicks)
+        .where(eqOp(dailyPicks.id, parseInt(pickId, 10)))
+        .limit(1);
+
+      if (!pick) return apiResponse.badRequest(res, 'Pick not found');
+
+      // Fetch recipients from both tables
+      const [leadsRows, prospectsRows] = await Promise.all([
+        db.select().from(prospectLeads).where(sql`${prospectLeads.id} = ANY(${clientIds})`),
+        db.select().from(prospectClients).where(sql`${prospectClients.id} = ANY(${clientIds})`),
+      ]);
+      const contacts = [
+        ...leadsRows.map(p => ({ id: p.id, name: p.companyName || '', email: p.primaryEmail, phone: p.primaryMobile, source: 'client' })),
+        ...prospectsRows.map(p => ({ id: p.id, name: p.name || '', email: p.email, phone: p.mobile, source: 'prospect' })),
+      ];
+
+      if (contacts.length === 0) return apiResponse.badRequest(res, 'No valid contacts found');
+
+      const direction = pick.recoPrice && pick.targetPrice
+        ? pick.targetPrice > pick.recoPrice ? 'BUY' : 'SELL'
+        : 'BUY';
+      const upside = pick.recoPrice && pick.targetPrice
+        ? ((Number(pick.targetPrice) - Number(pick.recoPrice)) / Number(pick.recoPrice) * 100).toFixed(1)
+        : null;
+
+      let sentCount = 0;
+      let whatsappUrl: string | null = null;
+
+      if (channel === 'whatsapp') {
+        const text = [
+          `📊 *Stock Pick: ${pick.symbol || pick.instrumentName}*`,
+          `Direction: ${direction}`,
+          upside ? `Upside: ${upside}%` : null,
+          `Entry: ₹${pick.recoPrice} | Target: ₹${pick.targetPrice} | Stop: ₹${pick.stoplossPrice}`,
+          pick.rationale ? `Rationale: ${pick.rationale.slice(0, 200)}` : null,
+          `\n_Shared by your financial advisor via FintekPro_`,
+        ].filter(Boolean).join('\n');
+        whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+        sentCount = contacts.length;
+      } else {
+        // Email — log as simulated (Zoho integration optional)
+        const emailContacts = contacts.filter(c => c.email);
+        sentCount = emailContacts.length;
+      }
+
+      // Log the share activity (only if we have a valid prospectLeads ID to use as leadId)
+      const leadContact = leadsRows[0];
+      if (leadContact) {
+        try {
+          await db.insert(leadActivities).values({
+            leadId: leadContact.id,
+            activityType: 'pick_share',
+            subject: `Pick shared: ${pick.symbol || pick.instrumentName}`,
+            description: `Shared ${direction} pick for ${pick.symbol || pick.instrumentName} with ${sentCount} contacts via ${channel}`,
+            performedBy: req.user.id,
+          } as any);
+        } catch (_logErr) { /* non-fatal */ }
+      }
+
+      res.json({ success: true, sentCount, whatsappUrl, channel });
+    } catch (error) {
+      console.error('Error sharing pick:', error);
+      return apiResponse.serverError(res, 'Failed to share pick');
     }
   });
 

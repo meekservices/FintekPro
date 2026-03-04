@@ -8,8 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Share2, Sparkles, Save, User, Edit2, Check, X, Send, Users, Mail, MessageSquare, UserPlus } from 'lucide-react';
+import { Download, Share2, Sparkles, Save, User, Edit2, Check, X, Send, Users, Mail, MessageSquare, UserPlus, Search, Clock, CalendarDays, Pencil, AlertTriangle } from 'lucide-react';
 import { Link } from 'wouter';
+import { format, differenceInCalendarDays } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -564,14 +565,80 @@ export default function FestivalGreetingPreview() {
   const majorFestivals = festivals.filter(f => f.category === 'major');
   const regionalFestivals = festivals.filter(f => f.category === 'regional');
 
-  // Marketing state
-  const [activeTab, setActiveTab] = useState<'create' | 'marketing'>('create');
+  // ── Upcoming festivals constant ────────────────────────────────────────────
+  const FESTIVAL_DATES = [
+    { id: 'holi',            emoji: '🎨', name: 'Holi',              date: new Date(2026, 2, 14) },
+    { id: 'eid',             emoji: '🌙', name: 'Eid',               date: new Date(2026, 2, 31) },
+    { id: 'ram-navami',      emoji: '🪔', name: 'Ram Navami',         date: new Date(2026, 3, 6)  },
+    { id: 'buddha-purnima',  emoji: '☸️', name: 'Buddha Purnima',     date: new Date(2026, 4, 12) },
+    { id: 'eid-ul-adha',     emoji: '🌙', name: 'Eid-ul-Adha',        date: new Date(2026, 5, 7)  },
+    { id: 'independence-day',emoji: '🇮🇳', name: 'Independence Day',   date: new Date(2026, 7, 15) },
+    { id: 'diwali',          emoji: '🪔', name: 'Diwali',             date: new Date(2026, 9, 20) },
+    { id: 'christmas',       emoji: '🎄', name: 'Christmas',          date: new Date(2026, 11, 25)},
+    { id: 'new-year',        emoji: '🎆', name: 'New Year 2027',      date: new Date(2027, 0, 1)  },
+  ];
+  const today = new Date();
+  const upcomingFestivals = FESTIVAL_DATES
+    .map(f => ({ ...f, daysUntil: differenceInCalendarDays(f.date, today) }))
+    .filter(f => f.daysUntil >= 0)
+    .sort((a, b) => a.daysUntil - b.daysUntil)
+    .slice(0, 3);
+
+  // ── Marketing state ────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<'create' | 'marketing' | 'history'>('create');
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [marketingChannel, setMarketingChannel] = useState<'email' | 'whatsapp'>('email');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'client' | 'prospect'>('all');
+  const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
+  const [editingEmailValue, setEditingEmailValue] = useState('');
 
   // Fetch assigned clients
   const { data: assignedClients = [], isLoading: isLoadingClients } = useQuery({
     queryKey: ['/api/agent/marketing/clients'],
+    select: (data) => Array.isArray(data) ? data : [],
+  });
+
+  // Fetch greeting history (T004)
+  const { data: greetingHistory = [], isLoading: isLoadingHistory } = useQuery({
+    queryKey: ['/api/agent/marketing/greeting-history'],
+    enabled: activeTab === 'history',
+    select: (data) => Array.isArray(data) ? data : [],
+  });
+
+  // Email update mutation (T003)
+  const updateEmailMutation = useMutation({
+    mutationFn: async ({ id, email, source }: { id: string; email: string; source: string }) => {
+      return apiRequest(`/api/agent/marketing/contacts/${id}/email`, {
+        method: 'PATCH',
+        body: JSON.stringify({ email, source }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/marketing/clients'] });
+      setEditingEmailId(null);
+      setEditingEmailValue('');
+      toast({ title: 'Email saved', description: 'Contact email updated successfully.' });
+    },
+    onError: () => {
+      toast({ title: 'Error', description: 'Failed to save email.', variant: 'destructive' });
+    },
+  });
+
+  // Helpers for channel-aware reachability
+  const isMaskedPhone = (ph: string | null | undefined) => !ph || ph.startsWith('+XXXX');
+  const isReachable = (c: any) => {
+    if (marketingChannel === 'email') return !!c.email;
+    return !isMaskedPhone(c.phone);
+  };
+
+  // Filtered & deduplicated contacts list
+  const allClients = assignedClients as any[];
+  const filteredClients = allClients.filter(c => {
+    const matchesSearch = !searchQuery || c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.email?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSource = sourceFilter === 'all' || c.source === sourceFilter;
+    return matchesSearch && matchesSource;
   });
 
   // Send greetings mutation
@@ -588,6 +655,7 @@ export default function FestivalGreetingPreview() {
         description: `Festival greetings sent to ${data.sentCount || selectedClients.length} clients.`,
       });
       setSelectedClients([]);
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/marketing/greeting-history'] });
     },
     onError: () => {
       toast({
@@ -623,11 +691,12 @@ export default function FestivalGreetingPreview() {
   };
 
   const selectAllClients = () => {
-    const clients = assignedClients as any[];
-    if (selectedClients.length === clients.length) {
-      setSelectedClients([]);
+    const reachableIds = filteredClients.filter(isReachable).map((c: any) => c.id);
+    const allSelected = reachableIds.every(id => selectedClients.includes(id));
+    if (allSelected && reachableIds.length > 0) {
+      setSelectedClients(prev => prev.filter(id => !reachableIds.includes(id)));
     } else {
-      setSelectedClients(clients.map((c: any) => c.id));
+      setSelectedClients(prev => Array.from(new Set([...prev, ...reachableIds])));
     }
   };
 
@@ -659,6 +728,13 @@ export default function FestivalGreetingPreview() {
               <Users className="h-4 w-4 mr-2" />
               Share with Clients
             </Button>
+            <Button
+              variant={activeTab === 'history' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('history')}
+            >
+              <Clock className="h-4 w-4 mr-2" />
+              History
+            </Button>
           </div>
         </div>
       </div>
@@ -670,7 +746,7 @@ export default function FestivalGreetingPreview() {
           <div className="lg:col-span-2 space-y-4">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       <Users className="h-5 w-5" />
@@ -678,34 +754,77 @@ export default function FestivalGreetingPreview() {
                     </CardTitle>
                     <CardDescription>
                       Send {selectedFestival.name} greetings to your clients and prospects
-                      {(assignedClients as any[]).length > 0 && (
+                      {allClients.length > 0 && (
                         <span className="ml-1 text-primary font-medium">
-                          ({(assignedClients as any[]).length} contacts)
+                          ({allClients.length} contacts)
                         </span>
                       )}
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <Link href="/agent/leads">
                       <Button variant="outline" size="sm">
                         <UserPlus className="h-4 w-4 mr-1" />
                         Add Prospect
                       </Button>
                     </Link>
-                    {(assignedClients as any[]).length > 0 && (
+                    {filteredClients.filter(isReachable).length > 0 && (
                       <Button variant="outline" size="sm" onClick={selectAllClients}>
-                        {selectedClients.length === (assignedClients as any[]).length ? 'Deselect All' : 'Select All'}
+                        {filteredClients.filter(isReachable).every(c => selectedClients.includes(c.id))
+                          ? 'Deselect All' : 'Select All'}
                       </Button>
                     )}
                   </div>
                 </div>
+
+                {/* Search + source filter row */}
+                {allClients.length > 0 && (
+                  <div className="flex gap-2 mt-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Search by name or email…"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="w-full pl-8 pr-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <div className="flex rounded-md border overflow-hidden">
+                      {(['all', 'prospect', 'client'] as const).map(f => (
+                        <button
+                          key={f}
+                          onClick={() => setSourceFilter(f)}
+                          className={`px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
+                            sourceFilter === f
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-background text-muted-foreground hover:bg-muted'
+                          }`}
+                        >
+                          {f === 'all' ? 'All' : f === 'prospect' ? 'Prospects' : 'Clients'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Channel-aware info banner */}
+                {allClients.length > 0 && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2 bg-muted/50 rounded px-3 py-2">
+                    <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                    {marketingChannel === 'email'
+                      ? `${filteredClients.filter(c => !c.email).length} contacts have no email — they appear greyed out. Click the pencil to add an email.`
+                      : `${filteredClients.filter(c => isMaskedPhone(c.phone)).length} contacts have masked/unknown phone numbers — they cannot receive WhatsApp messages.`
+                    }
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 {isLoadingClients ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                   </div>
-                ) : (assignedClients as any[]).length === 0 ? (
+                ) : allClients.length === 0 ? (
                   <div className="text-center py-10">
                     <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
                     <p className="font-medium text-muted-foreground mb-1">No contacts yet</p>
@@ -719,38 +838,108 @@ export default function FestivalGreetingPreview() {
                       </Button>
                     </Link>
                   </div>
+                ) : filteredClients.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Search className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">No contacts match your search</p>
+                  </div>
                 ) : (
-                  <ScrollArea className="h-[400px]">
+                  <ScrollArea className="h-[420px]">
                     <div className="space-y-2">
-                      {(assignedClients as any[]).map((client: any) => (
-                        <div 
-                          key={client.id}
-                          className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${
-                            selectedClients.includes(client.id) ? 'bg-primary/5 border-primary' : ''
-                          }`}
-                          onClick={() => toggleClientSelection(client.id)}
-                        >
-                          <Checkbox 
-                            checked={selectedClients.includes(client.id)}
-                            onCheckedChange={() => toggleClientSelection(client.id)}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{client.name}</p>
-                            <div className="flex gap-3 text-sm text-muted-foreground flex-wrap">
-                              {client.email && <span className="truncate">📧 {client.email}</span>}
-                              {client.phone && <span>📞 {client.phone}</span>}
+                      {filteredClients.map((client: any) => {
+                        const reachable = isReachable(client);
+                        const isEditingThis = editingEmailId === client.id;
+                        return (
+                          <div
+                            key={client.id}
+                            className={`flex items-center gap-3 p-3 border rounded-lg transition-colors ${
+                              !reachable
+                                ? 'opacity-50 cursor-not-allowed bg-muted/30'
+                                : selectedClients.includes(client.id)
+                                  ? 'bg-primary/5 border-primary cursor-pointer hover:bg-primary/10'
+                                  : 'cursor-pointer hover:bg-muted/50'
+                            }`}
+                            onClick={() => reachable && !isEditingThis && toggleClientSelection(client.id)}
+                          >
+                            <Checkbox
+                              checked={selectedClients.includes(client.id)}
+                              disabled={!reachable}
+                              onCheckedChange={() => reachable && toggleClientSelection(client.id)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{client.name}</p>
+                              <div className="flex gap-3 text-sm text-muted-foreground flex-wrap">
+                                {client.email
+                                  ? <span className="truncate">📧 {client.email}</span>
+                                  : <span className="text-amber-500 text-xs flex items-center gap-1">
+                                      <AlertTriangle className="h-3 w-3" /> no email
+                                    </span>
+                                }
+                                {client.phone && !isMaskedPhone(client.phone) && (
+                                  <span>📞 {client.phone}</span>
+                                )}
+                              </div>
+
+                              {/* Inline email editor */}
+                              {isEditingThis && (
+                                <div
+                                  className="flex items-center gap-2 mt-2"
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  <input
+                                    type="email"
+                                    autoFocus
+                                    placeholder="Enter email…"
+                                    value={editingEmailValue}
+                                    onChange={e => setEditingEmailValue(e.target.value)}
+                                    className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-primary bg-background"
+                                  />
+                                  <button
+                                    className="p-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                                    disabled={updateEmailMutation.isPending || !editingEmailValue}
+                                    onClick={() => updateEmailMutation.mutate({
+                                      id: client.id,
+                                      email: editingEmailValue,
+                                      source: client.source,
+                                    })}
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    className="p-1 rounded hover:bg-muted"
+                                    onClick={() => { setEditingEmailId(null); setEditingEmailValue(''); }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {/* Pencil icon to add email (only when email channel + no email) */}
+                              {marketingChannel === 'email' && !client.email && !isEditingThis && (
+                                <button
+                                  title="Add email"
+                                  className="p-1 rounded hover:bg-muted text-muted-foreground"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setEditingEmailId(client.id);
+                                    setEditingEmailValue('');
+                                  }}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                              <Badge
+                                variant={client.source === 'prospect' ? 'outline' : 'secondary'}
+                                className={client.source === 'prospect' ? 'border-blue-400 text-blue-400' : ''}
+                              >
+                                {client.source === 'prospect' ? 'Prospect' : 'Client'}
+                              </Badge>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <Badge
-                              variant={client.source === 'prospect' ? 'outline' : 'secondary'}
-                              className={client.source === 'prospect' ? 'border-blue-400 text-blue-400' : ''}
-                            >
-                              {client.source === 'prospect' ? 'Prospect' : 'Client'}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </ScrollArea>
                 )}
@@ -776,6 +965,42 @@ export default function FestivalGreetingPreview() {
               </CardContent>
             </Card>
 
+            {/* Upcoming Festivals widget (T005) */}
+            {upcomingFestivals.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4" />
+                    Upcoming Festivals
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {upcomingFestivals.map(f => (
+                    <button
+                      key={f.id}
+                      className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors text-left"
+                      onClick={() => {
+                        const match = festivals.find(fe => fe.id === f.id);
+                        if (match) setSelectedFestival(match);
+                        setActiveTab('create');
+                      }}
+                    >
+                      <span className="text-xl">{f.emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{f.name}</p>
+                      </div>
+                      <Badge
+                        variant={f.daysUntil === 0 ? 'default' : 'secondary'}
+                        className={f.daysUntil <= 3 ? 'bg-amber-500 text-white border-0' : ''}
+                      >
+                        {f.daysUntil === 0 ? 'Today!' : `${f.daysUntil}d`}
+                      </Badge>
+                    </button>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Delivery Channel */}
             <Card>
               <CardHeader className="pb-3">
@@ -785,7 +1010,7 @@ export default function FestivalGreetingPreview() {
                 <Button
                   variant={marketingChannel === 'email' ? 'default' : 'outline'}
                   className="w-full justify-start"
-                  onClick={() => setMarketingChannel('email')}
+                  onClick={() => { setMarketingChannel('email'); setSelectedClients([]); }}
                 >
                   <Mail className="h-4 w-4 mr-2" />
                   Email
@@ -793,7 +1018,7 @@ export default function FestivalGreetingPreview() {
                 <Button
                   variant={marketingChannel === 'whatsapp' ? 'default' : 'outline'}
                   className="w-full justify-start"
-                  onClick={() => setMarketingChannel('whatsapp')}
+                  onClick={() => { setMarketingChannel('whatsapp'); setSelectedClients([]); }}
                 >
                   <MessageSquare className="h-4 w-4 mr-2" />
                   WhatsApp
@@ -806,7 +1031,9 @@ export default function FestivalGreetingPreview() {
               <CardContent className="pt-6">
                 <div className="text-center mb-4">
                   <p className="text-2xl font-bold">{selectedClients.length}</p>
-                  <p className="text-muted-foreground">clients selected</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedClients.length === 1 ? 'contact' : 'contacts'} selected
+                  </p>
                 </div>
                 <Button 
                   className="w-full" 
@@ -821,6 +1048,63 @@ export default function FestivalGreetingPreview() {
             </Card>
           </div>
         </div>
+      ) : activeTab === 'history' ? (
+        /* History Tab Content (T004) */
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Greeting Send History
+            </CardTitle>
+            <CardDescription>
+              Your past festival greeting campaigns — newest first
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingHistory ? (
+              <div className="flex items-center justify-center py-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              </div>
+            ) : (greetingHistory as any[]).length === 0 ? (
+              <div className="text-center py-12">
+                <Clock className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
+                <p className="font-medium text-muted-foreground mb-1">No sends yet</p>
+                <p className="text-sm text-muted-foreground mb-5 max-w-xs mx-auto">
+                  Once you send a festival greeting to clients, each send will appear here.
+                </p>
+                <Button variant="outline" size="sm" onClick={() => setActiveTab('marketing')}>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Your First Greeting
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {(greetingHistory as any[]).map((h: any) => {
+                  const festivalMeta = festivals.find(f => f.id === h.festivalId);
+                  return (
+                    <div key={h.id} className="flex items-center gap-4 p-3 border rounded-lg">
+                      <span className="text-2xl">{festivalMeta?.emoji || '🎉'}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium">{festivalMeta?.name || h.festivalId}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {h.sentAt ? format(new Date(h.sentAt), 'dd MMM yyyy, hh:mm a') : 'Unknown date'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Badge variant="outline" className="capitalize">
+                          {h.channel === 'whatsapp' ? '💬' : '📧'} {h.channel}
+                        </Badge>
+                        <Badge variant="secondary">
+                          {h.clientCount} sent
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       ) : (
       /* Create Tab Content */
       <div className="grid lg:grid-cols-3 gap-6">

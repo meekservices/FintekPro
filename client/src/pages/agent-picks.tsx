@@ -17,6 +17,8 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   TrendingUp,
   TrendingDown,
@@ -53,6 +55,8 @@ import {
   Star,
   Brain,
   RefreshCw,
+  Users,
+  Send,
 } from "lucide-react";
 
 interface DailyPick {
@@ -310,6 +314,11 @@ export default function AgentPicksPage() {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [sharePickId, setSharePickId] = useState<number | null>(null);
   const [shareEmail, setShareEmail] = useState("");
+  // Share-with-clients dialog state (T006)
+  const [shareClientsDialogOpen, setShareClientsDialogOpen] = useState(false);
+  const [shareClientsPick, setShareClientsPick] = useState<DailyPick | null>(null);
+  const [shareClientsSelected, setShareClientsSelected] = useState<string[]>([]);
+  const [shareClientsChannel, setShareClientsChannel] = useState<'email' | 'whatsapp'>('whatsapp');
   const [stockRiskLevel, setStockRiskLevel] = useState("moderate");
   const [stockTimeHorizon, setStockTimeHorizon] = useState("medium_term");
   const [stockSector, setStockSector] = useState("all");
@@ -349,6 +358,38 @@ export default function AgentPicksPage() {
   const { data: quickAIRecs, isLoading: quickAILoading } = useQuery<{ success: boolean; recommendations: AIStockRecommendation[] }>({
     queryKey: ['/api/ai-stock-recommendations/quick']
   });
+
+  // Contacts for "Share with Clients" dialog (T006)
+  const { data: marketingContacts = [] } = useQuery({
+    queryKey: ['/api/agent/marketing/clients'],
+    enabled: shareClientsDialogOpen,
+    select: (data) => Array.isArray(data) ? data as any[] : [],
+  });
+
+  const sharePickMutation = useMutation({
+    mutationFn: async ({ pickId, clientIds, channel }: { pickId: number; clientIds: string[]; channel: string }) => {
+      return apiRequest('/api/agent/marketing/share-pick', {
+        method: 'POST',
+        body: JSON.stringify({ pickId, clientIds, channel }),
+      });
+    },
+    onSuccess: (data: any) => {
+      if (data.whatsappUrl) window.open(data.whatsappUrl, '_blank');
+      toast({ title: 'Shared!', description: `Pick shared with ${data.sentCount} contact${data.sentCount !== 1 ? 's' : ''}.` });
+      setShareClientsDialogOpen(false);
+      setShareClientsSelected([]);
+    },
+    onError: () => {
+      toast({ title: 'Error', description: 'Failed to share pick.', variant: 'destructive' });
+    },
+  });
+
+  const handleShareWithClients = (pick: DailyPick) => {
+    setShareClientsPick(pick);
+    setShareClientsSelected([]);
+    setShareClientsChannel('whatsapp');
+    setShareClientsDialogOpen(true);
+  };
 
   const generateAIMutation = useMutation({
     mutationFn: async (filters: any) => {
@@ -1236,6 +1277,7 @@ export default function AgentPicksPage() {
                               onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
                               onShareEmail={(id) => handleShare(id, 'email')}
                               onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
+                              onShareClients={handleShareWithClients}
                             />
                           ))}
                         </div>
@@ -1274,6 +1316,7 @@ export default function AgentPicksPage() {
                       onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
                       onShareEmail={(id) => handleShare(id, 'email')}
                       onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
+                              onShareClients={handleShareWithClients}
                     />
                   ))}
                 </div>
@@ -1365,6 +1408,7 @@ export default function AgentPicksPage() {
                       onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
                       onShareEmail={(id) => handleShare(id, 'email')}
                       onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
+                              onShareClients={handleShareWithClients}
                     />
                   ))}
                 </div>
@@ -1619,6 +1663,147 @@ export default function AgentPicksPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Share with Clients dialog (T006) */}
+      <Dialog open={shareClientsDialogOpen} onOpenChange={setShareClientsDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Share Pick with Clients
+            </DialogTitle>
+            <DialogDescription>
+              {shareClientsPick && (
+                <span className="font-medium text-foreground">
+                  {shareClientsPick.symbol || shareClientsPick.instrumentName}
+                  {shareClientsPick.targetPrice && shareClientsPick.recoPrice && (
+                    <span className="ml-2 text-green-600">
+                      +{((Number(shareClientsPick.targetPrice) - Number(shareClientsPick.recoPrice)) / Number(shareClientsPick.recoPrice) * 100).toFixed(1)}% target
+                    </span>
+                  )}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Channel selector */}
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant={shareClientsChannel === 'whatsapp' ? 'default' : 'outline'}
+                onClick={() => setShareClientsChannel('whatsapp')}
+                className="flex-1"
+              >
+                <MessageSquare className="h-4 w-4 mr-2" />
+                WhatsApp
+              </Button>
+              <Button
+                size="sm"
+                variant={shareClientsChannel === 'email' ? 'default' : 'outline'}
+                onClick={() => setShareClientsChannel('email')}
+                className="flex-1"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Email
+              </Button>
+            </div>
+
+            {/* Contact list */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-medium">Select Contacts</Label>
+                <button
+                  className="text-xs text-primary hover:underline"
+                  onClick={() => {
+                    const reachable = (marketingContacts as any[]).filter(c =>
+                      shareClientsChannel === 'email' ? !!c.email : (!!c.phone && !c.phone.startsWith('+XXXX'))
+                    ).map(c => c.id);
+                    setShareClientsSelected(prev =>
+                      reachable.every(id => prev.includes(id)) ? [] : reachable
+                    );
+                  }}
+                >
+                  {(marketingContacts as any[]).filter(c =>
+                    shareClientsChannel === 'email' ? !!c.email : (!!c.phone && !c.phone.startsWith('+XXXX'))
+                  ).every(c => shareClientsSelected.includes(c.id))
+                    ? 'Deselect All' : 'Select All'}
+                </button>
+              </div>
+              <ScrollArea className="h-52 border rounded-lg p-2">
+                {(marketingContacts as any[]).length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground text-sm">
+                    No contacts found. Add prospects from the Lead Pipeline.
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {(marketingContacts as any[]).map((c: any) => {
+                      const reachable = shareClientsChannel === 'email'
+                        ? !!c.email
+                        : (!!c.phone && !c.phone.startsWith('+XXXX'));
+                      return (
+                        <div
+                          key={c.id}
+                          className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-muted transition-colors ${
+                            !reachable ? 'opacity-40 cursor-not-allowed' : ''
+                          }`}
+                          onClick={() => {
+                            if (!reachable) return;
+                            setShareClientsSelected(prev =>
+                              prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id]
+                            );
+                          }}
+                        >
+                          <Checkbox
+                            checked={shareClientsSelected.includes(c.id)}
+                            disabled={!reachable}
+                            onCheckedChange={() => {
+                              if (!reachable) return;
+                              setShareClientsSelected(prev =>
+                                prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id]
+                              );
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{c.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {shareClientsChannel === 'email' ? (c.email || 'no email') : (c.phone || 'no phone')}
+                            </p>
+                          </div>
+                          <Badge variant={c.source === 'prospect' ? 'outline' : 'secondary'} className="text-xs">
+                            {c.source === 'prospect' ? 'P' : 'C'}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShareClientsDialogOpen(false)}>Cancel</Button>
+            <Button
+              disabled={shareClientsSelected.length === 0 || sharePickMutation.isPending}
+              onClick={() => {
+                if (!shareClientsPick) return;
+                sharePickMutation.mutate({
+                  pickId: shareClientsPick.id,
+                  clientIds: shareClientsSelected,
+                  channel: shareClientsChannel,
+                });
+              }}
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {sharePickMutation.isPending
+                ? 'Sending…'
+                : `Share with ${shareClientsSelected.length} contact${shareClientsSelected.length !== 1 ? 's' : ''}`
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1632,6 +1817,7 @@ interface PickCardProps {
   onRemoveFromWatchlist?: (pickId: number) => void;
   onShareEmail?: (pickId: number) => void;
   onShareWhatsApp?: (pickId: number) => void;
+  onShareClients?: (pick: DailyPick) => void;
 }
 
 function PickCard({ 
@@ -1643,6 +1829,7 @@ function PickCard({
   onRemoveFromWatchlist,
   onShareEmail,
   onShareWhatsApp,
+  onShareClients,
 }: PickCardProps) {
   const Icon = categoryIcons[pick.category] || TrendingUp;
   const isExpiredByDate = pick.status === 'live' && pick.expiryDate && new Date(pick.expiryDate) < new Date();
@@ -2023,6 +2210,24 @@ function PickCard({
                     <TooltipContent>Share via WhatsApp</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
+
+                {onShareClients && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-primary"
+                          onClick={() => onShareClients(pick)}
+                        >
+                          <Users className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Share with Clients</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </div>
             </div>
           </div>
