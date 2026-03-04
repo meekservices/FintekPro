@@ -1553,17 +1553,23 @@ export default function FestivalGreetingPreview() {
                     </div>
 
                     {/* Text info */}
-                    <div className="flex-1 text-left min-w-0">
-                      <div className="font-semibold text-sm leading-tight truncate" style={{ color: '#ffffff' }}>
+                    <div className="flex-1 text-left min-w-0" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <div className="truncate" style={{ color: '#ffffff', fontSize: '13px', fontWeight: 600, lineHeight: '1.1' }}>
                         {agentInfo.name || 'Your Name'}
                       </div>
-                      <div className="text-xs leading-tight truncate mt-0.5" style={{ color: selectedFestival.primaryColor, opacity: 0.9 }}>
+                      <div className="truncate" style={{ color: selectedFestival.primaryColor, fontSize: '11px', lineHeight: '1.1', opacity: 0.95 }}>
                         {agentInfo.designation || 'Financial Advisor'}
                       </div>
-                      <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                        {agentInfo.email && <div className="truncate">✉ {agentInfo.email}</div>}
-                        {agentInfo.phone && <div>☎ {agentInfo.phone}</div>}
-                      </div>
+                      {agentInfo.email && (
+                        <div className="truncate" style={{ color: 'rgba(255,255,255,0.70)', fontSize: '10px', lineHeight: '1.1' }}>
+                          ✉ {agentInfo.email}
+                        </div>
+                      )}
+                      {agentInfo.phone && (
+                        <div style={{ color: 'rgba(255,255,255,0.70)', fontSize: '10px', lineHeight: '1.1' }}>
+                          ☎ {agentInfo.phone}
+                        </div>
+                      )}
                     </div>
 
                     {/* FintekPro logo badge */}
