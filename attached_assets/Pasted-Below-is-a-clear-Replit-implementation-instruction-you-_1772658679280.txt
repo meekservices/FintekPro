@@ -1,0 +1,161 @@
+Below is a clear Replit implementation instruction you can paste into your Replit AI agent so it upgrades the Festival Greeting PNG export system and fixes the advisor card getting hidden during download.
+The instruction assumes your stack is React + Node + Tailwind + html2canvas (typical FintekPro UI stack).
+Replit Implementation Instruction
+Feature: Fix Festival Greeting PNG Export Cropping
+Objective
+Upgrade the Festival Greetings export system so that:
+PNG export exactly matches preview
+Advisor details never get cropped
+Greeting card exports in high resolution
+All templates follow a fixed export canvas
+Step 1 — Create Fixed Export Canvas
+Ensure every greeting card renders inside a fixed export container.
+Create or update component:
+client/src/components/festival/GreetingCard.tsx
+Add export-safe layout.
+export const GreetingCard = ({ children }) => {
+  return (
+    <div
+      id="festival-export-card"
+      className="festival-card relative"
+    >
+      {children}
+    </div>
+  );
+};
+Add styles:
+client/src/styles/festival.css
+.festival-card {
+  width: 1200px;
+  height: 1200px;
+  position: relative;
+  padding: 80px;
+  box-sizing: border-box;
+  border-radius: 32px;
+  overflow: hidden;
+}
+This ensures all elements stay inside the export frame.
+Step 2 — Fix Advisor Card Position
+Locate component:
+client/src/components/festival/AdvisorCard.tsx
+Update layout so it never leaves export container.
+<div className="advisor-card">
+   ...
+</div>
+CSS:
+.advisor-card {
+  position: absolute;
+  bottom: 80px;
+  left: 60px;
+  right: 60px;
+
+  padding: 24px;
+  border-radius: 18px;
+
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(12px);
+
+  border: 1px solid rgba(255,255,255,0.15);
+}
+Important rule:
+DO NOT allow negative bottom offsets
+Step 3 — Add Export Safe Zone
+Add a safe margin area so text and cards never overflow.
+Update festival-card:
+.festival-card {
+  padding-bottom: 160px;
+}
+This prevents footer cropping.
+Step 4 — Upgrade PNG Export Logic
+Locate export function.
+Example file:
+client/src/utils/exportGreeting.ts
+Install dependency if missing.
+npm install html2canvas
+Then update export code.
+import html2canvas from "html2canvas";
+
+export async function downloadGreetingPNG() {
+
+  const element = document.getElementById("festival-export-card");
+
+  if (!element) return;
+
+  const canvas = await html2canvas(element, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: null
+  });
+
+  const link = document.createElement("a");
+
+  link.download = "festival-greeting.png";
+  link.href = canvas.toDataURL("image/png");
+
+  link.click();
+}
+Step 5 — Ensure Export Uses Correct Element
+Verify button triggers correct export.
+File:
+client/src/pages/FestivalGreetings.tsx
+Update download button.
+<Button onClick={downloadGreetingPNG}>
+  Download PNG
+</Button>
+Ensure only the greeting card container is captured.
+Step 6 — Standardize Export Resolution
+Define global export size.
+1200 x 1200
+Reason:
+WhatsApp optimized
+LinkedIn optimized
+Instagram compatible
+High resolution
+Step 7 — Prevent Layout Shift During Export
+Add CSS rule:
+#festival-export-card * {
+  transform: none !important;
+}
+This prevents html2canvas rendering glitches.
+Step 8 — Test Export
+Create test cases.
+Test the following templates:
+Diwali
+Ganesh Chaturthi
+Christmas
+New Year
+Verify:
+✔ Advisor card visible
+✔ No cropping
+✔ High resolution export
+✔ Exact match to preview
+Step 9 — Future Proofing (Template Engine)
+Create reusable template folder.
+client/src/festival/templates
+Structure:
+templates/
+   diwali.tsx
+   ganeshChaturthi.tsx
+   christmas.tsx
+   newYear.tsx
+All templates must use:
+<GreetingCard>
+   ...
+   <AdvisorCard/>
+</GreetingCard>
+This guarantees consistent export behavior.
+Step 10 — Commit
+feat: upgrade festival greeting export engine
+
+- fixed PNG cropping
+- added export-safe canvas
+- improved advisor card positioning
+- standardized 1200x1200 export resolution
+Expected Result
+Before upgrade:
+Advisor card cropped
+Preview ≠ PNG
+After upgrade:
+Preview = PNG
+Advisor details always visible
+HD export
