@@ -1512,7 +1512,7 @@ export default function FestivalGreetingPreview() {
                   {/* Festival text block — centered in the upper portion, leaving room for agent card */}
                   <div
                     className="absolute inset-x-0 top-0 flex flex-col items-center justify-center text-center px-6"
-                    style={{ bottom: '110px' }}
+                    style={{ bottom: '170px' }}
                   >
                     {/* HAPPY label */}
                     <div
@@ -1560,62 +1560,56 @@ export default function FestivalGreetingPreview() {
                     </p>
                   </div>
 
-                  {/* Agent Info Card — absolutely pinned to bottom, always fully visible */}
+                  {/* Agent Info — bottom gradient overlay, stacked lines */}
                   <div
-                    className="absolute rounded-2xl p-3 flex items-center gap-3"
+                    className="absolute inset-x-0 bottom-0"
                     style={{
-                      bottom: '16px',
-                      left: '16px',
-                      right: '16px',
-                      background: 'rgba(0,0,0,0.48)',
-                      backdropFilter: 'blur(16px)',
-                      border: `1px solid ${selectedFestival.primaryColor}45`,
-                      boxShadow: `0 2px 16px rgba(0,0,0,0.35)`,
+                      background: 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.55) 30%, rgba(0,0,0,0.80) 100%)',
+                      paddingTop: '32px',
+                      paddingBottom: '16px',
                     }}
                   >
-                    {/* Avatar circle — premium gold ring */}
-                    <div
-                      className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-base font-bold"
-                      style={{
-                        background: `linear-gradient(135deg, ${selectedFestival.primaryColor}70, ${selectedFestival.secondaryColor}55)`,
-                        border: `2px solid ${selectedFestival.primaryColor}80`,
-                        color: '#fff',
-                        fontFamily: '"Playfair Display", Georgia, serif',
-                        fontSize: '1rem',
-                        textShadow: `0 1px 4px rgba(0,0,0,0.5)`,
-                      }}
-                    >
-                      {(agentInfo.name || 'Y').charAt(0).toUpperCase()}
+                    {/* Avatar + logo row */}
+                    <div className="flex items-center justify-between px-5 mb-2">
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center font-bold"
+                        style={{
+                          background: `linear-gradient(135deg, ${selectedFestival.primaryColor}80, ${selectedFestival.secondaryColor}60)`,
+                          border: `2px solid ${selectedFestival.primaryColor}90`,
+                          color: '#fff',
+                          fontSize: '1rem',
+                          fontFamily: '"Playfair Display", Georgia, serif',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {(agentInfo.name || 'Y').charAt(0).toUpperCase()}
+                      </div>
+                      <img
+                        src="/icon-192.png"
+                        alt="FintekPro"
+                        className="w-7 h-7 rounded-md"
+                        style={{ opacity: 0.80 }}
+                      />
                     </div>
 
-                    {/* Text info */}
-                    <div className="flex-1 text-left min-w-0" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <div className="truncate" style={{ color: '#ffffff', fontSize: '13px', fontWeight: 600, lineHeight: '1.1' }}>
+                    {/* Stacked text lines */}
+                    <div className="px-5" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      <div style={{ color: '#ffffff', fontSize: '13px', fontWeight: 700, lineHeight: 1.2 }}>
                         {agentInfo.name || 'Your Name'}
                       </div>
-                      <div className="truncate" style={{ color: selectedFestival.primaryColor, fontSize: '11px', lineHeight: '1.1', opacity: 0.95 }}>
+                      <div style={{ color: selectedFestival.primaryColor, fontSize: '11px', fontWeight: 500, lineHeight: 1.2, opacity: 0.95 }}>
                         {agentInfo.designation || 'Financial Advisor'}
                       </div>
                       {agentInfo.email && (
-                        <div className="truncate" style={{ color: 'rgba(255,255,255,0.70)', fontSize: '10px', lineHeight: '1.1' }}>
+                        <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: '10px', lineHeight: 1.2 }}>
                           ✉ {agentInfo.email}
                         </div>
                       )}
                       {agentInfo.phone && (
-                        <div style={{ color: 'rgba(255,255,255,0.70)', fontSize: '10px', lineHeight: '1.1' }}>
+                        <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: '10px', lineHeight: 1.2 }}>
                           ☎ {agentInfo.phone}
                         </div>
                       )}
-                    </div>
-
-                    {/* FintekPro logo badge */}
-                    <div className="flex-shrink-0">
-                      <img
-                        src="/icon-192.png"
-                        alt="FintekPro"
-                        className="w-8 h-8 rounded-lg"
-                        style={{ filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.25))', opacity: 0.85 }}
-                      />
                     </div>
                   </div>
                 </div>
