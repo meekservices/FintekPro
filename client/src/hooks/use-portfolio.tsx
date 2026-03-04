@@ -40,10 +40,13 @@ interface PortfolioPerformance {
   lastUpdated: string;
 }
 
+const toArray = <T>(data: unknown): T[] => (Array.isArray(data) ? (data as T[]) : []);
+
 export function usePortfolios(userId: string) {
-  return useQuery<Portfolio[]>({
+  return useQuery<Portfolio[], Error, Portfolio[]>({
     queryKey: ['/api/portfolios', userId],
     enabled: !!userId,
+    select: toArray<Portfolio>,
   });
 }
 
@@ -53,22 +56,24 @@ export function usePortfoliosByPan() {
     queryKey: ['/api/portfolios/by-pan'],
     retry: false,
     enabled: isAuthenticated,
-    select: (data) => (Array.isArray(data) ? data : []),
+    select: toArray<Portfolio>,
   });
 }
 
 export function usePortfolioHoldings(portfolioId: string | null) {
-  return useQuery<PortfolioHolding[]>({
+  return useQuery<PortfolioHolding[], Error, PortfolioHolding[]>({
     queryKey: ['/api/portfolios', portfolioId, 'holdings'],
     enabled: !!portfolioId,
+    select: toArray<PortfolioHolding>,
   });
 }
 
 export function useEnhancedPortfolioHoldings(portfolioId: string | null) {
-  return useQuery<EnhancedHolding[]>({
+  return useQuery<EnhancedHolding[], Error, EnhancedHolding[]>({
     queryKey: ['/api/portfolios', portfolioId, 'holdings', 'enhanced'],
     enabled: !!portfolioId,
-    refetchInterval: 30000, // Refresh every 30 seconds for live market data
+    refetchInterval: 30000,
+    select: toArray<EnhancedHolding>,
   });
 }
 
@@ -76,52 +81,59 @@ export function usePortfolioPerformance(portfolioId: string | null) {
   return useQuery<PortfolioPerformance>({
     queryKey: ['/api/portfolios', portfolioId, 'performance'],
     enabled: !!portfolioId,
-    refetchInterval: 30000, // Refresh every 30 seconds for live performance data
+    refetchInterval: 30000,
   });
 }
 
 export function useAssetAllocation(portfolioId: string | null) {
-  return useQuery<AssetAllocation[]>({
+  return useQuery<AssetAllocation[], Error, AssetAllocation[]>({
     queryKey: ['/api/portfolios', portfolioId, 'allocation'],
     enabled: !!portfolioId,
+    select: toArray<AssetAllocation>,
   });
 }
 
 // Government Scheme Holdings hooks
 export function useEpfHoldings() {
-  return useQuery<EpfHolding[]>({
+  return useQuery<EpfHolding[], Error, EpfHolding[]>({
     queryKey: ['/api/government-schemes/epf'],
+    select: toArray<EpfHolding>,
   });
 }
 
 export function usePpfHoldings() {
-  return useQuery<PpfHolding[]>({
+  return useQuery<PpfHolding[], Error, PpfHolding[]>({
     queryKey: ['/api/government-schemes/ppf'],
+    select: toArray<PpfHolding>,
   });
 }
 
 export function useEpsHoldings() {
-  return useQuery<EpsHolding[]>({
+  return useQuery<EpsHolding[], Error, EpsHolding[]>({
     queryKey: ['/api/government-schemes/eps'],
+    select: toArray<EpsHolding>,
   });
 }
 
 export function useNpsAccounts() {
-  return useQuery<NpsAccount[]>({
+  return useQuery<NpsAccount[], Error, NpsAccount[]>({
     queryKey: ['/api/government-schemes/nps'],
+    select: toArray<NpsAccount>,
   });
 }
 
 export function useApyAccounts() {
-  return useQuery<ApyAccount[]>({
+  return useQuery<ApyAccount[], Error, ApyAccount[]>({
     queryKey: ['/api/government-schemes/apy'],
+    select: toArray<ApyAccount>,
   });
 }
 
 // Insurance Holdings hooks
 export function useInsuranceHoldings() {
-  return useQuery<InsuranceHolding[]>({
+  return useQuery<InsuranceHolding[], Error, InsuranceHolding[]>({
     queryKey: ['/api/insurance-holdings'],
+    select: toArray<InsuranceHolding>,
   });
 }
 
