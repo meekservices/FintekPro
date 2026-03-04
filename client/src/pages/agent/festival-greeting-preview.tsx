@@ -500,12 +500,11 @@ export default function FestivalGreetingPreview() {
     const el = templateRef.current!;
     const html2canvas = (await import('html2canvas')).default;
 
-    // Scale up to 1200px output — content stays at natural rendered size, scale multiplies it
+    // Capture at natural rendered size, scale up to 1200px output
     const TARGET = 1200;
     const naturalW = el.offsetWidth;
+    const naturalH = el.offsetHeight; // should equal naturalW (square), but capture exact value
     const scale = Math.max(1, Math.round(TARGET / naturalW));
-
-    const rect = el.getBoundingClientRect();
 
     return html2canvas(el, {
       scale,
@@ -513,19 +512,21 @@ export default function FestivalGreetingPreview() {
       allowTaint: true,
       backgroundColor: null,
       logging: false,
-      x: rect.left + window.scrollX,
-      y: rect.top + window.scrollY,
-      width: naturalW,
-      height: el.offsetHeight,
-      windowWidth: document.documentElement.scrollWidth,
-      windowHeight: document.documentElement.scrollHeight,
       onclone: (_doc, clonedEl) => {
+        // ── CRITICAL: html2canvas does NOT support aspectRatio CSS ──────────
+        // Without this, the cloned element grows to full document height and all
+        // bottom-anchored children end up at the wrong (far-bottom) position.
+        clonedEl.style.width = `${naturalW}px`;
+        clonedEl.style.height = `${naturalH}px`;
+        clonedEl.style.maxWidth = 'none';
+        clonedEl.style.aspectRatio = 'auto';
+        clonedEl.style.overflow = 'hidden';
+
+        // ── Strip unsupported / animation CSS from every descendant ─────────
         clonedEl.querySelectorAll<HTMLElement>('*').forEach((node) => {
           const s = node.style;
-          // Remove CSS properties html2canvas cannot render
           s.backdropFilter = 'none';
           (s as any).webkitBackdropFilter = 'none';
-          // Freeze animations — capture is a still frame
           s.animation = 'none';
           s.animationDelay = '0s';
           s.transition = 'none';
