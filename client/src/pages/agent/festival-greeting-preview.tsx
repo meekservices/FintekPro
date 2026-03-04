@@ -487,16 +487,30 @@ export default function FestivalGreetingPreview() {
     saveProfileMutation.mutate(editForm);
   };
 
+  const captureGreetingCanvas = async () => {
+    const el = templateRef.current!;
+    const html2canvas = (await import('html2canvas')).default;
+    const W = el.offsetWidth;
+    const H = el.offsetHeight;
+    return html2canvas(el, {
+      scale: 3,
+      useCORS: true,
+      backgroundColor: null,
+      width: W,
+      height: H,
+      windowWidth: W,
+      windowHeight: H,
+      scrollX: -window.scrollX,
+      scrollY: -window.scrollY,
+      logging: false,
+    });
+  };
+
   const handleDownload = async () => {
     if (!templateRef.current) return;
     
     try {
-      const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(templateRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: null,
-      });
+      const canvas = await captureGreetingCanvas();
       
       const link = document.createElement('a');
       link.download = `${selectedFestival.id}-greeting.png`;
@@ -521,12 +535,7 @@ export default function FestivalGreetingPreview() {
     if (!templateRef.current) return;
     
     try {
-      const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(templateRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: null,
-      });
+      const canvas = await captureGreetingCanvas();
       
       // Convert to blob for sharing
       canvas.toBlob(async (blob) => {
