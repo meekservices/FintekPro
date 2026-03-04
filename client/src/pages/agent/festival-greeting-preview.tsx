@@ -522,6 +522,31 @@ export default function FestivalGreetingPreview() {
         clonedEl.style.aspectRatio = 'auto';
         clonedEl.style.overflow = 'hidden';
 
+        // ── Agent card: explicit auto height so glass box sizes to content ──
+        const agentCard = clonedEl.querySelector<HTMLElement>('[data-agent-card="1"]');
+        if (agentCard) {
+          agentCard.style.height = 'auto';
+          agentCard.style.minHeight = '0';
+          agentCard.style.alignItems = 'center';
+          agentCard.style.gap = '12px';
+          // Convert flex gap to padding on the text wrapper (html2canvas flex gap support is patchy)
+          const textBlock = agentCard.querySelector<HTMLElement>('[data-agent-card-text="1"]');
+          if (textBlock) {
+            textBlock.style.display = 'block';   // switch from flex-column to block
+            textBlock.style.gap = '0';
+            // Add explicit bottom margin to every text row child
+            Array.from(textBlock.children).forEach((child, i) => {
+              const el = child as HTMLElement;
+              el.style.display = 'block';
+              el.style.marginBottom = i < textBlock.children.length - 1 ? '3px' : '0';
+              el.style.whiteSpace = 'nowrap';
+              el.style.overflow = 'hidden';
+              el.style.textOverflow = 'ellipsis';
+              el.style.lineHeight = '1.4';
+            });
+          }
+        }
+
         // ── Strip unsupported / animation CSS from every descendant ─────────
         clonedEl.querySelectorAll<HTMLElement>('*').forEach((node) => {
           const s = node.style;
@@ -1562,11 +1587,13 @@ export default function FestivalGreetingPreview() {
 
                   {/* Agent Info Card — absolutely pinned to bottom, always fully visible */}
                   <div
+                    data-agent-card="1"
                     className="absolute rounded-2xl p-3 flex items-center gap-3"
                     style={{
                       bottom: '16px',
                       left: '16px',
                       right: '16px',
+                      height: 'auto',
                       background: 'rgba(0,0,0,0.48)',
                       backdropFilter: 'blur(16px)',
                       border: `1px solid ${selectedFestival.primaryColor}45`,
@@ -1575,8 +1602,11 @@ export default function FestivalGreetingPreview() {
                   >
                     {/* Avatar circle — premium gold ring */}
                     <div
-                      className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-base font-bold"
+                      className="flex-shrink-0 rounded-full flex items-center justify-center font-bold"
                       style={{
+                        width: '44px',
+                        height: '44px',
+                        flexShrink: 0,
                         background: `linear-gradient(135deg, ${selectedFestival.primaryColor}70, ${selectedFestival.secondaryColor}55)`,
                         border: `2px solid ${selectedFestival.primaryColor}80`,
                         color: '#fff',
@@ -1588,33 +1618,42 @@ export default function FestivalGreetingPreview() {
                       {(agentInfo.name || 'Y').charAt(0).toUpperCase()}
                     </div>
 
-                    {/* Text info */}
-                    <div className="flex-1 text-left min-w-0" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <div className="truncate" style={{ color: '#ffffff', fontSize: '13px', fontWeight: 600, lineHeight: '1.1' }}>
+                    {/* Text info — data attr so onclone can fix layout */}
+                    <div
+                      data-agent-card-text="1"
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '3px',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <div style={{ color: '#ffffff', fontSize: '13px', fontWeight: 600, lineHeight: '1.3', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {agentInfo.name || 'Your Name'}
                       </div>
-                      <div className="truncate" style={{ color: selectedFestival.primaryColor, fontSize: '11px', lineHeight: '1.1', opacity: 0.95 }}>
+                      <div style={{ color: selectedFestival.primaryColor, fontSize: '11px', lineHeight: '1.3', opacity: 0.95, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {agentInfo.designation || 'Financial Advisor'}
                       </div>
                       {agentInfo.email && (
-                        <div className="truncate" style={{ color: 'rgba(255,255,255,0.70)', fontSize: '10px', lineHeight: '1.1' }}>
+                        <div style={{ color: 'rgba(255,255,255,0.70)', fontSize: '10px', lineHeight: '1.3', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           ✉ {agentInfo.email}
                         </div>
                       )}
                       {agentInfo.phone && (
-                        <div style={{ color: 'rgba(255,255,255,0.70)', fontSize: '10px', lineHeight: '1.1' }}>
+                        <div style={{ color: 'rgba(255,255,255,0.70)', fontSize: '10px', lineHeight: '1.3' }}>
                           ☎ {agentInfo.phone}
                         </div>
                       )}
                     </div>
 
                     {/* FintekPro logo badge */}
-                    <div className="flex-shrink-0">
+                    <div style={{ flexShrink: 0 }}>
                       <img
                         src="/icon-192.png"
                         alt="FintekPro"
-                        className="w-8 h-8 rounded-lg"
-                        style={{ filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.25))', opacity: 0.85 }}
+                        style={{ width: '32px', height: '32px', borderRadius: '8px', filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.25))', opacity: 0.85 }}
                       />
                     </div>
                   </div>
