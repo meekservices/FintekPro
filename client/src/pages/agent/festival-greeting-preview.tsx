@@ -1472,10 +1472,10 @@ export default function FestivalGreetingPreview() {
                 ))}
 
                 {/* Main Content */}
-                <div className="relative z-10 h-full flex flex-col items-center p-6 text-center">
+                <div className="relative z-10 h-full flex flex-col items-center px-6 pt-5 pb-4 text-center">
 
                   {/* Top section — HAPPY + festival name */}
-                  <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="flex-1 min-h-0 flex flex-col items-center justify-center overflow-hidden">
 
                     {/* HAPPY label */}
                     <div
@@ -1541,7 +1541,7 @@ export default function FestivalGreetingPreview() {
 
                   {/* Agent Info Card — anchored to bottom */}
                   <div
-                    className="w-full max-w-sm rounded-xl p-3 flex items-center gap-3"
+                    className="flex-shrink-0 w-full max-w-sm rounded-xl p-3 flex items-center gap-3 mt-3"
                     style={{
                       background: 'rgba(0,0,0,0.38)',
                       backdropFilter: 'blur(12px)',
