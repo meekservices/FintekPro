@@ -82,7 +82,11 @@ import {
   UserPlus,
   Layers,
   Zap,
-  GitBranch
+  GitBranch,
+  Grid3x3,
+  HeartPulse,
+  Crosshair,
+  BellRing
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
@@ -470,7 +474,8 @@ export function EnhancedNavigation() {
           { name: "CRM Analytics", href: "/agent/crm/analytics", icon: Eye, description: "CRM analytics & insights" },
           { name: "Tasks", href: "/agent/tasks", icon: ListChecks, description: "Task management" },
           { name: "Onboard Client", href: "/agent/onboard-client", icon: UserPlus, description: "New client onboarding" },
-          { name: "External Portfolios", href: "/agent/external-portfolios", icon: Briefcase, description: "COB & external holdings" }
+          { name: "External Portfolios", href: "/agent/external-portfolios", icon: Briefcase, description: "COB & external holdings" },
+          { name: "SIP Health", href: "/agent/sip-health", icon: HeartPulse, description: "Monitor client SIP status" }
         ]
       },
       {
@@ -480,6 +485,9 @@ export function EnhancedNavigation() {
           { name: "AI Recommendations", href: "/ai-recommendations", icon: Sparkles, description: "AI-powered insights", badge: "AI" },
           { name: "Pick of the Day", href: "/agent/picks", icon: Star, description: "Daily investment picks" },
           { name: "Research Workspace", href: "/agent/research-lists", icon: Search, description: "Research & watchlists" },
+          { name: "Investment Baskets", href: "/agent/baskets", icon: Grid3x3, description: "Curated thematic portfolios", badge: "NEW" },
+          { name: "Market Alerts", href: "/agent/market-alerts", icon: BellRing, description: "Significant moves in client holdings", badge: "LIVE" },
+          { name: "Portfolio Drift", href: "/agent/portfolio-drift", icon: Crosshair, description: "Detect allocation drift across clients" },
           { name: "Screener", href: "/agent/screener", icon: BarChart3, description: "Stock screener" },
           { name: "Report Builder", href: "/agent/report-builder", icon: FileText, description: "Custom reports" }
         ]

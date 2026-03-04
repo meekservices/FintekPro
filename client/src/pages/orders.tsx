@@ -5,8 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useUnifiedCart } from "@/contexts/UnifiedCartContext";
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Package,
   ShoppingCart, 
@@ -24,9 +30,12 @@ import {
   Landmark,
   Calendar,
   CircleDot,
-  Circle
+  Circle,
+  AlertTriangle,
+  UserCheck
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import { format } from "date-fns";
 import type { UnifiedCartItem, ProductCategory, CartItemStatus } from "@shared/schema";
 
 interface OrderFilters {
@@ -269,6 +278,265 @@ function OrderCard({ item }: { item: UnifiedCartItem }) {
   );
 }
 
+interface AgentClientOrder {
+  id: string;
+  orderNumber: string;
+  userId: string;
+  clientName: string;
+  productType: string;
+  productName: string;
+  orderType: string;
+  amount: string;
+  quantity: string | null;
+  status: string;
+  notes: string | null;
+  createdAt: string;
+}
+
+const PRODUCT_TYPES = ["mutual_fund", "equity", "bond", "etf", "fd", "aif", "pms"];
+const ORDER_SUBTYPES = ["MARKET", "LIMIT", "SIP"];
+
+function ClientOrderTab() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: clients = [] } = useQuery<{ id: string; firstName: string; lastName: string; email: string }[]>({
+    queryKey: ["/api/agent/clients"],
+  });
+
+  const { data: pastOrders = [] } = useQuery<AgentClientOrder[]>({
+    queryKey: ["/api/agent/client-orders"],
+  });
+
+  const [form, setForm] = useState({
+    clientId: "",
+    productType: "mutual_fund",
+    productName: "",
+    symbol: "",
+    isin: "",
+    action: "BUY",
+    quantity: "",
+    orderType: "MARKET",
+    price: "",
+    notes: "",
+    consentConfirmed: false,
+  });
+
+  const placeMutation = useMutation({
+    mutationFn: (data: typeof form) => apiRequest("POST", "/api/agent/client-orders", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/client-orders"] });
+      setForm((p) => ({ ...p, productName: "", symbol: "", isin: "", quantity: "", price: "", notes: "", consentConfirmed: false }));
+      toast({ title: "Order placed", description: "Order submitted on behalf of client." });
+    },
+    onError: async (err: any) => {
+      let msg = "Failed to place order";
+      try { const d = await err.json?.(); msg = d?.error || msg; } catch {}
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    },
+  });
+
+  const clientOptions = clients.map((c) => ({
+    id: c.id,
+    name: `${c.firstName || ""} ${c.lastName || ""}`.trim() || c.email,
+  }));
+
+  const statusColor: Record<string, string> = {
+    initiated: "bg-blue-100 text-blue-700",
+    completed: "bg-green-100 text-green-700",
+    cancelled: "bg-red-100 text-red-700",
+    processing: "bg-amber-100 text-amber-700",
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Warning Banner */}
+      <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+        <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+        <div>
+          <p className="font-semibold text-amber-800 dark:text-amber-300 text-sm">Order-on-Behalf Console</p>
+          <p className="text-amber-700 dark:text-amber-400 text-xs mt-0.5">
+            You are placing an order on behalf of a client. Ensure verbal or written consent is documented before proceeding.
+          </p>
+        </div>
+      </div>
+
+      {/* Order Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Place Order for Client</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Client</Label>
+              <Select value={form.clientId} onValueChange={(v) => setForm((p) => ({ ...p, clientId: v }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select client..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {clientOptions.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Product Type</Label>
+              <Select value={form.productType} onValueChange={(v) => setForm((p) => ({ ...p, productType: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PRODUCT_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Product / Fund Name</Label>
+              <Input
+                placeholder="e.g. HDFC Top 100 Fund — Direct Growth"
+                value={form.productName}
+                onChange={(e) => setForm((p) => ({ ...p, productName: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Symbol / Ticker (optional)</Label>
+              <Input
+                placeholder="HDFCTOP100"
+                value={form.symbol}
+                onChange={(e) => setForm((p) => ({ ...p, symbol: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>ISIN (optional)</Label>
+              <Input
+                placeholder="INF179K01AA8"
+                value={form.isin}
+                onChange={(e) => setForm((p) => ({ ...p, isin: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Action</Label>
+              <Select value={form.action} onValueChange={(v) => setForm((p) => ({ ...p, action: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="BUY">Buy / Subscribe</SelectItem>
+                  <SelectItem value="SELL">Sell / Redeem</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Order Type</Label>
+              <Select value={form.orderType} onValueChange={(v) => setForm((p) => ({ ...p, orderType: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ORDER_SUBTYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Quantity / Units</Label>
+              <Input
+                type="number"
+                placeholder="100"
+                value={form.quantity}
+                onChange={(e) => setForm((p) => ({ ...p, quantity: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Price / Amount (₹)</Label>
+              <Input
+                type="number"
+                placeholder="50000"
+                value={form.price}
+                onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Notes</Label>
+              <Textarea
+                placeholder="Optional notes about this order..."
+                rows={2}
+                value={form.notes}
+                onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 p-3 bg-muted rounded-lg">
+            <Checkbox
+              id="consent"
+              checked={form.consentConfirmed}
+              onCheckedChange={(v) => setForm((p) => ({ ...p, consentConfirmed: !!v }))}
+            />
+            <Label htmlFor="consent" className="text-sm cursor-pointer leading-relaxed">
+              I confirm that the client has provided verbal or written consent for this order to be placed on their behalf.
+            </Label>
+          </div>
+
+          <Button
+            disabled={!form.clientId || !form.productName || !form.consentConfirmed || placeMutation.isPending}
+            onClick={() => placeMutation.mutate(form)}
+            className="gap-2"
+          >
+            <UserCheck className="h-4 w-4" />
+            {placeMutation.isPending ? "Placing Order..." : "Place Order for Client"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Order History */}
+      {pastOrders.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Order History (Placed by You for Clients)</CardTitle>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left border-b">
+                  <th className="pb-2 pr-4 text-muted-foreground font-medium">Client</th>
+                  <th className="pb-2 pr-4 text-muted-foreground font-medium">Product</th>
+                  <th className="pb-2 pr-4 text-muted-foreground font-medium">Action</th>
+                  <th className="pb-2 pr-4 text-muted-foreground font-medium">Amount</th>
+                  <th className="pb-2 pr-4 text-muted-foreground font-medium">Status</th>
+                  <th className="pb-2 text-muted-foreground font-medium">Placed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pastOrders.map((order) => (
+                  <tr key={order.id} className="border-b last:border-0">
+                    <td className="py-2 pr-4 font-medium">{order.clientName}</td>
+                    <td className="py-2 pr-4 max-w-[200px]">
+                      <div className="truncate">{order.productName}</div>
+                      <div className="text-xs text-muted-foreground">{order.productType}</div>
+                    </td>
+                    <td className="py-2 pr-4">
+                      <Badge variant={order.orderType === "BUY" || order.orderType === "buy" ? "default" : "secondary"} className="text-xs">
+                        {order.orderType?.toUpperCase()}
+                      </Badge>
+                    </td>
+                    <td className="py-2 pr-4">₹{parseFloat(order.amount || "0").toLocaleString("en-IN")}</td>
+                    <td className="py-2 pr-4">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${statusColor[order.status] || "bg-gray-100 text-gray-700"}`}>
+                        {order.status}
+                      </span>
+                    </td>
+                    <td className="py-2 text-muted-foreground text-xs">
+                      {order.createdAt ? format(new Date(order.createdAt), "dd MMM yy") : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export default function Orders() {
   const { items, isLoading, error } = useUnifiedCart();
   const [location] = useLocation();
@@ -482,10 +750,16 @@ export default function Orders() {
             <Package className="w-4 h-4" />
             Store ({categoryStats.store})
           </TabsTrigger>
+          <TabsTrigger value="for_clients" className="flex items-center gap-2">
+            <UserCheck className="w-4 h-4" />
+            For Clients
+          </TabsTrigger>
         </ScrollableTabsList>
 
+        {activeTab === "for_clients" && <ClientOrderTab />}
+
         <TabsContent value={activeTab} className="space-y-4">
-          {filteredItems.length === 0 ? (
+          {activeTab === "for_clients" ? null : filteredItems.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">
                 <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />

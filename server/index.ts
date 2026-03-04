@@ -645,6 +645,26 @@ server.listen({
   // Register Agent Revenue & Lead Pipeline routes
   const agentRevenueRoutes = await import('./routes/agent-revenue-routes');
   app.use(agentRevenueRoutes.default);
+
+  // Register Agent Investment Baskets routes (Wealthy Ideas)
+  const agentBasketsRoutes = await import('./routes/agent-baskets');
+  app.use(agentBasketsRoutes.default);
+
+  // Register Agent SIP Health Monitor routes
+  const agentSipHealthRoutes = await import('./routes/agent-sip-health');
+  app.use(agentSipHealthRoutes.default);
+
+  // Register Agent Portfolio Drift Monitor routes
+  const agentPortfolioDriftRoutes = await import('./routes/agent-portfolio-drift');
+  app.use(agentPortfolioDriftRoutes.default);
+
+  // Register Agent Client Orders (Order-on-Behalf) routes
+  const agentClientOrdersRoutes = await import('./routes/agent-client-orders');
+  app.use(agentClientOrdersRoutes.default);
+
+  // Register Agent Market Alerts routes
+  const agentMarketAlertsRoutes = await import('./routes/agent-market-alerts');
+  app.use(agentMarketAlertsRoutes.default);
   
   // Register KYC Vault routes (Production-grade KYC system)
   const { registerKYCVaultRoutes } = await import('./kyc-vault-routes');

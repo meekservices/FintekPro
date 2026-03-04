@@ -365,6 +365,10 @@ const PortfolioRebalancing = lazyWithRetry(() => import("@/pages/portfolio-rebal
 const PortfolioImport = lazyWithRetry(() => import("@/pages/portfolio-import"));
 const TrackerPortfolioReport = lazyWithRetry(() => import("@/pages/tracker-portfolio-report"));
 const AgentExternalPortfolios = lazyWithRetry(() => import("@/pages/agent-external-portfolios"));
+const AgentInvestmentBaskets = lazyWithRetry(() => import("@/pages/agent-investment-baskets"));
+const AgentSipHealth = lazyWithRetry(() => import("@/pages/agent-sip-health"));
+const AgentPortfolioDrift = lazyWithRetry(() => import("@/pages/agent-portfolio-drift"));
+const AgentMarketAlerts = lazyWithRetry(() => import("@/pages/agent-market-alerts"));
 
 function UserProtectedRoutes() {
   return (
@@ -1781,6 +1785,42 @@ function AgentRoutes() {
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
               <AgentCrmAnalytics />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/baskets">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentInvestmentBaskets />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/sip-health">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentSipHealth />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/portfolio-drift">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentPortfolioDrift />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/market-alerts">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentMarketAlerts />
             </Suspense>
           </AgentLayout>
         )}

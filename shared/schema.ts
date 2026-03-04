@@ -32829,3 +32829,41 @@ export const agentNotifications = pgTable("agent_notifications", {
 
 export type AgentNotification = typeof agentNotifications.$inferSelect;
 export type InsertAgentNotification = typeof agentNotifications.$inferInsert;
+
+// ========================================
+// Agent Investment Baskets (Wealthy Ideas)
+// ========================================
+export const agentBaskets = pgTable("agent_baskets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  agentId: varchar("agent_id", { length: 100 }).notNull().references(() => users.id),
+  name: text("name").notNull(),
+  theme: varchar("theme", { length: 100 }).notNull().default("Custom"),
+  description: text("description"),
+  isPublic: boolean("is_public").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_baskets_agent").on(table.agentId),
+  index("idx_agent_baskets_created").on(table.createdAt),
+]);
+
+export type AgentBasket = typeof agentBaskets.$inferSelect;
+export type InsertAgentBasket = typeof agentBaskets.$inferInsert;
+export const insertAgentBasketSchema = createInsertSchema(agentBaskets).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const agentBasketItems = pgTable("agent_basket_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  basketId: uuid("basket_id").notNull().references(() => agentBaskets.id, { onDelete: "cascade" }),
+  instrumentType: varchar("instrument_type", { length: 50 }).notNull().default("stock"),
+  symbol: varchar("symbol", { length: 50 }),
+  isin: varchar("isin", { length: 20 }),
+  name: text("name").notNull(),
+  allocationPercent: numeric("allocation_percent", { precision: 5, scale: 2 }).notNull().default("0"),
+  addedAt: timestamp("added_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_basket_items_basket").on(table.basketId),
+]);
+
+export type AgentBasketItem = typeof agentBasketItems.$inferSelect;
+export type InsertAgentBasketItem = typeof agentBasketItems.$inferInsert;
+export const insertAgentBasketItemSchema = createInsertSchema(agentBasketItems).omit({ id: true, addedAt: true });
