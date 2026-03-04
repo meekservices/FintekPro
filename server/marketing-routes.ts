@@ -15,6 +15,7 @@ import {
   marketingCampaigns, 
   campaignRecipients,
   prospectLeads,
+  prospectClients,
   leadActivities,
   clientIntelligence,
   users,
@@ -2247,20 +2248,42 @@ export function registerMarketingRoutes(app: any) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      // Get clients assigned to this agent
-      const prospects = await db
+      const agentId = req.user.id;
+
+      // 1. Admin-assigned leads (prospectLeads table)
+      const assignedLeads = await db
         .select()
         .from(prospectLeads)
-        .where(eq(prospectLeads.assignedTo, req.user.id))
-        .limit(100);
+        .where(eq(prospectLeads.assignedTo, agentId))
+        .limit(200);
 
-      res.json(prospects.map(p => ({
-        id: p.id,
-        name: p.companyName,
-        email: p.primaryEmail,
-        phone: p.primaryMobile,
-        status: p.status,
-      })));
+      // 2. Agent's own prospects created via the prospect wizard (prospectClients table)
+      const ownProspects = await db
+        .select()
+        .from(prospectClients)
+        .where(eq(prospectClients.agentId, agentId))
+        .limit(200);
+
+      const combined = [
+        ...assignedLeads.map(p => ({
+          id: p.id,
+          name: p.companyName,
+          email: p.primaryEmail,
+          phone: p.primaryMobile,
+          status: p.status || 'active',
+          source: 'client' as const,
+        })),
+        ...ownProspects.map(p => ({
+          id: p.id,
+          name: p.name,
+          email: p.email,
+          phone: p.mobile,
+          status: p.state || 'prospect',
+          source: 'prospect' as const,
+        })),
+      ];
+
+      res.json(combined);
     } catch (error) {
       console.error('Error fetching agent clients:', error);
       return apiResponse.serverError(res, 'Failed to fetch clients');
@@ -2283,18 +2306,24 @@ export function registerMarketingRoutes(app: any) {
         return apiResponse.badRequest(res, 'Festival ID and client IDs are required');
       }
 
-      // Fetch client details
-      const clients = await db
-        .select()
-        .from(prospectLeads)
-        .where(sql`${prospectLeads.id} = ANY(${clientIds})`);
+      // Fetch from both tables — assigned leads and agent's own prospects
+      const [leadsRows, prospectsRows] = await Promise.all([
+        db.select().from(prospectLeads).where(sql`${prospectLeads.id} = ANY(${clientIds})`),
+        db.select().from(prospectClients).where(sql`${prospectClients.id} = ANY(${clientIds})`),
+      ]);
+
+      // Normalize to a common shape
+      const clients = [
+        ...leadsRows.map(p => ({ id: p.id, name: p.companyName, email: p.primaryEmail, phone: p.primaryMobile })),
+        ...prospectsRows.map(p => ({ id: p.id, name: p.name, email: p.email, phone: p.mobile })),
+      ];
 
       if (clients.length === 0) {
         return apiResponse.badRequest(res, 'No valid clients found');
       }
 
       // Filter clients with valid emails
-      const emailClients = clients.filter(c => c.primaryEmail);
+      const emailClients = clients.filter(c => c.email);
       
       console.log(`📧 Agent ${req.user.id} sending ${festivalId} greetings to ${clientIds.length} clients via ${channel}`);
 
@@ -2333,8 +2362,8 @@ export function registerMarketingRoutes(app: any) {
             subject: `${festivalData.emoji} Happy ${festivalData.name} from ${agentName}!`,
             htmlContent,
             recipients: emailClients.map(c => ({
-              email: c.primaryEmail!,
-              name: c.companyName || c.primaryEmail!,
+              email: c.email!,
+              name: c.name || c.email!,
             })),
           });
 

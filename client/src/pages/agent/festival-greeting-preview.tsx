@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Share2, Sparkles, Save, User, Edit2, Check, X, Send, Users, Mail, MessageSquare } from 'lucide-react';
+import { Download, Share2, Sparkles, Save, User, Edit2, Check, X, Send, Users, Mail, MessageSquare, UserPlus } from 'lucide-react';
+import { Link } from 'wouter';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -671,12 +672,32 @@ export default function FestivalGreetingPreview() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Select Clients</CardTitle>
-                    <CardDescription>Choose clients to send {selectedFestival.name} greetings</CardDescription>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      Select Clients & Prospects
+                    </CardTitle>
+                    <CardDescription>
+                      Send {selectedFestival.name} greetings to your clients and prospects
+                      {(assignedClients as any[]).length > 0 && (
+                        <span className="ml-1 text-primary font-medium">
+                          ({(assignedClients as any[]).length} contacts)
+                        </span>
+                      )}
+                    </CardDescription>
                   </div>
-                  <Button variant="outline" size="sm" onClick={selectAllClients}>
-                    {selectedClients.length === (assignedClients as any[]).length ? 'Deselect All' : 'Select All'}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Link href="/agent/leads">
+                      <Button variant="outline" size="sm">
+                        <UserPlus className="h-4 w-4 mr-1" />
+                        Add Prospect
+                      </Button>
+                    </Link>
+                    {(assignedClients as any[]).length > 0 && (
+                      <Button variant="outline" size="sm" onClick={selectAllClients}>
+                        {selectedClients.length === (assignedClients as any[]).length ? 'Deselect All' : 'Select All'}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -685,10 +706,18 @@ export default function FestivalGreetingPreview() {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                   </div>
                 ) : (assignedClients as any[]).length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>No clients assigned to you yet</p>
-                    <p className="text-sm">Clients will appear here once assigned by admin</p>
+                  <div className="text-center py-10">
+                    <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
+                    <p className="font-medium text-muted-foreground mb-1">No contacts yet</p>
+                    <p className="text-sm text-muted-foreground mb-5 max-w-xs mx-auto">
+                      Add prospects via the Lead Pipeline to start sending greetings — no admin assignment needed.
+                    </p>
+                    <Link href="/agent/leads">
+                      <Button size="sm">
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Add Your First Prospect
+                      </Button>
+                    </Link>
                   </div>
                 ) : (
                   <ScrollArea className="h-[400px]">
@@ -697,7 +726,7 @@ export default function FestivalGreetingPreview() {
                         <div 
                           key={client.id}
                           className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${
-                            selectedClients.includes(client.id) ? 'bg-muted border-primary' : ''
+                            selectedClients.includes(client.id) ? 'bg-primary/5 border-primary' : ''
                           }`}
                           onClick={() => toggleClientSelection(client.id)}
                         >
@@ -705,14 +734,21 @@ export default function FestivalGreetingPreview() {
                             checked={selectedClients.includes(client.id)}
                             onCheckedChange={() => toggleClientSelection(client.id)}
                           />
-                          <div className="flex-1">
-                            <p className="font-medium">{client.name}</p>
-                            <div className="flex gap-4 text-sm text-muted-foreground">
-                              {client.email && <span>📧 {client.email}</span>}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{client.name}</p>
+                            <div className="flex gap-3 text-sm text-muted-foreground flex-wrap">
+                              {client.email && <span className="truncate">📧 {client.email}</span>}
                               {client.phone && <span>📞 {client.phone}</span>}
                             </div>
                           </div>
-                          <Badge variant="secondary">{client.status}</Badge>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <Badge
+                              variant={client.source === 'prospect' ? 'outline' : 'secondary'}
+                              className={client.source === 'prospect' ? 'border-blue-400 text-blue-400' : ''}
+                            >
+                              {client.source === 'prospect' ? 'Prospect' : 'Client'}
+                            </Badge>
+                          </div>
                         </div>
                       ))}
                     </div>
