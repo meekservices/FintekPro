@@ -1535,10 +1535,9 @@ export default function FestivalGreetingPreview() {
                   <div
                     className="absolute inset-x-4 bottom-4 rounded-xl p-3 flex items-center gap-3"
                     style={{
-                      background: 'rgba(0,0,0,0.42)',
+                      background: 'rgba(0,0,0,0.55)',
                       backdropFilter: 'blur(12px)',
-                      border: `1px solid ${selectedFestival.primaryColor}30`,
-                      boxShadow: `0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 ${selectedFestival.primaryColor}20`,
+                      boxShadow: '0 4px 24px rgba(0,0,0,0.40)',
                     }}
                   >
                     {/* Avatar circle */}
