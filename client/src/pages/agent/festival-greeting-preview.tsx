@@ -535,50 +535,62 @@ export default function FestivalGreetingPreview() {
         const doc = clonedEl.ownerDocument || document;
         const container = doc.getElementById('agent-text-block');
         if (container) {
-          // Hard-coded Y-coordinates — immune to html2canvas "phantom height" bug.
-          // Each row gets an absolute top value; the engine cannot move them.
-          //   [0] Name        → top:  0px
-          //   [1] Designation → top: 26px  (20px row + 6px gap)
-          //   [2] Email       → top: 50px  (15px row + 9px gap)
-          //   [3] Phone       → top: 70px  (14px row + 6px gap)
-          const Y_OFFSETS = [0, 26, 50, 70];
-          const CONTAINER_H = 84; // contains all rows with breathing room
-
+          // Fixed-height relative container — absolute children positioned within it
           container.style.display = 'block';
           container.style.position = 'relative';
-          container.style.height = `${CONTAINER_H}px`;
+          container.style.height = '100px';
           container.style.width = '100%';
 
-          const rows = Array.from(container.children) as HTMLElement[];
-          rows.forEach((row, index) => {
-            const top = Y_OFFSETS[index] ?? (Y_OFFSETS[Y_OFFSETS.length - 1] + 20 * (index - Y_OFFSETS.length + 1));
+          // ── Name — top: 0px ──────────────────────────────────────────────
+          const name = doc.querySelector<HTMLElement>('.agent-name');
+          if (name) {
+            name.style.position = 'absolute';
+            name.style.top = '0px';
+            name.style.left = '0px';
+            name.style.right = '0px';
+            name.style.fontSize = '14px';
+            name.style.lineHeight = '20px';
+            name.style.fontWeight = 'bold';
+            name.style.color = '#ffffff';
+            name.style.whiteSpace = 'nowrap';
+            name.style.overflow = 'hidden';
+            name.style.textOverflow = 'ellipsis';
+            name.style.margin = '0';
+          }
+
+          // ── Designation — top: 28px ──────────────────────────────────────
+          const designation = doc.querySelector<HTMLElement>('.agent-designation');
+          if (designation) {
+            designation.style.position = 'absolute';
+            designation.style.top = '28px';   // 20px name + 8px gap
+            designation.style.left = '0px';
+            designation.style.right = '0px';
+            designation.style.fontSize = '11px';
+            designation.style.lineHeight = '15px';
+            designation.style.color = '#FFD700';
+            designation.style.fontWeight = '600';
+            designation.style.whiteSpace = 'nowrap';
+            designation.style.overflow = 'hidden';
+            designation.style.textOverflow = 'ellipsis';
+            designation.style.margin = '0';
+          }
+
+          // ── Contact rows — email: top 54px, phone: top 74px ─────────────
+          const contacts = doc.querySelectorAll<HTMLElement>('.agent-contact-row');
+          const contactTops = [54, 74];      // 28+15+11=54 for email; 54+14+6=74 for phone
+          contacts.forEach((row, i) => {
             row.style.position = 'absolute';
+            row.style.top = `${contactTops[i] ?? 74 + (i - 1) * 18}px`;
             row.style.left = '0px';
             row.style.right = '0px';
-            row.style.top = `${top}px`;      // hard-wired — cannot collapse into neighbours
-            row.style.margin = '0';
-            row.style.padding = '0';
+            row.style.fontSize = '10px';
+            row.style.lineHeight = '14px';
+            row.style.color = 'rgba(255,255,255,0.85)';
+            row.style.display = 'flex';
+            row.style.alignItems = 'center';
             row.style.whiteSpace = 'nowrap';
             row.style.overflow = 'hidden';
-            row.style.textOverflow = 'ellipsis';
-
-            if (index === 0) {               // Name
-              row.style.fontSize = '14px';
-              row.style.lineHeight = '20px';
-              row.style.fontWeight = 'bold';
-              row.style.color = '#ffffff';
-            } else if (index === 1) {        // Designation
-              row.style.fontSize = '11px';
-              row.style.lineHeight = '15px';
-              row.style.color = '#FFD700';
-              row.style.fontWeight = '600';
-            } else {                         // Email / Phone
-              row.style.fontSize = '10px';
-              row.style.lineHeight = '14px';
-              row.style.color = 'rgba(255,255,255,0.85)';
-              row.style.display = 'flex';
-              row.style.alignItems = 'center';
-            }
+            row.style.margin = '0';
           });
         }
 
@@ -1679,8 +1691,8 @@ export default function FestivalGreetingPreview() {
                       {/* child[2] — email */}
                       {agentInfo.email && (
                         <div
-                          className="agent-contact"
-                          style={{ color: 'rgba(255,255,255,0.78)', fontSize: '10px', lineHeight: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          className="agent-contact-row"
+                          style={{ color: 'rgba(255,255,255,0.78)', fontSize: '10px', lineHeight: '14px', display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden', whiteSpace: 'nowrap' }}
                         >
                           ✉ {agentInfo.email}
                         </div>
@@ -1688,8 +1700,8 @@ export default function FestivalGreetingPreview() {
                       {/* child[3] — phone */}
                       {agentInfo.phone && (
                         <div
-                          className="agent-contact"
-                          style={{ color: 'rgba(255,255,255,0.78)', fontSize: '10px', lineHeight: '14px' }}
+                          className="agent-contact-row"
+                          style={{ color: 'rgba(255,255,255,0.78)', fontSize: '10px', lineHeight: '14px', display: 'flex', alignItems: 'center', gap: '4px' }}
                         >
                           ☎ {agentInfo.phone}
                         </div>

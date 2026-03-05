@@ -1,0 +1,98 @@
+The reason your phone number is now hidden and the text is overlapping is that html2canvas is struggling with line-height rendering during the export process. When you use relative units or small margins, the engine often collapses the height of the container, making the lines "crush" together at the top or bottom.
+
+To fix this and achieve your goal of vertically centered text, we will use a "Container-Within-a-Container" approach. This forces the engine to respect a specific, fixed vertical space.
+
+The Full Corrected Code for Replit
+Ask the Replit Agent to replace your current export function and JSX with this structure.
+
+1. The JSX Structure (Frontend)
+We are creating a fixed-height flex-col container that is perfectly centered relative to the profile circle.
+
+TypeScript
+{/* Parent Footer Container */}
+<div className="absolute bottom-6 left-6 right-6 flex items-center bg-black/50 backdrop-blur-md rounded-2xl p-5 border border-white/10 h-32">
+  
+  {/* Profile Circle */}
+  <div className="w-20 h-20 rounded-full border-2 border-[#FFD700] shrink-0" />
+
+  {/* NEW: Explicitly Centered Text Block */}
+  <div 
+    id="agent-text-block" 
+    className="ml-5 flex flex-col justify-center h-24 text-left border-l border-white/10 pl-5"
+    style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+  >
+    <div className="agent-name text-[18px] font-bold text-white leading-none mb-2">
+      {agent.name}
+    </div>
+    <div className="agent-designation text-[13px] text-[#FFD700] font-semibold mb-3">
+      {agent.designation}
+    </div>
+    <div className="agent-contact-row flex items-center gap-2 text-[11px] text-white/90 mb-1">
+       <Mail size={12} /> {agent.email}
+    </div>
+    <div className="agent-contact-row flex items-center gap-2 text-[11px] text-white/90">
+       <Phone size={12} /> {agent.phone}
+    </div>
+  </div>
+</div>
+2. The Export Logic (onclone)
+This script forces the engine to treat each line as a Table Row layout, which is the most stable way to prevent overlapping in html2canvas.
+
+TypeScript
+const handleExportPNG = async () => {
+  const element = document.getElementById('greeting-card');
+  if (!element) return;
+
+  const canvas = await html2canvas(element, {
+    useCORS: true,
+    scale: 3, // High resolution
+    backgroundColor: null,
+    onclone: (clonedDoc) => {
+      const container = clonedDoc.getElementById('agent-text-block');
+      if (container) {
+        // Force the container to occupy its full height
+        container.style.display = 'block';
+        container.style.height = '100px';
+        container.style.position = 'relative';
+
+        const name = clonedDoc.querySelector('.agent-name') as HTMLElement;
+        const designation = clonedDoc.querySelector('.agent-designation') as HTMLElement;
+        const contacts = clonedDoc.querySelectorAll('.agent-contact-row') as NodeListOf<HTMLElement>;
+
+        // MANUALLY POSITION EVERY LINE TO ENSURE ZERO OVERLAP
+        // This is the only way to stop the "squashing"
+        if (name) {
+          name.style.position = 'absolute';
+          name.style.top = '0px';
+          name.style.lineHeight = '20px';
+        }
+        if (designation) {
+          designation.style.position = 'absolute';
+          designation.style.top = '28px'; // Forced gap
+          designation.style.color = '#FFD700';
+        }
+        if (contacts[0]) { // Email
+          contacts[0].style.position = 'absolute';
+          contacts[0].style.top = '54px';
+          contacts[0].style.display = 'flex';
+        }
+        if (contacts[1]) { // Phone
+          contacts[1].style.position = 'absolute';
+          contacts[1].style.top = '74px';
+          contacts[1].style.display = 'flex';
+        }
+      }
+    }
+  });
+
+  const link = document.createElement('a');
+  link.download = `diwali-greeting.png`;
+  link.href = canvas.toDataURL('image/png', 1.0);
+  link.click();
+};
+Why this fixes the "Hidden Phone Number"
+Absolute Vertical Slots: By assigning the phone number to exactly top: 74px within a 100px container, it is physically impossible for it to be "pushed" out of the image or hidden by other text.
+
+Central Alignment: Using a 100px height for the text block inside a 128px (h-32) footer automatically creates a vertically centered look.
+
+Scale 3 Sharpness: Keeping the scale high ensures that when the browser places the text at these coordinates, it remains sharp and doesn't blur into the background.
