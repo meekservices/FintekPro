@@ -512,6 +512,7 @@ export default function FestivalGreetingPreview() {
       allowTaint: true,
       backgroundColor: null,
       logging: false,
+      letterRendering: true,
       onclone: (_doc, clonedEl) => {
         // ── CRITICAL: html2canvas does NOT support aspectRatio CSS ──────────
         // Without this, the cloned element grows to full document height and all
@@ -522,9 +523,7 @@ export default function FestivalGreetingPreview() {
         clonedEl.style.aspectRatio = 'auto';
         clonedEl.style.overflow = 'hidden';
 
-        // ── Agent card: block-flow layout — the only approach html2canvas ─────
-        // renders reliably. display:block + marginBottom cannot collapse or
-        // overlap — each element physically pushes the next one down.
+        // ── Agent card: flex + explicit px line-heights (letterRendering fix) ─
         const agentCard = clonedEl.querySelector<HTMLElement>('[data-agent-card="1"]');
         if (agentCard) {
           agentCard.style.height = 'auto';
@@ -536,44 +535,41 @@ export default function FestivalGreetingPreview() {
         const doc = clonedEl.ownerDocument || document;
         const container = doc.getElementById('agent-text-block');
         if (container) {
-          // Switch to block — elements stack naturally, no flex-gap quirks
-          container.style.display = 'block';
-          container.style.position = 'relative';
-          container.style.height = 'auto';
+          container.style.display = 'flex';
+          container.style.flexDirection = 'column';
+          container.style.justifyContent = 'center';
+          container.style.gap = '10px';      // explicit gap in the clone
+          container.style.height = '100px';  // fixed height forces flex to distribute evenly
 
-          // Every direct child row gets its own physical space via marginBottom
-          const rows = Array.from(container.children) as HTMLElement[];
-          rows.forEach((row) => {
-            row.style.display = 'block';
-            row.style.position = 'relative';
-            row.style.top = '0px';           // reset any leftover absolute top
-            row.style.marginBottom = '8px';  // physical gap — cannot be overridden
-            row.style.lineHeight = '1.2';
+          // Name — largest, bold white, pixel line-height prevents bleed
+          const name = doc.querySelector<HTMLElement>('.agent-name');
+          if (name) {
+            name.style.fontSize = '14px';
+            name.style.lineHeight = '18px';  // px-based: engine cannot reinterpret this
+            name.style.fontWeight = 'bold';
+            name.style.color = '#ffffff';
+            name.style.marginBottom = '2px';
+          }
 
-            // Gold for designation — explicitly injected
-            if (row.classList.contains('agent-designation')) {
-              row.style.color = '#FFD700';
-              row.style.fontSize = '11px';
-              row.style.fontWeight = '600';
-            }
+          // Designation — gold, px line-height
+          const designation = doc.querySelector<HTMLElement>('.agent-designation');
+          if (designation) {
+            designation.style.fontSize = '11px';
+            designation.style.lineHeight = '15px';
+            designation.style.color = '#FFD700';
+            designation.style.fontWeight = '600';
+            designation.style.marginBottom = '4px';
+          }
 
-            // Name styling
-            if (row.classList.contains('agent-name')) {
-              row.style.color = '#ffffff';
-              row.style.fontSize = '14px';
-              row.style.fontWeight = 'bold';
-            }
-          });
-
-          // Contact rows inside the nested wrapper — display:flex + marginBottom
+          // Contact rows — flex row (icon + text), px line-height, marginBottom
           const contactRows = doc.querySelectorAll<HTMLElement>('.agent-contact');
-          contactRows.forEach((c) => {
-            c.style.display = 'flex';
-            c.style.alignItems = 'center';
-            c.style.marginBottom = '4px';
-            c.style.fontSize = '10px';
-            c.style.lineHeight = '1.2';
-            c.style.color = 'rgba(255,255,255,0.85)';
+          contactRows.forEach((row) => {
+            row.style.display = 'flex';
+            row.style.alignItems = 'center';
+            row.style.fontSize = '10px';
+            row.style.lineHeight = '14px';
+            row.style.color = 'rgba(255,255,255,0.85)';
+            row.style.marginBottom = '4px';
           });
         }
 
