@@ -7,6 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { getPortalQueryParams } from "@/hooks/useSubdomain";
 import {
   Users,
@@ -59,6 +68,10 @@ import {
   HeartPulse,
   BellRing,
   Crosshair,
+  UserCog,
+  CircleCheck,
+  FileEdit,
+  Info,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -652,27 +665,142 @@ export function AgentLayout({ children }: AgentLayoutProps) {
               </PopoverContent>
             </Popover>
 
-            <div className="flex items-center gap-1 sm:gap-3 border-l border-border/50 pl-2 sm:pl-4 ml-1 sm:ml-2">
-              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-foreground text-xs sm:text-sm font-medium shadow-inner">
-                {user?.email?.charAt(0).toUpperCase() || 'A'}
-              </div>
-              <div className="text-right hidden md:block">
-                <p className="text-sm font-medium text-foreground leading-tight">{user?.email?.split('@')[0] || 'Agent'}</p>
-                <div className="flex items-center justify-end gap-1">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                  <p className="text-[10px] text-emerald-400 font-medium">Active</p>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => logoutMutation.mutate()}
-                className="text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-all h-9 w-9 hidden sm:flex"
-                data-testid="button-agent-logout"
-                title="Sign Out"
-              >
-                <LogOut className="h-4 w-4" />
-              </Button>
+            <div className="border-l border-border/50 pl-2 sm:pl-4 ml-1 sm:ml-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="flex items-center gap-1 sm:gap-2 px-1 sm:px-2 h-9 hover:bg-card/50 text-foreground rounded-lg"
+                    data-testid="button-agent-profile-menu"
+                  >
+                    <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-gradient-to-br from-emerald-600 to-slate-700 flex items-center justify-center text-white text-xs sm:text-sm font-semibold shadow-inner flex-shrink-0">
+                      {user?.email?.charAt(0).toUpperCase() || 'A'}
+                    </div>
+                    <div className="text-left hidden md:block">
+                      <p className="text-xs font-medium text-foreground leading-tight max-w-[90px] truncate">{user?.email?.split('@')[0] || 'Agent'}</p>
+                      <div className="flex items-center gap-1">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                        <p className="text-[10px] text-emerald-400 font-medium">Active</p>
+                      </div>
+                    </div>
+                    <ChevronDown className="h-3 w-3 text-muted-foreground hidden sm:block" />
+                  </Button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" className="w-64 bg-background border-border shadow-xl" sideOffset={8}>
+                  {/* Profile header */}
+                  <DropdownMenuLabel className="p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-600 to-slate-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                        {user?.email?.charAt(0).toUpperCase() || 'A'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">
+                          {user?.firstName && user?.lastName
+                            ? `${user.firstName} ${user.lastName}`
+                            : user?.email?.split('@')[0] || 'Agent'}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                          <span className="text-[10px] text-emerald-500 font-medium">Agent · Active</span>
+                        </div>
+                      </div>
+                    </div>
+                  </DropdownMenuLabel>
+
+                  <DropdownMenuSeparator />
+
+                  {/* KYC Quick Actions */}
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground px-3 py-1.5 font-semibold">
+                      KYC Actions
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem asChild>
+                      <Link href="/agent/kyc" className="flex items-center gap-3 px-3 py-2 cursor-pointer">
+                        <div className="h-7 w-7 rounded-md bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                          <UserPlus className="h-4 w-4 text-emerald-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Start Client KYC</p>
+                          <p className="text-xs text-muted-foreground">Onboard & complete KYC</p>
+                        </div>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/agent/clients" className="flex items-center gap-3 px-3 py-2 cursor-pointer">
+                        <div className="h-7 w-7 rounded-md bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                          <CircleCheck className="h-4 w-4 text-blue-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">KYC Status</p>
+                          <p className="text-xs text-muted-foreground">View client KYC progress</p>
+                        </div>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/kyc-rejections" className="flex items-center gap-3 px-3 py-2 cursor-pointer">
+                        <div className="h-7 w-7 rounded-md bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                          <ShieldAlert className="h-4 w-4 text-amber-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">KYC Rejections</p>
+                          <p className="text-xs text-muted-foreground">Retry failed KYC cases</p>
+                        </div>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/agent/onboard-client" className="flex items-center gap-3 px-3 py-2 cursor-pointer">
+                        <div className="h-7 w-7 rounded-md bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                          <FileEdit className="h-4 w-4 text-purple-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Edit / Re-KYC</p>
+                          <p className="text-xs text-muted-foreground">Update client information</p>
+                        </div>
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+
+                  <DropdownMenuSeparator />
+
+                  {/* Account links */}
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground px-3 py-1.5 font-semibold">
+                      My Account
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem asChild>
+                      <Link href="/agent/advisor-profile" className="flex items-center gap-2.5 px-3 py-2 cursor-pointer">
+                        <UserCog className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Advisor Profile</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/agent/settings" className="flex items-center gap-2.5 px-3 py-2 cursor-pointer">
+                        <Settings className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Settings</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/agent/theme-settings" className="flex items-center gap-2.5 px-3 py-2 cursor-pointer">
+                        <Palette className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Theme & Accessibility</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem
+                    className="flex items-center gap-2.5 px-3 py-2 text-red-500 hover:text-red-500 hover:bg-red-500/10 cursor-pointer"
+                    onClick={() => logoutMutation.mutate()}
+                    data-testid="button-agent-logout"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span className="text-sm font-medium">Sign Out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
