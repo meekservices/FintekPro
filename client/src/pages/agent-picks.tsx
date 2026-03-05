@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
@@ -57,6 +59,10 @@ import {
   RefreshCw,
   Users,
   Send,
+  ExternalLink,
+  ChevronRight,
+  Info,
+  X,
 } from "lucide-react";
 
 interface DailyPick {
@@ -327,6 +333,8 @@ export default function AgentPicksPage() {
   const [stockInvestmentAmount, setStockInvestmentAmount] = useState([100000]);
   const [stockIncludeAI, setStockIncludeAI] = useState(true);
   const [selectedAIStock, setSelectedAIStock] = useState<AIStockRecommendation | null>(null);
+  const [selectedPick, setSelectedPick] = useState<DailyPick | null>(null);
+  const [, navigate] = useLocation();
 
   const { data: todayData, isLoading: loadingToday } = useQuery<PicksApiResponse>({
     queryKey: ["/api/picks/today"],
@@ -1279,6 +1287,7 @@ export default function AgentPicksPage() {
                               onShareEmail={(id) => handleShare(id, 'email')}
                               onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
                               onShareClients={handleShareWithClients}
+                              onClick={setSelectedPick}
                             />
                           ))}
                         </div>
@@ -1317,7 +1326,8 @@ export default function AgentPicksPage() {
                       onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
                       onShareEmail={(id) => handleShare(id, 'email')}
                       onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
-                              onShareClients={handleShareWithClients}
+                      onShareClients={handleShareWithClients}
+                      onClick={setSelectedPick}
                     />
                   ))}
                 </div>
@@ -1409,7 +1419,8 @@ export default function AgentPicksPage() {
                       onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
                       onShareEmail={(id) => handleShare(id, 'email')}
                       onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
-                              onShareClients={handleShareWithClients}
+                      onShareClients={handleShareWithClients}
+                      onClick={setSelectedPick}
                     />
                   ))}
                 </div>
@@ -1636,6 +1647,218 @@ export default function AgentPicksPage() {
         </div>
       </div>
 
+      {/* Pick Detail Sheet */}
+      {selectedPick && (
+        <Sheet open={!!selectedPick} onOpenChange={(open) => { if (!open) setSelectedPick(null); }}>
+          <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+            <SheetHeader className="pb-4 border-b">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <SheetTitle className="text-xl flex items-center gap-2 flex-wrap">
+                    {selectedPick.instrumentName}
+                    {selectedPick.symbol && (
+                      <span className="text-sm font-mono text-muted-foreground">{selectedPick.symbol}</span>
+                    )}
+                  </SheetTitle>
+                  <SheetDescription className="flex items-center gap-2 mt-1 flex-wrap">
+                    <Badge variant="outline">{categoryLabels[selectedPick.category] || selectedPick.category}</Badge>
+                    {selectedPick.exchange && <Badge variant="secondary">{selectedPick.exchange}</Badge>}
+                    {selectedPick.sectorCategory && <Badge variant="secondary">{selectedPick.sectorCategory}</Badge>}
+                    <Badge className={`${(statusConfig[selectedPick.status] || statusConfig.live).color} text-foreground`}>
+                      {(statusConfig[selectedPick.status] || statusConfig.live).label}
+                    </Badge>
+                  </SheetDescription>
+                </div>
+              </div>
+            </SheetHeader>
+
+            <div className="space-y-5 py-4">
+              {/* Price Panel */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-muted/50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Entry Price</p>
+                  <p className="font-bold text-lg">{formatPrice(selectedPick.recoPrice, selectedPick.category)}</p>
+                  <p className="text-xs text-muted-foreground">{new Date(selectedPick.recoDate).toLocaleDateString('en-IN')}</p>
+                </div>
+                <div className="bg-green-50 dark:bg-green-950 rounded-lg p-3 text-center border border-green-200 dark:border-green-800">
+                  <p className="text-xs text-green-600 dark:text-green-400 mb-1 flex items-center justify-center gap-1">
+                    <ArrowUpRight className="h-3 w-3" /> Target
+                  </p>
+                  <p className="font-bold text-lg text-green-700 dark:text-green-300">
+                    {formatPrice(selectedPick.targetPrice, selectedPick.category)}
+                  </p>
+                  {selectedPick.recoPrice > 0 && (
+                    <p className="text-xs text-green-600 font-medium">
+                      +{((selectedPick.targetPrice - selectedPick.recoPrice) / selectedPick.recoPrice * 100).toFixed(1)}%
+                    </p>
+                  )}
+                </div>
+                <div className="bg-red-50 dark:bg-red-950 rounded-lg p-3 text-center border border-red-200 dark:border-red-800">
+                  <p className="text-xs text-red-600 dark:text-red-400 mb-1 flex items-center justify-center gap-1">
+                    <ArrowDownRight className="h-3 w-3" /> Stop Loss
+                  </p>
+                  <p className="font-bold text-lg text-red-700 dark:text-red-300">
+                    {formatPrice(selectedPick.stoplossPrice, selectedPick.category)}
+                  </p>
+                  {selectedPick.recoPrice > 0 && (
+                    <p className="text-xs text-red-600 font-medium">
+                      -{((selectedPick.recoPrice - selectedPick.stoplossPrice) / selectedPick.recoPrice * 100).toFixed(1)}%
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Current Price + P&L */}
+              {selectedPick.currentPrice && (
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Current Price</p>
+                    <p className="font-semibold">{formatPrice(selectedPick.currentPrice, selectedPick.category)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">Live P&L</p>
+                    {(() => {
+                      const ret = selectedPick.recoPrice > 0
+                        ? ((selectedPick.currentPrice! - selectedPick.recoPrice) / selectedPick.recoPrice * 100).toFixed(2)
+                        : null;
+                      return ret ? (
+                        <p className={`font-bold text-lg ${parseFloat(ret) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {parseFloat(ret) >= 0 ? '+' : ''}{ret}%
+                        </p>
+                      ) : null;
+                    })()}
+                  </div>
+                  {selectedPick.daysHeld !== undefined && (
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Days Held</p>
+                      <p className="font-medium">{selectedPick.daysHeld}d</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Time horizon + risk */}
+              <div className="flex items-center gap-3 flex-wrap">
+                {selectedPick.timeHorizon && horizonConfig[selectedPick.timeHorizon] && (
+                  <Badge variant="outline" className={horizonConfig[selectedPick.timeHorizon].color}>
+                    <Timer className="h-3 w-3 mr-1" />
+                    {horizonConfig[selectedPick.timeHorizon].label}
+                  </Badge>
+                )}
+                {selectedPick.riskLevel && (
+                  <Badge variant="outline">
+                    <Shield className="h-3 w-3 mr-1" />
+                    {selectedPick.riskLevel.charAt(0).toUpperCase() + selectedPick.riskLevel.slice(1)} Risk
+                  </Badge>
+                )}
+                {selectedPick.confidenceScore !== undefined && (
+                  <div className="flex items-center gap-1.5">
+                    <BrainCircuit className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-sm font-medium">Confidence: {selectedPick.confidenceScore}%</span>
+                    <Progress value={selectedPick.confidenceScore} className="h-1.5 w-16" />
+                  </div>
+                )}
+              </div>
+
+              {/* AI Rationale */}
+              {selectedPick.rationale && (
+                <div className="rounded-lg border p-4 bg-primary/5">
+                  <h4 className="font-semibold text-sm flex items-center gap-2 mb-2">
+                    <Brain className="h-4 w-4 text-primary" />
+                    AI Rationale
+                  </h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {typeof selectedPick.rationale === 'string'
+                      ? selectedPick.rationale.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim()
+                      : JSON.stringify(selectedPick.rationale)}
+                  </p>
+                </div>
+              )}
+
+              {/* Key Metrics */}
+              {selectedPick.keyMetrics && Object.keys(selectedPick.keyMetrics).length > 0 && (
+                <div>
+                  <h4 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                    <BarChart3 className="h-4 w-4 text-primary" />
+                    Key Metrics
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(selectedPick.keyMetrics)
+                      .filter(([k]) => !['cin', 'seriesCode', 'strategy', 'expiry'].includes(k))
+                      .slice(0, 8)
+                      .map(([key, val]) => (
+                        <div key={key} className="bg-muted/50 rounded-md px-3 py-2">
+                          <p className="text-xs text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</p>
+                          <p className="font-medium text-sm">{String(val)}</p>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Suitable For */}
+              {selectedPick.suitableFor?.length > 0 && (
+                <div>
+                  <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    Suitable For
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPick.suitableFor.map(s => (
+                      <Badge key={s} variant="secondary" className="capitalize">{s.replace(/_/g, ' ')}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex flex-col gap-2 pt-2 border-t">
+                {selectedPick.symbol && ['listed_stocks', 'etfs', 'reits_invits'].includes(selectedPick.category) && (
+                  <Button
+                    className="w-full"
+                    onClick={() => {
+                      setSelectedPick(null);
+                      navigate(`/agent/screener?symbol=${encodeURIComponent(selectedPick.symbol!)}`);
+                    }}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Deep Dive in Screener
+                    <ChevronRight className="h-4 w-4 ml-auto" />
+                  </Button>
+                )}
+                {selectedPick.isin && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      setSelectedPick(null);
+                      navigate(`/agent/screener?isin=${encodeURIComponent(selectedPick.isin!)}`);
+                    }}
+                  >
+                    <Info className="h-4 w-4 mr-2" />
+                    View by ISIN in Screener
+                  </Button>
+                )}
+                <div className="flex gap-2">
+                  {watchlistPickIds.has(selectedPick.id) ? (
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => { removeFromWatchlistMutation.mutate(selectedPick.id); }}>
+                      <BookmarkCheck className="h-4 w-4 mr-2 text-primary" /> Watchlisted
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => { addToWatchlistMutation.mutate(selectedPick.id); }}>
+                      <Bookmark className="h-4 w-4 mr-2" /> Add to Watchlist
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => { handleShare(selectedPick.id, 'whatsapp'); setSelectedPick(null); }}>
+                    <Share2 className="h-4 w-4 mr-2" /> Share
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
+
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -1835,6 +2058,7 @@ interface PickCardProps {
   onShareEmail?: (pickId: number) => void;
   onShareWhatsApp?: (pickId: number) => void;
   onShareClients?: (pick: DailyPick) => void;
+  onClick?: (pick: DailyPick) => void;
 }
 
 function PickCard({ 
@@ -1847,6 +2071,7 @@ function PickCard({
   onShareEmail,
   onShareWhatsApp,
   onShareClients,
+  onClick,
 }: PickCardProps) {
   const Icon = categoryIcons[pick.category] || TrendingUp;
   const isExpiredByDate = pick.status === 'live' && pick.expiryDate && new Date(pick.expiryDate) < new Date();
@@ -1910,7 +2135,10 @@ function PickCard({
   }
 
   return (
-    <Card className="overflow-hidden">
+    <Card 
+      className={`overflow-hidden transition-all ${onClick ? 'cursor-pointer hover:shadow-md hover:ring-1 hover:ring-primary/20' : ''}`}
+      onClick={onClick ? () => onClick(pick) : undefined}
+    >
       <div className={`h-1 ${status.color}`} />
       <CardContent className="pt-4">
         <div className="flex items-start gap-3">

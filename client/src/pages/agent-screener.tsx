@@ -17,7 +17,7 @@ import {
   Zap, Eye, X, SlidersHorizontal, Download, LayoutGrid, List, Info,
   Building2, Sparkles, Settings, Clock, AlertTriangle, CheckCircle2, Calculator
 } from "lucide-react";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -242,7 +242,10 @@ export default function AgentScreener() {
   const [showFilters, setShowFilters] = useState(true);
   const [expandedStock, setExpandedStock] = useState<string | null>(null);
 
-  const [dbSearch, setDbSearch] = useState("");
+  const [dbSearch, setDbSearch] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('symbol') || params.get('isin') || params.get('search') || '';
+  });
   const [dbSector, setDbSector] = useState("");
   const [dbMarketCap, setDbMarketCap] = useState("");
   const [dbMinPE, setDbMinPE] = useState("");
