@@ -3807,6 +3807,19 @@ class AgentProspectWizardService {
             ? 0 // within ₹1.25L exemption — no tax
             : Math.round(bookedGain * (taxInfo.applicableTaxRate || 0) * 1.04); // +4% cess
 
+          // Before adding PROFIT_BOOK, remove any passive HOLD/HOLD_RISK_LIMIT/HOLD_COST_FILTER
+          // for the same holding — PROFIT_BOOK is a more actionable recommendation and supersedes
+          // a passive hold. This prevents duplicate cards for the same stock.
+          const passiveHoldActions = new Set(['HOLD', 'HOLD_RISK_LIMIT', 'HOLD_COST_FILTER']);
+          const existingPassiveIdx = recommendations.findIndex(
+            r => r.productName === holdingName && passiveHoldActions.has(r.action as string)
+          );
+          if (existingPassiveIdx !== -1) {
+            const replacedAction = recommendations[existingPassiveIdx].action;
+            recommendations.splice(existingPassiveIdx, 1);
+            console.log(`[ProfitBook] Replaced passive ${replacedAction} with PROFIT_BOOK for ${holdingName}`);
+          }
+
           recommendations.push({
             action: 'PROFIT_BOOK',
             productType: holding.productType || holding.assetType || 'other',
