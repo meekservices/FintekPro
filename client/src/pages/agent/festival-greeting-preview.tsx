@@ -565,53 +565,57 @@ export default function FestivalGreetingPreview() {
     });
 
     // ── Canvas 2D text overdraw — pixel-perfect, zero layout engine risk ─
-    // Each line is placed at an exact canvas-pixel Y coordinate derived from
-    // the measured position of the text block in the live DOM.
+    // IMPORTANT: html2canvas leaves ctx.scale(scale,scale) active after render.
+    // We reset to identity so our coordinates are in RAW CANVAS PIXELS, then
+    // manually multiply CSS-pixel values by scale ourselves.
     if (tbRect) {
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        const cx    = tbRect.x * scale;          // left edge of text block in canvas px
-        const cy    = tbRect.y * scale;          // top  edge of text block in canvas px
-        const maxW  = tbRect.w * scale;          // max text width
-
-        // Row heights & gaps (in canvas pixels = CSS px × scale)
-        const NAME_H  = 20 * scale;
-        const DES_H   = 16 * scale;
-        const CON_H   = 14 * scale;
-        const GAP     =  8 * scale;
-
         ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // ← reset html2canvas scale transform
+
+        // All coordinates below are in raw canvas pixels (CSS px × scale)
+        const cx   = tbRect.x * scale;
+        const cy   = tbRect.y * scale;
+        const maxW = tbRect.w * scale;
+
+        // Row heights & gaps (raw canvas pixels)
+        const NAME_H = 20 * scale;
+        const DES_H  = 16 * scale;
+        const CON_H  = 14 * scale;
+        const GAP    =  8 * scale;
+
         ctx.textBaseline = 'top';
 
-        // Row 0 — Name
+        // Row 0 — Name (bold white)
         if (agentInfo.name) {
           ctx.font      = `bold ${14 * scale}px Inter, system-ui, -apple-system, sans-serif`;
           ctx.fillStyle = '#ffffff';
           ctx.fillText(agentInfo.name, cx, cy, maxW);
         }
 
-        // Row 1 — Designation
+        // Row 1 — Designation (gold)
         if (agentInfo.designation) {
           ctx.font      = `600 ${11 * scale}px Inter, system-ui, -apple-system, sans-serif`;
           ctx.fillStyle = '#FFD700';
-          ctx.fillText(agentInfo.designation, cx, cy + NAME_H + GAP, maxW);
+          ctx.fillText(agentInfo.designation || 'Financial Advisor', cx, cy + NAME_H + GAP, maxW);
         }
 
         // Row 2 — Email
         if (agentInfo.email) {
           ctx.font      = `${10 * scale}px Inter, system-ui, -apple-system, sans-serif`;
-          ctx.fillStyle = 'rgba(255,255,255,0.85)';
+          ctx.fillStyle = 'rgba(255,255,255,0.82)';
           ctx.fillText(`✉  ${agentInfo.email}`, cx, cy + NAME_H + GAP + DES_H + GAP, maxW);
         }
 
         // Row 3 — Phone
         if (agentInfo.phone) {
           ctx.font      = `${10 * scale}px Inter, system-ui, -apple-system, sans-serif`;
-          ctx.fillStyle = 'rgba(255,255,255,0.85)';
+          ctx.fillStyle = 'rgba(255,255,255,0.82)';
           ctx.fillText(`☎  ${agentInfo.phone}`, cx, cy + NAME_H + GAP + DES_H + GAP + CON_H + GAP, maxW);
         }
 
-        ctx.restore();
+        ctx.restore(); // restores html2canvas's scale transform (safe — canvas is done)
       }
     }
 
