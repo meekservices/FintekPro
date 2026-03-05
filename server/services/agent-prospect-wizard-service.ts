@@ -3642,8 +3642,11 @@ class AgentProspectWizardService {
     // to keep proposals focused on portfolio-level adjustments only
     console.log('[Signal Orchestrator] POTD cross-reference skipped — POTD excluded from rebalancing proposals');
 
-    // Calculate comprehensive tax summary for SELL/SWITCH recommendations
-    const sellSwitchRecs = recommendations.filter(r => r.action === 'SELL' || r.action === 'SWITCH');
+    // Calculate comprehensive tax summary for SELL/SWITCH/REDUCE recommendations
+    // REDUCE is the primary action used by the rebalancing engine for "redeem/exit" moves
+    const sellSwitchRecs = recommendations.filter(r =>
+      r.action === 'SELL' || r.action === 'SWITCH' || r.action === 'REDUCE'
+    );
     const taxSummary = this.calculateTaxSummary(sellSwitchRecs);
 
     // Add tax summary to each recommendation object (for frontend display)
