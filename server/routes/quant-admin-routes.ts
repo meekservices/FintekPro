@@ -30,7 +30,6 @@ router.patch('/quant-policy/:riskProfile', async (req, res) => {
 
     const dbUpdates: any = {};
     for (const field of allowedFields) {
-      const snakeCase = field.replace(/([A-Z])/g, '_$1').toLowerCase();
       if (updates[field] !== undefined) {
         dbUpdates[field] = updates[field];
       }

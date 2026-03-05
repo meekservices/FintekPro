@@ -6,6 +6,7 @@ import {
   commodities,
   reits,
   invits,
+  quantGovernancePolicy,
 } from '@shared/schema';
 import sebiCategoryEngine from './services/mf-sebi-category-engine';
 
@@ -163,6 +164,7 @@ export async function runProductionBootstrap(): Promise<BootstrapResult[]> {
   results.push(await triggerBondCatalogRefresh());
   results.push(await seedAifFunds());
   results.push(await seedSEBI2026Taxonomy());
+  results.push(await seedQuantGovernancePolicies());
 
   const summary = results.map(r => `${r.category}: ${r.seeded} new (${r.total} total)`).join(', ');
   console.log(`[ProductionBootstrap] Complete: ${summary}`);
@@ -510,5 +512,42 @@ async function triggerBondCatalogRefresh(): Promise<BootstrapResult> {
   } catch (error: any) {
     console.error('[ProductionBootstrap] Bond catalog check failed:', error.message);
     return { category: 'bond_catalog', existing: 0, seeded: 0, total: 0 };
+  }
+}
+
+// ── Quant Governance Policy Seeding ──────────────────────────────────────────
+async function seedQuantGovernancePolicies(): Promise<BootstrapResult> {
+  try {
+    const existing = await db.execute(sql`SELECT COUNT(*) as cnt FROM quant_governance_policy`);
+    const existingCount = parseInt(String((existing.rows[0] as any)?.cnt || '0'));
+
+    await db.execute(sql`
+      INSERT INTO quant_governance_policy
+        (risk_profile, use_mvo, use_black_litterman, use_ai_drift_prediction, risk_aversion, tau, tactical_budget,
+         drift_probability_trigger, max_asset_weight, min_asset_weight, covariance_lookback_days, ewma_span,
+         shrinkage_intensity, solver_max_iterations, solver_tolerance)
+      VALUES
+        ('conservative',    false, false, true,  3.5, 0.03, 0.05, 0.75, 0.30, 0.00, 250, 80, 0.6, 1000, 1e-8),
+        ('moderate',        true,  false, true,  2.5, 0.05, 0.10, 0.70, 0.40, 0.00, 250, 60, 0.5, 1000, 1e-8),
+        ('balanced',        true,  false, true,  2.5, 0.05, 0.10, 0.70, 0.40, 0.00, 250, 60, 0.5, 1000, 1e-8),
+        ('aggressive',      true,  true,  true,  2.0, 0.05, 0.15, 0.65, 0.45, 0.00, 250, 60, 0.4, 1000, 1e-8),
+        ('very_aggressive', true,  true,  true,  1.5, 0.07, 0.20, 0.60, 0.50, 0.00, 250, 40, 0.3, 1000, 1e-8)
+      ON CONFLICT (risk_profile) DO NOTHING
+    `);
+
+    const final = await db.execute(sql`SELECT COUNT(*) as cnt FROM quant_governance_policy`);
+    const finalCount = parseInt(String((final.rows[0] as any)?.cnt || '0'));
+    const seeded = finalCount - existingCount;
+
+    if (seeded > 0) {
+      console.log(`[ProductionBootstrap] Quant governance: seeded ${seeded} risk profile policies (${finalCount} total)`);
+    } else {
+      console.log(`[ProductionBootstrap] Quant governance: all ${finalCount} policies already present`);
+    }
+
+    return { category: 'quant_governance', existing: existingCount, seeded, total: finalCount };
+  } catch (error: any) {
+    console.error('[ProductionBootstrap] Quant governance seeding failed:', error.message);
+    return { category: 'quant_governance', existing: 0, seeded: 0, total: 0 };
   }
 }
