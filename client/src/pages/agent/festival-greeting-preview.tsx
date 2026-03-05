@@ -536,9 +536,9 @@ export default function FestivalGreetingPreview() {
           const textBlock = agentCard.querySelector<HTMLElement>('[data-agent-card-text="1"]');
           if (textBlock) {
             const children = Array.from(textBlock.children) as HTMLElement[];
-            // Font sizes matching JSX: name=13, designation=11, email=10, phone=10
-            const rowSizes = [13, 11, 10, 10].slice(0, children.length);
-            const ROW_GAP = 6; // px between rows — generous so nothing touches
+            // Font sizes matching JSX: name=14, designation=11, email=10, phone=10
+            const rowSizes = [14, 11, 10, 10].slice(0, children.length);
+            const ROW_GAP = 12; // px between rows — 12px matches the 10-15px recommendation
 
             // Switch text block to relative positioning container
             textBlock.style.position = 'relative';
@@ -1657,7 +1657,7 @@ export default function FestivalGreetingPreview() {
                         textAlign: 'left',
                       }}
                     >
-                      <div style={{ color: '#ffffff', fontSize: '13px', fontWeight: 600, lineHeight: '1.3', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ color: '#ffffff', fontSize: '14px', fontWeight: 600, lineHeight: '1.3', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {agentInfo.name || 'Your Name'}
                       </div>
                       <div style={{ color: selectedFestival.primaryColor, fontSize: '11px', lineHeight: '1.3', opacity: 0.95, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
