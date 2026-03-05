@@ -3659,7 +3659,25 @@ class AgentProspectWizardService {
    */
   private calculateTaxSummary(recommendations: any[]): any {
     if (!recommendations || recommendations.length === 0) {
-      return null;
+      const now = new Date();
+      const fyYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+      const currentFY = `FY ${fyYear}-${(fyYear + 1).toString().slice(-2)}`;
+      return {
+        totalSTCG: 0,
+        totalLTCG: 0,
+        stcgTax: 0,
+        ltcgTax: 0,
+        cess: 0,
+        totalTaxLiability: 0,
+        totalExitLoad: 0,
+        netRebalancingCost: 0,
+        taxLossHarvestingOpportunity: 0,
+        grandfatheringBenefitTotal: 0,
+        holdings: [],
+        alerts: [],
+        currentFY,
+        disclosure: 'No sell or switch trades are required for this rebalancing plan. Capital gains tax and exit load cost is ₹0.'
+      };
     }
 
     let totalSTCG = 0;

@@ -6476,9 +6476,10 @@ export default function AgentProspectWizard() {
               </>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                <Calculator className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No rebalancing recommendations available.</p>
-                <p className="text-sm">Go back to Step 9 to generate rebalancing recommendations first.</p>
+                <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                <p className="font-medium text-green-700 dark:text-green-300">No rebalancing cost!</p>
+                <p className="text-sm">No sell or switch trades are needed for this plan.</p>
+                <p className="text-xs mt-1">Only fresh purchases required — no capital gains tax or exit loads apply.</p>
               </div>
             )}
           </CardContent>
