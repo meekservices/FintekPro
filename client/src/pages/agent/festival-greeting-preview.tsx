@@ -508,7 +508,7 @@ export default function FestivalGreetingPreview() {
 
     // ── Snapshot text-block rect BEFORE html2canvas clones the DOM ───────
     const textBlockEl = textBlockRef.current;
-    let tbRect: { x: number; y: number; w: number } | null = null;
+    let tbRect: { x: number; y: number; w: number; h: number } | null = null;
     if (textBlockEl) {
       const cardR = el.getBoundingClientRect();
       const tbR   = textBlockEl.getBoundingClientRect();
@@ -516,6 +516,7 @@ export default function FestivalGreetingPreview() {
         x: tbR.left - cardR.left,
         y: tbR.top  - cardR.top,
         w: tbR.width,
+        h: tbR.height,
       };
     }
 
@@ -572,38 +573,44 @@ export default function FestivalGreetingPreview() {
     if (tbRect) {
       // All measurements in raw canvas pixels = CSS px × scale
       const cx    = tbRect.x * scale;
-      const cy    = tbRect.y * scale;
       const maxW  = tbRect.w * scale;
+      const blockH = tbRect.h * scale;
 
       const NAME_H = 18 * scale;
       const DES_H  = 14 * scale;
       const CON_H  = 13 * scale;
       const GAP    =  3 * scale;
 
+      // Total height of all 4 rows + 3 gaps
+      const totalTextH = NAME_H + GAP + DES_H + GAP + CON_H + GAP + CON_H;
+
+      // Vertically center the text block within the measured element height
+      const cyBase = tbRect.y * scale + Math.max(0, (blockH - totalTextH) / 2);
+
       ctx.textBaseline = 'top';
 
       if (agentInfo.name) {
         ctx.font      = `bold ${14 * scale}px Inter, system-ui, -apple-system, sans-serif`;
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(agentInfo.name, cx, cy, maxW);
+        ctx.fillText(agentInfo.name, cx, cyBase, maxW);
       }
 
       if (agentInfo.designation) {
         ctx.font      = `600 ${11 * scale}px Inter, system-ui, -apple-system, sans-serif`;
         ctx.fillStyle = '#FFD700';
-        ctx.fillText(agentInfo.designation, cx, cy + NAME_H + GAP, maxW);
+        ctx.fillText(agentInfo.designation, cx, cyBase + NAME_H + GAP, maxW);
       }
 
       if (agentInfo.email) {
         ctx.font      = `${10 * scale}px Inter, system-ui, -apple-system, sans-serif`;
         ctx.fillStyle = 'rgba(255,255,255,0.82)';
-        ctx.fillText(`✉  ${agentInfo.email}`, cx, cy + NAME_H + GAP + DES_H + GAP, maxW);
+        ctx.fillText(`✉  ${agentInfo.email}`, cx, cyBase + NAME_H + GAP + DES_H + GAP, maxW);
       }
 
       if (agentInfo.phone) {
         ctx.font      = `${10 * scale}px Inter, system-ui, -apple-system, sans-serif`;
         ctx.fillStyle = 'rgba(255,255,255,0.82)';
-        ctx.fillText(`☎  ${agentInfo.phone}`, cx, cy + NAME_H + GAP + DES_H + GAP + CON_H + GAP, maxW);
+        ctx.fillText(`☎  ${agentInfo.phone}`, cx, cyBase + NAME_H + GAP + DES_H + GAP + CON_H + GAP, maxW);
       }
     }
 
