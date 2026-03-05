@@ -535,36 +535,49 @@ export default function FestivalGreetingPreview() {
         const doc = clonedEl.ownerDocument || document;
         const container = doc.getElementById('agent-text-block');
         if (container) {
-          // Flex column wrapper — gap as primary, marginBottom as fallback
-          container.style.display = 'flex';
-          container.style.flexDirection = 'column';
-          container.style.justifyContent = 'center';
-          container.style.gap = '0';         // clear gap, rely on marginBottom below
+          // Hard-coded Y-coordinates — immune to html2canvas "phantom height" bug.
+          // Each row gets an absolute top value; the engine cannot move them.
+          //   [0] Name        → top:  0px
+          //   [1] Designation → top: 26px  (20px row + 6px gap)
+          //   [2] Email       → top: 50px  (15px row + 9px gap)
+          //   [3] Phone       → top: 70px  (14px row + 6px gap)
+          const Y_OFFSETS = [0, 26, 50, 70];
+          const CONTAINER_H = 84; // contains all rows with breathing room
 
-          // Index-based styling — works because JSX is now flat (no nested wrapper)
-          // child[0]=name, child[1]=designation, child[2]=email, child[3]=phone
+          container.style.display = 'block';
+          container.style.position = 'relative';
+          container.style.height = `${CONTAINER_H}px`;
+          container.style.width = '100%';
+
           const rows = Array.from(container.children) as HTMLElement[];
           rows.forEach((row, index) => {
-            row.style.display = 'block';
-            row.style.position = 'relative';
-            row.style.top = '0px';           // clear any leftover absolute offset
-            row.style.marginBottom = '12px'; // physical gap — cannot collapse
+            const top = Y_OFFSETS[index] ?? (Y_OFFSETS[Y_OFFSETS.length - 1] + 20 * (index - Y_OFFSETS.length + 1));
+            row.style.position = 'absolute';
+            row.style.left = '0px';
+            row.style.right = '0px';
+            row.style.top = `${top}px`;      // hard-wired — cannot collapse into neighbours
+            row.style.margin = '0';
+            row.style.padding = '0';
+            row.style.whiteSpace = 'nowrap';
+            row.style.overflow = 'hidden';
+            row.style.textOverflow = 'ellipsis';
 
             if (index === 0) {               // Name
               row.style.fontSize = '14px';
-              row.style.lineHeight = '18px'; // px, not relative — engine cannot reinterpret
+              row.style.lineHeight = '20px';
               row.style.fontWeight = 'bold';
               row.style.color = '#ffffff';
             } else if (index === 1) {        // Designation
               row.style.fontSize = '11px';
               row.style.lineHeight = '15px';
-              row.style.color = '#FFD700';   // gold, explicitly injected
+              row.style.color = '#FFD700';
               row.style.fontWeight = '600';
-            } else {                         // Email (index 2) and Phone (index 3)
+            } else {                         // Email / Phone
               row.style.fontSize = '10px';
               row.style.lineHeight = '14px';
               row.style.color = 'rgba(255,255,255,0.85)';
-              row.style.marginBottom = '4px'; // tighter gap between contact lines
+              row.style.display = 'flex';
+              row.style.alignItems = 'center';
             }
           });
         }
