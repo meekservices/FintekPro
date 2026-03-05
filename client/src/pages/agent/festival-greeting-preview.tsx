@@ -522,58 +522,74 @@ export default function FestivalGreetingPreview() {
         clonedEl.style.aspectRatio = 'auto';
         clonedEl.style.overflow = 'hidden';
 
-        // ── Agent card: ID-targeted flex layout with margin-bottom fallback ──
+        // ── Agent card: comprehensive flex + padding-top layout ─────────────
         const agentCard = clonedEl.querySelector<HTMLElement>('[data-agent-card="1"]');
         if (agentCard) {
           agentCard.style.height = 'auto';
           agentCard.style.alignItems = 'center';
           agentCard.style.padding = '12px';
           agentCard.style.gap = '12px';
+          agentCard.style.position = 'absolute'; // keep bottom-anchored
         }
 
-        // Use getElementById — most reliable selector in cloned document
-        const container = clonedEl.ownerDocument
-          ? clonedEl.ownerDocument.getElementById('agent-details-text-wrapper')
-          : clonedEl.querySelector<HTMLElement>('#agent-details-text-wrapper');
+        const doc = clonedEl.ownerDocument || document;
+        const container = doc.getElementById('agent-details-text-wrapper');
         if (container) {
-          // Force flex column layout
+          // Flex column with gap — primary spacing mechanism
           container.style.display = 'flex';
           container.style.flexDirection = 'column';
-          container.style.gap = '0';             // clear gap, use margin-bottom instead
+          container.style.position = 'relative';
+          container.style.top = 'auto';
+          container.style.gap = '14px';
+          container.style.justifyContent = 'center';
+          container.style.height = 'auto';
 
-          // Apply margin-bottom on each direct child as guaranteed spacing fallback
-          const children = Array.from(container.children) as HTMLElement[];
-          children.forEach((child, i) => {
-            child.style.position = 'relative';
-            child.style.top = '0px';             // reset any leftover absolute offsets
-            child.style.marginBottom = i < children.length - 1 ? '10px' : '0px';
-          });
-
-          // Name — bold white, largest
+          // Name — bold white
           const name = container.querySelector<HTMLElement>('.agent-name');
           if (name) {
             name.style.fontSize = '14px';
             name.style.fontWeight = 'bold';
             name.style.lineHeight = '1.2';
             name.style.color = '#ffffff';
+            name.style.position = 'relative';
+            name.style.top = 'auto';
+            name.style.display = 'block';
+            name.style.paddingTop = '0';
+            name.style.marginBottom = '2px';
           }
 
-          // Designation — explicit gold #FFD700, better contrast on any background
+          // Designation — gold #FFD700
           const designation = container.querySelector<HTMLElement>('.agent-designation');
           if (designation) {
             designation.style.fontSize = '11px';
             designation.style.fontWeight = '500';
             designation.style.lineHeight = '1.2';
             designation.style.color = '#FFD700';
+            designation.style.position = 'relative';
+            designation.style.top = 'auto';
+            designation.style.display = 'block';
+            designation.style.paddingTop = '0';
           }
 
-          // Contact rows — dim white, smallest
-          container.querySelectorAll<HTMLElement>('.agent-contact').forEach((c) => {
+          // Contact wrapper — the nested flex-col div containing email + phone
+          const contactWrapper = container.querySelector<HTMLElement>('div:not(.agent-name):not(.agent-designation)');
+          if (contactWrapper) {
+            contactWrapper.style.display = 'flex';
+            contactWrapper.style.flexDirection = 'column';
+            contactWrapper.style.gap = '8px';
+            contactWrapper.style.position = 'relative';
+            contactWrapper.style.top = 'auto';
+          }
+
+          // Each contact line — dim white
+          container.querySelectorAll<HTMLElement>('.agent-contact').forEach((c, i) => {
             c.style.fontSize = '10px';
             c.style.lineHeight = '1.2';
             c.style.color = 'rgba(255,255,255,0.80)';
             c.style.display = 'block';
-            c.style.marginBottom = '0';
+            c.style.position = 'relative';
+            c.style.top = 'auto';
+            c.style.paddingTop = i > 0 ? '8px' : '0';
           });
         }
 
