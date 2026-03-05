@@ -522,28 +522,55 @@ export default function FestivalGreetingPreview() {
         clonedEl.style.aspectRatio = 'auto';
         clonedEl.style.overflow = 'hidden';
 
-        // ── Agent card: explicit auto height so glass box sizes to content ──
+        // ── Agent card: robust text layout for html2canvas ──────────────────
+        // html2canvas has poor support for flex-column gap AND margin collapsing.
+        // The only guaranteed approach: absolute positioning with explicit Y coords.
         const agentCard = clonedEl.querySelector<HTMLElement>('[data-agent-card="1"]');
         if (agentCard) {
           agentCard.style.height = 'auto';
           agentCard.style.minHeight = '0';
-          agentCard.style.alignItems = 'center';
-          agentCard.style.gap = '12px';
-          // Convert flex gap to padding on the text wrapper (html2canvas flex gap support is patchy)
+          agentCard.style.alignItems = 'flex-start';
+          agentCard.style.gap = '0';
+          agentCard.style.padding = '10px 12px';
+
           const textBlock = agentCard.querySelector<HTMLElement>('[data-agent-card-text="1"]');
           if (textBlock) {
-            textBlock.style.display = 'block';   // switch from flex-column to block
+            const children = Array.from(textBlock.children) as HTMLElement[];
+            // Font sizes matching JSX: name=13, designation=11, email=10, phone=10
+            const rowSizes = [13, 11, 10, 10].slice(0, children.length);
+            const ROW_GAP = 6; // px between rows — generous so nothing touches
+
+            // Switch text block to relative positioning container
+            textBlock.style.position = 'relative';
+            textBlock.style.display = 'block';
+            textBlock.style.flex = '1';
             textBlock.style.gap = '0';
-            // Add explicit bottom margin to every text row child
-            Array.from(textBlock.children).forEach((child, i) => {
-              const el = child as HTMLElement;
-              el.style.display = 'block';
-              el.style.marginBottom = i < textBlock.children.length - 1 ? '3px' : '0';
-              el.style.whiteSpace = 'nowrap';
-              el.style.overflow = 'hidden';
-              el.style.textOverflow = 'ellipsis';
-              el.style.lineHeight = '1.4';
+
+            // Place each text row at an explicit Y offset — zero ambiguity
+            let y = 0;
+            children.forEach((child, i) => {
+              const fs = rowSizes[i] ?? 10;
+              const rowH = Math.ceil(fs * 1.5); // generous line-height in px
+              child.style.position = 'absolute';
+              child.style.top = `${y}px`;
+              child.style.left = '0';
+              child.style.right = '0';
+              child.style.height = `${rowH}px`;
+              child.style.lineHeight = `${rowH}px`;
+              child.style.fontSize = `${fs}px`;
+              child.style.display = 'block';
+              child.style.whiteSpace = 'nowrap';
+              child.style.overflow = 'hidden';
+              child.style.textOverflow = 'ellipsis';
+              child.style.margin = '0';
+              child.style.padding = '0';
+              y += rowH + ROW_GAP;
             });
+
+            // Set the text block height to exactly contain all rows
+            textBlock.style.height = `${y - ROW_GAP}px`;
+            // Pad the agent card vertically to match the text block height
+            agentCard.style.minHeight = `${y - ROW_GAP + 20}px`; // 10px top + 10px bottom
           }
         }
 
