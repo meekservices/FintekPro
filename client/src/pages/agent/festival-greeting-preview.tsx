@@ -431,7 +431,8 @@ export default function FestivalGreetingPreview() {
     phone: '',
     designation: '',
   });
-  const templateRef = useRef<HTMLDivElement>(null);
+  const templateRef   = useRef<HTMLDivElement>(null);
+  const textBlockRef  = useRef<HTMLDivElement>(null);
 
   // Fetch marketing profile from backend
   const { data: marketingProfile, isLoading: isLoadingProfile } = useQuery({
@@ -509,7 +510,9 @@ export default function FestivalGreetingPreview() {
     // ── Snapshot text-block position BEFORE html2canvas touches the DOM ──
     // We'll draw the text ourselves on the canvas after capture — this is the
     // ONLY approach that is immune to html2canvas text/layout bugs.
-    const textBlockEl = document.getElementById('agent-text-block');
+    // Use React ref for guaranteed DOM access — querySelector can miss elements
+    // inside React portals or when the tree hasn't painted yet.
+    const textBlockEl = textBlockRef.current;
     let tbRect: { x: number; y: number; w: number } | null = null;
     if (textBlockEl) {
       const cardR = el.getBoundingClientRect();
@@ -537,7 +540,7 @@ export default function FestivalGreetingPreview() {
         clonedEl.style.overflow = 'hidden';
 
         // ── Hide agent text — we draw it manually post-capture ───────────
-        const container = clonedEl.ownerDocument.getElementById('agent-text-block');
+        const container = clonedEl.querySelector<HTMLElement>('#agent-text-block');
         if (container) container.style.visibility = 'hidden';
 
         // ── Strip unsupported / animation CSS ────────────────────────────
@@ -1667,6 +1670,7 @@ export default function FestivalGreetingPreview() {
                     {/* FLAT structure — all 4 rows are direct children so
                         index-based onclone styling hits them correctly */}
                     <div
+                      ref={textBlockRef}
                       id="agent-text-block"
                       data-agent-card-text="1"
                       className="flex flex-col justify-center"
