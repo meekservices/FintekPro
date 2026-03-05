@@ -399,6 +399,18 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
+// Auto-derive marginal income tax slab from annual income
+// Uses India's New Tax Regime slabs (Budget 2024 / FY 2024-25 onwards)
+const getAutoTaxSlab = (monthlyIncome: number): number => {
+  const annual = monthlyIncome * 12;
+  if (annual <= 300000) return 0;
+  if (annual <= 700000) return 5;
+  if (annual <= 1000000) return 10;
+  if (annual <= 1200000) return 15;
+  if (annual <= 1500000) return 20;
+  return 30;
+};
+
 // PDF-safe currency formatter (jsPDF's Helvetica doesn't support ₹ Unicode)
 const formatCurrencyForPdf = (amount: number) => {
   const formatted = new Intl.NumberFormat('en-IN', {
@@ -3230,7 +3242,14 @@ export default function AgentProspectWizard() {
                   <Input
                     type="number" min={0}
                     value={riskProfile.monthlyIncome || ''}
-                    onChange={(e) => setRiskProfile({ ...riskProfile, monthlyIncome: parseInt(e.target.value) || 0 })}
+                    onChange={(e) => {
+                      const income = parseInt(e.target.value) || 0;
+                      setRiskProfile({
+                        ...riskProfile,
+                        monthlyIncome: income,
+                        taxBracket: getAutoTaxSlab(income) as any
+                      });
+                    }}
                     placeholder="e.g. 150000"
                   />
                 </div>
@@ -3262,18 +3281,31 @@ export default function AgentProspectWizard() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Income Tax Slab (%)</Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs">Income Tax Slab (%)</Label>
+                    {(riskProfile.monthlyIncome || 0) > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium">Auto</span>
+                    )}
+                  </div>
                   <Select
-                    value={String(riskProfile.taxBracket || 20)}
+                    value={String(riskProfile.taxBracket || ((riskProfile.monthlyIncome || 0) > 0 ? getAutoTaxSlab(riskProfile.monthlyIncome || 0) : 20))}
                     onValueChange={(v) => setRiskProfile({ ...riskProfile, taxBracket: parseInt(v) as any })}
                   >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {[5, 10, 15, 20, 25, 30].map(t => (
-                        <SelectItem key={t} value={String(t)}>{t}% slab</SelectItem>
-                      ))}
+                      <SelectItem value="0">0% (≤₹3L/yr)</SelectItem>
+                      <SelectItem value="5">5% (₹3–7L/yr)</SelectItem>
+                      <SelectItem value="10">10% (₹7–10L/yr)</SelectItem>
+                      <SelectItem value="15">15% (₹10–12L/yr)</SelectItem>
+                      <SelectItem value="20">20% (₹12–15L/yr)</SelectItem>
+                      <SelectItem value="30">30% (above ₹15L/yr)</SelectItem>
                     </SelectContent>
                   </Select>
+                  {(riskProfile.monthlyIncome || 0) > 0 && (
+                    <p className="text-[10px] text-muted-foreground">
+                      Based on ₹{((riskProfile.monthlyIncome || 0) * 12).toLocaleString('en-IN')}/yr annual income · New Tax Regime · Override if needed
+                    </p>
+                  )}
                 </div>
               </div>
               {/* Live Investable Surplus Preview */}
