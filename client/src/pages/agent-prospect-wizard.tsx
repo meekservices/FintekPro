@@ -6572,13 +6572,48 @@ export default function AgentProspectWizard() {
                         </div>
                       )}
 
-                      {/* Disclosure */}
-                      {taxSummary.disclosure && (
-                        <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-lg border">
-                          <p className="font-medium mb-1">Tax Calculation Disclosure:</p>
-                          <p>{taxSummary.disclosure}</p>
+                      {/* Disclosure — compact tabular */}
+                      <div className="rounded-lg border border-border overflow-hidden text-[11px]">
+                        <div className="px-2.5 py-1.5 bg-muted/70 flex items-center gap-1.5 border-b">
+                          <FileText className="h-3 w-3 text-muted-foreground" />
+                          <span className="font-semibold text-foreground">Tax Rates Reference</span>
+                          <span className="ml-auto text-[10px] text-muted-foreground">Budget 2024</span>
                         </div>
-                      )}
+                        <table className="w-full">
+                          <thead>
+                            <tr className="bg-muted/40 text-muted-foreground text-[10px]">
+                              <th className="text-left px-2.5 py-1 font-medium">Asset Class</th>
+                              <th className="text-center px-2.5 py-1 font-medium">STCG</th>
+                              <th className="text-center px-2.5 py-1 font-medium">LTCG</th>
+                              <th className="text-center px-2.5 py-1 font-medium">LT Period</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            <tr>
+                              <td className="px-2.5 py-1 text-foreground">Equity / Equity MFs</td>
+                              <td className="px-2.5 py-1 text-center font-medium text-orange-600">20%</td>
+                              <td className="px-2.5 py-1 text-center font-medium text-blue-600">12.5%</td>
+                              <td className="px-2.5 py-1 text-center text-muted-foreground">≥ 1 yr</td>
+                            </tr>
+                            <tr>
+                              <td className="px-2.5 py-1 text-foreground">Debt Funds</td>
+                              <td className="px-2.5 py-1 text-center font-medium text-orange-600">20%</td>
+                              <td className="px-2.5 py-1 text-center font-medium text-blue-600">12.5%</td>
+                              <td className="px-2.5 py-1 text-center text-muted-foreground">≥ 2 yr</td>
+                            </tr>
+                            <tr>
+                              <td className="px-2.5 py-1 text-foreground">Gold/Silver Funds</td>
+                              <td className="px-2.5 py-1 text-center font-medium text-orange-600">20%</td>
+                              <td className="px-2.5 py-1 text-center font-medium text-blue-600">12.5%</td>
+                              <td className="px-2.5 py-1 text-center text-muted-foreground">≥ 2 yr</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        <div className="px-2.5 py-1.5 bg-muted/30 border-t text-[10px] text-muted-foreground space-y-0.5">
+                          <p>+ 4% H&amp;E Cess on all tax · Surcharge 0–15% · LTCG exemption ₹1.25L/yr (equity)</p>
+                          <p>Exit load ~1% on equity MFs held &lt; 1 yr · Stocks/ETFs/Bonds/REITs have no exit load</p>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 )}
@@ -6754,21 +6789,93 @@ export default function AgentProspectWizard() {
                   </div>
                 )}
 
-                {/* Disclosure */}
-                {taxSummary.disclosure && (
-                  <div className="p-3 bg-muted rounded-lg text-xs text-muted-foreground space-y-1">
-                    <p className="font-medium">Tax Calculation Disclosure:</p>
-                    <p>{taxSummary.disclosure}</p>
-                    {taxSummary.taxSource && taxSummary.taxSource !== 'N/A' && (
-                      <p className="text-[11px] mt-1">
-                        <span className="font-medium">Data source:</span> {taxSummary.taxSource}
-                      </p>
-                    )}
-                    <p className="text-[11px]">
-                      Exit load applies only to open-ended Mutual Funds. Stocks, ETFs, Bonds, REITs, InvITs, and Unlisted equity have no exit load.
-                    </p>
+                {/* Disclosure — Tabular */}
+                <div className="rounded-lg border border-border overflow-hidden text-xs">
+                  <div className="px-3 py-2 bg-muted/70 flex items-center gap-1.5 border-b border-border">
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="font-semibold text-foreground">Tax Calculation Disclosure</span>
+                    <span className="ml-auto text-[10px] text-muted-foreground">Budget 2024 · Effective July 23, 2024</span>
                   </div>
-                )}
+
+                  {/* Capital Gains Rates */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[11px]">
+                      <thead>
+                        <tr className="bg-muted/40 text-muted-foreground">
+                          <th className="text-left px-3 py-1.5 font-medium">Asset Class</th>
+                          <th className="text-center px-3 py-1.5 font-medium">STCG Rate</th>
+                          <th className="text-center px-3 py-1.5 font-medium">LTCG Rate</th>
+                          <th className="text-center px-3 py-1.5 font-medium">LT Holding Period</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        <tr className="hover:bg-muted/20">
+                          <td className="px-3 py-1.5 text-foreground">Equity &amp; Equity-Oriented MFs</td>
+                          <td className="px-3 py-1.5 text-center font-medium text-orange-600">20%</td>
+                          <td className="px-3 py-1.5 text-center font-medium text-blue-600">12.5%</td>
+                          <td className="px-3 py-1.5 text-center text-muted-foreground">≥ 1 year</td>
+                        </tr>
+                        <tr className="hover:bg-muted/20">
+                          <td className="px-3 py-1.5 text-foreground">Debt Funds</td>
+                          <td className="px-3 py-1.5 text-center font-medium text-orange-600">20%</td>
+                          <td className="px-3 py-1.5 text-center font-medium text-blue-600">12.5% <span className="text-[10px] text-muted-foreground">(proposed)</span></td>
+                          <td className="px-3 py-1.5 text-center text-muted-foreground">≥ 2 years</td>
+                        </tr>
+                        <tr className="hover:bg-muted/20">
+                          <td className="px-3 py-1.5 text-foreground">Gold / Silver Funds</td>
+                          <td className="px-3 py-1.5 text-center font-medium text-orange-600">20%</td>
+                          <td className="px-3 py-1.5 text-center font-medium text-blue-600">12.5%</td>
+                          <td className="px-3 py-1.5 text-center text-muted-foreground">≥ 2 years</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Additional Charges */}
+                  <div className="border-t border-border overflow-x-auto">
+                    <table className="w-full text-[11px]">
+                      <thead>
+                        <tr className="bg-muted/40 text-muted-foreground">
+                          <th className="text-left px-3 py-1.5 font-medium">Additional Charge</th>
+                          <th className="text-center px-3 py-1.5 font-medium">Rate</th>
+                          <th className="text-left px-3 py-1.5 font-medium">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        <tr className="hover:bg-muted/20">
+                          <td className="px-3 py-1.5 text-foreground">Health &amp; Education Cess</td>
+                          <td className="px-3 py-1.5 text-center font-medium text-purple-600">4%</td>
+                          <td className="px-3 py-1.5 text-muted-foreground">On tax + surcharge (included in figures above)</td>
+                        </tr>
+                        <tr className="hover:bg-muted/20">
+                          <td className="px-3 py-1.5 text-foreground">Surcharge</td>
+                          <td className="px-3 py-1.5 text-center font-medium text-purple-600">0–15%</td>
+                          <td className="px-3 py-1.5 text-muted-foreground">Capped at 15% for LTCG; based on total income slab</td>
+                        </tr>
+                        <tr className="hover:bg-muted/20">
+                          <td className="px-3 py-1.5 text-foreground">LTCG Exemption</td>
+                          <td className="px-3 py-1.5 text-center font-medium text-green-600">₹1.25 L/yr</td>
+                          <td className="px-3 py-1.5 text-muted-foreground">Per financial year; equity &amp; equity-oriented MFs only</td>
+                        </tr>
+                        <tr className="hover:bg-muted/20">
+                          <td className="px-3 py-1.5 text-foreground">Exit Load (Equity MFs)</td>
+                          <td className="px-3 py-1.5 text-center font-medium text-red-600">~1%</td>
+                          <td className="px-3 py-1.5 text-muted-foreground">Holding period &lt; 1 year · Open-ended MFs only</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Footer notes */}
+                  <div className="px-3 py-2 bg-muted/30 border-t border-border space-y-1 text-[10px] text-muted-foreground">
+                    <p><span className="font-semibold text-foreground">Exit loads:</span> Stocks, ETFs, Bonds, REITs, InvITs &amp; Unlisted equity have no exit load.</p>
+                    <p><span className="font-semibold text-foreground">Grandfathering:</span> NAV as of Jan 31, 2018 used as cost base for equity units purchased before that date (estimated 40% appreciation applied as placeholder).</p>
+                    <p><span className="font-semibold text-foreground">Estimates only:</span> Actual tax liability may vary based on your overall income, holding period, and tax situation. Consult your CA/Tax Advisor before transacting.</p>
+                    {taxSummary.taxSource && taxSummary.taxSource !== 'N/A' && (
+                      <p><span className="font-semibold text-foreground">Data source:</span> {taxSummary.taxSource} · Tax regime version: 2025-02-01-v1</p>
+                    )}
+                  </div>
+                </div>
               </>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
