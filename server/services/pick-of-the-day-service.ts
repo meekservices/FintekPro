@@ -682,7 +682,7 @@ class PickOfTheDayService {
         expiryDate: this.getExpiryDate(this.DEFAULT_VALIDITY_DAYS),
         rationale,
         riskLevel: this.getRiskLevel(topStock.volatility ? parseFloat(topStock.volatility) : 20),
-        suitableFor: ['Balanced', 'Aggressive'],
+        suitableFor: this.deriveSuitableFor(this.getRiskLevel(topStock.volatility ? parseFloat(topStock.volatility) : 20), 'listed_stocks'),
         timeHorizon: this.getTimeHorizon('listed_stocks'),
         confidenceScore: this.getConfidenceScore('listed_stocks', scoredStocks[0].score, 70),
         sectorCategory: topStock.sector,
@@ -799,7 +799,7 @@ class PickOfTheDayService {
         expiryDate: this.getExpiryDate(90),
         rationale,
         riskLevel: topFund.riskLevel || 'medium',
-        suitableFor: ['Conservative', 'Balanced'],
+        suitableFor: this.deriveSuitableFor(topFund.riskLevel, 'mutual_funds'),
         timeHorizon: this.getTimeHorizon('mutual_funds'),
         confidenceScore: this.getConfidenceScore('mutual_funds', scoredFunds[0].score, 70),
         sectorCategory: topFund.category,
@@ -1231,11 +1231,9 @@ class PickOfTheDayService {
       })).sort((a, b) => b.score - a.score);
 
       const topInstrument = scoredInstruments[0].instrument;
-      const mockPrices: Record<string, number> = {
-        AAPL: 185.50, MSFT: 378.90, GOOGL: 142.50, AMZN: 178.25, TSLA: 248.50,
-        META: 495.75, NVDA: 485.50, JPM: 195.25, V: 275.50, JNJ: 156.75
-      };
-      const currentPrice = parseFloat(topInstrument.lastPrice || "0") || mockPrices[topInstrument.symbol || ''] || 100;
+      const currentPrice = parseFloat(topInstrument.lastPrice || "0") ||
+        await this.getLiveGlobalPrice(topInstrument.symbol || '', topInstrument.id) ||
+        100;
       const { targetPct, stoplossPct } = this.getDynamicTargetStoploss('global_stocks');
       const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
       const stoplossPrice = Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
@@ -1285,7 +1283,7 @@ class PickOfTheDayService {
         expiryDate: this.getExpiryDate(this.DEFAULT_VALIDITY_DAYS),
         rationale,
         riskLevel: "medium",
-        suitableFor: ["Balanced", "Aggressive"],
+        suitableFor: this.deriveSuitableFor(null, 'global_stocks'),
         timeHorizon: this.getTimeHorizon('global_stocks'),
         confidenceScore: this.getConfidenceScore('global_stocks', scoredInstruments[0].score, 60),
         sectorCategory: topInstrument.sector || 'Global Equity',
@@ -1392,7 +1390,7 @@ class PickOfTheDayService {
         expiryDate: this.getExpiryDate(60), // 60 days for ETFs
         rationale,
         riskLevel: 'medium',
-        suitableFor: ['Conservative', 'Balanced'],
+        suitableFor: this.deriveETFSuitableFor(topETF.name, topETF.category),
         timeHorizon: this.getTimeHorizon('etfs'),
         confidenceScore: this.getConfidenceScore('etfs', scoredETFs[0].score, 60),
         sectorCategory: topETF.category || 'ETF',
@@ -2487,6 +2485,54 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
     };
 
     return categoryRationales[params.category] || `${params.name} is selected as today's top pick based on comprehensive analysis of fundamentals, technicals, and market conditions. Target upside of ${upside}% with defined risk management.${enrichedInsights}`;
+  }
+
+  private deriveSuitableFor(riskLevel: string | null | undefined, category: PickCategory): string[] {
+    const risk = (riskLevel || '').toLowerCase().trim();
+    if (risk === 'low' || risk === 'very low' || risk === 'low risk') return ['Conservative', 'Balanced'];
+    if (risk === 'moderately low' || risk === 'low to moderate') return ['Conservative', 'Balanced'];
+    if (risk === 'moderate') return ['Balanced'];
+    if (risk === 'moderately high' || risk === 'moderate to high') return ['Balanced', 'Aggressive'];
+    if (risk === 'high') return ['Balanced', 'Aggressive'];
+    if (risk === 'very high' || risk === 'very high risk') return ['Aggressive'];
+    if (category === 'bonds' || category === 'sgb' || category === 'fixed_deposits') return ['Conservative', 'Balanced'];
+    if (category === 'unlisted') return ['Aggressive'];
+    if (category === 'listed_stocks' || category === 'global_stocks' || category === 'reits_invits') return ['Balanced', 'Aggressive'];
+    return ['Balanced'];
+  }
+
+  private deriveETFSuitableFor(name: string | null | undefined, category: string | null | undefined): string[] {
+    const label = `${name || ''} ${category || ''}`.toUpperCase();
+    if (label.includes('LIQUID') || label.includes('OVERNIGHT') || label.includes('MONEY MARKET') ||
+        label.includes('GILT') || label.includes('BOND ETF') || label.includes('DEBT')) {
+      return ['Conservative', 'Balanced'];
+    }
+    if (label.includes('GOLD') || label.includes('SILVER') || label.includes('COMMODITY')) {
+      return ['Conservative', 'Balanced'];
+    }
+    if (label.includes('SMALL CAP') || label.includes('MIDCAP') || label.includes('TECHNOLOGY') ||
+        label.includes('PHARMA') || label.includes('SECTOR') || label.includes('THEMATIC')) {
+      return ['Aggressive'];
+    }
+    return ['Balanced', 'Aggressive'];
+  }
+
+  private async getLiveGlobalPrice(symbol: string, instrumentId: string): Promise<number> {
+    try {
+      const yahooFinance = (await import('yahoo-finance2')).default;
+      const quote = await yahooFinance.quote(symbol);
+      const price = (quote as any)?.regularMarketPrice || 0;
+      if (price > 0) {
+        await db.update(globalInstruments)
+          .set({ lastPrice: price.toString() })
+          .where(eq(globalInstruments.id, instrumentId));
+        console.log(`[PickOfTheDay] Fetched live price for ${symbol}: ${price}`);
+      }
+      return price;
+    } catch (err) {
+      console.warn(`[PickOfTheDay] Could not fetch live price for ${symbol}:`, err);
+      return 0;
+    }
   }
 
   private getRiskLevel(volatility: number): string {
