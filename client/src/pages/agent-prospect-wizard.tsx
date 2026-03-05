@@ -988,11 +988,14 @@ export default function AgentProspectWizard() {
     estimatedAnnualIncome: number;
     monthlyIncome: number;
     yieldPercent: number;
+    disclaimer?: string;
+    dataSources?: { database: number; sectorDefault: number; categoryDefault: number; fallback: number };
     holdings: Array<{
       name: string;
       value: number;
       dividendYield: number;
       estimatedAnnualDividend: number;
+      dataSource?: string;
     }>;
   } | null>(null);
   
@@ -5223,14 +5226,36 @@ export default function AgentProspectWizard() {
                         </div>
                       </div>
                       {(dividendData?.holdings ?? []).length > 0 && (
-                        <div className="space-y-2 max-h-32 overflow-y-auto">
-                          {(dividendData?.holdings ?? []).slice(0, 4).map((h, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
-                              <span className="truncate flex-1">{h.name}</span>
-                              <span className="text-xs text-muted-foreground ml-2">{h.dividendYield}% yield</span>
-                              <Badge variant="outline" className="ml-2 text-xs">{formatCurrency(h.estimatedAnnualDividend)}/yr</Badge>
-                            </div>
-                          ))}
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                          {(dividendData?.holdings ?? []).slice(0, 4).map((h, idx) => {
+                            const isEstimate = h.dataSource === 'sector_default' || h.dataSource === 'category_default' || h.dataSource === 'fallback';
+                            return (
+                              <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
+                                <span className="truncate flex-1">{h.name}</span>
+                                <span className="text-xs text-muted-foreground ml-2">{h.dividendYield}% yield</span>
+                                {isEstimate ? (
+                                  <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-medium">Est.</span>
+                                ) : (
+                                  <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-medium">Live</span>
+                                )}
+                                <Badge variant="outline" className="ml-2 text-xs">{formatCurrency(h.estimatedAnnualDividend)}/yr</Badge>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {dividendData?.disclaimer && (
+                        <div className="flex items-start gap-2 mt-3 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                          <Info className="h-3.5 w-3.5 text-amber-600 mt-0.5 flex-shrink-0" />
+                          <p className="text-[11px] text-amber-700 dark:text-amber-300">{dividendData.disclaimer}</p>
+                        </div>
+                      )}
+                      {!dividendData?.disclaimer && dividendData?.dataSources && (dividendData.dataSources.sectorDefault + dividendData.dataSources.fallback) > 0 && (
+                        <div className="flex items-start gap-2 mt-3 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                          <Info className="h-3.5 w-3.5 text-amber-600 mt-0.5 flex-shrink-0" />
+                          <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                            Yields marked <span className="font-semibold">Est.</span> are sector-average estimates — actual dividends depend on company payout decisions. Live yields are sourced from market data.
+                          </p>
                         </div>
                       )}
                     </>
