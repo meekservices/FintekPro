@@ -522,56 +522,63 @@ export default function FestivalGreetingPreview() {
         clonedEl.style.aspectRatio = 'auto';
         clonedEl.style.overflow = 'hidden';
 
-        // ── Agent card: robust text layout for html2canvas ──────────────────
-        // html2canvas has poor support for flex-column gap AND margin collapsing.
-        // The only guaranteed approach: absolute positioning with explicit Y coords.
+        // ── Agent card: class-targeted flex layout ───────────────────────────
         const agentCard = clonedEl.querySelector<HTMLElement>('[data-agent-card="1"]');
         if (agentCard) {
           agentCard.style.height = 'auto';
           agentCard.style.minHeight = '0';
-          agentCard.style.alignItems = 'flex-start';
-          agentCard.style.gap = '0';
-          agentCard.style.padding = '10px 12px';
+          agentCard.style.alignItems = 'center';
+          agentCard.style.padding = '12px';
+          agentCard.style.gap = '12px';
 
+          // Text column — flex column with strict gap so rows cannot collapse
           const textBlock = agentCard.querySelector<HTMLElement>('[data-agent-card-text="1"]');
           if (textBlock) {
-            const children = Array.from(textBlock.children) as HTMLElement[];
-            // Font sizes matching JSX: name=14, designation=11, email=10, phone=10
-            const rowSizes = [14, 11, 10, 10].slice(0, children.length);
-            const ROW_GAP = 12; // px between rows — 12px matches the 10-15px recommendation
-
-            // Switch text block to relative positioning container
-            textBlock.style.position = 'relative';
-            textBlock.style.display = 'block';
-            textBlock.style.flex = '1';
-            textBlock.style.gap = '0';
-
-            // Place each text row at an explicit Y offset — zero ambiguity
-            let y = 0;
-            children.forEach((child, i) => {
-              const fs = rowSizes[i] ?? 10;
-              const rowH = Math.ceil(fs * 1.5); // generous line-height in px
-              child.style.position = 'absolute';
-              child.style.top = `${y}px`;
-              child.style.left = '0';
-              child.style.right = '0';
-              child.style.height = `${rowH}px`;
-              child.style.lineHeight = `${rowH}px`;
-              child.style.fontSize = `${fs}px`;
-              child.style.display = 'block';
-              child.style.whiteSpace = 'nowrap';
-              child.style.overflow = 'hidden';
-              child.style.textOverflow = 'ellipsis';
-              child.style.margin = '0';
-              child.style.padding = '0';
-              y += rowH + ROW_GAP;
-            });
-
-            // Set the text block height to exactly contain all rows
-            textBlock.style.height = `${y - ROW_GAP}px`;
-            // Pad the agent card vertically to match the text block height
-            agentCard.style.minHeight = `${y - ROW_GAP + 20}px`; // 10px top + 10px bottom
+            textBlock.style.display = 'flex';
+            textBlock.style.flexDirection = 'column';
+            textBlock.style.gap = '12px';          // physical buffer html2canvas must respect
+            textBlock.style.justifyContent = 'center';
+            textBlock.style.paddingLeft = '0px';
           }
+
+          // Name — largest, bold, white
+          const name = agentCard.querySelector<HTMLElement>('.agent-name');
+          if (name) {
+            name.style.fontSize = '14px';
+            name.style.fontWeight = 'bold';
+            name.style.lineHeight = '1.2';
+            name.style.color = '#ffffff';
+            name.style.whiteSpace = 'nowrap';
+            name.style.overflow = 'hidden';
+            name.style.textOverflow = 'ellipsis';
+            name.style.marginBottom = '0';
+            name.style.padding = '0';
+          }
+
+          // Designation — gold, medium weight, smaller than name
+          const designation = agentCard.querySelector<HTMLElement>('.agent-designation');
+          if (designation) {
+            designation.style.fontSize = '11px';
+            designation.style.fontWeight = '500';
+            designation.style.lineHeight = '1.2';
+            designation.style.color = '#FFD700';
+            designation.style.whiteSpace = 'nowrap';
+            designation.style.overflow = 'hidden';
+            designation.style.textOverflow = 'ellipsis';
+            designation.style.padding = '0';
+          }
+
+          // Contact rows — email + phone
+          agentCard.querySelectorAll<HTMLElement>('.agent-contact').forEach((contact) => {
+            contact.style.fontSize = '10px';
+            contact.style.lineHeight = '1.2';
+            contact.style.color = 'rgba(255,255,255,0.75)';
+            contact.style.display = 'block';
+            contact.style.whiteSpace = 'nowrap';
+            contact.style.overflow = 'hidden';
+            contact.style.textOverflow = 'ellipsis';
+            contact.style.padding = '0';
+          });
         }
 
         // ── Strip unsupported / animation CSS from every descendant ─────────
@@ -1657,19 +1664,19 @@ export default function FestivalGreetingPreview() {
                         textAlign: 'left',
                       }}
                     >
-                      <div style={{ color: '#ffffff', fontSize: '14px', fontWeight: 600, lineHeight: '1.3', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div className="agent-name" style={{ color: '#ffffff', fontSize: '14px', fontWeight: 700, lineHeight: '1.3', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {agentInfo.name || 'Your Name'}
                       </div>
-                      <div style={{ color: selectedFestival.primaryColor, fontSize: '11px', lineHeight: '1.3', opacity: 0.95, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div className="agent-designation" style={{ color: selectedFestival.primaryColor, fontSize: '11px', lineHeight: '1.3', fontWeight: 500, opacity: 0.95, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {agentInfo.designation || 'Financial Advisor'}
                       </div>
                       {agentInfo.email && (
-                        <div style={{ color: 'rgba(255,255,255,0.70)', fontSize: '10px', lineHeight: '1.3', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div className="agent-contact" style={{ color: 'rgba(255,255,255,0.70)', fontSize: '10px', lineHeight: '1.3', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           ✉ {agentInfo.email}
                         </div>
                       )}
                       {agentInfo.phone && (
-                        <div style={{ color: 'rgba(255,255,255,0.70)', fontSize: '10px', lineHeight: '1.3' }}>
+                        <div className="agent-contact" style={{ color: 'rgba(255,255,255,0.70)', fontSize: '10px', lineHeight: '1.3' }}>
                           ☎ {agentInfo.phone}
                         </div>
                       )}
