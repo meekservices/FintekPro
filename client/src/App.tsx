@@ -1694,6 +1694,15 @@ function AgentRoutes() {
       <Route path="/agent/auth" component={AuthPage} />
       {/* Public proposal preview - accessible on all subdomains */}
       <Route path="/proposal/:shareToken" component={PublicProposalPage} />
+      <Route path="/agent/advisor-profile">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AdvisorBrandProfile />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
       <Route path="/">
         {() => (
           <AgentLayout>
@@ -1823,15 +1832,6 @@ function AgentRoutes() {
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
               <AgentMarketAlerts />
-            </Suspense>
-          </AgentLayout>
-        )}
-      </Route>
-      <Route path="/agent/advisor-profile">
-        {() => (
-          <AgentLayout>
-            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
-              <AdvisorBrandProfile />
             </Suspense>
           </AgentLayout>
         )}
