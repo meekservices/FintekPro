@@ -4108,7 +4108,7 @@ class AgentProspectWizardService {
       r.action === 'SELL' || r.action === 'SWITCH' || r.action === 'REDUCE' || r.action === 'PROFIT_BOOK'
     );
     const harvestRecs = recommendations.filter(r => r.action === 'TAX_LOSS_HARVEST');
-    const taxSummary = this.calculateTaxSummary(sellSwitchRecs, harvestRecs);
+    const taxSummary = await this.calculateTaxSummary(sellSwitchRecs, harvestRecs);
 
     // Add tax summary to each recommendation object (for frontend display)
     return {
@@ -4317,88 +4317,149 @@ class AgentProspectWizardService {
   }
 
   /**
-   * Calculate comprehensive tax summary for SELL/SWITCH recommendations
+   * Calculate comprehensive tax summary using Sandbox.co.in Tax P&L API.
+   * For each SELL/SWITCH/REDUCE/PROFIT_BOOK recommendation, the Sandbox API derives
+   * capital gains tax from holding period (buy date → today) and profit (cost basis vs current price).
+   * Falls back gracefully to local rule-based calculation when the Sandbox API is unavailable.
    */
-  private calculateTaxSummary(recommendations: any[], harvestRecs: any[] = []): any {
+  private async calculateTaxSummary(recommendations: any[], harvestRecs: any[] = []): Promise<any> {
     const hasRecommendations = recommendations && recommendations.length > 0;
     const hasHarvestRecs = harvestRecs && harvestRecs.length > 0;
 
+    const now = new Date();
+    const fyYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    const currentFY = `FY ${fyYear}-${(fyYear + 1).toString().slice(-2)}`;
+
     if (!hasRecommendations && !hasHarvestRecs) {
-      const now = new Date();
-      const fyYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-      const currentFY = `FY ${fyYear}-${(fyYear + 1).toString().slice(-2)}`;
       return {
-        totalSTCG: 0,
-        totalLTCG: 0,
-        stcgTax: 0,
-        ltcgTax: 0,
-        cess: 0,
-        totalTaxLiability: 0,
-        totalExitLoad: 0,
-        netRebalancingCost: 0,
-        taxLossHarvestingOpportunity: 0,
-        harvestedLosses: 0,
-        estimatedTaxSaving: 0,
-        netHarvestBenefit: 0,
-        harvestDetails: [],
-        grandfatheringBenefitTotal: 0,
-        holdings: [],
-        alerts: [],
-        currentFY,
+        totalSTCG: 0, totalLTCG: 0, stcgTax: 0, ltcgTax: 0,
+        cess: 0, totalTaxLiability: 0, totalExitLoad: 0, netRebalancingCost: 0,
+        taxLossHarvestingOpportunity: 0, harvestedLosses: 0, estimatedTaxSaving: 0,
+        netHarvestBenefit: 0, harvestDetails: [], grandfatheringBenefitTotal: 0,
+        holdings: [], alerts: [], currentFY,
+        taxSource: 'N/A',
         disclosure: 'No sell or switch trades are required for this rebalancing plan. Capital gains tax and exit load cost is ₹0.'
       };
     }
 
+    // ── Per-holding Sandbox API tax calls (parallel) ─────────────────────────
+    const taxResults = await Promise.allSettled(
+      recommendations.map(async (rec) => {
+        const sellAmount = Math.abs(rec.changeAmount || 0) || Math.abs(rec.currentValue || 0);
+        if (sellAmount <= 0) return { rec, tax: null };
+
+        // If this rec was already enriched via Sandbox API by an earlier step,
+        // re-use that result to avoid a duplicate API call.
+        const existingTax = rec.taxImplications;
+        if (existingTax && existingTax.taxRateSource === 'SANDBOX_API') {
+          console.log(`[TaxSummary] Re-using Sandbox API result for ${rec.productName}`);
+          return { rec, tax: existingTax };
+        }
+
+        const purchaseDate =
+          existingTax?.purchaseDate ||
+          (rec as any).purchaseDate ||
+          (rec as any).firstPurchaseDate ||
+          null;
+
+        const investedAmount =
+          existingTax?.purchaseCost ||
+          existingTax?.investedAmount ||
+          (rec as any).investedAmount ||
+          (sellAmount * 0.85);
+
+        try {
+          const result = await proposalCapitalGainsService.calculateHoldingTaxWithSandboxAPI({
+            name: rec.productName || 'Unknown',
+            productType: (rec as any).productType || (rec as any).category || 'mutual_fund',
+            category: (rec as any).category,
+            isin: (rec as any).isin,
+            currentValue: sellAmount,
+            investedAmount,
+            purchaseDate,
+            quantity: (rec as any).quantity || 1,
+          });
+          console.log(`[TaxSummary] ${rec.productName}: ${result.taxType} tax ₹${Math.round(result.estimatedTaxWithCess)} [${result.taxRateSource}]`);
+          return { rec, tax: result };
+        } catch (err: any) {
+          console.warn(`[TaxSummary] Tax calc failed for ${rec.productName}: ${err.message}`);
+          // Fallback: use pre-existing taxImplications if any
+          return { rec, tax: existingTax || null };
+        }
+      })
+    );
+
+    // ── Aggregate results ────────────────────────────────────────────────────
     let totalSTCG = 0;
     let totalLTCG = 0;
     let stcgTax = 0;
     let ltcgTax = 0;
+    let totalSlabGains = 0;
+    let slabTax = 0;
     let totalExitLoad = 0;
     let taxLossHarvestingOpportunity = 0;
     let grandfatheringBenefitTotal = 0;
     const alerts: any[] = [];
     const holdingsWithTax: any[] = [];
+    let sandboxCount = 0;
+    let localCount = 0;
 
-    for (const rec of recommendations) {
-      if (!rec.taxImplications) continue;
-      
-      const tax = rec.taxImplications;
+    for (const outcome of taxResults) {
+      if (outcome.status === 'rejected') continue;
+      const { rec, tax } = outcome.value;
+      if (!tax) continue;
+
+      // Normalise field names (Sandbox API result vs pre-attached taxImplications)
+      const unrealizedGain = tax.unrealizedGain ?? tax.estimatedGain ?? 0;
+      const estimatedTax = tax.estimatedTaxWithCess ?? tax.estimatedTax ?? 0;
+      const taxType: string = tax.taxType ?? 'UNKNOWN';
+      const exitLoad = tax.exitLoad ?? 0;
+      const grandfatheringBenefit = tax.grandfatheringBenefit ?? 0;
+      const holdingPeriodDays = tax.holdingPeriodDays ?? 0;
+      const taxSource = tax.taxRateSource ?? 'LOCAL_FALLBACK';
+
+      if (taxSource === 'SANDBOX_API') sandboxCount++; else localCount++;
+
       holdingsWithTax.push({
         name: rec.productName,
         action: rec.action,
-        ...tax
+        taxType,
+        unrealizedGain,
+        estimatedTax,
+        exitLoad,
+        holdingPeriodDays,
+        taxSource,
+        grandfatheringBenefit,
       });
 
-      if (tax.estimatedGain > 0) {
-        if (tax.taxType === 'STCG') {
-          totalSTCG += tax.estimatedGain;
-          stcgTax += tax.estimatedTax || 0;
-        } else if (tax.taxType === 'LTCG') {
-          totalLTCG += tax.estimatedGain;
-          ltcgTax += tax.estimatedTax || 0;
+      if (unrealizedGain > 0) {
+        if (taxType === 'STCG') {
+          totalSTCG += unrealizedGain;
+          stcgTax += estimatedTax;
+        } else if (taxType === 'LTCG') {
+          totalLTCG += unrealizedGain;
+          ltcgTax += estimatedTax;
+        } else if (taxType === 'SLAB') {
+          totalSlabGains += unrealizedGain;
+          slabTax += estimatedTax;
         }
-      } else if (tax.estimatedGain < 0) {
-        taxLossHarvestingOpportunity += Math.abs(tax.estimatedGain);
+      } else if (unrealizedGain < 0) {
+        taxLossHarvestingOpportunity += Math.abs(unrealizedGain);
       }
 
-      totalExitLoad += tax.exitLoad || 0;
-      grandfatheringBenefitTotal += tax.grandfatheringBenefit || 0;
+      totalExitLoad += exitLoad;
+      grandfatheringBenefitTotal += grandfatheringBenefit;
 
-      if (tax.alerts) {
-        alerts.push(...tax.alerts);
-      }
+      if (tax.alerts?.length) alerts.push(...tax.alerts);
     }
 
-    // Apply 4% cess on total tax
-    const baseTax = stcgTax + ltcgTax;
-    const cess = baseTax * 0.04;
-    const totalTaxLiability = baseTax + cess;
+    // cess already included in estimatedTaxWithCess from Sandbox API / local
+    const baseTax = stcgTax + ltcgTax + slabTax;
+    const totalTaxLiability = baseTax;
     const netRebalancingCost = totalTaxLiability + totalExitLoad;
-
-    // Get current FY
-    const now = new Date();
-    const fyYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-    const currentFY = `FY ${fyYear}-${(fyYear + 1).toString().slice(-2)}`;
+    const taxSource = sandboxCount > 0
+      ? `Sandbox.co.in Tax P&L API (${sandboxCount} via API, ${localCount} local fallback)`
+      : `Local rule-based (${localCount} instruments)`;
 
     const disclosure = proposalCapitalGainsService.generateTaxDisclosure();
 
@@ -4436,7 +4497,9 @@ class AgentProspectWizardService {
       totalLTCG: Math.round(totalLTCG),
       stcgTax: Math.round(stcgTax),
       ltcgTax: Math.round(ltcgTax),
-      cess: Math.round(cess),
+      totalSlabGains: Math.round(totalSlabGains),
+      slabTax: Math.round(slabTax),
+      cess: 0, // cess is already included inside each instrument's estimatedTaxWithCess from Sandbox API
       totalTaxLiability: Math.round(totalTaxLiability),
       totalExitLoad: Math.round(totalExitLoad),
       netRebalancingCost: Math.round(netRebalancingCost),
@@ -4450,7 +4513,8 @@ class AgentProspectWizardService {
       holdings: holdingsWithTax,
       alerts: this.deduplicateAlerts(alerts),
       currentFY,
-      disclosure
+      taxSource,
+      disclosure,
     };
   }
 
