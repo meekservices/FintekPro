@@ -503,10 +503,25 @@ export default function FestivalGreetingPreview() {
     // Capture at natural rendered size, scale up to 1200px output
     const TARGET = 1200;
     const naturalW = el.offsetWidth;
-    const naturalH = el.offsetHeight; // should equal naturalW (square), but capture exact value
+    const naturalH = el.offsetHeight;
     const scale = Math.max(1, Math.round(TARGET / naturalW));
 
-    return html2canvas(el, {
+    // ── Snapshot text-block position BEFORE html2canvas touches the DOM ──
+    // We'll draw the text ourselves on the canvas after capture — this is the
+    // ONLY approach that is immune to html2canvas text/layout bugs.
+    const textBlockEl = document.getElementById('agent-text-block');
+    let tbRect: { x: number; y: number; w: number } | null = null;
+    if (textBlockEl) {
+      const cardR = el.getBoundingClientRect();
+      const tbR   = textBlockEl.getBoundingClientRect();
+      tbRect = {
+        x: tbR.left - cardR.left,
+        y: tbR.top  - cardR.top,
+        w: tbR.width,
+      };
+    }
+
+    const canvas = await html2canvas(el, {
       scale,
       useCORS: true,
       allowTaint: true,
@@ -514,87 +529,18 @@ export default function FestivalGreetingPreview() {
       logging: false,
       letterRendering: true,
       onclone: (_doc, clonedEl) => {
-        // ── CRITICAL: html2canvas does NOT support aspectRatio CSS ──────────
-        // Without this, the cloned element grows to full document height and all
-        // bottom-anchored children end up at the wrong (far-bottom) position.
+        // ── Fix aspectRatio (not supported by html2canvas) ───────────────
         clonedEl.style.width = `${naturalW}px`;
         clonedEl.style.height = `${naturalH}px`;
         clonedEl.style.maxWidth = 'none';
         clonedEl.style.aspectRatio = 'auto';
         clonedEl.style.overflow = 'hidden';
 
-        // ── Agent card: flex + explicit px line-heights (letterRendering fix) ─
-        const agentCard = clonedEl.querySelector<HTMLElement>('[data-agent-card="1"]');
-        if (agentCard) {
-          agentCard.style.height = 'auto';
-          agentCard.style.alignItems = 'center';
-          agentCard.style.padding = '12px';
-          agentCard.style.gap = '12px';
-        }
+        // ── Hide agent text — we draw it manually post-capture ───────────
+        const container = clonedEl.ownerDocument.getElementById('agent-text-block');
+        if (container) container.style.visibility = 'hidden';
 
-        const doc = clonedEl.ownerDocument || document;
-        const container = doc.getElementById('agent-text-block');
-        if (container) {
-          // Fixed-height relative container — absolute children positioned within it
-          container.style.display = 'block';
-          container.style.position = 'relative';
-          container.style.height = '100px';
-          container.style.width = '100%';
-
-          // ── Name — top: 0px ──────────────────────────────────────────────
-          const name = doc.querySelector<HTMLElement>('.agent-name');
-          if (name) {
-            name.style.position = 'absolute';
-            name.style.top = '0px';
-            name.style.left = '0px';
-            name.style.right = '0px';
-            name.style.fontSize = '14px';
-            name.style.lineHeight = '20px';
-            name.style.fontWeight = 'bold';
-            name.style.color = '#ffffff';
-            name.style.whiteSpace = 'nowrap';
-            name.style.overflow = 'hidden';
-            name.style.textOverflow = 'ellipsis';
-            name.style.margin = '0';
-          }
-
-          // ── Designation — top: 28px ──────────────────────────────────────
-          const designation = doc.querySelector<HTMLElement>('.agent-designation');
-          if (designation) {
-            designation.style.position = 'absolute';
-            designation.style.top = '28px';   // 20px name + 8px gap
-            designation.style.left = '0px';
-            designation.style.right = '0px';
-            designation.style.fontSize = '11px';
-            designation.style.lineHeight = '15px';
-            designation.style.color = '#FFD700';
-            designation.style.fontWeight = '600';
-            designation.style.whiteSpace = 'nowrap';
-            designation.style.overflow = 'hidden';
-            designation.style.textOverflow = 'ellipsis';
-            designation.style.margin = '0';
-          }
-
-          // ── Contact rows — email: top 54px, phone: top 74px ─────────────
-          const contacts = doc.querySelectorAll<HTMLElement>('.agent-contact-row');
-          const contactTops = [54, 74];      // 28+15+11=54 for email; 54+14+6=74 for phone
-          contacts.forEach((row, i) => {
-            row.style.position = 'absolute';
-            row.style.top = `${contactTops[i] ?? 74 + (i - 1) * 18}px`;
-            row.style.left = '0px';
-            row.style.right = '0px';
-            row.style.fontSize = '10px';
-            row.style.lineHeight = '14px';
-            row.style.color = 'rgba(255,255,255,0.85)';
-            row.style.display = 'flex';
-            row.style.alignItems = 'center';
-            row.style.whiteSpace = 'nowrap';
-            row.style.overflow = 'hidden';
-            row.style.margin = '0';
-          });
-        }
-
-        // ── Strip unsupported / animation CSS from every descendant ─────────
+        // ── Strip unsupported / animation CSS ────────────────────────────
         clonedEl.querySelectorAll<HTMLElement>('*').forEach((node) => {
           const s = node.style;
           s.backdropFilter = 'none';
@@ -603,7 +549,6 @@ export default function FestivalGreetingPreview() {
           s.animationDelay = '0s';
           s.transition = 'none';
           s.transform = 'none';
-          // Convert 8-digit hex border colors (#rrggbbaa) → rgba()
           if (s.borderColor && /^#[0-9a-f]{8}$/i.test(s.borderColor)) {
             const h = s.borderColor;
             const r2 = parseInt(h.slice(1, 3), 16);
@@ -615,6 +560,59 @@ export default function FestivalGreetingPreview() {
         });
       },
     });
+
+    // ── Canvas 2D text overdraw — pixel-perfect, zero layout engine risk ─
+    // Each line is placed at an exact canvas-pixel Y coordinate derived from
+    // the measured position of the text block in the live DOM.
+    if (tbRect) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const cx    = tbRect.x * scale;          // left edge of text block in canvas px
+        const cy    = tbRect.y * scale;          // top  edge of text block in canvas px
+        const maxW  = tbRect.w * scale;          // max text width
+
+        // Row heights & gaps (in canvas pixels = CSS px × scale)
+        const NAME_H  = 20 * scale;
+        const DES_H   = 16 * scale;
+        const CON_H   = 14 * scale;
+        const GAP     =  8 * scale;
+
+        ctx.save();
+        ctx.textBaseline = 'top';
+
+        // Row 0 — Name
+        if (agentInfo.name) {
+          ctx.font      = `bold ${14 * scale}px Inter, system-ui, -apple-system, sans-serif`;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(agentInfo.name, cx, cy, maxW);
+        }
+
+        // Row 1 — Designation
+        if (agentInfo.designation) {
+          ctx.font      = `600 ${11 * scale}px Inter, system-ui, -apple-system, sans-serif`;
+          ctx.fillStyle = '#FFD700';
+          ctx.fillText(agentInfo.designation, cx, cy + NAME_H + GAP, maxW);
+        }
+
+        // Row 2 — Email
+        if (agentInfo.email) {
+          ctx.font      = `${10 * scale}px Inter, system-ui, -apple-system, sans-serif`;
+          ctx.fillStyle = 'rgba(255,255,255,0.85)';
+          ctx.fillText(`✉  ${agentInfo.email}`, cx, cy + NAME_H + GAP + DES_H + GAP, maxW);
+        }
+
+        // Row 3 — Phone
+        if (agentInfo.phone) {
+          ctx.font      = `${10 * scale}px Inter, system-ui, -apple-system, sans-serif`;
+          ctx.fillStyle = 'rgba(255,255,255,0.85)';
+          ctx.fillText(`☎  ${agentInfo.phone}`, cx, cy + NAME_H + GAP + DES_H + GAP + CON_H + GAP, maxW);
+        }
+
+        ctx.restore();
+      }
+    }
+
+    return canvas;
   };
 
   const handleDownload = async () => {
