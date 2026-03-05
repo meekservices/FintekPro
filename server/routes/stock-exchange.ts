@@ -329,7 +329,7 @@ export function registerStockExchangeRoutes(app: Express) {
       const losers = {
         status: "success",
         data: [
-          { symbol: "ZOMATO", fallbackPrice: 180.25, change: -12.75, percentChange: -6.61 },
+          { symbol: "ETERNAL", fallbackPrice: 180.25, change: -12.75, percentChange: -6.61 },
           { symbol: "PAYTM", fallbackPrice: 425.50, change: -28.50, percentChange: -6.28 },
           { symbol: "NYKAA", fallbackPrice: 145.80, change: -9.20, percentChange: -5.94 },
           { symbol: "POLICYBZR", fallbackPrice: 890.40, change: -52.60, percentChange: -5.58 },

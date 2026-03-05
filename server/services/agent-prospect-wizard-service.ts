@@ -384,7 +384,7 @@ const FUND_RECOMMENDATIONS_BY_CATEGORY = {
       { name: 'Persistent Systems Ltd', amc: 'NSE/BSE', category: 'Stock - Mid Cap IT', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'High', productType: 'stock', ticker: 'PERSISTENT' },
     ],
     very_aggressive: [
-      { name: 'Zomato Ltd', amc: 'NSE/BSE', category: 'Stock - New Age Tech', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'N/A', risk: 'Very High', productType: 'stock', ticker: 'ZOMATO' },
+      { name: 'Eternal Ltd', amc: 'NSE/BSE', category: 'Stock - New Age Tech', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'N/A', risk: 'Very High', productType: 'stock', ticker: 'ETERNAL' },
       { name: 'Paytm (One97 Communications)', amc: 'NSE/BSE', category: 'Stock - Fintech', returns1Y: '-25.5', returns3Y: '-15.0', returns5Y: 'N/A', risk: 'Very High', productType: 'stock', ticker: 'PAYTM' },
       { name: 'Tata Elxsi Ltd', amc: 'NSE/BSE', category: 'Stock - Mid Cap IT Services', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'stock', ticker: 'TATAELXSI' },
       { name: 'Dixon Technologies Ltd', amc: 'NSE/BSE', category: 'Stock - Mid Cap Electronics', returns1Y: 'PENDING', returns3Y: 'PENDING', returns5Y: 'PENDING', risk: 'Very High', productType: 'stock', ticker: 'DIXON' },

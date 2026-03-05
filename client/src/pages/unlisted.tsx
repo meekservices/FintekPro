@@ -65,7 +65,7 @@ function UnlistedCategoriesSection() {
       minInvestment: "₹50,000",
       count: 67,
       riskLevel: "Medium",
-      companies: ["Flipkart", "Zomato", "PolicyBazaar", "Freshworks"]
+      companies: ["Flipkart", "Eternal", "PolicyBazaar", "Freshworks"]
     }
   ];
 

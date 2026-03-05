@@ -285,7 +285,7 @@ export default function ExpensesBudgetsPage() {
                       <FormItem>
                         <FormLabel>Merchant (Optional)</FormLabel>
                         <FormControl>
-                          <Input placeholder="Zomato" data-testid="input-merchant" {...field} />
+                          <Input placeholder="Swiggy" data-testid="input-merchant" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

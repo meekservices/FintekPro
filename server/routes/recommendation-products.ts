@@ -358,7 +358,7 @@ router.post("/seed-initial", requireAdmin, async (req, res) => {
       { name: "SBI Cards Ltd", symbol: "SBICARD", sector: "Financial", category: "Stock - Mid Cap", riskProfile: "aggressive", riskLevel: "High", returns1Y: "18.5", returns3Y: "22.0", returns5Y: "24.5", priority: 82 },
       { name: "Persistent Systems Ltd", symbol: "PERSISTENT", sector: "IT", category: "Stock - Mid Cap", riskProfile: "aggressive", riskLevel: "High", returns1Y: "38.5", returns3Y: "45.2", returns5Y: "42.0", priority: 80 },
       // Very Aggressive
-      { name: "Zomato Ltd", symbol: "ZOMATO", sector: "Tech", category: "Stock - New Age", riskProfile: "very_aggressive", riskLevel: "Very High", returns1Y: "85.2", returns3Y: "45.0", priority: 85 },
+      { name: "Eternal Ltd", symbol: "ETERNAL", sector: "Tech", category: "Stock - New Age", riskProfile: "very_aggressive", riskLevel: "Very High", returns1Y: "85.2", returns3Y: "45.0", priority: 85 },
       { name: "Tata Elxsi Ltd", symbol: "TATAELXSI", sector: "IT", category: "Stock - Mid Cap", riskProfile: "very_aggressive", riskLevel: "Very High", returns1Y: "28.5", returns3Y: "48.2", returns5Y: "55.0", priority: 82 },
       { name: "Dixon Technologies Ltd", symbol: "DIXON", sector: "Electronics", category: "Stock - Mid Cap", riskProfile: "very_aggressive", riskLevel: "Very High", returns1Y: "65.2", returns3Y: "72.5", returns5Y: "85.0", priority: 80 },
     ];

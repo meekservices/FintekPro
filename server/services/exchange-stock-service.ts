@@ -224,7 +224,7 @@ class ExchangeStockService {
       { symbol: 'TORNTPHARM', bseCode: '500420', companyName: 'Torrent Pharmaceuticals Ltd.' },
       { symbol: 'TRENT', bseCode: '500251', companyName: 'Trent Ltd.' },
       { symbol: 'VEDL', bseCode: '500295', companyName: 'Vedanta Ltd.' },
-      { symbol: 'ZOMATO', bseCode: '543320', companyName: 'Zomato Ltd.' },
+      { symbol: 'ETERNAL', bseCode: '543320', companyName: 'Eternal Ltd.' },
       { symbol: 'DMART', bseCode: '540376', companyName: 'Avenue Supermarts Ltd.' },
       { symbol: 'ADANIGREEN', bseCode: '541450', companyName: 'Adani Green Energy Ltd.' },
       { symbol: 'ADANITRANS', bseCode: '539254', companyName: 'Adani Transmission Ltd.' },
@@ -804,7 +804,7 @@ class ExchangeStockService {
       'GAIL', 'GODREJCP', 'HAVELLS', 'ICICIGI', 'ICICIPRULI', 'INDHOTEL', 'INDUSTOWER', 'IOC', 'IRCTC', 'JINDALSTEL',
       'LICI', 'LUPIN', 'MARICO', 'MCDOWELL-N', 'MUTHOOTFIN', 'NAUKRI', 'NMDC', 'PAGEIND', 'PEL', 'PETRONET',
       'PFC', 'PIDILITIND', 'PIIND', 'PNB', 'RECLTD', 'SRF', 'TATAPOWER', 'TORNTPHARM', 'TRENT', 'VEDL',
-      'ZOMATO', 'DMART', 'ADANIGREEN', 'ADANITRANS', 'ATGL', 'LODHA', 'HAL', 'BEL', 'NHPC', 'IRFC'
+      'ETERNAL', 'DMART', 'ADANIGREEN', 'ADANITRANS', 'ATGL', 'LODHA', 'HAL', 'BEL', 'NHPC', 'IRFC'
     ];
   }
 

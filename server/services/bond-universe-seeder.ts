@@ -61,7 +61,7 @@ const ISSUERS = [
   { name: 'Titan Company', sector: 'Consumer', industry: 'Retail', rating: 'AAA' },
   { name: 'Avenue Supermarts', sector: 'Consumer', industry: 'Retail', rating: 'AA+' },
   { name: 'Trent', sector: 'Consumer', industry: 'Retail', rating: 'AA' },
-  { name: 'Zomato', sector: 'Technology', industry: 'Food Delivery', rating: 'A+' },
+  { name: 'Eternal', sector: 'Technology', industry: 'Food Delivery', rating: 'A+' },
   { name: 'Paytm', sector: 'Technology', industry: 'Fintech', rating: 'A' },
   { name: 'PolicyBazaar', sector: 'Technology', industry: 'Insurtech', rating: 'A' },
   { name: 'Nazara Technologies', sector: 'Technology', industry: 'Gaming', rating: 'A' },
