@@ -6117,6 +6117,7 @@ export default function AgentProspectWizard() {
                     rec.action === 'HOLD' ? 'border-l-4 border-l-gray-400' :
                     rec.action === 'REDUCE' ? 'border-l-4 border-l-amber-500' :
                     rec.action === 'INCREASE' ? 'border-l-4 border-l-teal-500' :
+                    rec.action === 'PROFIT_BOOK' ? 'border-l-4 border-l-violet-500' :
                     'border-l-4 border-l-amber-500'
                   }`}>
                     <CardContent className="py-3">
@@ -6128,10 +6129,11 @@ export default function AgentProspectWizard() {
                               rec.action === 'HOLD' ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' :
                               rec.action === 'REDUCE' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300' :
                               rec.action === 'INCREASE' ? 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300' :
+                              rec.action === 'PROFIT_BOOK' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300' :
                               ''
                             }
                           >
-                            {rec.action}
+                            {rec.action === 'PROFIT_BOOK' ? 'PROFIT BOOK' : rec.action}
                           </Badge>
                           <span className="font-medium">{rec.productName}</span>
                           <Badge variant="outline">{rec.priority}</Badge>

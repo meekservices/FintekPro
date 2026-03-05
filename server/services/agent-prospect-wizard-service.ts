@@ -1693,7 +1693,7 @@ export interface PortfolioAnalysis {
 }
 
 export interface RebalanceRecommendation {
-  action: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH' | 'REDUCE' | 'INCREASE' | 'HOLD_COST_FILTER' | 'HOLD_RISK_LIMIT';
+  action: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH' | 'REDUCE' | 'INCREASE' | 'HOLD_COST_FILTER' | 'HOLD_RISK_LIMIT' | 'PROFIT_BOOK';
   productType: string;
   productName: string;
   currentValue?: number;
@@ -1701,7 +1701,7 @@ export interface RebalanceRecommendation {
   changeAmount: number;
   rationale: string;
   priority: 'high' | 'medium' | 'low';
-  taxImplications?: string;
+  taxImplications?: any;
 }
 
 export interface FreshInvestmentSuggestion {
@@ -3604,7 +3604,125 @@ class AgentProspectWizardService {
       }
     }
 
-    // ── Step 8: Audit Log — persist decision trail to rebalance_decision_log ──
+    // ── Step 8: Partial Profit Booking Scanner ───────────────────────────────
+    // Independently scan ALL holdings (including HOLDs) for profit booking
+    // opportunities triggered by tax rules or concentration risk — NOT drift.
+    // Three triggers:
+    //   1. LTCG Exemption Harvest — book ₹1.25L of gains tax-free per FY
+    //   2. Concentration Risk     — single holding > 25% of portfolio
+    //   3. High-Gain Alert        — >50% unrealized gain on sizeable position
+    {
+      const LTCG_EXEMPTION_LIMIT = 125000; // Budget 2024: ₹1.25L LTCG exempt per FY
+      const MIN_PROFIT_BOOK_VALUE = 10000; // Ignore micro positions
+      const MIN_HOLDING_DAYS = 180;        // Avoid suggesting very new holdings
+
+      // Collect product names already being acted on so we don't double-suggest
+      const alreadyActedOn = new Set(
+        recommendations
+          .filter(r => r.action === 'REDUCE' || r.action === 'SELL' || r.action === 'SWITCH')
+          .map(r => r.productName)
+      );
+
+      for (const holding of normalizedHoldings) {
+        const holdingName = holding.name || holding.productName || '';
+        if (alreadyActedOn.has(holdingName)) continue;
+        if ((holding.currentValue || 0) < MIN_PROFIT_BOOK_VALUE) continue;
+
+        try {
+          const taxInfo = await proposalCapitalGainsService.calculateHoldingTaxAsync({
+            name: holdingName,
+            productType: holding.productType || holding.assetType || 'mutual_fund',
+            category: holding.category,
+            isin: holding.isin,
+            schemeCode: (holding as any).schemeCode,
+            purchaseDate: holding.purchaseDate || (holding.transactionDate ? String(holding.transactionDate) : '') || '',
+            purchaseValue: holding.investedValue || 0,
+            currentValue: holding.currentValue || 0,
+            units: holding.units || 0,
+          });
+
+          if (!taxInfo) continue;
+          if (taxInfo.holdingPeriodDays < MIN_HOLDING_DAYS) continue;
+          if ((taxInfo.unrealizedGain || 0) <= 0) continue;
+
+          const unrealizedGain: number = taxInfo.unrealizedGain || 0;
+          const currentValue: number = holding.currentValue || 0;
+          const gainFraction = unrealizedGain / currentValue; // fraction of current value that is gain
+          const investedValue: number = holding.investedValue || currentValue;
+          const gainPercent = unrealizedGain / investedValue;
+
+          let bookAmount = 0;
+          let reason = '';
+          let priority: 'high' | 'medium' | 'low' = 'medium';
+          let profitBookLabel = '';
+
+          // Trigger 1: LTCG Exemption Harvest
+          if (taxInfo.taxType === 'LTCG' && unrealizedGain > LTCG_EXEMPTION_LIMIT) {
+            // Amount to redeem to book exactly ₹1.25L of gains
+            bookAmount = Math.round(LTCG_EXEMPTION_LIMIT / gainFraction);
+            bookAmount = Math.min(bookAmount, currentValue * 0.5); // cap at 50% of position
+            reason = `Utilize ₹1.25L LTCG tax-free exemption this FY (Budget 2024). Redeeming ₹${formatAmount(bookAmount)} books ₹1.25L of gains at ₹0 tax — excess gains remain invested.`;
+            priority = 'high';
+            profitBookLabel = 'LTCG Exemption Harvest';
+          }
+          // Trigger 2: Concentration Risk (> 25% of portfolio)
+          else if (totalValue > 0 && currentValue / totalValue > 0.25 && unrealizedGain > 20000) {
+            bookAmount = Math.round(currentValue * 0.20); // trim 20% to reduce concentration
+            reason = `Concentration risk: ${(currentValue / totalValue * 100).toFixed(1)}% of portfolio in one position. Partial booking of 20% (₹${formatAmount(bookAmount)}) reduces single-security risk while retaining 80% upside.`;
+            priority = 'high';
+            profitBookLabel = 'Concentration Trim';
+          }
+          // Trigger 3: High unrealized gain (> 50%)
+          else if (gainPercent > 0.5 && currentValue > 75000) {
+            bookAmount = Math.round(currentValue * 0.25); // book 25% of position
+            reason = `High unrealized ${taxInfo.taxType} gain of ${(gainPercent * 100).toFixed(0)}% on ₹${formatAmount(currentValue)} position. Partial booking of 25% (₹${formatAmount(bookAmount)}) locks in profits and manages ${taxInfo.taxType === 'STCG' ? 'short-term' : 'long-term'} tax liability.`;
+            priority = taxInfo.taxType === 'STCG' ? 'high' : 'medium';
+            profitBookLabel = 'High-Gain Alert';
+          }
+
+          if (bookAmount < MIN_PROFIT_BOOK_VALUE) continue;
+
+          const bookedGain = Math.round(bookAmount * gainFraction);
+          const isLTCGExemptBucket = taxInfo.taxType === 'LTCG' && bookedGain <= LTCG_EXEMPTION_LIMIT;
+          const taxOnBooking = isLTCGExemptBucket
+            ? 0 // within ₹1.25L exemption — no tax
+            : Math.round(bookedGain * (taxInfo.applicableTaxRate || 0) * 1.04); // +4% cess
+
+          recommendations.push({
+            action: 'PROFIT_BOOK',
+            productType: holding.productType || holding.assetType || 'other',
+            productName: holdingName,
+            currentValue,
+            suggestedValue: currentValue - bookAmount,
+            changeAmount: -bookAmount,
+            rationale: `[PROFIT_BOOK: ${profitBookLabel}] ${reason}`,
+            priority,
+            taxImplications: {
+              taxType: taxInfo.taxType,
+              holdingPeriodDays: taxInfo.holdingPeriodDays,
+              estimatedGain: bookedGain,
+              estimatedTax: taxOnBooking,
+              exitLoad: taxInfo.exitLoad || 0,
+              totalCost: taxOnBooking + (taxInfo.exitLoad || 0),
+              taxRate: isLTCGExemptBucket ? '0% (within ₹1.25L exemption)' : `${((taxInfo.applicableTaxRate || 0) * 100).toFixed(1)}%`,
+              grandfatheringApplied: taxInfo.grandfatheringApplied,
+              grandfatheringBenefit: taxInfo.grandfatheringBenefit || 0,
+              alerts: taxInfo.alerts || [],
+              summary: isLTCGExemptBucket
+                ? `Books ₹${formatAmount(bookedGain)} LTCG — ₹0 tax (within ₹1.25L exemption)`
+                : `Partial booking: ${taxInfo.taxType} @${((taxInfo.applicableTaxRate || 0) * 100).toFixed(0)}% + 4% cess = ₹${formatAmount(taxOnBooking)}`
+            }
+          });
+
+          console.log(`[ProfitBook] ${profitBookLabel} suggested for ${holdingName}: redeem ₹${formatAmount(bookAmount)}, gain ₹${formatAmount(bookedGain)}, tax ₹${formatAmount(taxOnBooking)}`);
+        } catch (e: any) {
+          // Non-fatal: skip this holding if tax calc fails
+          console.log(`[ProfitBook] Skipped ${holdingName}: ${e?.message}`);
+        }
+      }
+    }
+
+    // ── Step 9: Audit Log — persist decision trail to rebalance_decision_log ──
     const auditEntries = driftMetrics.map(dm => ({
       proposalId: null as string | null,
       portfolioValue: totalValue,
@@ -3642,10 +3760,10 @@ class AgentProspectWizardService {
     // to keep proposals focused on portfolio-level adjustments only
     console.log('[Signal Orchestrator] POTD cross-reference skipped — POTD excluded from rebalancing proposals');
 
-    // Calculate comprehensive tax summary for SELL/SWITCH/REDUCE recommendations
-    // REDUCE is the primary action used by the rebalancing engine for "redeem/exit" moves
+    // Calculate comprehensive tax summary for all exit-type recommendations
+    // REDUCE = drift-based exit, PROFIT_BOOK = gain/tax-based partial exit
     const sellSwitchRecs = recommendations.filter(r =>
-      r.action === 'SELL' || r.action === 'SWITCH' || r.action === 'REDUCE'
+      r.action === 'SELL' || r.action === 'SWITCH' || r.action === 'REDUCE' || r.action === 'PROFIT_BOOK'
     );
     const taxSummary = this.calculateTaxSummary(sellSwitchRecs);
 
