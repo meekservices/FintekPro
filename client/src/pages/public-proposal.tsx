@@ -1538,19 +1538,19 @@ export default function PublicProposalPage() {
                   const amount = rec.recommendedAmount || rec.suggestedAmount || rec.changeAmount || 0;
                   if (amount > 0) {
                     totalRecommendedAmount += amount;
-                    // Map category and productType to asset class
+                    // Map category and productType to asset class — granular, preserving distinct categories
                     const category = (rec.category || '').toLowerCase();
                     const productType = (rec.productType || '').toLowerCase();
                     const combined = `${category} ${productType}`;
                     let assetClass = 'Other';
                     
-                    // Equity: stocks, large/mid/small cap, flexi cap, multi cap, equity funds
-                    if (combined.includes('equity') || combined.includes('large_cap') || combined.includes('large cap') || 
-                        combined.includes('mid_cap') || combined.includes('mid cap') || combined.includes('small_cap') || 
-                        combined.includes('small cap') || combined.includes('flexi') || combined.includes('multi') ||
-                        combined.includes('listed_stock') || combined.includes('unlisted_stock') || combined.includes('stock') ||
-                        combined.includes('pre_ipo') || combined.includes('pre-ipo')) {
-                      assetClass = 'Equity';
+                    // Listed Stocks — checked first, most specific
+                    if (productType === 'listed_stock' || productType === 'equity' ||
+                        combined.includes('listed_stock') || combined.includes('listed stock')) {
+                      assetClass = 'Listed Stocks';
+                    // Unlisted / Pre-IPO
+                    } else if (productType === 'unlisted_stock' || combined.includes('unlisted') || combined.includes('pre_ipo') || combined.includes('pre-ipo')) {
+                      assetClass = 'Unlisted / Pre-IPO';
                     // Debt: bonds, liquid, money market, gilt, NCDs
                     } else if (combined.includes('debt') || combined.includes('liquid') || combined.includes('overnight') || 
                                combined.includes('money market') || combined.includes('gilt') || combined.includes('bond') ||
@@ -1561,11 +1561,11 @@ export default function PublicProposalPage() {
                                combined.includes('conservative hybrid') || combined.includes('dynamic asset')) {
                       assetClass = 'Hybrid';
                     // REITs: Real Estate Investment Trusts
-                    } else if (combined.includes('reit') || combined.includes('real estate') || combined.includes('commercial_office') ||
+                    } else if (productType === 'reit' || combined.includes('reit') || combined.includes('real estate') || combined.includes('commercial_office') ||
                                combined.includes('retail_mall') || combined.includes('warehouse') || combined.includes('hospitality')) {
                       assetClass = 'REITs';
                     // InvITs: Infrastructure Investment Trusts
-                    } else if (combined.includes('invit') || combined.includes('infrastructure') || combined.includes('roads_highways') || 
+                    } else if (productType === 'invit' || combined.includes('invit') || combined.includes('roads_highways') || 
                                combined.includes('power_transmission') || combined.includes('telecom_tower') || combined.includes('pipeline') ||
                                combined.includes('renewable_energy')) {
                       assetClass = 'InvITs';
@@ -1583,10 +1583,13 @@ export default function PublicProposalPage() {
                     } else if (combined.includes('index') || combined.includes('etf') || combined.includes('nifty') || 
                                combined.includes('sensex')) {
                       assetClass = 'Index/ETF';
-                    // Mutual Funds (fallback for MF categories)
-                    } else if (combined.includes('mutual_fund') || combined.includes('mutual fund') || combined.includes('elss') ||
-                               combined.includes('tax_saving') || combined.includes('sectoral') || combined.includes('thematic')) {
-                      assetClass = 'Equity'; // Most MFs are equity-oriented
+                    // MF Equity (large/mid/small cap, flexi, multi, thematic, sectoral, ELSS)
+                    } else if (combined.includes('large_cap') || combined.includes('large cap') || 
+                        combined.includes('mid_cap') || combined.includes('mid cap') || combined.includes('small_cap') || 
+                        combined.includes('small cap') || combined.includes('flexi') || combined.includes('multi cap') ||
+                        combined.includes('elss') || combined.includes('tax_saving') || combined.includes('sectoral') || combined.includes('thematic') ||
+                        combined.includes('mutual_fund') || combined.includes('mutual fund')) {
+                      assetClass = 'Equity MFs';
                     }
                     
                     if (!allocationMap[assetClass]) {

@@ -5158,7 +5158,7 @@ class AgentProspectWizardService {
     holdings: ProspectPortfolioHolding[],
     riskProfile: ProspectRiskProfile,
     freshInvestmentAmount: number,
-    customAllocations?: { equity: number; debt: number; hybrid: number; gold: number; silver?: number; index?: number },
+    customAllocations?: Record<string, number>,
     selectedCategories?: string[],
     globalAdvisorySelections?: Record<string, string[]>,
     proposalSections?: Record<string, boolean>,
@@ -5295,8 +5295,30 @@ class AgentProspectWizardService {
 
     const shareToken = nanoid(12);
     
-    // Get target allocation based on risk profile
-    const targetAllocation = TARGET_ALLOCATIONS[riskProfile.riskTolerance] || TARGET_ALLOCATIONS.moderate;
+    // Derive target allocation: prefer agent's custom allocation when any non-zero value exists,
+    // filtered to only the selected categories (matching the rebalancing engine's logic).
+    // Falls back to risk-profile defaults when no custom allocation was set.
+    let targetAllocation: Record<string, number>;
+    const hasCustomAlloc = customAllocations && Object.values(customAllocations).some(v => v > 0);
+    if (hasCustomAlloc && customAllocations) {
+      // Build a clean allocation object from custom values, zeroing out non-selected categories
+      const selectedKeys = new Set(
+        (selectedCategories || []).map(cat => {
+          const map: Record<string, string> = { gold_fof: 'gold', silver_fof: 'silver', index_fund: 'index' };
+          return map[cat] || cat;
+        })
+      );
+      const cleanAlloc: Record<string, number> = {};
+      for (const [key, val] of Object.entries(customAllocations)) {
+        if (key === 'global_advisory') continue; // internal budget field, not an asset class
+        cleanAlloc[key] = (selectedKeys.size === 0 || selectedKeys.has(key)) ? (val as number) : 0;
+      }
+      targetAllocation = cleanAlloc;
+      console.log('[ProposalGen] Using agent custom targetAllocation:', JSON.stringify(cleanAlloc));
+    } else {
+      targetAllocation = TARGET_ALLOCATIONS[riskProfile.riskTolerance] || TARGET_ALLOCATIONS.moderate;
+      console.log('[ProposalGen] Using risk-profile default targetAllocation:', riskProfile.riskTolerance);
+    }
     
     // Generate portfolio comparison with risk-adjusted metrics (using real historical data when available)
     let portfolioComparison: PortfolioComparison | undefined;

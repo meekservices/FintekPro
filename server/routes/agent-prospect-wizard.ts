@@ -172,12 +172,27 @@ function normalizeHoldings(holdings: any[]): any[] {
 }
 
 const customAllocationsSchema = z.object({
-  equity: z.number().min(0).max(100),
-  debt: z.number().min(0).max(100),
-  hybrid: z.number().min(0).max(100),
-  gold: z.number().min(0).max(100),
-  silver: z.number().min(0).max(100).optional(),
-  index: z.number().min(0).max(100).optional()
+  equity: z.number().min(0).max(100).default(0),
+  debt: z.number().min(0).max(100).default(0),
+  hybrid: z.number().min(0).max(100).default(0),
+  gold: z.number().min(0).max(100).default(0),
+  silver: z.number().min(0).max(100).default(0),
+  index: z.number().min(0).max(100).default(0),
+  etf: z.number().min(0).max(100).default(0),
+  listed_stocks: z.number().min(0).max(100).default(0),
+  unlisted_stocks: z.number().min(0).max(100).default(0),
+  reit: z.number().min(0).max(100).default(0),
+  invit: z.number().min(0).max(100).default(0),
+  bonds: z.number().min(0).max(100).default(0),
+  mld: z.number().min(0).max(100).default(0),
+  pms: z.number().min(0).max(100).default(0),
+  aif: z.number().min(0).max(100).default(0),
+  global_advisory: z.number().min(0).max(100).default(0),
+  us_markets: z.number().min(0).max(100).default(0),
+  europe_markets: z.number().min(0).max(100).default(0),
+  asia_pacific_markets: z.number().min(0).max(100).default(0),
+  emerging_markets: z.number().min(0).max(100).default(0),
+  international: z.number().min(0).max(100).default(0),
 });
 
 const globalAdvisorySelectionsSchema = z.record(z.string(), z.array(z.string())).optional();
