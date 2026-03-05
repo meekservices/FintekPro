@@ -173,7 +173,7 @@ class AIStockRecommendationService {
       
       let recommendations: StockRecommendation[] = [];
       
-      if (includeAIAnalysis && this.genAI) {
+      if (includeAIAnalysis) {
         recommendations = await this.generateAIRecommendations(topStocks, filters);
       } else {
         recommendations = topStocks.map(scored => this.buildRuleBasedRecommendation(scored, timeHorizon, riskLevel));
