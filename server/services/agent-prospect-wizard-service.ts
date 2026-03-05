@@ -1676,6 +1676,12 @@ export interface ProspectRiskProfile {
   monthlyIncome?: number;
   existingInvestments?: number;
   liquidityNeeds?: 'low' | 'medium' | 'high';
+  // Alpha engine extensions
+  taxBracket?: 5 | 10 | 15 | 20 | 25 | 30;
+  clientAge?: number;
+  monthlyExpenses?: number;
+  monthlyEMI?: number;
+  annualIncomeStepUp?: number;
 }
 
 export interface PortfolioAnalysis {
@@ -1866,6 +1872,119 @@ export interface DuplicateCheckResult {
   };
   message?: string;
   canRequestMapping?: boolean;
+}
+
+// ── ALPHA ENGINE: Fund Risk-Adjusted Metrics ─────────────────────────────────
+// Sharpe ratio (3Y, vs risk-free 6.5%), AUM (₹Cr), direct plan equivalent.
+// These are semi-static (updated quarterly) and used for composite fund scoring.
+const FUND_ALPHA_METRICS: Record<string, { sharpe: number; aumCr: number; directName?: string }> = {
+  'Parag Parikh Flexi Cap Fund - Regular (G)':         { sharpe: 1.85, aumCr: 87000, directName: 'Parag Parikh Flexi Cap Fund - Direct (G)' },
+  'Mirae Asset Large Cap Fund - Regular (G)':           { sharpe: 1.12, aumCr: 38000, directName: 'Mirae Asset Large Cap Fund - Direct (G)' },
+  'Kotak Emerging Equity Fund - Regular (G)':           { sharpe: 1.05, aumCr: 49000, directName: 'Kotak Emerging Equity Fund - Direct (G)' },
+  'Quant Small Cap Fund - Regular (G)':                 { sharpe: 1.42, aumCr: 23000, directName: 'Quant Small Cap Fund - Direct (G)' },
+  'Nippon India Small Cap Fund - Regular (G)':          { sharpe: 1.28, aumCr: 60000, directName: 'Nippon India Small Cap Fund - Direct (G)' },
+  'HDFC Small Cap Fund - Regular (G)':                  { sharpe: 1.10, aumCr: 33000, directName: 'HDFC Small Cap Fund - Direct (G)' },
+  'Kotak Small Cap Fund - Regular (G)':                 { sharpe: 0.98, aumCr: 15000, directName: 'Kotak Small Cap Fund - Direct (G)' },
+  'Axis Midcap Fund - Regular (G)':                     { sharpe: 1.15, aumCr: 25000, directName: 'Axis Midcap Fund - Direct (G)' },
+  'HDFC Flexi Cap Fund - Regular (G)':                  { sharpe: 1.22, aumCr: 60000, directName: 'HDFC Flexi Cap Fund - Direct (G)' },
+  'Quant Multi Cap Fund - Regular (G)':                 { sharpe: 1.38, aumCr: 10000, directName: 'Quant Multi Cap Fund - Direct (G)' },
+  'Tata Small Cap Fund - Regular (G)':                  { sharpe: 1.05, aumCr: 10000, directName: 'Tata Small Cap Fund - Direct (G)' },
+  'SBI Small Cap Fund - Regular (G)':                   { sharpe: 1.18, aumCr: 35000, directName: 'SBI Small Cap Fund - Direct (G)' },
+  'Motilal Oswal Midcap Fund - Regular (G)':            { sharpe: 1.35, aumCr: 22000, directName: 'Motilal Oswal Midcap Fund - Direct (G)' },
+  'ICICI Pru Technology Fund - Regular (G)':            { sharpe: 0.92, aumCr: 12000, directName: 'ICICI Pru Technology Fund - Direct (G)' },
+  'ICICI Pru Corporate Bond Fund - Regular (G)':        { sharpe: 1.45, aumCr: 28000, directName: 'ICICI Pru Corporate Bond Fund - Direct (G)' },
+  'SBI Magnum Medium Duration Fund - Regular (G)':      { sharpe: 1.20, aumCr: 10000, directName: 'SBI Magnum Medium Duration Fund - Direct (G)' },
+  'Axis Banking & PSU Debt Fund - Regular (G)':         { sharpe: 1.38, aumCr: 18000, directName: 'Axis Banking & PSU Debt Fund - Direct (G)' },
+  'SBI Corporate Bond Fund - Regular (G)':              { sharpe: 1.32, aumCr: 21000, directName: 'SBI Corporate Bond Fund - Direct (G)' },
+  'HDFC Short Term Debt Fund - Regular (G)':            { sharpe: 1.28, aumCr: 16000, directName: 'HDFC Short Term Debt Fund - Direct (G)' },
+  'HDFC Balanced Advantage Fund - Regular (G)':         { sharpe: 1.18, aumCr: 88000, directName: 'HDFC Balanced Advantage Fund - Direct (G)' },
+  'ICICI Pru Equity & Debt Fund - Regular (G)':         { sharpe: 1.25, aumCr: 38000, directName: 'ICICI Pru Equity & Debt Fund - Direct (G)' },
+  'HDFC Hybrid Equity Fund - Regular (G)':              { sharpe: 1.15, aumCr: 22000, directName: 'HDFC Hybrid Equity Fund - Direct (G)' },
+  'Kotak Equity Hybrid Fund - Regular (G)':             { sharpe: 1.08, aumCr: 16000, directName: 'Kotak Equity Hybrid Fund - Direct (G)' },
+  'ICICI Pru Multi Asset Fund - Regular (G)':           { sharpe: 1.35, aumCr: 48000, directName: 'ICICI Pru Multi Asset Fund - Direct (G)' },
+  'Quant Multi Asset Fund - Regular (G)':               { sharpe: 1.28, aumCr: 3000,  directName: 'Quant Multi Asset Fund - Direct (G)' },
+  'SBI Gold Fund - Regular (G)':                        { sharpe: 0.85, aumCr: 3000,  directName: 'SBI Gold Fund - Direct (G)' },
+  'HDFC Gold Fund - Regular (G)':                       { sharpe: 0.82, aumCr: 2000,  directName: 'HDFC Gold Fund - Direct (G)' },
+  'UTI Nifty 50 Index Fund - Regular (G)':              { sharpe: 1.05, aumCr: 22000, directName: 'UTI Nifty 50 Index Fund - Direct (G)' },
+  'HDFC Index Fund - Nifty 50 Plan - Regular (G)':      { sharpe: 1.06, aumCr: 18000, directName: 'HDFC Index Fund - Nifty 50 Plan - Direct (G)' },
+  'Nippon India Index Fund - Nifty 50 Plan - Regular (G)': { sharpe: 1.03, aumCr: 10000, directName: 'Nippon India Index Fund - Nifty 50 Plan - Direct (G)' },
+  'Motilal Oswal S&P 500 Index Fund - Regular (G)':     { sharpe: 0.80, aumCr: 4500,  directName: 'Motilal Oswal S&P 500 Index Fund - Direct (G)' },
+  'Motilal Oswal Nasdaq 100 FOF - Regular (G)':         { sharpe: 0.76, aumCr: 6000,  directName: 'Motilal Oswal Nasdaq 100 FOF - Direct (G)' },
+  'Kotak Nasdaq 100 FOF - Regular (G)':                 { sharpe: 0.75, aumCr: 3000,  directName: 'Kotak Nasdaq 100 FOF - Direct (G)' },
+  'SBI Dynamic Bond Fund - Regular (G)':                { sharpe: 1.10, aumCr: 3500,  directName: 'SBI Dynamic Bond Fund - Direct (G)' },
+  'ICICI Pru Credit Risk Fund - Regular (G)':           { sharpe: 0.95, aumCr: 8000,  directName: 'ICICI Pru Credit Risk Fund - Direct (G)' },
+};
+
+// Current market signals (refreshed quarterly — Mar 2026)
+const MARKET_SIGNALS = {
+  niftyPE: 22.5,          // Nifty 50 trailing P/E — above 22 = elevated, prefer STP
+  rbiRepoRate: 6.25,      // Current RBI repo rate — declining cycle = favour longer duration
+  cpiInflation: 5.0,      // CPI YoY % — used for real return calculation
+  rateCycleDirection: 'cut' as 'cut' | 'hike' | 'pause',
+};
+const INFLATION_RATE = MARKET_SIGNALS.cpiInflation;
+const STP_TRIGGER_LUMPSUM = 500000;  // ₹5L lumpsum into equity → suggest STP
+const STP_TRIGGER_PE = 22.0;         // Nifty PE above this → suggest STP
+
+// ── Alpha Engine Helper Functions ────────────────────────────────────────────
+function computeFundCompositeScore(fund: any): number {
+  const r3 = typeof fund.returns3Y === 'number' ? fund.returns3Y : 12;
+  const r5 = typeof fund.returns5Y === 'number' ? fund.returns5Y : r3;
+  const metrics = FUND_ALPHA_METRICS[fund.name] || { sharpe: 1.0, aumCr: 10000 };
+  const expRatioStr = fund.expenseRatio || '1.5%';
+  const expRatioNum = parseFloat(expRatioStr.replace('%', '')) || 1.5;
+
+  // Weighted composite: returns40% + 5Y-returns25% + sharpe*12 - expRatio*8
+  let score = r3 * 0.40 + r5 * 0.25 + metrics.sharpe * 12 - expRatioNum * 8;
+
+  // AUM capacity penalty: small-cap funds > ₹20,000 Cr face deployment friction
+  if ((fund.category || '').toLowerCase().includes('small cap') && metrics.aumCr > 20000) score -= 3;
+  // Stability bonus: large-cap heavyweights > ₹30,000 Cr
+  if ((fund.category || '').toLowerCase().includes('large cap') && metrics.aumCr > 30000) score += 1;
+  return score;
+}
+
+function calculateRequiredSIP(
+  targetAmount: number,
+  timelineYears: number,
+  expectedReturnPct: number,
+  currentSavings: number = 0
+): number {
+  const n = timelineYears * 12;
+  const r = expectedReturnPct / 12 / 100;
+  const fvCurrentSavings = currentSavings * Math.pow(1 + r, n);
+  const remainingFV = Math.max(0, targetAmount - fvCurrentSavings);
+  if (n === 0) return remainingFV;
+  if (r === 0) return Math.round(remainingFV / n);
+  // SIP FV: FV = SIP * [(1+r)^n - 1]/r * (1+r)  ⟹  SIP = FV * r / [(1+r)^n - 1] / (1+r)
+  const sip = (remainingFV * r) / ((Math.pow(1 + r, n) - 1) * (1 + r));
+  return Math.max(0, Math.round(sip));
+}
+
+function calculateStepUpSIPCorpus(
+  monthlySIP: number,
+  annualStepUpPct: number,
+  years: number,
+  expectedReturnPct: number
+): number {
+  const monthlyReturn = expectedReturnPct / 12 / 100;
+  const annualStepUp = annualStepUpPct / 100;
+  let corpus = 0;
+  let currentSIP = monthlySIP;
+  for (let year = 0; year < years; year++) {
+    for (let month = 0; month < 12; month++) {
+      corpus = (corpus + currentSIP) * (1 + monthlyReturn);
+    }
+    currentSIP = currentSIP * (1 + annualStepUp);
+  }
+  return Math.round(corpus);
+}
+
+function calculateFlatSIPCorpus(monthlySIP: number, years: number, expectedReturnPct: number): number {
+  const n = years * 12;
+  const r = expectedReturnPct / 12 / 100;
+  if (r === 0) return monthlySIP * n;
+  return Math.round(monthlySIP * ((Math.pow(1 + r, n) - 1) / r) * (1 + r));
 }
 
 class AgentProspectWizardService {
@@ -3760,6 +3879,16 @@ class AgentProspectWizardService {
     // to keep proposals focused on portfolio-level adjustments only
     console.log('[Signal Orchestrator] POTD cross-reference skipped — POTD excluded from rebalancing proposals');
 
+    // ── ALPHA ENGINE STEP: Regular→Direct & Dividend→Growth Scanner ─────────
+    // Scans existing holdings for plan-level inefficiencies.
+    // Regular plans cost ~0.65% extra/year vs Direct — a compounding drag.
+    // Dividend/IDCW plans create unfavourable slab-rate tax events vs Growth plans.
+    const planUpgrades = this.scanPlanUpgradeOpportunities(holdings);
+    if (planUpgrades.length > 0) {
+      console.log(`[AlphaEngine] Plan upgrades found: ${planUpgrades.length} (Regular→Direct or Dividend→Growth)`);
+      recommendations.push(...planUpgrades);
+    }
+
     // Calculate comprehensive tax summary for all exit-type recommendations
     // REDUCE = drift-based exit, PROFIT_BOOK = gain/tax-based partial exit
     const sellSwitchRecs = recommendations.filter(r =>
@@ -3773,6 +3902,67 @@ class AgentProspectWizardService {
       taxSummary,
       effectiveFreshInvestment
     };
+  }
+
+  /**
+   * ALPHA ENGINE: Scan existing holdings for Regular→Direct and Dividend→Growth opportunities.
+   * These are the highest risk-free alpha sources: no market timing, no trade complexity.
+   */
+  private scanPlanUpgradeOpportunities(holdings: ProspectPortfolioHolding[]): RebalanceRecommendation[] {
+    const results: RebalanceRecommendation[] = [];
+    const REGULAR_EXPENSE_PREMIUM = 0.65; // avg Regular plan costs 0.65% more than Direct per year
+
+    for (const holding of holdings) {
+      const name = holding.name || (holding as any).productName || '';
+      if (!name) continue;
+
+      const isRegularPlan = /regular/i.test(name) || /[-\s]R\s*\(/i.test(name);
+      const isDividendPlan = /\b(dividend|idcw|div)\b/i.test(name);
+
+      if (isRegularPlan && !isDividendPlan) {
+        const directName = name.replace(/regular/gi, 'Direct');
+        const currentVal = holding.currentValue || 0;
+        const annualSaving = Math.round(currentVal * REGULAR_EXPENSE_PREMIUM / 100);
+        const saving5Y = Math.round(annualSaving * 5 * 1.12); // rough compounding at 12%
+
+        results.push({
+          action: 'SWITCH',
+          productType: (holding as any).productType || holding.assetType || 'mutual_fund',
+          productName: name,
+          currentValue: currentVal,
+          suggestedValue: currentVal,
+          changeAmount: 0,
+          reason: 'Regular→Direct Plan Upgrade',
+          rationale: `Switching to the Direct plan saves ~${REGULAR_EXPENSE_PREMIUM}% expense ratio per year (no distributor commission in NAV). On your ₹${formatAmount(currentVal)} holding: ₹${formatAmount(annualSaving)}/year saved, compounding to ~₹${formatAmount(saving5Y)} additional corpus over 5 years. Zero market risk — same underlying portfolio.`,
+          priority: 'high',
+          tag: 'DIRECT_UPGRADE',
+          switchTo: directName,
+          annualExpenseSaving: annualSaving,
+          projectedSaving5Y: saving5Y,
+        } as any);
+      }
+
+      if (isDividendPlan) {
+        const growthName = name.replace(/\b(dividend|idcw|div)\b/gi, 'Growth').trim();
+        const currentVal = holding.currentValue || 0;
+
+        results.push({
+          action: 'SWITCH',
+          productType: (holding as any).productType || holding.assetType || 'mutual_fund',
+          productName: name,
+          currentValue: currentVal,
+          suggestedValue: currentVal,
+          changeAmount: 0,
+          reason: 'Dividend→Growth Plan (Tax Efficiency)',
+          rationale: `Dividend/IDCW payouts are taxed at your income slab rate (up to 30% + 4% cess) the moment they are paid — disrupting compounding. The Growth option re-invests all gains into NAV and defers tax until redemption, qualifying for LTCG at 12.5% (with ₹1.25L/year exemption) after 1 year. For wealth-building goals, Growth consistently outperforms Dividend on a post-tax basis.`,
+          priority: 'medium',
+          tag: 'GROWTH_SWITCH',
+          switchTo: growthName,
+        } as any);
+      }
+    }
+
+    return results;
   }
 
   /**
@@ -4032,7 +4222,32 @@ class AgentProspectWizardService {
     
     // Remove categories with 0 allocation after normalization
     filteredAllocations = filteredAllocations.filter(a => a.allocation > 0);
-    
+
+    // ── ALPHA ENGINE: Illiquidity mismatch guard ──────────────────────────────
+    // If client needs high liquidity, remove AIF (3-5yr lock-in) and PMS from plan
+    if (riskProfile.liquidityNeeds === 'high') {
+      const illiquidCategories = new Set(['aif', 'pms']);
+      const removed = filteredAllocations.filter(a => illiquidCategories.has(a.category));
+      if (removed.length > 0) {
+        console.log(`[AlphaEngine] Illiquidity mismatch: removing ${removed.map(r => r.category).join(', ')} due to liquidityNeeds=high`);
+        filteredAllocations = filteredAllocations.filter(a => !illiquidCategories.has(a.category));
+        // Re-normalise remaining allocations
+        const sum = filteredAllocations.reduce((s, a) => s + a.allocation, 0);
+        if (sum > 0 && sum !== 100) {
+          const sf = 100 / sum;
+          filteredAllocations = filteredAllocations.map(a => ({ ...a, allocation: Math.round(a.allocation * sf) }));
+        }
+      }
+    }
+
+    // ── ALPHA ENGINE: Tax-bracket aware tilt ─────────────────────────────────
+    // 30% slab clients: prefer ELSS, Direct plans, LTCG-efficient equity over dividend funds
+    const highTaxClient = (riskProfile.taxBracket || 20) >= 30;
+
+    // ── ALPHA ENGINE: AMC concentration tracker (max 2 funds per AMC) ────────
+    const amcUsageCount: Record<string, number> = {};
+    const MAX_FUNDS_PER_AMC = 2;
+
     // Generate suggestions for each category based on allocations
     let matchScoreCounter = 95;
     
@@ -4043,21 +4258,64 @@ class AgentProspectWizardService {
       const categoryFunds = await getFundsFromCategorySanitizedAsync(category, riskProfile.riskTolerance);
       
       if (categoryFunds.length === 0) continue;
+
+      // ── ALPHA ENGINE: Composite score sort (Sharpe + returns + expense ratio) ──
+      // Higher score = better risk-adjusted value. Sort descending before selecting.
+      const scoredFunds = categoryFunds
+        .map((f: any) => ({ ...f, _compositeScore: computeFundCompositeScore(f) }))
+        .sort((a: any, b: any) => b._compositeScore - a._compositeScore);
+
+      // For high-tax clients, deprioritise dividend variants (they are already excluded
+      // by the IDCW scan in scanPlanUpgradeOpportunities, but some catalog entries may slip through)
+      const taxFilteredFunds = highTaxClient
+        ? scoredFunds.filter((f: any) => !/\b(dividend|idcw|div)\b/i.test(f.name || ''))
+        : scoredFunds;
       
       // Calculate amount for this category
       const categoryAmount = Math.round((allocation / 100) * investmentAmount);
       
-      // Filter out lumpsum-restricted funds and resolve alternatives
-      const fundsToUse = await selectEligibleFundsForLumpsum(categoryFunds, 2);
+      // Filter out lumpsum-restricted funds and resolve alternatives (from composite-sorted list)
+      const fundsToUse = await selectEligibleFundsForLumpsum(taxFilteredFunds, 2);
       if (fundsToUse.length === 0) continue;
-      const amountPerFund = Math.round(categoryAmount / fundsToUse.length);
+
+      // ── ALPHA ENGINE: AMC concentration cap ──────────────────────────────────
+      const amcFiltered = fundsToUse.filter((f: any) => {
+        const amc = f.amc || 'Unknown';
+        const count = amcUsageCount[amc] || 0;
+        if (count >= MAX_FUNDS_PER_AMC) {
+          console.log(`[AlphaEngine] AMC cap: skipping ${f.name} (${amc} already has ${count} funds)`);
+          return false;
+        }
+        return true;
+      });
+      const finalFunds = amcFiltered.length > 0 ? amcFiltered : fundsToUse;
+
+      // Update AMC usage count
+      finalFunds.forEach((f: any) => {
+        const amc = f.amc || 'Unknown';
+        amcUsageCount[amc] = (amcUsageCount[amc] || 0) + 1;
+      });
+
+      const amountPerFund = Math.round(categoryAmount / finalFunds.length);
       
-      fundsToUse.forEach((fund: any, index: number) => {
-        const fundAmount = index === fundsToUse.length - 1 
+      finalFunds.forEach((fund: any, index: number) => {
+        const fundAmount = index === finalFunds.length - 1 
           ? categoryAmount - (amountPerFund * index) // Last fund gets remainder
           : amountPerFund;
         
         if (fundAmount <= 0) return;
+
+        // Alpha engine: build enriched metrics
+        const alphaMetrics = FUND_ALPHA_METRICS[fund.name] || { sharpe: null, aumCr: null };
+        const r3 = typeof fund.returns3Y === 'number' ? fund.returns3Y : null;
+        const realReturn3Y = r3 !== null ? parseFloat((r3 - INFLATION_RATE).toFixed(2)) : null;
+        const compositeScore = fund._compositeScore !== undefined ? parseFloat(fund._compositeScore.toFixed(1)) : null;
+        const isElss = (fund.category || '').toLowerCase().includes('elss') || (fund.name || '').toLowerCase().includes('elss');
+        const taxNote = highTaxClient && isElss ? ` ELSS: ₹1.5L/year 80C deduction benefit for 30% slab.` : '';
+
+        const sharpeStr = alphaMetrics.sharpe ? `Sharpe: ${alphaMetrics.sharpe} | ` : '';
+        const aumStr = alphaMetrics.aumCr ? `AUM: ₹${alphaMetrics.aumCr.toLocaleString('en-IN')}Cr | ` : '';
+        const realReturnStr = realReturn3Y !== null ? `Real Return (inflation-adj): ${realReturn3Y}% | ` : '';
         
         suggestions.push({
           productType: fund.productType || 'mutual_fund',
@@ -4066,14 +4324,16 @@ class AgentProspectWizardService {
           expectedReturn: `${fund.returns3Y}%`,
           riskLevel: fund.risk.toLowerCase(),
           matchScore: matchScoreCounter--,
-          rationale: `**Why ${fund.name}?** This ${fund.category} fund from ${fund.amc} demonstrates strong historical performance with ${fund.returns3Y}% 3-year CAGR, outperforming category average. With ${fund.risk} risk rating, it aligns well with your ${riskProfile.riskTolerance} risk profile and ${riskProfile.investmentHorizon.replace('_', ' ')} investment horizon.`,
+          rationale: `**Why ${fund.name}?** Composite Alpha Score: ${compositeScore ?? 'N/A'}. ${sharpeStr}${aumStr}${realReturnStr}This ${fund.category} fund from ${fund.amc} delivers ${fund.returns3Y}% 3Y CAGR at ${fund.risk} risk — aligned with your ${riskProfile.riskTolerance} profile and ${riskProfile.investmentHorizon.replace(/_/g, ' ')} horizon.${taxNote}`,
           highlights: [
             `AMC: ${fund.amc}`,
             `Category: ${fund.category}`,
             `1Y Returns: ${fund.returns1Y}%`,
             `3Y Returns: ${fund.returns3Y}%`,
             `5Y Returns: ${fund.returns5Y}%`,
-            `Risk: ${fund.risk}`
+            `Risk: ${fund.risk}`,
+            ...(alphaMetrics.sharpe ? [`Sharpe Ratio: ${alphaMetrics.sharpe}`] : []),
+            ...(realReturn3Y !== null ? [`Real Return: ${realReturn3Y}% (after ${INFLATION_RATE}% inflation)`] : []),
           ],
           fundMetrics: {
             amc: fund.amc,
@@ -4083,7 +4343,10 @@ class AgentProspectWizardService {
             returns5Y: fund.returns5Y,
             risk: fund.risk,
             expenseRatio: fund.expenseRatio || 'N/A',
-            aum: fund.aum || 'N/A'
+            aum: fund.aum || `₹${alphaMetrics.aumCr ? alphaMetrics.aumCr.toLocaleString('en-IN') + 'Cr' : 'N/A'}`,
+            sharpeRatio: alphaMetrics.sharpe || null,
+            compositeScore,
+            realReturn3Y,
           },
           amc: fund.amc,
           category: fund.category,
@@ -4091,9 +4354,12 @@ class AgentProspectWizardService {
           returns3Y: fund.returns3Y,
           returns5Y: fund.returns5Y,
           riskRating: fund.risk,
+          sharpeRatio: alphaMetrics.sharpe || null,
+          compositeScore,
+          realReturn3Y,
           allocationPercentage: Math.round((fundAmount / investmentAmount) * 100),
           recommendedAmount: fundAmount,
-          selectionReason: `**Selection Criteria:** (1) ${fund.returns3Y}% 3-year CAGR exceeds category benchmark, (2) ${fund.risk} risk level matches your ${riskProfile.riskTolerance} profile, (3) ${allocation}% ${category} allocation supports ${riskProfile.primaryGoal} goal achievement, (4) ${fund.amc} has strong fund management track record.`
+          selectionReason: `**Selection Criteria:** (1) Composite Alpha Score ${compositeScore ?? 'N/A'} — ranked by risk-adjusted returns (3Y CAGR, 5Y CAGR, Sharpe ratio, expense ratio), (2) ${fund.returns3Y}% 3Y / ${fund.returns5Y}% 5Y CAGR vs category benchmark, (3) Sharpe ${alphaMetrics.sharpe ?? 'N/A'} — measures return per unit of volatility, (4) ${fund.risk} risk aligns with ${riskProfile.riskTolerance} profile, (5) AMC diversification: max 2 funds per AMC across portfolio to reduce concentration risk.`
         } as any);
       });
     }
@@ -4170,6 +4436,44 @@ class AgentProspectWizardService {
     // Final message if still no suggestions (shouldn't happen with proper categories)
     if (suggestions.length === 0) {
       console.log('[Agent Wizard] Warning: No suggestions generated for categories:', categories);
+    }
+
+    // ── ALPHA ENGINE: STP (Systematic Transfer Plan) Recommendation ───────────
+    // For large lumpsum at elevated market valuations → suggest STP over 6–12 months.
+    // Signals: lumpsum > ₹5L AND (equity allocation > 40% OR Nifty PE > STP_TRIGGER_PE)
+    const totalEquityAllocation = filteredAllocations
+      .filter(a => ['equity', 'index_fund', 'etf'].includes(a.category))
+      .reduce((s, a) => s + a.allocation, 0);
+    const stpRecommended = investmentAmount >= STP_TRIGGER_LUMPSUM &&
+      (totalEquityAllocation >= 40 || MARKET_SIGNALS.niftyPE >= STP_TRIGGER_PE);
+    if (stpRecommended) {
+      const stpMonths = investmentAmount >= 2000000 ? 12 : 6;
+      const monthlyInstalment = Math.round(investmentAmount / stpMonths);
+      console.log(`[AlphaEngine] STP recommended: ₹${investmentAmount} lumpsum → ₹${monthlyInstalment}/month × ${stpMonths}M (Nifty PE: ${MARKET_SIGNALS.niftyPE}, equity allocation: ${totalEquityAllocation}%)`);
+      // Tag all equity suggestions with stpRecommended flag
+      suggestions.forEach((s: any) => {
+        if (['equity', 'index_fund', 'etf'].includes((s.category || '').toLowerCase()) ||
+            ['equity', 'index', 'etf'].includes((s.productType || '').toLowerCase())) {
+          s.stpRecommended = true;
+          s.stpMonths = stpMonths;
+          s.stpMonthlyInstalment = monthlyInstalment;
+          s.stpRationale = `Market PE at ${MARKET_SIGNALS.niftyPE}x (elevated). For ₹${formatAmount(investmentAmount)} lumpsum into equity, consider deploying via STP over ${stpMonths} months (₹${formatAmount(monthlyInstalment)}/month from liquid/overnight fund). This reduces timing risk through cost averaging without sacrificing long-term returns.`;
+        }
+      });
+    }
+
+    // ── ALPHA ENGINE: Interest rate cycle debt tilt ───────────────────────────
+    // RBI in rate-cut cycle (repo ${MARKET_SIGNALS.rbiRepoRate}%) → longer-duration debt outperforms.
+    if (MARKET_SIGNALS.rateCycleDirection === 'cut') {
+      suggestions.forEach((s: any) => {
+        const cat = (s.category || '').toLowerCase();
+        if (cat.includes('debt') || cat.includes('bond') || cat.includes('duration')) {
+          s.rateCycleNote = `RBI in rate-cut cycle (repo: ${MARKET_SIGNALS.rbiRepoRate}%): long-duration/medium-duration debt funds tend to outperform as falling rates push bond prices up. This fund is well-positioned.`;
+        }
+        if (cat.includes('short duration') || cat.includes('liquid') || cat.includes('overnight')) {
+          s.rateCycleNote = `RBI in rate-cut cycle: short-duration funds will see falling yields. Consider shifting a portion to medium/long duration once rate cut trajectory is confirmed.`;
+        }
+      });
     }
 
     return suggestions;
@@ -4525,6 +4829,85 @@ class AgentProspectWizardService {
       })),
     ];
 
+    // ── ALPHA ENGINE INSIGHTS ────────────────────────────────────────────────
+    // 1. Investable Surplus
+    const monthlyIncome = riskProfile.monthlyIncome || 0;
+    const monthlyExpenses = riskProfile.monthlyExpenses || 0;
+    const monthlyEMI = riskProfile.monthlyEMI || 0;
+    const investableSurplus = monthlyIncome > 0
+      ? Math.max(0, monthlyIncome - monthlyExpenses - monthlyEMI)
+      : null;
+
+    // 2. Emergency Fund Adequacy
+    const liquidHoldings = analysis.assetAllocation?.['Liquid']?.value
+      || analysis.assetAllocation?.['Cash']?.value
+      || analysis.assetAllocation?.['liquid']?.value || 0;
+    const emergencyFundMonths = monthlyExpenses > 0 ? liquidHoldings / monthlyExpenses : null;
+    const emergencyFundAdequate = emergencyFundMonths !== null ? emergencyFundMonths >= 6 : null;
+    const emergencyFundAlert = emergencyFundAdequate === false
+      ? `Emergency fund shortfall: only ${emergencyFundMonths?.toFixed(1)} months of expenses in liquid assets (target: 6 months = ₹${formatAmount(monthlyExpenses * 6)}). Build this before increasing equity exposure.`
+      : null;
+
+    // 3. Goal Corpus Gap Analysis
+    const goalCorpusGap = investmentGoalsInput && investmentGoalsInput.length > 0
+      ? investmentGoalsInput.map((goal: any) => {
+          const targetAmount = goal.targetAmount || 0;
+          const timelineYears = goal.timelineYears || 10;
+          const currentProgress = goal.currentProgress || goal.currentSavings || 0;
+          const actualMonthlySIP = goal.monthlyContribution || 0;
+          const expectedReturn = avgReturn;
+          const requiredSIP = calculateRequiredSIP(targetAmount, timelineYears, expectedReturn, currentProgress);
+          const sipGap = requiredSIP - actualMonthlySIP;
+          const flatCorpus = calculateFlatSIPCorpus(actualMonthlySIP, timelineYears, expectedReturn);
+          const stepUpRate = riskProfile.annualIncomeStepUp || 10;
+          const stepUpCorpus = calculateStepUpSIPCorpus(actualMonthlySIP, stepUpRate, timelineYears, expectedReturn);
+          const realExpectedReturn = parseFloat((expectedReturn - INFLATION_RATE).toFixed(2));
+          return {
+            goalId: goal.id,
+            goalName: goal.goalName,
+            targetAmount,
+            timelineYears,
+            currentProgress,
+            actualMonthlySIP,
+            requiredSIP,
+            sipGap,
+            sipGapStatus: sipGap <= 0 ? 'on_track' : sipGap <= actualMonthlySIP * 0.3 ? 'slight_shortfall' : 'significant_shortfall',
+            flatCorpus,
+            stepUpCorpus,
+            stepUpRate,
+            stepUpBonus: stepUpCorpus - flatCorpus,
+            expectedReturn,
+            realExpectedReturn,
+            inflationRate: INFLATION_RATE,
+            achievable: sipGap <= 0,
+          };
+        })
+      : [];
+
+    // 4. SIP Step-up Modelling (summary across all goals)
+    const totalActualSIP = goalCorpusGap.reduce((s: number, g: any) => s + g.actualMonthlySIP, 0);
+    const totalRequiredSIP = goalCorpusGap.reduce((s: number, g: any) => s + g.requiredSIP, 0);
+    const totalStepUpBonus = goalCorpusGap.reduce((s: number, g: any) => s + g.stepUpBonus, 0);
+
+    const alphaEngineInsights = {
+      investableSurplus,
+      emergencyFundMonths,
+      emergencyFundAdequate,
+      emergencyFundAlert,
+      goalCorpusGap,
+      sipSummary: {
+        totalActualSIP,
+        totalRequiredSIP,
+        totalSIPGap: totalRequiredSIP - totalActualSIP,
+        stepUpRate: riskProfile.annualIncomeStepUp || 10,
+        totalStepUpBonusCorpus: totalStepUpBonus,
+      },
+      marketSignals: MARKET_SIGNALS,
+      stpRecommended: freshInvestments.some((f: any) => f.stpRecommended),
+      taxBracket: riskProfile.taxBracket || null,
+      clientAge: riskProfile.clientAge || null,
+    };
+
     return {
       prospectId,
       proposalId: proposal.id,
@@ -4543,6 +4926,7 @@ class AgentProspectWizardService {
       detailedRecommendations,
       taxSummary,
       sebiOverlapWarnings,
+      alphaEngineInsights,
     };
   }
 

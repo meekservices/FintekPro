@@ -610,7 +610,17 @@ router.post("/rebalancing-suggestions", async (req: Request, res: Response) => {
     
     // Handle both old array format and new object format
     const suggestions = Array.isArray(result) ? result : result.recommendations;
-    const taxSummary = Array.isArray(result) ? null : result.taxSummary;
+    const now = new Date();
+    const fyYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    const currentFY = `FY ${fyYear}-${(fyYear + 1).toString().slice(-2)}`;
+    const zeroTaxSummary = {
+      totalSTCG: 0, totalLTCG: 0, stcgTax: 0, ltcgTax: 0,
+      cess: 0, totalTaxLiability: 0, totalExitLoad: 0, netRebalancingCost: 0,
+      taxLossHarvestingOpportunity: 0, grandfatheringBenefitTotal: 0,
+      holdings: [], alerts: [], currentFY,
+      disclosure: 'No sell or switch trades are required for this rebalancing plan. Capital gains tax and exit load cost is ₹0.'
+    };
+    const taxSummary = Array.isArray(result) ? zeroTaxSummary : (result.taxSummary ?? zeroTaxSummary);
     
     res.json({ success: true, suggestions, taxSummary });
   } catch (error: any) {

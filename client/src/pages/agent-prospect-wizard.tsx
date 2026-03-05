@@ -122,6 +122,11 @@ interface RiskProfile {
   monthlyIncome?: number;
   existingInvestments?: number;
   liquidityNeeds?: 'low' | 'medium' | 'high';
+  taxBracket?: 5 | 10 | 15 | 20 | 25 | 30;
+  clientAge?: number;
+  monthlyExpenses?: number;
+  monthlyEMI?: number;
+  annualIncomeStepUp?: number;
 }
 
 interface PortfolioAnalysis {
@@ -542,7 +547,12 @@ export default function AgentProspectWizard() {
     primaryGoal: 'wealth_creation',
     monthlyIncome: 0,
     existingInvestments: 0,
-    liquidityNeeds: 'medium'
+    liquidityNeeds: 'medium',
+    taxBracket: 20,
+    clientAge: 35,
+    monthlyExpenses: 0,
+    monthlyEMI: 0,
+    annualIncomeStepUp: 10,
   });
 
   // Goal Mapping State (Step 3)
@@ -2295,7 +2305,7 @@ export default function AgentProspectWizard() {
     onSuccess: (data) => {
       if (data.success) {
         setRebalancing(data.suggestions || []);
-        setTaxSummary(data.taxSummary || null);
+        setTaxSummary(data.taxSummary ?? null);
         setCurrentStep(9);
       }
     }
@@ -3200,6 +3210,86 @@ export default function AgentProspectWizard() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Alpha Engine: Income & Tax Profile */}
+            <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Income &amp; Tax Profile (Alpha Engine)</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-xs">Client Age</Label>
+                  <Input
+                    type="number" min={18} max={80}
+                    value={riskProfile.clientAge || ''}
+                    onChange={(e) => setRiskProfile({ ...riskProfile, clientAge: parseInt(e.target.value) || undefined })}
+                    placeholder="e.g. 35"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Monthly Income (₹)</Label>
+                  <Input
+                    type="number" min={0}
+                    value={riskProfile.monthlyIncome || ''}
+                    onChange={(e) => setRiskProfile({ ...riskProfile, monthlyIncome: parseInt(e.target.value) || 0 })}
+                    placeholder="e.g. 150000"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Monthly Expenses (₹)</Label>
+                  <Input
+                    type="number" min={0}
+                    value={riskProfile.monthlyExpenses || ''}
+                    onChange={(e) => setRiskProfile({ ...riskProfile, monthlyExpenses: parseInt(e.target.value) || 0 })}
+                    placeholder="e.g. 80000"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Monthly EMIs (₹)</Label>
+                  <Input
+                    type="number" min={0}
+                    value={riskProfile.monthlyEMI || ''}
+                    onChange={(e) => setRiskProfile({ ...riskProfile, monthlyEMI: parseInt(e.target.value) || 0 })}
+                    placeholder="e.g. 30000"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Annual Income Step-Up (%)</Label>
+                  <Input
+                    type="number" min={0} max={30}
+                    value={riskProfile.annualIncomeStepUp ?? 10}
+                    onChange={(e) => setRiskProfile({ ...riskProfile, annualIncomeStepUp: parseInt(e.target.value) || 0 })}
+                    placeholder="e.g. 10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Income Tax Slab (%)</Label>
+                  <Select
+                    value={String(riskProfile.taxBracket || 20)}
+                    onValueChange={(v) => setRiskProfile({ ...riskProfile, taxBracket: parseInt(v) as any })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[5, 10, 15, 20, 25, 30].map(t => (
+                        <SelectItem key={t} value={String(t)}>{t}% slab</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {/* Live Investable Surplus Preview */}
+              {(riskProfile.monthlyIncome || 0) > 0 && (
+                <div className={`flex items-center gap-3 p-3 rounded-lg text-sm font-medium ${
+                  (riskProfile.monthlyIncome || 0) - (riskProfile.monthlyExpenses || 0) - (riskProfile.monthlyEMI || 0) > 0
+                    ? 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300'
+                    : 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300'
+                }`}>
+                  <TrendingUp className="h-4 w-4 flex-shrink-0" />
+                  <span>
+                    Investable Surplus: ₹{Math.max(0, (riskProfile.monthlyIncome || 0) - (riskProfile.monthlyExpenses || 0) - (riskProfile.monthlyEMI || 0)).toLocaleString('en-IN')}/month
+                    {(riskProfile.monthlyIncome || 0) - (riskProfile.monthlyExpenses || 0) - (riskProfile.monthlyEMI || 0) < 0 && ' — Expenses exceed income, review budget before investing'}
+                  </span>
+                </div>
+              )}
             </div>
           </CardContent>
           <CardFooter className="justify-between">
@@ -6171,6 +6261,36 @@ export default function AgentProspectWizard() {
                         </div>
                       )}
                       <p className="text-sm text-muted-foreground">{rec.rationale}</p>
+
+                      {/* Alpha Engine: Regular→Direct upgrade banner */}
+                      {(rec as any).tag === 'DIRECT_UPGRADE' && (
+                        <div className="mt-2 p-3 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                          <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-semibold text-xs mb-1">
+                            <TrendingUp className="h-3.5 w-3.5" />
+                            Regular → Direct Plan Upgrade | Zero Market Risk
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 text-xs text-emerald-800 dark:text-emerald-200">
+                            <div><span className="text-emerald-600 dark:text-emerald-400">Annual Saving:</span> ₹{((rec as any).annualExpenseSaving || 0).toLocaleString('en-IN')}</div>
+                            <div><span className="text-emerald-600 dark:text-emerald-400">5Y Compounded Saving:</span> ₹{((rec as any).projectedSaving5Y || 0).toLocaleString('en-IN')}</div>
+                            <div><span className="text-emerald-600 dark:text-emerald-400">Switch To:</span> {(rec as any).switchTo || '—'}</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Alpha Engine: Dividend→Growth switch banner */}
+                      {(rec as any).tag === 'GROWTH_SWITCH' && (
+                        <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                          <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 font-semibold text-xs mb-1">
+                            <TrendingUp className="h-3.5 w-3.5" />
+                            Dividend / IDCW → Growth Plan | Tax Efficiency
+                          </div>
+                          <div className="text-xs text-blue-800 dark:text-blue-200">
+                            Dividend income taxed at slab rate (up to 30% + 4% cess). Growth option defers tax and qualifies for LTCG at 12.5% after 1 year.
+                            Switch To: <span className="font-medium">{(rec as any).switchTo || '—'}</span>
+                          </div>
+                        </div>
+                      )}
+
                       {rec.isOverridden && rec.override && (
                         <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-md text-xs">
                           <div className="flex items-center gap-1 text-amber-700 dark:text-amber-300">
@@ -6392,6 +6512,19 @@ export default function AgentProspectWizard() {
           <CardContent className="space-y-6">
             {taxSummary ? (
               <>
+                {/* Zero-cost confirmation banner */}
+                {(taxSummary.netRebalancingCost ?? 0) === 0 && (
+                  <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-xl mb-2">
+                    <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-semibold text-green-800 dark:text-green-200">Zero rebalancing cost for this plan</p>
+                      <p className="text-sm text-green-700 dark:text-green-300 mt-0.5">
+                        This rebalancing plan requires only fresh purchases — no sells or fund switches. 
+                        No capital gains tax, exit loads, or STCG/LTCG implications apply.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <div className="grid md:grid-cols-5 gap-4">
                   <Card className="border-red-200 dark:border-red-800">
                     <CardContent className="pt-4 text-center">
@@ -6513,27 +6646,60 @@ export default function AgentProspectWizard() {
           <CardContent>
             <div className="space-y-3">
               {freshInvestments.map((inv, idx) => (
-                <Card key={idx} className="border-l-4 border-l-primary">
+                <Card key={idx} className={`border-l-4 ${(inv as any).stpRecommended ? 'border-l-amber-500' : 'border-l-primary'}`}>
                   <CardContent className="py-3">
                     <div className="flex items-center justify-between mb-2">
                       <div>
                         <span className="font-medium">{inv.productName}</span>
                         <Badge variant="outline" className="ml-2">{PRODUCT_TYPES.find(t => t.value === inv.productType)?.label}</Badge>
+                        {(inv as any).stpRecommended && (
+                          <Badge className="ml-2 bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">STP Advised</Badge>
+                        )}
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-primary">{formatCurrency(inv.suggestedAmount)}</p>
                         <p className="text-xs text-muted-foreground">Match: {inv.matchScore}%</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 text-sm mb-2">
+                    <div className="flex flex-wrap items-center gap-3 text-sm mb-2">
                       <span className="flex items-center gap-1">
                         <Percent className="h-4 w-4" /> {inv.expectedReturn}
                       </span>
                       <Badge variant={inv.riskLevel === 'low' ? 'secondary' : inv.riskLevel === 'high' ? 'destructive' : 'outline'}>
                         {inv.riskLevel} risk
                       </Badge>
+                      {(inv as any).compositeScore !== null && (inv as any).compositeScore !== undefined && (
+                        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">Alpha Score: {(inv as any).compositeScore}</span>
+                      )}
+                      {(inv as any).sharpeRatio && (
+                        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">Sharpe: {(inv as any).sharpeRatio}</span>
+                      )}
+                      {(inv as any).realReturn3Y !== null && (inv as any).realReturn3Y !== undefined && (
+                        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">Real Return: {(inv as any).realReturn3Y}%</span>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">{inv.rationale}</p>
+
+                    {/* STP Recommendation Banner */}
+                    {(inv as any).stpRecommended && (inv as any).stpRationale && (
+                      <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+                        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 font-semibold text-xs mb-1">
+                          <TrendingUp className="h-3.5 w-3.5" />
+                          STP Recommended (Systematic Transfer Plan)
+                        </div>
+                        <p className="text-xs text-amber-800 dark:text-amber-200">{(inv as any).stpRationale}</p>
+                        <div className="mt-1 text-xs text-amber-700 dark:text-amber-300 font-medium">
+                          ₹{((inv as any).stpMonthlyInstalment || 0).toLocaleString('en-IN')}/month × {(inv as any).stpMonths || 6} months
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Rate Cycle Note */}
+                    {(inv as any).rateCycleNote && (
+                      <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg text-xs text-blue-800 dark:text-blue-200">
+                        <span className="font-semibold">Rate Cycle Insight: </span>{(inv as any).rateCycleNote}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
