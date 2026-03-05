@@ -522,74 +522,58 @@ export default function FestivalGreetingPreview() {
         clonedEl.style.aspectRatio = 'auto';
         clonedEl.style.overflow = 'hidden';
 
-        // ── Agent card: comprehensive flex + padding-top layout ─────────────
+        // ── Agent card: block-flow layout — the only approach html2canvas ─────
+        // renders reliably. display:block + marginBottom cannot collapse or
+        // overlap — each element physically pushes the next one down.
         const agentCard = clonedEl.querySelector<HTMLElement>('[data-agent-card="1"]');
         if (agentCard) {
           agentCard.style.height = 'auto';
           agentCard.style.alignItems = 'center';
           agentCard.style.padding = '12px';
           agentCard.style.gap = '12px';
-          agentCard.style.position = 'absolute'; // keep bottom-anchored
         }
 
         const doc = clonedEl.ownerDocument || document;
-        const container = doc.getElementById('agent-details-text-wrapper');
+        const container = doc.getElementById('agent-text-block');
         if (container) {
-          // Flex column with gap — primary spacing mechanism
-          container.style.display = 'flex';
-          container.style.flexDirection = 'column';
+          // Switch to block — elements stack naturally, no flex-gap quirks
+          container.style.display = 'block';
           container.style.position = 'relative';
-          container.style.top = 'auto';
-          container.style.gap = '14px';
-          container.style.justifyContent = 'center';
           container.style.height = 'auto';
 
-          // Name — bold white
-          const name = container.querySelector<HTMLElement>('.agent-name');
-          if (name) {
-            name.style.fontSize = '14px';
-            name.style.fontWeight = 'bold';
-            name.style.lineHeight = '1.2';
-            name.style.color = '#ffffff';
-            name.style.position = 'relative';
-            name.style.top = 'auto';
-            name.style.display = 'block';
-            name.style.paddingTop = '0';
-            name.style.marginBottom = '2px';
-          }
+          // Every direct child row gets its own physical space via marginBottom
+          const rows = Array.from(container.children) as HTMLElement[];
+          rows.forEach((row) => {
+            row.style.display = 'block';
+            row.style.position = 'relative';
+            row.style.top = '0px';           // reset any leftover absolute top
+            row.style.marginBottom = '8px';  // physical gap — cannot be overridden
+            row.style.lineHeight = '1.2';
 
-          // Designation — gold #FFD700
-          const designation = container.querySelector<HTMLElement>('.agent-designation');
-          if (designation) {
-            designation.style.fontSize = '11px';
-            designation.style.fontWeight = '500';
-            designation.style.lineHeight = '1.2';
-            designation.style.color = '#FFD700';
-            designation.style.position = 'relative';
-            designation.style.top = 'auto';
-            designation.style.display = 'block';
-            designation.style.paddingTop = '0';
-          }
+            // Gold for designation — explicitly injected
+            if (row.classList.contains('agent-designation')) {
+              row.style.color = '#FFD700';
+              row.style.fontSize = '11px';
+              row.style.fontWeight = '600';
+            }
 
-          // Contact wrapper — the nested flex-col div containing email + phone
-          const contactWrapper = container.querySelector<HTMLElement>('div:not(.agent-name):not(.agent-designation)');
-          if (contactWrapper) {
-            contactWrapper.style.display = 'flex';
-            contactWrapper.style.flexDirection = 'column';
-            contactWrapper.style.gap = '8px';
-            contactWrapper.style.position = 'relative';
-            contactWrapper.style.top = 'auto';
-          }
+            // Name styling
+            if (row.classList.contains('agent-name')) {
+              row.style.color = '#ffffff';
+              row.style.fontSize = '14px';
+              row.style.fontWeight = 'bold';
+            }
+          });
 
-          // Each contact line — dim white
-          container.querySelectorAll<HTMLElement>('.agent-contact').forEach((c, i) => {
+          // Contact rows inside the nested wrapper — display:flex + marginBottom
+          const contactRows = doc.querySelectorAll<HTMLElement>('.agent-contact');
+          contactRows.forEach((c) => {
+            c.style.display = 'flex';
+            c.style.alignItems = 'center';
+            c.style.marginBottom = '4px';
             c.style.fontSize = '10px';
             c.style.lineHeight = '1.2';
-            c.style.color = 'rgba(255,255,255,0.80)';
-            c.style.display = 'block';
-            c.style.position = 'relative';
-            c.style.top = 'auto';
-            c.style.paddingTop = i > 0 ? '8px' : '0';
+            c.style.color = 'rgba(255,255,255,0.85)';
           });
         }
 
@@ -1664,9 +1648,9 @@ export default function FestivalGreetingPreview() {
                       {(agentInfo.name || 'Y').charAt(0).toUpperCase()}
                     </div>
 
-                    {/* Text info — flex column, ID + classes for reliable onclone targeting */}
+                    {/* Text info — ID used by onclone for reliable targeting */}
                     <div
-                      id="agent-details-text-wrapper"
+                      id="agent-text-block"
                       data-agent-card-text="1"
                       className="flex flex-col justify-center"
                       style={{ flex: 1, minWidth: 0, gap: '6px' }}
