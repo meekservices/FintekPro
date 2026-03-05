@@ -1699,7 +1699,7 @@ export interface PortfolioAnalysis {
 }
 
 export interface RebalanceRecommendation {
-  action: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH' | 'REDUCE' | 'INCREASE' | 'HOLD_COST_FILTER' | 'HOLD_RISK_LIMIT' | 'PROFIT_BOOK';
+  action: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH' | 'REDUCE' | 'INCREASE' | 'HOLD_COST_FILTER' | 'HOLD_RISK_LIMIT' | 'PROFIT_BOOK' | 'TAX_LOSS_HARVEST';
   productType: string;
   productName: string;
   currentValue?: number;
@@ -1708,6 +1708,20 @@ export interface RebalanceRecommendation {
   rationale: string;
   priority: 'high' | 'medium' | 'low';
   taxImplications?: any;
+  tag?: string;
+  unrealizedLoss?: number;
+  taxSaving?: number;
+  taxType?: 'STCG' | 'LTCG' | 'SLAB';
+  holdingPeriodDays?: number;
+  replacementFund?: string;
+  exitLoad?: number;
+  netHarvestBenefit?: number;
+  lossPercent?: number;
+  annualExpenseSaving?: number;
+  projectedSaving5Y?: number;
+  switchTo?: string;
+  isOverridden?: boolean;
+  override?: any;
 }
 
 export interface FreshInvestmentSuggestion {
@@ -4078,12 +4092,23 @@ class AgentProspectWizardService {
       recommendations.push(...planUpgrades);
     }
 
+    // ── TAX LOSS HARVESTING ENGINE ───────────────────────────────────────────
+    // Proactively scans ALL holdings (beyond those already SELL/REDUCE'd) for
+    // loss positions that qualify for crystallisation. Generates TAX_LOSS_HARVEST
+    // recommendations with replacement fund suggestions and net tax benefit.
+    const harvestOpportunities = await this.scanTaxLossHarvestingOpportunities(holdings, recommendations);
+    if (harvestOpportunities.length > 0) {
+      console.log(`[TaxHarvest] Adding ${harvestOpportunities.length} harvesting recommendations`);
+      recommendations.push(...harvestOpportunities);
+    }
+
     // Calculate comprehensive tax summary for all exit-type recommendations
     // REDUCE = drift-based exit, PROFIT_BOOK = gain/tax-based partial exit
     const sellSwitchRecs = recommendations.filter(r =>
       r.action === 'SELL' || r.action === 'SWITCH' || r.action === 'REDUCE' || r.action === 'PROFIT_BOOK'
     );
-    const taxSummary = this.calculateTaxSummary(sellSwitchRecs);
+    const harvestRecs = recommendations.filter(r => r.action === 'TAX_LOSS_HARVEST');
+    const taxSummary = this.calculateTaxSummary(sellSwitchRecs, harvestRecs);
 
     // Add tax summary to each recommendation object (for frontend display)
     return {
@@ -4155,10 +4180,150 @@ class AgentProspectWizardService {
   }
 
   /**
+   * TAX LOSS HARVESTING ENGINE
+   * Proactively scans the entire portfolio for loss-making positions (not just those
+   * already being sold for other reasons) and generates TAX_LOSS_HARVEST recommendations.
+   * Each recommendation:
+   *   - Crystallises the unrealised loss via a SELL trade
+   *   - Suggests an equivalent replacement fund (different AMC, same category)
+   *   - Calculates net tax benefit after exit loads
+   * Materiality filter: loss > ₹10,000 AND > 3% of invested cost.
+   */
+  private async scanTaxLossHarvestingOpportunities(
+    holdings: ProspectPortfolioHolding[],
+    existingRecs: RebalanceRecommendation[]
+  ): Promise<RebalanceRecommendation[]> {
+    const results: RebalanceRecommendation[] = [];
+    const now = new Date();
+
+    const alreadyActioned = new Set(
+      existingRecs
+        .filter(r => ['SELL', 'REDUCE', 'SWITCH', 'PROFIT_BOOK'].includes(r.action))
+        .map(r => (r.productName || '').toLowerCase().trim())
+    );
+
+    for (const holding of holdings) {
+      const name = (holding.name || holding.productName || '').trim();
+      if (!name) continue;
+      if (alreadyActioned.has(name.toLowerCase())) continue;
+
+      const currentValue = holding.currentValue || 0;
+      if (currentValue <= 0) continue;
+
+      let investedValue = holding.investedValue || 0;
+      if (!investedValue && holding.averageCost && holding.quantity) {
+        investedValue = holding.averageCost * holding.quantity;
+      }
+      if (!investedValue && holding.purchasePrice && holding.quantity) {
+        investedValue = holding.purchasePrice * holding.quantity;
+      }
+      if (!investedValue || investedValue <= 0) continue;
+
+      const unrealizedLoss = investedValue - currentValue;
+      if (unrealizedLoss <= 0) continue;
+
+      const lossPercent = (unrealizedLoss / investedValue) * 100;
+      if (unrealizedLoss < 10000 || lossPercent < 3) continue;
+
+      const purchaseDateStr = holding.purchaseDate || holding.firstPurchaseDate || '';
+      let holdingDays = 0;
+      if (purchaseDateStr) {
+        try {
+          const pDate = new Date(purchaseDateStr);
+          if (!isNaN(pDate.getTime())) {
+            holdingDays = Math.floor((now.getTime() - pDate.getTime()) / 86400000);
+          }
+        } catch { /* ignore */ }
+      }
+
+      const assetType = (holding.assetType || holding.productType || 'mutual_fund').toLowerCase();
+      const isEquity = ['equity', 'mutual_fund', 'etf', 'mf', 'stock', 'listed_stock', 'listed_equity'].includes(assetType);
+      const ltcgThresholdDays = isEquity ? 365 : 730;
+
+      let taxType: 'STCG' | 'LTCG' | 'SLAB';
+      let taxRate: number;
+      if (holdingDays >= ltcgThresholdDays) {
+        taxType = 'LTCG';
+        taxRate = 0.125;
+      } else if (isEquity) {
+        taxType = 'STCG';
+        taxRate = 0.20;
+      } else {
+        taxType = 'SLAB';
+        taxRate = 0.30;
+      }
+
+      const grossTaxSaving = unrealizedLoss * taxRate;
+      const totalTaxSaving = grossTaxSaving * 1.04;
+
+      const exitLoadPct = (isEquity && holdingDays < 365) ? 0.01 : 0;
+      const exitLoadAmount = currentValue * exitLoadPct;
+      const netHarvestBenefit = totalTaxSaving - exitLoadAmount;
+
+      if (netHarvestBenefit <= 0) continue;
+
+      const category = holding.category || (isEquity ? 'Equity' : 'Debt');
+      let replacementFund = `Equivalent ${category} fund from a different AMC`;
+      try {
+        const [amc] = name.split(' ');
+        const alts = await db
+          .select({ schemeName: mutualFunds.schemeName })
+          .from(mutualFunds)
+          .where(
+            and(
+              ilike(mutualFunds.schemeType, `%${isEquity ? 'equity' : 'debt'}%`),
+              sql`${mutualFunds.schemeName} NOT ILIKE ${`%${amc}%`}`
+            )
+          )
+          .orderBy(desc(mutualFunds.returns3y))
+          .limit(1);
+        if (alts.length > 0) replacementFund = alts[0].schemeName;
+      } catch { /* fallback to generic suggestion */ }
+
+      const fyYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+      const fyLabel = `FY ${fyYear}-${(fyYear + 1).toString().slice(-2)}`;
+
+      const rationale = [
+        `Tax-Loss Harvesting: Sell to crystallise ₹${unrealizedLoss.toLocaleString('en-IN', { maximumFractionDigits: 0 })} unrealised ${taxType} loss`,
+        `(down ${lossPercent.toFixed(1)}% from cost).`,
+        `Saves ₹${Math.round(totalTaxSaving).toLocaleString('en-IN')} in ${taxType} tax (${(taxRate * 100).toFixed(1)}% + 4% cess) in ${fyLabel}.`,
+        exitLoadAmount > 0 ? `Exit load: ₹${Math.round(exitLoadAmount).toLocaleString('en-IN')}.` : null,
+        `Net benefit: ₹${Math.round(netHarvestBenefit).toLocaleString('en-IN')}.`,
+        `Immediately reinvest in "${replacementFund}" to maintain market exposure — no investment gap.`
+      ].filter(Boolean).join(' ');
+
+      results.push({
+        action: 'TAX_LOSS_HARVEST',
+        productType: assetType,
+        productName: name,
+        currentValue,
+        changeAmount: -Math.round(currentValue),
+        rationale,
+        priority: netHarvestBenefit > 50000 ? 'high' : netHarvestBenefit > 20000 ? 'medium' : 'low',
+        tag: 'TAX_LOSS_HARVEST',
+        unrealizedLoss: Math.round(unrealizedLoss),
+        taxSaving: Math.round(totalTaxSaving),
+        taxType,
+        holdingPeriodDays: holdingDays,
+        replacementFund,
+        exitLoad: Math.round(exitLoadAmount),
+        netHarvestBenefit: Math.round(netHarvestBenefit),
+        lossPercent: parseFloat(lossPercent.toFixed(2))
+      });
+    }
+
+    console.log(`[TaxHarvest] Identified ${results.length} harvesting opportunities from ${holdings.length} holdings`);
+    return results;
+  }
+
+  /**
    * Calculate comprehensive tax summary for SELL/SWITCH recommendations
    */
-  private calculateTaxSummary(recommendations: any[]): any {
-    if (!recommendations || recommendations.length === 0) {
+  private calculateTaxSummary(recommendations: any[], harvestRecs: any[] = []): any {
+    const hasRecommendations = recommendations && recommendations.length > 0;
+    const hasHarvestRecs = harvestRecs && harvestRecs.length > 0;
+
+    if (!hasRecommendations && !hasHarvestRecs) {
       const now = new Date();
       const fyYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
       const currentFY = `FY ${fyYear}-${(fyYear + 1).toString().slice(-2)}`;
@@ -4172,6 +4337,10 @@ class AgentProspectWizardService {
         totalExitLoad: 0,
         netRebalancingCost: 0,
         taxLossHarvestingOpportunity: 0,
+        harvestedLosses: 0,
+        estimatedTaxSaving: 0,
+        netHarvestBenefit: 0,
+        harvestDetails: [],
         grandfatheringBenefitTotal: 0,
         holdings: [],
         alerts: [],
@@ -4233,6 +4402,35 @@ class AgentProspectWizardService {
 
     const disclosure = proposalCapitalGainsService.generateTaxDisclosure();
 
+    // ── TAX LOSS HARVESTING AGGREGATE ───────────────────────────────────────
+    let harvestedLosses = 0;
+    let estimatedTaxSaving = 0;
+    let totalHarvestBenefit = 0;
+    const harvestDetails: any[] = [];
+
+    for (const hrec of harvestRecs) {
+      harvestedLosses += hrec.unrealizedLoss || 0;
+      estimatedTaxSaving += hrec.taxSaving || 0;
+      totalHarvestBenefit += hrec.netHarvestBenefit || 0;
+      harvestDetails.push({
+        name: hrec.productName,
+        unrealizedLoss: hrec.unrealizedLoss,
+        taxSaving: hrec.taxSaving,
+        taxType: hrec.taxType,
+        netHarvestBenefit: hrec.netHarvestBenefit,
+        replacementFund: hrec.replacementFund
+      });
+    }
+
+    const netRebalancingCostAfterHarvest = Math.max(0, netRebalancingCost - totalHarvestBenefit);
+
+    if (harvestDetails.length > 0) {
+      alerts.push({
+        type: 'opportunity',
+        message: `Tax-Loss Harvesting can save ₹${Math.round(estimatedTaxSaving).toLocaleString('en-IN')} in taxes by crystallising ₹${Math.round(harvestedLosses).toLocaleString('en-IN')} in losses — net benefit ₹${Math.round(totalHarvestBenefit).toLocaleString('en-IN')} after exit loads.`
+      });
+    }
+
     return {
       totalSTCG: Math.round(totalSTCG),
       totalLTCG: Math.round(totalLTCG),
@@ -4242,7 +4440,12 @@ class AgentProspectWizardService {
       totalTaxLiability: Math.round(totalTaxLiability),
       totalExitLoad: Math.round(totalExitLoad),
       netRebalancingCost: Math.round(netRebalancingCost),
-      taxLossHarvestingOpportunity: Math.round(taxLossHarvestingOpportunity),
+      netRebalancingCostAfterHarvest: Math.round(netRebalancingCostAfterHarvest),
+      taxLossHarvestingOpportunity: Math.round(taxLossHarvestingOpportunity + harvestedLosses),
+      harvestedLosses: Math.round(harvestedLosses),
+      estimatedTaxSaving: Math.round(estimatedTaxSaving),
+      netHarvestBenefit: Math.round(totalHarvestBenefit),
+      harvestDetails,
       grandfatheringBenefitTotal: Math.round(grandfatheringBenefitTotal),
       holdings: holdingsWithTax,
       alerts: this.deduplicateAlerts(alerts),

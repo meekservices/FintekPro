@@ -27,7 +27,7 @@ import {
   Upload, Link, FileText, AlertCircle, Settings2, Globe, ChevronUp, ChevronDown, Info,
   Pencil, RotateCcw, Save, X, Lightbulb, Calculator, LayoutGrid, Wand2,
   Activity, Wallet, BarChart3, ListChecks, ArrowUpCircle, FileCheck,
-  CalendarDays, ClipboardCheck, UserCheck, RefreshCcw
+  CalendarDays, ClipboardCheck, UserCheck, RefreshCcw, Scissors
 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import jsPDF from "jspdf";
@@ -6208,6 +6208,7 @@ export default function AgentProspectWizard() {
                     rec.action === 'REDUCE' ? 'border-l-4 border-l-amber-500' :
                     rec.action === 'INCREASE' ? 'border-l-4 border-l-teal-500' :
                     rec.action === 'PROFIT_BOOK' ? 'border-l-4 border-l-violet-500' :
+                    rec.action === 'TAX_LOSS_HARVEST' ? 'border-l-4 border-l-indigo-500' :
                     'border-l-4 border-l-amber-500'
                   }`}>
                     <CardContent className="py-3">
@@ -6220,10 +6221,13 @@ export default function AgentProspectWizard() {
                               rec.action === 'REDUCE' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300' :
                               rec.action === 'INCREASE' ? 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300' :
                               rec.action === 'PROFIT_BOOK' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300' :
+                              rec.action === 'TAX_LOSS_HARVEST' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300' :
                               ''
                             }
                           >
-                            {rec.action === 'PROFIT_BOOK' ? 'PROFIT BOOK' : rec.action}
+                            {rec.action === 'PROFIT_BOOK' ? 'PROFIT BOOK' :
+                             rec.action === 'TAX_LOSS_HARVEST' ? 'TAX HARVEST' :
+                             rec.action}
                           </Badge>
                           <span className="font-medium">{rec.productName}</span>
                           <Badge variant="outline">{rec.priority}</Badge>
@@ -6288,6 +6292,43 @@ export default function AgentProspectWizard() {
                             Dividend income taxed at slab rate (up to 30% + 4% cess). Growth option defers tax and qualifies for LTCG at 12.5% after 1 year.
                             Switch To: <span className="font-medium">{(rec as any).switchTo || '—'}</span>
                           </div>
+                        </div>
+                      )}
+
+                      {/* Tax Loss Harvesting banner */}
+                      {(rec as any).tag === 'TAX_LOSS_HARVEST' && (
+                        <div className="mt-2 p-3 bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800 rounded-lg">
+                          <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300 font-semibold text-xs mb-2">
+                            <Scissors className="h-3.5 w-3.5" />
+                            Tax-Loss Harvesting | Crystallise Loss → Offset Gains
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs mb-2">
+                            <div>
+                              <span className="text-indigo-500 dark:text-indigo-400">Unrealised Loss:</span>
+                              <p className="font-semibold text-indigo-800 dark:text-indigo-200">{formatCurrency((rec as any).unrealizedLoss || 0)}</p>
+                            </div>
+                            <div>
+                              <span className="text-indigo-500 dark:text-indigo-400">Tax Type:</span>
+                              <p className="font-semibold text-indigo-800 dark:text-indigo-200">{(rec as any).taxType || '—'} {(rec as any).lossPercent ? `(${(rec as any).lossPercent}% down)` : ''}</p>
+                            </div>
+                            <div>
+                              <span className="text-indigo-500 dark:text-indigo-400">Tax Saved (incl. Cess):</span>
+                              <p className="font-semibold text-green-700 dark:text-green-400">{formatCurrency((rec as any).taxSaving || 0)}</p>
+                            </div>
+                            <div>
+                              <span className="text-indigo-500 dark:text-indigo-400">Net Benefit:</span>
+                              <p className="font-bold text-green-700 dark:text-green-400">{formatCurrency((rec as any).netHarvestBenefit || 0)}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-1.5 text-xs text-indigo-700 dark:text-indigo-300">
+                            <RefreshCw className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                            <span>Reinvest immediately in: <span className="font-medium">{(rec as any).replacementFund || '—'}</span></span>
+                          </div>
+                          {(rec as any).exitLoad > 0 && (
+                            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                              Exit load: {formatCurrency((rec as any).exitLoad)} (already netted in benefit above)
+                            </p>
+                          )}
                         </div>
                       )}
 
@@ -6573,12 +6614,67 @@ export default function AgentProspectWizard() {
                   </div>
                 )}
 
-                {/* Tax-Loss Harvesting */}
-                {(taxSummary.taxLossHarvestingOpportunity ?? 0) > 0 && (
+                {/* Tax-Loss Harvesting Benefit Panel */}
+                {(taxSummary.netHarvestBenefit ?? 0) > 0 && (
+                  <div className="border border-indigo-200 dark:border-indigo-800 rounded-xl overflow-hidden">
+                    <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50 dark:bg-indigo-950">
+                      <Scissors className="h-5 w-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
+                      <div>
+                        <p className="font-semibold text-indigo-800 dark:text-indigo-200 text-sm">Tax-Loss Harvesting Opportunities</p>
+                        <p className="text-xs text-indigo-600 dark:text-indigo-400">Sell loss positions, offset gains, reinvest immediately to maintain exposure</p>
+                      </div>
+                      <div className="ml-auto text-right">
+                        <p className="text-xs text-indigo-600 dark:text-indigo-400">Total Net Benefit</p>
+                        <p className="font-bold text-lg text-green-600 dark:text-green-400">{formatCurrency(taxSummary.netHarvestBenefit)}</p>
+                      </div>
+                    </div>
+                    {taxSummary.harvestDetails?.length > 0 && (
+                      <div className="divide-y divide-indigo-100 dark:divide-indigo-900">
+                        {taxSummary.harvestDetails.map((detail: any, idx: number) => (
+                          <div key={idx} className="px-4 py-3 grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs bg-white dark:bg-background">
+                            <div className="sm:col-span-2">
+                              <p className="font-medium text-foreground truncate">{detail.name}</p>
+                              <p className="text-muted-foreground">Loss Type: {detail.taxType}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Unrealised Loss</p>
+                              <p className="font-semibold text-red-600">{formatCurrency(detail.unrealizedLoss)}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Tax Saving</p>
+                              <p className="font-semibold text-green-600">{formatCurrency(detail.taxSaving)}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Net Benefit</p>
+                              <p className="font-bold text-green-700">{formatCurrency(detail.netHarvestBenefit)}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="px-4 py-3 bg-indigo-50 dark:bg-indigo-950 grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <p className="text-xs text-indigo-600 dark:text-indigo-400">Total Losses Crystallised</p>
+                        <p className="font-bold text-indigo-800 dark:text-indigo-200">{formatCurrency(taxSummary.harvestedLosses)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-indigo-600 dark:text-indigo-400">Total Tax Saved</p>
+                        <p className="font-bold text-green-700 dark:text-green-400">{formatCurrency(taxSummary.estimatedTaxSaving)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-indigo-600 dark:text-indigo-400">Net Cost After Harvesting</p>
+                        <p className="font-bold text-lg text-amber-700 dark:text-amber-300">{formatCurrency(taxSummary.netRebalancingCostAfterHarvest ?? taxSummary.netRebalancingCost)}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Passive tax-loss note when no proactive harvest recs but passive opportunity exists */}
+                {(taxSummary.netHarvestBenefit ?? 0) === 0 && (taxSummary.taxLossHarvestingOpportunity ?? 0) > 0 && (
                   <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center gap-2">
                     <Lightbulb className="h-5 w-5 text-blue-600" />
                     <span className="text-sm text-blue-700 dark:text-blue-300">
-                      Tax-Loss Harvesting Opportunity: {formatCurrency(taxSummary.taxLossHarvestingOpportunity)} in unrealized losses available to offset gains
+                      Tax-Loss Opportunity: {formatCurrency(taxSummary.taxLossHarvestingOpportunity)} in unrealised losses on holdings being exited — available to offset gains this FY.
                     </span>
                   </div>
                 )}
