@@ -1,0 +1,57 @@
+To stop the text from overlapping, you need to move away from absolute pixel offsets. In your current code, html2canvas is likely rendering fonts with a larger bounding box than your top calculations allow, causing the "pile-up" effect.
+
+Here is the exact code to provide to the Replit Agent to fix the JSX structure and the export logic.
+
+1. Update the Component Structure (JSX)
+Instead of absolute positioning for each line, wrap the text in a Flexbox container. This ensures that as one line grows, it naturally pushes the others down.
+
+TypeScript
+{/* Replace the absolute positioned lines with this Flex container */}
+<div id="agent-details-text-wrapper" className="flex flex-col justify-center gap-y-2 ml-[110px] h-full">
+  <div className="agent-name text-[16px] font-bold text-white leading-none">
+    {agent.name}
+  </div>
+  <div className="agent-designation text-[12px] text-[#FFD700] font-medium leading-none">
+    {agent.designation}
+  </div>
+  <div className="flex flex-col gap-y-1 mt-1">
+    <div className="agent-contact flex items-center gap-2 text-[10px] text-white/90">
+      <Mail size={12} /> {agent.email}
+    </div>
+    <div className="agent-contact flex items-center gap-2 text-[10px] text-white/90">
+      <Phone size={12} /> {agent.phone}
+    </div>
+  </div>
+</div>
+2. Update the onclone Logic
+When html2canvas clones the element for export, it sometimes loses Flexbox "gap" properties. Use this onclone function to force the layout:
+
+TypeScript
+const canvas = await html2canvas(element, {
+  onclone: (clonedDoc) => {
+    const container = clonedDoc.getElementById('agent-details-text-wrapper');
+    if (container) {
+      // Force Flexbox layout for the export engine
+      container.style.display = 'flex';
+      container.style.flexDirection = 'column';
+      
+      // Use margin-bottom on children as a fallback for 'gap' support
+      const children = container.children;
+      for (let i = 0; i < children.length; i++) {
+        (children[i] as HTMLElement).style.marginBottom = '10px';
+        (children[i] as HTMLElement).style.position = 'relative';
+        (children[i] as HTMLElement).style.top = '0px'; // Reset any absolute top
+      }
+
+      // Explicitly color the designation Gold
+      const designation = clonedDoc.querySelector('.agent-designation') as HTMLElement;
+      if (designation) designation.style.color = '#FFD700';
+    }
+  }
+});
+Why this works:
+Removes the "Collision": By removing top: 26px, top: 49px, etc., you eliminate the fixed "slots" that the text is currently overfilling.
+
+Guaranteed Gaps: The marginBottom or gap-y-2 acts as a physical barrier between lines.
+
+Better Contrast: Using #FFD700 (Gold) for the designation makes it pop against the purple background much better than white.

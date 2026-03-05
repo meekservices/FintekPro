@@ -522,62 +522,58 @@ export default function FestivalGreetingPreview() {
         clonedEl.style.aspectRatio = 'auto';
         clonedEl.style.overflow = 'hidden';
 
-        // ── Agent card: class-targeted flex layout ───────────────────────────
+        // ── Agent card: ID-targeted flex layout with margin-bottom fallback ──
         const agentCard = clonedEl.querySelector<HTMLElement>('[data-agent-card="1"]');
         if (agentCard) {
           agentCard.style.height = 'auto';
-          agentCard.style.minHeight = '0';
           agentCard.style.alignItems = 'center';
           agentCard.style.padding = '12px';
           agentCard.style.gap = '12px';
+        }
 
-          // Text column — flex column with strict gap so rows cannot collapse
-          const textBlock = agentCard.querySelector<HTMLElement>('[data-agent-card-text="1"]');
-          if (textBlock) {
-            textBlock.style.display = 'flex';
-            textBlock.style.flexDirection = 'column';
-            textBlock.style.gap = '12px';          // physical buffer html2canvas must respect
-            textBlock.style.justifyContent = 'center';
-            textBlock.style.paddingLeft = '0px';
-          }
+        // Use getElementById — most reliable selector in cloned document
+        const container = clonedEl.ownerDocument
+          ? clonedEl.ownerDocument.getElementById('agent-details-text-wrapper')
+          : clonedEl.querySelector<HTMLElement>('#agent-details-text-wrapper');
+        if (container) {
+          // Force flex column layout
+          container.style.display = 'flex';
+          container.style.flexDirection = 'column';
+          container.style.gap = '0';             // clear gap, use margin-bottom instead
 
-          // Name — largest, bold, white
-          const name = agentCard.querySelector<HTMLElement>('.agent-name');
+          // Apply margin-bottom on each direct child as guaranteed spacing fallback
+          const children = Array.from(container.children) as HTMLElement[];
+          children.forEach((child, i) => {
+            child.style.position = 'relative';
+            child.style.top = '0px';             // reset any leftover absolute offsets
+            child.style.marginBottom = i < children.length - 1 ? '10px' : '0px';
+          });
+
+          // Name — bold white, largest
+          const name = container.querySelector<HTMLElement>('.agent-name');
           if (name) {
             name.style.fontSize = '14px';
             name.style.fontWeight = 'bold';
             name.style.lineHeight = '1.2';
             name.style.color = '#ffffff';
-            name.style.whiteSpace = 'nowrap';
-            name.style.overflow = 'hidden';
-            name.style.textOverflow = 'ellipsis';
-            name.style.marginBottom = '0';
-            name.style.padding = '0';
           }
 
-          // Designation — gold, medium weight, smaller than name
-          const designation = agentCard.querySelector<HTMLElement>('.agent-designation');
+          // Designation — explicit gold #FFD700, better contrast on any background
+          const designation = container.querySelector<HTMLElement>('.agent-designation');
           if (designation) {
             designation.style.fontSize = '11px';
             designation.style.fontWeight = '500';
             designation.style.lineHeight = '1.2';
             designation.style.color = '#FFD700';
-            designation.style.whiteSpace = 'nowrap';
-            designation.style.overflow = 'hidden';
-            designation.style.textOverflow = 'ellipsis';
-            designation.style.padding = '0';
           }
 
-          // Contact rows — email + phone
-          agentCard.querySelectorAll<HTMLElement>('.agent-contact').forEach((contact) => {
-            contact.style.fontSize = '10px';
-            contact.style.lineHeight = '1.2';
-            contact.style.color = 'rgba(255,255,255,0.75)';
-            contact.style.display = 'block';
-            contact.style.whiteSpace = 'nowrap';
-            contact.style.overflow = 'hidden';
-            contact.style.textOverflow = 'ellipsis';
-            contact.style.padding = '0';
+          // Contact rows — dim white, smallest
+          container.querySelectorAll<HTMLElement>('.agent-contact').forEach((c) => {
+            c.style.fontSize = '10px';
+            c.style.lineHeight = '1.2';
+            c.style.color = 'rgba(255,255,255,0.80)';
+            c.style.display = 'block';
+            c.style.marginBottom = '0';
           });
         }
 
@@ -1652,34 +1648,43 @@ export default function FestivalGreetingPreview() {
                       {(agentInfo.name || 'Y').charAt(0).toUpperCase()}
                     </div>
 
-                    {/* Text info — data attr so onclone can fix layout */}
+                    {/* Text info — flex column, ID + classes for reliable onclone targeting */}
                     <div
+                      id="agent-details-text-wrapper"
                       data-agent-card-text="1"
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '3px',
-                        textAlign: 'left',
-                      }}
+                      className="flex flex-col justify-center"
+                      style={{ flex: 1, minWidth: 0, gap: '6px' }}
                     >
-                      <div className="agent-name" style={{ color: '#ffffff', fontSize: '14px', fontWeight: 700, lineHeight: '1.3', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div
+                        className="agent-name"
+                        style={{ color: '#ffffff', fontSize: '14px', fontWeight: 700, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      >
                         {agentInfo.name || 'Your Name'}
                       </div>
-                      <div className="agent-designation" style={{ color: selectedFestival.primaryColor, fontSize: '11px', lineHeight: '1.3', fontWeight: 500, opacity: 0.95, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div
+                        className="agent-designation"
+                        style={{ color: selectedFestival.primaryColor, fontSize: '11px', lineHeight: 1.2, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      >
                         {agentInfo.designation || 'Financial Advisor'}
                       </div>
-                      {agentInfo.email && (
-                        <div className="agent-contact" style={{ color: 'rgba(255,255,255,0.70)', fontSize: '10px', lineHeight: '1.3', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          ✉ {agentInfo.email}
-                        </div>
-                      )}
-                      {agentInfo.phone && (
-                        <div className="agent-contact" style={{ color: 'rgba(255,255,255,0.70)', fontSize: '10px', lineHeight: '1.3' }}>
-                          ☎ {agentInfo.phone}
-                        </div>
-                      )}
+                      <div className="flex flex-col" style={{ gap: '4px' }}>
+                        {agentInfo.email && (
+                          <div
+                            className="agent-contact"
+                            style={{ color: 'rgba(255,255,255,0.75)', fontSize: '10px', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          >
+                            ✉ {agentInfo.email}
+                          </div>
+                        )}
+                        {agentInfo.phone && (
+                          <div
+                            className="agent-contact"
+                            style={{ color: 'rgba(255,255,255,0.75)', fontSize: '10px', lineHeight: 1.2 }}
+                          >
+                            ☎ {agentInfo.phone}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* FintekPro logo badge */}
