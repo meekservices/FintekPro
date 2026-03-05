@@ -413,6 +413,22 @@ class ProposalCapitalGainsService {
   }
 
   /**
+   * Returns true only for SEBI-regulated open-ended Mutual Fund instruments.
+   * Exit load is a Mutual Fund-only concept — it does NOT apply to stocks,
+   * ETFs, bonds/NCDs, FDs, SGBs, PMS, AIF, REITs, InvITs, or unlisted equity.
+   */
+  private isMutualFundProductType(productType: string): boolean {
+    const lowerType = (productType || '').toLowerCase();
+    return (
+      lowerType === 'mutual_fund' ||
+      lowerType === 'mf' ||
+      lowerType === 'sip' ||
+      lowerType.includes('mutual_fund') ||
+      lowerType === 'mutual fund'
+    );
+  }
+
+  /**
    * Calculate exit load (sync version - uses generic rates, kept for backward compatibility)
    */
   calculateExitLoad(
@@ -421,6 +437,9 @@ class ProposalCapitalGainsService {
     productType: string,
     category?: string
   ): number {
+    // Exit load is ONLY applicable to Mutual Funds
+    if (!this.isMutualFundProductType(productType)) return 0;
+
     const assetCategory = this.getAssetCategory(productType, category);
     let exitLoadRule = EXIT_LOAD_RULES.equity;
     
@@ -454,7 +473,12 @@ class ProposalCapitalGainsService {
     schemeCode?: string;
   }): Promise<{ exitLoad: number; source: 'database' | 'generic'; daysToZeroExitLoad: number | null }> {
     const { amount, holdingPeriodDays, productType, category, isin, schemeCode } = params;
-    
+
+    // Exit load is ONLY applicable to Mutual Funds — not stocks, bonds, ETFs, REITs, etc.
+    if (!this.isMutualFundProductType(productType)) {
+      return { exitLoad: 0, source: 'generic', daysToZeroExitLoad: null };
+    }
+
     // Try ISIN/schemeCode lookup first
     if (isin || schemeCode) {
       try {

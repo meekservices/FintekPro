@@ -4238,6 +4238,8 @@ class AgentProspectWizardService {
 
       const assetType = (holding.assetType || holding.productType || 'mutual_fund').toLowerCase();
       const isEquity = ['equity', 'mutual_fund', 'etf', 'mf', 'stock', 'listed_stock', 'listed_equity'].includes(assetType);
+      // Exit load is ONLY applicable to open-ended Mutual Funds, not stocks, ETFs, bonds, REITs, etc.
+      const isMutualFund = ['mutual_fund', 'mf', 'sip'].includes(assetType) || assetType.includes('mutual_fund');
       const ltcgThresholdDays = isEquity ? 365 : 730;
 
       let taxType: 'STCG' | 'LTCG' | 'SLAB';
@@ -4256,7 +4258,8 @@ class AgentProspectWizardService {
       const grossTaxSaving = unrealizedLoss * taxRate;
       const totalTaxSaving = grossTaxSaving * 1.04;
 
-      const exitLoadPct = (isEquity && holdingDays < 365) ? 0.01 : 0;
+      // Exit load: only for MF equity funds held < 1 year (not stocks, ETFs, bonds, REITs)
+      const exitLoadPct = (isMutualFund && isEquity && holdingDays < 365) ? 0.01 : 0;
       const exitLoadAmount = currentValue * exitLoadPct;
       const netHarvestBenefit = totalTaxSaving - exitLoadAmount;
 

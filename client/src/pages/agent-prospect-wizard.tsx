@@ -6471,7 +6471,7 @@ export default function AgentProspectWizard() {
                         <div className="p-2 bg-card rounded-lg border-2 border-amber-300 dark:border-amber-700">
                           <p className="text-xs text-muted-foreground">Net Rebalancing Cost</p>
                           <p className="font-bold text-lg text-amber-800 dark:text-amber-200">{formatCurrency(taxSummary.netRebalancingCost)}</p>
-                          <p className="text-xs text-muted-foreground">(Tax + Cess + Exit Load)</p>
+                          <p className="text-xs text-muted-foreground">(Tax incl. 4% cess + Exit Load)</p>
                         </div>
                       </div>
 
@@ -6584,8 +6584,8 @@ export default function AgentProspectWizard() {
                   <Card className="border-purple-200 dark:border-purple-800">
                     <CardContent className="pt-4 text-center">
                       <p className="text-xs text-muted-foreground">H&E Cess (4%)</p>
-                      <p className="text-xl font-bold text-purple-600">{formatCurrency(taxSummary.cess ?? 0)}</p>
-                      <p className="text-xs text-muted-foreground">on total tax</p>
+                      <p className="text-xl font-bold text-purple-600">Included</p>
+                      <p className="text-xs text-muted-foreground">in tax figures above</p>
                     </CardContent>
                   </Card>
                   <Card className="border-blue-200 dark:border-blue-800">
@@ -6599,7 +6599,7 @@ export default function AgentProspectWizard() {
                     <CardContent className="pt-4 text-center">
                       <p className="text-xs text-muted-foreground">Net Rebalancing Cost</p>
                       <p className="text-xl font-bold text-amber-700 dark:text-amber-300">{formatCurrency(taxSummary.netRebalancingCost ?? 0)}</p>
-                      <p className="text-xs text-muted-foreground">(Tax + Cess + Exit Load)</p>
+                      <p className="text-xs text-muted-foreground">(Tax incl. 4% cess + Exit Load)</p>
                     </CardContent>
                   </Card>
                 </div>
@@ -6699,9 +6699,17 @@ export default function AgentProspectWizard() {
 
                 {/* Disclosure */}
                 {taxSummary.disclosure && (
-                  <div className="p-3 bg-muted rounded-lg text-xs text-muted-foreground">
-                    <p className="font-medium mb-1">Tax Calculation Disclosure:</p>
+                  <div className="p-3 bg-muted rounded-lg text-xs text-muted-foreground space-y-1">
+                    <p className="font-medium">Tax Calculation Disclosure:</p>
                     <p>{taxSummary.disclosure}</p>
+                    {taxSummary.taxSource && taxSummary.taxSource !== 'N/A' && (
+                      <p className="text-[11px] mt-1">
+                        <span className="font-medium">Data source:</span> {taxSummary.taxSource}
+                      </p>
+                    )}
+                    <p className="text-[11px]">
+                      Exit load applies only to open-ended Mutual Funds. Stocks, ETFs, Bonds, REITs, InvITs, and Unlisted equity have no exit load.
+                    </p>
                   </div>
                 )}
               </>
