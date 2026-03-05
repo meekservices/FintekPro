@@ -1,0 +1,93 @@
+The reason your phone number is suddenly visible while the others remain crushed is that it's the last item in the stack. html2canvas is likely collapsing the line-height of the top elements to zero or using a default "browser" scale that doesn't match your high-DPI screen.
+
+To fix this, we need to stop using relative scaling and force absolute pixel heights and block-level spacing.
+
+The Full Corrected Code for Replit
+Tell the Replit Agent to replace your entire ExportButton (or the handleExport function) with this version. It includes the agent-details-text-wrapper fix and a high-scale rendering configuration.
+
+1. The Integrated Export Logic
+TypeScript
+const handleExportPNG = async () => {
+  const element = document.getElementById('greeting-card');
+  if (!element) return;
+
+  // We use scale: 3 and window.devicePixelRatio to ensure the export 
+  // matches the high-quality screen preview exactly.
+  const canvas = await html2canvas(element, {
+    useCORS: true,
+    scale: 3, 
+    logging: false,
+    backgroundColor: null,
+    onclone: (clonedDoc) => {
+      const textWrapper = clonedDoc.getElementById('agent-details-text-wrapper');
+      
+      if (textWrapper) {
+        // FORCE FLEX COLLAPSE PREVENTION
+        textWrapper.style.display = 'flex';
+        textWrapper.style.flexDirection = 'column';
+        textWrapper.style.justifyContent = 'center';
+        
+        // Target each row explicitly to force vertical separation
+        const rows = Array.from(textWrapper.children) as HTMLElement[];
+        
+        rows.forEach((row, index) => {
+          row.style.display = 'block';
+          row.style.position = 'relative';
+          row.style.top = '0px'; // Clear any old absolute offsets
+          
+          // ADD FORCED PHYSICAL GAP (This prevents the overlap you see)
+          row.style.marginBottom = '12px'; 
+          
+          // Force explicit line heights so fonts don't "bleed" into each other
+          if (index === 0) { // Name
+             row.style.fontSize = '22px';
+             row.style.lineHeight = '28px';
+             row.style.fontWeight = 'bold';
+          } else if (index === 1) { // Designation
+             row.style.fontSize = '16px';
+             row.style.lineHeight = '20px';
+             row.style.color = '#FFD700'; // Ensure Gold is forced
+          } else { // Contact Info
+             row.style.fontSize = '14px';
+             row.style.lineHeight = '18px';
+          }
+        });
+      }
+    }
+  });
+
+  const link = document.createElement('a');
+  link.download = `diwali-greeting.png`;
+  link.href = canvas.toDataURL('image/png', 1.0);
+  link.click();
+};
+2. The Required JSX Structure
+Ensure your component's footer looks exactly like this. Note the use of id="agent-details-text-wrapper":
+
+TypeScript
+<div className="absolute bottom-6 left-6 right-6 flex items-center bg-black/50 backdrop-blur-md rounded-2xl p-5 border border-white/10 h-32">
+  {/* Profile Pic */}
+  <div className="w-20 h-20 rounded-full border-2 border-[#FFD700] shrink-0 overflow-hidden">
+     <div className="w-full h-full bg-[#5D2D91] flex items-center justify-center text-white text-2xl font-bold">
+       {agent.name.charAt(0)}
+     </div>
+  </div>
+
+  {/* Text Wrapper - THE FIX IS HERE */}
+  <div id="agent-details-text-wrapper" className="ml-5 flex flex-col justify-center">
+    <div className="text-white font-bold text-lg">{agent.name}</div>
+    <div className="text-[#FFD700] text-sm font-semibold">{agent.designation}</div>
+    <div className="flex items-center gap-2 text-white/90 text-xs mt-1">
+      <Mail size={12} /> {agent.email}
+    </div>
+    <div className="flex items-center gap-2 text-white/90 text-xs">
+      <Phone size={12} /> {agent.phone}
+    </div>
+  </div>
+</div>
+Why this finally works:
+The "Last Line" Success: The phone number was visible because there was nothing below it to "push" it. By adding marginBottom to the Name and Designation in the onclone step, we create that same "buffer" for the top lines.
+
+Explicit Line Heights: Setting line-height: 28px for a 22px font guarantees 6 pixels of "empty air" that html2canvas cannot fill with other text.
+
+Scale 3: This forces the browser to render the text at a much higher resolution before snapping the "photo," preventing the font from getting chunky and overlapping.
