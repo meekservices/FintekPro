@@ -501,17 +501,12 @@ export default function FestivalGreetingPreview() {
     const el = templateRef.current!;
     const html2canvas = (await import('html2canvas')).default;
 
-    // Capture at natural rendered size, scale up to 1200px output
-    const TARGET = 1200;
+    const TARGET   = 1200;
     const naturalW = el.offsetWidth;
     const naturalH = el.offsetHeight;
-    const scale = Math.max(1, Math.round(TARGET / naturalW));
+    const scale    = Math.max(1, Math.round(TARGET / naturalW));
 
-    // ── Snapshot text-block position BEFORE html2canvas touches the DOM ──
-    // We'll draw the text ourselves on the canvas after capture — this is the
-    // ONLY approach that is immune to html2canvas text/layout bugs.
-    // Use React ref for guaranteed DOM access — querySelector can miss elements
-    // inside React portals or when the tree hasn't painted yet.
+    // ── Snapshot text-block rect BEFORE html2canvas clones the DOM ───────
     const textBlockEl = textBlockRef.current;
     let tbRect: { x: number; y: number; w: number } | null = null;
     if (textBlockEl) {
@@ -524,36 +519,34 @@ export default function FestivalGreetingPreview() {
       };
     }
 
-    const canvas = await html2canvas(el, {
+    // ── Step 1: render with html2canvas (text block hidden) ─────────────
+    const rawCanvas = await html2canvas(el, {
       scale,
-      useCORS: true,
-      allowTaint: true,
+      useCORS:         true,
+      allowTaint:      true,
       backgroundColor: null,
-      logging: false,
+      logging:         false,
       letterRendering: true,
       onclone: (_doc, clonedEl) => {
-        // ── Fix aspectRatio (not supported by html2canvas) ───────────────
-        clonedEl.style.width = `${naturalW}px`;
-        clonedEl.style.height = `${naturalH}px`;
-        clonedEl.style.maxWidth = 'none';
+        clonedEl.style.width     = `${naturalW}px`;
+        clonedEl.style.height    = `${naturalH}px`;
+        clonedEl.style.maxWidth  = 'none';
         clonedEl.style.aspectRatio = 'auto';
-        clonedEl.style.overflow = 'hidden';
+        clonedEl.style.overflow  = 'hidden';
 
-        // ── Hide agent text — we draw it manually post-capture ───────────
-        const container = clonedEl.querySelector<HTMLElement>('#agent-text-block');
-        if (container) container.style.visibility = 'hidden';
+        const textBlock = clonedEl.querySelector<HTMLElement>('#agent-text-block');
+        if (textBlock) textBlock.style.visibility = 'hidden';
 
-        // ── Strip unsupported / animation CSS ────────────────────────────
         clonedEl.querySelectorAll<HTMLElement>('*').forEach((node) => {
           const s = node.style;
           s.backdropFilter = 'none';
           (s as any).webkitBackdropFilter = 'none';
-          s.animation = 'none';
+          s.animation     = 'none';
           s.animationDelay = '0s';
-          s.transition = 'none';
-          s.transform = 'none';
+          s.transition    = 'none';
+          s.transform     = 'none';
           if (s.borderColor && /^#[0-9a-f]{8}$/i.test(s.borderColor)) {
-            const h = s.borderColor;
+            const h  = s.borderColor;
             const r2 = parseInt(h.slice(1, 3), 16);
             const g2 = parseInt(h.slice(3, 5), 16);
             const b2 = parseInt(h.slice(5, 7), 16);
@@ -564,58 +557,53 @@ export default function FestivalGreetingPreview() {
       },
     });
 
-    // ── Canvas 2D text overdraw — pixel-perfect, zero layout engine risk ─
-    // IMPORTANT: html2canvas leaves ctx.scale(scale,scale) active after render.
-    // We reset to identity so our coordinates are in RAW CANVAS PIXELS, then
-    // manually multiply CSS-pixel values by scale ourselves.
+    // ── Step 2: copy rawCanvas → FRESH canvas with a pristine 2D context ─
+    // html2canvas may leave transforms / clips / compositing ops on its own
+    // context. A fresh canvas is guaranteed to start in the identity state so
+    // our text drawing is never suppressed.
+    const canvas    = document.createElement('canvas');
+    canvas.width    = rawCanvas.width;
+    canvas.height   = rawCanvas.height;
+    const ctx       = canvas.getContext('2d')!;  // fresh — no html2canvas residue
+
+    ctx.drawImage(rawCanvas, 0, 0);              // blit the full rendered image
+
+    // ── Step 3: overdraw agent text at measured CSS-pixel coordinates ─────
     if (tbRect) {
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0); // ← reset html2canvas scale transform
+      // All measurements in raw canvas pixels = CSS px × scale
+      const cx    = tbRect.x * scale;
+      const cy    = tbRect.y * scale;
+      const maxW  = tbRect.w * scale;
 
-        // All coordinates below are in raw canvas pixels (CSS px × scale)
-        const cx   = tbRect.x * scale;
-        const cy   = tbRect.y * scale;
-        const maxW = tbRect.w * scale;
+      const NAME_H = 20 * scale;
+      const DES_H  = 16 * scale;
+      const CON_H  = 14 * scale;
+      const GAP    =  8 * scale;
 
-        // Row heights & gaps (raw canvas pixels)
-        const NAME_H = 20 * scale;
-        const DES_H  = 16 * scale;
-        const CON_H  = 14 * scale;
-        const GAP    =  8 * scale;
+      ctx.textBaseline = 'top';
 
-        ctx.textBaseline = 'top';
+      if (agentInfo.name) {
+        ctx.font      = `bold ${14 * scale}px Inter, system-ui, -apple-system, sans-serif`;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(agentInfo.name, cx, cy, maxW);
+      }
 
-        // Row 0 — Name (bold white)
-        if (agentInfo.name) {
-          ctx.font      = `bold ${14 * scale}px Inter, system-ui, -apple-system, sans-serif`;
-          ctx.fillStyle = '#ffffff';
-          ctx.fillText(agentInfo.name, cx, cy, maxW);
-        }
+      if (agentInfo.designation) {
+        ctx.font      = `600 ${11 * scale}px Inter, system-ui, -apple-system, sans-serif`;
+        ctx.fillStyle = '#FFD700';
+        ctx.fillText(agentInfo.designation, cx, cy + NAME_H + GAP, maxW);
+      }
 
-        // Row 1 — Designation (gold)
-        if (agentInfo.designation) {
-          ctx.font      = `600 ${11 * scale}px Inter, system-ui, -apple-system, sans-serif`;
-          ctx.fillStyle = '#FFD700';
-          ctx.fillText(agentInfo.designation || 'Financial Advisor', cx, cy + NAME_H + GAP, maxW);
-        }
+      if (agentInfo.email) {
+        ctx.font      = `${10 * scale}px Inter, system-ui, -apple-system, sans-serif`;
+        ctx.fillStyle = 'rgba(255,255,255,0.82)';
+        ctx.fillText(`✉  ${agentInfo.email}`, cx, cy + NAME_H + GAP + DES_H + GAP, maxW);
+      }
 
-        // Row 2 — Email
-        if (agentInfo.email) {
-          ctx.font      = `${10 * scale}px Inter, system-ui, -apple-system, sans-serif`;
-          ctx.fillStyle = 'rgba(255,255,255,0.82)';
-          ctx.fillText(`✉  ${agentInfo.email}`, cx, cy + NAME_H + GAP + DES_H + GAP, maxW);
-        }
-
-        // Row 3 — Phone
-        if (agentInfo.phone) {
-          ctx.font      = `${10 * scale}px Inter, system-ui, -apple-system, sans-serif`;
-          ctx.fillStyle = 'rgba(255,255,255,0.82)';
-          ctx.fillText(`☎  ${agentInfo.phone}`, cx, cy + NAME_H + GAP + DES_H + GAP + CON_H + GAP, maxW);
-        }
-
-        ctx.restore(); // restores html2canvas's scale transform (safe — canvas is done)
+      if (agentInfo.phone) {
+        ctx.font      = `${10 * scale}px Inter, system-ui, -apple-system, sans-serif`;
+        ctx.fillStyle = 'rgba(255,255,255,0.82)';
+        ctx.fillText(`☎  ${agentInfo.phone}`, cx, cy + NAME_H + GAP + DES_H + GAP + CON_H + GAP, maxW);
       }
     }
 
