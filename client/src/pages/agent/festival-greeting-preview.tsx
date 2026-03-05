@@ -571,46 +571,62 @@ export default function FestivalGreetingPreview() {
 
     // ── Step 3: overdraw agent text at measured CSS-pixel coordinates ─────
     if (tbRect) {
-      // All measurements in raw canvas pixels = CSS px × scale
-      const cx    = tbRect.x * scale;
-      const maxW  = tbRect.w * scale;
+      const cx     = tbRect.x * scale;
+      const maxW   = tbRect.w * scale;
       const blockH = tbRect.h * scale;
+      const GAP    = 3 * scale;
 
-      const NAME_H = 18 * scale;
-      const DES_H  = 14 * scale;
-      const CON_H  = 13 * scale;
-      const GAP    =  3 * scale;
-
-      // Total height of all 4 rows + 3 gaps
-      const totalTextH = NAME_H + GAP + DES_H + GAP + CON_H + GAP + CON_H;
-
-      // Vertically center the text block within the measured element height
-      const cyBase = tbRect.y * scale + Math.max(0, (blockH - totalTextH) / 2);
-
-      ctx.textBaseline = 'top';
+      // Build only the rows that have content — heights adapt to presence
+      type Row = { text: string; font: string; color: string; lineH: number };
+      const rows: Row[] = [];
 
       if (agentInfo.name) {
-        ctx.font      = `bold ${14 * scale}px Inter, system-ui, -apple-system, sans-serif`;
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(agentInfo.name, cx, cyBase, maxW);
+        rows.push({
+          text:  agentInfo.name,
+          font:  `bold ${14 * scale}px Inter, system-ui, -apple-system, sans-serif`,
+          color: '#ffffff',
+          lineH: 18 * scale,
+        });
       }
-
       if (agentInfo.designation) {
-        ctx.font      = `600 ${11 * scale}px Inter, system-ui, -apple-system, sans-serif`;
-        ctx.fillStyle = '#FFD700';
-        ctx.fillText(agentInfo.designation, cx, cyBase + NAME_H + GAP, maxW);
+        rows.push({
+          text:  agentInfo.designation,
+          font:  `600 ${11 * scale}px Inter, system-ui, -apple-system, sans-serif`,
+          color: '#FFD700',
+          lineH: 14 * scale,
+        });
       }
-
       if (agentInfo.email) {
-        ctx.font      = `${10 * scale}px Inter, system-ui, -apple-system, sans-serif`;
-        ctx.fillStyle = 'rgba(255,255,255,0.82)';
-        ctx.fillText(`✉  ${agentInfo.email}`, cx, cyBase + NAME_H + GAP + DES_H + GAP, maxW);
+        rows.push({
+          text:  `✉  ${agentInfo.email}`,
+          font:  `${10 * scale}px Inter, system-ui, -apple-system, sans-serif`,
+          color: 'rgba(255,255,255,0.82)',
+          lineH: 13 * scale,
+        });
+      }
+      if (agentInfo.phone) {
+        rows.push({
+          text:  `☎  ${agentInfo.phone}`,
+          font:  `${10 * scale}px Inter, system-ui, -apple-system, sans-serif`,
+          color: 'rgba(255,255,255,0.82)',
+          lineH: 13 * scale,
+        });
       }
 
-      if (agentInfo.phone) {
-        ctx.font      = `${10 * scale}px Inter, system-ui, -apple-system, sans-serif`;
-        ctx.fillStyle = 'rgba(255,255,255,0.82)';
-        ctx.fillText(`☎  ${agentInfo.phone}`, cx, cyBase + NAME_H + GAP + DES_H + GAP + CON_H + GAP, maxW);
+      if (rows.length === 0) return canvas;
+
+      // Total height = sum of row heights + gaps between rows
+      const totalTextH = rows.reduce((s, r) => s + r.lineH, 0) + GAP * (rows.length - 1);
+
+      // Vertically center only the present rows within the text-block element
+      let y = tbRect.y * scale + Math.max(0, (blockH - totalTextH) / 2);
+
+      ctx.textBaseline = 'top';
+      for (const row of rows) {
+        ctx.font      = row.font;
+        ctx.fillStyle = row.color;
+        ctx.fillText(row.text, cx, y, maxW);
+        y += row.lineH + GAP;
       }
     }
 
