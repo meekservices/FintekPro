@@ -55,6 +55,10 @@ import {
   Filter,
   ListChecks,
   ShieldAlert,
+  Briefcase,
+  HeartPulse,
+  BellRing,
+  Crosshair,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -140,6 +144,16 @@ const agentNavCategories: NavCategory[] = [
       { title: "ITR Services", href: "/agent/tax-cases", icon: FileText, description: "ITR filing & tax services" },
       { title: "Festival Greetings", href: "/agent/festival-greetings", icon: Sparkles, description: "Send festival wishes" },
       { title: "Bulk Communication", href: "/agent/bulk-communication", icon: Mail, description: "Email/SMS campaigns" },
+    ]
+  },
+  {
+    title: "My Brand",
+    icon: Briefcase,
+    items: [
+      { title: "Advisor Profile", href: "/agent/advisor-profile", icon: Briefcase, description: "Photo, credentials & public microsite" },
+      { title: "SIP Health Monitor", href: "/agent/sip-health", icon: HeartPulse, description: "Client SIP status dashboard" },
+      { title: "Market Alert Center", href: "/agent/market-alerts", icon: BellRing, description: "Significant moves in client holdings" },
+      { title: "Portfolio Drift", href: "/agent/portfolio-drift", icon: Crosshair, description: "Detect allocation drift across clients" },
     ]
   },
   {
