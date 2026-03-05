@@ -516,6 +516,15 @@ export function EnhancedNavigation() {
         ]
       },
       {
+        title: "Agent: My Brand",
+        items: [
+          { name: "Advisor Profile", href: "/agent/advisor-profile", icon: Briefcase, description: "Photo, credentials & public microsite", badge: "NEW" },
+          { name: "Festival Greetings", href: "/agent/festival-greetings", icon: Sparkles, description: "Marketing greeting cards" },
+          { name: "SIP Health Monitor", href: "/agent/sip-health", icon: HeartPulse, description: "Client SIP status" },
+          { name: "Market Alert Center", href: "/agent/market-alerts", icon: BellRing, description: "Client holding moves" },
+        ]
+      },
+      {
         title: "Agent: Knowledge",
         items: [
           { name: "Knowledge Hub", href: "/agent/knowledge-hub", icon: BookOpen, description: "Market intelligence" },

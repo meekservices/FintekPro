@@ -18455,6 +18455,168 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
+  // ─── Advisor Brand Profile ───────────────────────────────────────────────
+  app.get("/api/agent/advisor-brand-profile", requireAgent, async (req, res) => {
+    try {
+      const [agent] = await db.select().from(schema.agents)
+        .where(eq(schema.agents.userId, req.user.id)).limit(1);
+      if (!agent) return res.json({});
+
+      // Auto-generate referral code if missing
+      if (!agent.referralCode) {
+        const code = `FP${agent.id.slice(0, 6).toUpperCase()}`;
+        await db.update(schema.agents).set({ referralCode: code })
+          .where(eq(schema.agents.id, agent.id));
+        agent.referralCode = code;
+      }
+
+      // Fetch referrals count
+      const referrals = await db.execute(
+        sql`SELECT COUNT(*) AS cnt FROM advisor_referrals WHERE referrer_id = ${agent.id}`
+      );
+
+      res.json({
+        // Identity
+        fullName:      agent.fullName,
+        email:         agent.email,
+        phone:         agent.phone,
+        photoUrl:      (agent as any).photoUrl       ?? null,
+        // Branding
+        firmName:      (agent as any).firmName       ?? null,
+        firmLogoUrl:   (agent as any).firmLogoUrl    ?? null,
+        tagline:       (agent as any).tagline        ?? null,
+        bio:           (agent as any).bio            ?? null,
+        // Credentials
+        arnCode:       agent.arnCode                 ?? null,
+        arnExpiryDate: (agent as any).arnExpiryDate  ?? null,
+        euinNumber:    agent.euinNumber              ?? null,
+        sebiRegNumber: (agent as any).sebiRegNumber  ?? null,
+        irdaiRegNumber:(agent as any).irdaiRegNumber ?? null,
+        nismCertNumber:(agent as any).nismCertNumber ?? null,
+        nismCertExpiry:(agent as any).nismCertExpiry ?? null,
+        cfpNumber:     (agent as any).cfpNumber      ?? null,
+        cfpExpiry:     (agent as any).cfpExpiry      ?? null,
+        // Business
+        yearsExperience:(agent as any).yearsExperience ?? 0,
+        aumManaged:    (agent as any).aumManaged     ?? 0,
+        activeClients: agent.activeClients           ?? 0,
+        totalClients:  agent.totalClients            ?? 0,
+        city:          (agent as any).city           ?? null,
+        state:         (agent as any).state          ?? null,
+        joiningDate:   agent.joiningDate             ?? null,
+        // Specialisations & Language
+        specializations: (agent as any).specializations ?? [],
+        languagesSpoken: (agent as any).languagesSpoken ?? [],
+        // Social
+        linkedinUrl:   (agent as any).linkedinUrl    ?? null,
+        whatsappBusiness:(agent as any).whatsappBusiness ?? null,
+        websiteUrl:    (agent as any).websiteUrl     ?? null,
+        twitterUrl:    (agent as any).twitterUrl     ?? null,
+        // Referral
+        referralCode:  agent.referralCode            ?? null,
+        referralCount: Number((referrals.rows[0] as any)?.cnt ?? 0),
+        // Visibility
+        profilePublic: (agent as any).profilePublic  ?? false,
+      });
+    } catch (err) {
+      console.error("advisor-brand-profile GET error:", err);
+      res.status(500).json({ error: "Failed to load advisor profile" });
+    }
+  });
+
+  app.put("/api/agent/advisor-brand-profile", requireAgent, async (req, res) => {
+    try {
+      const {
+        photoUrl, firmName, firmLogoUrl, tagline, bio,
+        arnCode, arnExpiryDate, euinNumber, sebiRegNumber, irdaiRegNumber,
+        nismCertNumber, nismCertExpiry, cfpNumber, cfpExpiry,
+        yearsExperience, aumManaged, city, state,
+        specializations, languagesSpoken,
+        linkedinUrl, whatsappBusiness, websiteUrl, twitterUrl,
+        profilePublic,
+        marketingName, marketingDesignation, marketingEmail, marketingPhone,
+      } = req.body;
+
+      const [existing] = await db.select().from(schema.agents)
+        .where(eq(schema.agents.userId, req.user.id)).limit(1);
+
+      const payload: Record<string, unknown> = {
+        photoUrl, firmName, firmLogoUrl, tagline, bio,
+        arnCode, arnExpiryDate: arnExpiryDate || null,
+        euinNumber, sebiRegNumber, irdaiRegNumber,
+        nismCertNumber, nismCertExpiry: nismCertExpiry || null,
+        cfpNumber, cfpExpiry: cfpExpiry || null,
+        yearsExperience: Number(yearsExperience) || 0,
+        aumManaged: aumManaged || 0,
+        city, state,
+        specializations: specializations || [],
+        languagesSpoken: languagesSpoken || [],
+        linkedinUrl, whatsappBusiness, websiteUrl, twitterUrl,
+        profilePublic: !!profilePublic,
+        marketingName, marketingDesignation, marketingEmail, marketingPhone,
+        updatedAt: new Date(),
+      };
+      // Remove undefined keys to avoid overwriting with null accidentally
+      Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+      if (existing) {
+        await db.update(schema.agents).set(payload as any)
+          .where(eq(schema.agents.id, existing.id));
+      } else {
+        await db.insert(schema.agents).values({
+          userId: req.user.id,
+          fullName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || 'Agent',
+          email: req.user.email,
+          phone: req.user.mobile || req.user.phone,
+          ...payload,
+        } as any);
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("advisor-brand-profile PUT error:", err);
+      res.status(500).json({ error: "Failed to save advisor profile" });
+    }
+  });
+
+  // Public advisor profile microsite (no auth)
+  app.get("/api/public/advisor/:referralCode", async (req, res) => {
+    try {
+      const [agent] = await db.select().from(schema.agents)
+        .where(eq(schema.agents.referralCode, req.params.referralCode)).limit(1);
+      if (!agent || !(agent as any).profilePublic) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      res.json({
+        fullName:        agent.fullName,
+        photoUrl:        (agent as any).photoUrl        ?? null,
+        firmName:        (agent as any).firmName        ?? null,
+        firmLogoUrl:     (agent as any).firmLogoUrl     ?? null,
+        tagline:         (agent as any).tagline         ?? null,
+        bio:             (agent as any).bio             ?? null,
+        arnCode:         agent.arnCode                  ?? null,
+        sebiRegNumber:   (agent as any).sebiRegNumber   ?? null,
+        irdaiRegNumber:  (agent as any).irdaiRegNumber  ?? null,
+        yearsExperience: (agent as any).yearsExperience ?? 0,
+        aumManaged:      (agent as any).aumManaged      ?? 0,
+        activeClients:   agent.activeClients            ?? 0,
+        city:            (agent as any).city            ?? null,
+        state:           (agent as any).state           ?? null,
+        specializations: (agent as any).specializations ?? [],
+        languagesSpoken: (agent as any).languagesSpoken ?? [],
+        linkedinUrl:     (agent as any).linkedinUrl     ?? null,
+        whatsappBusiness:(agent as any).whatsappBusiness?? null,
+        websiteUrl:      (agent as any).websiteUrl      ?? null,
+        marketingPhone:  agent.marketingPhone           ?? null,
+        marketingEmail:  agent.marketingEmail           ?? null,
+        designation:     agent.marketingDesignation     ?? null,
+        referralCode:    agent.referralCode,
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   // Get agent's partners
   app.get("/api/agent/partners", requireAgent, async (req, res) => {
     try {

@@ -196,6 +196,8 @@ const AgentLoanApplications = lazyWithRetry(() => import("@/pages/agent/loan-app
 const AgentLoanMarketplace = lazyWithRetry(() => import("@/pages/agent/loan-marketplace"));
 const AgentDSAPerformance = lazyWithRetry(() => import("@/pages/agent/dsa-performance"));
 const AgentPayoutClaims = lazyWithRetry(() => import("@/pages/agent/payout-claims"));
+const AdvisorBrandProfile = lazyWithRetry(() => import("@/pages/agent/advisor-brand-profile"));
+const PublicAdvisorProfile = lazyWithRetry(() => import("@/pages/public-advisor-profile"));
 const AdminAgentPayouts = lazyWithRetry(() => import("@/pages/admin/agent-payouts"));
 const AgentProspectProposals = lazyWithRetry(() => import("@/pages/agent-prospect-proposals"));
 const OnboardingPage = lazyWithRetry(() => import("@/pages/onboarding"));
@@ -1823,6 +1825,22 @@ function AgentRoutes() {
               <AgentMarketAlerts />
             </Suspense>
           </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/advisor-profile">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AdvisorBrandProfile />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/advisor/:code">
+        {() => (
+          <Suspense fallback={<LoadingState />}>
+            <PublicAdvisorProfile />
+          </Suspense>
         )}
       </Route>
       <Route path="/agent/training">
