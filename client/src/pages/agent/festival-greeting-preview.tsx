@@ -575,10 +575,10 @@ export default function FestivalGreetingPreview() {
       const cy    = tbRect.y * scale;
       const maxW  = tbRect.w * scale;
 
-      const NAME_H = 20 * scale;
-      const DES_H  = 16 * scale;
-      const CON_H  = 14 * scale;
-      const GAP    =  8 * scale;
+      const NAME_H = 18 * scale;
+      const DES_H  = 14 * scale;
+      const CON_H  = 13 * scale;
+      const GAP    =  3 * scale;
 
       ctx.textBaseline = 'top';
 
