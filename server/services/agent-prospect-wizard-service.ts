@@ -18,7 +18,7 @@ import { proposalCapitalGainsService } from "./proposal-capital-gains-service";
 import { historicalNavService } from "./historical-nav-service";
 import { getRecommendationsByCategory, getAllActiveRecommendations } from "./recommendation-products-service";
 import { mfReturnsSyncService } from "./mf-returns-sync-service";
-import { mutualFunds, schemeTransactionRules, proposalAuditLog, proposalVersions, signalResolutionLog, rebalanceGovernanceConfig, rebalanceDecisionLog } from "@shared/schema";
+import { mutualFunds, schemeTransactionRules, proposalAuditLog, proposalVersions, signalResolutionLog, rebalanceGovernanceConfig, rebalanceDecisionLog, dailyPicks } from "@shared/schema";
 import { prospectReadinessService } from "./prospect-readiness-service";
 import { allocationPolicyService } from "./allocation-policy-service";
 import { complianceSnapshotService } from "./compliance-snapshot-service";
@@ -1925,6 +1925,182 @@ const MARKET_SIGNALS = {
 const INFLATION_RATE = MARKET_SIGNALS.cpiInflation;
 const STP_TRIGGER_LUMPSUM = 500000;  // ₹5L lumpsum into equity → suggest STP
 const STP_TRIGGER_PE = 22.0;         // Nifty PE above this → suggest STP
+
+// ── Alpha Engine: SEBI category keyword map for DB-first fund discovery ──────
+// Maps wizard category + risk profile → SEBI category keywords in mutual_funds.category
+const SEBI_CATEGORY_MAP: Record<string, Record<string, string[]>> = {
+  equity: {
+    conservative:    ['Large Cap Fund', 'Large & Mid Cap Fund'],
+    moderate:        ['Flexi Cap Fund', 'Multi Cap Fund', 'Large & Mid Cap Fund', 'Focused Fund'],
+    aggressive:      ['Mid Cap Fund', 'Small Cap Fund', 'Flexi Cap Fund', 'ELSS'],
+    very_aggressive: ['Small Cap Fund', 'Multi Cap Fund', 'Sectoral/ Thematic', 'Mid Cap Fund'],
+  },
+  debt: {
+    conservative:    ['Banking and PSU Fund', 'Corporate Bond Fund', 'Short Duration Fund', 'Gilt Fund'],
+    moderate:        ['Corporate Bond Fund', 'Short Duration Fund', 'Dynamic Bond'],
+    aggressive:      ['Credit Risk', 'Dynamic Bond', 'Medium to Long Duration'],
+    very_aggressive: ['Dynamic Bond', 'Medium to Long Duration Fund'],
+  },
+  hybrid: {
+    conservative:    ['Conservative Hybrid', 'Equity Savings'],
+    moderate:        ['Aggressive Hybrid Fund', 'Dynamic Asset Allocation'],
+    aggressive:      ['Aggressive Hybrid Fund', 'Dynamic Asset Allocation', 'Multi Asset'],
+    very_aggressive: ['Multi Asset', 'Dynamic Asset Allocation'],
+  },
+  gold_fof:             { conservative: ['Gold'], moderate: ['Gold'], aggressive: ['Gold'], very_aggressive: ['Gold'] },
+  silver_fof:           { conservative: ['Silver'], moderate: ['Silver'], aggressive: ['Silver'], very_aggressive: ['Silver'] },
+  index_fund:           { conservative: ['Index Funds'], moderate: ['Index Funds'], aggressive: ['Index Funds'], very_aggressive: ['Index Funds'] },
+  etf:                  { conservative: ['Other  ETFs'], moderate: ['Other  ETFs'], aggressive: ['Other  ETFs'], very_aggressive: ['Other  ETFs'] },
+  international:        { conservative: ['FoF Overseas'], moderate: ['FoF Overseas'], aggressive: ['FoF Overseas'], very_aggressive: ['FoF Overseas'] },
+  us_markets:           { conservative: ['FoF Overseas'], moderate: ['FoF Overseas'], aggressive: ['FoF Overseas'], very_aggressive: ['FoF Overseas'] },
+  europe_markets:       { conservative: ['FoF Overseas'], moderate: ['FoF Overseas'], aggressive: ['FoF Overseas'], very_aggressive: ['FoF Overseas'] },
+  asia_pacific_markets: { conservative: ['FoF Overseas'], moderate: ['FoF Overseas'], aggressive: ['FoF Overseas'], very_aggressive: ['FoF Overseas'] },
+  emerging_markets:     { conservative: ['FoF Overseas'], moderate: ['FoF Overseas'], aggressive: ['FoF Overseas'], very_aggressive: ['FoF Overseas'] },
+};
+
+// daily_picks category mapping (wizard category → picks category column value)
+const WIZARD_TO_PICKS_CATEGORY: Record<string, string> = {
+  listed_stocks:        'listed_stocks',
+  bonds:                'bonds',
+  mld:                  'bonds',
+  reit:                 'reits_invits',
+  invit:                'reits_invits',
+  etf:                  'etfs',
+  unlisted_stocks:      'unlisted',
+  us_markets:           'global_stocks',
+  europe_markets:       'global_stocks',
+  asia_pacific_markets: 'global_stocks',
+  emerging_markets:     'global_stocks',
+  international:        'global_stocks',
+};
+
+function riskToPicksSuitableFor(riskProfile: string): string {
+  if (riskProfile === 'conservative') return 'Conservative';
+  if (riskProfile === 'moderate') return 'Balanced';
+  return 'Aggressive';
+}
+
+// DB-first fund discovery: queries mutual_funds table for top performers per SEBI category
+async function getDbFundsForCategory(wizardCategory: string, riskProfile: string): Promise<any[]> {
+  const keywords = (SEBI_CATEGORY_MAP[wizardCategory]?.[riskProfile]) ||
+                   (SEBI_CATEGORY_MAP[wizardCategory]?.moderate) || [];
+  if (keywords.length === 0) return [];
+
+  try {
+    const allResults: any[] = [];
+    for (const keyword of keywords) {
+      const rows = await db.select({
+        schemeName:   mutualFunds.schemeName,
+        fundHouse:    mutualFunds.fundHouse,
+        category:     mutualFunds.category,
+        returns1y:    mutualFunds.returns1y,
+        returns3y:    mutualFunds.returns3y,
+        returns5y:    mutualFunds.returns5y,
+        expenseRatio: mutualFunds.expenseRatio,
+        aum:          mutualFunds.aum,
+        riskLevel:    mutualFunds.riskLevel,
+        crisilScore:  mutualFunds.crisilRiskAdjustedScore,
+        planType:     mutualFunds.planType,
+      })
+      .from(mutualFunds)
+      .where(and(
+        sql`${mutualFunds.category} ILIKE ${'%' + keyword + '%'}`,
+        isNotNull(mutualFunds.returns3y),
+        sql`${mutualFunds.returns3y}::numeric > 0`,
+        sql`COALESCE(${mutualFunds.aum}::numeric, 0) > 500`,
+        sql`LOWER(COALESCE(${mutualFunds.planType}, 'regular')) = 'regular'`,
+      ))
+      .orderBy(desc(mutualFunds.returns3y))
+      .limit(10);
+      allResults.push(...rows);
+      if (allResults.length >= 20) break;
+    }
+
+    const seen = new Set<string>();
+    const unique = allResults.filter(f => {
+      const key = (f.schemeName || '').toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return unique.slice(0, 20).map(f => ({
+      name:         f.schemeName || '',
+      amc:          f.fundHouse || 'Unknown',
+      category:     f.category || wizardCategory,
+      returns1Y:    f.returns1y !== null ? parseFloat(String(f.returns1y)) : null,
+      returns3Y:    f.returns3y !== null ? parseFloat(String(f.returns3y)) : null,
+      returns5Y:    f.returns5y !== null ? parseFloat(String(f.returns5y)) : null,
+      expenseRatio: f.expenseRatio !== null ? `${parseFloat(String(f.expenseRatio)).toFixed(2)}%` : '1.5%',
+      risk:         f.riskLevel || 'Moderate',
+      productType:  'mutual_fund',
+      _dbCrisilScore: f.crisilScore !== null ? parseFloat(String(f.crisilScore)) : null,
+      _fromDb:      true,
+    }));
+  } catch (err) {
+    console.warn(`[AlphaEngine] DB fund fetch failed for ${wizardCategory}/${riskProfile}:`, (err as Error).message);
+    return [];
+  }
+}
+
+// daily_picks integration: AI-curated picks for stocks, bonds, REITs, ETFs, unlisted
+async function getDailyPicksForCategory(wizardCategory: string, riskProfile: string): Promise<any[]> {
+  const picksCategory = WIZARD_TO_PICKS_CATEGORY[wizardCategory];
+  if (!picksCategory) return [];
+
+  const suitableFor = riskToPicksSuitableFor(riskProfile);
+  try {
+    let picks = await db.select()
+      .from(dailyPicks)
+      .where(and(
+        eq(dailyPicks.category, picksCategory as any),
+        eq(dailyPicks.status, 'live' as any),
+        sql`${dailyPicks.suitableFor} @> ARRAY[${suitableFor}]::text[]`,
+      ))
+      .orderBy(desc(dailyPicks.confidenceScore), desc(dailyPicks.createdAt))
+      .limit(5);
+
+    if (picks.length === 0) {
+      picks = await db.select()
+        .from(dailyPicks)
+        .where(and(
+          eq(dailyPicks.category, picksCategory as any),
+          eq(dailyPicks.status, 'live' as any),
+        ))
+        .orderBy(desc(dailyPicks.confidenceScore), desc(dailyPicks.createdAt))
+        .limit(5);
+    }
+
+    const productTypeMap: Record<string, string> = {
+      listed_stocks: 'listed_stock', bonds: 'bond', mld: 'bond',
+      reit: 'reit', invit: 'reit', etf: 'etf', unlisted_stocks: 'unlisted_stock',
+    };
+    const productType = productTypeMap[wizardCategory] || 'listed_stock';
+
+    return picks.map(p => ({
+      name:           p.instrumentName || '',
+      amc:            p.exchange || 'NSE/BSE',
+      category:       p.sectorCategory || picksCategory,
+      returns1Y:      p.returnPct !== null ? parseFloat(String(p.returnPct)) : null,
+      returns3Y:      null,
+      returns5Y:      null,
+      risk:           p.riskLevel || 'Moderate',
+      productType,
+      currentPrice:   p.currentPrice !== null ? parseFloat(String(p.currentPrice)) : undefined,
+      targetPrice:    p.targetPrice !== null ? parseFloat(String(p.targetPrice)) : undefined,
+      stopLoss:       p.stoplossPrice !== null ? parseFloat(String(p.stoplossPrice)) : undefined,
+      confidence:     p.confidenceScore ?? undefined,
+      aiRationale:    p.rationale ?? undefined,
+      symbol:         p.symbol ?? undefined,
+      isin:           p.isin ?? undefined,
+      _fromDailyPicks: true,
+      _pickId:        p.id,
+    }));
+  } catch (err) {
+    console.warn(`[AlphaEngine] daily_picks fetch failed for ${wizardCategory}:`, (err as Error).message);
+    return [];
+  }
+}
 
 // ── Alpha Engine Helper Functions ────────────────────────────────────────────
 function computeFundCompositeScore(fund: any): number {
@@ -4261,15 +4437,82 @@ class AgentProspectWizardService {
     const amcUsageCount: Record<string, number> = {};
     const MAX_FUNDS_PER_AMC = 2;
 
+    // ── ALPHA ENGINE: Anti-overdiversification cap ────────────────────────────
+    // Research (Markowitz, Statman): 6-8 uncorrelated instruments capture ~90% of diversification
+    // benefit. Beyond 12, tracking overhead rises while marginal alpha drops to near zero.
+    const MAX_TOTAL_INSTRUMENTS = investmentAmount <= 500000 ? 6 :
+                                  investmentAmount <= 2500000 ? 8 : 10;
+    console.log(`[AlphaEngine] Max instruments cap: ${MAX_TOTAL_INSTRUMENTS} for ₹${investmentAmount} portfolio`);
+
+    // ── ALPHA ENGINE: Existing holdings subcategory overlap guard ─────────────
+    // Extracts subcategory keywords from existing holdings to avoid doubling up
+    const existingSubcategoryKeywords = new Set<string>();
+    for (const h of existingHoldings) {
+      const name = ((h as any).fundName || (h as any).instrumentName || (h as any).name || '').toLowerCase();
+      const cat  = ((h as any).category || '').toLowerCase();
+      const subCatKeywords = [
+        'small cap', 'mid cap', 'large cap', 'flexi cap', 'multi cap', 'focused',
+        'gilt', 'liquid', 'credit risk', 'dynamic bond', 'short duration', 'corporate bond',
+        'pharma', 'technology', 'banking', 'infrastructure', 'gold', 'silver', 'it fund',
+        'nifty 50', 'nifty next 50', 'sensex', 'nasdaq', 's&p 500',
+      ];
+      for (const kw of subCatKeywords) {
+        if (name.includes(kw) || cat.includes(kw)) existingSubcategoryKeywords.add(kw);
+      }
+    }
+    if (existingSubcategoryKeywords.size > 0) {
+      console.log(`[AlphaEngine] Overlap guard active. Existing subcategories: ${[...existingSubcategoryKeywords].join(', ')}`);
+    }
+
+    // Sort by allocation descending — highest-allocation categories get priority before cap kicks in
+    filteredAllocations.sort((a, b) => b.allocation - a.allocation);
+
     // Generate suggestions for each category based on allocations
     let matchScoreCounter = 95;
     
     for (const { category, allocation } of filteredAllocations) {
       if (allocation === 0) continue;
-      
-      // Use async sanitized access with DB fallback for live returns
-      const categoryFunds = await getFundsFromCategorySanitizedAsync(category, riskProfile.riskTolerance);
-      
+
+      // ── ALPHA ENGINE: Stop if max instrument cap reached ──────────────────
+      if (suggestions.length >= MAX_TOTAL_INSTRUMENTS) {
+        console.log(`[AlphaEngine] Cap reached (${MAX_TOTAL_INSTRUMENTS} instruments). Skipping remaining categories.`);
+        break;
+      }
+
+      // ── ALPHA ENGINE: DB-first fund discovery ─────────────────────────────
+      // For MF categories: query mutual_funds DB for actual top performers
+      // For non-MF (stocks/bonds/REITs/ETFs/unlisted): use AI-curated daily_picks
+      let categoryFunds: any[] = [];
+      const isNonMFCategory = Boolean(WIZARD_TO_PICKS_CATEGORY[category]);
+
+      if (isNonMFCategory) {
+        // Step 1: Try AI daily_picks (highest quality — curated by Gemini/OpenAI)
+        const picks = await getDailyPicksForCategory(category, riskProfile.riskTolerance);
+        if (picks.length > 0) {
+          console.log(`[AlphaEngine] ${category}: ${picks.length} AI daily_picks loaded (primary)`);
+          categoryFunds = picks;
+        }
+        // Step 2: Fallback to hardcoded catalog if no live picks
+        if (categoryFunds.length === 0) {
+          categoryFunds = await getFundsFromCategorySanitizedAsync(category, riskProfile.riskTolerance);
+          console.log(`[AlphaEngine] ${category}: ${categoryFunds.length} catalog funds loaded (fallback)`);
+        }
+      } else {
+        // Step 1: Query mutual_funds DB directly (15K+ real schemes, sorted by 3Y returns)
+        const dbFunds = await getDbFundsForCategory(category, riskProfile.riskTolerance);
+        if (dbFunds.length >= 3) {
+          console.log(`[AlphaEngine] ${category}: ${dbFunds.length} DB funds loaded (primary)`);
+          categoryFunds = dbFunds;
+        } else {
+          // Step 2: Fallback to hardcoded catalog (enriched with live returns from mfapi)
+          const catalogFunds = await getFundsFromCategorySanitizedAsync(category, riskProfile.riskTolerance);
+          categoryFunds = [...dbFunds, ...catalogFunds.filter((c: any) =>
+            !dbFunds.some(d => d.name.toLowerCase() === (c.name || '').toLowerCase())
+          )];
+          console.log(`[AlphaEngine] ${category}: ${dbFunds.length} DB + ${catalogFunds.length} catalog funds (hybrid)`);
+        }
+      }
+
       if (categoryFunds.length === 0) continue;
 
       // ── ALPHA ENGINE: Composite score sort (Sharpe + returns + expense ratio) ──
@@ -4318,6 +4561,22 @@ class AgentProspectWizardService {
         
         if (fundAmount <= 0) return;
 
+        // ── ALPHA ENGINE: Existing holdings overlap guard ──────────────────────
+        // Skip funds whose subcategory is already represented in existing holdings
+        if (existingSubcategoryKeywords.size > 0) {
+          const fundNameLower = (fund.name || '').toLowerCase();
+          const fundCatLower  = (fund.category || '').toLowerCase();
+          const overlapping = Array.from(existingSubcategoryKeywords)
+            .some(kw => fundNameLower.includes(kw) || fundCatLower.includes(kw));
+          if (overlapping) {
+            console.log(`[AlphaEngine] Overlap guard: skipping "${fund.name}" — subcategory already in existing holdings`);
+            return;
+          }
+        }
+
+        // ── ALPHA ENGINE: Anti-overdiversification inner guard ─────────────────
+        if (suggestions.length >= MAX_TOTAL_INSTRUMENTS) return;
+
         // Alpha engine: build enriched metrics
         const alphaMetrics = FUND_ALPHA_METRICS[fund.name] || { sharpe: null, aumCr: null };
         const r3 = typeof fund.returns3Y === 'number' ? fund.returns3Y : null;
@@ -4329,16 +4588,34 @@ class AgentProspectWizardService {
         const sharpeStr = alphaMetrics.sharpe ? `Sharpe: ${alphaMetrics.sharpe} | ` : '';
         const aumStr = alphaMetrics.aumCr ? `AUM: ₹${alphaMetrics.aumCr.toLocaleString('en-IN')}Cr | ` : '';
         const realReturnStr = realReturn3Y !== null ? `Real Return (inflation-adj): ${realReturn3Y}% | ` : '';
+
+        // Build rationale — daily_picks use their own AI-generated rationale, MFs use composite score
+        const isFromPicks = Boolean(fund._fromDailyPicks);
+        const targetPriceStr = fund.targetPrice ? ` Target: ₹${fund.targetPrice.toLocaleString('en-IN')}.` : '';
+        const stopLossStr    = fund.stopLoss     ? ` Stop-loss: ₹${fund.stopLoss.toLocaleString('en-IN')}.` : '';
+        const confidenceStr  = fund.confidence   ? ` Confidence: ${fund.confidence}%.` : '';
+
+        const rationaleText = isFromPicks
+          ? `**AI Alpha Pick — ${fund.name}** (${fund.category}).${confidenceStr}${targetPriceStr}${stopLossStr} ${fund.aiRationale || 'AI-curated pick aligned with your risk profile.'}`
+          : `**Why ${fund.name}?** Composite Alpha Score: ${compositeScore ?? 'N/A'}. ${sharpeStr}${aumStr}${realReturnStr}This ${fund.category} fund from ${fund.amc} delivers ${fund.returns3Y}% 3Y CAGR at ${fund.risk} risk — aligned with your ${riskProfile.riskTolerance} profile and ${riskProfile.investmentHorizon.replace(/_/g, ' ')} horizon.${taxNote}`;
         
         suggestions.push({
           productType: fund.productType || 'mutual_fund',
           productName: fund.name,
           suggestedAmount: fundAmount,
-          expectedReturn: `${fund.returns3Y}%`,
-          riskLevel: fund.risk.toLowerCase(),
+          expectedReturn: `${fund.returns3Y ?? (fund.returns1Y ? `${fund.returns1Y} (1Y)` : 'N/A')}%`,
+          riskLevel: (fund.risk || 'moderate').toLowerCase(),
           matchScore: matchScoreCounter--,
-          rationale: `**Why ${fund.name}?** Composite Alpha Score: ${compositeScore ?? 'N/A'}. ${sharpeStr}${aumStr}${realReturnStr}This ${fund.category} fund from ${fund.amc} delivers ${fund.returns3Y}% 3Y CAGR at ${fund.risk} risk — aligned with your ${riskProfile.riskTolerance} profile and ${riskProfile.investmentHorizon.replace(/_/g, ' ')} horizon.${taxNote}`,
-          highlights: [
+          rationale: rationaleText,
+          highlights: isFromPicks ? [
+            `Source: AI-Curated Alpha Pick`,
+            `Category: ${fund.category}`,
+            ...(fund.currentPrice  ? [`Current Price: ₹${fund.currentPrice.toLocaleString('en-IN')}`] : []),
+            ...(fund.targetPrice   ? [`Target: ₹${fund.targetPrice.toLocaleString('en-IN')} (${fund.currentPrice ? Math.round(((fund.targetPrice - fund.currentPrice) / fund.currentPrice) * 100) : '?'}% upside)`] : []),
+            ...(fund.stopLoss      ? [`Stop-loss: ₹${fund.stopLoss.toLocaleString('en-IN')}`] : []),
+            ...(fund.confidence    ? [`AI Confidence: ${fund.confidence}%`] : []),
+            `Risk: ${fund.risk}`,
+          ] : [
             `AMC: ${fund.amc}`,
             `Category: ${fund.category}`,
             `1Y Returns: ${fund.returns1Y}%`,
@@ -4360,6 +4637,14 @@ class AgentProspectWizardService {
             sharpeRatio: alphaMetrics.sharpe || null,
             compositeScore,
             realReturn3Y,
+            ...(isFromPicks ? {
+              currentPrice:  fund.currentPrice,
+              targetPrice:   fund.targetPrice,
+              stopLoss:      fund.stopLoss,
+              confidence:    fund.confidence,
+              symbol:        fund.symbol,
+              isin:          fund.isin,
+            } : {}),
           },
           amc: fund.amc,
           category: fund.category,
@@ -4372,7 +4657,9 @@ class AgentProspectWizardService {
           realReturn3Y,
           allocationPercentage: Math.round((fundAmount / investmentAmount) * 100),
           recommendedAmount: fundAmount,
-          selectionReason: `**Selection Criteria:** (1) Composite Alpha Score ${compositeScore ?? 'N/A'} — ranked by risk-adjusted returns (3Y CAGR, 5Y CAGR, Sharpe ratio, expense ratio), (2) ${fund.returns3Y}% 3Y / ${fund.returns5Y}% 5Y CAGR vs category benchmark, (3) Sharpe ${alphaMetrics.sharpe ?? 'N/A'} — measures return per unit of volatility, (4) ${fund.risk} risk aligns with ${riskProfile.riskTolerance} profile, (5) AMC diversification: max 2 funds per AMC across portfolio to reduce concentration risk.`
+          selectionReason: isFromPicks
+            ? `**AI Alpha Pick:** Selected from today's AI-curated picks. Confidence: ${fund.confidence ?? 'N/A'}%. ${fund.targetPrice && fund.currentPrice ? `Risk-reward: ${Math.round(((fund.targetPrice - fund.currentPrice) / fund.currentPrice) * 100)}% potential upside.` : ''} Aligned with ${riskProfile.riskTolerance} risk profile.`
+            : `**Selection Criteria:** (1) Composite Alpha Score ${compositeScore ?? 'N/A'} — ranked by risk-adjusted returns (3Y CAGR, 5Y CAGR, Sharpe ratio, expense ratio), (2) ${fund.returns3Y}% 3Y / ${fund.returns5Y}% 5Y CAGR vs category benchmark, (3) Sharpe ${alphaMetrics.sharpe ?? 'N/A'} — measures return per unit of volatility, (4) ${fund.risk} risk aligns with ${riskProfile.riskTolerance} profile, (5) AMC diversification: max 2 funds per AMC across portfolio to reduce concentration risk. ${fund._fromDb ? '(6) Selected from live DB — top performer in SEBI category.' : ''}`
         } as any);
       });
     }
