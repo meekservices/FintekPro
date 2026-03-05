@@ -945,7 +945,7 @@ router.post("/proposal-analytics", async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, message: "Authentication required" });
     }
 
-    const { holdings, riskProfile, analysis, sectionsRequested, investmentGoals } = req.body;
+    const { holdings, riskProfile, analysis, sectionsRequested, investmentGoals, selectedCategories } = req.body;
     if (!holdings || !Array.isArray(holdings)) {
       return res.status(400).json({ success: false, message: "Holdings array required" });
     }
@@ -1027,7 +1027,7 @@ router.post("/proposal-analytics", async (req: Request, res: Response) => {
     }
     if (requestedSections.includes('SIP_RECOMMENDATIONS')) {
       analytics.sipRecommendations = {
-        data: await generateSipRecommendations(riskProfile, analysis, Array.isArray(investmentGoals) ? investmentGoals : []),
+        data: await generateSipRecommendations(riskProfile, analysis, Array.isArray(investmentGoals) ? investmentGoals : [], Array.isArray(selectedCategories) ? selectedCategories : undefined),
         assumptions: { minSipAmount: 500, maxFundsPerCategory: 3 },
         dataSource: 'recommendation_engine'
       };
@@ -1654,11 +1654,39 @@ function generatePriorityRecommendations(holdings: NormalizedHolding[], riskProf
   return recommendations.sort((a, b) => a.priority - b.priority);
 }
 
-async function generateSipRecommendations(riskProfile: any, analysis: any, goals: Array<{ monthlyContribution?: number; targetAmount?: number; description?: string }> = []) {
+async function generateSipRecommendations(
+  riskProfile: any,
+  analysis: any,
+  goals: Array<{ monthlyContribution?: number; targetAmount?: number; description?: string }> = [],
+  selectedCategories?: string[]
+) {
   const tolerance = riskProfile?.riskTolerance || 'moderate';
-  
-  // Use the sum of all goal monthly contributions if provided, otherwise derive from portfolio or default
+
+  // Lumpsum-only product categories — SIP is not applicable for these
+  const LUMPSUM_ONLY_CATEGORIES = new Set([
+    'listed_stocks', 'reit', 'invit', 'unlisted_stocks',
+    'bonds', 'ncd', 'sgb', 'pms', 'aif', 'mld', 'structured_products'
+  ]);
+  if (
+    selectedCategories &&
+    selectedCategories.length > 0 &&
+    selectedCategories.every(c => LUMPSUM_ONLY_CATEGORIES.has(c))
+  ) {
+    console.log('[SIP] All selected categories are lumpsum-only — skipping SIP recommendations');
+    return [];
+  }
+
+  // GAP 1 FIX: Distinguish between "goals explicitly set to 0" vs "no goals provided"
+  // If goals were explicitly provided but all have monthlyContribution = 0, the agent
+  // intends no SIP (lumpsum-only). Return empty list — do NOT fall back to a default.
+  const goalsProvided = goals.length > 0;
   const totalGoalSip = goals.reduce((sum, g) => sum + (Number(g.monthlyContribution) || 0), 0);
+  if (goalsProvided && totalGoalSip === 0) {
+    console.log('[SIP] Goals provided with zero monthly contribution — agent intends no SIP');
+    return [];
+  }
+
+  // Use goal-derived SIP if goals had values; otherwise derive from portfolio or use safe default
   const monthlyAmount = totalGoalSip > 0
     ? totalGoalSip
     : analysis?.totalValue ? Math.round(analysis.totalValue * 0.05 / 12) : 10000;

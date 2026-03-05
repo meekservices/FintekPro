@@ -715,12 +715,24 @@ export default function AgentProspectWizard() {
     
     setSelectedCategories(newCategories);
     
-    // Redistribute allocations proportionally among selected categories
-    const newAllocations = computeAllocationsForSelectedCategories(
-      newCategories,
-      riskProfile.riskTolerance
-    );
-    setCustomAllocations(newAllocations);
+    if (categorySelectionMode === 'ai_default') {
+      // AI mode: recompute proportionally from risk-profile defaults
+      const newAllocations = computeAllocationsForSelectedCategories(
+        newCategories,
+        riskProfile.riskTolerance
+      );
+      setCustomAllocations(newAllocations);
+    } else {
+      // GAP 2B FIX: Manual mode — preserve existing % entries.
+      // When removing a category, zero its allocation only. When adding, leave at 0 so agent sets it.
+      if (!checked) {
+        const allocationKey = CATEGORY_TO_ALLOCATION_MAP[categoryId];
+        if (allocationKey) {
+          setCustomAllocations(prev => ({ ...prev, [allocationKey]: 0 }));
+        }
+      }
+      // Adding a new category in manual mode: leave allocation at 0 — agent will set it manually
+    }
   };
   
   // Reset both categories and allocations to AI defaults for risk profile
@@ -776,14 +788,18 @@ export default function AgentProspectWizard() {
     }
   }, [currentStep, categorySelectionMode, riskProfile.riskTolerance]);
 
-  // Redistribute allocations proportionally when entering Step 7 in manual mode
+  // GAP 2A FIX: Only auto-populate allocations when entering Step 7 if they are all zero.
+  // Previously this fired on every step-7 entry and wiped the agent's manual % inputs.
   useEffect(() => {
     if (currentStep === 7 && categorySelectionMode === 'manual' && selectedCategories.length > 0) {
-      const redistributed = computeAllocationsForSelectedCategories(
-        selectedCategories,
-        riskProfile.riskTolerance as keyof typeof DEFAULT_ALLOCATIONS
-      );
-      setCustomAllocations(redistributed);
+      const currentTotal = Object.values(customAllocations).reduce((a, b) => a + b, 0);
+      if (currentTotal === 0) {
+        const redistributed = computeAllocationsForSelectedCategories(
+          selectedCategories,
+          riskProfile.riskTolerance as keyof typeof DEFAULT_ALLOCATIONS
+        );
+        setCustomAllocations(redistributed);
+      }
     }
   }, [currentStep, categorySelectionMode, selectedCategories.length, riskProfile.riskTolerance]);
   
@@ -2209,7 +2225,7 @@ export default function AgentProspectWizard() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ holdings, riskProfile, analysis: data, investmentGoals: Array.isArray(investmentGoals) ? investmentGoals : [] })
+            body: JSON.stringify({ holdings, riskProfile, analysis: data, investmentGoals: Array.isArray(investmentGoals) ? investmentGoals : [], selectedCategories })
           });
           if (analyticsRes.ok) {
             const analyticsData = await analyticsRes.json();
@@ -2310,7 +2326,7 @@ export default function AgentProspectWizard() {
     mutationFn: async () => {
       return await apiRequest("/api/agent-wizard/proposal-analytics", {
         method: "POST",
-        body: JSON.stringify({ holdings, riskProfile, analysis, investmentGoals: Array.isArray(investmentGoals) ? investmentGoals : [] })
+        body: JSON.stringify({ holdings, riskProfile, analysis, investmentGoals: Array.isArray(investmentGoals) ? investmentGoals : [], selectedCategories })
       });
     },
     onSuccess: (data) => {
@@ -6595,22 +6611,22 @@ export default function AgentProspectWizard() {
               <div className="space-y-4">
                 <h4 className="font-medium">Recommended Monthly SIP</h4>
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <p className="text-3xl font-bold text-blue-600">{formatCurrency((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) || 25000)}</p>
-                  <p className="text-sm text-muted-foreground">Based on your goal contributions</p>
+                  <p className="text-3xl font-bold text-blue-600">{formatCurrency((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0))}</p>
+                  <p className="text-sm text-muted-foreground">{(Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) === 0 ? 'No SIP — lumpsum-only investment' : 'Based on your goal contributions'}</p>
                 </div>
                 
                 <div className="space-y-3">
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                     <span className="text-sm">Equity Funds SIP</span>
-                    <span className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) || 25000) * 0.6)}</span>
+                    <span className="font-semibold">{formatCurrency((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) * 0.6)}</span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                     <span className="text-sm">Debt Funds SIP</span>
-                    <span className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) || 25000) * 0.3)}</span>
+                    <span className="font-semibold">{formatCurrency((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) * 0.3)}</span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                     <span className="text-sm">Gold/Hybrid SIP</span>
-                    <span className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) || 25000) * 0.1)}</span>
+                    <span className="font-semibold">{formatCurrency((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) * 0.1)}</span>
                   </div>
                 </div>
               </div>
@@ -6644,23 +6660,33 @@ export default function AgentProspectWizard() {
                   </div>
                 </div>
                 
-                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <h5 className="font-medium text-green-700 dark:text-green-300 mb-2">Projected Growth</h5>
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div>
-                      <p className="text-xs text-muted-foreground">5 Years</p>
-                      <p className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) || 25000) * 60 * 1.5)}</p>
+                {(() => {
+                  const totalSip = (Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0);
+                  return totalSip > 0 ? (
+                    <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                      <h5 className="font-medium text-green-700 dark:text-green-300 mb-2">Projected SIP Growth</h5>
+                      <div className="grid grid-cols-3 gap-3 text-center">
+                        <div>
+                          <p className="text-xs text-muted-foreground">5 Years</p>
+                          <p className="font-semibold">{formatCurrency(totalSip * 60 * 1.5)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">10 Years</p>
+                          <p className="font-semibold">{formatCurrency(totalSip * 120 * 2.2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">15 Years</p>
+                          <p className="font-semibold">{formatCurrency(totalSip * 180 * 3.5)}</p>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">10 Years</p>
-                      <p className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) || 25000) * 120 * 2.2)}</p>
+                  ) : (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <p className="text-sm text-amber-700 dark:text-amber-300 font-medium">Lumpsum-only investment — no SIP projections applicable.</p>
+                      <p className="text-xs text-muted-foreground mt-1">Set a monthly contribution in the Goals section to enable SIP growth projections.</p>
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">15 Years</p>
-                      <p className="font-semibold">{formatCurrency(((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) || 25000) * 180 * 3.5)}</p>
-                    </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
             </div>
 

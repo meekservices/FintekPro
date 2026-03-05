@@ -2827,9 +2827,10 @@ class AgentProspectWizardService {
       very_aggressive: { equity: 21, debt: 5, hybrid: 5, gold: 2, silver: 3, index: 6, etf: 8, international: 0, us_markets: 10, europe_markets: 5, asia_pacific_markets: 7, emerging_markets: 6, reit: 5, invit: 3, bonds: 2, mld: 0, pms: 0, aif: 0, listed_stocks: 7, unlisted_stocks: 5 }
     };
     
-    // Use custom allocations if provided
-    let targetAllocations = customAllocations && 
-      (customAllocations.equity > 0 || customAllocations.debt > 0 || customAllocations.hybrid > 0)
+    // GAP 3 FIX: Use any non-zero custom allocation — not just equity/debt/hybrid.
+    // Previously this missed lumpsum-only selections like stocks/REIT/InvIT (equity=0,debt=0,hybrid=0).
+    let targetAllocations = customAllocations &&
+      Object.values(customAllocations).some(v => (v as number) > 0)
       ? { ...defaultAllocations.moderate, ...customAllocations }
       : defaultAllocations[riskProfile.riskTolerance] || defaultAllocations.moderate;
     
@@ -2887,6 +2888,14 @@ class AgentProspectWizardService {
         });
         console.log('[Rebalancing] No allocations for selected categories, distributed equally');
       } else if (totalSelectedAllocation !== 100) {
+        // GAP 5 FIX: Log a visible warning so the agent/audit trail knows allocations were rescaled.
+        // The frontend blocks proposal generation when total !== 100%, but if custom allocations
+        // arrive here without summing to 100, we scale and warn rather than silently distorting.
+        console.warn(
+          `[Rebalancing] ⚠️ Agent allocations summed to ${totalSelectedAllocation}% (expected 100%). ` +
+          `Rescaling proportionally. Categories: ` +
+          selectedCategories.map(c => `${c}=${(newAllocations as any)[categoryToAllocationKey[c] || c]}%`).join(', ')
+        );
         const scaleFactor = 100 / totalSelectedAllocation;
         let assigned = 0;
         const selectedKeys = selectedCategories.map(cat => categoryToAllocationKey[cat] || cat);
@@ -3773,16 +3782,10 @@ class AgentProspectWizardService {
     };
     
     // Use custom allocations if provided and has non-zero values, otherwise use defaults
-    const hasValidCustomAllocations = customAllocations && 
-      (customAllocations.equity > 0 || customAllocations.debt > 0 || customAllocations.hybrid > 0 || 
-       customAllocations.gold > 0 || (customAllocations.silver || 0) > 0 || (customAllocations.index || 0) > 0 || (customAllocations.etf || 0) > 0 ||
-       (customAllocations.international || 0) > 0 || (customAllocations.us_markets || 0) > 0 || 
-       (customAllocations.europe_markets || 0) > 0 || (customAllocations.asia_pacific_markets || 0) > 0 || 
-       (customAllocations.emerging_markets || 0) > 0 || (customAllocations.reit || 0) > 0 || (customAllocations.invit || 0) > 0 ||
-       (customAllocations.bonds || 0) > 0 || (customAllocations.mld || 0) > 0 || 
-       (customAllocations.listed_stocks || 0) > 0 || (customAllocations.unlisted_stocks || 0) > 0 ||
-       (customAllocations.pms || 0) > 0 || (customAllocations.aif || 0) > 0);
-    
+    // GAP 3 FIX: Check any non-zero key — replaces the fragile long OR chain.
+    const hasValidCustomAllocations = customAllocations &&
+      Object.values(customAllocations).some(v => (v as number) > 0);
+
     const allocations = hasValidCustomAllocations 
       ? { ...defaultAllocations.moderate, ...customAllocations }
       : defaultAllocations[riskProfile.riskTolerance] || defaultAllocations.moderate;
