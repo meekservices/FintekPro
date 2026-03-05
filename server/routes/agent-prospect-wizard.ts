@@ -2118,12 +2118,11 @@ router.get("/zoho/team-agents", async (req: Request, res: Response) => {
       return res.status(403).json({ success: false, message: "Only master agents can access team agents" });
     }
 
-    // Get sub-agents for this master agent
+    // Get master agent's info
     const { db } = await import('../db');
-    const { users, partners } = await import('@shared/schema');
-    const { eq, or } = await import('drizzle-orm');
+    const { users } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
 
-    // Get the master agent's info
     const masterAgent = await db.select({
       id: users.id,
       firstName: users.firstName,
@@ -2131,31 +2130,14 @@ router.get("/zoho/team-agents", async (req: Request, res: Response) => {
       email: users.email
     }).from(users).where(eq(users.id, agentId)).limit(1);
 
-    // Get sub-agents linked to this master
-    const subAgents = await db.select({
-      id: users.id,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      email: users.email
-    }).from(users)
-    .innerJoin(partners, eq(users.id, partners.userId))
-    .where(eq(partners.masterAgentId, agentId));
-
-    // Combine master + sub-agents
-    const teamAgents = [
-      ...(masterAgent.length > 0 ? [{
-        id: masterAgent[0].id,
-        name: `${masterAgent[0].firstName || ''} ${masterAgent[0].lastName || ''}`.trim() || masterAgent[0].email || 'Me (Master)',
-        email: masterAgent[0].email,
-        isMaster: true
-      }] : []),
-      ...subAgents.map(a => ({
-        id: a.id,
-        name: `${a.firstName || ''} ${a.lastName || ''}`.trim() || a.email || 'Unknown',
-        email: a.email,
-        isMaster: false
-      }))
-    ];
+    // Return master agent only — sub-agent hierarchy lookup requires a dedicated
+    // agent_hierarchy table which does not yet exist in this schema.
+    const teamAgents = masterAgent.length > 0 ? [{
+      id: masterAgent[0].id,
+      name: `${masterAgent[0].firstName || ''} ${masterAgent[0].lastName || ''}`.trim() || masterAgent[0].email || 'Me (Master)',
+      email: masterAgent[0].email,
+      isMaster: true
+    }] : [];
 
     res.json({ success: true, agents: teamAgents });
   } catch (error: any) {

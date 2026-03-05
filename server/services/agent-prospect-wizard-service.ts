@@ -3873,8 +3873,36 @@ class AgentProspectWizardService {
         if (actualAmount < 2000) continue;
 
         const categoryFunds = await getFundsFromCategorySanitizedAsync(category, riskProfile.riskTolerance);
-        const eligibleForLumpsum = await selectEligibleFundsForLumpsum(categoryFunds, 1);
-        const fundToRecommend = eligibleForLumpsum[0] || null;
+        // Fetch up to 3 candidates so the concentration filter below has alternatives to pick from
+        const eligibleForLumpsum = await selectEligibleFundsForLumpsum(categoryFunds, 3);
+
+        // Normalise name for portfolio concentration check
+        const normalizeForConcentrationCheck = (name: string): string =>
+          (name || '').toLowerCase()
+            .replace(/\s+(ltd\.?|limited|inc\.?|corporation|corp\.?|pvt\.?|private|llp|llc|co\.)$/i, '')
+            .replace(/[.\-,&]/g, '')
+            .replace(/\s+/g, '')
+            .trim();
+
+        // Filter out any fund that is already at high concentration in the portfolio
+        // to avoid recommending "buy more" of something that already has PROFIT_BOOK risk.
+        // Threshold: same 25% concentration level that triggers PROFIT_BOOK.
+        const safeForIncrease = eligibleForLumpsum.filter(fund => {
+          const fundNorm = normalizeForConcentrationCheck(fund.name);
+          const alreadyConcentrated = normalizedHoldings.some(h => {
+            const holdNorm = normalizeForConcentrationCheck(h.name || (h as any).productName || '');
+            const holdValue = h.currentValue || 0;
+            const matchesName = holdNorm && fundNorm && holdNorm === fundNorm;
+            const matchesIsin = fund.isin && (h as any).isin && fund.isin === (h as any).isin;
+            return (matchesName || matchesIsin) && totalValue > 0 && holdValue / totalValue > 0.25;
+          });
+          if (alreadyConcentrated) {
+            console.log(`[INCREASE] Skipping "${fund.name}" — already at >25% concentration in portfolio`);
+          }
+          return !alreadyConcentrated;
+        });
+
+        const fundToRecommend = safeForIncrease[0] || null;
 
         if (fundToRecommend) {
           const isAutoCalculated = freshInvestmentAmount === 0 && effectiveFreshInvestment > 0;
@@ -4100,6 +4128,47 @@ class AgentProspectWizardService {
     if (harvestOpportunities.length > 0) {
       console.log(`[TaxHarvest] Adding ${harvestOpportunities.length} harvesting recommendations`);
       recommendations.push(...harvestOpportunities);
+    }
+
+    // ── Contradiction Deduplication: INCREASE ↔ PROFIT_BOOK conflicts ────────
+    // If the same holding has both an INCREASE and a PROFIT_BOOK recommendation,
+    // they directly contradict each other (buy more AND book profits simultaneously).
+    // Resolution: PROFIT_BOOK (driven by concentration risk or LTCG trigger) wins —
+    // remove the INCREASE for that specific holding.
+    // We use normalized name matching (case-insensitive, strip "Ltd/Limited" etc.)
+    // because the INCREASE name comes from daily_picks while PROFIT_BOOK comes
+    // from the portfolio holding — the same company can appear as "Eternal Ltd"
+    // vs "ETERNAL LIMITED".
+    {
+      const normalizeHoldingName = (name: string): string =>
+        (name || '').toLowerCase()
+          .replace(/\s+(ltd\.?|limited|inc\.?|corporation|corp\.?|pvt\.?|private|llp|llc|co\.)$/i, '')
+          .replace(/[.\-,&]/g, '')
+          .replace(/\s+/g, '')
+          .trim();
+
+      const profitBookNames = new Set(
+        recommendations
+          .filter(r => r.action === 'PROFIT_BOOK')
+          .map(r => normalizeHoldingName(r.productName))
+      );
+
+      if (profitBookNames.size > 0) {
+        const conflictingIncreases = recommendations.filter(
+          r => r.action === 'INCREASE' && profitBookNames.has(normalizeHoldingName(r.productName))
+        );
+        if (conflictingIncreases.length > 0) {
+          conflictingIncreases.forEach(r => {
+            const idx = recommendations.indexOf(r);
+            if (idx !== -1) recommendations.splice(idx, 1);
+            console.log(`[Dedup] Removed contradictory INCREASE for "${r.productName}" — same holding has PROFIT_BOOK recommendation`);
+          });
+        }
+      }
+
+      // Also remove PROFIT_BOOK if the same holding already has a HOLD_RISK_LIMIT
+      // HOLD_RISK_LIMIT means volatility guard prevents increasing — PROFIT_BOOK is still valid
+      // (no removal needed for HOLD_RISK_LIMIT ↔ PROFIT_BOOK; they are compatible)
     }
 
     // Calculate comprehensive tax summary for all exit-type recommendations
