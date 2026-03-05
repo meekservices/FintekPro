@@ -508,44 +508,68 @@ class PortfolioAnalyticsDataService {
       // Batch fetch from Yahoo Finance for stocks missing dividend yield (max 10 at a time)
       if (missingYieldStocks.length > 0) {
         const batch = missingYieldStocks.slice(0, 10);
-        const yfSymbols = batch.map(s => `${s.symbol}.NS`);
-        
+
+        // Helper: extract yield from a YF quote using multiple fields
+        const extractYieldFromQuote = (quote: any): number | null => {
+          if (!quote) return null;
+          // Field 1: trailingAnnualDividendYield (already as decimal, e.g. 0.008)
+          const trailing = (quote as any).trailingAnnualDividendYield;
+          if (trailing != null && trailing > 0) return trailing * 100;
+          // Field 2: dividendYield (forward yield, also decimal)
+          const fwd = (quote as any).dividendYield;
+          if (fwd != null && fwd > 0) return fwd * 100;
+          // Field 3: compute from trailingAnnualDividendRate / regularMarketPrice
+          const rate = (quote as any).trailingAnnualDividendRate;
+          const price = (quote as any).regularMarketPrice;
+          if (rate != null && price && price > 0) return (rate / price) * 100;
+          // Field 4: declared as 0 — confirmed non-paying
+          if (trailing === 0 || fwd === 0 || rate === 0) return 0;
+          return null;
+        };
+
+        // Fetch both .NS and .BO in one pass for resilience
         try {
-          const quotes = await Promise.allSettled(
-            yfSymbols.map(sym => 
-              yahooFinance.quote(sym, {}, { validateResult: false }).catch(() => null)
-            )
+          const nsQuotes = await Promise.allSettled(
+            batch.map(s => yahooFinance.quote(`${s.symbol}.NS`, {}, { validateResult: false }).catch(() => null))
           );
-          
+          const boQuotes = await Promise.allSettled(
+            batch.map(s => yahooFinance.quote(`${s.symbol}.BO`, {}, { validateResult: false }).catch(() => null))
+          );
+
           const dbUpdates: Array<{ isin: string; dividendYield: string }> = [];
-          
+
           for (let i = 0; i < batch.length; i++) {
             const stock = batch[i];
-            const quoteResult = quotes[i];
-            const quote = quoteResult.status === 'fulfilled' ? quoteResult.value : null;
-            const yfYield = quote && (quote as any).trailingAnnualDividendYield;
-            
-            if (yfYield != null) {
-              const yieldPercent = yfYield * 100;
+            const nsQuote = nsQuotes[i].status === 'fulfilled' ? nsQuotes[i].value : null;
+            const boQuote = boQuotes[i].status === 'fulfilled' ? boQuotes[i].value : null;
+
+            let yieldPct = extractYieldFromQuote(nsQuote);
+            if (yieldPct == null) yieldPct = extractYieldFromQuote(boQuote);
+
+            if (yieldPct != null) {
+              const rounded = Math.round(yieldPct * 100) / 100;
               results.set(stock.key, {
-                value: Math.round(yieldPercent * 100) / 100,
+                value: rounded,
                 source: 'database',
                 confidence: 'high',
                 assetType: 'stock',
               });
-              // Store even 0% so we know this stock was checked (no repeated YF lookups)
-              dbUpdates.push({ isin: stock.isin, dividendYield: yieldPercent.toFixed(4) });
+              // Store result (including 0%) — sentinel so we skip YF next time
+              dbUpdates.push({ isin: stock.isin, dividendYield: rounded.toFixed(4) });
+              console.log(`[DividendYield] ${stock.symbol}: ${rounded.toFixed(2)}% (live)`);
             } else {
-              // YF had no data (not rate limit - actual null) → use sector default
+              // Truly no data — store 0 as sentinel so we don't re-fetch repeatedly
               results.set(stock.key, {
                 value: SECTOR_DIVIDEND_YIELDS[stock.sector] || SECTOR_DIVIDEND_YIELDS['Default'],
                 source: 'sector_default',
                 confidence: 'medium',
                 assetType: 'stock',
               });
+              dbUpdates.push({ isin: stock.isin, dividendYield: '0.0000' });
+              console.warn(`[DividendYield] ${stock.symbol}: no live data, using sector default`);
             }
           }
-          
+
           // Handle remaining stocks (beyond 10) with sector defaults
           for (let i = 10; i < missingYieldStocks.length; i++) {
             const stock = missingYieldStocks[i];
@@ -556,8 +580,8 @@ class PortfolioAnalyticsDataService {
               assetType: 'stock',
             });
           }
-          
-          // Persist fetched yields to DB asynchronously
+
+          // Persist to DB asynchronously
           if (dbUpdates.length > 0) {
             Promise.all(
               dbUpdates.map(u =>
