@@ -5,6 +5,8 @@ import { z } from "zod";
 import multer from "multer";
 import { sandboxITRService } from "./sandbox-itr-service";
 import { emailService } from "./email-service";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -70,13 +72,21 @@ const ROLE_PERMISSIONS: Record<TaxRole, TaxPermissions> = {
 function getUserTaxRole(req: Request): TaxRole {
   const session = (req as any).session;
   if (!session?.userId) return "client";
-  
-  const userRole = session.userRole?.toLowerCase();
-  
-  if (userRole === "admin") return "admin";
-  if (userRole === "ca" || userRole === "chartered_accountant") return "ca";
-  if (userRole === "agent") return "agent";
-  
+
+  const sessionRole = session.userRole?.toLowerCase();
+  if (sessionRole === "admin" || sessionRole === "superadmin") return "admin";
+  if (sessionRole === "ca" || sessionRole === "chartered_accountant") return "ca";
+  if (sessionRole === "agent") return "agent";
+
+  const reqUser = (req as any).user;
+  if (reqUser) {
+    const userRoles: string[] = reqUser.roles || [];
+    const userRole = (reqUser.role || "").toLowerCase();
+    if (userRole === "admin" || userRole === "superadmin" || userRoles.includes("admin") || userRoles.includes("superadmin")) return "admin";
+    if (userRole === "ca" || userRoles.includes("ca")) return "ca";
+    if (userRole === "agent" || userRoles.includes("agent") || reqUser.isAgent === true) return "agent";
+  }
+
   return "client";
 }
 
