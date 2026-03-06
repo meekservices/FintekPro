@@ -3587,11 +3587,17 @@ class AgentProspectWizardService {
           quantity: holding.quantity
         });
 
+        const reducePurchaseDate = holding.purchaseDate || (holding as any).firstPurchaseDate || null;
         recommendations.push({
           action: 'REDUCE',
           productType: holding.productType || holding.assetType || 'other',
           productName: holding.name || holding.productName || 'Unknown',
+          isin: holding.isin,
+          category: holding.category,
+          quantity: holding.quantity,
+          purchaseDate: reducePurchaseDate,
           currentValue: holding.currentValue,
+          investedAmount: (holding as any).investedAmount || (reduceAmount * 0.85),
           suggestedValue: isPartialReduce ? holding.currentValue - reduceAmount : 0,
           changeAmount: -reduceAmount,
           rationale: `[REDUCE] ${dm.category} overweight by ${dm.drift.toFixed(1)}% (current: ${dm.currentPercent.toFixed(1)}%, target: ${dm.targetPercent}%). ${isPartialReduce ? 'Partial redemption' : 'Full redemption'} recommended. Drift status: ${dm.driftStatus}, Risk: ${dm.riskFlag}, Cost: ${dm.costFlag}.`,
@@ -3601,9 +3607,14 @@ class AgentProspectWizardService {
             holdingPeriodDays: taxInfo.holdingPeriodDays,
             estimatedGain: taxInfo.unrealizedGain,
             estimatedTax: taxInfo.estimatedTaxWithCess,
+            estimatedTaxWithCess: taxInfo.estimatedTaxWithCess,
             exitLoad: taxInfo.exitLoad,
             totalCost: taxInfo.totalCost,
             taxRate: `${(taxInfo.applicableTaxRate * 100).toFixed(1)}%`,
+            applicableTaxRate: taxInfo.applicableTaxRate,
+            unrealizedGain: taxInfo.unrealizedGain,
+            purchaseDate: reducePurchaseDate,
+            taxRateSource: 'LOCAL_FALLBACK',
             grandfatheringApplied: taxInfo.grandfatheringApplied,
             grandfatheringBenefit: taxInfo.grandfatheringBenefit,
             alerts: taxInfo.alerts,
@@ -3720,10 +3731,16 @@ class AgentProspectWizardService {
             quantity: underperformer.quantity
           });
 
+          const switchPurchaseDate = underperformer.purchaseDate || (underperformer as any).firstPurchaseDate || null;
           recommendations.push({
             action: 'SWITCH',
             productType: underperformer.productType || underperformer.assetType || 'other',
             productName: underperformer.name || underperformer.productName || 'Unknown',
+            isin: underperformer.isin,
+            category: underperformer.category,
+            quantity: underperformer.quantity,
+            purchaseDate: switchPurchaseDate,
+            investedAmount: (underperformer as any).investedAmount || (underperformer.currentValue * 0.85),
             currentValue: underperformer.currentValue,
             suggestedValue: underperformer.currentValue,
             changeAmount: 0,
@@ -3745,9 +3762,14 @@ class AgentProspectWizardService {
               holdingPeriodDays: taxInfo.holdingPeriodDays,
               estimatedGain: taxInfo.unrealizedGain,
               estimatedTax: taxInfo.estimatedTaxWithCess,
+              estimatedTaxWithCess: taxInfo.estimatedTaxWithCess,
               exitLoad: taxInfo.exitLoad,
               totalCost: taxInfo.totalCost,
               taxRate: `${(taxInfo.applicableTaxRate * 100).toFixed(1)}%`,
+              applicableTaxRate: taxInfo.applicableTaxRate,
+              unrealizedGain: taxInfo.unrealizedGain,
+              purchaseDate: switchPurchaseDate,
+              taxRateSource: 'LOCAL_FALLBACK',
               grandfatheringApplied: taxInfo.grandfatheringApplied,
               grandfatheringBenefit: taxInfo.grandfatheringBenefit,
               alerts: taxInfo.alerts,
@@ -4038,10 +4060,16 @@ class AgentProspectWizardService {
             console.log(`[ProfitBook] Replaced passive ${replacedAction} with PROFIT_BOOK for ${holdingName}`);
           }
 
+          const pbPurchaseDate = holding.purchaseDate || (holding as any).firstPurchaseDate || null;
           recommendations.push({
             action: 'PROFIT_BOOK',
             productType: holding.productType || holding.assetType || 'other',
             productName: holdingName,
+            isin: holding.isin,
+            category: holding.category,
+            quantity: holding.quantity,
+            purchaseDate: pbPurchaseDate,
+            investedAmount: (holding as any).investedAmount || (currentValue * 0.85),
             currentValue,
             suggestedValue: currentValue - bookAmount,
             changeAmount: -bookAmount,
@@ -4052,9 +4080,14 @@ class AgentProspectWizardService {
               holdingPeriodDays: taxInfo.holdingPeriodDays,
               estimatedGain: bookedGain,
               estimatedTax: taxOnBooking,
+              estimatedTaxWithCess: taxOnBooking,
+              unrealizedGain: bookedGain,
+              applicableTaxRate: taxInfo.applicableTaxRate,
               exitLoad: taxInfo.exitLoad || 0,
               totalCost: taxOnBooking + (taxInfo.exitLoad || 0),
               taxRate: isLTCGExemptBucket ? '0% (within ₹1.25L exemption)' : `${((taxInfo.applicableTaxRate || 0) * 100).toFixed(1)}%`,
+              purchaseDate: pbPurchaseDate,
+              taxRateSource: 'LOCAL_FALLBACK',
               grandfatheringApplied: taxInfo.grandfatheringApplied,
               grandfatheringBenefit: taxInfo.grandfatheringBenefit || 0,
               alerts: taxInfo.alerts || [],
@@ -4420,12 +4453,25 @@ class AgentProspectWizardService {
         const sellAmount = Math.abs(rec.changeAmount || 0) || Math.abs(rec.currentValue || 0);
         if (sellAmount <= 0) return { rec, tax: null };
 
-        // If this rec was already enriched via Sandbox API by an earlier step,
-        // re-use that result to avoid a duplicate API call.
+        // Re-use pre-computed tax from step 9 whenever available.
+        // Condition: taxRateSource is set (Sandbox API or LOCAL_FALLBACK) OR holdingPeriodDays
+        // is present (meaning the tax was already calculated with the correct purchase date).
+        // This prevents STCG mis-classification that occurs when purchaseDate is null
+        // on the second pass through calculateHoldingTaxWithSandboxAPI.
         const existingTax = rec.taxImplications;
-        if (existingTax && existingTax.taxRateSource === 'SANDBOX_API') {
-          console.log(`[TaxSummary] Re-using Sandbox API result for ${rec.productName}`);
-          return { rec, tax: existingTax };
+        if (existingTax && existingTax.taxType &&
+            (existingTax.taxRateSource != null || existingTax.holdingPeriodDays != null)) {
+          console.log(`[TaxSummary] Re-using pre-computed tax for ${rec.productName}: ${existingTax.taxType} (${existingTax.holdingPeriodDays ?? '?'} days, source: ${existingTax.taxRateSource || 'pre-computed'})`);
+          return {
+            rec,
+            tax: {
+              ...existingTax,
+              taxRateSource: existingTax.taxRateSource || 'LOCAL_FALLBACK',
+              // Normalise field names: taxImplications stores estimatedTaxWithCess as estimatedTax
+              estimatedTaxWithCess: existingTax.estimatedTaxWithCess ?? existingTax.estimatedTax ?? 0,
+              unrealizedGain: existingTax.unrealizedGain ?? existingTax.estimatedGain ?? 0,
+            }
+          };
         }
 
         const purchaseDate =
