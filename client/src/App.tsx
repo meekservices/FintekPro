@@ -201,6 +201,7 @@ const PublicAdvisorProfile = lazyWithRetry(() => import("@/pages/public-advisor-
 const AdminAgentPayouts = lazyWithRetry(() => import("@/pages/admin/agent-payouts"));
 const AgentProspectProposals = lazyWithRetry(() => import("@/pages/agent-prospect-proposals"));
 const OnboardingPage = lazyWithRetry(() => import("@/pages/onboarding"));
+const AgentKycEmpanelment = lazyWithRetry(() => import("@/pages/agent-kyc-empanelment"));
 const PublicProposalPage = lazyWithRetry(() => import("@/pages/public-proposal"));
 const ManualKYCPage = lazyWithRetry(() => import("@/pages/manual-kyc"));
 const KycRejectionRekyc = lazyWithRetry(() => import("@/pages/kyc-rejection-rekyc"));
@@ -2197,7 +2198,7 @@ function AgentRoutes() {
       <Route path="/agent/kyc">
         {() => (
           <AgentLayout>
-            <OnboardingPage />
+            <AgentKycEmpanelment />
           </AgentLayout>
         )}
       </Route>

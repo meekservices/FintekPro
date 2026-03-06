@@ -870,6 +870,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.use("/api/agent-wizard", agentProspectWizardRoutes);
   console.log("✅ Agent Prospect Wizard routes registered");
 
+  const agentEmpanelmentRoutes = (await import("./routes/agent-empanelment")).default;
+  app.use("/api/agent/empanelment", agentEmpanelmentRoutes);
+  console.log("✅ Agent Empanelment KYC routes registered");
+
   // Knowledge Hub Routes
   app.use("/api/knowledge-hub", knowledgeHubRoutes);
   app.use("/api/research-lists", isAuthenticated, researchWorkspaceRoutes);
