@@ -139,7 +139,7 @@ export default function AdvisorBrandProfile() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Sparkles className="h-6 w-6 text-primary" />
-            Advisor Brand Profile
+            Agent Marketing Profile
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Build your professional identity — photo, credentials, specialisations, and a shareable public microsite.

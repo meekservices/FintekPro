@@ -157,7 +157,7 @@ const agentNavCategories: NavCategory[] = [
       { title: "ITR Services", href: "/agent/tax-cases", icon: FileText, description: "ITR filing & tax services" },
       { title: "Festival Greetings", href: "/agent/festival-greetings", icon: Sparkles, description: "Send festival wishes" },
       { title: "Bulk Communication", href: "/agent/bulk-communication", icon: Mail, description: "Email/SMS campaigns" },
-      { title: "Advisor Profile", href: "/agent/advisor-profile", icon: Briefcase, description: "Photo, credentials & public microsite" },
+      { title: "Agent Marketing Profile", href: "/agent/advisor-profile", icon: Briefcase, description: "Photo, credentials & public microsite" },
       { title: "SIP Health Monitor", href: "/agent/sip-health", icon: HeartPulse, description: "Client SIP status dashboard" },
       { title: "Market Alert Center", href: "/agent/market-alerts", icon: BellRing, description: "Significant moves in client holdings" },
       { title: "Portfolio Drift", href: "/agent/portfolio-drift", icon: Crosshair, description: "Detect allocation drift across clients" },
@@ -772,7 +772,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                     <DropdownMenuItem asChild>
                       <Link href="/agent/advisor-profile" className="flex items-center gap-2.5 px-3 py-2 cursor-pointer">
                         <UserCog className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">Advisor Profile</span>
+                        <span className="text-sm">Agent Marketing Profile</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
