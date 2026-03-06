@@ -104,6 +104,7 @@ const agentNavCategories: NavCategory[] = [
     icon: Home,
     items: [
       { title: "Overview", href: "/agent", icon: Home, description: "Overview and metrics" },
+      { title: "My KYC / Empanelment", href: "/agent/kyc", icon: UserCheck, description: "Complete your empanelment KYC" },
       { title: "Pick of the Day", href: "/agent/picks", icon: Star, description: "Daily investment picks" },
       { title: "Leaderboard", href: "/agent/leaderboard", icon: Trophy, description: "Agent rankings" },
     ]
