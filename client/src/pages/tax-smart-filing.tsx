@@ -119,7 +119,7 @@ export default function TaxSmartFiling() {
     resolver: zodResolver(sessionSchema),
     defaultValues: {
       panNumber: "",
-      assessmentYear: "2024-25",
+      assessmentYear: "2025-26",
       consent: false
     }
   });
@@ -368,9 +368,10 @@ export default function TaxSmartFiling() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="2024-25">2024-25</SelectItem>
-                      <SelectItem value="2023-24">2023-24</SelectItem>
-                      <SelectItem value="2022-23">2022-23</SelectItem>
+                      <SelectItem value="2026-27">2026-27 (FY 2025-26)</SelectItem>
+                      <SelectItem value="2025-26">2025-26 (FY 2024-25)</SelectItem>
+                      <SelectItem value="2024-25">2024-25 (FY 2023-24)</SelectItem>
+                      <SelectItem value="2023-24">2023-24 (FY 2022-23)</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

@@ -499,6 +499,11 @@ class SandboxITRService {
             incomeDetails: validatedData.incomeDetails,
             deductions: validatedData.deductions,
             taxPayments: validatedData.taxPayments,
+            filingDetails: {
+              assessmentYear: validatedData.filingDetails.assessmentYear,
+              itrForm: validatedData.filingDetails.itrForm,
+              filingStatus: validatedData.filingDetails.filingStatus,
+            },
           });
         }
         throw sandboxError;
@@ -751,6 +756,11 @@ class SandboxITRService {
             incomeDetails: validatedData.incomeDetails,
             deductions: validatedData.deductions,
             taxPayments: validatedData.taxPayments,
+            filingDetails: {
+              assessmentYear: validatedData.filingDetails.assessmentYear,
+              itrForm: validatedData.filingDetails.itrForm,
+              filingStatus: validatedData.filingDetails.filingStatus,
+            },
           });
           const ackNumber = `FTP${Date.now()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
           return {
@@ -1510,7 +1520,7 @@ class SandboxITRService {
 
       const eriHeaders = await this.getERIHeaders();
       const queryParams = new URLSearchParams({
-        assessment_year: details.assessmentYear || new Date().getFullYear().toString(),
+        assessment_year: details.assessmentYear || '2025-26',
         form_code: details.formCode || '1',
         verification_mode: method === 'aadhaar_otp' ? 'aadhaar' : method,
         acknowledgement_number: acknowledgmentNumber,

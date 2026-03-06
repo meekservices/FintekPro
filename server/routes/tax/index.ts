@@ -667,9 +667,9 @@ export function registerTaxRoutes(app: Express): void {
       
       // Return prefilled ITR data structure with data wrapper for frontend compatibility
       const itrDataObj = {
-        id: `itr-${userId}-${assessmentYear || '2024-25'}`,
+        id: `itr-${userId}-${assessmentYear || '2025-26'}`,
         userId,
-        assessmentYear: assessmentYear || '2024-25',
+        assessmentYear: assessmentYear || '2025-26',
         financialYear: '2024-25',
         itrForm: 'ITR-1',
         autoSelectedForm: true,

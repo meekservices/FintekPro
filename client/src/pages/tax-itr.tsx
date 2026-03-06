@@ -157,7 +157,7 @@ export default function TaxITRPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Income Tax Return Filing</h1>
-          <p className="text-muted-foreground">AY 2024-25 | Due Date: July 31, 2024</p>
+          <p className="text-muted-foreground">AY 2025-26 (FY 2024-25) | Due Date: July 31, 2025 &nbsp;·&nbsp; AY 2026-27 (FY 2025-26) opens April 1, 2026</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-orange-600 border-orange-300 dark:border-orange-700">
@@ -543,7 +543,7 @@ export default function TaxITRPage() {
                         <Clock className="h-5 w-5 text-yellow-600" />
                       </div>
                       <div>
-                        <h4 className="font-semibold">AY 2024-25</h4>
+                        <h4 className="font-semibold">AY 2025-26</h4>
                         <p className="text-sm text-muted-foreground">ITR-1 (Sahaj)</p>
                       </div>
                     </div>

@@ -42,7 +42,7 @@ interface ValidationError {
 
 export default function SandboxITRFiling() {
   const [panNumber, setPanNumber] = useState("");
-  const [selectedYear, setSelectedYear] = useState("2024-25");
+  const [selectedYear, setSelectedYear] = useState("2025-26");
   const [filingMode, setFilingMode] = useState<'guided' | 'import'>('guided');
   
   // Query for ITR form data

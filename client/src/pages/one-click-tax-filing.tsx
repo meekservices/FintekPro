@@ -60,7 +60,7 @@ type FilingStep = 'connect' | 'populate' | 'validate' | 'review' | 'file' | 'com
 
 export default function OneClickTaxFiling() {
   const [currentStep, setCurrentStep] = useState<FilingStep>('connect');
-  const [selectedYear, setSelectedYear] = useState('2024-25');
+  const [selectedYear, setSelectedYear] = useState('2025-26');
   const [taxRegime, setTaxRegime] = useState<'old' | 'new'>('new');
   
   const { toast } = useToast();
@@ -596,9 +596,10 @@ export default function OneClickTaxFiling() {
                   className="w-full px-3 py-2 border rounded-md"
                   data-testid="select-year"
                 >
-                  <option value="2024-25">2024-25</option>
-                  <option value="2023-24">2023-24</option>
-                  <option value="2022-23">2022-23</option>
+                  <option value="2026-27">2026-27 (FY 2025-26)</option>
+                  <option value="2025-26">2025-26 (FY 2024-25)</option>
+                  <option value="2024-25">2024-25 (FY 2023-24)</option>
+                  <option value="2023-24">2023-24 (FY 2022-23)</option>
                 </select>
               </div>
               <div className="space-y-2">
