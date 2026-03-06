@@ -7,7 +7,7 @@ channel = "stable-24_05"
 packages = ["chromium", "glib", "gtk3", "nss", "atk", "gdk-pixbuf"]
 
 [deployment]
-deploymentTarget = "autoscale"
+deploymentTarget = "vm"
 build = ["npm", "run", "build"]
 run = ["npm", "run", "start"]
 
