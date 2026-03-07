@@ -45,7 +45,8 @@ export interface MVOResult {
   expectedReturn: number;
   portfolioVolatility: number;
   sharpeRatio: number;
-  covarianceMatrix: number[][];
+  covarianceMatrix: number[][];            // daily covariance (used by optimizer)
+  annualizedCovarianceMatrix: number[][];  // daily × 252 (used by Black-Litterman)
   expectedReturns: number[];
   categories: string[];
   modelVersion: string;
@@ -613,7 +614,9 @@ class MVOEngine {
           portfolioVariance += optimalWeights[i] * optimalWeights[j] * covarianceMatrix[i][j];
         }
       }
-      const portfolioVolatility = Math.sqrt(Math.max(0, portfolioVariance));
+      // covarianceMatrix is built from daily returns → variance is in daily terms.
+      // expectedReturns are annualised (EWMA × 252). Annualise variance before Sharpe.
+      const portfolioVolatility = Math.sqrt(Math.max(0, portfolioVariance * 252));
       const sharpeRatio = portfolioVolatility > 0 ? (portfolioReturn - 0.0715) / portfolioVolatility : 0;
 
       const weights: Record<string, number> = {};
@@ -646,12 +649,16 @@ class MVOEngine {
 
       console.log(`[MVO] Transition optimization complete in ${runTimeMs}ms. Sharpe: ${sharpeRatio.toFixed(3)}, Vol: ${(portfolioVolatility * 100).toFixed(1)}%, Turnover: ${(metrics.turnover * 100).toFixed(1)}%, Gamma: ${metrics.gammaUsed.toFixed(1)}`);
 
+      // Annualise the covariance matrix for Black-Litterman (BL uses annual-scale views/returns)
+      const annualizedCovarianceMatrix = covarianceMatrix.map(row => row.map(v => v * 252));
+
       return {
         weights,
         expectedReturn: portfolioReturn,
         portfolioVolatility,
         sharpeRatio,
         covarianceMatrix,
+        annualizedCovarianceMatrix,
         expectedReturns,
         categories,
         modelVersion,

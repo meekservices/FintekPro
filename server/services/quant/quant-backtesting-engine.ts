@@ -78,10 +78,16 @@ class QuantBacktestingEngine {
       ? (annualizedReturn - fullConfig.benchmarkReturn) / trackingError
       : 0;
 
-    const negativeReturns = portfolioReturns.filter(r => r < 0);
-    const downside = negativeReturns.length > 0
-      ? Math.sqrt(negativeReturns.reduce((s, r) => s + r * r, 0) / negativeReturns.length) * Math.sqrt(12)
-      : 0.001;
+    // Sortino denominator: semi-deviation of returns BELOW the monthly MAR (= Rf / 12).
+    // Standard formula: sqrt(mean of squared below-MAR deviations over ALL periods) × sqrt(12).
+    // Using total periods (not just bad months) correctly penalises frequent below-MAR outcomes.
+    const monthlyRf = fullConfig.riskFreeRate / 12;
+    const squaredBelowMAR = portfolioReturns.map(r => {
+      const excess = r - monthlyRf;
+      return excess < 0 ? excess * excess : 0;
+    });
+    const downsideVariance = squaredBelowMAR.reduce((s, v) => s + v, 0) / Math.max(portfolioReturns.length, 1);
+    const downside = Math.sqrt(downsideVariance) * Math.sqrt(12) || 0.001;
     const sortinoRatio = (annualizedReturn - fullConfig.riskFreeRate) / downside;
 
     const calmarRatio = maxDrawdown < 0
@@ -245,11 +251,13 @@ class QuantBacktestingEngine {
   }
 
   private getDefaultMonthlyReturn(category: string): number {
+    // Monthly returns consistent with current yield environment (India 10Y G-Sec 7.15%, Mar 2026).
+    // Debt/bonds: ~7.4% p.a. → 0.006/month. Equity: ~12% p.a. → 0.01/month.
     const defaults: Record<string, number> = {
-      equity: 0.01, debt: 0.005, hybrid: 0.0075, gold: 0.006,
+      equity: 0.01, debt: 0.0060, hybrid: 0.0075, gold: 0.006,
       silver: 0.005, index: 0.009, etf: 0.008, international: 0.007,
       listed_stocks: 0.011, unlisted_stocks: 0.012, reit: 0.006,
-      invit: 0.005, bonds: 0.005, mld: 0.006, pms: 0.01, aif: 0.01,
+      invit: 0.0055, bonds: 0.0060, mld: 0.0065, pms: 0.01, aif: 0.01,
     };
     return defaults[category] || 0.007;
   }

@@ -177,22 +177,25 @@ class BlackLittermanEngine {
   ): Promise<BLResult> {
     const startTime = Date.now();
     const fullConfig = { ...DEFAULT_BL_CONFIG, ...config };
-    const { categories, covarianceMatrix, weights: strategicWeightsMap } = mvoResult;
+    const { categories, covarianceMatrix, annualizedCovarianceMatrix, weights: strategicWeightsMap } = mvoResult;
+    // Use annualised covariance so that BL views (expressed in annual return terms, e.g. 0.15 = 15%)
+    // are on the same scale as the implied returns. Daily cov suppresses view signals by ~250×.
+    const blCovMatrix = annualizedCovarianceMatrix ?? covarianceMatrix;
     const strategicWeights = categories.map(c => strategicWeightsMap[c] || 0);
 
     try {
       const impliedReturns = this.computeImpliedReturns(
-        covarianceMatrix, strategicWeights, fullConfig.riskAversion
+        blCovMatrix, strategicWeights, fullConfig.riskAversion
       );
 
       const { P, Q, Omega } = this.buildViewMatrices(views, categories);
 
       const posteriorReturns = this.computePosteriorReturns(
-        impliedReturns, covarianceMatrix, P, Q, Omega, fullConfig.tau
+        impliedReturns, blCovMatrix, P, Q, Omega, fullConfig.tau
       );
 
       let rawPosteriorWeights = this.returnsToWeights(
-        posteriorReturns, covarianceMatrix, fullConfig.riskAversion
+        posteriorReturns, blCovMatrix, fullConfig.riskAversion
       );
 
       const constrainedWeights = this.applyTacticalBudget(
