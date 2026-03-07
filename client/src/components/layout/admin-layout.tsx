@@ -166,6 +166,7 @@ const navCategories: NavCategory[] = [
       { title: "DSA Loan Dashboard", href: "/admin/dsa-loans", icon: Landmark, description: "Multi-bank loan routing" },
       { title: "Duplicate Detection", href: "/admin/duplicates", icon: AlertCircle, description: "Detect & resolve duplicates" },
       { title: "MF Data Enrichment", href: "/admin/mf-enrichment", icon: Database, description: "MF returns sync status" },
+      { title: "MF Analytics Ops", href: "/admin/mf-analytics-ops", icon: Database, description: "Run bulk analytics jobs" },
     ]
   },
   {

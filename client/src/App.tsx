@@ -87,6 +87,7 @@ import { IdleTimeoutManager } from "@/components/IdleTimeoutManager";
 const AdminDashboard = lazyWithRetry(() => import("@/pages/admin/dashboard"));
 const SystemHealthMonitor = lazyWithRetry(() => import("@/pages/admin/system-health"));
 const EngineHealthCheck = lazyWithRetry(() => import("@/pages/admin/engine-health-check"));
+const MFAnalyticsOps = lazyWithRetry(() => import("@/pages/admin/mf-analytics-ops"));
 const RevenueAnalytics = lazyWithRetry(() => import("@/pages/admin/revenue-analytics"));
 const UserActivityTimeline = lazyWithRetry(() => import("@/pages/admin/user-activity-timeline"));
 const BulkOperations = lazyWithRetry(() => import("@/pages/admin/bulk-operations"));
@@ -915,6 +916,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <EngineHealthCheck />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/mf-analytics-ops">
+        {() => (
+          <AdminLayout>
+            <MFAnalyticsOps />
           </AdminLayout>
         )}
       </Route>

@@ -637,6 +637,506 @@ async def bulk_compute_db(
 
 
 # ---------------------------------------------------------------------------
+# NAV Backfill Bridge  (historical_nav_data → mf_nav_history)
+# ---------------------------------------------------------------------------
+
+@router.post("/nav-backfill")
+async def nav_backfill(
+    payload: dict = Body(default={}),
+    token: TokenPayload = Depends(verify_token),
+):
+    """
+    Copies NAV rows from historical_nav_data (identifier_type='mutual_fund')
+    into mf_nav_history, bridging identifier → scheme_code and date → nav_date.
+    Uses ON CONFLICT DO NOTHING so it is safe to re-run.
+    Admin/agent only.
+    """
+    if token.role not in ("admin", "agent"):
+        return {"error": "Insufficient permissions"}
+
+    try:
+        scheme_limit = int(payload.get("limit", 500))
+        offset = int(payload.get("offset", 0))
+        min_rows = int(payload.get("minRows", 10))
+
+        async with db_conn() as conn:
+            # Distinct scheme codes that have enough rows in historical_nav_data
+            schemes = await conn.fetch(
+                """
+                SELECT identifier as scheme_code, COUNT(*) as cnt
+                FROM historical_nav_data
+                WHERE identifier_type = 'mutual_fund'
+                  AND nav IS NOT NULL
+                GROUP BY identifier
+                HAVING COUNT(*) >= $1
+                ORDER BY cnt DESC
+                LIMIT $2 OFFSET $3
+                """,
+                min_rows, scheme_limit, offset,
+            )
+
+        if not schemes:
+            return {"message": "No schemes found in historical_nav_data", "rowsInserted": 0}
+
+        scheme_codes = [r["scheme_code"] for r in schemes]
+        total_inserted = 0
+        errors = []
+
+        # Process in batches of 50 schemes
+        batch_size = 50
+        for i in range(0, len(scheme_codes), batch_size):
+            batch = scheme_codes[i: i + batch_size]
+            try:
+                async with db_conn() as conn:
+                    rows = await conn.fetch(
+                        """
+                        SELECT identifier AS scheme_code, date AS nav_date, nav
+                        FROM historical_nav_data
+                        WHERE identifier_type = 'mutual_fund'
+                          AND identifier = ANY($1::text[])
+                          AND nav IS NOT NULL
+                        ORDER BY identifier, date
+                        """,
+                        batch,
+                    )
+
+                    if rows:
+                        result = await conn.execute(
+                            """
+                            INSERT INTO mf_nav_history (scheme_code, nav_date, nav, created_at)
+                            SELECT t.scheme_code, t.nav_date, t.nav, NOW()
+                            FROM UNNEST($1::text[], $2::date[], $3::numeric[])
+                                AS t(scheme_code, nav_date, nav)
+                            ON CONFLICT (scheme_code, nav_date) DO NOTHING
+                            """,
+                            [r["scheme_code"] for r in rows],
+                            [r["nav_date"] for r in rows],
+                            [float(r["nav"]) for r in rows],
+                        )
+                        # result is like "INSERT 0 N"
+                        try:
+                            inserted = int(str(result).split()[-1])
+                        except Exception:
+                            inserted = len(rows)
+                        total_inserted += inserted
+            except Exception as e:
+                errors.append(str(e))
+
+        # Depth stats after backfill
+        async with db_conn() as conn:
+            stats = await conn.fetchrow(
+                """
+                SELECT
+                  COUNT(DISTINCT scheme_code) as total_schemes,
+                  ROUND(AVG(cnt)::numeric, 1) as avg_days,
+                  MAX(cnt) as max_days,
+                  SUM(CASE WHEN cnt >= 365 THEN 1 ELSE 0 END) as schemes_365plus,
+                  SUM(CASE WHEN cnt >= 100 THEN 1 ELSE 0 END) as schemes_100plus
+                FROM (
+                  SELECT scheme_code, COUNT(*) as cnt
+                  FROM mf_nav_history
+                  GROUP BY scheme_code
+                ) s
+                """
+            )
+
+        return {
+            "message": "NAV backfill complete",
+            "schemesProcessed": len(scheme_codes),
+            "rowsInserted": total_inserted,
+            "errors": errors[:10],
+            "depthAfter": {
+                "totalSchemes": stats["total_schemes"],
+                "avgDays": float(stats["avg_days"] or 0),
+                "maxDays": stats["max_days"],
+                "schemes365Plus": stats["schemes_365plus"],
+                "schemes100Plus": stats["schemes_100plus"],
+            },
+            "modelVersion": "py-mf-nav-backfill-v1",
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# AMFI Enrichment  (5 null columns in mutual_funds)
+# ---------------------------------------------------------------------------
+
+@router.post("/amfi-enrich")
+async def amfi_enrich(
+    payload: dict = Body(default={}),
+    token: TokenPayload = Depends(verify_token),
+):
+    """
+    Fetches AMFI NAVAll.txt and parses:
+      - scheme_sub_category  (from section headers like "Large Cap Fund")
+      - amc_name / amc_code  (from AMC section headers)
+      - launch_date proxy    (MIN(nav_date) from mf_nav_history)
+      - change / change_percent (latest 2 nav rows LAG calc from mf_nav_history)
+    Updates mutual_funds table. Admin/agent only.
+    """
+    if token.role not in ("admin", "agent"):
+        return {"error": "Insufficient permissions"}
+
+    import re
+    try:
+        import httpx
+    except ImportError:
+        import subprocess
+        subprocess.run(["pip", "install", "httpx"], capture_output=True)
+        import httpx
+
+    try:
+        # Fetch AMFI data
+        url = "https://www.amfiindia.com/spages/NAVAll.txt"
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.get(url)
+        text = resp.text
+
+        amc_map: Dict[str, Dict[str, str]] = {}  # scheme_code → {amc_name, sub_category}
+        current_amc = ""
+        current_subcat = ""
+        current_open_close = ""
+
+        for line in text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+
+            # AMC header: "Aditya Birla Sun Life Mutual Fund"
+            if line.endswith("Mutual Fund") or line.endswith("Asset Management"):
+                current_amc = line
+                continue
+
+            # Category/sub-category header e.g. "Open Ended Schemes(Equity Scheme - Large Cap Fund)"
+            m = re.match(r"(Open|Close) Ended Schemes\((.+?)\)", line, re.IGNORECASE)
+            if m:
+                current_open_close = m.group(1).capitalize()
+                category_part = m.group(2).strip()
+                # e.g. "Equity Scheme - Large Cap Fund" → sub_category = "Large Cap Fund"
+                if " - " in category_part:
+                    current_subcat = category_part.split(" - ", 1)[1].strip()
+                else:
+                    current_subcat = category_part.strip()
+                continue
+
+            # Data line: SchemeCode;ISINDiv;ISINGrowth;SchemeName;NAV;...;Date
+            parts = line.split(";")
+            if len(parts) >= 5:
+                scheme_code = parts[0].strip()
+                if scheme_code.isdigit():
+                    amc_map[scheme_code] = {
+                        "amc_name": current_amc,
+                        "scheme_sub_category": current_subcat,
+                    }
+
+        if not amc_map:
+            return {"error": "Could not parse AMFI data", "linesChecked": len(text.splitlines())}
+
+        # Get launch_date proxy from mf_nav_history (MIN nav_date per scheme)
+        async with db_conn() as conn:
+            launch_rows = await conn.fetch(
+                """
+                SELECT scheme_code, MIN(nav_date) as first_nav_date
+                FROM mf_nav_history
+                WHERE nav_date IS NOT NULL
+                GROUP BY scheme_code
+                """
+            )
+            # Get change_percent from latest 2 rows per scheme
+            change_rows = await conn.fetch(
+                """
+                WITH ranked AS (
+                  SELECT scheme_code, nav,
+                         LAG(nav) OVER (PARTITION BY scheme_code ORDER BY nav_date) AS prev_nav,
+                         ROW_NUMBER() OVER (PARTITION BY scheme_code ORDER BY nav_date DESC) AS rn
+                  FROM mf_nav_history
+                )
+                SELECT scheme_code, nav, prev_nav
+                FROM ranked WHERE rn = 1 AND prev_nav IS NOT NULL
+                """
+            )
+
+        launch_map: Dict[str, Any] = {str(r["scheme_code"]): r["first_nav_date"] for r in launch_rows}
+        change_map: Dict[str, Dict] = {}
+        for r in change_rows:
+            sc = str(r["scheme_code"])
+            if r["nav"] and r["prev_nav"]:
+                nav = float(r["nav"])
+                prev = float(r["prev_nav"])
+                chg = round(nav - prev, 4)
+                chg_pct = round((chg / prev) * 100, 4) if prev != 0 else 0
+                change_map[sc] = {"change": chg, "change_percent": chg_pct}
+
+        # Build update list
+        updates = []
+        for scheme_code, meta in amc_map.items():
+            upd: Dict[str, Any] = {"scheme_code": scheme_code}
+            if meta.get("amc_name"):
+                upd["amc_name"] = meta["amc_name"]
+            if meta.get("scheme_sub_category"):
+                upd["scheme_sub_category"] = meta["scheme_sub_category"]
+            if scheme_code in launch_map and launch_map[scheme_code]:
+                upd["launch_date"] = launch_map[scheme_code]
+            if scheme_code in change_map:
+                upd["change"] = change_map[scheme_code]["change"]
+                upd["change_percent"] = change_map[scheme_code]["change_percent"]
+            if len(upd) > 1:
+                updates.append(upd)
+
+        # Upsert in batches
+        updated = 0
+        skipped = 0
+        async with db_conn() as conn:
+            for upd in updates:
+                try:
+                    sc = upd["scheme_code"]
+                    fields = {k: v for k, v in upd.items() if k != "scheme_code"}
+                    if not fields:
+                        skipped += 1
+                        continue
+                    set_parts = [f"{k} = ${i + 2}" for i, k in enumerate(fields.keys())]
+                    vals = [sc] + list(fields.values())
+                    res = await conn.execute(
+                        f"UPDATE mutual_funds SET {', '.join(set_parts)}, last_updated = NOW() "
+                        f"WHERE scheme_code = $1",
+                        *vals,
+                    )
+                    if res == "UPDATE 1":
+                        updated += 1
+                    else:
+                        skipped += 1
+                except Exception:
+                    skipped += 1
+
+        return {
+            "message": "AMFI enrichment complete",
+            "amfiSchemesFound": len(amc_map),
+            "updatesApplied": updated,
+            "skipped": skipped,
+            "withChangePercent": len(change_map),
+            "withLaunchDate": len(launch_map),
+            "modelVersion": "py-mf-amfi-enrich-v1",
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# Monthly Return Generation Pipeline (chains: monthly-series → cross-sectional-rank → risk-from-monthly)
+# ---------------------------------------------------------------------------
+
+@router.post("/monthly-pipeline")
+async def monthly_pipeline(
+    payload: dict = Body(default={}),
+    token: TokenPayload = Depends(verify_token),
+):
+    """
+    Full pipeline: generates mf_monthly_returns from mf_nav_history, then
+    runs cross-sectional ranking, then risk-from-monthly for all eligible schemes.
+    Admin/agent only.
+    """
+    if token.role not in ("admin", "agent"):
+        return {"error": "Insufficient permissions"}
+
+    try:
+        fiscal_year = payload.get("fiscalYear", "FY25-26")
+        min_days = int(payload.get("minDays", 30))
+        min_months = int(payload.get("minMonths", 6))
+        scheme_limit = int(payload.get("limit", 2000))
+
+        step_results: Dict[str, Any] = {}
+
+        # ── Step 1: Generate monthly returns from mf_nav_history ──────────
+        async with db_conn() as conn:
+            scheme_rows = await conn.fetch(
+                """
+                SELECT scheme_code, COUNT(*) as cnt
+                FROM mf_nav_history
+                WHERE nav IS NOT NULL
+                GROUP BY scheme_code
+                HAVING COUNT(*) >= $1
+                ORDER BY cnt DESC
+                LIMIT $2
+                """,
+                min_days, scheme_limit,
+            )
+            if not scheme_rows:
+                return {"error": "No schemes with sufficient NAV data"}
+
+            sc_list = [r["scheme_code"] for r in scheme_rows]
+
+            nav_rows = await conn.fetch(
+                """
+                SELECT scheme_code, nav_date, nav
+                FROM mf_nav_history
+                WHERE scheme_code = ANY($1::text[])
+                  AND nav IS NOT NULL
+                ORDER BY scheme_code, nav_date
+                """,
+                sc_list,
+            )
+
+        df = pd.DataFrame([dict(r) for r in nav_rows])
+        df["nav"] = pd.to_numeric(df["nav"], errors="coerce")
+        df["nav_date"] = pd.to_datetime(df["nav_date"])
+        df = df.dropna(subset=["nav"])
+
+        monthly_rows = []
+        for sc, grp in df.groupby("scheme_code"):
+            grp = grp.set_index("nav_date").sort_index()
+            monthly = grp["nav"].resample("ME").last().dropna()
+            monthly_ret = monthly.pct_change().dropna() * 100
+            for dt, ret in monthly_ret.items():
+                monthly_rows.append({
+                    "scheme_code": str(sc),
+                    "month_year": dt.date(),
+                    "return_percent": round(float(ret), 4),
+                })
+
+        monthly_inserted = 0
+        if monthly_rows:
+            async with db_conn() as conn:
+                result = await conn.execute(
+                    """
+                    INSERT INTO mf_monthly_returns (scheme_code, month_year, return_percent)
+                    SELECT t.sc, t.my, t.rp
+                    FROM UNNEST($1::text[], $2::date[], $3::numeric[])
+                        AS t(sc, my, rp)
+                    ON CONFLICT (scheme_code, month_year) DO UPDATE
+                      SET return_percent = EXCLUDED.return_percent
+                    """,
+                    [r["scheme_code"] for r in monthly_rows],
+                    [r["month_year"] for r in monthly_rows],
+                    [r["return_percent"] for r in monthly_rows],
+                )
+                try:
+                    monthly_inserted = int(str(result).split()[-1])
+                except Exception:
+                    monthly_inserted = len(monthly_rows)
+
+        step_results["step1_monthly_series"] = {
+            "schemesProcessed": len(sc_list),
+            "monthlyRowsUpserted": monthly_inserted,
+        }
+
+        # ── Step 2: Cross-sectional ranking ──────────────────────────────
+        async with db_conn() as conn:
+            rank_rows = await conn.fetch(
+                """
+                SELECT mfm.scheme_code, mfm.return_1y, mf.category
+                FROM mutual_fund_metrics mfm
+                JOIN mutual_funds mf ON mf.scheme_code = mfm.scheme_code
+                WHERE mfm.return_1y IS NOT NULL
+                  AND mf.category IS NOT NULL
+                  AND mfm.fiscal_year = $1
+                """,
+                fiscal_year,
+            )
+
+        rank_updated = 0
+        if rank_rows:
+            rdf = pd.DataFrame([dict(r) for r in rank_rows])
+            rdf["return_1y"] = pd.to_numeric(rdf["return_1y"], errors="coerce")
+            rdf = rdf.dropna(subset=["return_1y", "category"])
+            rdf["category_size"] = rdf.groupby("category")["return_1y"].transform("count").astype(int)
+            rdf["category_rank"] = rdf.groupby("category")["return_1y"].rank(ascending=False, method="min").astype(int)
+            rdf["percentile_rank"] = (rdf.groupby("category")["return_1y"].rank(pct=True, ascending=True) * 100).round(2)
+
+            async with db_conn() as conn:
+                for _, row in rdf.iterrows():
+                    try:
+                        await conn.execute(
+                            """
+                            UPDATE mutual_fund_metrics
+                            SET category_rank=$3, category_size=$4, percentile_rank=$5, last_updated=NOW()
+                            WHERE scheme_code=$1 AND fiscal_year=$2
+                            """,
+                            row["scheme_code"], fiscal_year,
+                            int(row["category_rank"]), int(row["category_size"]),
+                            float(row["percentile_rank"]),
+                        )
+                        rank_updated += 1
+                    except Exception:
+                        pass
+
+        step_results["step2_cross_sectional_rank"] = {
+            "schemesRanked": rank_updated,
+            "uniqueCategories": rdf["category"].nunique() if rank_rows else 0,
+        }
+
+        # ── Step 3: Risk from monthly returns ─────────────────────────────
+        async with db_conn() as conn:
+            mr_rows = await conn.fetch(
+                """
+                SELECT scheme_code, return_percent
+                FROM mf_monthly_returns
+                WHERE return_percent IS NOT NULL
+                ORDER BY scheme_code, month_year
+                """
+            )
+
+        risk_updated = 0
+        if mr_rows:
+            mdf = pd.DataFrame([dict(r) for r in mr_rows])
+            mdf["return_percent"] = pd.to_numeric(mdf["return_percent"], errors="coerce")
+            mdf = mdf.dropna(subset=["return_percent"])
+
+            risk_updates = []
+            for sc, grp in mdf.groupby("scheme_code"):
+                rets = grp["return_percent"].values
+                if len(rets) < min_months:
+                    continue
+                var_95 = round(float(np.percentile(rets, 5)), 4)
+                threshold = np.percentile(rets, 5)
+                cvar_95 = round(float(rets[rets <= threshold].mean()), 4) if (rets <= threshold).any() else var_95
+                neg = rets[rets < 0] / 100.0
+                semi_dev = round(float(np.std(neg, ddof=1) * np.sqrt(12) * 100), 4) if len(neg) > 1 else None
+                consistency = int(round((rets > 0).sum() / len(rets) * 100))
+                risk_updates.append({
+                    "scheme_code": str(sc),
+                    "var_95": var_95, "cvar_95": cvar_95,
+                    "semi_deviation": semi_dev, "consistency_score": consistency,
+                })
+
+            async with db_conn() as conn:
+                for m in risk_updates:
+                    try:
+                        await conn.execute(
+                            """
+                            UPDATE mutual_fund_metrics SET
+                              var_95 = COALESCE($3, var_95),
+                              cvar_95 = COALESCE($4, cvar_95),
+                              semi_deviation = COALESCE($5, semi_deviation),
+                              consistency_score = COALESCE($6::integer, consistency_score),
+                              last_updated = NOW()
+                            WHERE scheme_code = $1 AND fiscal_year = $2
+                            """,
+                            m["scheme_code"], fiscal_year,
+                            m["var_95"], m["cvar_95"],
+                            m.get("semi_deviation"), m["consistency_score"],
+                        )
+                        risk_updated += 1
+                    except Exception:
+                        pass
+
+        step_results["step3_risk_metrics"] = {
+            "schemesUpdated": risk_updated,
+        }
+
+        return {
+            "message": "Monthly pipeline complete",
+            "pipeline": step_results,
+            "modelVersion": "py-mf-monthly-pipeline-v1",
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ---------------------------------------------------------------------------
 # Cross-Sectional Ranking Engine
 # ---------------------------------------------------------------------------
 
