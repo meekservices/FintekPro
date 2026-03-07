@@ -24,7 +24,7 @@ import {
   mfHoldings,
   mfFolios,
 } from '@shared/schema';
-import { eq, and, desc, sql, like, or, isNotNull } from 'drizzle-orm';
+import { eq, and, desc, sql, like, or, isNotNull, inArray, ne } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import {
   ProductType,
@@ -301,7 +301,7 @@ class UnifiedAdvisoryService {
       const mfRows = await db.select().from(mfHoldings).where(eq(mfHoldings.folioId, folio.id));
       for (const h of mfRows) {
         const currentValue = parseFloat(h.currentValue?.toString() || '0');
-        const investedValue = parseFloat(h.units?.toString() || '0') * parseFloat(h.averageNav?.toString() || '0');
+        const investedValue = parseFloat(h.units?.toString() || '0') * parseFloat(h.avgNav?.toString() || '0');
         totalValue += currentValue;
         totalInvested += investedValue;
         assetAllocation['MF'] = (assetAllocation['MF'] || 0) + currentValue;
@@ -575,19 +575,24 @@ Rules:
     return recommendations;
   }
 
-  private generateRuleBasedRecommendations(
+  private async generateRuleBasedRecommendations(
     productType: ProductType,
     profile: ClientProfile,
     portfolio: PortfolioSummary | null,
     count: number,
     logic: typeof PRODUCT_ADVISORY_LOGIC[0] | undefined,
-    disclosures: string[]
-  ): UnifiedAdvisoryDecision[] {
+    disclosures: string[],
+    marketRegime: { regime: string; signal_score: number; confidence: number } | null = null,
+  ): Promise<UnifiedAdvisoryDecision[]> {
     const recommendations: UnifiedAdvisoryDecision[] = [];
 
-    const productDatabase = this.getProductDatabase(productType, profile.riskCategory);
+    // T001: regime-adjusted count (reduce BUY count in bear market)
+    const isBearRegime = marketRegime && (marketRegime.regime === 'bear' || marketRegime.regime === 'high_vol');
+    const effectiveCount = isBearRegime ? Math.max(1, count - 1) : count;
 
-    for (let i = 0; i < Math.min(count, productDatabase.length); i++) {
+    const productDatabase = await this.fetchDBFundCatalogue(productType, profile.riskCategory);
+
+    for (let i = 0; i < Math.min(effectiveCount, productDatabase.length); i++) {
       const product = productDatabase[i];
       const existingHolding = portfolio?.holdings.find(
         h => h.symbol === product.symbol
@@ -605,8 +610,10 @@ Rules:
           primaryReason = 'Current allocation optimal for portfolio balance';
         }
       } else {
-        action = 'BUY';
-        primaryReason = logic?.buyConditions[0] || 'Improves portfolio diversification';
+        action = isBearRegime && productType === 'MF' ? 'HOLD' : 'BUY';
+        primaryReason = isBearRegime
+          ? `Cautious stance in ${marketRegime!.regime} regime — monitoring for entry opportunity`
+          : (logic?.buyConditions[0] || 'Improves portfolio diversification');
       }
 
       const currentReturn = portfolio?.gainLossPercent || 0;
@@ -630,10 +637,14 @@ Rules:
           riskAfter: this.mapRiskScore((portfolio?.riskScore || 50) + (action === 'BUY' ? 5 : -5))
         },
         primaryReason,
-        supportingFactors: logic?.buyConditions.slice(0, 3) || [],
+        supportingFactors: [
+          ...(logic?.buyConditions.slice(0, 3) || []),
+          ...(marketRegime ? [`Market regime: ${marketRegime.regime} (score: ${marketRegime.signal_score.toFixed(2)})`] : []),
+          ...(product.schemeCode ? [`Scheme: ${product.schemeCode}`, `AMC: ${product.fundHouse || ''}`] : []),
+        ].filter(Boolean),
         riskNotes: product.riskFactors || [],
         regulatoryDisclosures: disclosures,
-        confidence: 75,
+        confidence: isBearRegime ? 60 : 75,
         generatedAt: new Date(),
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         status: 'pending',
@@ -644,26 +655,80 @@ Rules:
     return recommendations;
   }
 
-  private getProductDatabase(productType: ProductType, riskCategory: RiskCategory): Array<{
-    symbol: string;
-    name: string;
-    isin?: string;
-    riskFactors: string[];
-  }> {
-    const databases: Record<ProductType, Array<{ symbol: string; name: string; isin?: string; riskFactors: string[] }>> = {
+  // T001: DB-driven fund catalogue — replaces hardcoded getProductDatabase
+  private async fetchDBFundCatalogue(
+    productType: ProductType,
+    riskCategory: RiskCategory,
+  ): Promise<Array<{ symbol: string; name: string; isin?: string; schemeCode?: string; fundHouse?: string; riskFactors: string[] }>> {
+    if (productType === 'MF') {
+      // Map risk category → preferred MF categories
+      const categoryFilters: Record<RiskCategory, string[]> = {
+        conservative:   ['Debt - Liquid', 'Debt - Overnight', 'Debt - Ultra Short Duration', 'Debt - Low Duration', 'Hybrid - Conservative'],
+        moderate:       ['Equity - Large Cap', 'Hybrid - Balanced Advantage', 'Hybrid - Aggressive', 'Debt - Short Duration'],
+        aggressive:     ['Equity - Large Cap', 'Equity - Mid Cap', 'Equity - Flexi Cap', 'Equity - Multi Cap'],
+        very_aggressive:['Equity - Mid Cap', 'Equity - Small Cap', 'Equity - Sectoral / Thematic', 'Equity - Focused'],
+      };
+      const cats = categoryFilters[riskCategory] || categoryFilters.moderate;
+
+      try {
+        // Fetch from mutual_funds + LEFT JOIN mutual_fund_metrics, ordered by sharpe_ratio DESC
+        const rows = await db
+          .select({
+            schemeCode: mutualFunds.schemeCode,
+            schemeName: mutualFunds.schemeName,
+            isin: mutualFunds.isinGrowth,
+            category: mutualFunds.category,
+            fundHouse: mutualFunds.fundHouse,
+            riskLevel: mutualFunds.riskLevel,
+            returns1y: mutualFunds.returns1y,
+            sharpe: mutualFundMetrics.sharpeRatio,
+            return3Y: mutualFundMetrics.return3Y,
+          })
+          .from(mutualFunds)
+          .leftJoin(mutualFundMetrics, eq(mutualFunds.schemeCode, mutualFundMetrics.schemeCode))
+          .where(
+            and(
+              eq(mutualFunds.schemeStatus, 'active'),
+              inArray(mutualFunds.category, cats),
+            )
+          )
+          .orderBy(desc(mutualFundMetrics.sharpeRatio))
+          .limit(10);
+
+        if (rows.length > 0) {
+          return rows.map(r => ({
+            symbol: r.schemeCode,
+            name: r.schemeName,
+            isin: r.isin || undefined,
+            schemeCode: r.schemeCode,
+            fundHouse: r.fundHouse || undefined,
+            riskFactors: [
+              'Market risk — NAV may fluctuate with equity markets',
+              `Risk level: ${r.riskLevel || 'Moderate'}`,
+              ...(r.sharpe ? [`Sharpe ratio: ${parseFloat(r.sharpe.toString()).toFixed(2)}`] : []),
+            ],
+          }));
+        }
+      } catch (err) {
+        console.warn('[UnifiedAdvisory] DB fund catalogue query failed, using fallback:', err);
+      }
+
+      // Fallback if DB returns empty or errors
+      return [
+        { symbol: 'HDFCNIFTY', name: 'HDFC Nifty 50 Index Fund', riskFactors: ['Market risk', 'Tracking error'] },
+        { symbol: 'PPFASFLEX', name: 'Parag Parikh Flexi Cap Fund', riskFactors: ['Currency risk', 'Market risk'] },
+        { symbol: 'SBILARGE', name: 'SBI Bluechip Fund', riskFactors: ['Market risk', 'Fund manager risk'] },
+      ];
+    }
+
+    // Non-MF product types use a static catalogue (no separate DB table in scope)
+    const staticCatalogue: Record<string, Array<{ symbol: string; name: string; isin?: string; riskFactors: string[] }>> = {
       STOCK: [
         { symbol: 'HDFCBANK', name: 'HDFC Bank Ltd', isin: 'INE040A01034', riskFactors: ['Interest rate risk', 'Credit cycle exposure'] },
         { symbol: 'RELIANCE', name: 'Reliance Industries', isin: 'INE002A01018', riskFactors: ['Oil price volatility', 'High capex'] },
         { symbol: 'TCS', name: 'Tata Consultancy Services', isin: 'INE467B01029', riskFactors: ['Currency risk', 'IT spending slowdown'] },
         { symbol: 'INFY', name: 'Infosys Ltd', isin: 'INE009A01021', riskFactors: ['Client concentration', 'Visa regulations'] },
         { symbol: 'ICICIBANK', name: 'ICICI Bank Ltd', isin: 'INE090A01021', riskFactors: ['Credit risk', 'NPA exposure'] },
-      ],
-      MF: [
-        { symbol: 'HDFCNIFTY', name: 'HDFC Nifty 50 Index Fund', riskFactors: ['Market risk', 'Tracking error'] },
-        { symbol: 'SBILARGE', name: 'SBI Bluechip Fund', riskFactors: ['Market risk', 'Fund manager risk'] },
-        { symbol: 'AXISLIQ', name: 'Axis Liquid Fund', riskFactors: ['Interest rate risk', 'Credit risk'] },
-        { symbol: 'PPFASFLEX', name: 'Parag Parikh Flexi Cap Fund', riskFactors: ['Currency risk', 'Market risk'] },
-        { symbol: 'MOTILALMID', name: 'Motilal Oswal Midcap Fund', riskFactors: ['High volatility', 'Liquidity risk'] },
       ],
       BOND: [
         { symbol: 'GSEC2030', name: 'GOI 7.26% 2030', isin: 'IN0020220017', riskFactors: ['Interest rate risk', 'Duration risk'] },
@@ -674,7 +739,6 @@ Rules:
       UNLISTED: [
         { symbol: 'TATATECH', name: 'Tata Technologies Ltd', riskFactors: ['Illiquidity', 'Valuation uncertainty', 'Lock-in period'] },
         { symbol: 'NSDLIPO', name: 'NSDL e-Governance', riskFactors: ['Regulatory risk', 'Pre-IPO pricing risk'] },
-        { symbol: 'NSEBSE', name: 'NSE Unlisted', riskFactors: ['High valuation', 'Regulatory dependence'] },
       ],
       MLD: [
         { symbol: 'HDFCMLD', name: 'HDFC Nifty Linked MLD', riskFactors: ['Capital at risk', 'Complex payoff', 'Issuer credit risk'] },
@@ -697,8 +761,7 @@ Rules:
         { symbol: 'LIQUIDFUND', name: 'Liquid Fund', riskFactors: ['Credit risk', 'Interest rate sensitivity'] },
       ],
     };
-
-    return databases[productType] || [];
+    return staticCatalogue[productType] || [];
   }
 
   private calculateSuggestedAmount(
@@ -865,12 +928,46 @@ Rules:
   }
 
   async getAuditTrail(clientId: string, limit: number = 50): Promise<AdvisoryAuditLog[]> {
-    const logs = Array.from(this.auditLogs.values())
-      .filter(log => log.clientId === clientId)
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-      .slice(0, limit);
-    
-    return logs;
+    // T005: query complianceAuditTrail DB table (persistent across restarts)
+    try {
+      const rows = await db
+        .select()
+        .from(complianceAuditTrail)
+        .where(
+          and(
+            eq(complianceAuditTrail.userId, clientId),
+            eq(complianceAuditTrail.fieldChanged, 'unified_advisory'),
+          )
+        )
+        .orderBy(desc(complianceAuditTrail.createdAt))
+        .limit(limit);
+
+      return rows.map(row => {
+        const meta = (row.newValue ? JSON.parse(row.newValue) : {}) as Record<string, any>;
+        return {
+          logId: String(row.id),
+          sessionId: meta.sessionId || nanoid(),
+          agentId: row.performedBy || 'system',
+          clientId,
+          timestamp: row.createdAt || new Date(),
+          eventType: (row.action || 'trigger_check') as AdvisoryAuditLog['eventType'],
+          decisionId: meta.decisionId,
+          productType: meta.productType,
+          riskProfileUsed: meta.riskProfile,
+          clientCategoryUsed: meta.clientCategory,
+          aiReasoningSnapshot: row.reason || undefined,
+          metadata: row.metadata as Record<string, any> | undefined,
+          retentionYears: 8,
+        } as AdvisoryAuditLog;
+      });
+    } catch (err) {
+      console.error('[UnifiedAdvisory] getAuditTrail DB query failed, falling back to in-memory:', err);
+      // Graceful fallback to in-memory map for current session
+      return Array.from(this.auditLogs.values())
+        .filter(log => log.clientId === clientId)
+        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+        .slice(0, limit);
+    }
   }
 }
 

@@ -7,6 +7,8 @@ import {
   clientRiskProfiles,
   mfHoldings,
   mfFolios,
+  mutualFunds,
+  mutualFundMetrics,
   userProfiles,
   users,
   unifiedCartItems,
@@ -21,7 +23,7 @@ import {
   type InsertAiAuditLog,
   type InsertUnifiedCartItem,
 } from "@shared/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, ne } from "drizzle-orm";
 import { aiMFRecommendationService } from "./ai-mf-recommendation-service";
 // GoogleGenerativeAI imported from gemini service if needed
 
@@ -603,6 +605,10 @@ export class AIProposalEngine {
         const holding = (snapshot.holdings as any[]).find((h: any) => h.schemeName === issue.name);
         if (holding) {
           const sellAmount = holding.currentValue * (1 - issue.limitPercent / issue.currentPercent);
+
+          // T008: FIFO-based tax estimate
+          const taxInfo = await this.computeTaxEstimate(userId, holding.isin, sellAmount);
+
           recommendations.push({
             type: "SELL",
             assetClass: holding.assetType || "mutual_fund",
@@ -610,9 +616,9 @@ export class AIProposalEngine {
             schemeName: issue.name,
             amount: Math.round(sellAmount),
             currentValue: holding.currentValue,
-            rationale: `Reduce exposure from ${issue.currentPercent.toFixed(1)}% to ${issue.limitPercent}% to maintain diversification.`,
+            rationale: `Reduce exposure from ${issue.currentPercent.toFixed(1)}% to ${issue.limitPercent}% to maintain diversification. ${taxInfo.rationaleNote}`,
             problemIdentified: `Single holding concentration at ${issue.currentPercent.toFixed(1)}% exceeds the ${issue.limitPercent}% limit.`,
-            riskInvolved: "Selling may trigger capital gains tax. Market conditions may affect timing.",
+            riskInvolved: `Selling may trigger capital gains tax. ${taxInfo.taxType}: estimated tax ≈ ₹${taxInfo.estimatedTax.toLocaleString('en-IN')} at ${taxInfo.taxRate}% on gains.`,
             portfolioImpactSummary: `Reduces concentration risk and improves portfolio diversification.`,
             riskImpactPercent: "-" + Math.round((issue.currentPercent - issue.limitPercent) / 2) + "%",
             priority: 1,
@@ -622,22 +628,69 @@ export class AIProposalEngine {
     }
 
     if (mfOverlapPercent > 30) {
-      const mfHoldings = (snapshot.holdings as any[]).filter((h: any) => h.assetType === "mutual_fund");
-      if (mfHoldings.length >= 2) {
-        const smallerHolding = mfHoldings.sort((a, b) => a.currentValue - b.currentValue)[0];
+      const mfSnapshotHoldings = (snapshot.holdings as any[]).filter((h: any) => h.assetType === "mutual_fund");
+      if (mfSnapshotHoldings.length >= 2) {
+        const smallerHolding = mfSnapshotHoldings.sort((a: any, b: any) => a.currentValue - b.currentValue)[0];
+
+        // T006: DB-backed SWITCH target fund — same category, different AMC
+        let switchTargetName = "Diversified Equity Fund";
+        let switchTargetIsin: string | undefined;
+        let switchTargetSchemeCode: string | undefined;
+        let switchTargetAmc: string | undefined;
+        try {
+          // Fetch the source fund's category + AMC
+          const [sourceFund] = await db
+            .select({ category: mutualFunds.category, fundHouse: mutualFunds.fundHouse })
+            .from(mutualFunds)
+            .where(eq(mutualFunds.isinGrowth, smallerHolding.isin || ''))
+            .limit(1);
+
+          if (sourceFund?.category) {
+            // Find a replacement: same category, different AMC, active
+            const [targetFund] = await db
+              .select({
+                schemeCode: mutualFunds.schemeCode,
+                schemeName: mutualFunds.schemeName,
+                isinGrowth: mutualFunds.isinGrowth,
+                fundHouse: mutualFunds.fundHouse,
+              })
+              .from(mutualFunds)
+              .leftJoin(mutualFundMetrics, eq(mutualFunds.schemeCode, mutualFundMetrics.schemeCode))
+              .where(
+                and(
+                  eq(mutualFunds.category, sourceFund.category),
+                  eq(mutualFunds.schemeStatus, 'active'),
+                  ne(mutualFunds.fundHouse, sourceFund.fundHouse || ''),
+                )
+              )
+              .orderBy(desc(mutualFundMetrics.sharpeRatio))
+              .limit(1);
+
+            if (targetFund) {
+              switchTargetName = targetFund.schemeName;
+              switchTargetIsin = targetFund.isinGrowth || undefined;
+              switchTargetSchemeCode = targetFund.schemeCode;
+              switchTargetAmc = targetFund.fundHouse || undefined;
+            }
+          }
+        } catch (e) {
+          console.warn('[ProposalEngine] SWITCH target fund DB lookup failed:', e);
+        }
+
         recommendations.push({
           type: "SWITCH",
           assetClass: "mutual_fund",
-          isin: smallerHolding.isin,
-          schemeName: "Diversified Equity Fund",
+          isin: switchTargetIsin,
+          schemeName: switchTargetName,
+          amcName: switchTargetAmc,
           switchFromIsin: smallerHolding.isin,
           switchFromSchemeName: smallerHolding.schemeName,
           amount: smallerHolding.currentValue,
           currentValue: smallerHolding.currentValue,
-          rationale: `Switch to a diversified fund to reduce overlap from ${mfOverlapPercent}%.`,
+          rationale: `Switch from ${smallerHolding.schemeName} to ${switchTargetName} (${switchTargetAmc || 'different AMC'}) to reduce overlap from ${mfOverlapPercent}%.`,
           problemIdentified: `Mutual fund overlap at ${mfOverlapPercent}% is higher than the 30% threshold.`,
-          riskInvolved: "Switching may incur exit loads and tax implications.",
-          portfolioImpactSummary: "Reduces overlap and improves diversification across different stocks.",
+          riskInvolved: "Switching may incur exit loads and tax implications. Verify exit load period before executing.",
+          portfolioImpactSummary: `Reduces holding overlap and improves diversification. Target fund: ${switchTargetName}${switchTargetAmc ? ` by ${switchTargetAmc}` : ''}.`,
           riskImpactPercent: "-5%",
           priority: 2,
         });
@@ -724,12 +777,10 @@ export class AIProposalEngine {
 
     const proposalNumber = `PROP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
+    // T007: Real beforeAllocation from snapshot
     const beforeAllocation: Record<string, number> = {};
-    const afterAllocation: Record<string, number> = {};
-    
     for (const [key, value] of Object.entries(snapshot.assetAllocation || {})) {
       beforeAllocation[key] = (value as any).percentage || 0;
-      afterAllocation[key] = beforeAllocation[key];
     }
 
     let totalInvestment = 0;
@@ -742,6 +793,52 @@ export class AIProposalEngine {
         totalRedemption += rec.amount;
       }
     }
+
+    // T007: Compute afterAllocation by applying deltas to each bucket
+    const totalValue = snapshot.totalValue || 0;
+    const newTotalValue = Math.max(1, totalValue + totalInvestment - totalRedemption);
+
+    // Map rec assetClass → allocation key
+    const assetClassToKey = (ac: string | undefined): string => {
+      if (!ac) return 'equity';
+      const lc = ac.toLowerCase();
+      if (lc.includes('debt') || lc.includes('bond') || lc.includes('liquid') || lc.includes('overnight') || lc.includes('gilt')) return 'debt';
+      if (lc.includes('gold')) return 'gold';
+      if (lc.includes('cash')) return 'cash';
+      if (lc.includes('real_estate') || lc.includes('reit') || lc.includes('invit')) return 'real_estate';
+      return 'equity'; // default: equity, MF
+    };
+
+    // Convert before-pct → absolute amounts
+    const buckets: Record<string, number> = {};
+    for (const [key, pct] of Object.entries(beforeAllocation)) {
+      buckets[key] = (pct / 100) * totalValue;
+    }
+
+    for (const rec of recommendations) {
+      const key = assetClassToKey(rec.assetClass);
+      if (!(key in buckets)) buckets[key] = 0;
+
+      if (rec.type === "BUY" && rec.amount) {
+        buckets[key] = (buckets[key] || 0) + rec.amount;
+      } else if (rec.type === "SELL" && rec.amount) {
+        buckets[key] = Math.max(0, (buckets[key] || 0) - rec.amount);
+      } else if (rec.type === "SWITCH" && rec.amount) {
+        // Subtract from source bucket (same as the holding being switched out)
+        buckets[key] = Math.max(0, (buckets[key] || 0) - rec.amount);
+        // Add to the same key (same category) — net allocation stays same; overlap benefit is diversification
+        buckets[key] = (buckets[key] || 0) + rec.amount;
+      }
+    }
+
+    // Renormalize to percentages
+    const afterAllocation: Record<string, number> = {};
+    for (const [key, absValue] of Object.entries(buckets)) {
+      afterAllocation[key] = Math.round((absValue / newTotalValue) * 10000) / 100; // 2dp %
+    }
+
+    // T007: aiModelUsed reflects actual engine
+    const aiModelUsed = process.env.PYTHON_SERVICE_URL ? 'python-sidecar-v3.0.0' : 'rule-based-v2.0.0';
 
     const proposalData: InsertAiProposal = {
       clientId,
@@ -759,8 +856,8 @@ export class AIProposalEngine {
       totalInvestmentAmount: totalInvestment.toString(),
       totalRedemptionAmount: totalRedemption.toString(),
       netCashFlow: (totalRedemption - totalInvestment).toString(),
-      aiEngineVersion: "1.0.0",
-      aiModelUsed: "rule-based-v1",
+      aiEngineVersion: "3.0.0",
+      aiModelUsed,
       aiGeneratedAt: new Date(),
       sebiDisclaimer: SEBI_DISCLAIMER,
     };
@@ -1177,6 +1274,89 @@ export class AIProposalEngine {
     });
 
     return updated;
+  }
+
+  // T008: FIFO-based tax estimate using first_purchase_date from mf_holdings
+  private async computeTaxEstimate(
+    userId: string,
+    isin: string | undefined,
+    sellAmount: number,
+  ): Promise<{ estimatedTax: number; taxType: string; taxRate: number; rationaleNote: string }> {
+    const fallback = { estimatedTax: 0, taxType: 'No tax info', taxRate: 0, rationaleNote: '' };
+    if (!isin || !sellAmount) return fallback;
+
+    try {
+      const [holding] = await db
+        .select({
+          firstPurchaseDate: mfHoldings.firstPurchaseDate,
+          investedValue: mfHoldings.investedValue,
+          currentValue: mfHoldings.currentValue,
+          schemeCode: mfHoldings.schemeCode,
+        })
+        .from(mfHoldings)
+        .where(and(eq(mfHoldings.userId, userId), eq(mfHoldings.isin, isin)))
+        .limit(1);
+
+      if (!holding?.firstPurchaseDate) return fallback;
+
+      const purchaseDate = new Date(holding.firstPurchaseDate);
+      const today = new Date();
+      const daysHeld = Math.floor((today.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Determine if fund is equity or debt by looking up category
+      let isEquity = true;
+      try {
+        const [fundInfo] = await db
+          .select({ category: mutualFunds.category })
+          .from(mutualFunds)
+          .where(eq(mutualFunds.schemeCode, holding.schemeCode))
+          .limit(1);
+        if (fundInfo?.category) {
+          isEquity = !fundInfo.category.toLowerCase().includes('debt') &&
+                     !fundInfo.category.toLowerCase().includes('liquid') &&
+                     !fundInfo.category.toLowerCase().includes('overnight') &&
+                     !fundInfo.category.toLowerCase().includes('gilt');
+        }
+      } catch { /* keep default isEquity = true */ }
+
+      const invested = parseFloat(holding.investedValue?.toString() || '0');
+      const current = parseFloat(holding.currentValue?.toString() || '0');
+      const gainPercent = invested > 0 ? (current - invested) / invested : 0;
+      const estimatedGain = sellAmount * gainPercent;
+
+      let taxRate = 0;
+      let taxType = '';
+      let rationaleNote = '';
+
+      if (isEquity) {
+        if (daysHeld > 365) {
+          taxRate = 10; // LTCG — 10% above ₹1L
+          taxType = 'LTCG (Equity)';
+          rationaleNote = `Held ${Math.floor(daysHeld / 365)}y ${daysHeld % 365}d — qualifies for LTCG at 10% (above ₹1L exemption).`;
+        } else {
+          taxRate = 15; // STCG — 15%
+          taxType = 'STCG (Equity)';
+          rationaleNote = `Held only ${daysHeld} days — STCG at 15% applies. Consider waiting for LTCG threshold (${365 - daysHeld} more days).`;
+        }
+      } else {
+        if (daysHeld > 365) {
+          taxRate = 20; // LTCG — 20% with indexation (simplified)
+          taxType = 'LTCG (Debt, with indexation)';
+          rationaleNote = `Held ${Math.floor(daysHeld / 365)}y ${daysHeld % 365}d — LTCG at 20% with indexation benefit.`;
+        } else {
+          taxRate = 30; // STCG — added to slab income
+          taxType = 'STCG (Debt, slab rate)';
+          rationaleNote = `Held only ${daysHeld} days — STCG at income slab rate (~30%). Consider holding beyond 1 year for indexation benefit.`;
+        }
+      }
+
+      const estimatedTax = Math.max(0, Math.round(estimatedGain * taxRate / 100));
+
+      return { estimatedTax, taxType, taxRate, rationaleNote };
+    } catch (err) {
+      console.warn('[ProposalEngine] Tax estimate calculation failed:', err);
+      return fallback;
+    }
   }
 
   private async logAuditEntry(entry: Omit<InsertAiAuditLog, "timestamp">): Promise<void> {
