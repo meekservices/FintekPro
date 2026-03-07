@@ -270,11 +270,23 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex min-h-0">
+        {/* Mobile backdrop overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
         <aside
           className={cn(
-            "bg-indigo-900 border-r border-indigo-800 transition-all duration-300 overflow-y-auto sticky top-[73px] h-[calc(100vh-73px)]",
-            sidebarOpen ? "w-72" : "w-0 border-0"
+            "bg-indigo-900 border-r border-indigo-800 transition-all duration-300 overflow-y-auto",
+            "md:sticky md:top-[73px] md:h-[calc(100vh-73px)]",
+            "max-md:fixed max-md:top-[73px] max-md:left-0 max-md:h-[calc(100vh-73px)] max-md:z-50 max-md:shadow-2xl",
+            sidebarOpen
+              ? "md:w-72 max-md:w-72 max-md:translate-x-0"
+              : "md:w-0 md:border-0 max-md:-translate-x-full max-md:w-72"
           )}
         >
           {sidebarOpen && (
@@ -377,8 +389,8 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
           )}
         </aside>
 
-        <main className="flex-1 p-6">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto px-3 py-4 sm:p-6">
+          <div className="w-full max-w-7xl mx-auto">
             {children}
           </div>
         </main>

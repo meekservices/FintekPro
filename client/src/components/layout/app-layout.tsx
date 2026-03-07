@@ -55,7 +55,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       <div className={`min-h-screen ${isMobile ? 'flex flex-col' : 'grid grid-cols-[auto_1fr]'}`}>
         {!isMobile && <EnhancedNavigation />}
         
-        <main className="flex flex-col min-h-screen overflow-y-auto bg-secondary/30">
+        <main className="flex flex-col min-h-screen overflow-y-auto overflow-x-hidden min-w-0 bg-secondary/30">
           <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b px-3 md:px-6 py-3">
             <div className="flex items-center justify-between gap-2">
               {isMobile && <EnhancedNavigation />}

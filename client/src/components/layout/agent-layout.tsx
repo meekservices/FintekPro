@@ -866,8 +866,8 @@ export function AgentLayout({ children }: AgentLayoutProps) {
           {sidebarContent}
         </aside>
 
-        <main className="flex-1 overflow-y-auto bg-secondary/30 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-          <div className="max-w-7xl mx-auto px-3 py-3 sm:p-4 md:p-6 lg:p-8 pb-20 md:pb-6">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 bg-secondary/30 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+          <div className="w-full max-w-7xl mx-auto px-3 py-3 sm:p-4 md:p-6 lg:p-8 pb-20 md:pb-6">
             {children}
           </div>
         </main>
