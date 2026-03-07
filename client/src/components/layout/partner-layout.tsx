@@ -19,7 +19,8 @@ import {
   ChevronDown,
   ChevronRight,
   AlertCircle,
-  GitBranch
+  GitBranch,
+  Receipt
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -109,6 +110,12 @@ const partnerNavSections: NavSection[] = [
   {
     section: "Earnings & Compliance",
     items: [
+      {
+        title: "Revenue Sheet",
+        href: "/partner/revenue-sheet",
+        icon: Receipt,
+        description: "Case-wise monthly earnings"
+      },
       {
         title: "Payout Statement",
         href: "/partner-portal?tab=statement",

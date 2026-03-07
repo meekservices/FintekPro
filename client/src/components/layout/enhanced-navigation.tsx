@@ -501,7 +501,8 @@ export function EnhancedNavigation() {
           { name: "Apply for Client", href: "/agent/loan-apply", icon: Banknote, description: "New loan application" },
           { name: "Builder Finance", href: "/agent/loan-apply?type=developer", icon: Building2, description: "Project & developer finance", badge: "NEW" },
           { name: "DSA Performance", href: "/agent/dsa-performance", icon: Activity, description: "DSA analytics" },
-          { name: "Payout Claims", href: "/agent/payout-claims", icon: CircleDollarSign, description: "Commission claims" }
+          { name: "Payout Claims", href: "/agent/payout-claims", icon: CircleDollarSign, description: "Commission claims" },
+          { name: "Revenue Sheet", href: "/agent/revenue-sheet", icon: Receipt, description: "Case-wise monthly payout", badge: "NEW" }
         ]
       },
       {
