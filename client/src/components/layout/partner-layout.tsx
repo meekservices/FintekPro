@@ -84,6 +84,12 @@ const partnerNavSections: NavSection[] = [
         href: "/partner/my-team?tab=bank",
         icon: Banknote,
         description: "Payout bank details"
+      },
+      {
+        title: "Agent Payouts",
+        href: "/partner/payouts",
+        icon: Wallet,
+        description: "Commission payouts & settlements"
       }
     ]
   },
@@ -101,12 +107,6 @@ const partnerNavSections: NavSection[] = [
         href: "/partner/agent-performance",
         icon: BarChart3,
         description: "Track agent metrics & P&L"
-      },
-      {
-        title: "Agent Payouts",
-        href: "/partner/payouts",
-        icon: Wallet,
-        description: "Commission payouts & settlements"
       }
     ]
   },
