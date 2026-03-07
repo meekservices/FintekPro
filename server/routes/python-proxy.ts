@@ -11,11 +11,17 @@
  *   GET  /api/python/analytics/amc-breakdown[?agent_id=X]
  *   POST /api/python/quant/xirr          body: [{date, amount}]
  *   GET  /api/python/quant/portfolio-xirr[?user_id=X]
- *   GET  /api/python/quant/rolling-returns?isin=INF...&periods=1Y,3Y,5Y
+ *   GET  /api/python/quant/rolling-returns?scheme_code=...&periods=1W,1M,3M,6M,1Y,3Y,5Y,10Y
  *   POST /api/python/quant/mvo           body: {assets, config, transition}
  *   POST /api/python/quant/black-litterman body: {mvoResult, views, config}
  *   POST /api/python/quant/backtest      body: {weights, monthlyReturns, benchmarkWeights}
  *   POST /api/python/quant/drift-predict body: {driftMetrics, toleranceBandPct}
+ *
+ * MF Analytics endpoints (py-mf-analytics-v1):
+ *   POST /api/python/mf/compute-metrics  body: {schemeCode, navHistory, benchmarkHistory?}
+ *   GET  /api/python/mf/scheme-analytics?scheme_code=...
+ *   POST /api/python/mf/monthly-series   body: {schemes: [{schemeCode, navHistory}]}
+ *   POST /api/python/mf/bulk-compute-db  body: {limit?, minDays?, fiscalYear?} (admin/agent)
  */
 import { Router } from 'express';
 import { proxyToPython, isPythonServiceConfigured } from '../clients/python-client';
@@ -76,6 +82,27 @@ router.post('/api/python/quant/backtest', requireAuth, async (req, res) => {
 
 router.post('/api/python/quant/drift-predict', requireAuth, async (req, res) => {
   return proxyToPython(req, res, '/api/quant/drift-predict');
+});
+
+// MF Analytics — py-mf-analytics-v1
+// Compute full analytics from supplied NAV + optional benchmark arrays
+router.post('/api/python/mf/compute-metrics', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/mf/compute-metrics');
+});
+
+// Compute analytics directly from DB (mf_nav_history + mf_benchmark_map + market_index_nav)
+router.get('/api/python/mf/scheme-analytics', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/mf/scheme-analytics');
+});
+
+// Compute monthly return series for a batch of schemes
+router.post('/api/python/mf/monthly-series', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/mf/monthly-series');
+});
+
+// Bulk compute metrics for all schemes in mf_nav_history and upsert into mutual_fund_metrics
+router.post('/api/python/mf/bulk-compute-db', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/mf/bulk-compute-db');
 });
 
 export default router;

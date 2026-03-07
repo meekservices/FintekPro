@@ -205,23 +205,31 @@ async def portfolio_xirr(
 @router.get("/rolling-returns")
 async def rolling_returns(
     isin: str,
+    scheme_code: Optional[str] = None,
     periods: str = "1Y,3Y,5Y",
     token: TokenPayload = Depends(verify_token),
 ):
+    """
+    Compute CAGR rolling returns for a mutual fund.
+    Accepts `scheme_code` (preferred) or legacy `isin` param (treated as scheme_code for backward compat).
+    Reads from mf_nav_history (scheme_code, nav_date, nav).
+    """
+    lookup_code = scheme_code or isin
+
     async with db_conn() as conn:
         navs = await conn.fetch(
             """
             SELECT nav_date, nav
-            FROM mutual_fund_nav_history
-            WHERE isin = $1
-            ORDER BY nav_date DESC
-            LIMIT 2000
+            FROM mf_nav_history
+            WHERE scheme_code = $1
+            ORDER BY nav_date ASC
+            LIMIT 5000
             """,
-            isin,
+            lookup_code,
         )
 
-    if not navs or len(navs) < 30:
-        return {"isin": isin, "error": "Insufficient NAV history"}
+    if not navs or len(navs) < 10:
+        return {"schemeCode": lookup_code, "error": "Insufficient NAV history", "returns": {}}
 
     df = pd.DataFrame([dict(r) for r in navs])
     df["nav"] = pd.to_numeric(df["nav"], errors="coerce")
@@ -232,22 +240,37 @@ async def rolling_returns(
     latest_date = df.index[-1]
     results = {}
 
+    period_map = {"1W": 7/365, "1M": 30/365, "3M": 91/365, "6M": 182/365,
+                  "1Y": 1, "3Y": 3, "5Y": 5, "10Y": 10}
+
     for period in periods.split(","):
-        period = period.strip()
-        years_map = {"1Y": 1, "3Y": 3, "5Y": 5, "10Y": 10}
-        years = years_map.get(period.upper())
-        if not years:
+        period = period.strip().upper()
+        years = period_map.get(period)
+        if years is None:
             continue
-        target_date = latest_date - pd.DateOffset(years=years)
+        target_date = latest_date - pd.Timedelta(days=int(years * 365))
         past = df[df.index <= target_date]
         if past.empty:
             results[period] = None
             continue
         past_nav = float(past["nav"].iloc[-1])
-        cagr = ((latest_nav / past_nav) ** (1 / years) - 1) * 100
-        results[period] = round(cagr, 2)
+        if past_nav <= 0:
+            results[period] = None
+            continue
+        if years >= 1:
+            cagr = ((latest_nav / past_nav) ** (1 / years) - 1) * 100
+        else:
+            cagr = (latest_nav / past_nav - 1) * 100
+        results[period] = round(cagr, 4)
 
-    return {"isin": isin, "latest_nav": latest_nav, "returns": results}
+    return {
+        "schemeCode": lookup_code,
+        "latestNav": latest_nav,
+        "latestDate": latest_date.strftime("%Y-%m-%d"),
+        "dataPoints": len(df),
+        "returns": results,
+        "modelVersion": "py-rolling-v2",
+    }
 
 
 @router.post("/mvo")

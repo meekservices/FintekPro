@@ -47,8 +47,14 @@ FintekPro uses a **dual-auth, zero-disruption service mesh** to split heavy doma
 - Portfolio summary with pandas (asset allocation, AMC breakdown, gain/loss)
 - FIFO capital gains engine (STCG/LTCG split, tax estimate, per-lot detail)
 - XIRR calculation (arbitrary cashflows or auto-fetched from DB)
-- Rolling returns (1Y/3Y/5Y CAGR from NAV history)
+- Rolling returns v2 (1W/1M/3M/6M/1Y/3Y/5Y/10Y from `mf_nav_history` — bug-fixed table ref)
 - AMC-breakdown for agents (AUM, trail estimate, client count)
+- **MF Historical Analytics Engine** (`routes/mf_analytics.py`, `py-mf-analytics-v1`):
+  - `POST /api/mf/compute-metrics` — full analytics from any NAV array (CAGR periods, Sharpe/Sortino/MaxDD/Calmar, volatility, SIP XIRR 1Y/3Y/5Y, monthly series, beta/alpha/tracking error vs benchmark)
+  - `GET /api/mf/scheme-analytics?scheme_code=X` — DB-native: reads `mf_nav_history` + `mf_benchmark_map` + `market_index_nav`
+  - `POST /api/mf/monthly-series` — bulk monthly return series computation for upsert
+  - `POST /api/mf/bulk-compute-db` — bulk upsert into `mutual_fund_metrics` + `mf_monthly_returns` for all schemes with ≥N days NAV data
+- New DB columns added to `mutual_fund_metrics`: `volatility`, `tracking_error`, `calmar_ratio`
 - Proxy client: `server/clients/python-client.ts` | Routes: `server/routes/python-proxy.ts`
 - Activate: set `PYTHON_SERVICE_URL=<deployed URL>` — all `/api/python/*` routes proxy transparently
 - Deploy: copy `services/python/` to a new Python Replit repl; set `PRODUCTION_DATABASE_URL` + `SESSION_SECRET`

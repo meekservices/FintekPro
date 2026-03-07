@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from database import get_pool, close_pool
 from routes.analytics import router as analytics_router
 from routes.quant import router as quant_router
+from routes.mf_analytics import router as mf_analytics_router
 
 load_dotenv()
 
@@ -37,6 +38,7 @@ app.add_middleware(
 
 app.include_router(analytics_router)
 app.include_router(quant_router)
+app.include_router(mf_analytics_router)
 
 
 @app.get("/health")
@@ -55,5 +57,9 @@ async def health():
             "black-litterman-numpy",
             "backtest-metrics",
             "drift-predict-scipy",
+            "mf-compute-metrics",
+            "mf-scheme-analytics",
+            "mf-monthly-series",
+            "mf-bulk-compute-db",
         ],
     }
