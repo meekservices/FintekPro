@@ -1,5 +1,6 @@
 import type { Express, Request } from "express";
 import { executionGuard } from "./middleware/execution-guard";
+import { proxyToInsurance } from './clients/insurance-client';
 import { registerCrmRoutes } from './routes/crm';
 import { registerZohoBooksRoutes } from './routes/zoho-books';
 import { registerTaxRoutes } from './routes/tax';
@@ -10006,10 +10007,12 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
+  // Insurance Holdings — proxy to ins.fintekpro.com when INSURANCE_SERVICE_URL is set,
+  // otherwise use local storage (backward-compatible).
   app.get("/api/insurance-holdings", requireAuth, async (req: any, res) => {
+    if (process.env.INSURANCE_SERVICE_URL) return proxyToInsurance(req, res, '/insurance-holdings');
     try {
-      const userId = req.user!.id;
-      const insuranceHoldings = await storage.getInsuranceHoldings(userId);
+      const insuranceHoldings = await storage.getInsuranceHoldings(req.user!.id);
       res.json(insuranceHoldings);
     } catch (error) {
       console.error("Error fetching insurance holdings:", error);
@@ -10018,9 +10021,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   });
 
   app.post("/api/insurance-holdings", requireAuth, async (req: any, res) => {
+    if (process.env.INSURANCE_SERVICE_URL) return proxyToInsurance(req, res, '/insurance-holdings');
     try {
-      const userId = req.user!.id;
-      const holdingData = { ...req.body, userId };
+      const holdingData = { ...req.body, userId: req.user!.id };
       const insuranceHolding = await storage.createInsuranceHolding(holdingData);
       res.json(insuranceHolding);
     } catch (error) {
@@ -10030,13 +10033,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   });
 
   app.patch("/api/insurance-holdings/:id", requireAuth, async (req: any, res) => {
+    if (process.env.INSURANCE_SERVICE_URL) return proxyToInsurance(req, res, `/insurance-holdings/${req.params.id}`);
     try {
-      const { id } = req.params;
-      const updates = req.body;
-      const updatedHolding = await storage.updateInsuranceHolding(id, updates);
-      if (!updatedHolding) {
-        return res.status(404).json({ error: "Insurance holding not found" });
-      }
+      const updatedHolding = await storage.updateInsuranceHolding(req.params.id, req.body);
+      if (!updatedHolding) return res.status(404).json({ error: "Insurance holding not found" });
       res.json(updatedHolding);
     } catch (error) {
       console.error("Error updating insurance holding:", error);

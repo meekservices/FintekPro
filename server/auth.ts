@@ -1113,6 +1113,20 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Service-to-service JWT token (used by micro-service subdomains like ins.fintekpro.com)
+  app.get("/api/auth/service-token", (req: any, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    try {
+      const { issueServiceToken } = require('./utils/service-token');
+      const token = issueServiceToken(req.user);
+      return res.json({ token, expiresIn: 900 });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // Logout endpoint
   app.post("/api/logout", (req, res) => {
     req.logout((err) => {

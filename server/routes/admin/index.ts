@@ -11,6 +11,7 @@ import { auditIntegrityChecker } from '../../services/audit-integrity-checker';
 import { platformStatsCache } from '../../services/platform-stats-cache';
 import { riaValidationService } from '../../services/ria-validation-service';
 import { insuranceSuitabilityService } from '../../services/insurance-suitability-service';
+import { proxyToInsurance } from '../../clients/insurance-client';
 import { beneficialOwnershipService } from '../../services/beneficial-ownership-service';
 import { sebiScoresService } from '../../services/sebi-scores-service';
 import { mfReturnsSyncService } from '../../services/mf-returns-sync-service';
@@ -441,94 +442,49 @@ export function registerAdminPanelRoutes(app: Express): void {
   });
 
   // Insurance Suitability Assessment API (IRDAI Regulations 2024)
-  // Requires authentication - agents can conduct assessments for their clients
-  app.post("/api/insurance/suitability-assessment", async (req, res) => {
-    if (!(req as any).user) {
-      return res.status(401).json({ success: false, error: 'Authentication required for insurance suitability assessment' });
-    }
+  // When INSURANCE_SERVICE_URL is set, these routes proxy to ins.fintekpro.com.
+  // Otherwise they fall back to the local in-process service (backward-compatible).
+  app.post("/api/insurance/suitability-assessment", async (req: any, res) => {
+    if (!req.user) return res.status(401).json({ success: false, error: 'Authentication required' });
+    if (process.env.INSURANCE_SERVICE_URL) return proxyToInsurance(req, res, '/insurance/suitability-assessment');
     try {
       const { clientId, agentId, personalInfo, financialProfile, insuranceNeeds, healthProfile } = req.body;
-      
       if (!clientId || !agentId || !personalInfo || !financialProfile || !insuranceNeeds || !healthProfile) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'All assessment fields are required: clientId, agentId, personalInfo, financialProfile, insuranceNeeds, healthProfile' 
-        });
+        return res.status(400).json({ success: false, error: 'All assessment fields are required: clientId, agentId, personalInfo, financialProfile, insuranceNeeds, healthProfile' });
       }
-      
-      const assessment = await insuranceSuitabilityService.conductSuitabilityAssessment({
-        clientId,
-        agentId,
-        personalInfo,
-        financialProfile,
-        insuranceNeeds,
-        healthProfile,
-      });
-      
-      res.json({
-        success: true,
-        data: assessment,
-        regulatoryCompliance: {
-          reference: 'IRDAI (Protection of Policyholders) Regulations 2024',
-          mandatoryAssessment: true,
-          validityDays: 180,
-        },
-      });
-    } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
-    }
+      const assessment = await insuranceSuitabilityService.conductSuitabilityAssessment({ clientId, agentId, personalInfo, financialProfile, insuranceNeeds, healthProfile });
+      res.json({ success: true, data: assessment, regulatoryCompliance: { reference: 'IRDAI (Protection of Policyholders) Regulations 2024', mandatoryAssessment: true, validityDays: 180 } });
+    } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
   });
 
-  app.get("/api/insurance/suitability-assessment/:assessmentId", async (req, res) => {
-    if (!(req as any).user) {
-      return res.status(401).json({ success: false, error: 'Authentication required' });
-    }
-    try {
-      const assessment = insuranceSuitabilityService.getAssessment(req.params.assessmentId);
-      if (!assessment) {
-        return res.status(404).json({ success: false, error: 'Assessment not found' });
-      }
-      res.json({
-        success: true,
-        data: assessment,
-        isValid: insuranceSuitabilityService.isAssessmentValid(req.params.assessmentId),
-      });
-    } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  });
-
-  app.get("/api/insurance/suitability-assessment/client/:clientId", async (req, res) => {
-    if (!(req as any).user) {
-      return res.status(401).json({ success: false, error: 'Authentication required' });
-    }
+  app.get("/api/insurance/suitability-assessment/client/:clientId", async (req: any, res) => {
+    if (!req.user) return res.status(401).json({ success: false, error: 'Authentication required' });
+    if (process.env.INSURANCE_SERVICE_URL) return proxyToInsurance(req, res, `/insurance/suitability-assessment/client/${req.params.clientId}`);
     try {
       const assessments = insuranceSuitabilityService.getClientAssessments(req.params.clientId);
-      res.json({
-        success: true,
-        data: assessments,
-        meta: { count: assessments.length },
-      });
-    } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
-    }
+      res.json({ success: true, data: assessments, meta: { count: assessments.length } });
+    } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
   });
 
-  app.post("/api/insurance/suitability-assessment/:assessmentId/acknowledge", async (req, res) => {
-    if (!(req as any).user) {
-      return res.status(401).json({ success: false, error: 'Authentication required' });
-    }
+  app.get("/api/insurance/suitability-assessment/:assessmentId", async (req: any, res) => {
+    if (!req.user) return res.status(401).json({ success: false, error: 'Authentication required' });
+    if (process.env.INSURANCE_SERVICE_URL) return proxyToInsurance(req, res, `/insurance/suitability-assessment/${req.params.assessmentId}`);
+    try {
+      const assessment = insuranceSuitabilityService.getAssessment(req.params.assessmentId);
+      if (!assessment) return res.status(404).json({ success: false, error: 'Assessment not found' });
+      res.json({ success: true, data: assessment, isValid: insuranceSuitabilityService.isAssessmentValid(req.params.assessmentId) });
+    } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  });
+
+  app.post("/api/insurance/suitability-assessment/:assessmentId/acknowledge", async (req: any, res) => {
+    if (!req.user) return res.status(401).json({ success: false, error: 'Authentication required' });
+    if (process.env.INSURANCE_SERVICE_URL) return proxyToInsurance(req, res, `/insurance/suitability-assessment/${req.params.assessmentId}/acknowledge`);
     try {
       const { clientId } = req.body;
-      if (!clientId) {
-        return res.status(400).json({ success: false, error: 'clientId is required' });
-      }
-      
+      if (!clientId) return res.status(400).json({ success: false, error: 'clientId is required' });
       const result = await insuranceSuitabilityService.acknowledgeAssessment(req.params.assessmentId, clientId);
       res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
-    }
+    } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
   });
 
   // Beneficial Ownership Disclosure API (MCA Compliance)
