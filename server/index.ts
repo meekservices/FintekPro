@@ -53,6 +53,8 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
   console.error('[Global] Unhandled rejection:', reason);
 });
 
+import { spawn } from "child_process";
+import path from "path";
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import compression from "compression";
@@ -543,6 +545,62 @@ app.get('/health', (_req: Request, res: Response) => {
 // ============================================================================
 import { createServer } from 'http';
 
+// ---------------------------------------------------------------------------
+// Python Analytics Sidecar — starts uvicorn on port 8001 inside this repl
+// Only activates when PYTHON_SERVICE_URL is not already set to an external URL
+// ---------------------------------------------------------------------------
+function startPythonSidecar() {
+  if (process.env.PYTHON_SERVICE_URL && !process.env.PYTHON_SERVICE_URL.includes('localhost')) {
+    console.log(`ℹ️  [Python] External PYTHON_SERVICE_URL detected (${process.env.PYTHON_SERVICE_URL}) — skipping local sidecar`);
+    return;
+  }
+
+  const pythonDir = path.resolve(process.cwd(), 'services/python');
+  const python3 = process.env.PYTHON_BIN || 'python3';
+
+  process.env.PYTHON_SERVICE_URL = 'http://localhost:8001';
+  console.log('🐍 [Python] Starting local sidecar on port 8001...');
+
+  const launch = () => {
+    const proc = spawn(python3, ['-m', 'uvicorn', 'main:app', '--host', '0.0.0.0', '--port', '8001', '--log-level', 'warning'], {
+      cwd: pythonDir,
+      env: {
+        ...process.env,
+        PYTHONUNBUFFERED: '1',
+      },
+    });
+
+    proc.stdout.on('data', (data: Buffer) => {
+      const lines = data.toString().trim().split('\n');
+      lines.forEach((line: string) => { if (line) console.log(`[Python] ${line}`); });
+    });
+
+    proc.stderr.on('data', (data: Buffer) => {
+      const lines = data.toString().trim().split('\n');
+      lines.forEach((line: string) => {
+        if (line && !line.includes('INFO:') && !line.includes('Started server') && !line.includes('Uvicorn running')) {
+          console.warn(`[Python] ${line}`);
+        } else if (line) {
+          console.log(`[Python] ${line}`);
+        }
+      });
+    });
+
+    proc.on('close', (code: number | null) => {
+      if (code !== 0 && code !== null) {
+        console.warn(`⚠️  [Python] Sidecar exited (code ${code}) — restarting in 5s...`);
+        setTimeout(launch, 5000);
+      }
+    });
+
+    proc.on('error', (err: Error) => {
+      console.error(`❌ [Python] Failed to start sidecar: ${err.message}`);
+    });
+  };
+
+  launch();
+}
+
 const server = createServer(app);
 const port = parseInt(process.env.PORT || '5000', 10);
 
@@ -575,6 +633,9 @@ server.listen({
 });
 
 (async () => {
+  // Start Python analytics sidecar (non-blocking — runs uvicorn on port 8001)
+  startPythonSidecar();
+
   // Extended health check endpoints
   const { readinessCheck, livenessCheck } = await import('./health-check');
   app.get('/ready', (req, res) => {
