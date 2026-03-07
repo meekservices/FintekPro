@@ -2241,10 +2241,13 @@ class PickOfTheDayService {
   private scoreBond(bond: any): number {
     let score = 0;
     
+    // Risk-free rate = 7.15% (India 10Y G-Sec, Mar 2026).
+    // A bond below risk-free adds no value over sovereign paper — score 0 for YTM component.
     const ytm = bond.yieldToMaturity ? parseFloat(bond.yieldToMaturity) : 0;
-    if (ytm > 10) score += 25;
-    else if (ytm > 8) score += 20;
-    else if (ytm > 6) score += 15;
+    if (ytm > 10) score += 25;      // Strong spread (285 bps+), high-conviction
+    else if (ytm > 8.5) score += 20; // Good spread (135 bps+)
+    else if (ytm > 7.5) score += 12; // Thin positive spread — acceptable
+    // ytm <= 7.15% = at or below risk-free → 0 pts for YTM component
     
     const rating = bond.creditRating?.toUpperCase() || '';
     if (rating.includes('AAA')) score += 25;

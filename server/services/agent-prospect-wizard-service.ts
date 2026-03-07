@@ -1996,8 +1996,33 @@ function riskToPicksSuitableFor(riskProfile: string): string {
 
 // DB-first fund discovery: queries mutual_funds table for top performers per SEBI category
 async function getDbFundsForCategory(wizardCategory: string, riskProfile: string): Promise<any[]> {
-  const keywords = (SEBI_CATEGORY_MAP[wizardCategory]?.[riskProfile]) ||
-                   (SEBI_CATEGORY_MAP[wizardCategory]?.moderate) || [];
+  let keywords = (SEBI_CATEGORY_MAP[wizardCategory]?.[riskProfile]) ||
+                 (SEBI_CATEGORY_MAP[wizardCategory]?.moderate) || [];
+
+  // ── Rate-cycle-aware debt category prioritisation ────────────────────────
+  // In a rate-cut cycle longer-duration debt outperforms (falling rates → bond price up).
+  // Reorder keywords so Gilt / Dynamic Bond / Long Duration come before Short Duration.
+  // In a rate-hike cycle, reverse: short-duration / banking PSU first.
+  if (wizardCategory === 'debt' && keywords.length > 0) {
+    const LONG_DUR_KEYWORDS  = ['Gilt', 'Dynamic Bond', 'Medium to Long Duration', 'Long Duration'];
+    const SHORT_DUR_KEYWORDS = ['Short Duration', 'Banking and PSU', 'Liquid', 'Overnight', 'Money Market'];
+    if (MARKET_SIGNALS.rateCycleDirection === 'cut') {
+      // Float long-duration to the top, leave short-duration at the end
+      keywords = [
+        ...keywords.filter(k => LONG_DUR_KEYWORDS.some(ld => k.includes(ld))),
+        ...keywords.filter(k => !LONG_DUR_KEYWORDS.some(ld => k.includes(ld)) && !SHORT_DUR_KEYWORDS.some(sd => k.includes(sd))),
+        ...keywords.filter(k => SHORT_DUR_KEYWORDS.some(sd => k.includes(sd))),
+      ];
+    } else if (MARKET_SIGNALS.rateCycleDirection === 'hike') {
+      // Float short-duration to the top, push long-duration to the end
+      keywords = [
+        ...keywords.filter(k => SHORT_DUR_KEYWORDS.some(sd => k.includes(sd))),
+        ...keywords.filter(k => !SHORT_DUR_KEYWORDS.some(sd => k.includes(sd)) && !LONG_DUR_KEYWORDS.some(ld => k.includes(ld))),
+        ...keywords.filter(k => LONG_DUR_KEYWORDS.some(ld => k.includes(ld))),
+      ];
+    }
+  }
+
   if (keywords.length === 0) return [];
 
   try {
@@ -2120,17 +2145,27 @@ async function getDailyPicksForCategory(wizardCategory: string, riskProfile: str
 function computeFundCompositeScore(fund: any): number {
   const r3 = typeof fund.returns3Y === 'number' ? fund.returns3Y : 12;
   const r5 = typeof fund.returns5Y === 'number' ? fund.returns5Y : r3;
-  const metrics = FUND_ALPHA_METRICS[fund.name] || { sharpe: 1.0, aumCr: 10000 };
+  const staticMetrics = FUND_ALPHA_METRICS[fund.name];
+
+  // Sharpe: use static map if known; otherwise derive from CRISIL score (1-5 scale → ~0.5-1.5)
+  // or fall back to a neutral 1.0 for unknown DB funds
+  let sharpe = staticMetrics?.sharpe;
+  if (sharpe == null) {
+    const crisil = typeof fund._dbCrisilScore === 'number' ? fund._dbCrisilScore : null;
+    sharpe = crisil != null ? 0.3 + (crisil / 5) * 1.2 : 1.0; // crisil 5→1.5, crisil 1→0.54
+  }
+
+  const aumCr = staticMetrics?.aumCr ?? (typeof fund._aumCr === 'number' ? fund._aumCr : 10000);
   const expRatioStr = fund.expenseRatio || '1.5%';
   const expRatioNum = parseFloat(expRatioStr.replace('%', '')) || 1.5;
 
-  // Weighted composite: returns40% + 5Y-returns25% + sharpe*12 - expRatio*8
-  let score = r3 * 0.40 + r5 * 0.25 + metrics.sharpe * 12 - expRatioNum * 8;
+  // Weighted composite: 3Y returns 40% + 5Y returns 25% + sharpe*12 − expRatio*8
+  let score = r3 * 0.40 + r5 * 0.25 + sharpe * 12 - expRatioNum * 8;
 
   // AUM capacity penalty: small-cap funds > ₹20,000 Cr face deployment friction
-  if ((fund.category || '').toLowerCase().includes('small cap') && metrics.aumCr > 20000) score -= 3;
+  if ((fund.category || '').toLowerCase().includes('small cap') && aumCr > 20000) score -= 3;
   // Stability bonus: large-cap heavyweights > ₹30,000 Cr
-  if ((fund.category || '').toLowerCase().includes('large cap') && metrics.aumCr > 30000) score += 1;
+  if ((fund.category || '').toLowerCase().includes('large cap') && aumCr > 30000) score += 1;
   return score;
 }
 
@@ -2590,20 +2625,20 @@ class AgentProspectWizardService {
 
   private calculateAlpha(portfolioReturn: number, beta: number | null, marketReturn: number = 12): number | null {
     if (beta === null) return null;
-    const riskFreeRate = 6; // India 10Y G-Sec benchmark
+    const riskFreeRate = 7.15; // India 10Y G-Sec as of Mar 2026 — update periodically
     const expectedReturn = riskFreeRate + beta * (marketReturn - riskFreeRate);
     return portfolioReturn - expectedReturn;
   }
 
   private calculateSharpeRatio(returns: number, volatility: number | null): number | null {
     if (!volatility || volatility === 0) return null;
-    const riskFreeRate = 6;
+    const riskFreeRate = 7.15; // India 10Y G-Sec as of Mar 2026 — update periodically
     return (returns - riskFreeRate) / volatility;
   }
 
   private calculateTreynorRatio(portfolioReturn: number, beta: number | null): number | null {
     if (beta === null || beta === 0) return null;
-    const riskFreeRate = 6;
+    const riskFreeRate = 7.15; // India 10Y G-Sec as of Mar 2026 — update periodically
     return (portfolioReturn - riskFreeRate) / beta;
   }
 
@@ -2616,7 +2651,7 @@ class AgentProspectWizardService {
     const downsideDeviation = volatility * 0.7;
     if (downsideDeviation === 0) return null;
     
-    const targetReturn = 6;
+    const targetReturn = 7.15; // Minimum acceptable return = risk-free rate (10Y G-Sec Mar 2026)
     return (portfolioReturn - targetReturn) / downsideDeviation;
   }
 
@@ -2825,7 +2860,7 @@ class AgentProspectWizardService {
     
     if (useRealData) {
       // Override with real data where available
-      const riskFreeRate = 0.065;
+      const riskFreeRate = 0.0715; // India 10Y G-Sec as of Mar 2026 — update periodically
       const effectiveReturn = weightedCagr || (expectedReturn / 100);
       const effectiveSharpe = realVolatility > 0 ? (effectiveReturn - riskFreeRate) / realVolatility : null;
       
