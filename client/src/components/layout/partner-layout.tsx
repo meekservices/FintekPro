@@ -97,7 +97,7 @@ const partnerNavSections: NavSection[] = [
     section: "Agent Management",
     items: [
       {
-        title: "My Agents",
+        title: "My Cost Centre",
         href: "/partner/agents",
         icon: Users,
         description: "Recruit & manage agents"
