@@ -47,7 +47,7 @@ router.get("/api/agent/market-alerts", requireAuth, async (req, res) => {
 
     // Get agent clients
     const agentClients = await db
-      .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, phone: users.phone })
+      .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, mobile: users.mobile })
       .from(users)
       .where(sql`${users.agentId} = ${agentId} AND 'client' = ANY(${users.roles})`);
 
@@ -120,7 +120,7 @@ router.get("/api/agent/market-alerts", requireAuth, async (req, res) => {
         clientId: h.userId || "",
         clientName: `${client.firstName || ""} ${client.lastName || ""}`.trim(),
         holdingValue: parseFloat(String(h.marketValue || 0)),
-        phone: client.phone || undefined,
+        phone: client.mobile || undefined,
       });
     }
 
@@ -135,7 +135,7 @@ router.get("/api/agent/market-alerts", requireAuth, async (req, res) => {
         clientId: userId || "",
         clientName: `${client.firstName || ""} ${client.lastName || ""}`.trim(),
         holdingValue: parseFloat(String(h.currentValue || 0)),
-        phone: client.phone || undefined,
+        phone: client.mobile || undefined,
       });
     }
 

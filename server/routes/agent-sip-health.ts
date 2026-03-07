@@ -48,7 +48,7 @@ router.get("/api/agent/sip-health", requireAuth, async (req, res) => {
 
     // Fetch all clients assigned to this agent
     const agentClients = await db
-      .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, phone: users.phone })
+      .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, mobile: users.mobile })
       .from(users)
       .where(sql`${users.agentId} = ${agentId} AND 'client' = ANY(${users.roles})`);
 
@@ -113,7 +113,7 @@ router.get("/api/agent/sip-health", requireAuth, async (req, res) => {
         id: h.id,
         clientId: h.userId,
         clientName: `${client.firstName || ""} ${client.lastName || ""}`.trim(),
-        clientPhone: client.phone,
+        clientPhone: client.mobile,
         fundName: h.assetName,
         isin: h.isin,
         folio: h.folio,
@@ -137,7 +137,7 @@ router.get("/api/agent/sip-health", requireAuth, async (req, res) => {
         id: h.id,
         clientId: userId,
         clientName: `${client.firstName || ""} ${client.lastName || ""}`.trim(),
-        clientPhone: client.phone,
+        clientPhone: client.mobile,
         fundName: h.name || h.symbol || "Unknown Fund",
         isin: h.isin,
         folio: h.folioNumber,
