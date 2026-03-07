@@ -614,7 +614,7 @@ class MVOEngine {
         }
       }
       const portfolioVolatility = Math.sqrt(Math.max(0, portfolioVariance));
-      const sharpeRatio = portfolioVolatility > 0 ? (portfolioReturn - 0.06) / portfolioVolatility : 0;
+      const sharpeRatio = portfolioVolatility > 0 ? (portfolioReturn - 0.0715) / portfolioVolatility : 0;
 
       const weights: Record<string, number> = {};
       categories.forEach((cat, i) => {

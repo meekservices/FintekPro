@@ -123,8 +123,10 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
     ? (dcfValue - stockPrice) / stockPrice
     : null;
 
-  const peScore = pe != null ? normalize(50 - pe, -50, 50) : 50;
-  const pbScore = pb != null ? normalize(5 - pb, -5, 5) : 50;
+  // Negative P/E = loss-making company → score 0 (not a value pick)
+  // Negative P/B = negative book value (distressed) → score 0
+  const peScore = pe != null ? (pe <= 0 ? 0 : normalize(50 - pe, -50, 50)) : 50;
+  const pbScore = pb != null ? (pb <= 0 ? 0 : normalize(5 - pb, -5, 5)) : 50;
   const dyScore = divYield != null ? normalize(divYield, 0, 0.08) : 50;
   const dcfScore = dcfUpside != null ? normalize(dcfUpside, -0.5, 1.0) : null;
 
@@ -231,8 +233,8 @@ export async function recalculateAllMetrics(): Promise<{ processed: number; erro
           (CASE WHEN sf.operating_margin IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.operating_margin::numeric / 0.35) * 100)) ELSE 50 END) * 0.25
         )), 2) as quality_score,
         ROUND(LEAST(100, GREATEST(0,
-          (CASE WHEN sf.pe_ratio IS NOT NULL THEN LEAST(100, GREATEST(0, ((50 - sf.pe_ratio::numeric + 50) / 100) * 100)) ELSE 50 END) * 0.4 +
-          (CASE WHEN sf.pb_ratio IS NOT NULL THEN LEAST(100, GREATEST(0, ((5 - sf.pb_ratio::numeric + 5) / 10) * 100)) ELSE 50 END) * 0.3 +
+          (CASE WHEN sf.pe_ratio IS NOT NULL AND sf.pe_ratio::numeric > 0 THEN LEAST(100, GREATEST(0, ((50 - sf.pe_ratio::numeric + 50) / 100) * 100)) WHEN sf.pe_ratio IS NOT NULL THEN 0 ELSE 50 END) * 0.4 +
+          (CASE WHEN sf.pb_ratio IS NOT NULL AND sf.pb_ratio::numeric > 0 THEN LEAST(100, GREATEST(0, ((5 - sf.pb_ratio::numeric + 5) / 10) * 100)) WHEN sf.pb_ratio IS NOT NULL THEN 0 ELSE 50 END) * 0.3 +
           (CASE WHEN sf.dividend_yield IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.dividend_yield::numeric / 0.08) * 100)) ELSE 50 END) * 0.3
         )), 2) as value_score,
         ROUND(LEAST(100, GREATEST(0,
@@ -294,8 +296,8 @@ export async function recalculateAllMetrics(): Promise<{ processed: number; erro
             (CASE WHEN sf.operating_margin IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.operating_margin::numeric / 0.35) * 100)) ELSE 50 END) * 0.25
           )), 2) as quality_score,
           ROUND(LEAST(100, GREATEST(0,
-            (CASE WHEN sf.pe_ratio IS NOT NULL THEN LEAST(100, GREATEST(0, ((50 - sf.pe_ratio::numeric + 50) / 100) * 100)) ELSE 50 END) * 0.4 +
-            (CASE WHEN sf.pb_ratio IS NOT NULL THEN LEAST(100, GREATEST(0, ((5 - sf.pb_ratio::numeric + 5) / 10) * 100)) ELSE 50 END) * 0.3 +
+            (CASE WHEN sf.pe_ratio IS NOT NULL AND sf.pe_ratio::numeric > 0 THEN LEAST(100, GREATEST(0, ((50 - sf.pe_ratio::numeric + 50) / 100) * 100)) WHEN sf.pe_ratio IS NOT NULL THEN 0 ELSE 50 END) * 0.4 +
+            (CASE WHEN sf.pb_ratio IS NOT NULL AND sf.pb_ratio::numeric > 0 THEN LEAST(100, GREATEST(0, ((5 - sf.pb_ratio::numeric + 5) / 10) * 100)) WHEN sf.pb_ratio IS NOT NULL THEN 0 ELSE 50 END) * 0.3 +
             (CASE WHEN sf.dividend_yield IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.dividend_yield::numeric / 0.08) * 100)) ELSE 50 END) * 0.3
           )), 2) as value_score,
           ROUND(LEAST(100, GREATEST(0,

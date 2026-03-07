@@ -25,7 +25,7 @@ export interface BacktestResult {
 const DEFAULT_CONFIG: BacktestConfig = {
   windowYears: 3,
   rollingStepDays: 30,
-  riskFreeRate: 0.06,
+  riskFreeRate: 0.0715, // India 10Y G-Sec as of Mar 2026 — update periodically
   benchmarkReturn: 0.12,
 };
 

@@ -170,7 +170,8 @@ async def capital_gains(
         amc = group["amc_name"].iloc[0]
         scheme = group["scheme_name"].iloc[0]
         is_equity = "EQUITY" in str(asset_class).upper()
-        stcg_hold_days = 365 if is_equity else 1095
+        # Finance Act 2024: Equity LTCG > 365 days; Debt/Gold/International LTCG > 730 days (24 months)
+        stcg_hold_days = 365 if is_equity else 730
 
         for sell_row in sells.itertuples():
             units_to_sell = float(sell_row.units)
