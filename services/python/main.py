@@ -51,5 +51,9 @@ async def health():
             "amc-breakdown",
             "xirr",
             "rolling-returns",
+            "mvo-scipy-slsqp",
+            "black-litterman-numpy",
+            "backtest-metrics",
+            "drift-predict-scipy",
         ],
     }

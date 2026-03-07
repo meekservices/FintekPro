@@ -4,6 +4,11 @@
  * Forwards requests from the main portal to the FintekPro Python micro-service.
  * Set PYTHON_SERVICE_URL in env to point at the deployed Python service.
  * Leave it unset to receive a 503 with a clear message — no silent fallback.
+ *
+ * Two usage modes:
+ *  1. proxyToPython(req, res, path) — HTTP proxy pass-through for Express routes
+ *  2. callPython<T>(user, path, method?, body?) — direct programmatic call from Node.js services
+ *     Returns null on any error so callers can fall back gracefully.
  */
 import { Request, Response } from 'express';
 import { issueServiceToken } from '../utils/service-token';
@@ -11,6 +16,14 @@ import { issueServiceToken } from '../utils/service-token';
 function getBaseUrl(): string {
   return process.env.PYTHON_SERVICE_URL?.replace(/\/$/, '') || '';
 }
+
+const SYSTEM_USER = {
+  id: 0,
+  role: 'admin',
+  roles: ['admin'],
+  email: 'system@fintekpro.internal',
+  mobile: null,
+};
 
 async function fetchWithToken(user: any, url: string, init: RequestInit = {}): Promise<globalThis.Response> {
   const headers: Record<string, string> = {
@@ -54,5 +67,53 @@ export async function proxyToPython(req: Request, res: Response, path: string): 
       error: 'Python Analytics Service unreachable',
       detail: err.message,
     });
+  }
+}
+
+/**
+ * Programmatic call to the Python sidecar from within Node.js services.
+ * Uses a system-level service token (role: admin).
+ * Returns null on any network/timeout/parse error so callers can fall back to Node.js engines.
+ *
+ * @param path  Python route path, e.g. '/api/quant/mvo'
+ * @param method HTTP method (default GET)
+ * @param body  JSON-serialisable payload for POST requests
+ * @param userForToken Optional user object for scoped token (defaults to SYSTEM_USER)
+ */
+export async function callPython<T = any>(
+  path: string,
+  method: 'GET' | 'POST' = 'GET',
+  body?: unknown,
+  userForToken?: any,
+): Promise<T | null> {
+  const baseUrl = getBaseUrl();
+  if (!baseUrl) return null;
+
+  const url = `${baseUrl}${path}`;
+  const user = userForToken ?? SYSTEM_USER;
+
+  try {
+    const res = await fetchWithToken(user, url, {
+      method,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.warn(`[PythonClient] ${method} ${path} → HTTP ${res.status}: ${text.slice(0, 200)}`);
+      return null;
+    }
+
+    const json = await res.json();
+
+    if (json && typeof json === 'object' && 'error' in json) {
+      console.warn(`[PythonClient] ${method} ${path} → Python error: ${json.error}`);
+      return null;
+    }
+
+    return json as T;
+  } catch (err: any) {
+    console.warn(`[PythonClient] ${method} ${path} unreachable: ${err.message}`);
+    return null;
   }
 }

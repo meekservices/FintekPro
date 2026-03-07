@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { mvoEngine, type AssetData, type MVOResult, type TransitionConstraints } from './mvo-engine';
 import { blackLittermanEngine, type ViewSignal, type BLResult } from './black-litterman-engine';
 import { driftPredictionEngine, type DriftPredictionResult } from './drift-prediction-engine';
+import { callPython, isPythonServiceConfigured } from '../../clients/python-client';
 
 export interface QuantInput {
   assetsData: AssetData[];
@@ -88,7 +89,7 @@ class QuantOrchestrator {
     if (policy.useMvo) {
       try {
         const mvoStart = Date.now();
-        const mvoResult = await mvoEngine.run(assetsData, {
+        const mvoConfig = {
           riskAversion: policy.riskAversion,
           covarianceLookbackDays: policy.covarianceLookbackDays,
           ewmaSpan: policy.ewmaSpan,
@@ -97,7 +98,14 @@ class QuantOrchestrator {
           minAssetWeight: policy.minAssetWeight,
           solverMaxIterations: policy.solverMaxIterations,
           solverTolerance: policy.solverTolerance,
-        }, portfolioId, tc);
+        };
+
+        let mvoResult = await this.tryPythonMVO(assetsData, mvoConfig, tc);
+        if (!mvoResult) {
+          mvoResult = await mvoEngine.run(assetsData, mvoConfig, portfolioId, tc);
+        } else {
+          console.log('[QuantOrch] MVO computed by Python sidecar (scipy SLSQP)');
+        }
 
         result.mvoResult = mvoResult;
         result.usedMvo = true;
@@ -129,16 +137,18 @@ class QuantOrchestrator {
         }
 
         if (views.length > 0) {
-          const blResult = await blackLittermanEngine.run(
-            result.mvoResult,
-            views,
-            {
-              tau: policy.tau,
-              tacticalBudget: policy.tacticalBudget,
-              riskAversion: policy.riskAversion,
-            },
-            portfolioId
-          );
+          const blConfig = {
+            tau: policy.tau,
+            tacticalBudget: policy.tacticalBudget,
+            riskAversion: policy.riskAversion,
+          };
+
+          let blResult = await this.tryPythonBL(result.mvoResult!, views, blConfig);
+          if (!blResult) {
+            blResult = await blackLittermanEngine.run(result.mvoResult!, views, blConfig, portfolioId);
+          } else {
+            console.log('[QuantOrch] BL computed by Python sidecar (numpy)');
+          }
 
           result.blResult = blResult;
           result.usedBl = true;
@@ -148,17 +158,22 @@ class QuantOrchestrator {
 
           console.log('[QuantOrch] BL overlay computed. Re-running transition optimizer with posterior returns...');
 
+          const mvoConfig2 = {
+            riskAversion: policy.riskAversion,
+            covarianceLookbackDays: policy.covarianceLookbackDays,
+            ewmaSpan: policy.ewmaSpan,
+            shrinkageIntensity: policy.shrinkageIntensity,
+            maxAssetWeight: policy.maxAssetWeight,
+            minAssetWeight: policy.minAssetWeight,
+            solverMaxIterations: policy.solverMaxIterations,
+            solverTolerance: policy.solverTolerance,
+          };
+
           try {
-            const blConstrainedResult = await mvoEngine.run(assetsData, {
-              riskAversion: policy.riskAversion,
-              covarianceLookbackDays: policy.covarianceLookbackDays,
-              ewmaSpan: policy.ewmaSpan,
-              shrinkageIntensity: policy.shrinkageIntensity,
-              maxAssetWeight: policy.maxAssetWeight,
-              minAssetWeight: policy.minAssetWeight,
-              solverMaxIterations: policy.solverMaxIterations,
-              solverTolerance: policy.solverTolerance,
-            }, portfolioId, tc, blPosteriorReturns);
+            let blConstrainedResult = await this.tryPythonMVO(assetsData, mvoConfig2, tc, blPosteriorReturns);
+            if (!blConstrainedResult) {
+              blConstrainedResult = await mvoEngine.run(assetsData, mvoConfig2, portfolioId, tc, blPosteriorReturns);
+            }
 
             result.mvoResult = blConstrainedResult;
             result.optimizedWeights = { ...blConstrainedResult.weights };
@@ -199,14 +214,19 @@ class QuantOrchestrator {
 
     if (policy.useAiDriftPrediction) {
       try {
-        const driftResult = await driftPredictionEngine.run(
-          driftMetrics,
-          toleranceBandPct,
-          {
-            driftProbabilityTrigger: policy.driftProbabilityTrigger,
-          },
-          portfolioId
+        let driftResult = await this.tryPythonDrift(
+          driftMetrics, toleranceBandPct, policy.driftProbabilityTrigger
         );
+        if (!driftResult) {
+          driftResult = await driftPredictionEngine.run(
+            driftMetrics,
+            toleranceBandPct,
+            { driftProbabilityTrigger: policy.driftProbabilityTrigger },
+            portfolioId
+          );
+        } else {
+          console.log('[QuantOrch] Drift prediction computed by Python sidecar (scipy.stats)');
+        }
 
         result.driftResult = driftResult;
         result.usedDriftPrediction = true;
@@ -255,6 +275,146 @@ class QuantOrchestrator {
     console.log(`[QuantOrch] Pipeline complete in ${result.totalRunTimeMs}ms. Models: ${result.modelVersions.join(', ') || 'none (fallback)'}`);
 
     return result;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Python sidecar helpers — try scipy/numpy first, fall back to Node.js
+  // ---------------------------------------------------------------------------
+
+  private async tryPythonMVO(
+    assetsData: AssetData[],
+    config: Record<string, any>,
+    tc: Partial<TransitionConstraints>,
+    overrideReturns?: number[],
+  ): Promise<MVOResult | null> {
+    if (!isPythonServiceConfigured()) return null;
+
+    const assets = assetsData.map((a, i) => ({
+      category: a.category,
+      returns: a.returns,
+      currentWeight: a.currentWeight ?? 0,
+      sector: a.sector,
+      instrumentType: a.instrumentType,
+      ...(overrideReturns ? { overrideReturn: overrideReturns[i] } : {}),
+    }));
+
+    const py = await callPython<any>('/api/quant/mvo', 'POST', {
+      assets,
+      config,
+      transition: tc,
+    });
+
+    if (!py || py.error) return null;
+
+    const maxWeight = Math.max(...Object.values(py.weights as Record<string, number>));
+
+    const mvoResult: MVOResult = {
+      categories: py.categories,
+      weights: py.weights,
+      expectedReturns: py.expectedReturns ?? py.categories.map(() => py.expectedReturn),
+      expectedReturn: py.expectedReturn,
+      portfolioVolatility: py.portfolioVolatility,
+      sharpeRatio: py.sharpeRatio,
+      covarianceMatrix: py.covarianceMatrix,
+      annualizedCovarianceMatrix: py.annualizedCovarianceMatrix,
+      modelVersion: py.modelVersion ?? 'py-mvo-slsqp-v1',
+      transitionMetrics: py.transitionMetrics ? {
+        turnover: py.transitionMetrics.turnover ?? 0,
+        maxWeight,
+        sectorExposure: {},
+        categoryExposure: py.weights,
+        gammaUsed: py.transitionMetrics.gammaUsed ?? 0,
+        filteredCount: 0,
+        constraintsApplied: ['scipy-SLSQP', 'turnover-cap', 'weight-bounds'],
+      } : undefined,
+    };
+
+    return mvoResult;
+  }
+
+  private async tryPythonBL(
+    mvoResult: MVOResult,
+    views: ViewSignal[],
+    config: Record<string, any>,
+  ): Promise<BLResult | null> {
+    if (!isPythonServiceConfigured()) return null;
+
+    const py = await callPython<any>('/api/quant/black-litterman', 'POST', {
+      mvoResult: {
+        categories: mvoResult.categories,
+        weights: mvoResult.weights,
+        annualizedCovarianceMatrix: mvoResult.annualizedCovarianceMatrix,
+        covarianceMatrix: mvoResult.covarianceMatrix,
+      },
+      views: views.map(v => ({
+        category: v.category,
+        direction: v.direction,
+        magnitude: v.magnitude,
+        confidence: v.confidence,
+      })),
+      config,
+    });
+
+    if (!py || py.error) return null;
+
+    // Map Python dict-based returns to array-based as BLResult expects
+    const posteriorReturns = mvoResult.categories.map(
+      (c: string) => (py.posteriorReturns as Record<string, number>)[c] ?? 0,
+    );
+    const impliedReturns = mvoResult.categories.map(
+      (c: string) => (py.impliedReturns as Record<string, number>)[c] ?? 0,
+    );
+
+    const blResult: BLResult = {
+      categories: mvoResult.categories,
+      posteriorWeights: py.posteriorWeights,
+      posteriorReturns,
+      impliedReturns,
+      viewAdjustments: py.tacticalTilts ?? {},
+      tacticalTilts: py.tacticalTilts ?? {},
+      modelVersion: py.modelVersion ?? 'py-bl-v1',
+    };
+
+    return blResult;
+  }
+
+  private async tryPythonDrift(
+    driftMetrics: QuantInput['driftMetrics'],
+    toleranceBandPct: number,
+    policyTrigger: number,
+  ): Promise<DriftPredictionResult | null> {
+    if (!isPythonServiceConfigured()) return null;
+
+    const py = await callPython<any>('/api/quant/drift-predict', 'POST', {
+      driftMetrics,
+      toleranceBandPct,
+    });
+
+    if (!py || py.error || !py.predictions) return null;
+
+    const predictions = (py.predictions as any[]).map(p => ({
+      category: p.category,
+      breachProbability: p.breachProbability,
+      predictedDrift: p.driftVelocity ?? 0,
+      predictedDriftDirection: (p.breachProbability > 0.5 ? 'OVERWEIGHT' : 'STABLE') as 'OVERWEIGHT' | 'UNDERWEIGHT' | 'STABLE',
+      timeToBreachDays: p.daysToBreachMean ?? null,
+      confidence: p.rSquared ?? 0.5,
+      features: {},
+      triggerPreemptive: p.breachProbability >= policyTrigger,
+    }));
+
+    const highRisk = predictions.filter(p => p.triggerPreemptive).map(p => p.category);
+    const portfolioBreachProb = predictions.length > 0
+      ? predictions.reduce((s, p) => s + p.breachProbability, 0) / predictions.length
+      : 0;
+
+    return {
+      predictions,
+      portfolioBreachProbability: portfolioBreachProb,
+      recommendPreemptiveRebalance: highRisk.length > 0,
+      highRiskCategories: highRisk,
+      modelVersion: 'py-drift-v1',
+    };
   }
 
   convertWeightsToAllocations(
