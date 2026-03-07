@@ -12,7 +12,7 @@ security = HTTPBearer()
 
 
 class TokenPayload:
-    def __init__(self, sub: int, role: str, roles: list, email: Optional[str], mobile: Optional[str]):
+    def __init__(self, sub: str, role: str, roles: list, email: Optional[str], mobile: Optional[str]):
         self.user_id = sub
         self.role = role
         self.roles = roles
@@ -27,7 +27,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
     try:
         payload = jwt.decode(token, SECRET, algorithms=[ALGORITHM], issuer=ISSUER)
         return TokenPayload(
-            sub=int(payload["sub"]),
+            sub=str(payload["sub"]),
             role=payload.get("role", "user"),
             roles=payload.get("roles", ["user"]),
             email=payload.get("email"),
