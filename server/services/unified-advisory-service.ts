@@ -18,9 +18,13 @@ import {
   marketData,
   investmentProposals,
   investmentProposalItems,
-  complianceAuditTrail
+  complianceAuditTrail,
+  mutualFunds,
+  mutualFundMetrics,
+  mfHoldings,
+  mfFolios,
 } from '@shared/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, like, or, isNotNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import {
   ProductType,
@@ -42,6 +46,7 @@ import {
   getRiskScoreForCategory
 } from '@shared/unified-advisory-types';
 import { GoogleGenAI } from "@google/genai";
+import { callPython } from '../clients/python-client';
 
 interface ClientProfile {
   userId: string;
@@ -262,67 +267,72 @@ class UnifiedAdvisoryService {
   }
 
   async getPortfolioSummary(clientId: string): Promise<PortfolioSummary | null> {
-    const [portfolio] = await db.select().from(portfolios).where(eq(portfolios.userId, clientId)).limit(1);
-    if (!portfolio) return null;
-
-    const holdings = await db.select().from(portfolioHoldings).where(eq(portfolioHoldings.portfolioId, portfolio.id));
-    
     let totalValue = 0;
     let totalInvested = 0;
     const sectorAllocation: Record<string, number> = {};
     const assetAllocation: Record<string, number> = {};
     const holdingDetails: PortfolioSummary['holdings'] = [];
 
-    for (const holding of holdings) {
-      const quantity = parseFloat(holding.quantity) || 0;
-      const avgPrice = parseFloat(holding.avgPrice) || 0;
-      const invested = quantity * avgPrice;
-
-      const [market] = await db.select().from(marketData).where(eq(marketData.symbol, holding.symbol)).limit(1);
-      const currentPrice = market?.price ? parseFloat(market.price) : avgPrice;
-      const currentValue = quantity * currentPrice;
-
-      totalInvested += invested;
-      totalValue += currentValue;
-
-      const sector = holding.sector || 'Other';
-      const assetType = holding.assetType || 'EQUITY';
-
-      sectorAllocation[sector] = (sectorAllocation[sector] || 0) + currentValue;
-      assetAllocation[assetType] = (assetAllocation[assetType] || 0) + currentValue;
-
-      holdingDetails.push({
-        symbol: holding.symbol,
-        name: holding.symbol,
-        value: currentValue,
-        weight: 0,
-        assetType,
-        sector
-      });
+    // ── Source 1: Generic portfolios/portfolioHoldings ────────────────
+    const [portfolio] = await db.select().from(portfolios).where(eq(portfolios.userId, clientId)).limit(1);
+    if (portfolio) {
+      const holdings = await db.select().from(portfolioHoldings).where(eq(portfolioHoldings.portfolioId, portfolio.id));
+      for (const holding of holdings) {
+        const quantity = parseFloat(holding.quantity) || 0;
+        const avgPrice = parseFloat(holding.avgPrice) || 0;
+        const invested = quantity * avgPrice;
+        const [market] = await db.select().from(marketData).where(eq(marketData.symbol, holding.symbol)).limit(1);
+        const currentPrice = market?.price ? parseFloat(market.price) : avgPrice;
+        const currentValue = quantity * currentPrice;
+        totalInvested += invested;
+        totalValue += currentValue;
+        const sector = holding.sector || 'Other';
+        const assetType = holding.assetType || 'EQUITY';
+        sectorAllocation[sector] = (sectorAllocation[sector] || 0) + currentValue;
+        assetAllocation[assetType] = (assetAllocation[assetType] || 0) + currentValue;
+        holdingDetails.push({ symbol: holding.symbol, name: holding.symbol, value: currentValue, weight: 0, assetType, sector });
+      }
     }
+
+    // ── Source 2: MF holdings (mf_holdings JOIN mf_folios) ──────────────
+    // This is the primary data source for most clients
+    const mfFolioRows = await db.select().from(mfFolios).where(eq(mfFolios.userId, clientId));
+    for (const folio of mfFolioRows) {
+      const mfRows = await db.select().from(mfHoldings).where(eq(mfHoldings.folioId, folio.id));
+      for (const h of mfRows) {
+        const currentValue = parseFloat(h.currentValue?.toString() || '0');
+        const investedValue = parseFloat(h.units?.toString() || '0') * parseFloat(h.averageNav?.toString() || '0');
+        totalValue += currentValue;
+        totalInvested += investedValue;
+        assetAllocation['MF'] = (assetAllocation['MF'] || 0) + currentValue;
+        sectorAllocation['Mutual Fund'] = (sectorAllocation['Mutual Fund'] || 0) + currentValue;
+        holdingDetails.push({
+          symbol: h.schemeCode,
+          name: h.schemeName || h.schemeCode,
+          value: currentValue,
+          weight: 0,
+          assetType: 'MF',
+          sector: 'Mutual Fund',
+        });
+      }
+    }
+
+    if (totalValue === 0 && holdingDetails.length === 0) return null;
 
     for (const h of holdingDetails) {
       h.weight = totalValue > 0 ? (h.value / totalValue) * 100 : 0;
     }
-
     for (const sector of Object.keys(sectorAllocation)) {
       sectorAllocation[sector] = totalValue > 0 ? (sectorAllocation[sector] / totalValue) * 100 : 0;
     }
-
     for (const asset of Object.keys(assetAllocation)) {
       assetAllocation[asset] = totalValue > 0 ? (assetAllocation[asset] / totalValue) * 100 : 0;
     }
 
     const maxConcentration = Math.max(...Object.values(sectorAllocation), 0);
-    const topHoldingWeight = holdingDetails.length > 0 ? 
-      Math.max(...holdingDetails.map(h => h.weight)) : 0;
-    const equityWeight = assetAllocation['EQUITY'] || assetAllocation['equity'] || 0;
-    
-    const riskScore = Math.min(100, Math.round(
-      (maxConcentration * 0.3) +
-      (topHoldingWeight * 0.3) +
-      (equityWeight * 0.4)
-    ));
+    const topHoldingWeight = holdingDetails.length > 0 ? Math.max(...holdingDetails.map(h => h.weight)) : 0;
+    const equityWeight = (assetAllocation['EQUITY'] || assetAllocation['equity'] || 0) + (assetAllocation['MF'] || 0) * 0.7;
+    const riskScore = Math.min(100, Math.round((maxConcentration * 0.3) + (topHoldingWeight * 0.3) + (equityWeight * 0.4)));
 
     return {
       totalValue,
@@ -332,7 +342,7 @@ class UnifiedAdvisoryService {
       riskScore,
       sectorAllocation,
       assetAllocation,
-      holdings: holdingDetails.sort((a, b) => b.value - a.value)
+      holdings: holdingDetails.sort((a, b) => b.value - a.value),
     };
   }
 
@@ -358,6 +368,22 @@ class UnifiedAdvisoryService {
       throw new Error('No eligible products for this client');
     }
 
+    // ── T003: Fetch market regime from Python sidecar ────────────────────
+    let marketRegime: { regime: string; signal_score: number; confidence: number } | null = null;
+    try {
+      const regimeResult = await callPython<any>('/api/regime/detect', 'POST', { lookback_days: 90 });
+      if (regimeResult?.regime) {
+        marketRegime = {
+          regime: regimeResult.regime,
+          signal_score: regimeResult.signal_score ?? 0,
+          confidence: regimeResult.confidence ?? 0,
+        };
+        console.log(`[UnifiedAdvisory] Market regime: ${marketRegime.regime} (score=${marketRegime.signal_score}, confidence=${marketRegime.confidence})`);
+      }
+    } catch {
+      console.warn('[UnifiedAdvisory] Regime detection unavailable — proceeding without regime context');
+    }
+
     const portfolio = await this.getPortfolioSummary(clientId);
     const recommendations: UnifiedAdvisoryDecision[] = [];
 
@@ -366,7 +392,8 @@ class UnifiedAdvisoryService {
         productType,
         profile,
         portfolio,
-        Math.ceil(count / validProducts.length)
+        Math.ceil(count / validProducts.length),
+        marketRegime,
       );
       recommendations.push(...productRecs);
     }
@@ -397,7 +424,8 @@ class UnifiedAdvisoryService {
     productType: ProductType,
     profile: ClientProfile,
     portfolio: PortfolioSummary | null,
-    count: number
+    count: number,
+    marketRegime: { regime: string; signal_score: number; confidence: number } | null = null,
   ): Promise<UnifiedAdvisoryDecision[]> {
     const recommendations: UnifiedAdvisoryDecision[] = [];
     const disclosures = REGULATORY_DISCLOSURES[productType] || [];
@@ -405,7 +433,7 @@ class UnifiedAdvisoryService {
 
     if (this.genAI) {
       try {
-        const aiRecs = await this.generateAIRecommendations(productType, profile, portfolio, count);
+        const aiRecs = await this.generateAIRecommendations(productType, profile, portfolio, count, marketRegime);
         for (const rec of aiRecs) {
           rec.regulatoryDisclosures = disclosures;
           recommendations.push(rec);
@@ -416,13 +444,14 @@ class UnifiedAdvisoryService {
       }
     }
 
-    const ruleBasedRecs = this.generateRuleBasedRecommendations(
+    const ruleBasedRecs = await this.generateRuleBasedRecommendations(
       productType, 
       profile, 
       portfolio, 
       count,
       logic,
-      disclosures
+      disclosures,
+      marketRegime,
     );
     
     return ruleBasedRecs;
@@ -432,62 +461,86 @@ class UnifiedAdvisoryService {
     productType: ProductType,
     profile: ClientProfile,
     portfolio: PortfolioSummary | null,
-    count: number
+    count: number,
+    marketRegime: { regime: string; signal_score: number; confidence: number } | null = null,
   ): Promise<UnifiedAdvisoryDecision[]> {
     if (!this.genAI) return [];
-    
-    const prompt = `You are a SEBI-compliant investment advisor. Generate ${count} ${productType} recommendations.
+
+    // Regime context section for the prompt
+    const regimeSection = marketRegime
+      ? `\nMarket Regime (as of now):
+- Regime: ${marketRegime.regime} (signal_score: ${marketRegime.signal_score.toFixed(2)}, confidence: ${(marketRegime.confidence * 100).toFixed(0)}%)
+- Adjust equity exposure DOWN in bear/high_vol regimes. Prefer defensive/debt in bear. Favour growth in bull.`
+      : '';
+
+    const prompt = `You are a SEBI-compliant investment advisor. Generate exactly ${count} ${productType} recommendations.
 
 Client Profile:
 - Risk Category: ${profile.riskCategory}
 - Client Category: ${profile.clientCategory}
 - Investment Horizon: ${profile.investmentHorizon}
 - Net Worth: ₹${profile.netWorth.toLocaleString('en-IN')}
-
+- Annual Income: ₹${profile.annualIncome.toLocaleString('en-IN')}
+${regimeSection}
 ${portfolio ? `Current Portfolio:
 - Total Value: ₹${portfolio.totalValue.toLocaleString('en-IN')}
 - Gain/Loss: ${portfolio.gainLossPercent.toFixed(2)}%
 - Risk Score: ${portfolio.riskScore}/100
-- Sector Allocation: ${JSON.stringify(portfolio.sectorAllocation)}` : 'No existing portfolio data'}
-
-Generate recommendations in this JSON format:
-{
-  "recommendations": [
-    {
-      "productName": "Product Name",
-      "productSymbol": "SYMBOL",
-      "action": "BUY|SELL|HOLD|SWITCH",
-      "amount": 100000,
-      "primaryReason": "Clear explanation of why this recommendation",
-      "supportingFactors": ["factor1", "factor2"],
-      "riskNotes": ["risk1", "risk2"],
-      "confidence": 85,
-      "portfolioImpact": {
-        "returnBefore": 0.10,
-        "returnAfter": 0.12,
-        "riskBefore": "medium",
-        "riskAfter": "medium"
-      }
-    }
-  ]
-}
+- Asset Allocation: ${JSON.stringify(portfolio.assetAllocation)}
+- Top Holdings: ${portfolio.holdings.slice(0, 5).map(h => `${h.name} (${h.weight.toFixed(1)}%)`).join(', ')}` : 'No existing portfolio data'}
 
 Rules:
 - Match recommendations to client's risk profile
 - Consider existing portfolio concentration
 - Include clear risk warnings
-- Never guarantee returns`;
+- Never guarantee returns
+- If regime is bear or high_vol, prefer defensive products`;
 
     const result = await this.genAI.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt
+      model: 'gemini-2.0-flash',
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'object',
+          properties: {
+            recommendations: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  productName: { type: 'string' },
+                  productSymbol: { type: 'string' },
+                  action: { type: 'string' },
+                  amount: { type: 'number' },
+                  primaryReason: { type: 'string' },
+                  supportingFactors: { type: 'array', items: { type: 'string' } },
+                  riskNotes: { type: 'array', items: { type: 'string' } },
+                  confidence: { type: 'number' },
+                  returnBefore: { type: 'number' },
+                  returnAfter: { type: 'number' },
+                  riskBefore: { type: 'string' },
+                  riskAfter: { type: 'string' },
+                },
+                required: ['productName', 'action', 'amount', 'primaryReason', 'confidence'],
+              },
+            },
+          },
+          required: ['recommendations'],
+        },
+      },
+      contents: prompt,
     });
-    const text = result.text || '';
-    
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return [];
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    const text = result.text || '';
+    let parsed: any;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      console.error('[UnifiedAdvisory] Gemini returned invalid JSON:', text.slice(0, 300));
+      return [];
+    }
+
+    const currentReturn = portfolio?.gainLossPercent || 0;
     const recommendations: UnifiedAdvisoryDecision[] = [];
 
     for (const rec of parsed.recommendations || []) {
@@ -501,11 +554,11 @@ Rules:
         horizon: profile.investmentHorizon,
         riskCategory: profile.riskCategory,
         clientCategory: profile.clientCategory,
-        portfolioImpact: rec.portfolioImpact || {
-          returnBefore: portfolio?.gainLossPercent || 0,
-          returnAfter: (portfolio?.gainLossPercent || 0) + 2,
-          riskBefore: 'medium',
-          riskAfter: 'medium'
+        portfolioImpact: {
+          returnBefore: (rec.returnBefore ?? currentReturn / 100),
+          returnAfter: (rec.returnAfter ?? currentReturn / 100),
+          riskBefore: (rec.riskBefore || this.mapRiskScore(portfolio?.riskScore || 50)) as any,
+          riskAfter: (rec.riskAfter || this.mapRiskScore(portfolio?.riskScore || 50)) as any,
         },
         primaryReason: rec.primaryReason || 'AI-generated recommendation',
         supportingFactors: rec.supportingFactors || [],
@@ -515,7 +568,7 @@ Rules:
         generatedAt: new Date(),
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         status: 'pending',
-        clientApprovalRequired: true
+        clientApprovalRequired: true,
       });
     }
 
