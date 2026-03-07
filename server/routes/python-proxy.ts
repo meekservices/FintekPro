@@ -18,10 +18,14 @@
  *   POST /api/python/quant/drift-predict body: {driftMetrics, toleranceBandPct}
  *
  * MF Analytics endpoints (py-mf-analytics-v1):
- *   POST /api/python/mf/compute-metrics  body: {schemeCode, navHistory, benchmarkHistory?}
- *   GET  /api/python/mf/scheme-analytics?scheme_code=...
- *   POST /api/python/mf/monthly-series   body: {schemes: [{schemeCode, navHistory}]}
- *   POST /api/python/mf/bulk-compute-db  body: {limit?, minDays?, fiscalYear?} (admin/agent)
+ *   POST /api/python/mf/compute-metrics    body: {schemeCode, navHistory, benchmarkHistory?}
+ *   GET  /api/python/mf/scheme-analytics  ?scheme_code=...
+ *   POST /api/python/mf/monthly-series    body: {schemes: [{schemeCode, navHistory}]}
+ *   POST /api/python/mf/bulk-compute-db   body: {limit?, minDays?, fiscalYear?} (admin/agent)
+ *   POST /api/python/mf/cross-sectional-rank body: {fiscalYear?}  → fills category_rank/percentile_rank
+ *   POST /api/python/mf/risk-from-monthly  body: {fiscalYear?, minMonths?} → fills VaR/CVaR/semi-dev
+ *   POST /api/python/mf/sync-change-pct    body: {}  → fills mutual_funds.change_percent
+ *   POST /api/python/mf/derived-metrics    body: {fiscalYear?} → fills Treynor, Jensen alpha
  */
 import { Router } from 'express';
 import { proxyToPython, isPythonServiceConfigured } from '../clients/python-client';
@@ -103,6 +107,26 @@ router.post('/api/python/mf/monthly-series', requireAuth, async (req, res) => {
 // Bulk compute metrics for all schemes in mf_nav_history and upsert into mutual_fund_metrics
 router.post('/api/python/mf/bulk-compute-db', requireAuth, async (req, res) => {
   return proxyToPython(req, res, '/api/mf/bulk-compute-db');
+});
+
+// Cross-sectional ranking: fills category_rank, category_size, percentile_rank
+router.post('/api/python/mf/cross-sectional-rank', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/mf/cross-sectional-rank');
+});
+
+// Risk metrics from monthly returns: VaR 95%, CVaR 95%, semi-deviation, consistency, capture ratios
+router.post('/api/python/mf/risk-from-monthly', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/mf/risk-from-monthly');
+});
+
+// Sync change_percent and change into mutual_funds from mf_nav_history
+router.post('/api/python/mf/sync-change-pct', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/mf/sync-change-pct');
+});
+
+// Derived metrics: Treynor ratio, Jensen alpha, volatility↔standard_deviation sync
+router.post('/api/python/mf/derived-metrics', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/mf/derived-metrics');
 });
 
 export default router;

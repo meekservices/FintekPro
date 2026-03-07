@@ -61,5 +61,9 @@ async def health():
             "mf-scheme-analytics",
             "mf-monthly-series",
             "mf-bulk-compute-db",
+            "mf-cross-sectional-rank",
+            "mf-risk-from-monthly",
+            "mf-sync-change-pct",
+            "mf-derived-metrics",
         ],
     }

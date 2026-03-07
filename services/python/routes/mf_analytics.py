@@ -634,3 +634,428 @@ async def bulk_compute_db(
 
     except Exception as e:
         return {"error": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# Cross-Sectional Ranking Engine
+# ---------------------------------------------------------------------------
+
+@router.post("/cross-sectional-rank")
+async def cross_sectional_rank(
+    payload: dict = Body(default={}),
+    token: TokenPayload = Depends(verify_token),
+):
+    """
+    Compute category_rank, category_size, percentile_rank for all schemes
+    that have return_1y populated. Uses pandas groupby + rank within each category.
+    Upserts results back into mutual_fund_metrics. Admin/agent only.
+    """
+    if token.role not in ("admin", "agent"):
+        return {"error": "Insufficient permissions"}
+
+    try:
+        fiscal_year = payload.get("fiscalYear", "FY25-26")
+
+        async with db_conn() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT mfm.scheme_code, mfm.return_1y, mf.category
+                FROM mutual_fund_metrics mfm
+                JOIN mutual_funds mf ON mf.scheme_code = mfm.scheme_code
+                WHERE mfm.return_1y IS NOT NULL
+                  AND mf.category IS NOT NULL
+                  AND mfm.fiscal_year = $1
+                """,
+                fiscal_year,
+            )
+
+        if not rows:
+            return {"message": "No rankable schemes found", "updated": 0}
+
+        df = pd.DataFrame([dict(r) for r in rows])
+        df["return_1y"] = pd.to_numeric(df["return_1y"], errors="coerce")
+        df = df.dropna(subset=["return_1y", "category"])
+
+        df["category_size"] = df.groupby("category")["return_1y"].transform("count").astype(int)
+        df["category_rank"] = df.groupby("category")["return_1y"].rank(ascending=False, method="min").astype(int)
+        df["percentile_rank"] = (
+            df.groupby("category")["return_1y"].rank(pct=True, ascending=True) * 100
+        ).round(2)
+
+        updated = 0
+        async with db_conn() as conn:
+            for _, row in df.iterrows():
+                try:
+                    await conn.execute(
+                        """
+                        UPDATE mutual_fund_metrics
+                        SET category_rank = $3,
+                            category_size = $4,
+                            percentile_rank = $5,
+                            last_updated = NOW()
+                        WHERE scheme_code = $1 AND fiscal_year = $2
+                        """,
+                        row["scheme_code"], fiscal_year,
+                        int(row["category_rank"]),
+                        int(row["category_size"]),
+                        float(row["percentile_rank"]),
+                    )
+                    updated += 1
+                except Exception:
+                    pass
+
+        cat_summary = (
+            df.groupby("category")
+            .agg(schemes=("category_size", "first"), avg_1y_return=("return_1y", "mean"))
+            .round(2).reset_index()
+            .sort_values("schemes", ascending=False)
+            .to_dict(orient="records")
+        )
+
+        return {
+            "message": "Cross-sectional ranking complete",
+            "schemesRanked": updated,
+            "uniqueCategories": df["category"].nunique(),
+            "categorySummary": cat_summary[:20],
+            "modelVersion": "py-mf-xrank-v1",
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# Risk Metrics from Monthly Returns (VaR, CVaR, Semi-deviation, Capture Ratios)
+# ---------------------------------------------------------------------------
+
+@router.post("/risk-from-monthly")
+async def risk_from_monthly(
+    payload: dict = Body(default={}),
+    token: TokenPayload = Depends(verify_token),
+):
+    """
+    Compute VaR 95%, CVaR 95%, semi-deviation, consistency_score, and
+    upside/downside capture ratios from mf_monthly_returns.
+    Upserts into mutual_fund_metrics. Admin/agent only.
+    """
+    if token.role not in ("admin", "agent"):
+        return {"error": "Insufficient permissions"}
+
+    try:
+        fiscal_year = payload.get("fiscalYear", "FY25-26")
+        min_months = int(payload.get("minMonths", 12))
+
+        async with db_conn() as conn:
+            mr_rows = await conn.fetch(
+                """
+                SELECT scheme_code, month_year, return_percent
+                FROM mf_monthly_returns
+                WHERE return_percent IS NOT NULL
+                ORDER BY scheme_code, month_year
+                """
+            )
+            bm_rows = await conn.fetch(
+                """
+                SELECT scheme_code,
+                       to_char(month_year, 'YYYY-MM') as month_year,
+                       benchmark_return
+                FROM mf_monthwise_performance
+                WHERE benchmark_return IS NOT NULL
+                ORDER BY scheme_code, month_year
+                """
+            )
+
+        if not mr_rows:
+            return {"message": "No monthly return data found", "updated": 0}
+
+        df = pd.DataFrame([dict(r) for r in mr_rows])
+        df["return_percent"] = pd.to_numeric(df["return_percent"], errors="coerce")
+        df = df.dropna(subset=["return_percent"])
+
+        bm_df = pd.DataFrame([dict(r) for r in bm_rows]) if bm_rows else pd.DataFrame()
+        if not bm_df.empty:
+            bm_df["benchmark_return"] = pd.to_numeric(bm_df["benchmark_return"], errors="coerce")
+            bm_df = bm_df.dropna(subset=["benchmark_return"])
+
+        results = []
+
+        for scheme_code, grp in df.groupby("scheme_code"):
+            rets = grp["return_percent"].values
+            if len(rets) < min_months:
+                continue
+
+            var_95 = round(float(np.percentile(rets, 5)), 4)
+            threshold = np.percentile(rets, 5)
+            cvar_95 = round(float(rets[rets <= threshold].mean()), 4) if (rets <= threshold).any() else var_95
+
+            neg = rets[rets < 0] / 100.0
+            semi_dev = round(float(np.std(neg, ddof=1) * np.sqrt(12) * 100), 4) if len(neg) > 1 else None
+
+            consistency = round(float((rets > 0).sum()) / len(rets) * 100, 1)
+
+            metric: Dict[str, Any] = {
+                "scheme_code": str(scheme_code),
+                "var_95": var_95,
+                "cvar_95": cvar_95,
+                "semi_deviation": semi_dev,
+                "consistency_score": int(consistency),
+            }
+
+            if not bm_df.empty:
+                bm_grp = bm_df[bm_df["scheme_code"] == str(scheme_code)]
+                if not bm_grp.empty:
+                    merged = grp.set_index("month_year").join(
+                        bm_grp.set_index("month_year")[["benchmark_return"]], how="inner"
+                    )
+                    if len(merged) >= 6:
+                        f_r = merged["return_percent"].values
+                        b_r = merged["benchmark_return"].values
+                        up = b_r > 0
+                        dn = b_r < 0
+                        if up.sum() >= 3 and b_r[up].mean() != 0:
+                            metric["upside_capture_ratio"] = round(float(f_r[up].mean() / b_r[up].mean() * 100), 4)
+                        if dn.sum() >= 3 and b_r[dn].mean() != 0:
+                            metric["downside_capture_ratio"] = round(float(f_r[dn].mean() / b_r[dn].mean() * 100), 4)
+                        uc = metric.get("upside_capture_ratio")
+                        dc = metric.get("downside_capture_ratio")
+                        if uc and dc and dc != 0:
+                            metric["capture_ratio"] = round(uc / dc, 4)
+
+            results.append(metric)
+
+        updated = 0
+        async with db_conn() as conn:
+            for m in results:
+                try:
+                    await conn.execute(
+                        """
+                        UPDATE mutual_fund_metrics SET
+                          var_95 = COALESCE($3, var_95),
+                          cvar_95 = COALESCE($4, cvar_95),
+                          semi_deviation = COALESCE($5, semi_deviation),
+                          consistency_score = COALESCE($6::integer, consistency_score),
+                          upside_capture_ratio = COALESCE($7, upside_capture_ratio),
+                          downside_capture_ratio = COALESCE($8, downside_capture_ratio),
+                          capture_ratio = COALESCE($9, capture_ratio),
+                          last_updated = NOW()
+                        WHERE scheme_code = $1 AND fiscal_year = $2
+                        """,
+                        m["scheme_code"], fiscal_year,
+                        m.get("var_95"), m.get("cvar_95"),
+                        m.get("semi_deviation"), m.get("consistency_score"),
+                        m.get("upside_capture_ratio"), m.get("downside_capture_ratio"),
+                        m.get("capture_ratio"),
+                    )
+                    updated += 1
+                except Exception:
+                    pass
+
+        return {
+            "message": "Risk metrics from monthly returns complete",
+            "schemesProcessed": len(results),
+            "metricsUpdated": updated,
+            "withCapture": sum(1 for m in results if "upside_capture_ratio" in m),
+            "modelVersion": "py-mf-risk-monthly-v1",
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# Daily Change Percent Sync (mutual_funds.change_percent)
+# ---------------------------------------------------------------------------
+
+@router.post("/sync-change-pct")
+async def sync_change_pct(
+    payload: dict = Body(default={}),
+    token: TokenPayload = Depends(verify_token),
+):
+    """
+    Compute change_percent and change for mutual_funds from the latest 2
+    rows in mf_nav_history (using window function LAG). Admin/agent only.
+    """
+    if token.role not in ("admin", "agent"):
+        return {"error": "Insufficient permissions"}
+
+    try:
+        async with db_conn() as conn:
+            rows = await conn.fetch(
+                """
+                WITH ranked AS (
+                  SELECT scheme_code, nav_date, nav,
+                         LAG(nav) OVER (PARTITION BY scheme_code ORDER BY nav_date) AS prev_nav,
+                         ROW_NUMBER() OVER (PARTITION BY scheme_code ORDER BY nav_date DESC) AS rn
+                  FROM mf_nav_history
+                )
+                SELECT scheme_code, nav, prev_nav
+                FROM ranked
+                WHERE rn = 1 AND prev_nav IS NOT NULL
+                """
+            )
+
+        if not rows:
+            return {"message": "No NAV data with prev_nav", "updated": 0}
+
+        df = pd.DataFrame([dict(r) for r in rows])
+        df["nav"] = pd.to_numeric(df["nav"], errors="coerce")
+        df["prev_nav"] = pd.to_numeric(df["prev_nav"], errors="coerce")
+        df = df.dropna(subset=["nav", "prev_nav"])
+        df["change"] = (df["nav"] - df["prev_nav"]).round(4)
+        df["change_percent"] = ((df["change"] / df["prev_nav"]) * 100).round(4)
+
+        updated = 0
+        async with db_conn() as conn:
+            for _, row in df.iterrows():
+                try:
+                    await conn.execute(
+                        """
+                        UPDATE mutual_funds
+                        SET change = $2,
+                            change_percent = $3,
+                            last_updated = NOW()
+                        WHERE scheme_code = $1
+                        """,
+                        str(row["scheme_code"]),
+                        float(row["change"]),
+                        float(row["change_percent"]),
+                    )
+                    updated += 1
+                except Exception:
+                    pass
+
+        return {
+            "message": "change_percent sync complete",
+            "schemesWithData": len(df),
+            "schemesUpdated": updated,
+            "modelVersion": "py-mf-changepct-v1",
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# Derived Metrics (Treynor ratio, Jensen alpha, vol↔stddev sync)
+# ---------------------------------------------------------------------------
+
+@router.post("/derived-metrics")
+async def compute_derived_metrics(
+    payload: dict = Body(default={}),
+    token: TokenPayload = Depends(verify_token),
+):
+    """
+    Compute derived metrics from existing mutual_fund_metrics columns:
+    - treynor_ratio = (return_1y/100 - Rf) / beta
+    - jensen_alpha = return_1y/100 - [Rf + beta * (benchmark_return - Rf)]
+    - Sync: volatility ↔ standard_deviation (if one is set, copy to the other)
+    Admin/agent only.
+    """
+    if token.role not in ("admin", "agent"):
+        return {"error": "Insufficient permissions"}
+
+    try:
+        fiscal_year = payload.get("fiscalYear", "FY25-26")
+        rf = RF_ANNUAL
+        default_market_return = float(payload.get("defaultMarketReturn", 0.12))  # 12% Nifty proxy
+
+        async with db_conn() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT mfm.scheme_code, mfm.return_1y, mfm.beta,
+                       mfm.volatility, mfm.standard_deviation,
+                       mf.benchmark_index_code
+                FROM mutual_fund_metrics mfm
+                LEFT JOIN mutual_funds mf ON mf.scheme_code = mfm.scheme_code
+                WHERE mfm.fiscal_year = $1
+                  AND (mfm.return_1y IS NOT NULL
+                       OR mfm.volatility IS NOT NULL
+                       OR mfm.standard_deviation IS NOT NULL)
+                """,
+                fiscal_year,
+            )
+
+            # Proxy benchmark returns (approx 1Y) from market_index_nav
+            bm_rows = await conn.fetch(
+                """
+                SELECT index_id,
+                  ROUND(
+                    (LAST_VALUE(close_value) OVER (PARTITION BY index_id ORDER BY nav_date
+                     ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+                    / FIRST_VALUE(close_value) OVER (PARTITION BY index_id ORDER BY nav_date
+                     ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+                    - 1) * 100, 4
+                  ) AS approx_1y_return
+                FROM market_index_nav
+                WHERE nav_date >= CURRENT_DATE - INTERVAL '370 days'
+                GROUP BY index_id, close_value, nav_date
+                HAVING COUNT(*) OVER (PARTITION BY index_id) >= 100
+                LIMIT 500
+                """
+            )
+
+        bm_map = {}
+        for r in bm_rows:
+            idx = str(r["index_id"])
+            if idx not in bm_map and r["approx_1y_return"] is not None:
+                bm_map[idx] = float(r["approx_1y_return"]) / 100.0
+
+        df = pd.DataFrame([dict(r) for r in rows])
+        for col in ["return_1y", "beta", "volatility", "standard_deviation"]:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        updates = []
+        for _, row in df.iterrows():
+            u: Dict[str, Any] = {"scheme_code": row["scheme_code"]}
+
+            r1y_pct = row["return_1y"]
+            beta = row["beta"]
+            vol = row["volatility"]
+            std = row["standard_deviation"]
+
+            if pd.notna(r1y_pct) and pd.notna(beta) and abs(float(beta)) > 1e-6:
+                r1y = float(r1y_pct) / 100.0
+                u["treynor_ratio"] = round((r1y - rf) / float(beta), 4)
+
+                bm_idx = str(row.get("benchmark_index_code") or "")
+                bm_ret = bm_map.get(bm_idx, default_market_return)
+                u["jensen_alpha"] = round(r1y - (rf + float(beta) * (bm_ret - rf)), 4)
+
+            if pd.notna(vol) and pd.isna(std):
+                u["standard_deviation"] = float(vol)
+            elif pd.notna(std) and pd.isna(vol):
+                u["volatility"] = float(std)
+
+            if len(u) > 1:
+                updates.append(u)
+
+        updated = 0
+        async with db_conn() as conn:
+            for u in updates:
+                try:
+                    fields = {k: v for k, v in u.items() if k != "scheme_code"}
+                    if not fields:
+                        continue
+                    set_parts = [f"{k} = ${i + 3}" for i, k in enumerate(fields.keys())]
+                    vals = [u["scheme_code"], fiscal_year] + list(fields.values())
+                    await conn.execute(
+                        f"UPDATE mutual_fund_metrics SET {', '.join(set_parts)}, last_updated = NOW() "
+                        f"WHERE scheme_code = $1 AND fiscal_year = $2",
+                        *vals,
+                    )
+                    updated += 1
+                except Exception:
+                    pass
+
+        return {
+            "message": "Derived metrics computation complete",
+            "candidateSchemes": len(df),
+            "updatedSchemes": updated,
+            "withTreynor": sum(1 for u in updates if "treynor_ratio" in u),
+            "withJensen": sum(1 for u in updates if "jensen_alpha" in u),
+            "withStdDevSync": sum(1 for u in updates if "standard_deviation" in u or "volatility" in u),
+            "modelVersion": "py-mf-derived-v1",
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
