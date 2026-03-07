@@ -1,0 +1,21 @@
+[nix]
+channel = "stable-24_05"
+
+[[ports]]
+localPort = 8000
+externalPort = 80
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+[workflows]
+runButton = "Start Python Service"
+
+[[workflows.workflow]]
+name = "Start Python Service"
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pip install -r requirements.txt -q && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"

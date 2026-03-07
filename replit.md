@@ -43,6 +43,16 @@ FintekPro's Agent Portal includes 5 BuildWealth-inspired advisor tools: Investme
 ### Service Mesh Architecture (Phase 1)
 FintekPro uses a **dual-auth, zero-disruption service mesh** to split heavy domains into independent deployable micro-services. The main portal issues short-lived JWTs that micro-services validate, maintaining the main portal's existing session/cookie/Passport auth. Routes transparently proxy to micro-services when respective environment variables (`<SERVICE>_SERVICE_URL`) are set, falling back to local in-process execution otherwise, enabling zero-downtime migration. Deployed service packages live in `services/`, e.g., `services/insurance/` for `ins.fintekpro.com`.
 
+**Python Analytics Service** (`services/python/`) — FastAPI + pandas/scipy sidecar for compute-heavy work:
+- Portfolio summary with pandas (asset allocation, AMC breakdown, gain/loss)
+- FIFO capital gains engine (STCG/LTCG split, tax estimate, per-lot detail)
+- XIRR calculation (arbitrary cashflows or auto-fetched from DB)
+- Rolling returns (1Y/3Y/5Y CAGR from NAV history)
+- AMC-breakdown for agents (AUM, trail estimate, client count)
+- Proxy client: `server/clients/python-client.ts` | Routes: `server/routes/python-proxy.ts`
+- Activate: set `PYTHON_SERVICE_URL=<deployed URL>` — all `/api/python/*` routes proxy transparently
+- Deploy: copy `services/python/` to a new Python Replit repl; set `PRODUCTION_DATABASE_URL` + `SESSION_SECRET`
+
 ### System Design Choices
 FintekPro employs a subdomain-based portal architecture for Admin, Partner, Agent, and Client portals with role-based access control and session-based portal validation. A Financial Metrics Engine provides 40+ derived ratios. It uses a Centralized Service Registry pattern, a Staggered Startup System, and Fast Boot Optimization. A Regulatory Gaps Tracker monitors compliance. A Production Bootstrap & Self-Healing Data System provides automated, idempotent reference data seeding on every server startup. An Instrument Time-Series Architecture uses a dual-pipeline system for instrument price data: a Daily Incremental Engine and a Historical Backfill Engine. A Central Engine Registry defines mandatory engines for specific domains like AI Recommendations, AI Alpha, Profit-Optimized Scoring, Commission, Tax, Risk, KYC, Rebalancing, Portfolio Import, Financial Metrics, Proposals, Goal Planning, SIP Simulation, Return Forecasting, Investable Surplus, Overlap Analysis, Fund Classification, Screener, Fixed Income, Corporate Treasury, Explainability, Signal Orchestration, and Charge Classification. The Instrument Charge Classification Matrix details charge types and regulators.
 
