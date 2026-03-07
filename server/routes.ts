@@ -107,6 +107,7 @@ import { sandboxKYCService } from './services/sandbox-kyc-service';
 import { apiUsageTrackingService } from "./services/api-usage-tracking-service";
 import { sandboxITRService } from './sandbox-itr-service';
 import { sandboxTDSService } from './sandbox-tds-service';
+import { unifiedOCRService, type DocumentMimeType, type DocumentHint } from './services/unified-ocr-service';
 import { AadhaarMockService } from './services/aadhaar-mock-service';
 import { CashfreeAadhaarService } from './services/cashfree-aadhaar-service';
 import { unifiedAadhaarService } from './services/unified-aadhaar-service';
@@ -15079,22 +15080,90 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   });
 
 
-  // ============ SANDBOX.CO.IN OCR API ROUTES ============
-  
-  // Get OCR service status
+  // ============ UNIFIED OCR SERVICE ROUTES ============
+
+  // Get OCR service status (unified — covers Gemini Vision + Sandbox ITR)
   app.get("/api/ocr/status", async (req, res) => {
     try {
-      const status = sandboxITRService.getOCRStatus();
+      const unified = unifiedOCRService.getStatus();
+      const itr = sandboxITRService.getOCRStatus();
       res.json({
         success: true,
-        ...status,
-        message: status.available 
-          ? 'OCR service is configured and ready' 
-          : 'OCR service using mock data (API credentials not configured)'
+        available: unified.available || itr.available,
+        message: unified.available
+          ? 'Unified OCR service ready (Gemini Vision + Sandbox ITR)'
+          : itr.available
+            ? 'ITR-only OCR ready (Sandbox.co.in); Gemini Vision not configured'
+            : 'OCR service not configured — set GEMINI_API_KEY or SANDBOX_API_KEY',
+        providers: unified.providers,
+        capabilities: unified.capabilities,
+        itr: { available: itr.available, endpoints: itr.endpoints },
       });
     } catch (error) {
       console.error("OCR status check error:", error);
       res.status(500).json({ success: false, error: "OCR status check failed" });
+    }
+  });
+
+  // ── NEW: General-purpose text extraction (scanned PDF or image) ─────
+  // POST /api/ocr/extract-text
+  // Body: { fileData: base64, mimeType?, hint?, fileName? }
+  // mimeType: 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp' | 'image/heic'
+  // hint: 'financial_statement' | 'tax_document' | 'kyc_document' | 'bank_statement' | 'invoice' | 'general'
+  app.post("/api/ocr/extract-text", async (req, res) => {
+    try {
+      const { fileData, mimeType = 'application/pdf', hint = 'general', fileName } = req.body;
+
+      if (!fileData) {
+        return res.status(400).json({
+          success: false,
+          error: "fileData is required (base64-encoded document)",
+        });
+      }
+
+      const SUPPORTED_MIMES: DocumentMimeType[] = [
+        'application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+      ];
+      if (!SUPPORTED_MIMES.includes(mimeType)) {
+        return res.status(400).json({
+          success: false,
+          error: `Unsupported mimeType. Allowed: ${SUPPORTED_MIMES.join(', ')}`,
+        });
+      }
+
+      const SUPPORTED_HINTS: DocumentHint[] = [
+        'financial_statement', 'tax_document', 'kyc_document', 'bank_statement', 'invoice', 'general',
+      ];
+      const resolvedHint: DocumentHint = SUPPORTED_HINTS.includes(hint) ? hint : 'general';
+
+      const buffer = Buffer.from(fileData, 'base64');
+      const result = await unifiedOCRService.extractText(buffer, mimeType as DocumentMimeType, resolvedHint);
+
+      if (!result.success) {
+        return res.status(422).json({
+          success: false,
+          error: result.error,
+          provider: result.provider,
+          processingTimeMs: result.processingTimeMs,
+        });
+      }
+
+      res.json({
+        success: true,
+        text: result.text,
+        provider: result.provider,
+        confidence: result.confidence,
+        processingTimeMs: result.processingTimeMs,
+        wordCount: result.text.split(/\s+/).filter(Boolean).length,
+        fileName,
+      });
+    } catch (error: any) {
+      console.error("OCR extract-text error:", error);
+      res.status(500).json({
+        success: false,
+        error: "OCR text extraction failed",
+        message: error?.message || 'Unknown error',
+      });
     }
   });
 

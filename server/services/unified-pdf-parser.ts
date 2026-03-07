@@ -13,6 +13,7 @@
 
 import * as crypto from 'crypto';
 import { PDFParse } from 'pdf-parse';
+import { unifiedOCRService, type DocumentHint } from './unified-ocr-service';
 
 // ============================================
 // TYPES - Document Profiling
@@ -79,6 +80,10 @@ export interface TextExtractResult {
 export interface TextExtractOptions {
   maxPages?: number;
   maxFileSize?: number;
+  /** If true, attempt Gemini Vision OCR when pdf-parse yields empty text */
+  enableOCRFallback?: boolean;
+  /** Hint for the OCR engine prompt selection */
+  ocrHint?: DocumentHint;
 }
 
 export interface SafeExtractResult {
@@ -86,6 +91,9 @@ export interface SafeExtractResult {
   result?: TextExtractResult;
   error?: string;
   errorCode?: 'INVALID_INPUT' | 'FILE_TOO_LARGE' | 'PARSE_ERROR' | 'EMPTY_CONTENT' | 'UNKNOWN';
+  /** True when Gemini Vision OCR was used instead of pdf-parse */
+  ocrFallbackUsed?: boolean;
+  ocrConfidence?: 'high' | 'medium' | 'low' | 'unknown';
 }
 
 // ============================================
@@ -416,6 +424,11 @@ class UnifiedPDFParser {
   }
 
   async extractTextSafe(input: Buffer | string, options: TextExtractOptions = {}): Promise<SafeExtractResult> {
+    const { enableOCRFallback = true, ocrHint = 'financial_statement' } = options;
+
+    // Normalise to buffer once so we can pass it to OCR if needed
+    let rawBuffer: Buffer | null = null;
+
     try {
       if (!input) {
         return { success: false, error: 'No input provided', errorCode: 'INVALID_INPUT' };
@@ -425,14 +438,58 @@ class UnifiedPDFParser {
         return { success: false, error: 'Empty base64 string provided', errorCode: 'INVALID_INPUT' };
       }
 
+      // Keep buffer reference for potential OCR fallback
+      if (Buffer.isBuffer(input)) {
+        rawBuffer = input;
+      } else {
+        try {
+          rawBuffer = Buffer.from(input, 'base64');
+        } catch {
+          return { success: false, error: 'Invalid base64 input', errorCode: 'INVALID_INPUT' };
+        }
+      }
+
       const result = await this.extractText(input, options);
 
       if (!result.text || result.text.trim().length === 0) {
+        // ── OCR FALLBACK ──────────────────────────────────────────────
+        if (enableOCRFallback && rawBuffer) {
+          console.log('[UnifiedPDFParser] Empty text from pdf-parse — attempting Gemini OCR fallback');
+          const ocrResult = await unifiedOCRService.extractTextFromScannedPDF(rawBuffer, ocrHint);
+
+          if (ocrResult.success && ocrResult.text.trim().length > 0) {
+            console.log(
+              `[UnifiedPDFParser] OCR fallback succeeded: ${ocrResult.text.split(/\s+/).length} words, confidence=${ocrResult.confidence}`
+            );
+            return {
+              success: true,
+              result: {
+                text: ocrResult.text,
+                pageCount: result.pageCount,
+                info: result.info,
+                metadata: result.metadata,
+              },
+              ocrFallbackUsed: true,
+              ocrConfidence: ocrResult.confidence,
+            };
+          }
+
+          console.warn('[UnifiedPDFParser] OCR fallback also returned empty — giving up');
+          return {
+            success: false,
+            result,
+            error: `PDF has no extractable text and OCR fallback failed: ${ocrResult.error || 'empty response'}`,
+            errorCode: 'EMPTY_CONTENT',
+            ocrFallbackUsed: true,
+            ocrConfidence: 'unknown',
+          };
+        }
+        // ── No OCR fallback requested ─────────────────────────────────
         return {
           success: false,
           result,
           error: 'PDF parsed but contains no extractable text',
-          errorCode: 'EMPTY_CONTENT'
+          errorCode: 'EMPTY_CONTENT',
         };
       }
 
