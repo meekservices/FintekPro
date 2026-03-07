@@ -450,6 +450,7 @@ function UserProtectedRoutes() {
         <Route path="/partner/ca-dashboard" component={CADashboard} />
         <Route path="/partner/agents" component={PartnerAgentDashboard} />
         <Route path="/partner/agent-performance" component={PartnerAgentDashboard} />
+        <Route path="/partner/my-team" component={PartnerTeamManagement} />
         <Route path="/partner/payouts">
           {() => (
             <Suspense fallback={<LoadingState variant="partner-dashboard" />}>

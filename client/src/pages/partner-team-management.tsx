@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -8,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Users, UserPlus, Banknote, Percent, Copy, Link2,
@@ -550,6 +550,15 @@ function CommissionSplitsTab() {
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 export default function PartnerTeamManagement() {
+  const [location] = useLocation();
+  const tabFromUrl = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('tab') || 'team';
+  const [activeTab, setActiveTab] = useState(tabFromUrl);
+
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab') || 'team';
+    setActiveTab(tab);
+  }, [location]);
+
   const { data: team = [] } = useQuery<any[]>({ queryKey: ["/api/partner/my-team"] });
   const { data: invitations = [] } = useQuery<any[]>({ queryKey: ["/api/partner/invitations"] });
   const pending = (invitations as any[]).filter((i: any) => i.status === "pending").length;
@@ -591,7 +600,7 @@ export default function PartnerTeamManagement() {
         </Card>
       </div>
 
-      <Tabs defaultValue="team">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid grid-cols-4 w-full max-w-2xl">
           <TabsTrigger value="team" className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5" /> My Team

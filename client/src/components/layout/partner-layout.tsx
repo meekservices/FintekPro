@@ -63,25 +63,25 @@ const partnerNavSections: NavSection[] = [
     items: [
       {
         title: "My Team",
-        href: "/partner/my-team",
+        href: "/partner/my-team?tab=team",
         icon: GitBranch,
         description: "Sub-agents, SM/RM & hierarchy"
       },
       {
         title: "Invite Agent",
-        href: "/partner/my-team#invite",
+        href: "/partner/my-team?tab=invite",
         icon: UserPlus,
         description: "Generate invite links for new agents"
       },
       {
         title: "Commission Splits",
-        href: "/partner/my-team#splits",
+        href: "/partner/my-team?tab=splits",
         icon: Percent,
         description: "Configure override % per agent"
       },
       {
         title: "Bank Account",
-        href: "/partner/my-team#bank",
+        href: "/partner/my-team?tab=bank",
         icon: Banknote,
         description: "Payout bank details"
       }
@@ -308,7 +308,16 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
                   <div className="space-y-1">
                     {section.items.map((item) => {
                       const Icon = item.icon;
-                      const isActive = item.href && location === item.href;
+                      const itemHref = item.href || '';
+                      const itemPath = itemHref.split('?')[0];
+                      const itemQuery = itemHref.includes('?') ? itemHref.split('?')[1] : null;
+                      const currentPath = location.split('?')[0];
+                      const currentQuery = typeof window !== 'undefined' ? window.location.search.slice(1) : '';
+                      const isActive = item.href && (
+                        itemQuery
+                          ? currentPath === itemPath && currentQuery === itemQuery
+                          : location === itemHref || currentPath === itemPath
+                      );
                       const hasChildren = item.children && item.children.length > 0;
                       const isExpanded = expandedItems.includes(item.title);
 
