@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["atk", "chromium", "gdk-pixbuf", "glib", "glibcLocales", "gtk3", "nss", "postgresql"]
+packages = ["atk", "chromium", "gdk-pixbuf", "glib", "glibcLocales", "gtk3", "libxcrypt", "nss", "pkg-config", "postgresql", "xsimd"]
 
 [deployment]
 deploymentTarget = "vm"
@@ -57,6 +57,10 @@ externalPort = 3003
 [[ports]]
 localPort = 5004
 externalPort = 3002
+
+[[ports]]
+localPort = 8001
+externalPort = 4200
 
 [userenv]
 
