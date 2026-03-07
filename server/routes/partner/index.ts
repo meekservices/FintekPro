@@ -2,7 +2,7 @@ import { Express, Response } from 'express';
 import { partnerService } from '../../partner-service';
 import { db } from '../../db';
 import * as schema from '@shared/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 import { registerPartnerHierarchyRoutes } from './hierarchy-routes';
 
 export function registerPartnerPortalRoutes(app: Express): void {
@@ -607,6 +607,245 @@ export function registerPartnerPortalRoutes(app: Express): void {
     } catch (error) {
       console.error("Error fetching top agents:", error);
       res.status(500).json({ error: "Failed to fetch top agents" });
+    }
+  });
+
+  // ── My Team ──────────────────────────────────────────────────────────────
+  app.get("/api/partner/my-team", requirePartnerSession, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const rows = await db.execute(sql`
+        SELECT ptm.*, 
+               u.first_name, u.last_name, u.email, u.mobile, u.roles,
+               u.created_at as agent_joined_platform_at,
+               ae.status as empanelment_status, ae.arn_number, ae.pan_number
+        FROM partner_team_members ptm
+        JOIN users u ON u.id = ptm.agent_user_id
+        LEFT JOIN agent_empanelments ae ON ae.user_id = ptm.agent_user_id
+        WHERE ptm.partner_user_id = ${userId}
+        ORDER BY ptm.joined_at DESC
+      `);
+      res.json(rows.rows);
+    } catch (error) {
+      console.error("Error fetching team:", error);
+      res.status(500).json({ error: "Failed to fetch team" });
+    }
+  });
+
+  // ── Invite Agent ─────────────────────────────────────────────────────────
+  app.post("/api/partner/invite-agent", requirePartnerSession, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { inviteeName, inviteeEmail, inviteeMobile } = req.body;
+      const code = 'PAG-' + Math.random().toString(36).substring(2, 9).toUpperCase();
+      await db.execute(sql`
+        INSERT INTO partner_agent_invitations 
+          (partner_user_id, invite_code, invitee_name, invitee_email, invitee_mobile)
+        VALUES (${userId}, ${code}, ${inviteeName || null}, ${inviteeEmail || null}, ${inviteeMobile || null})
+      `);
+      const appUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+        : 'http://localhost:5000';
+      res.json({ success: true, inviteCode: code, inviteLink: `${appUrl}/agent/register?ref=${code}` });
+    } catch (error) {
+      console.error("Error creating invite:", error);
+      res.status(500).json({ error: "Failed to create invitation" });
+    }
+  });
+
+  app.get("/api/partner/invitations", requirePartnerSession, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const rows = await db.execute(sql`
+        SELECT pai.*, u.first_name, u.last_name, u.email as accepted_user_email
+        FROM partner_agent_invitations pai
+        LEFT JOIN users u ON u.id = pai.accepted_by_user_id
+        WHERE pai.partner_user_id = ${userId}
+        ORDER BY pai.created_at DESC
+      `);
+      res.json(rows.rows);
+    } catch (error) {
+      console.error("Error fetching invitations:", error);
+      res.status(500).json({ error: "Failed to fetch invitations" });
+    }
+  });
+
+  app.delete("/api/partner/invitations/:id", requirePartnerSession, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      await db.execute(sql`
+        UPDATE partner_agent_invitations SET status = 'cancelled'
+        WHERE id = ${req.params.id} AND partner_user_id = ${userId}
+      `);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to cancel invitation" });
+    }
+  });
+
+  // ── Bank Account ──────────────────────────────────────────────────────────
+  app.get("/api/partner/bank", requirePartnerSession, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const rows = await db.execute(sql`
+        SELECT bank_account_number, ifsc_code, bank_account_holder_name, upi_id,
+               cashfree_bank_verified, pan_number
+        FROM partners WHERE contact_email = ${req.user.email}
+        LIMIT 1
+      `);
+      if (rows.rows.length > 0) return res.json(rows.rows[0]);
+      // Fallback: user-level bank accounts
+      const ubRows = await db.execute(sql`
+        SELECT account_number as bank_account_number, ifsc_code,
+               account_holder_name as bank_account_holder_name, upi_id,
+               is_verified as cashfree_bank_verified
+        FROM user_bank_accounts WHERE user_id = ${userId} AND is_primary = true LIMIT 1
+      `);
+      res.json(ubRows.rows[0] || {});
+    } catch (error) {
+      console.error("Error fetching bank:", error);
+      res.status(500).json({ error: "Failed to fetch bank details" });
+    }
+  });
+
+  app.put("/api/partner/bank", requirePartnerSession, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { bankAccountNumber, ifscCode, bankAccountHolderName, upiId } = req.body;
+      // Try to update partner record first
+      const updated = await db.execute(sql`
+        UPDATE partners SET 
+          bank_account_number = ${bankAccountNumber},
+          ifsc_code = ${ifscCode},
+          bank_account_holder_name = ${bankAccountHolderName},
+          upi_id = ${upiId || null},
+          updated_at = NOW()
+        WHERE contact_email = ${req.user.email}
+        RETURNING id
+      `);
+      if (updated.rows.length === 0) {
+        // No partners record — upsert into user_bank_accounts
+        await db.execute(sql`
+          INSERT INTO user_bank_accounts (user_id, account_number, ifsc_code, account_holder_name, upi_id, is_primary, bank_name)
+          VALUES (${userId}, ${bankAccountNumber}, ${ifscCode}, ${bankAccountHolderName}, ${upiId || null}, true, 'Partner Bank')
+          ON CONFLICT (user_id, account_number) DO UPDATE SET
+            ifsc_code = EXCLUDED.ifsc_code,
+            account_holder_name = EXCLUDED.account_holder_name,
+            upi_id = EXCLUDED.upi_id,
+            updated_at = NOW()
+        `);
+      }
+      res.json({ success: true, message: "Bank details saved" });
+    } catch (error) {
+      console.error("Error updating bank:", error);
+      res.status(500).json({ error: "Failed to save bank details" });
+    }
+  });
+
+  // ── Commission Splits ─────────────────────────────────────────────────────
+  app.get("/api/partner/commission-splits", requirePartnerSession, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const rows = await db.execute(sql`
+        SELECT ptm.agent_user_id, ptm.commission_split_pct,
+               u.first_name, u.last_name, u.email
+        FROM partner_team_members ptm
+        JOIN users u ON u.id = ptm.agent_user_id
+        WHERE ptm.partner_user_id = ${userId} AND ptm.status = 'active'
+        ORDER BY u.first_name
+      `);
+      res.json(rows.rows);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch commission splits" });
+    }
+  });
+
+  app.put("/api/partner/commission-splits/:agentUserId", requirePartnerSession, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { commissionSplitPct } = req.body;
+      const pct = Math.min(100, Math.max(0, Number(commissionSplitPct)));
+      await db.execute(sql`
+        UPDATE partner_team_members SET commission_split_pct = ${pct}, updated_at = NOW()
+        WHERE partner_user_id = ${userId} AND agent_user_id = ${req.params.agentUserId}
+      `);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update commission split" });
+    }
+  });
+
+  // ── SM / RM Assignment ────────────────────────────────────────────────────
+  app.put("/api/partner/agents/:agentUserId/sm-rm", requirePartnerSession, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { smName, smEmail, rmName, rmEmail } = req.body;
+      await db.execute(sql`
+        UPDATE partner_team_members SET 
+          sm_name = ${smName || null}, sm_email = ${smEmail || null},
+          rm_name = ${rmName || null}, rm_email = ${rmEmail || null},
+          updated_at = NOW()
+        WHERE partner_user_id = ${userId} AND agent_user_id = ${req.params.agentUserId}
+      `);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to assign SM/RM" });
+    }
+  });
+
+  // ── Auto-promote: accept invite (called after agent registers with invite code) ──
+  app.post("/api/partner/accept-invite", async (req: any, res) => {
+    try {
+      const { inviteCode, agentUserId } = req.body;
+      if (!inviteCode || !agentUserId) return res.status(400).json({ error: "Missing params" });
+
+      const inv = await db.execute(sql`
+        SELECT * FROM partner_agent_invitations WHERE invite_code = ${inviteCode} AND status = 'pending'
+      `);
+      if (inv.rows.length === 0) return res.status(404).json({ error: "Invitation not found or expired" });
+      const invitation = inv.rows[0] as any;
+
+      // Link agent to partner
+      await db.execute(sql`
+        INSERT INTO partner_team_members (partner_user_id, agent_user_id, invite_code, status)
+        VALUES (${invitation.partner_user_id}, ${agentUserId}, ${inviteCode}, 'active')
+        ON CONFLICT (partner_user_id, agent_user_id) DO NOTHING
+      `);
+
+      // Mark invitation as accepted
+      await db.execute(sql`
+        UPDATE partner_agent_invitations SET status = 'accepted', accepted_by_user_id = ${agentUserId}, accepted_at = NOW()
+        WHERE id = ${invitation.id}
+      `);
+
+      // Auto-promote partner: add 'partner' role if not already present (keep 'agent' too)
+      const partnerUser = await db.execute(sql`SELECT roles FROM users WHERE id = ${invitation.partner_user_id}`);
+      if (partnerUser.rows.length > 0) {
+        const currentRoles: string[] = (partnerUser.rows[0] as any).roles || ['user'];
+        if (!currentRoles.includes('partner')) {
+          const newRoles = [...currentRoles, 'partner'];
+          await db.execute(sql`UPDATE users SET roles = ${newRoles} WHERE id = ${invitation.partner_user_id}`);
+        }
+      }
+
+      res.json({ success: true, partnerId: invitation.partner_user_id });
+    } catch (error) {
+      console.error("Accept invite error:", error);
+      res.status(500).json({ error: "Failed to accept invitation" });
+    }
+  });
+
+  // ── Remove agent from team ────────────────────────────────────────────────
+  app.delete("/api/partner/my-team/:agentUserId", requirePartnerSession, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      await db.execute(sql`
+        UPDATE partner_team_members SET status = 'removed', updated_at = NOW()
+        WHERE partner_user_id = ${userId} AND agent_user_id = ${req.params.agentUserId}
+      `);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to remove agent" });
     }
   });
 

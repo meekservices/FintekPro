@@ -18,7 +18,11 @@ import {
   Wallet,
   ChevronDown,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  UserPlus,
+  Percent,
+  Banknote,
+  GitBranch
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -51,6 +55,35 @@ const partnerNavSections: NavSection[] = [
         href: "/partner-portal",
         icon: Home,
         description: "Key metrics & overview"
+      }
+    ]
+  },
+  {
+    section: "My Agent Team",
+    items: [
+      {
+        title: "My Team",
+        href: "/partner/my-team",
+        icon: GitBranch,
+        description: "Sub-agents, SM/RM & hierarchy"
+      },
+      {
+        title: "Invite Agent",
+        href: "/partner/my-team#invite",
+        icon: UserPlus,
+        description: "Generate invite links for new agents"
+      },
+      {
+        title: "Commission Splits",
+        href: "/partner/my-team#splits",
+        icon: Percent,
+        description: "Configure override % per agent"
+      },
+      {
+        title: "Bank Account",
+        href: "/partner/my-team#bank",
+        icon: Banknote,
+        description: "Payout bank details"
       }
     ]
   },

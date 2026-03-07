@@ -319,6 +319,7 @@ const CARegistration = lazyWithRetry(() => import("@/pages/ca-registration"));
 const CADashboard = lazyWithRetry(() => import("@/pages/ca-dashboard"));
 const PartnerAgentDashboard = lazyWithRetry(() => import("@/pages/partner-agent-dashboard"));
 const PartnerCAManagement = lazyWithRetry(() => import("@/pages/partner-ca-management"));
+const PartnerTeamManagement = lazyWithRetry(() => import("@/pages/partner-team-management"));
 const AgentPayoutDashboard = lazyWithRetry(() => import("@/pages/agent-payout-dashboard"));
 const AdminPayoutManagement = lazyWithRetry(() => import("@/pages/admin-payout-management"));
 const AdminMappingRequests = lazyWithRetry(() => import("@/pages/admin-mapping-requests"));
@@ -1592,6 +1593,15 @@ function PartnerRoutes() {
           <PartnerLayout>
             <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
               <PartnerAgentDashboard />
+            </Suspense>
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/partner/my-team">
+        {() => (
+          <PartnerLayout>
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <PartnerTeamManagement />
             </Suspense>
           </PartnerLayout>
         )}
