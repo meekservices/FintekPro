@@ -665,6 +665,10 @@ server.listen({
   // Register Agent Market Alerts routes
   const agentMarketAlertsRoutes = await import('./routes/agent-market-alerts');
   app.use(agentMarketAlertsRoutes.default);
+
+  // Register Agent Tracker routes (MFCentral-powered business tracker)
+  const agentTrackerRoutes = await import('./routes/agent-tracker');
+  app.use(agentTrackerRoutes.default);
   
   // Register KYC Vault routes (Production-grade KYC system)
   const { registerKYCVaultRoutes } = await import('./kyc-vault-routes');

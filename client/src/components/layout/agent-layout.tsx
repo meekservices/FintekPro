@@ -90,6 +90,7 @@ interface NavItem {
   href: string;
   icon: LucideIcon;
   description: string;
+  badge?: string;
 }
 
 interface NavCategory {
@@ -104,6 +105,7 @@ const agentNavCategories: NavCategory[] = [
     icon: Home,
     items: [
       { title: "Overview", href: "/agent", icon: Home, description: "Overview and metrics" },
+      { title: "Tracker", href: "/agent/tracker", icon: TrendingUp, description: "MFCentral AUM, SIP & trail tracker", badge: "NEW" },
       { title: "My KYC / Empanelment", href: "/agent/kyc", icon: UserCheck, description: "Complete your empanelment KYC" },
       { title: "Pick of the Day", href: "/agent/picks", icon: Star, description: "Daily investment picks" },
       { title: "Leaderboard", href: "/agent/leaderboard", icon: Trophy, description: "Agent rankings" },

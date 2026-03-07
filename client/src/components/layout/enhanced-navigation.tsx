@@ -460,6 +460,7 @@ export function EnhancedNavigation() {
         title: "Agent: Overview",
         items: [
           { name: "Agent Dashboard", href: "/agent", icon: LayoutDashboard, description: "Agent overview" },
+          { name: "Tracker", href: "/agent/tracker", icon: LineChart, description: "MFCentral-powered AUM, SIP & trail tracker", badge: "NEW" },
           { name: "Performance", href: "/agent-performance", icon: BadgePercent, description: "Performance metrics" },
           { name: "Leaderboard", href: "/agent/leaderboard", icon: Award, description: "Top agents ranking" },
           { name: "Revenue Cockpit", href: "/agent/revenue", icon: DollarSign, description: "Revenue analytics" }

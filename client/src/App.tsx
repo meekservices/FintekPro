@@ -373,6 +373,7 @@ const AgentInvestmentBaskets = lazyWithRetry(() => import("@/pages/agent-investm
 const AgentSipHealth = lazyWithRetry(() => import("@/pages/agent-sip-health"));
 const AgentPortfolioDrift = lazyWithRetry(() => import("@/pages/agent-portfolio-drift"));
 const AgentMarketAlerts = lazyWithRetry(() => import("@/pages/agent-market-alerts"));
+const AgentTracker = lazyWithRetry(() => import("@/pages/agent-tracker"));
 
 function UserProtectedRoutes() {
   return (
@@ -1808,6 +1809,15 @@ function AgentRoutes() {
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
               <AgentCrmAnalytics />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/tracker">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentTracker />
             </Suspense>
           </AgentLayout>
         )}
