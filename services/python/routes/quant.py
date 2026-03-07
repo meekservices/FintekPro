@@ -659,3 +659,271 @@ async def drift_predict(
 
     except Exception as e:
         return {"error": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# Asset Allocation Optimizer (py-mvo-v2)
+# Indian market MPT — 10 asset classes, SEBI-compliant constraints
+# ---------------------------------------------------------------------------
+
+_ASSET_CLASSES = [
+    {"type": "large_cap_equity",   "name": "Large Cap Equity",           "er": 12.0, "vol": 16.0, "max": 60},
+    {"type": "mid_cap_equity",     "name": "Mid Cap Equity",             "er": 14.0, "vol": 22.0, "max": 40},
+    {"type": "small_cap_equity",   "name": "Small Cap Equity",           "er": 16.0, "vol": 28.0, "max": 30},
+    {"type": "international_equity","name": "International Equity",      "er": 10.0, "vol": 18.0, "max": 25},
+    {"type": "government_bonds",   "name": "Government Bonds",           "er":  7.0, "vol":  4.0, "max": 50},
+    {"type": "corporate_bonds",    "name": "Corporate Bonds",            "er":  8.5, "vol":  6.0, "max": 40},
+    {"type": "money_market",       "name": "Money Market/Liquid Funds",  "er":  5.5, "vol":  1.0, "max": 30},
+    {"type": "gold",               "name": "Gold/Precious Metals",       "er":  6.0, "vol": 12.0, "max": 15},
+    {"type": "real_estate",        "name": "Real Estate/REITs",          "er":  9.0, "vol": 14.0, "max": 20},
+    {"type": "alternatives",       "name": "Alternatives (PE/VC/AIF)",   "er": 18.0, "vol": 30.0, "max": 25},
+]
+
+_TYPES = [a["type"] for a in _ASSET_CLASSES]
+_ER = np.array([a["er"] / 100 for a in _ASSET_CLASSES])
+_VOL = np.array([a["vol"] / 100 for a in _ASSET_CLASSES])
+_MAX = np.array([a["max"] / 100 for a in _ASSET_CLASSES])
+_N = len(_ASSET_CLASSES)
+
+_EQUITY_IDX = [0, 1, 2, 3]
+_DEBT_IDX = [4, 5, 6]
+_ALT_IDX = [9]
+_LIQUID_IDX = [6, 4]
+
+_CORR = np.array([
+    [1.00, 0.85, 0.80, 0.70,-0.20, 0.10, 0.05, 0.05, 0.50, 0.60],
+    [0.85, 1.00, 0.90, 0.65,-0.15, 0.15, 0.05, 0.10, 0.55, 0.65],
+    [0.80, 0.90, 1.00, 0.60,-0.10, 0.20, 0.05, 0.15, 0.45, 0.70],
+    [0.70, 0.65, 0.60, 1.00,-0.10, 0.15, 0.05, 0.20, 0.40, 0.50],
+    [-0.20,-0.15,-0.10,-0.10, 1.00, 0.80, 0.60, 0.30, 0.10,-0.10],
+    [0.10, 0.15, 0.20, 0.15, 0.80, 1.00, 0.50, 0.20, 0.25, 0.10],
+    [0.05, 0.05, 0.05, 0.05, 0.60, 0.50, 1.00, 0.10, 0.05, 0.00],
+    [0.05, 0.10, 0.15, 0.20, 0.30, 0.20, 0.10, 1.00, 0.15, 0.10],
+    [0.50, 0.55, 0.45, 0.40, 0.10, 0.25, 0.05, 0.15, 1.00, 0.40],
+    [0.60, 0.65, 0.70, 0.50,-0.10, 0.10, 0.00, 0.10, 0.40, 1.00],
+])
+_COV = _CORR * np.outer(_VOL, _VOL)
+
+# Risk profile constraints (min/max equity, min/max debt, max alternatives)
+_PROFILE_CONSTRAINTS = {
+    "very_conservative": {"min_eq": 0.10, "max_eq": 0.25, "min_debt": 0.60, "max_debt": 0.80, "max_alt": 0.00, "min_liq": 0.15},
+    "conservative":      {"min_eq": 0.20, "max_eq": 0.40, "min_debt": 0.45, "max_debt": 0.65, "max_alt": 0.05, "min_liq": 0.10},
+    "moderate":          {"min_eq": 0.35, "max_eq": 0.55, "min_debt": 0.30, "max_debt": 0.50, "max_alt": 0.10, "min_liq": 0.05},
+    "moderately_aggressive": {"min_eq": 0.50, "max_eq": 0.70, "min_debt": 0.15, "max_debt": 0.35, "max_alt": 0.15, "min_liq": 0.03},
+    "aggressive":        {"min_eq": 0.65, "max_eq": 0.85, "min_debt": 0.05, "max_debt": 0.25, "max_alt": 0.20, "min_liq": 0.02},
+    "very_aggressive":   {"min_eq": 0.75, "max_eq": 0.95, "min_debt": 0.00, "max_debt": 0.15, "max_alt": 0.25, "min_liq": 0.00},
+}
+
+RF_ANNUAL = 0.0715
+
+
+def _get_risk_profile(risk_score: int) -> str:
+    if risk_score <= 25: return "very_conservative"
+    if risk_score <= 40: return "conservative"
+    if risk_score <= 55: return "moderate"
+    if risk_score <= 70: return "moderately_aggressive"
+    if risk_score <= 85: return "aggressive"
+    return "very_aggressive"
+
+
+def _build_constraints_and_bounds(profile: str, segment: str, max_single: float):
+    pc = _PROFILE_CONSTRAINTS[profile].copy()
+
+    if segment in ("bhni", "shni"):
+        pc["max_alt"] = min(pc["max_alt"] + 0.10, 0.35)
+    elif segment == "retail":
+        pc["max_alt"] = 0.00
+        pc["min_liq"] = max(pc["min_liq"], 0.05)
+    elif segment == "corporate":
+        pc["min_liq"] = max(pc["min_liq"] + 0.10, 0.15)
+        pc["max_eq"] = max(pc["max_eq"] - 0.15, pc["min_eq"])
+
+    n = _N
+    bounds = []
+    for i, a in enumerate(_ASSET_CLASSES):
+        lo = 0.0
+        hi = min(a["max"] / 100, max_single)
+        if a["type"] == "alternatives":
+            hi = min(hi, pc["max_alt"])
+        if segment == "retail" and a["type"] == "real_estate":
+            hi = min(hi, 0.05)
+        bounds.append((lo, hi))
+
+    constraints = [
+        {"type": "eq", "fun": lambda w: w.sum() - 1.0},
+        {"type": "ineq", "fun": lambda w: w[_EQUITY_IDX].sum() - pc["min_eq"]},
+        {"type": "ineq", "fun": lambda w: pc["max_eq"] - w[_EQUITY_IDX].sum()},
+        {"type": "ineq", "fun": lambda w: w[_DEBT_IDX].sum() - pc["min_debt"]},
+        {"type": "ineq", "fun": lambda w: pc["max_debt"] - w[_DEBT_IDX].sum()},
+        {"type": "ineq", "fun": lambda w: pc["max_alt"] - w[_ALT_IDX].sum()},
+        {"type": "ineq", "fun": lambda w: w[_LIQUID_IDX].sum() - pc["min_liq"]},
+    ]
+    return bounds, constraints, pc
+
+
+def _portfolio_stats(w: np.ndarray) -> tuple:
+    pret = float(w @ _ER)
+    pvar = float(w @ _COV @ w)
+    pvol = float(np.sqrt(max(pvar, 0)))
+    sharpe = (pret - RF_ANNUAL) / pvol if pvol > 1e-8 else 0.0
+    return pret, pvol, sharpe
+
+
+def _run_mvo(bounds, constraints, risk_aversion: float = 3.0) -> np.ndarray:
+    w0 = np.array([1 / _N] * _N)
+
+    def obj(w):
+        return -(w @ _ER) + (risk_aversion / 2) * (w @ _COV @ w)
+
+    res = minimize(obj, w0, method="SLSQP", bounds=bounds, constraints=constraints,
+                   options={"maxiter": 1000, "ftol": 1e-10})
+    w_opt = np.clip(res.x, 0, 1)
+    s = w_opt.sum()
+    return w_opt / s if s > 1e-8 else w0
+
+
+def _efficient_frontier(bounds, constraints, n_points: int = 10) -> list:
+    """Sweep target return to get efficient frontier."""
+    min_ret = float(_ER.min())
+    max_ret = float(_ER.max())
+
+    target_returns = np.linspace(min_ret * 1.05, max_ret * 0.90, n_points)
+    frontier = []
+
+    for target in target_returns:
+        consts = constraints + [{"type": "ineq", "fun": lambda w, t=target: w @ _ER - t}]
+
+        def obj_min_vol(w):
+            return w @ _COV @ w
+
+        res = minimize(obj_min_vol, np.array([1 / _N] * _N), method="SLSQP",
+                       bounds=bounds, constraints=consts,
+                       options={"maxiter": 500, "ftol": 1e-9})
+        if res.success:
+            w = np.clip(res.x, 0, 1)
+            w /= max(w.sum(), 1e-8)
+            pret, pvol, sharpe = _portfolio_stats(w)
+            frontier.append({
+                "expectedReturn": round(pret * 100, 3),
+                "volatility": round(pvol * 100, 3),
+                "sharpeRatio": round(sharpe, 3),
+                "allocations": {_TYPES[i]: round(float(w[i]) * 100, 2) for i in range(_N) if w[i] > 0.005},
+            })
+
+    return frontier
+
+
+@router.post("/asset-allocation")
+async def asset_allocation_optimize(
+    payload: dict = Body(...),
+    token: TokenPayload = Depends(verify_token),
+):
+    """
+    Indian-market MPT Asset Allocation Optimizer.
+    Replicates server/services/asset-allocation-optimizer.ts in Python (scipy SLSQP).
+
+    Input:
+      riskScore:          int    (1–100, mapped to 6 risk profiles)
+      segment:            str    ('retail'|'hni'|'shni'|'bhni'|'corporate')
+      investableAmount:   float  (optional — used to compute ₹ amounts)
+      investmentHorizon:  int    (years, used for rationale)
+      goalType:           str    ('growth'|'income'|'preservation'|'balanced')
+      liquidityNeeds:     str    ('low'|'medium'|'high')
+      taxBracket:         str    ('low'|'medium'|'high')
+      existingAllocations dict   (optional — {assetType: pct} current holdings)
+
+    Returns:
+      allocations, portfolioMetrics, efficientFrontier (10 pts), riskProfile,
+      segment, constraints, optimizationMethod, rationale
+    """
+    try:
+        risk_score = int(payload.get("riskScore", 50))
+        segment = payload.get("segment", "retail")
+        investable = float(payload.get("investableAmount", 0))
+        horizon = int(payload.get("investmentHorizon", 5))
+        goal_type = payload.get("goalType", "balanced")
+        liquidity = payload.get("liquidityNeeds", "medium")
+        tax_bracket = payload.get("taxBracket", "medium")
+
+        profile = _get_risk_profile(risk_score)
+        max_single = 0.55 if segment in ("bhni", "shni") else 0.50 if segment in ("hni",) else 0.40
+
+        # Adjust risk aversion: lower score → more risk averse
+        risk_aversion = 10.0 - (risk_score / 100) * 7.0   # range 3–10
+
+        # Goal-based tilt on risk aversion
+        if goal_type == "preservation":
+            risk_aversion *= 1.4
+        elif goal_type == "growth":
+            risk_aversion *= 0.7
+        elif goal_type == "income":
+            risk_aversion *= 1.1
+
+        bounds, constraints, pc = _build_constraints_and_bounds(profile, segment, max_single)
+        w_opt = _run_mvo(bounds, constraints, risk_aversion)
+        pret, pvol, sharpe = _portfolio_stats(w_opt)
+
+        # Diversification ratio: weighted-avg individual vol / portfolio vol
+        div_ratio = float((w_opt @ _VOL) / pvol) if pvol > 1e-8 else 1.0
+        max_dd_est = -pvol * 2.33 * np.sqrt(1 / 12)  # approx 1-month 99% VaR as DD proxy
+
+        allocations = []
+        for i, a in enumerate(_ASSET_CLASSES):
+            w = float(w_opt[i])
+            if w < 0.001:
+                continue
+            port_var = float(w_opt @ _COV @ w_opt)
+            marginal_risk = float((_COV @ w_opt)[i] * w) / max(port_var, 1e-10)
+            allocations.append({
+                "assetType": a["type"],
+                "assetName": a["name"],
+                "allocation": round(w * 100, 2),
+                "expectedReturn": round(a["er"], 2),
+                "contributionToRisk": round(marginal_risk * 100, 2),
+                "amount": round(investable * w, 2) if investable > 0 else None,
+            })
+
+        allocations.sort(key=lambda x: x["allocation"], reverse=True)
+
+        frontier = _efficient_frontier(bounds, constraints)
+
+        rationale = [
+            f"Risk score {risk_score}/100 → {profile.replace('_', ' ').title()} profile",
+            f"Equity: {pc['min_eq']*100:.0f}–{pc['max_eq']*100:.0f}% | Debt: {pc['min_debt']*100:.0f}–{pc['max_debt']*100:.0f}%",
+            f"Segment: {segment.upper()} — alternatives cap: {pc['max_alt']*100:.0f}%",
+            f"Goal: {goal_type} | Horizon: {horizon}Y | Liquidity need: {liquidity}",
+            f"Expected return: {pret*100:.2f}% | Volatility: {pvol*100:.2f}% | Sharpe: {sharpe:.3f}",
+            f"Diversification ratio: {div_ratio:.2f} | Max drawdown estimate: {max_dd_est*100:.2f}%",
+        ]
+
+        return {
+            "allocations": allocations,
+            "portfolioMetrics": {
+                "expectedReturn": round(pret * 100, 4),
+                "volatility": round(pvol * 100, 4),
+                "sharpeRatio": round(sharpe, 4),
+                "diversificationRatio": round(div_ratio, 4),
+                "maxDrawdownEstimate": round(max_dd_est * 100, 4),
+            },
+            "efficientFrontier": frontier,
+            "riskProfile": profile,
+            "segment": segment,
+            "goalType": goal_type,
+            "constraints": {
+                "minEquity": round(pc["min_eq"] * 100, 1),
+                "maxEquity": round(pc["max_eq"] * 100, 1),
+                "minDebt": round(pc["min_debt"] * 100, 1),
+                "maxDebt": round(pc["max_debt"] * 100, 1),
+                "minAlternatives": 0,
+                "maxAlternatives": round(pc["max_alt"] * 100, 1),
+                "minLiquidity": round(pc["min_liq"] * 100, 1),
+                "maxSingleAsset": round(max_single * 100, 1),
+            },
+            "optimizationMethod": "SLSQP-MVO-Indian-Market",
+            "rationale": rationale,
+            "riskAversion": round(risk_aversion, 3),
+            "modelVersion": "py-mvo-v2",
+        }
+
+    except Exception as e:
+        return {"error": str(e)}

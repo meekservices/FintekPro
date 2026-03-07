@@ -43,21 +43,20 @@ FintekPro's Agent Portal includes 5 BuildWealth-inspired advisor tools: Investme
 ### Service Mesh Architecture (Phase 1)
 FintekPro uses a **dual-auth, zero-disruption service mesh** to split heavy domains into independent deployable micro-services. The main portal issues short-lived JWTs that micro-services validate, maintaining the main portal's existing session/cookie/Passport auth. Routes transparently proxy to micro-services when respective environment variables (`<SERVICE>_SERVICE_URL`) are set, falling back to local in-process execution otherwise, enabling zero-downtime migration. Deployed service packages live in `services/`, e.g., `services/insurance/` for `ins.fintekpro.com`.
 
-**Python Analytics Service** (`services/python/`) — FastAPI + pandas/scipy sidecar for compute-heavy work:
-- Portfolio summary with pandas (asset allocation, AMC breakdown, gain/loss)
-- FIFO capital gains engine (STCG/LTCG split, tax estimate, per-lot detail)
-- XIRR calculation (arbitrary cashflows or auto-fetched from DB)
-- Rolling returns v2 (1W/1M/3M/6M/1Y/3Y/5Y/10Y from `mf_nav_history` — bug-fixed table ref)
-- AMC-breakdown for agents (AUM, trail estimate, client count)
-- **MF Historical Analytics Engine** (`routes/mf_analytics.py`, `py-mf-analytics-v1`):
-  - `POST /api/mf/compute-metrics` — full analytics from any NAV array (CAGR periods, Sharpe/Sortino/MaxDD/Calmar, volatility, SIP XIRR 1Y/3Y/5Y, monthly series, beta/alpha/tracking error vs benchmark)
-  - `GET /api/mf/scheme-analytics?scheme_code=X` — DB-native: reads `mf_nav_history` + `mf_benchmark_map` + `market_index_nav`
-  - `POST /api/mf/monthly-series` — bulk monthly return series computation for upsert
-  - `POST /api/mf/bulk-compute-db` — bulk upsert into `mutual_fund_metrics` + `mf_monthly_returns` for all schemes with ≥N days NAV data
-- New DB columns added to `mutual_fund_metrics`: `volatility`, `tracking_error`, `calmar_ratio`
-- Proxy client: `server/clients/python-client.ts` | Routes: `server/routes/python-proxy.ts`
-- Activate: set `PYTHON_SERVICE_URL=<deployed URL>` — all `/api/python/*` routes proxy transparently
+**Python Analytics Service** (`services/python/`) — FastAPI + pandas/scipy/sklearn sidecar v3.0.0, 39 capabilities:
+- **Portfolio Analytics** (`routes/analytics.py`): portfolio summary (pandas), FIFO capital gains (STCG/LTCG, Finance Act 2024), AMC breakdown, **batch financial metrics (40+ ratios — py-metrics-v1)**
+- **Quant Engine** (`routes/quant.py`): XIRR (brentq), rolling returns (1W–10Y), MVO (SLSQP, py-mvo-v1), Black-Litterman (numpy), backtest metrics (Sharpe/Sortino/Calmar/MaxDD), drift prediction (scipy linregress), **Indian Market Asset Allocation Optimizer (py-mvo-v2)** — 10 asset classes, 6 risk profiles, SEBI-compliant segment constraints, efficient frontier
+- **MF Analytics** (`routes/mf_analytics.py`, py-mf-analytics-v2): compute-metrics, scheme-analytics (DB-native), monthly-series, bulk-compute-db, cross-sectional-rank (category_rank/percentile_rank), risk-from-monthly (VaR/CVaR), sync-change-pct, derived-metrics (Treynor/Jensen alpha), nav-backfill (historical_nav_data→mf_nav_history), amfi-enrich, monthly-pipeline
+- **Return Forecasting** (`routes/forecasting.py`): return-forecast (CAGR, projections, stress tests, py-return-forecast-v1), sip-simulate (vectorized, py-sip-v1)
+- **Portfolio Operations** (`routes/portfolio_ops.py`): overlap-analysis (cosine similarity, py-overlap-v1), rebalance (scipy min-cost, py-rebalance-v1)
+- **Fixed Income** (`routes/fixed_income.py`): bond-analytics (exact YTM via brentq, Macaulay/modified duration, DV01, convexity, py-bond-v1), batch-bond-analytics, yield-curve (par curve builder), treasury-optimize (4-bucket SEBI-compliant corporate treasury, py-treasury-v1)
+- **Risk Factor Models** (`routes/factor_model.py`): CAPM/Fama-French 3-Factor/Carhart 4-Factor OLS regression, proxy factors from market_index_nav, single + batch, py-factor-v1
+- **ML Scoring Engine** (`routes/ml_scoring.py`): GradientBoostingRegressor per asset class, trains on daily_picks DB, k-fold CV, feature ablation, regime overlay, py-sklearn-v1
+- **Regime Detection** (`routes/regime.py`): 6-signal weighted scoring + sklearn GMM overlay on (vol, momentum) space, DB-native Nifty prices, persists to ai_regime_history, py-regime-v2
+- Proxy client: `server/routes/python-proxy.ts` (35 routes) | All `/api/python/*` routes proxy transparently
+- Activate: set `PYTHON_SERVICE_URL=<deployed URL>` — same routes proxy to micro-service
 - Deploy: copy `services/python/` to a new Python Replit repl; set `PRODUCTION_DATABASE_URL` + `SESSION_SECRET`
+- New DB columns added to `mutual_fund_metrics`: `volatility`, `tracking_error`, `calmar_ratio`
 
 ### System Design Choices
 FintekPro employs a subdomain-based portal architecture for Admin, Partner, Agent, and Client portals with role-based access control and session-based portal validation. A Financial Metrics Engine provides 40+ derived ratios. It uses a Centralized Service Registry pattern, a Staggered Startup System, and Fast Boot Optimization. A Regulatory Gaps Tracker monitors compliance. A Production Bootstrap & Self-Healing Data System provides automated, idempotent reference data seeding on every server startup. An Instrument Time-Series Architecture uses a dual-pipeline system for instrument price data: a Daily Incremental Engine and a Historical Backfill Engine. A Central Engine Registry defines mandatory engines for specific domains like AI Recommendations, AI Alpha, Profit-Optimized Scoring, Commission, Tax, Risk, KYC, Rebalancing, Portfolio Import, Financial Metrics, Proposals, Goal Planning, SIP Simulation, Return Forecasting, Investable Surplus, Overlap Analysis, Fund Classification, Screener, Fixed Income, Corporate Treasury, Explainability, Signal Orchestration, and Charge Classification. The Instrument Charge Classification Matrix details charge types and regulators.

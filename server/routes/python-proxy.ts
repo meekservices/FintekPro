@@ -161,4 +161,74 @@ router.post('/api/python/portfolio/rebalance', requireAuth, async (req, res) => 
   return proxyToPython(req, res, '/api/portfolio/rebalance');
 });
 
+// ── Asset Allocation Optimizer (py-mvo-v2) ───────────────────────────────────
+router.post('/api/python/quant/asset-allocation', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/quant/asset-allocation');
+});
+
+// ── Batch Financial Metrics (py-metrics-v1) ──────────────────────────────────
+router.post('/api/python/analytics/batch-metrics', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/analytics/batch-metrics');
+});
+
+// ── Fixed Income & Corporate Treasury (py-bond-v1 / py-treasury-v1) ─────────
+router.post('/api/python/fixed-income/bond-analytics', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/fixed-income/bond-analytics');
+});
+
+router.post('/api/python/fixed-income/batch-bond-analytics', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/fixed-income/batch-bond-analytics');
+});
+
+router.post('/api/python/fixed-income/yield-curve', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/fixed-income/yield-curve');
+});
+
+router.post('/api/python/fixed-income/treasury-optimize', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/fixed-income/treasury-optimize');
+});
+
+// ── Factor Models (py-factor-v1) ─────────────────────────────────────────────
+router.post('/api/python/factor/fund-factors', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/factor/fund-factors');
+});
+
+router.post('/api/python/factor/batch-fund-factors', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/factor/batch-fund-factors');
+});
+
+router.get('/api/python/factor/market-factors', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/factor/market-factors');
+});
+
+// ── ML Scoring Engine (py-sklearn-v1) ────────────────────────────────────────
+router.post('/api/python/ml/train', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/ml/train');
+});
+
+router.post('/api/python/ml/score', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/ml/score');
+});
+
+router.get('/api/python/ml/model-info', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/ml/model-info');
+});
+
+router.post('/api/python/ml/cross-validate', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/ml/cross-validate');
+});
+
+// ── Regime Detection (py-regime-v2) ──────────────────────────────────────────
+router.post('/api/python/regime/detect', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/regime/detect');
+});
+
+router.get('/api/python/regime/history', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/regime/history');
+});
+
+router.post('/api/python/regime/detect-batch', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/regime/detect-batch');
+});
+
 export default router;

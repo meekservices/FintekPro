@@ -9,6 +9,10 @@ from routes.quant import router as quant_router
 from routes.mf_analytics import router as mf_analytics_router
 from routes.forecasting import router as forecasting_router
 from routes.portfolio_ops import router as portfolio_ops_router
+from routes.fixed_income import router as fixed_income_router
+from routes.factor_model import router as factor_model_router
+from routes.ml_scoring import router as ml_scoring_router
+from routes.regime import router as regime_router
 
 load_dotenv()
 
@@ -25,8 +29,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="FintekPro Python Analytics Service",
-    description="Pandas/SciPy-powered portfolio analytics, capital gains (FIFO), XIRR, rolling returns, MF analytics, forecasting, and portfolio operations.",
-    version="2.0.0",
+    description="Pandas/SciPy/sklearn-powered quantitative analytics: MF analytics, portfolio construction (MVO), fixed income (bond analytics, treasury optimizer), risk factor models (FF3/Carhart4), ML scoring (GBR), regime detection (GMM+signals), and batch financial metrics.",
+    version="3.0.0",
     lifespan=lifespan,
 )
 
@@ -43,6 +47,10 @@ app.include_router(quant_router)
 app.include_router(mf_analytics_router)
 app.include_router(forecasting_router)
 app.include_router(portfolio_ops_router)
+app.include_router(fixed_income_router)
+app.include_router(factor_model_router)
+app.include_router(ml_scoring_router)
+app.include_router(regime_router)
 
 
 @app.get("/health")
@@ -50,12 +58,13 @@ async def health():
     return {
         "status": "ok",
         "service": "fintekpro-python",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "capabilities": [
             # Portfolio analytics
             "portfolio-summary",
             "capital-gains-fifo",
             "amc-breakdown",
+            "batch-financial-metrics",
             # Quant
             "xirr",
             "rolling-returns",
@@ -63,6 +72,7 @@ async def health():
             "black-litterman-numpy",
             "backtest-metrics",
             "drift-predict-scipy",
+            "asset-allocation",
             # MF analytics
             "mf-compute-metrics",
             "mf-scheme-analytics",
@@ -81,5 +91,22 @@ async def health():
             # Portfolio ops
             "overlap-analysis",
             "portfolio-rebalance",
+            # Fixed Income & Corporate Treasury
+            "bond-analytics",
+            "batch-bond-analytics",
+            "yield-curve",
+            "treasury-optimize",
+            # Factor Models
+            "fund-factor-regression",
+            "batch-fund-factors",
+            "market-factors",
+            # ML Scoring
+            "ml-train",
+            "ml-score",
+            "ml-cross-validate",
+            # Regime Detection
+            "regime-detect",
+            "regime-history",
+            "regime-detect-batch",
         ],
     }
