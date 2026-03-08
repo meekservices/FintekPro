@@ -562,11 +562,13 @@ function startPythonSidecar() {
   console.log('🐍 [Python] Starting local sidecar on port 8001...');
 
   const launch = () => {
-    // Kill any orphaned process still holding port 8001 before starting fresh
-    try {
-      const { execSync } = require('child_process');
-      execSync('fuser -k 8001/tcp 2>/dev/null || true', { stdio: 'ignore' });
-    } catch (_) { /* best-effort */ }
+    // In development only: kill any orphaned process holding port 8001
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        const { execSync } = require('child_process');
+        execSync('fuser -k 8001/tcp 2>/dev/null || true', { stdio: 'ignore' });
+      } catch (_) { /* best-effort */ }
+    }
 
     const proc = spawn(python3, ['-m', 'uvicorn', 'main:app', '--host', '0.0.0.0', '--port', '8001', '--log-level', 'warning'], {
       cwd: pythonDir,
@@ -610,12 +612,15 @@ function startPythonSidecar() {
 const server = createServer(app);
 const port = parseInt(process.env.PORT || '5000', 10);
 
-// Clear any orphaned process holding port 5000 from a previous workflow run
-// (Replit workflow restarts don't always kill child processes cleanly)
-try {
-  const { execSync: _execSync } = require('child_process');
-  _execSync(`fuser -k ${port}/tcp 2>/dev/null || true`, { stdio: 'ignore' });
-} catch (_) { /* best-effort */ }
+// In development only: clear any orphaned process holding the port from a previous
+// workflow run. Replit's dev workflow restarts don't always kill child processes cleanly.
+// NEVER do this in production — it would kill the running server mid-deployment.
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    const { execSync: _execSync } = require('child_process');
+    _execSync(`fuser -k ${port}/tcp 2>/dev/null || true`, { stdio: 'ignore' });
+  } catch (_) { /* best-effort */ }
+}
 
 // Boot-in-progress middleware - returns 503 for API routes not yet loaded
 app.use('/api', (req: Request, res: Response, next: NextFunction) => {
