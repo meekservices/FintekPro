@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   CheckCircle, Circle, ArrowRight, ArrowLeft, ShieldCheck, Loader2,
   User, Briefcase, FileText, Building2, ScrollText, Eye, AlertTriangle,
-  BadgeCheck, Upload, CreditCard, Award, Info, Clock
+  BadgeCheck, Upload, CreditCard, Award, Info, Clock, Pencil, ChevronLeft
 } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -124,6 +124,7 @@ export default function AgentKycEmpanelment() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [step, setStep] = useState(1);
+  const [editStep, setEditStep] = useState<number | null>(null);
 
   // Step 1
   const [panNumber, setPanNumber] = useState("");
@@ -339,58 +340,217 @@ export default function AgentKycEmpanelment() {
     );
   }
 
-  // ── Approved State ────────────────────────────────────────────────────────
-  if (isApproved) {
+  // ── Profile View (Approved or Submitted — show saved data with Edit links) ─
+  if ((isApproved || isSubmitted) && editStep === null) {
     return (
-      <div className="max-w-2xl mx-auto p-6">
-        <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30">
-          <CardContent className="pt-8 pb-8 text-center space-y-4">
-            <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto">
-              <BadgeCheck className="h-10 w-10 text-green-600" />
+      <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-4">
+        {/* Page header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <User className="h-6 w-6 text-blue-600" />
+              My Profile
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Your professional empanelment profile. KYC data is verified and stored securely.
+            </p>
+          </div>
+          {isApproved && (
+            <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-700 flex items-center gap-1 mt-1">
+              <BadgeCheck className="h-3.5 w-3.5" /> Approved
+            </Badge>
+          )}
+          {isSubmitted && (
+            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-700 flex items-center gap-1 mt-1">
+              <Clock className="h-3.5 w-3.5" /> Under Review
+            </Badge>
+          )}
+        </div>
+
+        {/* Status note */}
+        {isSubmitted && (
+          <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-700 dark:text-blue-300">
+            Your application is under review. Our compliance team will verify within <strong>2–3 business days</strong>. Editing is paused until approval.
+          </div>
+        )}
+        {isApproved && emp?.approval_notes && (
+          <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-700 rounded-lg text-sm text-green-800 dark:text-green-200">
+            <span className="font-semibold">Admin Notes: </span>{emp.approval_notes}
+          </div>
+        )}
+
+        {/* ── Identity ─────────────────────────────────────── */}
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                <User className="h-3.5 w-3.5" /> Identity
+              </CardTitle>
+              {isApproved ? (
+                <Button variant="link" size="sm" className="h-auto p-0 text-blue-600 text-xs" onClick={() => { setStep(1); setEditStep(1); }}>
+                  <Pencil className="h-3 w-3 mr-1" /> Edit
+                </Button>
+              ) : (
+                <span className="text-xs text-muted-foreground">Under review</span>
+              )}
             </div>
-            <h2 className="text-2xl font-bold text-green-800 dark:text-green-200">Empanelment Approved!</h2>
-            <p className="text-green-700 dark:text-green-300">Your agent empanelment KYC has been verified and approved. You are now fully empaneled to distribute financial products.</p>
-            {emp.approval_notes && (
-              <div className="mt-4 p-3 bg-white dark:bg-green-900/20 rounded-lg text-sm text-green-800 dark:text-green-200">
-                <p className="font-semibold">Admin Notes:</p>
-                <p>{emp.approval_notes}</p>
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-4 mt-6 text-left">
-              {emp.arn_code && <div className="p-3 bg-white dark:bg-background rounded-lg"><p className="text-xs text-muted-foreground">ARN Code</p><p className="font-semibold">{emp.arn_code}</p></div>}
-              {emp.euin_number && <div className="p-3 bg-white dark:bg-background rounded-lg"><p className="text-xs text-muted-foreground">EUIN</p><p className="font-semibold">{emp.euin_number}</p></div>}
-              {emp.nism_certificate_number && <div className="p-3 bg-white dark:bg-background rounded-lg"><p className="text-xs text-muted-foreground">NISM Certificate</p><p className="font-semibold">{emp.nism_certificate_number}</p></div>}
-              {emp.bank_name && <div className="p-3 bg-white dark:bg-background rounded-lg"><p className="text-xs text-muted-foreground">Bank Account</p><p className="font-semibold">✓ {emp.bank_name}</p></div>}
+          </CardHeader>
+          <CardContent className="pt-0 px-4 pb-4">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div><p className="text-xs text-muted-foreground">PAN</p><p className="font-medium flex items-center gap-1">{emp?.pan_number} {emp?.pan_verified && <CheckCircle className="h-3 w-3 text-green-600" />}</p></div>
+              <div><p className="text-xs text-muted-foreground">Registered Name</p><p className="font-medium">{emp?.pan_name || "—"}</p></div>
+              <div><p className="text-xs text-muted-foreground">Aadhaar</p><p className="font-medium flex items-center gap-1">****{emp?.aadhaar_last4 || "—"} {emp?.aadhaar_verified && <CheckCircle className="h-3 w-3 text-green-600" />}</p></div>
             </div>
           </CardContent>
         </Card>
-      </div>
-    );
-  }
 
-  // ── Submitted/Under Review ────────────────────────────────────────────────
-  if (isSubmitted) {
-    return (
-      <div className="max-w-2xl mx-auto p-6">
-        <Card className="border-blue-200 dark:border-blue-800">
-          <CardContent className="pt-8 pb-8 text-center space-y-4">
-            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto">
-              <Clock className="h-10 w-10 text-blue-600 animate-pulse" />
+        {/* ── Services ─────────────────────────────────────── */}
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                <Briefcase className="h-3.5 w-3.5" /> Services
+              </CardTitle>
+              {isApproved ? (
+                <Button variant="link" size="sm" className="h-auto p-0 text-blue-600 text-xs" onClick={() => { setStep(2); setEditStep(2); }}>
+                  <Pencil className="h-3 w-3 mr-1" /> Edit
+                </Button>
+              ) : (
+                <span className="text-xs text-muted-foreground">Under review</span>
+              )}
             </div>
-            <h2 className="text-2xl font-bold">Application Under Review</h2>
-            <p className="text-muted-foreground">Your empanelment application has been submitted successfully. Our compliance team will review within <strong>2–3 business days</strong>.</p>
-            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-left space-y-2">
-              <p className="text-sm font-semibold text-blue-800 dark:text-blue-200">What happens next?</p>
-              <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
-                <li>AMFI / NISM credential verification</li>
-                <li>Bank account validation cross-check</li>
-                <li>Background declaration review</li>
-                <li>You'll be notified by email/SMS on approval</li>
-              </ul>
+          </CardHeader>
+          <CardContent className="pt-0 px-4 pb-4">
+            <div className="flex flex-wrap gap-2">
+              {(emp?.services_offered || []).map(s => (
+                <Badge key={s} variant="secondary">{SERVICE_OPTIONS.find(x => x.id === s)?.label || s}</Badge>
+              ))}
+              {!(emp?.services_offered?.length) && <span className="text-sm text-muted-foreground">—</span>}
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Submitted: {emp?.submitted_at ? new Date(emp.submitted_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) : "—"}
-            </p>
+          </CardContent>
+        </Card>
+
+        {/* ── Credentials ──────────────────────────────────── */}
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                <Award className="h-3.5 w-3.5" /> Credentials
+              </CardTitle>
+              {isApproved ? (
+                <Button variant="link" size="sm" className="h-auto p-0 text-blue-600 text-xs" onClick={() => { setStep(3); setEditStep(3); }}>
+                  <Pencil className="h-3 w-3 mr-1" /> Edit
+                </Button>
+              ) : (
+                <span className="text-xs text-muted-foreground">Under review</span>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 px-4 pb-4">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              {emp?.arn_code && <div><p className="text-xs text-muted-foreground">ARN</p><p className="font-mono font-medium">{emp.arn_code}</p></div>}
+              {emp?.euin_number && <div><p className="text-xs text-muted-foreground">EUIN</p><p className="font-mono font-medium">{emp.euin_number}</p></div>}
+              {emp?.nism_certificate_number && <div><p className="text-xs text-muted-foreground">NISM Certificate</p><p className="font-mono font-medium text-xs">{emp.nism_certificate_number}</p></div>}
+              {emp?.nism_certificate_type && <div><p className="text-xs text-muted-foreground">NISM Series</p><p className="font-medium">{emp.nism_certificate_type}</p></div>}
+              {emp?.ria_number && <div><p className="text-xs text-muted-foreground">SEBI RIA</p><p className="font-mono font-medium">{emp.ria_number}</p></div>}
+              {emp?.posp_number && <div><p className="text-xs text-muted-foreground">POSP</p><p className="font-mono font-medium">{emp.posp_number}</p></div>}
+              {emp?.dsa_code && <div><p className="text-xs text-muted-foreground">DSA Code</p><p className="font-mono font-medium">{emp.dsa_code}</p></div>}
+              {!emp?.arn_code && !emp?.ria_number && !emp?.posp_number && !emp?.dsa_code && <span className="col-span-2 text-sm text-muted-foreground">—</span>}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ── Bank Account ─────────────────────────────────── */}
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                <Building2 className="h-3.5 w-3.5" /> Bank Account
+              </CardTitle>
+              {isApproved ? (
+                <Button variant="link" size="sm" className="h-auto p-0 text-blue-600 text-xs" onClick={() => { setStep(4); setEditStep(4); }}>
+                  <Pencil className="h-3 w-3 mr-1" /> Edit
+                </Button>
+              ) : (
+                <span className="text-xs text-muted-foreground">Under review</span>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 px-4 pb-4">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div><p className="text-xs text-muted-foreground">Account Holder</p><p className="font-medium">{emp?.bank_account_holder_name || "—"}</p></div>
+              <div><p className="text-xs text-muted-foreground">Account Number</p><p className="font-mono font-medium">{"*".repeat(Math.max(0, (emp?.bank_account_number?.length || 0) - 4))}{(emp?.bank_account_number || "").slice(-4) || "—"}</p></div>
+              <div><p className="text-xs text-muted-foreground">IFSC</p><p className="font-mono font-medium">{emp?.bank_ifsc || "—"}</p></div>
+              <div><p className="text-xs text-muted-foreground">Bank</p><p className="font-medium flex items-center gap-1">{emp?.bank_name || "—"} {emp?.bank_verified && <CheckCircle className="h-3 w-3 text-green-600" />}</p></div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ── Documents ────────────────────────────────────── */}
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                <FileText className="h-3.5 w-3.5" /> Documents
+              </CardTitle>
+              {isApproved ? (
+                <Button variant="link" size="sm" className="h-auto p-0 text-blue-600 text-xs" onClick={() => { setStep(5); setEditStep(5); }}>
+                  <Pencil className="h-3 w-3 mr-1" /> Edit
+                </Button>
+              ) : (
+                <span className="text-xs text-muted-foreground">Under review</span>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 px-4 pb-4">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              {[
+                ["NISM Certificate", emp?.doc_nism_certificate],
+                ["Graduation Certificate", emp?.doc_graduation_certificate],
+                ["PAN Card", emp?.doc_pan_card],
+                ["Cancelled Cheque", emp?.doc_cancelled_cheque],
+                ["Passport Photo", emp?.doc_photo],
+              ].map(([label, val]) => (
+                <div key={label as string} className="flex items-center gap-2">
+                  {val ? <CheckCircle className="h-3.5 w-3.5 text-green-600 flex-shrink-0" /> : <Circle className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+                  <span className={`text-xs ${val ? "text-foreground" : "text-muted-foreground"}`}>{label as string}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ── Declarations ─────────────────────────────────── */}
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                <ScrollText className="h-3.5 w-3.5" /> Declarations
+              </CardTitle>
+              {isApproved ? (
+                <Button variant="link" size="sm" className="h-auto p-0 text-blue-600 text-xs" onClick={() => { setStep(6); setEditStep(6); }}>
+                  <Pencil className="h-3 w-3 mr-1" /> Edit
+                </Button>
+              ) : (
+                <span className="text-xs text-muted-foreground">Under review</span>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 px-4 pb-4">
+            <div className="grid grid-cols-2 gap-1 text-sm">
+              {[
+                ["PMLA / AML", emp?.pmla_declaration_signed],
+                ["Criminal Record (None)", emp?.criminal_record_declaration],
+                ["FATCA / CRS", emp?.fatca_declaration_signed],
+                ["Code of Conduct", emp?.code_of_conduct_accepted],
+                ["Anti-Mis-Selling", emp?.anti_mis_selling_accepted],
+              ].map(([label, val]) => (
+                <div key={label as string} className="flex items-center gap-2">
+                  {val ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4 text-muted-foreground" />}
+                  <span className={val ? "text-foreground" : "text-muted-foreground"}>{label as string}</span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -413,14 +573,26 @@ export default function AgentKycEmpanelment() {
 
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6">
+      {/* Back to Profile breadcrumb (edit mode only) */}
+      {editStep !== null && (
+        <button
+          onClick={() => setEditStep(null)}
+          className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium -mb-2"
+        >
+          <ChevronLeft className="h-4 w-4" /> Back to My Profile
+        </button>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <ShieldCheck className="h-6 w-6 text-blue-600" />
-          Agent Empanelment KYC
+          {editStep !== null ? "Edit Profile" : "Complete Your Profile"}
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Complete your professional verification to start distributing financial products. All fields are mandatory per SEBI / AMFI / IRDAI / RBI compliance guidelines.
+          {editStep !== null
+            ? "Update your details below and save. Click \"Back to My Profile\" when done."
+            : "Complete your professional verification to start distributing financial products. All fields are mandatory per SEBI / AMFI / IRDAI / RBI compliance guidelines."}
         </p>
       </div>
 

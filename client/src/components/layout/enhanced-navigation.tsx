@@ -514,7 +514,7 @@ export function EnhancedNavigation() {
           { name: "Bulk Communication", href: "/agent/bulk-communication", icon: Send, description: "Mass outreach" },
           { name: "Field View", href: "/agent-field-view", icon: MapPin, description: "Field activities" },
           { name: "Orders", href: "/agent/orders", icon: ShoppingCart, description: "Order management" },
-          { name: "My KYC / Empanelment", href: "/agent/kyc", icon: UserCheck, description: "Complete your empanelment KYC" }
+          { name: "My Profile", href: "/agent/kyc", icon: UserCheck, description: "Your personal & professional profile" }
         ]
       },
       {
