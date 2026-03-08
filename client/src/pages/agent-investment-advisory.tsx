@@ -1001,12 +1001,6 @@ export default function AgentInvestmentAdvisory() {
             </Dialog>
             
             <Dialog open={showAddHoldingDialog} onOpenChange={setShowAddHoldingDialog}>
-              <DialogTrigger asChild>
-                <Button variant="outline" data-testid="button-add-holding">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Holding
-                </Button>
-              </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Add Portfolio Holding</DialogTitle>
@@ -1282,12 +1276,6 @@ export default function AgentInvestmentAdvisory() {
             </Dialog>
 
             <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-              <DialogTrigger asChild>
-                <Button variant="outline" data-testid="button-upload-csv">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload CSV
-                </Button>
-              </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Upload Portfolio CSV</DialogTitle>
@@ -1325,12 +1313,6 @@ export default function AgentInvestmentAdvisory() {
                 setParseError(null);
               }
             }}>
-              <DialogTrigger asChild>
-                <Button variant="outline" data-testid="button-paste-excel">
-                  <ClipboardPaste className="h-4 w-4 mr-2" />
-                  Paste from Excel
-                </Button>
-              </DialogTrigger>
               <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
                 <DialogHeader>
                   <DialogTitle>Paste Portfolio Data</DialogTitle>
@@ -1508,12 +1490,6 @@ TCS     Tata Consultancy        25      3850.00"
                 setCasPreviewError(null);
               }
             }}>
-              <DialogTrigger asChild>
-                <Button variant="outline" data-testid="button-import-cas">
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Import CAS/Statement
-                </Button>
-              </DialogTrigger>
               <DialogContent className={casPreviewMode ? "max-w-4xl max-h-[85vh] overflow-hidden flex flex-col" : "max-w-lg"}>
                 <DialogHeader>
                   <DialogTitle>
@@ -1899,22 +1875,10 @@ TCS     Tata Consultancy        25      3850.00"
                 <p className="text-muted-foreground mb-4">
                   Import your client's existing portfolio to get started
                 </p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  <Button variant="outline" onClick={() => setShowAddHoldingDialog(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Holding
-                  </Button>
-                  <Button variant="outline" onClick={() => setShowPasteDialog(true)}>
-                    <ClipboardPaste className="h-4 w-4 mr-2" />
-                    Paste from Excel
-                  </Button>
-                  <Button variant="outline" onClick={() => setShowUploadDialog(true)}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload CSV
-                  </Button>
-                  <Button variant="outline" onClick={() => setShowCASUploadDialog(true)}>
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Import Statement
+                <div className="flex justify-center">
+                  <Button onClick={() => setShowUnifiedImportDialog(true)}>
+                    <FolderUp className="h-4 w-4 mr-2" />
+                    Smart Import
                   </Button>
                 </div>
               </CardContent>
