@@ -21,6 +21,7 @@ Never build duplicate engines — always upgrade existing ones in place. No para
   3. Apply it with: `psql "$PRODUCTION_DATABASE_URL" -c "YOUR SQL HERE"`
   4. Verify with: `psql "$PRODUCTION_DATABASE_URL" -c "\d table_name"`
 - Drizzle-kit and the Replit database diff panel are informational only — never act on their push suggestions.
+- **NEVER re-add `postgresql-16` to Replit modules** — it activates the database diff panel which crashes on publish because `shared/schema.ts` is too large for drizzle-kit. The `postgresql-16` module was intentionally removed. The app connects to Neon via `PRODUCTION_DATABASE_URL` directly (see `server/db.ts`).
 
 ## System Architecture
 

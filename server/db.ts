@@ -6,22 +6,26 @@ import * as schema from "@shared/schema";
 neonConfig.webSocketConstructor = ws;
 neonConfig.pipelineConnect = false;
 
-if (!process.env.DATABASE_URL) {
+const resolvedDbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
+
+if (!resolvedDbUrl) {
   throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
+    "No database URL found. Set PRODUCTION_DATABASE_URL (or DATABASE_URL) in your environment secrets.",
   );
 }
 
 const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
 
-const selectedDbUrl = !isProduction && process.env.PRODUCTION_DATABASE_URL
-  ? process.env.PRODUCTION_DATABASE_URL
-  : process.env.DATABASE_URL;
+const selectedDbUrl = resolvedDbUrl;
 
 export const isUsingProductionDb = selectedDbUrl === process.env.PRODUCTION_DATABASE_URL;
 
 if (!isProduction && isUsingProductionDb) {
   console.log('🔗 [DB] Development using PRODUCTION database (shared read service, no mock data writes)');
+}
+
+if (isProduction) {
+  console.log('🔗 [DB] Production: connected to Neon database (PRODUCTION_DATABASE_URL)');
 }
 
 const POOL_CONFIG = {
