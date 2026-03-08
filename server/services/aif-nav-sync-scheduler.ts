@@ -37,7 +37,7 @@ class AifNavSyncScheduler {
       } catch (error) {
         console.error('[AIF Sync] Startup catch-up failed:', error);
       }
-    }, 15000); // Wait 15 seconds after server starts
+    }, 5 * 60 * 1000); // Wait 5 minutes after server starts
     
     console.log('[AIF Sync] Scheduler started');
   }

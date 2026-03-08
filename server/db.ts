@@ -26,9 +26,10 @@ if (!isProduction && isUsingProductionDb) {
 
 const POOL_CONFIG = {
   connectionString: selectedDbUrl,
-  max: isProduction ? 50 : 20,
-  idleTimeoutMillis: isProduction ? 30000 : 20000,
-  connectionTimeoutMillis: 20000,
+  max: isProduction ? 20 : 10,
+  min: isProduction ? 2 : 0,
+  idleTimeoutMillis: isProduction ? 60000 : 30000,
+  connectionTimeoutMillis: 15000,
   allowExitOnIdle: false,
 };
 

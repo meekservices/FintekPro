@@ -70,7 +70,7 @@ class CommodityPriceSyncScheduler {
       } catch (error) {
         console.error('[Commodity Sync] Startup catch-up failed:', error);
       }
-    }, 25000); // Wait 25 seconds after server starts
+    }, 9 * 60 * 1000); // Wait 9 minutes after server starts
     
     console.log('[Commodity Sync] Scheduler started');
   }

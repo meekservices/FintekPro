@@ -35,7 +35,7 @@ class PmsNavSyncScheduler {
       } catch (error) {
         console.error('[PMS Sync] Startup catch-up failed:', error);
       }
-    }, 20000); // Wait 20 seconds after server starts
+    }, 7 * 60 * 1000); // Wait 7 minutes after server starts
     
     console.log('[PMS Sync] Scheduler started');
   }

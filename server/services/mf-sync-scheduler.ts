@@ -46,7 +46,7 @@ class MFSyncScheduler {
       } catch (error) {
         console.error('[MF Sync] Startup catch-up failed:', error);
       }
-    }, 10000); // Wait 10 seconds after server starts
+    }, 3 * 60 * 1000); // Wait 3 minutes after server starts
     
     console.log('[MF Sync] Scheduler started');
   }

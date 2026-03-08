@@ -30,8 +30,8 @@ class HistoricalNavRefreshJob {
     
     console.log("[HistoricalNavRefresh] Initializing daily refresh job...");
     
-    // Run immediately on startup (with delay to let server start)
-    setTimeout(() => this.runInitialWarmup(), 30000);
+    // Delay warmup 5 minutes to let the server stabilise after deployment startup
+    setTimeout(() => this.runInitialWarmup(), 5 * 60 * 1000);
     
     // Schedule daily refresh at 2 AM IST (8:30 PM UTC previous day)
     this.scheduleDaily();
