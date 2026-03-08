@@ -5,6 +5,6 @@ export default defineConfig({
   schema: "./shared/schema-stub.ts",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL || "postgresql://localhost:5432/placeholder",
+    url: process.env.DATABASE_URL || process.env.PRODUCTION_DATABASE_URL || "postgresql://localhost:5432/placeholder",
   },
 });
