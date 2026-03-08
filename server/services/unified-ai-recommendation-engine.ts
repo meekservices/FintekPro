@@ -25,6 +25,7 @@ import { aiRecommendationTrackingService } from "./ai-recommendation-tracking-se
 import { abTestingService } from "./ab-testing-service";
 import { nanoid } from "nanoid";
 import { getEnrichedStockSnapshot } from './screener/enriched-stock-data';
+import { callPython } from '../clients/python-client';
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -141,7 +142,7 @@ export interface ProductAnalysis {
   
   // Metadata
   analyzedAt: string;
-  modelUsed: 'gemini' | 'openai' | 'rule_based';
+  modelUsed: 'gemini' | 'openai' | 'rule_based' | 'python_sidecar';
   cacheHit: boolean;
 }
 
@@ -260,6 +261,7 @@ class UnifiedAIRecommendationEngine {
   private gemini: GoogleGenAI | null = null;
   private openai: OpenAI | null = null;
   private modelPreference: 'gemini' | 'openai' = 'gemini';
+  private _regimeCache: { data: { regime: string; signal_score: number; confidence: number }; fetchedAt: number } | null = null;
 
   constructor() {
     this.initializeModels();
@@ -295,11 +297,11 @@ class UnifiedAIRecommendationEngine {
       this.gemini = new GoogleGenAI({ apiKey: geminiKey });
     }
 
-    const status = [];
-    if (this.gemini) status.push('Gemini (primary)');
+    const status = ['Python sidecar (primary scoring)'];
+    if (this.gemini) status.push('Gemini (text generation / advisory)');
     if (this.openai) status.push('OpenAI (fallback)');
     
-    console.log(`✅ Unified AI Recommendation Engine initialized: ${status.join(', ') || 'rule-based only'}`);
+    console.log(`✅ Unified AI Recommendation Engine initialized: ${status.join(', ')}`);
   }
 
   // ============================================================================
@@ -370,39 +372,10 @@ class UnifiedAIRecommendationEngine {
       }
     }
 
-    let analysis: ProductAnalysis;
-    let modelUsed: 'gemini' | 'openai' | 'rule_based' = 'rule_based';
+    // Python sidecar is always primary — regime-enhanced deterministic scoring.
+    // Gemini/OpenAI are reserved for text-generation tasks (advisory, chat, OCR).
+    const analysis = await this.analyzeWithPython(enrichedProduct, clientProfile);
 
-    try {
-      if (this.gemini) {
-        analysis = await this.analyzeWithGemini(enrichedProduct, clientProfile);
-        modelUsed = 'gemini';
-      } else if (this.openai) {
-        analysis = await this.analyzeWithOpenAI(enrichedProduct, clientProfile);
-        modelUsed = 'openai';
-      } else {
-        analysis = this.analyzeWithRules(enrichedProduct, clientProfile);
-        modelUsed = 'rule_based';
-      }
-    } catch (error: any) {
-      console.error(`[UnifiedAI] Primary analysis failed for ${enrichedProduct.name}:`, error.message);
-      
-      if (modelUsed === 'gemini' && this.openai) {
-        try {
-          analysis = await this.analyzeWithOpenAI(enrichedProduct, clientProfile);
-          modelUsed = 'openai';
-        } catch (fallbackError: any) {
-          console.error(`[UnifiedAI] OpenAI fallback also failed:`, fallbackError.message);
-          analysis = this.analyzeWithRules(enrichedProduct, clientProfile);
-          modelUsed = 'rule_based';
-        }
-      } else {
-        analysis = this.analyzeWithRules(enrichedProduct, clientProfile);
-        modelUsed = 'rule_based';
-      }
-    }
-
-    analysis.modelUsed = modelUsed;
     analysis.cacheHit = false;
 
     // Cache the result
@@ -568,6 +541,93 @@ class UnifiedAIRecommendationEngine {
 
     const text = response.choices[0]?.message?.content || '{}';
     return this.parseAIResponse(text, product, clientProfile);
+  }
+
+  // ── Python Sidecar: regime cache + enhanced scoring ──────────────────────
+
+  private async fetchRegimeFromPython(): Promise<{ regime: string; signal_score: number; confidence: number } | null> {
+    const TTL_MS = 5 * 60 * 1000;
+    if (this._regimeCache && (Date.now() - this._regimeCache.fetchedAt) < TTL_MS) {
+      return this._regimeCache.data;
+    }
+    try {
+      const result = await callPython<any>('/api/regime/detect', 'POST', { lookback_days: 90 });
+      if (result?.regime) {
+        this._regimeCache = {
+          data: { regime: result.regime, signal_score: result.signal_score ?? 0, confidence: result.confidence ?? 0 },
+          fetchedAt: Date.now(),
+        };
+        return this._regimeCache.data;
+      }
+    } catch {
+      // sidecar unavailable — fall through
+    }
+    return null;
+  }
+
+  private async analyzeWithPython(product: ProductData, clientProfile?: ClientProfile): Promise<ProductAnalysis> {
+    const base = this.analyzeWithRules(product, clientProfile);
+    const regime = await this.fetchRegimeFromPython();
+
+    if (!regime) {
+      return { ...base, modelUsed: 'python_sidecar' };
+    }
+
+    const adj: Record<string, { ret: number; risk: number; conf: number }> = {
+      bull:     { ret: 5,   risk: -5,  conf: 5  },
+      bear:     { ret: -10, risk: 15,  conf: -10 },
+      sideways: { ret: -3,  risk: 5,   conf: 0  },
+      high_vol: { ret: -8,  risk: 20,  conf: -15 },
+    };
+    const delta = adj[regime.regime] || { ret: 0, risk: 0, conf: 0 };
+
+    let adjReturn = Math.min(100, Math.max(0, base.returnPotentialScore + delta.ret));
+    let adjRisk   = Math.min(100, Math.max(0, base.riskScore + delta.risk));
+    let adjConf   = Math.min(95,  Math.max(20, base.confidenceScore + delta.conf));
+
+    // For stocks with enriched FMP data: incorporate quantitative signals
+    if (product.category === 'stocks' && product.rawData?.enrichedFMP) {
+      const fmp = product.rawData.enrichedFMP;
+      if (fmp.dcf?.upsidePercent != null) {
+        adjReturn = Math.min(100, Math.max(0, adjReturn + Math.min(15, Math.max(-15, fmp.dcf.upsidePercent / 10))));
+      }
+      if (fmp.technicals?.RSI != null) {
+        const rsi = fmp.technicals.RSI;
+        if (rsi > 70) adjRisk = Math.min(100, adjRisk + 10);
+        else if (rsi < 30) adjReturn = Math.min(100, adjReturn + 8);
+      }
+      if (fmp.fundamentals?.ROE != null && fmp.fundamentals.ROE > 15) {
+        adjConf = Math.min(95, adjConf + 5);
+      }
+      const rec = fmp.companyRating?.recommendation;
+      if (rec === 'Strong Buy' || rec === 'Buy') adjConf = Math.min(95, adjConf + 5);
+    }
+
+    const adjOverall = Math.round(adjReturn * 0.35 + (100 - adjRisk) * 0.25 + base.qualityScore * 0.25 + base.valuationScore * 0.15);
+    const adjRec = this.determineRecommendation(adjOverall, base.suitabilityScore);
+    const regimeLabel: Record<string, string> = { bull: 'bullish', bear: 'bearish', sideways: 'sideways', high_vol: 'high-volatility' };
+
+    return {
+      ...base,
+      overallScore: adjOverall,
+      riskScore: Math.round(adjRisk),
+      returnPotentialScore: Math.round(adjReturn),
+      confidenceScore: Math.round(adjConf),
+      confidenceLevel: this.getConfidenceLevel(adjConf),
+      recommendation: adjRec,
+      selectionRationale: `${base.selectionRationale} Python regime: ${regimeLabel[regime.regime] || regime.regime} (signal score: ${regime.signal_score.toFixed(2)}, confidence: ${(regime.confidence * 100).toFixed(0)}%).`,
+      keyStrengths: [
+        ...base.keyStrengths.slice(0, 3),
+        ...(regime.regime === 'bull' ? ['Favourable market conditions (regime: bull)'] : []),
+      ].slice(0, 4),
+      keyRisks: [
+        ...base.keyRisks.filter(r => r !== 'Market risk').slice(0, 2),
+        ...(regime.regime === 'bear'     ? [`Bear market regime (score: ${regime.signal_score.toFixed(2)})`] : []),
+        ...(regime.regime === 'high_vol' ? [`Elevated volatility regime detected`] : []),
+        'Market risk',
+      ].slice(0, 4),
+      modelUsed: 'python_sidecar',
+    };
   }
 
   private analyzeWithRules(

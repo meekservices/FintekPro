@@ -431,30 +431,40 @@ class UnifiedAdvisoryService {
     const disclosures = REGULATORY_DISCLOSURES[productType] || [];
     const logic = PRODUCT_ADVISORY_LOGIC.find(l => l.productType === productType);
 
-    if (this.genAI) {
-      try {
-        const aiRecs = await this.generateAIRecommendations(productType, profile, portfolio, count, marketRegime);
-        for (const rec of aiRecs) {
-          rec.regulatoryDisclosures = disclosures;
-          recommendations.push(rec);
-        }
-        return recommendations;
-      } catch (error) {
-        console.error(`AI recommendation failed for ${productType}:`, error);
-      }
-    }
-
-    const ruleBasedRecs = await this.generateRuleBasedRecommendations(
-      productType, 
-      profile, 
-      portfolio, 
+    // Python-sidecar / DB-driven path is always tried first.
+    // Regime data is already fetched from Python and passed in via marketRegime.
+    // Gemini is only called when the DB returns fewer recommendations than requested.
+    const dbRecs = await this.generateRuleBasedRecommendations(
+      productType,
+      profile,
+      portfolio,
       count,
       logic,
       disclosures,
       marketRegime,
     );
-    
-    return ruleBasedRecs;
+
+    if (dbRecs.length >= count) {
+      return dbRecs;
+    }
+
+    // DB returned fewer results than requested — try Gemini to fill the gap
+    if (this.genAI) {
+      try {
+        const aiRecs = await this.generateAIRecommendations(productType, profile, portfolio, count - dbRecs.length, marketRegime);
+        const usedNames = new Set(dbRecs.map(r => r.productName));
+        for (const rec of aiRecs) {
+          if (!usedNames.has(rec.productName)) {
+            rec.regulatoryDisclosures = disclosures;
+            recommendations.push(rec);
+          }
+        }
+      } catch (error) {
+        console.error(`[UnifiedAdvisory] Gemini supplement failed for ${productType}:`, error);
+      }
+    }
+
+    return [...dbRecs, ...recommendations];
   }
 
   private async generateAIRecommendations(
