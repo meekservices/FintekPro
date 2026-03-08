@@ -562,13 +562,14 @@ function startPythonSidecar() {
   console.log('🐍 [Python] Starting local sidecar on port 8001...');
 
   const launch = () => {
-    // In development only: kill any orphaned process holding port 8001
-    if (process.env.NODE_ENV !== 'production') {
-      try {
-        const { execSync } = require('child_process');
-        execSync('fuser -k 8001/tcp 2>/dev/null || true', { stdio: 'ignore' });
-      } catch (_) { /* best-effort */ }
-    }
+    // Always clear orphaned processes on port 8001 before launching the sidecar.
+    // Unlike port 5000, the Python sidecar is only ever started by this server process,
+    // so killing it here is always safe — it just means a previous sidecar instance
+    // didn't clean up after itself.
+    try {
+      const { execSync } = require('child_process');
+      execSync('fuser -k 8001/tcp 2>/dev/null || true', { stdio: 'ignore' });
+    } catch (_) { /* best-effort */ }
 
     const proc = spawn(python3, ['-m', 'uvicorn', 'main:app', '--host', '0.0.0.0', '--port', '8001', '--log-level', 'warning'], {
       cwd: pythonDir,
