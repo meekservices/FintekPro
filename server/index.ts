@@ -549,6 +549,21 @@ import { createServer } from 'http';
 // Python Analytics Sidecar — starts uvicorn on port 8001 inside this repl
 // Only activates when PYTHON_SERVICE_URL is not already set to an external URL
 // ---------------------------------------------------------------------------
+
+// Module-level reference so graceful shutdown can terminate the sidecar cleanly
+let _pythonSidecarProc: ReturnType<typeof spawn> | null = null;
+
+export function killPythonSidecar() {
+  if (_pythonSidecarProc && !_pythonSidecarProc.killed) {
+    try { _pythonSidecarProc.kill('SIGTERM'); } catch (_) { /* best-effort */ }
+  }
+  // Belt-and-suspenders: also pkill any surviving uvicorn on 8001
+  try {
+    const { execSync } = require('child_process');
+    execSync('pkill -f "uvicorn.*8001" 2>/dev/null || true', { stdio: 'ignore' });
+  } catch (_) { /* best-effort */ }
+}
+
 function startPythonSidecar() {
   if (process.env.PYTHON_SERVICE_URL && !process.env.PYTHON_SERVICE_URL.includes('localhost')) {
     console.log(`ℹ️  [Python] External PYTHON_SERVICE_URL detected (${process.env.PYTHON_SERVICE_URL}) — skipping local sidecar`);
@@ -562,13 +577,13 @@ function startPythonSidecar() {
   console.log('🐍 [Python] Starting local sidecar on port 8001...');
 
   const launch = () => {
-    // Always clear orphaned processes on port 8001 before launching the sidecar.
-    // Unlike port 5000, the Python sidecar is only ever started by this server process,
-    // so killing it here is always safe — it just means a previous sidecar instance
-    // didn't clean up after itself.
+    // Kill any orphaned uvicorn process holding port 8001 before starting fresh.
+    // Uses pkill (available in Replit's NixOS) — fuser is NOT installed here.
     try {
       const { execSync } = require('child_process');
-      execSync('fuser -k 8001/tcp 2>/dev/null || true', { stdio: 'ignore' });
+      execSync('pkill -f "uvicorn.*8001" 2>/dev/null || true', { stdio: 'ignore' });
+      // Brief pause to ensure the killed process has released the port
+      execSync('sleep 0.5', { stdio: 'ignore' });
     } catch (_) { /* best-effort */ }
 
     const proc = spawn(python3, ['-m', 'uvicorn', 'main:app', '--host', '0.0.0.0', '--port', '8001', '--log-level', 'warning'], {
@@ -578,6 +593,8 @@ function startPythonSidecar() {
         PYTHONUNBUFFERED: '1',
       },
     });
+
+    _pythonSidecarProc = proc;
 
     proc.stdout.on('data', (data: Buffer) => {
       const lines = data.toString().trim().split('\n');
@@ -596,6 +613,7 @@ function startPythonSidecar() {
     });
 
     proc.on('close', (code: number | null) => {
+      if (_pythonSidecarProc === proc) _pythonSidecarProc = null;
       if (code !== 0 && code !== null) {
         console.warn(`⚠️  [Python] Sidecar exited (code ${code}) — restarting in 5s...`);
         setTimeout(launch, 5000);
@@ -613,15 +631,9 @@ function startPythonSidecar() {
 const server = createServer(app);
 const port = parseInt(process.env.PORT || '5000', 10);
 
-// In development only: clear any orphaned process holding the port from a previous
-// workflow run. Replit's dev workflow restarts don't always kill child processes cleanly.
-// NEVER do this in production — it would kill the running server mid-deployment.
-if (process.env.NODE_ENV !== 'production') {
-  try {
-    const { execSync: _execSync } = require('child_process');
-    _execSync(`fuser -k ${port}/tcp 2>/dev/null || true`, { stdio: 'ignore' });
-  } catch (_) { /* best-effort */ }
-}
+// Port 5000 cleanup: reusePort: true (set in server.listen below) allows the new
+// server to bind even if an old instance is still holding the port, so no manual
+// cleanup is needed here. (fuser/lsof are not available in Replit's NixOS anyway.)
 
 // Boot-in-progress middleware - returns 503 for API routes not yet loaded
 app.use('/api', (req: Request, res: Response, next: NextFunction) => {
@@ -637,8 +649,8 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Setup graceful shutdown handling (SIGTERM/SIGINT) - replaces the removed signal handlers
-setupGracefulShutdown(server);
+// Setup graceful shutdown — kills the Python sidecar before closing HTTP server
+setupGracefulShutdown(server, killPythonSidecar);
 
 // Start listening IMMEDIATELY - before ANY async initialization
 server.listen({

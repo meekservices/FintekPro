@@ -3,9 +3,8 @@ import { closePool } from "./db";
 
 let isShuttingDown = false;
 
-export function setupGracefulShutdown(server: Server): void {
+export function setupGracefulShutdown(server: Server, beforeShutdown?: () => void): void {
   const handleShutdown = async (signal: string) => {
-    // Prevent multiple shutdown attempts
     if (isShuttingDown) {
       console.log(`[Graceful Shutdown] Shutdown already in progress, ignoring ${signal} signal`);
       return;
@@ -15,22 +14,21 @@ export function setupGracefulShutdown(server: Server): void {
     console.log(`[Graceful Shutdown] Received ${signal} signal`);
     console.log("[Graceful Shutdown] Graceful shutdown initiated...");
 
-    // Create a timeout that forces exit after 30 seconds
+    // Kill child processes (Python sidecar etc.) before closing the HTTP server
+    if (beforeShutdown) {
+      try { beforeShutdown(); } catch (_) { /* best-effort */ }
+    }
+
     const shutdownTimeout = setTimeout(() => {
       console.error("[Graceful Shutdown] Forced shutdown: 30-second timeout reached");
       process.exit(1);
     }, 30000);
 
     try {
-      // Stop accepting new connections
       server.close(async () => {
         try {
-          // Close database connections gracefully
           await closePool();
-
-          // Clear the timeout since we completed successfully
           clearTimeout(shutdownTimeout);
-
           console.log("[Graceful Shutdown] Shutdown complete");
           process.exit(0);
         } catch (dbError) {
@@ -39,9 +37,6 @@ export function setupGracefulShutdown(server: Server): void {
           process.exit(1);
         }
       });
-
-      // If server.close() callback is not called within timeout, force exit
-      // This handles cases where connections are stuck
     } catch (error) {
       console.error("[Graceful Shutdown] Error during graceful shutdown:", error);
       clearTimeout(shutdownTimeout);
@@ -49,9 +44,6 @@ export function setupGracefulShutdown(server: Server): void {
     }
   };
 
-  // Handle SIGTERM (termination signal)
   process.on("SIGTERM", () => handleShutdown("SIGTERM"));
-
-  // Handle SIGINT (interrupt signal - Ctrl+C)
   process.on("SIGINT", () => handleShutdown("SIGINT"));
 }
