@@ -720,7 +720,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                       KYC Actions
                     </DropdownMenuLabel>
                     <DropdownMenuItem asChild>
-                      <Link href="/agent/kyc" className="flex items-center gap-3 px-3 py-2 cursor-pointer">
+                      <Link href="/agent/onboard-client" className="flex items-center gap-3 px-3 py-2 cursor-pointer">
                         <div className="h-7 w-7 rounded-md bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
                           <UserPlus className="h-4 w-4 text-emerald-500" />
                         </div>
@@ -773,9 +773,9 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                       My Account
                     </DropdownMenuLabel>
                     <DropdownMenuItem asChild>
-                      <Link href="/agent/advisor-profile" className="flex items-center gap-2.5 px-3 py-2 cursor-pointer">
+                      <Link href="/agent/kyc" className="flex items-center gap-2.5 px-3 py-2 cursor-pointer">
                         <UserCog className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">Agent Marketing Profile</span>
+                        <span className="text-sm">My Profile</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
