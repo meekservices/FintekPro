@@ -60,7 +60,7 @@ export interface AIUsageMetrics {
 
 class AIService {
   private usageMetrics: AIUsageMetrics[] = [];
-  private _defaultProvider: AIProvider = 'openai';
+  private _defaultProvider: AIProvider = 'gemini';
   private _defaultModel: AIModel = 'gpt-5';
 
   setDefaultProvider(provider: AIProvider) {

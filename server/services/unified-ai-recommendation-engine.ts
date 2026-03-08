@@ -259,7 +259,7 @@ const CATEGORY_CONFIG: Record<ProductCategory, {
 class UnifiedAIRecommendationEngine {
   private gemini: GoogleGenAI | null = null;
   private openai: OpenAI | null = null;
-  private modelPreference: 'gemini' | 'openai' = 'openai';
+  private modelPreference: 'gemini' | 'openai' = 'gemini';
 
   constructor() {
     this.initializeModels();
@@ -275,7 +275,7 @@ class UnifiedAIRecommendationEngine {
   }
 
   private initializeModels() {
-    // Initialize OpenAI (primary) - prefer Replit AI Integrations with its proxy base URL
+    // Initialize OpenAI (fallback) - prefer Replit AI Integrations with its proxy base URL
     const useAiIntegrations = !!process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
     const openaiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || 
                       process.env.OPENAI_API_KEY;
@@ -287,7 +287,7 @@ class UnifiedAIRecommendationEngine {
       this.openai = new OpenAI(config);
     }
 
-    // Initialize Gemini (fallback)
+    // Initialize Gemini (primary)
     const geminiKey = process.env.GEMINI_API_KEY || 
                       process.env.GOOGLE_API_KEY || 
                       process.env.AI_INTEGRATIONS_GOOGLE_API_KEY;
@@ -296,8 +296,8 @@ class UnifiedAIRecommendationEngine {
     }
 
     const status = [];
-    if (this.openai) status.push('OpenAI (primary)');
-    if (this.gemini) status.push('Gemini (fallback)');
+    if (this.gemini) status.push('Gemini (primary)');
+    if (this.openai) status.push('OpenAI (fallback)');
     
     console.log(`✅ Unified AI Recommendation Engine initialized: ${status.join(', ') || 'rule-based only'}`);
   }
