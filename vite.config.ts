@@ -17,11 +17,24 @@ export default defineConfig({
       : []),
   ],
   resolve: {
-    alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
-      "@assets": path.resolve(import.meta.dirname, "attached_assets"),
-    },
+    alias: [
+      {
+        find: "@shared/schema",
+        replacement: path.resolve(import.meta.dirname, "shared/form-schemas.ts"),
+      },
+      {
+        find: "@shared",
+        replacement: path.resolve(import.meta.dirname, "shared"),
+      },
+      {
+        find: "@",
+        replacement: path.resolve(import.meta.dirname, "client", "src"),
+      },
+      {
+        find: "@assets",
+        replacement: path.resolve(import.meta.dirname, "attached_assets"),
+      },
+    ],
   },
   root: path.resolve(import.meta.dirname, "client"),
   build: {
