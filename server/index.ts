@@ -610,6 +610,13 @@ function startPythonSidecar() {
 const server = createServer(app);
 const port = parseInt(process.env.PORT || '5000', 10);
 
+// Clear any orphaned process holding port 5000 from a previous workflow run
+// (Replit workflow restarts don't always kill child processes cleanly)
+try {
+  const { execSync: _execSync } = require('child_process');
+  _execSync(`fuser -k ${port}/tcp 2>/dev/null || true`, { stdio: 'ignore' });
+} catch (_) { /* best-effort */ }
+
 // Boot-in-progress middleware - returns 503 for API routes not yet loaded
 app.use('/api', (req: Request, res: Response, next: NextFunction) => {
   if (bootState.routesReady) return next();
