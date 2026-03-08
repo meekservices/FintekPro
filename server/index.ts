@@ -562,6 +562,12 @@ function startPythonSidecar() {
   console.log('🐍 [Python] Starting local sidecar on port 8001...');
 
   const launch = () => {
+    // Kill any orphaned process still holding port 8001 before starting fresh
+    try {
+      const { execSync } = require('child_process');
+      execSync('fuser -k 8001/tcp 2>/dev/null || true', { stdio: 'ignore' });
+    } catch (_) { /* best-effort */ }
+
     const proc = spawn(python3, ['-m', 'uvicorn', 'main:app', '--host', '0.0.0.0', '--port', '8001', '--log-level', 'warning'], {
       cwd: pythonDir,
       env: {
