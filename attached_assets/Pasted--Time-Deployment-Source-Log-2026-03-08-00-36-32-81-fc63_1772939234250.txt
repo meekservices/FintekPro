@@ -1,0 +1,161 @@
+
+Time
+Deployment
+Source
+Log
+2026-03-08 00:36:32.81
+fc635f6a
+User
+schema: 'public',
+2026-03-08 01:02:35.34
+fc635f6a
+User
+at async ReitInvitDataService.fetchQuote (file:///home/runner/workspace/dist/index.js:114854:21)
+2026-03-08 01:02:35.34
+fc635f6a
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+2026-03-08 01:02:35.34
+fc635f6a
+User
+timeout: undefined,
+2026-03-08 01:02:41.04
+fc635f6a
+User
+[BSE Bond] Tradable bonds fetch failed: ETIMEDOUT 43.228.176.174:443 — skipping (production)
+2026-03-08 01:02:41.04
+fc635f6a
+User
+[BSE Bond] Tax-free bonds fetch failed: ETIMEDOUT 43.228.176.174:443 — skipping (production)
+2026-03-08 01:02:41.04
+fc635f6a
+User
+[BSE Bond] Infrastructure bonds fetch failed: ETIMEDOUT 43.228.176.174:443 — skipping (production)
+2026-03-08 01:04:57.64
+fc635f6a
+User
+[MCA Refresh] Error identifying refresh jobs: Cannot convert undefined or null to object
+2026-03-08 01:04:57.84
+fc635f6a
+User
+[MCA Refresh] Error refreshing stale companies: Cannot convert undefined or null to object
+2026-03-08 01:05:01.34
+fc635f6a
+User
+at async ReitInvitDataService.refreshAllReits (file:///home/runner/workspace/dist/index.js:114929:26)
+2026-03-08 01:05:01.34
+fc635f6a
+User
+at async ReitInvitDataService.fetchQuote (file:///home/runner/workspace/dist/index.js:114857:19)
+2026-03-08 01:05:01.34
+fc635f6a
+User
+at async YahooFinanceProvider.fetchQuote (file:///home/runner/workspace/dist/index.js:114803:11)
+2026-03-08 01:05:01.34
+fc635f6a
+User
+at TLSSocket.emit (node:events:536:35)
+2026-03-08 01:05:01.34
+fc635f6a
+User
+code: 'UND_ERR_SOCKET',
+2026-03-08 01:05:01.34
+fc635f6a
+User
+at endReadableNT (node:internal/streams/readable:1698:12)
+2026-03-08 01:05:01.34
+fc635f6a
+User
+at async Timeout._onTimeout (file:///home/runner/workspace/dist/index.js:115005:13) {
+2026-03-08 01:05:01.34
+fc635f6a
+User
+[cause]: SocketError: other side closed
+2026-03-08 01:05:01.34
+fc635f6a
+User
+at async YahooFinanceProvider.refreshCrumb (file:///home/runner/workspace/dist/index.js:114783:33)
+2026-03-08 01:05:01.34
+fc635f6a
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+2026-03-08 01:05:01.34
+fc635f6a
+User
+localPort: 41374,
+2026-03-08 01:05:01.34
+fc635f6a
+User
+⚠️ [YahooFinanceProvider] Failed to refresh crumb: TypeError: fetch failed
+2026-03-08 01:05:01.34
+fc635f6a
+User
+at TLSSocket. (node:internal/deps/undici/undici:6408:28)
+2026-03-08 01:05:01.34
+fc635f6a
+User
+at async ReitInvitDataService.refreshReit (file:///home/runner/workspace/dist/index.js:114867:25)
+2026-03-08 01:05:01.34
+fc635f6a
+User
+at async ReitInvitDataService.refreshAll (file:///home/runner/workspace/dist/index.js:114965:31)
+2026-03-08 01:05:01.34
+fc635f6a
+User
+socket: {
+2026-03-08 01:05:01.34
+fc635f6a
+User
+at node:internal/deps/undici/undici:14902:13
+2026-03-08 01:05:01.34
+fc635f6a
+User
+remoteAddress: undefined,
+2026-03-08 01:05:01.34
+fc635f6a
+User
+localAddress: '169.254.8.1',
+2026-03-08 01:05:01.34
+fc635f6a
+User
+remotePort: undefined,
+2026-03-08 01:05:14.14
+fc635f6a
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2026-03-08 01:05:14.14
+fc635f6a
+User
+at async InvestmentDataCache.refreshProductType (file:///home/runner/workspace/dist/index.js:288833:25)
+2026-03-08 01:05:14.14
+fc635f6a
+User
+at async NeonPreparedQuery.execute (file:///home/runner/workspace/node_modules/drizzle-orm/neon-serverless/session.js:76:20)
+2026-03-08 01:05:14.14
+fc635f6a
+User
+❌ [InvestmentDataCache] Failed to fetch Unlisted Equities: Error: Connection terminated unexpectedly
+2026-03-08 01:05:14.14
+fc635f6a
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-03-08 01:05:14.14
+fc635f6a
+User
+at async InvestmentDataCache.fetchUnlistedEquities (file:///home/runner/workspace/dist/index.js:288986:28)
+2026-03-08 01:05:17.24
+fc635f6a
+User
+We'll try to continue anyway - you can safely ignore this if the request succeeds
+2026-03-08 01:05:17.24
+fc635f6a
+User
+We expected a redirect to guce.yahoo.com, but got https://finance.yahoo.com/quote/AAPL/
+2026-03-08 01:05:50.64
+fc635f6a
+User
+where: undefined,
+2026-03-08 01:05:50.64
+fc635f6a
+User
+internalQuery: undefined,

@@ -200,17 +200,17 @@ class McaFinancialRefreshScheduler {
     const recentFilings = await db
       .select({
         cin: mcaFilingTracker.cin,
-        formType: mcaFilingTracker.formType,
-        filingDate: mcaFilingTracker.filingDate,
+        formType: mcaFilingTracker.filingType,
+        filingDate: mcaFilingTracker.downloadDate,
       })
       .from(mcaFilingTracker)
       .where(
         and(
-          gte(mcaFilingTracker.filingDate, thirtyDaysAgo.toISOString().split('T')[0]),
+          gte(mcaFilingTracker.downloadDate, thirtyDaysAgo),
           or(
-            eq(mcaFilingTracker.formType, 'AOC-4'),
-            eq(mcaFilingTracker.formType, 'AOC-4 CFS'),
-            eq(mcaFilingTracker.formType, 'AOC-4 XBRL')
+            eq(mcaFilingTracker.filingType, 'AOC-4'),
+            eq(mcaFilingTracker.filingType, 'AOC-4 CFS'),
+            eq(mcaFilingTracker.filingType, 'AOC-4 XBRL')
           )
         )
       )

@@ -1900,7 +1900,7 @@ class McaIntelligenceService {
       .select({
         cin: mcaCompanyMaster.cin,
         companyName: mcaCompanyMaster.companyName,
-        listedStatus: mcaCompanyMaster.listedStatus,
+        companyStatus: mcaCompanyMaster.companyStatus,
       })
       .from(mcaCompanyMaster)
       .limit(limit * 2); // Fetch more to filter
@@ -1914,10 +1914,8 @@ class McaIntelligenceService {
     }> = [];
 
     for (const company of companies) {
-      // Filter for unlisted companies if requested
-      if (onlyUnlisted && company.listedStatus && 
-          (company.listedStatus.toLowerCase().includes('listed') && 
-           !company.listedStatus.toLowerCase().includes('unlisted'))) {
+      // Skip struck-off / inactive companies
+      if (company.companyStatus && company.companyStatus.toLowerCase().includes('strike')) {
         continue;
       }
 
