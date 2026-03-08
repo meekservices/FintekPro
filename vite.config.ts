@@ -27,6 +27,10 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    reportCompressedSize: false,
+    minify: "esbuild",
+    cssMinify: "esbuild",
+    target: "es2022",
     rollupOptions: {
       output: {
         manualChunks(id) {
