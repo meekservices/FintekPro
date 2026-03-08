@@ -9,6 +9,7 @@ import {
   mfFolios,
   mutualFunds,
   mutualFundMetrics,
+  mfSchemeStockHoldings,
   userProfiles,
   users,
   unifiedCartItems,
@@ -24,6 +25,7 @@ import {
   type InsertUnifiedCartItem,
 } from "@shared/schema";
 import { eq, and, desc, sql, ne } from "drizzle-orm";
+import { callPython } from "../clients/python-client";
 import { aiMFRecommendationService } from "./ai-mf-recommendation-service";
 // GoogleGenerativeAI imported from gemini service if needed
 
@@ -369,50 +371,104 @@ export class AIProposalEngine {
     return issues;
   }
 
-  analyzeMFOverlap(holdings: PortfolioHolding[]): { overlapPercent: number; details: OverlapDetail[] } {
-    const mfHoldings = holdings.filter(h => h.assetType === "mutual_fund");
+  async analyzeMFOverlap(holdings: PortfolioHolding[]): Promise<{ overlapPercent: number; details: OverlapDetail[] }> {
+    const mfHolds = holdings.filter(h => h.assetType === "mutual_fund");
     
-    if (mfHoldings.length < 2) {
+    if (mfHolds.length < 2) {
       return { overlapPercent: 0, details: [] };
     }
 
-    const details: OverlapDetail[] = [];
-    let totalOverlap = 0;
+    // Python look-through overlap (cosine similarity on actual stock holdings)
+    try {
+      const fundsWithHoldings = await Promise.all(
+        mfHolds.map(async h => {
+          const isin = h.isin;
+          if (!isin) return { isin: isin ?? '', name: h.schemeName, weight: h.weightPercent ?? 10, holdings: [] };
+          const stocks = await db.select({
+            stockSymbol: mfSchemeStockHoldings.stockSymbol,
+            holdingPercentage: mfSchemeStockHoldings.holdingPercentage,
+          })
+            .from(mfSchemeStockHoldings)
+            .where(eq(mfSchemeStockHoldings.mfIsin, isin))
+            .limit(15);
+          return {
+            isin,
+            name: h.schemeName,
+            weight: h.weightPercent ?? 10,
+            holdings: stocks.map(s => ({ stock: s.stockSymbol, weight: Number(s.holdingPercentage ?? 1) })),
+          };
+        })
+      );
 
-    for (let i = 0; i < mfHoldings.length; i++) {
-      for (let j = i + 1; j < mfHoldings.length; j++) {
-        const scheme1 = mfHoldings[i];
-        const scheme2 = mfHoldings[j];
+      const fundsWithData = fundsWithHoldings.filter(f => f.holdings.length > 0);
 
-        const subType1 = scheme1.assetSubType || "";
-        const subType2 = scheme2.assetSubType || "";
+      if (fundsWithData.length >= 2) {
+        const pyResult = await callPython<any>('/api/portfolio/overlap-analysis', 'POST', {
+          funds: fundsWithData,
+          topN: 10,
+        });
 
-        let estimatedOverlap = 0;
-        if (subType1 === subType2) {
-          estimatedOverlap = 40;
-        } else if (
-          (subType1.includes("large") && subType2.includes("large")) ||
-          (subType1.includes("mid") && subType2.includes("mid")) ||
-          (subType1.includes("small") && subType2.includes("small"))
-        ) {
-          estimatedOverlap = 30;
-        } else if (
-          (subType1.includes("equity") && subType2.includes("equity")) ||
-          (subType1.includes("flexi") || subType2.includes("flexi") || subType1.includes("multi") || subType2.includes("multi"))
-        ) {
-          estimatedOverlap = 20;
-        }
-
-        if (estimatedOverlap > 20) {
-          details.push({
-            scheme1: scheme1.schemeName,
-            scheme2: scheme2.schemeName,
-            overlapPercent: estimatedOverlap,
-            commonStocks: [],
-          });
-          totalOverlap += estimatedOverlap;
+        if (pyResult && !pyResult.error && pyResult.overlapMatrix) {
+          return this.mapPythonOverlapToResult(pyResult, mfHolds);
         }
       }
+    } catch {
+      // sidecar unavailable — fall through to heuristic
+    }
+
+    // Heuristic fallback
+    const details: OverlapDetail[] = [];
+    let totalOverlap = 0;
+    for (let i = 0; i < mfHolds.length; i++) {
+      for (let j = i + 1; j < mfHolds.length; j++) {
+        const s1 = mfHolds[i].assetSubType || "";
+        const s2 = mfHolds[j].assetSubType || "";
+        let est = 0;
+        if (s1 === s2) est = 40;
+        else if (
+          (s1.includes("large") && s2.includes("large")) ||
+          (s1.includes("mid") && s2.includes("mid")) ||
+          (s1.includes("small") && s2.includes("small"))
+        ) est = 30;
+        else if (
+          (s1.includes("equity") && s2.includes("equity")) ||
+          s1.includes("flexi") || s2.includes("flexi") || s1.includes("multi") || s2.includes("multi")
+        ) est = 20;
+        if (est > 20) {
+          details.push({ scheme1: mfHolds[i].schemeName, scheme2: mfHolds[j].schemeName, overlapPercent: est, commonStocks: [] });
+          totalOverlap += est;
+        }
+      }
+    }
+    const avgOverlap = details.length > 0 ? totalOverlap / details.length : 0;
+    return { overlapPercent: Math.round(avgOverlap), details };
+  }
+
+  private mapPythonOverlapToResult(
+    pyResult: any,
+    mfHolds: PortfolioHolding[]
+  ): { overlapPercent: number; details: OverlapDetail[] } {
+    const matrix: any[][] = pyResult.overlapMatrix ?? [];
+    const details: OverlapDetail[] = [];
+    let totalOverlap = 0;
+    const seen = new Set<string>();
+
+    for (const row of matrix) {
+      for (const cell of row) {
+        const key = [cell.fundA, cell.fundB].sort().join('|');
+        if (cell.fundA !== cell.fundB && cell.overlap > 20 && !seen.has(key)) {
+          seen.add(key);
+          const nameA = mfHolds.find(h => h.isin === cell.fundA)?.schemeName ?? cell.fundA;
+          const nameB = mfHolds.find(h => h.isin === cell.fundB)?.schemeName ?? cell.fundB;
+          details.push({ scheme1: nameA, scheme2: nameB, overlapPercent: Math.round(cell.overlap), commonStocks: [] });
+          totalOverlap += cell.overlap;
+        }
+      }
+    }
+
+    const topStocks = (pyResult.topStocks ?? []).map((s: any) => s.stock).slice(0, 5);
+    if (topStocks.length > 0 && details.length > 0) {
+      details[0].commonStocks = topStocks;
     }
 
     const avgOverlap = details.length > 0 ? totalOverlap / details.length : 0;
@@ -479,7 +535,7 @@ export class AIProposalEngine {
       riskProfile.maxSingleStockExposure || 15,
       riskProfile.maxSingleAmcExposure || 25
     );
-    const { overlapPercent, details: mfOverlapDetails } = this.analyzeMFOverlap(holdings);
+    const { overlapPercent, details: mfOverlapDetails } = await this.analyzeMFOverlap(holdings);
     const allocationDeviation = this.analyzeAllocationDeviation(
       assetAllocation,
       riskProfile.riskCategory as "conservative" | "moderate" | "aggressive"

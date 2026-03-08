@@ -912,6 +912,28 @@ server.listen({
         console.error('[AI Governance] Check failed:', error);
       }
     }, { timezone: 'UTC' });
+    // ML model nightly auto-training at 02:00 UTC (requires ≥20 completed daily_picks outcomes)
+    cron.schedule('0 2 * * *', async () => {
+      console.log('[ML Cron] Running nightly ML auto-training (02:00 UTC)...');
+      try {
+        const { db: cronDb } = await import('./db');
+        const { sql: cronSql } = await import('drizzle-orm');
+        const result = await cronDb.execute(cronSql`
+          SELECT COUNT(*) AS cnt FROM daily_picks
+          WHERE status IN ('target_hit','stoploss_hit','expired')
+        `);
+        const count = Number((result.rows[0] as any)?.cnt ?? 0);
+        if (count >= 20) {
+          const { callPython: cp } = await import('./clients/python-client');
+          await cp('/api/ml/train', 'POST', { assetClass: 'all', maxSamples: 5000 });
+          console.log(`[ML Cron] Auto-training triggered with ${count} completed picks`);
+        } else {
+          console.log(`[ML Cron] Skipped — only ${count} completed picks (need ≥20)`);
+        }
+      } catch (e) {
+        console.error('[ML Cron] Auto-training failed:', e);
+      }
+    }, { timezone: 'UTC' });
   } else {
     console.log('⏭️ [AI Regime/Governance] Daily schedulers skipped (development mode - production only)');
   }

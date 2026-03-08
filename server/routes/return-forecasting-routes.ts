@@ -83,7 +83,7 @@ router.post('/calculate-cagr', async (req, res) => {
 router.post('/calculate-irr', async (req, res) => {
   try {
     const input = irrInputSchema.parse(req.body);
-    const irrResult = returnForecastingEngine.calculateIRR(
+    const irrResult = await returnForecastingEngine.calculateIRR(
       input.cashFlows as CashFlow[],
       input.finalValue
     );
@@ -190,7 +190,7 @@ router.post('/projections', async (req, res) => {
       horizons: z.array(z.number().positive()).optional()
     }).parse(req.body);
     
-    const projections = returnForecastingEngine.generateProjections(
+    const projections = await returnForecastingEngine.generateProjections(
       input.asset as AssetReturns,
       input.horizons
     );

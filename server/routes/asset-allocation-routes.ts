@@ -255,7 +255,7 @@ router.post("/rebalance/analyze", async (req: Request, res: Response) => {
       )
     };
     
-    const analysis = rebalancingEngine.analyzeAndRebalance(rebalanceInput);
+    const analysis = await rebalancingEngine.analyzeAndRebalance(rebalanceInput);
     
     // Cache the result for future use
     if (userId && portfolioId) {

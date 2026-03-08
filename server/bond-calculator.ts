@@ -7,7 +7,12 @@
  * - Accrued Interest
  * - Bond Pricing
  * - Current Yield
+ *
+ * Python sidecar (scipy brentq) is used as primary engine for YTM, duration,
+ * and convexity. Newton-Raphson is the fallback.
  */
+
+import { callPython } from './clients/python-client';
 
 /**
  * Calculate days between two dates
@@ -52,62 +57,82 @@ export function calculateAccruedInterest(params: {
   return Math.round(accruedInterest * 100) / 100;
 }
 
+const FREQ_MAP: Record<string, number> = {
+  annual: 1, semi_annual: 2, quarterly: 4, monthly: 12,
+};
+
 /**
- * Calculate Yield to Maturity (YTM) using Newton-Raphson approximation
+ * Shared Python bond analytics call — fetches all metrics in one round-trip.
+ * Returns null when sidecar is unavailable.
  */
-export function calculateYieldToMaturity(params: {
+async function fetchPythonBondAnalytics(params: {
+  faceValue: number;
+  currentPrice?: number;
+  ytm?: number;
+  couponRate: number;
+  yearsToMaturity: number;
+  frequency: string;
+}): Promise<{ ytmPct: number; macaulayDuration: number; modifiedDuration: number; convexity: number } | null> {
+  try {
+    const payload: Record<string, number> = {
+      faceValue: params.faceValue,
+      couponRate: params.couponRate,
+      yearsToMaturity: params.yearsToMaturity,
+      frequency: FREQ_MAP[params.frequency] ?? 2,
+    };
+    if (params.currentPrice != null) payload.cleanPrice = params.currentPrice;
+    if (params.ytm != null) payload.ytm = params.ytm;
+    const r = await callPython<any>('/api/fixed-income/bond-analytics', 'POST', payload);
+    if (r && !r.error && r.ytmPct != null) {
+      return {
+        ytmPct: Number(r.ytmPct),
+        macaulayDuration: Number(r.macaulayDuration),
+        modifiedDuration: Number(r.modifiedDuration),
+        convexity: Number(r.convexity),
+      };
+    }
+  } catch {
+    // sidecar unavailable
+  }
+  return null;
+}
+
+/**
+ * Calculate Yield to Maturity (YTM).
+ * Uses Python sidecar (scipy brentq) first; falls back to Newton-Raphson.
+ */
+export async function calculateYieldToMaturity(params: {
   faceValue: number;
   currentPrice: number;
-  couponRate: number;  // Annual coupon rate as percentage
+  couponRate: number;
   yearsToMaturity: number;
   frequency: 'annual' | 'semi_annual' | 'quarterly' | 'monthly';
-}): number {
+}): Promise<number> {
   const { faceValue, currentPrice, couponRate, yearsToMaturity, frequency } = params;
-  
-  const periodsPerYear: Record<typeof frequency, number> = {
-    'annual': 1,
-    'semi_annual': 2,
-    'quarterly': 4,
-    'monthly': 12
-  };
-  
-  const n = periodsPerYear[frequency];
+
+  const pyResult = await fetchPythonBondAnalytics({ faceValue, currentPrice, couponRate, yearsToMaturity, frequency });
+  if (pyResult) return pyResult.ytmPct;
+
+  // Newton-Raphson fallback
+  const n = FREQ_MAP[frequency] ?? 2;
   const totalPeriods = yearsToMaturity * n;
   const couponPayment = (faceValue * (couponRate / 100)) / n;
-  
-  // Initial guess using current yield
   let ytm = ((couponPayment * n) + ((faceValue - currentPrice) / yearsToMaturity)) / currentPrice;
-  
-  // Newton-Raphson iteration
+
   for (let i = 0; i < 100; i++) {
     const ytmPerPeriod = ytm / n;
-    
-    // Calculate bond price at current YTM guess
     let pv = 0;
-    for (let t = 1; t <= totalPeriods; t++) {
-      pv += couponPayment / Math.pow(1 + ytmPerPeriod, t);
-    }
+    for (let t = 1; t <= totalPeriods; t++) pv += couponPayment / Math.pow(1 + ytmPerPeriod, t);
     pv += faceValue / Math.pow(1 + ytmPerPeriod, totalPeriods);
-    
-    // Calculate derivative
     let dpv = 0;
-    for (let t = 1; t <= totalPeriods; t++) {
+    for (let t = 1; t <= totalPeriods; t++)
       dpv += (-t * couponPayment) / (n * Math.pow(1 + ytmPerPeriod, t + 1));
-    }
     dpv += (-totalPeriods * faceValue) / (n * Math.pow(1 + ytmPerPeriod, totalPeriods + 1));
-    
-    // Update YTM
     const newYtm = ytm - (pv - currentPrice) / dpv;
-    
-    // Check for convergence
-    if (Math.abs(newYtm - ytm) < 0.000001) {
-      return Math.round(newYtm * 10000) / 100; // Return as percentage with 2 decimals
-    }
-    
+    if (Math.abs(newYtm - ytm) < 0.000001) return Math.round(newYtm * 10000) / 100;
     ytm = newYtm;
   }
-  
-  return Math.round(ytm * 10000) / 100; // Return as percentage
+  return Math.round(ytm * 10000) / 100;
 }
 
 /**
@@ -126,70 +151,60 @@ export function calculateCurrentYield(params: {
 }
 
 /**
- * Calculate Macaulay Duration
+ * Calculate Macaulay Duration.
+ * Uses Python sidecar first; falls back to TS implementation.
  */
-export function calculateMacaulayDuration(params: {
+export async function calculateMacaulayDuration(params: {
   faceValue: number;
-  couponRate: number;  // Annual coupon rate as percentage
-  yieldToMaturity: number;  // Annual YTM as percentage
+  couponRate: number;
+  yieldToMaturity: number;
   yearsToMaturity: number;
   frequency: 'annual' | 'semi_annual' | 'quarterly' | 'monthly';
-}): number {
+}): Promise<number> {
   const { faceValue, couponRate, yieldToMaturity, yearsToMaturity, frequency } = params;
-  
-  const periodsPerYear: Record<typeof frequency, number> = {
-    'annual': 1,
-    'semi_annual': 2,
-    'quarterly': 4,
-    'monthly': 12
-  };
-  
-  const n = periodsPerYear[frequency];
+
+  const pyResult = await fetchPythonBondAnalytics({ faceValue, couponRate, ytm: yieldToMaturity, yearsToMaturity, frequency });
+  if (pyResult) return pyResult.macaulayDuration;
+
+  // TS fallback
+  const n = FREQ_MAP[frequency] ?? 2;
   const totalPeriods = yearsToMaturity * n;
   const couponPayment = (faceValue * (couponRate / 100)) / n;
   const ytmPerPeriod = (yieldToMaturity / 100) / n;
-  
-  // Calculate present value of cash flows
-  let pvCashFlows = 0;
-  let weightedPvCashFlows = 0;
-  
+  let pvCashFlows = 0, weightedPv = 0;
   for (let t = 1; t <= totalPeriods; t++) {
     const pv = couponPayment / Math.pow(1 + ytmPerPeriod, t);
     pvCashFlows += pv;
-    weightedPvCashFlows += (t / n) * pv; // Convert period to years
+    weightedPv += (t / n) * pv;
   }
-  
-  // Add face value at maturity
   const pvFace = faceValue / Math.pow(1 + ytmPerPeriod, totalPeriods);
   pvCashFlows += pvFace;
-  weightedPvCashFlows += (totalPeriods / n) * pvFace;
-  
-  const macaulayDuration = weightedPvCashFlows / pvCashFlows;
-  
-  return Math.round(macaulayDuration * 1000) / 1000; // 3 decimal places
+  weightedPv += (totalPeriods / n) * pvFace;
+  return Math.round((weightedPv / pvCashFlows) * 1000) / 1000;
 }
 
 /**
- * Calculate Modified Duration
+ * Calculate Modified Duration.
+ * Uses Python sidecar first; falls back to TS implementation.
  */
-export function calculateModifiedDuration(params: {
+export async function calculateModifiedDuration(params: {
   macaulayDuration: number;
-  yieldToMaturity: number;  // Annual YTM as percentage
+  yieldToMaturity: number;
   frequency: 'annual' | 'semi_annual' | 'quarterly' | 'monthly';
-}): number {
-  const { macaulayDuration, yieldToMaturity, frequency } = params;
-  
-  const periodsPerYear: Record<typeof frequency, number> = {
-    'annual': 1,
-    'semi_annual': 2,
-    'quarterly': 4,
-    'monthly': 12
-  };
-  
-  const n = periodsPerYear[frequency];
-  const modifiedDuration = macaulayDuration / (1 + (yieldToMaturity / 100) / n);
-  
-  return Math.round(modifiedDuration * 1000) / 1000;
+  faceValue?: number;
+  couponRate?: number;
+  yearsToMaturity?: number;
+}): Promise<number> {
+  const { macaulayDuration, yieldToMaturity, frequency, faceValue, couponRate, yearsToMaturity } = params;
+
+  if (faceValue != null && couponRate != null && yearsToMaturity != null) {
+    const pyResult = await fetchPythonBondAnalytics({ faceValue, couponRate, ytm: yieldToMaturity, yearsToMaturity, frequency });
+    if (pyResult) return pyResult.modifiedDuration;
+  }
+
+  // TS fallback
+  const n = FREQ_MAP[frequency] ?? 2;
+  return Math.round((macaulayDuration / (1 + (yieldToMaturity / 100) / n)) * 1000) / 1000;
 }
 
 /**
@@ -229,46 +244,35 @@ export function calculateBondPrice(params: {
 }
 
 /**
- * Calculate convexity of a bond
+ * Calculate convexity of a bond.
+ * Uses Python sidecar first; falls back to TS implementation.
  */
-export function calculateConvexity(params: {
+export async function calculateConvexity(params: {
   faceValue: number;
-  couponRate: number;  // Annual coupon rate as percentage
-  yieldToMaturity: number;  // Annual YTM as percentage
+  couponRate: number;
+  yieldToMaturity: number;
   yearsToMaturity: number;
   frequency: 'annual' | 'semi_annual' | 'quarterly' | 'monthly';
-}): number {
+}): Promise<number> {
   const { faceValue, couponRate, yieldToMaturity, yearsToMaturity, frequency } = params;
-  
-  const periodsPerYear: Record<typeof frequency, number> = {
-    'annual': 1,
-    'semi_annual': 2,
-    'quarterly': 4,
-    'monthly': 12
-  };
-  
-  const n = periodsPerYear[frequency];
+
+  const pyResult = await fetchPythonBondAnalytics({ faceValue, couponRate, ytm: yieldToMaturity, yearsToMaturity, frequency });
+  if (pyResult) return pyResult.convexity;
+
+  // TS fallback
+  const n = FREQ_MAP[frequency] ?? 2;
   const totalPeriods = yearsToMaturity * n;
   const couponPayment = (faceValue * (couponRate / 100)) / n;
   const ytmPerPeriod = (yieldToMaturity / 100) / n;
-  
-  // Calculate bond price
   const bondPrice = calculateBondPrice({ faceValue, couponRate, yieldToMaturity, yearsToMaturity, frequency });
-  
-  // Calculate convexity
   let convexitySum = 0;
   for (let t = 1; t <= totalPeriods; t++) {
     const pv = couponPayment / Math.pow(1 + ytmPerPeriod, t);
     convexitySum += pv * t * (t + 1);
   }
-  
-  // Add face value contribution
   const pvFace = faceValue / Math.pow(1 + ytmPerPeriod, totalPeriods);
   convexitySum += pvFace * totalPeriods * (totalPeriods + 1);
-  
-  const convexity = convexitySum / (bondPrice * Math.pow(1 + ytmPerPeriod, 2) * n * n);
-  
-  return Math.round(convexity * 1000) / 1000;
+  return Math.round((convexitySum / (bondPrice * Math.pow(1 + ytmPerPeriod, 2) * n * n)) * 1000) / 1000;
 }
 
 /**

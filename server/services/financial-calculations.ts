@@ -8,6 +8,8 @@
  * - Portfolio returns and performance metrics
  */
 
+import { callPython } from '../clients/python-client';
+
 interface CashFlow {
   date: Date;
   amount: number; // Negative for investments, positive for returns
@@ -35,33 +37,47 @@ interface CAGRResult {
 export class FinancialCalculations {
   /**
    * Calculate XIRR (Extended Internal Rate of Return)
-   * Uses Newton-Raphson method to find the rate that makes NPV = 0
+   * Tries Python sidecar first (scipy brentq), falls back to Newton-Raphson
    * 
    * @param cashFlows Array of cash flows with dates and amounts
    * @param guess Initial guess for the rate (default: 0.1 = 10%)
    * @param maxIterations Maximum iterations for convergence (default: 100)
    * @param tolerance Acceptable error tolerance (default: 0.0001)
    */
-  static calculateXIRR(
+  static async calculateXIRR(
     cashFlows: CashFlow[],
     guess: number = 0.1,
     maxIterations: number = 100,
     tolerance: number = 0.0001
-  ): XIRRResult {
+  ): Promise<XIRRResult> {
     if (cashFlows.length < 2) {
       return { xirr: 0, xirrPercentage: 0, success: false };
     }
 
-    // Sort cash flows by date
+    // Python sidecar primary path
+    try {
+      const payload = cashFlows.map(cf => ({
+        date: cf.date instanceof Date
+          ? cf.date.toISOString().slice(0, 10)
+          : String(cf.date),
+        amount: cf.amount,
+      }));
+      const r = await callPython<{ xirr_pct: number | null; error?: string }>(
+        '/api/quant/xirr', 'POST', payload
+      );
+      if (r?.xirr_pct != null && !r.error) {
+        const rate = r.xirr_pct / 100;
+        return { xirr: rate, xirrPercentage: parseFloat(r.xirr_pct.toFixed(2)), success: true };
+      }
+    } catch {
+      // sidecar unavailable — fall through to Newton-Raphson
+    }
+
+    // Newton-Raphson fallback
     const sortedFlows = [...cashFlows].sort((a, b) => a.date.getTime() - b.date.getTime());
-    
-    // Base date (first cash flow date)
     const baseDate = sortedFlows[0].date;
-    
-    // Check if we have both positive and negative cash flows
     const hasPositive = sortedFlows.some(cf => cf.amount > 0);
     const hasNegative = sortedFlows.some(cf => cf.amount < 0);
-    
     if (!hasPositive || !hasNegative) {
       return { xirr: 0, xirrPercentage: 0, success: false };
     }
@@ -69,20 +85,17 @@ export class FinancialCalculations {
     let rate = guess;
     let iterations = 0;
 
-    // Newton-Raphson iteration
     while (iterations < maxIterations) {
       let npv = 0;
-      let dnpv = 0; // Derivative of NPV
+      let dnpv = 0;
 
       for (const cf of sortedFlows) {
         const yearFraction = this.getYearFraction(baseDate, cf.date);
         const discountFactor = Math.pow(1 + rate, yearFraction);
-        
         npv += cf.amount / discountFactor;
         dnpv -= cf.amount * yearFraction / Math.pow(1 + rate, yearFraction + 1);
       }
 
-      // Check for convergence
       if (Math.abs(npv) < tolerance) {
         return {
           xirr: rate,
@@ -92,24 +105,15 @@ export class FinancialCalculations {
         };
       }
 
-      // Prevent division by zero
-      if (Math.abs(dnpv) < 1e-10) {
-        break;
-      }
+      if (Math.abs(dnpv) < 1e-10) break;
 
-      // Update rate using Newton-Raphson formula
       const newRate = rate - npv / dnpv;
-      
-      // Prevent extreme values
-      if (newRate < -0.99 || newRate > 10) {
-        break;
-      }
+      if (newRate < -0.99 || newRate > 10) break;
 
       rate = newRate;
       iterations++;
     }
 
-    // If we didn't converge, return failure
     return { xirr: 0, xirrPercentage: 0, success: false };
   }
 

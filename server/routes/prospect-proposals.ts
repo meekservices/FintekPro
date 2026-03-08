@@ -2052,7 +2052,7 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
       }
       
       const portfolioAsset = { assetId: 'portfolio', assetType: 'mutual_fund' as const, assetName: 'Portfolio', currentValue: totalValue, investedAmount: totalValue, inceptionDate: new Date() };
-      const projections = returnForecastingEngine.generateProjections(portfolioAsset, [5]);
+      const projections = await returnForecastingEngine.generateProjections(portfolioAsset, [5]);
       projectedValue = projections[0]?.projectedValue || Math.round(totalValue * Math.pow(1 + projectedReturns/100, 5));
 
     } else if (proposalType === 'fresh_investment' && investmentGoals) {
@@ -2171,7 +2171,7 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
       const years = yearsMap[timeHorizon] || 5;
       const assetType = riskTolerance === 'aggressive' ? 'equity' as const : riskTolerance === 'conservative' ? 'bond' as const : 'mutual_fund' as const;
       const freshAsset = { assetId: 'fresh', assetType, assetName: 'Investment', currentValue: totalAmount, investedAmount: totalAmount, inceptionDate: new Date() };
-      const freshProjections = returnForecastingEngine.generateProjections(freshAsset, [years]);
+      const freshProjections = await returnForecastingEngine.generateProjections(freshAsset, [years]);
       projectedValue = freshProjections[0]?.projectedValue || Math.round(totalAmount * Math.pow(1 + projectedReturns/100, years));
     }
 

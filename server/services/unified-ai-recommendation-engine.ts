@@ -26,6 +26,9 @@ import { abTestingService } from "./ab-testing-service";
 import { nanoid } from "nanoid";
 import { getEnrichedStockSnapshot } from './screener/enriched-stock-data';
 import { callPython } from '../clients/python-client';
+import { db } from '../db';
+import { mutualFundMetrics } from '@shared/schema';
+import { eq, desc } from 'drizzle-orm';
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -565,6 +568,28 @@ class UnifiedAIRecommendationEngine {
     return null;
   }
 
+  private async fetchMFPercentileRank(schemeCode: string): Promise<{ percentileRank: number | null; categoryRank: number | null; categorySize: number | null }> {
+    try {
+      const [metrics] = await db.select({
+        percentileRank: mutualFundMetrics.percentileRank,
+        categoryRank: mutualFundMetrics.categoryRank,
+        categorySize: mutualFundMetrics.categorySize,
+      })
+        .from(mutualFundMetrics)
+        .where(eq(mutualFundMetrics.schemeCode, schemeCode))
+        .orderBy(desc(mutualFundMetrics.id))
+        .limit(1);
+      if (!metrics) return { percentileRank: null, categoryRank: null, categorySize: null };
+      return {
+        percentileRank: metrics.percentileRank != null ? Number(metrics.percentileRank) : null,
+        categoryRank: metrics.categoryRank != null ? Number(metrics.categoryRank) : null,
+        categorySize: metrics.categorySize != null ? Number(metrics.categorySize) : null,
+      };
+    } catch {
+      return { percentileRank: null, categoryRank: null, categorySize: null };
+    }
+  }
+
   private async analyzeWithPython(product: ProductData, clientProfile?: ClientProfile): Promise<ProductAnalysis> {
     const base = this.analyzeWithRules(product, clientProfile);
     const regime = await this.fetchRegimeFromPython();
@@ -603,6 +628,26 @@ class UnifiedAIRecommendationEngine {
       if (rec === 'Strong Buy' || rec === 'Buy') adjConf = Math.min(95, adjConf + 5);
     }
 
+    // For mutual funds: incorporate DB percentile rank from mutual_fund_metrics
+    let mfRankNote = '';
+    if (product.category === 'mutual_funds' && product.id) {
+      const { percentileRank, categoryRank, categorySize } = await this.fetchMFPercentileRank(product.id);
+      if (percentileRank != null) {
+        if (percentileRank >= 90) {
+          adjReturn = Math.min(100, adjReturn + 18);
+          mfRankNote = `Top decile fund in category (rank ${categoryRank ?? '?'}/${categorySize ?? '?'}).`;
+        } else if (percentileRank >= 75) {
+          adjReturn = Math.min(100, adjReturn + 10);
+          mfRankNote = `Top quartile fund in category (rank ${categoryRank ?? '?'}/${categorySize ?? '?'}).`;
+        } else if (percentileRank <= 25) {
+          adjReturn = Math.max(0, adjReturn - 10);
+          mfRankNote = `Below-median category performance (rank ${categoryRank ?? '?'}/${categorySize ?? '?'}).`;
+        } else {
+          mfRankNote = `Category rank ${categoryRank ?? '?'}/${categorySize ?? '?'} (percentile: ${percentileRank.toFixed(0)}).`;
+        }
+      }
+    }
+
     const adjOverall = Math.round(adjReturn * 0.35 + (100 - adjRisk) * 0.25 + base.qualityScore * 0.25 + base.valuationScore * 0.15);
     const adjRec = this.determineRecommendation(adjOverall, base.suitabilityScore);
     const regimeLabel: Record<string, string> = { bull: 'bullish', bear: 'bearish', sideways: 'sideways', high_vol: 'high-volatility' };
@@ -615,15 +660,17 @@ class UnifiedAIRecommendationEngine {
       confidenceScore: Math.round(adjConf),
       confidenceLevel: this.getConfidenceLevel(adjConf),
       recommendation: adjRec,
-      selectionRationale: `${base.selectionRationale} Python regime: ${regimeLabel[regime.regime] || regime.regime} (signal score: ${regime.signal_score.toFixed(2)}, confidence: ${(regime.confidence * 100).toFixed(0)}%).`,
+      selectionRationale: `${base.selectionRationale}${mfRankNote ? ' ' + mfRankNote : ''} Python regime: ${regimeLabel[regime.regime] || regime.regime} (signal score: ${regime.signal_score.toFixed(2)}, confidence: ${(regime.confidence * 100).toFixed(0)}%).`,
       keyStrengths: [
         ...base.keyStrengths.slice(0, 3),
         ...(regime.regime === 'bull' ? ['Favourable market conditions (regime: bull)'] : []),
+        ...(mfRankNote && mfRankNote.startsWith('Top') ? [mfRankNote] : []),
       ].slice(0, 4),
       keyRisks: [
         ...base.keyRisks.filter(r => r !== 'Market risk').slice(0, 2),
         ...(regime.regime === 'bear'     ? [`Bear market regime (score: ${regime.signal_score.toFixed(2)})`] : []),
         ...(regime.regime === 'high_vol' ? [`Elevated volatility regime detected`] : []),
+        ...(mfRankNote && mfRankNote.startsWith('Below') ? [mfRankNote] : []),
         'Market risk',
       ].slice(0, 4),
       modelUsed: 'python_sidecar',
@@ -842,7 +889,8 @@ Provide analysis as JSON with these fields:
     const clientKey = clientProfile 
       ? `${clientProfile.riskProfile}_${clientProfile.investmentHorizon}_${clientProfile.kycTier}`
       : 'no_client';
-    return `${type}_${productKey}_${clientKey}`;
+    const regimeKey = this._regimeCache?.data?.regime ?? 'unknown';
+    return `${type}_${productKey}_${clientKey}_${regimeKey}`;
   }
 
   private calculateMatchScore(

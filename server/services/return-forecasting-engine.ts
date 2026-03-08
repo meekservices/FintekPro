@@ -10,6 +10,8 @@
  * - Forward projections with confidence intervals
  */
 
+import { callPython } from '../clients/python-client';
+
 export interface AssetReturns {
   assetId: string;
   assetType: 'equity' | 'mutual_fund' | 'bond' | 'fd' | 'etf' | 'real_estate' | 'gold' | 'alternative';
@@ -193,24 +195,19 @@ export class ReturnForecastingEngine {
   /**
    * Calculate IRR for a series of cash flows using Newton-Raphson method
    */
-  calculateIRR(cashFlows: CashFlow[], finalValue: number): IRRResult {
+  async calculateIRR(cashFlows: CashFlow[], finalValue: number): Promise<IRRResult> {
     if (cashFlows.length === 0) {
       return { irr: 0, xirr: 0 };
     }
 
-    // Sort cash flows by date
     const sortedFlows = [...cashFlows].sort((a, b) => a.date.getTime() - b.date.getTime());
-    
-    // Add final value as the last cash flow (negative because it's a return)
     const allFlows = [
       ...sortedFlows,
       { date: new Date(), amount: -finalValue }
     ];
 
-    // Calculate XIRR (Extended IRR)
-    const xirr = this.calculateXIRR(allFlows);
-    
-    // Simple IRR (assuming regular intervals)
+    const xirr = await this.calculateXIRR(allFlows);
+
     const simpleFlows = sortedFlows.map(f => f.amount);
     simpleFlows.push(-finalValue);
     const irr = this.calculateSimpleIRR(simpleFlows);
@@ -222,12 +219,32 @@ export class ReturnForecastingEngine {
   }
 
   /**
-   * Calculate XIRR for irregular cash flows
+   * Calculate XIRR for irregular cash flows.
+   * Routes to Python sidecar (scipy brentq) first; falls back to Newton-Raphson.
    */
-  private calculateXIRR(cashFlows: CashFlow[]): number {
+  private async calculateXIRR(cashFlows: CashFlow[]): Promise<number> {
+    if (cashFlows.length < 2) return 0;
+
+    // Python sidecar primary path
+    try {
+      const payload = cashFlows.map(cf => ({
+        date: cf.date instanceof Date
+          ? cf.date.toISOString().slice(0, 10)
+          : String(cf.date),
+        amount: cf.amount,
+      }));
+      const r = await callPython<{ xirr_pct: number | null; error?: string }>(
+        '/api/quant/xirr', 'POST', payload
+      );
+      if (r?.xirr_pct != null && !r.error) return r.xirr_pct;
+    } catch {
+      // sidecar unavailable — fall through
+    }
+
+    // Newton-Raphson fallback
     const maxIterations = 100;
     const tolerance = 0.0001;
-    let rate = 0.1; // Initial guess
+    let rate = 0.1;
 
     for (let i = 0; i < maxIterations; i++) {
       let npv = 0;
@@ -241,14 +258,10 @@ export class ReturnForecastingEngine {
         npvDerivative -= (years * cf.amount) / (denominator * (1 + rate));
       }
 
-      if (Math.abs(npv) < tolerance) {
-        return rate * 100;
-      }
+      if (Math.abs(npv) < tolerance) return rate * 100;
 
       const newRate = rate - npv / npvDerivative;
-      if (Math.abs(newRate - rate) < tolerance) {
-        return newRate * 100;
-      }
+      if (Math.abs(newRate - rate) < tolerance) return newRate * 100;
       rate = newRate;
     }
 
@@ -415,46 +428,64 @@ export class ReturnForecastingEngine {
   }
 
   /**
-   * Generate forward projections
+   * Generate forward projections.
+   * Uses Python sidecar /api/forecasting/sip-simulate for p10/p50/p90 bands when available.
    */
-  generateProjections(asset: AssetReturns, horizons: number[] = [1, 3, 5, 10]): ForwardProjection[] {
+  async generateProjections(asset: AssetReturns, horizons: number[] = [1, 3, 5, 10]): Promise<ForwardProjection[]> {
     const params = ASSET_CLASS_PARAMS[asset.assetType] || ASSET_CLASS_PARAMS.mutual_fund;
-    
-    return horizons.map(years => {
+    const results: ForwardProjection[] = [];
+
+    for (const years of horizons) {
       const expectedReturn = params.expectedReturn;
       const volatility = params.volatility;
-      
-      // Expected value using expected return
       const expectedValue = asset.currentValue * Math.pow(1 + expectedReturn / 100, years);
-      
-      // Monte Carlo style confidence intervals (simplified with normal distribution)
-      const annualizedVol = volatility / 100;
-      const z95 = 1.96; // 95% confidence
-      
+      const z95 = 1.96;
       const lowReturn = expectedReturn - (z95 * volatility / Math.sqrt(years));
       const highReturn = expectedReturn + (z95 * volatility / Math.sqrt(years));
-      
       const lowValue = asset.currentValue * Math.pow(1 + lowReturn / 100, years);
       const highValue = asset.currentValue * Math.pow(1 + highReturn / 100, years);
-      
-      // Probability of loss (simplified using normal distribution)
-      const breakEvenReturn = 0;
-      const zScore = (breakEvenReturn - expectedReturn) / (volatility / Math.sqrt(years));
+      const zScore = (0 - expectedReturn) / (volatility / Math.sqrt(years));
       const probabilityOfLoss = this.normalCDF(zScore);
-      
-      return {
+
+      let confidenceBand: { p10: number; p50: number; p90: number } | undefined;
+
+      // Python sidecar enrichment with real Monte Carlo p10/p50/p90
+      try {
+        const sipPayload = {
+          initial_amount: asset.currentValue ?? 0,
+          monthly_sip: (asset as any).monthlyInvestment ?? 0,
+          expected_return_pct: expectedReturn,
+          years,
+          step_up_pct: 0,
+        };
+        const pyResult = await callPython<any>('/api/forecasting/sip-simulate', 'POST', sipPayload);
+        if (pyResult && pyResult.corpus_p50 != null && !pyResult.error) {
+          confidenceBand = {
+            p10: Math.round(pyResult.corpus_p10 ?? lowValue),
+            p50: Math.round(pyResult.corpus_p50),
+            p90: Math.round(pyResult.corpus_p90 ?? highValue),
+          };
+        }
+      } catch {
+        // sidecar unavailable — no confidence band
+      }
+
+      results.push({
         timeHorizonYears: years,
         expectedReturn: Math.round(expectedReturn * 100) / 100,
-        projectedValue: Math.round(expectedValue),
+        projectedValue: confidenceBand ? confidenceBand.p50 : Math.round(expectedValue),
         confidenceInterval: {
-          low: Math.round(lowValue),
-          mid: Math.round(expectedValue),
-          high: Math.round(highValue)
+          low: confidenceBand ? confidenceBand.p10 : Math.round(lowValue),
+          mid: confidenceBand ? confidenceBand.p50 : Math.round(expectedValue),
+          high: confidenceBand ? confidenceBand.p90 : Math.round(highValue),
         },
         probabilityOfLoss: Math.round(probabilityOfLoss * 10000) / 100,
-        breakEvenProbability: Math.round((1 - probabilityOfLoss) * 10000) / 100
-      };
-    });
+        breakEvenProbability: Math.round((1 - probabilityOfLoss) * 10000) / 100,
+        ...(confidenceBand ? { confidenceBand } : {}),
+      } as ForwardProjection);
+    }
+
+    return results;
   }
 
   /**

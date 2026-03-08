@@ -7,6 +7,7 @@ import { computeRiskReward } from './sections/risk-reward';
 import { computeRollingReturns } from './sections/rolling-returns';
 import { computeCorrelationMatrix } from './sections/correlation-matrix';
 import { generateDisclosures, getDisclosureFooter } from './sections/disclosures';
+import { callPython } from '../../clients/python-client';
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -96,6 +97,9 @@ export class PortfolioReportPDFRenderer {
       this.renderCorrelationMatrix(correlationData);
     }
 
+    // Fama-French 4-Factor Risk Attribution (Python sidecar)
+    await this.tryRenderFactorAttribution(portfolioData);
+
     if (config.sections.underlyingHoldings) {
       this.addNewPage();
       this.renderUnderlyingHoldings(portfolioData);
@@ -109,6 +113,63 @@ export class PortfolioReportPDFRenderer {
 
     const pdfOutput = this.pdf.output('arraybuffer');
     return Buffer.from(pdfOutput);
+  }
+
+  private async tryRenderFactorAttribution(portfolioData: PortfolioData): Promise<void> {
+    try {
+      const mfHoldings = portfolioData.holdings
+        .filter(h => h.assetType === 'mutual_fund' && (h.isin || h.symbol))
+        .sort((a, b) => Number(b.quantity ?? 0) * Number(b.avgPrice ?? 0) - Number(a.quantity ?? 0) * Number(a.avgPrice ?? 0))
+        .slice(0, 5);
+
+      if (mfHoldings.length === 0) return;
+
+      const factorResult = await callPython<any>('/api/factor/batch-fund-factors', 'POST', {
+        funds: mfHoldings.map(h => ({ isin: h.isin ?? h.symbol, name: h.symbol })),
+        lookback_months: 36,
+      });
+
+      if (!factorResult || factorResult.error || !factorResult.results?.length) return;
+
+      this.addNewPage();
+      this.renderFactorAttribution(factorResult.results);
+    } catch {
+      // sidecar unavailable — skip section silently
+    }
+  }
+
+  private renderFactorAttribution(results: any[]): void {
+    this.renderSectionHeader('Risk Factor Attribution (Fama-French 4-Factor)');
+
+    const rows = results.map((r: any) => [
+      r.fund?.name ?? r.fund?.isin ?? 'N/A',
+      r.alpha != null ? `${Number(r.alpha).toFixed(2)}%` : '-',
+      r.beta_market != null ? Number(r.beta_market).toFixed(3) : '-',
+      r.beta_smb != null ? Number(r.beta_smb).toFixed(3) : '-',
+      r.beta_hml != null ? Number(r.beta_hml).toFixed(3) : '-',
+      r.beta_mom != null ? Number(r.beta_mom).toFixed(3) : '-',
+    ]);
+
+    this.pdf.autoTable({
+      startY: this.currentY,
+      head: [['Fund', 'Alpha (%)', 'Market β', 'Size (SMB) β', 'Value (HML) β', 'Momentum β']],
+      body: rows,
+      theme: 'striped',
+      headStyles: { fillColor: COLORS.primary },
+      margin: { left: this.margin, right: this.margin },
+      styles: { fontSize: 8 },
+    });
+
+    this.currentY = (this.pdf as any).lastAutoTable?.finalY + 8 ?? this.currentY + 10;
+    this.pdf.setFontSize(7);
+    this.pdf.setTextColor(...COLORS.secondary);
+    this.pdf.text(
+      'Source: Fama-French 4-Factor OLS regression, 36-month lookback. Alpha annualised.',
+      this.margin,
+      this.currentY
+    );
+    this.pdf.setTextColor(...COLORS.text);
+    this.currentY += 8;
   }
 
   private addNewPage(): void {

@@ -7,6 +7,7 @@ import {
   LIQUID_TYPES,
   OptimizationInput
 } from './asset-allocation-optimizer';
+import { callPython } from '../clients/python-client';
 import { 
   unifiedAIRecommendationEngine, 
   type ProductData, 
@@ -123,21 +124,47 @@ class RebalancingEngine {
   private readonly URGENT_DRIFT_THRESHOLD = 10;
   private readonly CONCENTRATION_THRESHOLD = 30;
 
-  analyzeAndRebalance(input: RebalanceInput): RebalanceAnalysis {
+  async analyzeAndRebalance(input: RebalanceInput): Promise<RebalanceAnalysis> {
     const driftThreshold = input.driftThreshold ?? this.DEFAULT_DRIFT_THRESHOLD;
 
     let targetAllocations = input.targetAllocations;
     if (!targetAllocations) {
-      const optimizationResult = assetAllocationOptimizer.optimize({
-        riskScore: input.riskScore,
-        segment: input.segment as 'retail' | 'hni' | 'shni' | 'bhni' | 'corporate',
-        investableAmount: input.totalPortfolioValue + (input.cashInflow ?? 0) - (input.cashOutflow ?? 0),
-        investmentHorizon: input.investmentHorizon,
-        goalType: input.goalType as 'growth' | 'income' | 'preservation' | 'balanced' | undefined
-      });
-      targetAllocations = {};
-      for (const alloc of optimizationResult.allocations) {
-        targetAllocations[alloc.assetType] = alloc.allocation;
+      // Python MVO primary path (scipy SLSQP — superior to TS gradient descent)
+      let pyAllocations: Record<string, number> | null = null;
+      try {
+        const pyResult = await callPython<any>('/api/quant/asset-allocation', 'POST', {
+          riskScore: input.riskScore ?? 50,
+          segment: input.segment ?? 'retail',
+          investableAmount: input.totalPortfolioValue + (input.cashInflow ?? 0) - (input.cashOutflow ?? 0),
+          investmentHorizon: input.investmentHorizon ?? 5,
+          goalType: input.goalType ?? 'balanced',
+          liquidityNeeds: 'medium',
+          taxBracket: 'medium',
+        });
+        if (pyResult?.allocations?.length > 0) {
+          pyAllocations = {};
+          for (const alloc of pyResult.allocations) {
+            pyAllocations[alloc.assetType] = alloc.allocation;
+          }
+        }
+      } catch {
+        // sidecar unavailable — fall through to TS optimizer
+      }
+
+      if (pyAllocations) {
+        targetAllocations = pyAllocations;
+      } else {
+        const optimizationResult = assetAllocationOptimizer.optimize({
+          riskScore: input.riskScore,
+          segment: input.segment as 'retail' | 'hni' | 'shni' | 'bhni' | 'corporate',
+          investableAmount: input.totalPortfolioValue + (input.cashInflow ?? 0) - (input.cashOutflow ?? 0),
+          investmentHorizon: input.investmentHorizon,
+          goalType: input.goalType as 'growth' | 'income' | 'preservation' | 'balanced' | undefined
+        });
+        targetAllocations = {};
+        for (const alloc of optimizationResult.allocations) {
+          targetAllocations[alloc.assetType] = alloc.allocation;
+        }
       }
     }
 
