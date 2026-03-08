@@ -28,6 +28,12 @@ process.on('uncaughtException', (error: Error) => {
     }
     return;
   }
+  // EADDRINUSE means the previous process is still holding the port — exit immediately
+  // so the supervisor (Replit) can retry a clean start once the port is released.
+  if ((error as any).code === 'EADDRINUSE') {
+    console.error(`[Global] FATAL: ${error.message} — exiting so supervisor can retry`);
+    process.exit(1);
+  }
   // For other uncaught exceptions, log but don't crash
   console.error('[Global] Uncaught exception:', error);
   // Don't exit the process - let it continue serving requests

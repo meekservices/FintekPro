@@ -1,49 +1,55 @@
-import { Server } from "http";
+import { Server, Socket } from "http";
 import { closePool } from "./db";
 
 let isShuttingDown = false;
 
 export function setupGracefulShutdown(server: Server, beforeShutdown?: () => void): void {
+  const openSockets = new Set<Socket>();
+
+  server.on("connection", (socket: Socket) => {
+    openSockets.add(socket);
+    socket.once("close", () => openSockets.delete(socket));
+  });
+
   const handleShutdown = async (signal: string) => {
-    if (isShuttingDown) {
-      console.log(`[Graceful Shutdown] Shutdown already in progress, ignoring ${signal} signal`);
-      return;
-    }
-
+    if (isShuttingDown) return;
     isShuttingDown = true;
-    console.log(`[Graceful Shutdown] Received ${signal} signal`);
-    console.log("[Graceful Shutdown] Graceful shutdown initiated...");
 
-    // Kill child processes (Python sidecar etc.) before closing the HTTP server
+    console.log(`[Graceful Shutdown] Received ${signal} — killing children and exiting immediately`);
+
+    // 1. Kill Python sidecar (and port 8001) before anything else
     if (beforeShutdown) {
       try { beforeShutdown(); } catch (_) { /* best-effort */ }
     }
 
-    const shutdownTimeout = setTimeout(() => {
-      console.error("[Graceful Shutdown] Forced shutdown: 30-second timeout reached");
-      process.exit(1);
-    }, 30000);
-
-    try {
-      server.close(async () => {
-        try {
-          await closePool();
-          clearTimeout(shutdownTimeout);
-          console.log("[Graceful Shutdown] Shutdown complete");
-          process.exit(0);
-        } catch (dbError) {
-          console.error("[Graceful Shutdown] Error during database shutdown:", dbError);
-          clearTimeout(shutdownTimeout);
-          process.exit(1);
-        }
-      });
-    } catch (error) {
-      console.error("[Graceful Shutdown] Error during graceful shutdown:", error);
-      clearTimeout(shutdownTimeout);
-      process.exit(1);
+    // 2. Destroy all open HTTP sockets so port 5000 is released immediately
+    for (const socket of openSockets) {
+      try { socket.destroy(); } catch (_) { /* best-effort */ }
     }
+    openSockets.clear();
+
+    // 3. Close HTTP server (should return instantly since all sockets are destroyed)
+    try { server.close(); } catch (_) { /* best-effort */ }
+
+    // 4. Close DB pool
+    try { await closePool(); } catch (_) { /* best-effort */ }
+
+    console.log("[Graceful Shutdown] Shutdown complete");
+    process.exit(0);
   };
 
-  process.on("SIGTERM", () => handleShutdown("SIGTERM"));
-  process.on("SIGINT", () => handleShutdown("SIGINT"));
+  // Safety net: if shutdown takes > 8s, hard-exit
+  const hardExit = () => {
+    console.error("[Graceful Shutdown] Hard exit after 8s timeout");
+    process.exit(1);
+  };
+
+  process.on("SIGTERM", () => {
+    setTimeout(hardExit, 8000).unref();
+    handleShutdown("SIGTERM");
+  });
+  process.on("SIGINT", () => {
+    setTimeout(hardExit, 8000).unref();
+    handleShutdown("SIGINT");
+  });
 }
