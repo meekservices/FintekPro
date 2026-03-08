@@ -555,12 +555,11 @@ let _pythonSidecarProc: ReturnType<typeof spawn> | null = null;
 
 export function killPythonSidecar() {
   if (_pythonSidecarProc && !_pythonSidecarProc.killed) {
-    try { _pythonSidecarProc.kill('SIGTERM'); } catch (_) { /* best-effort */ }
+    try { _pythonSidecarProc.kill('SIGKILL'); } catch (_) { /* best-effort */ }
   }
-  // Belt-and-suspenders: also pkill any surviving uvicorn on 8001
   try {
     const { execSync } = require('child_process');
-    execSync('pkill -f "uvicorn.*8001" 2>/dev/null || true', { stdio: 'ignore' });
+    execSync('fuser -k 8001/tcp 2>/dev/null || true', { stdio: 'ignore' });
   } catch (_) { /* best-effort */ }
 }
 
@@ -576,14 +575,30 @@ function startPythonSidecar() {
   process.env.PYTHON_SERVICE_URL = 'http://localhost:8001';
   console.log('🐍 [Python] Starting local sidecar on port 8001...');
 
+  // Guard: only one launch may be in flight at a time.
+  // Without this, queued setTimeout(launch, 5000) calls from a previous crash loop
+  // fire in rapid succession and each one kills the previous spawn.
+  let _launchInFlight = false;
+  let _retryTimer: NodeJS.Timeout | null = null;
+
+  const scheduleLaunch = (delayMs: number) => {
+    if (_retryTimer) clearTimeout(_retryTimer); // cancel any pending retry
+    _retryTimer = setTimeout(launch, delayMs);
+  };
+
   const launch = () => {
-    // Kill any orphaned uvicorn process holding port 8001 before starting fresh.
-    // Uses pkill (available in Replit's NixOS) — fuser is NOT installed here.
+    if (_launchInFlight) return;
+    _launchInFlight = true;
+    if (_retryTimer) { clearTimeout(_retryTimer); _retryTimer = null; }
+
+    // Force-kill any uvicorn process before starting fresh.
+    // spawnSync with direct args — no shell wrapper, so no self-match risk.
+    // pkill naturally excludes its own PID from results.
     try {
-      const { execSync } = require('child_process');
-      execSync('pkill -f "uvicorn.*8001" 2>/dev/null || true', { stdio: 'ignore' });
-      // Brief pause to ensure the killed process has released the port
-      execSync('sleep 0.5', { stdio: 'ignore' });
+      const { spawnSync, execSync } = require('child_process');
+      spawnSync('pkill', ['-9', '-f', 'uvicorn main:app --host 0.0.0.0 --port 8001'], { stdio: 'ignore' });
+      spawnSync('fuser', ['-k', '8001/tcp'], { stdio: 'ignore' });
+      execSync('sleep 2', { stdio: 'ignore' });
     } catch (_) { /* best-effort */ }
 
     const proc = spawn(python3, ['-m', 'uvicorn', 'main:app', '--host', '0.0.0.0', '--port', '8001', '--log-level', 'warning'], {
@@ -613,15 +628,18 @@ function startPythonSidecar() {
     });
 
     proc.on('close', (code: number | null) => {
+      _launchInFlight = false;
       if (_pythonSidecarProc === proc) _pythonSidecarProc = null;
       if (code !== 0 && code !== null) {
         console.warn(`⚠️  [Python] Sidecar exited (code ${code}) — restarting in 5s...`);
-        setTimeout(launch, 5000);
+        scheduleLaunch(5000);
       }
     });
 
     proc.on('error', (err: Error) => {
+      _launchInFlight = false;
       console.error(`❌ [Python] Failed to start sidecar: ${err.message}`);
+      scheduleLaunch(5000);
     });
   };
 
