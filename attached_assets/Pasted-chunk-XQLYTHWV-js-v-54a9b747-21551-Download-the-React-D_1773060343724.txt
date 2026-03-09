@@ -1,0 +1,140 @@
+chunk-XQLYTHWV.js?v=54a9b747:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:42 [PWA] Service Worker registered: https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/
+/api/health:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+version:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+field-agent-portal.tsx:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+client:536 WebSocket connection to 'wss://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/?token=dq0aW4vtjgx9' failed: 
+setupWebSocket @ client:536
+(anonymous) @ client:531
+main.tsx:17 Unhandled promise rejection: SyntaxError: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=dq0aW4vtjgx9' is invalid.
+    at setupWebSocket (client:536:19)
+    at fallback (client:509:16)
+    at WebSocket.<anonymous> (client:555:7)
+(anonymous) @ main.tsx:17
+csrf-token:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+fintekpro_main_1772539048013.png:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+unified-cart:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+csrf-token:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+csrf-token:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+preferences:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+csrf-token:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+csrf-token:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+use-network-state.tsx:110  HEAD https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/health net::ERR_ABORTED 503 (Service Unavailable)
+(anonymous) @ use-network-state.tsx:110
+(anonymous) @ use-network-state.tsx:134
+icon-192.png:1  GET https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/icon-192.png 503 (Service Unavailable)
+?agent=true:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+icon-192.png:1  GET https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/icon-192.png 503 (Service Unavailable)
+queryClient.ts:268  GET https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/unified-cart 503 (Service Unavailable)
+(anonymous) @ queryClient.ts:268
+fetchFn @ @tanstack_react-query.js?v=54a9b747:840
+run @ @tanstack_react-query.js?v=54a9b747:494
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:515
+?agent=true:1 Error while trying to use the following icon from the Manifest: https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/icon-192.png (Download error or resource isn't a valid image)
+use-network-state.tsx:110  HEAD https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/health 503 (Service Unavailable)
+(anonymous) @ use-network-state.tsx:110
+(anonymous) @ use-network-state.tsx:134
+setTimeout
+(anonymous) @ use-network-state.tsx:133
+await in (anonymous)
+(anonymous) @ use-network-state.tsx:134
+queryClient.ts:268  GET https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/unified-cart 503 (Service Unavailable)
+(anonymous) @ queryClient.ts:268
+fetchFn @ @tanstack_react-query.js?v=54a9b747:840
+run @ @tanstack_react-query.js?v=54a9b747:494
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:515
+Promise.catch
+run @ @tanstack_react-query.js?v=54a9b747:498
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:515
+use-network-state.tsx:110  HEAD https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/health net::ERR_ABORTED 503 (Service Unavailable)
+(anonymous) @ use-network-state.tsx:110
+(anonymous) @ use-network-state.tsx:134
+setTimeout
+(anonymous) @ use-network-state.tsx:133
+await in (anonymous)
+(anonymous) @ use-network-state.tsx:134
+setTimeout
+(anonymous) @ use-network-state.tsx:133
+await in (anonymous)
+(anonymous) @ use-network-state.tsx:134
+use-network-state.tsx:110  HEAD https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/health net::ERR_ABORTED 503 (Service Unavailable)
+(anonymous) @ use-network-state.tsx:110
+(anonymous) @ use-network-state.tsx:251
+queryClient.ts:268  GET https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/agent/notifications 503 (Service Unavailable)
+(anonymous) @ queryClient.ts:268
+fetchFn @ @tanstack_react-query.js?v=54a9b747:840
+run @ @tanstack_react-query.js?v=54a9b747:494
+start @ @tanstack_react-query.js?v=54a9b747:536
+fetch @ @tanstack_react-query.js?v=54a9b747:926
+executeFetch_fn @ @tanstack_react-query.js?v=54a9b747:2211
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:2245
+use-network-state.tsx:110  HEAD https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/health net::ERR_ABORTED 503 (Service Unavailable)
+(anonymous) @ use-network-state.tsx:110
+(anonymous) @ use-network-state.tsx:134
+setTimeout
+(anonymous) @ use-network-state.tsx:133
+await in (anonymous)
+(anonymous) @ use-network-state.tsx:251
+queryClient.ts:268  GET https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/agent/notifications 503 (Service Unavailable)
+(anonymous) @ queryClient.ts:268
+fetchFn @ @tanstack_react-query.js?v=54a9b747:840
+run @ @tanstack_react-query.js?v=54a9b747:494
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:515
+Promise.catch
+run @ @tanstack_react-query.js?v=54a9b747:498
+start @ @tanstack_react-query.js?v=54a9b747:536
+fetch @ @tanstack_react-query.js?v=54a9b747:926
+executeFetch_fn @ @tanstack_react-query.js?v=54a9b747:2211
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:2245
+use-network-state.tsx:110  HEAD https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/health 503 (Service Unavailable)
+(anonymous) @ use-network-state.tsx:110
+(anonymous) @ use-network-state.tsx:134
+setTimeout
+(anonymous) @ use-network-state.tsx:133
+await in (anonymous)
+(anonymous) @ use-network-state.tsx:134
+setTimeout
+(anonymous) @ use-network-state.tsx:133
+await in (anonymous)
+(anonymous) @ use-network-state.tsx:251
+use-network-state.tsx:110  HEAD https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/health 503 (Service Unavailable)
+(anonymous) @ use-network-state.tsx:110
+(anonymous) @ use-network-state.tsx:134
+setTimeout
+(anonymous) @ use-network-state.tsx:133
+await in (anonymous)
+(anonymous) @ use-network-state.tsx:134
+setTimeout
+(anonymous) @ use-network-state.tsx:133
+await in (anonymous)
+(anonymous) @ use-network-state.tsx:134
+setTimeout
+(anonymous) @ use-network-state.tsx:133
+await in (anonymous)
+(anonymous) @ use-network-state.tsx:251
+queryClient.ts:268  GET https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/agent/notifications 503 (Service Unavailable)
+(anonymous) @ queryClient.ts:268
+fetchFn @ @tanstack_react-query.js?v=54a9b747:840
+run @ @tanstack_react-query.js?v=54a9b747:494
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:515
+Promise.catch
+run @ @tanstack_react-query.js?v=54a9b747:498
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:515
+Promise.catch
+run @ @tanstack_react-query.js?v=54a9b747:498
+start @ @tanstack_react-query.js?v=54a9b747:536
+fetch @ @tanstack_react-query.js?v=54a9b747:926
+executeFetch_fn @ @tanstack_react-query.js?v=54a9b747:2211
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:2245
