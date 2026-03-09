@@ -15,7 +15,8 @@ export function valuationSummary(
   pe: number | null,
   roe: number | null,
   debtToEquity: number | null,
-  revenueGrowth: number | null
+  revenueGrowth: number | null,
+  pbRatio: number | null = null
 ): string {
   const checks: string[] = [];
 
@@ -29,6 +30,13 @@ export function valuationSummary(
     if (roe > 0.2) checks.push("High ROE (>20%)");
     else if (roe > 0.1) checks.push("Moderate ROE");
     else checks.push("Low ROE (<10%)");
+  }
+
+  if (pbRatio !== null) {
+    if (pbRatio < 1) checks.push("Trading Below Book (deep value)");
+    else if (pbRatio < 3) checks.push("Reasonable P/B");
+    else if (pbRatio < 6) checks.push("Premium P/B");
+    else checks.push("High P/B (growth premium)");
   }
 
   if (debtToEquity !== null) {

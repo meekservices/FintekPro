@@ -3,12 +3,18 @@ export function calculateCAGR(start: number, end: number, years: number): number
   return (Math.pow(end / start, 1 / years) - 1) * 100;
 }
 
-export function formatMarketCap(cap: number | null): string {
+export function formatMarketCap(cap: number | null, currency = "INR"): string {
   if (!cap) return "N/A";
-  if (cap >= 1e12) return `₹${(cap / 1e12).toFixed(2)}T`;
-  if (cap >= 1e9) return `₹${(cap / 1e9).toFixed(2)}B`;
-  if (cap >= 1e7) return `₹${(cap / 1e7).toFixed(2)} Cr`;
-  return `₹${cap.toFixed(0)}`;
+  if (currency === "INR") {
+    if (cap >= 1e12) return `₹${(cap / 1e12).toFixed(2)} L Cr`;
+    if (cap >= 1e9) return `₹${(cap / 1e9).toFixed(2)} K Cr`;
+    if (cap >= 1e7) return `₹${(cap / 1e7).toFixed(2)} Cr`;
+    return `₹${cap.toFixed(0)}`;
+  }
+  if (cap >= 1e12) return `$${(cap / 1e12).toFixed(2)}T`;
+  if (cap >= 1e9) return `$${(cap / 1e9).toFixed(2)}B`;
+  if (cap >= 1e6) return `$${(cap / 1e6).toFixed(2)}M`;
+  return `$${cap.toFixed(0)}`;
 }
 
 export function formatPercent(val: number | null): string {

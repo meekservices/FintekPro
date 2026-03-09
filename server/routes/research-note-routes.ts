@@ -89,7 +89,8 @@ async function buildReportData(symbol: string): Promise<ReportData> {
     financials.pe,
     financials.roe,
     financials.debtToEquity,
-    financials.revenueGrowth
+    financials.revenueGrowth,
+    (financials as any).pbRatio ?? null
   );
 
   return {

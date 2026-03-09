@@ -76,17 +76,18 @@ export async function generatePPT(data: ReportData): Promise<Buffer> {
   });
   slide2.addShape(ppt.ShapeType.line, { x: 0.5, y: 0.75, w: 12, h: 0, line: { color: BRAND_COLOR, width: 2 } });
 
+  const f = data.financials as any;
   const metrics = [
     ["Current Price", formatPrice(data.financials.price, data.financials.currency)],
-    ["Market Cap", formatMarketCap(data.financials.marketCap)],
+    ["Market Cap", formatMarketCap(data.financials.marketCap, data.financials.currency)],
     ["P/E Ratio", formatNumber(data.financials.pe)],
     ["EPS", formatPrice(data.financials.eps, data.financials.currency)],
     ["ROE", formatPercent(data.financials.roe)],
-    ["Debt/Equity", formatNumber(data.financials.debtToEquity)],
-    ["Revenue Growth", formatPercent(data.financials.revenueGrowth)],
-    ["Earnings Growth", formatPercent(data.financials.earningsGrowth)],
+    ["P/B Ratio", f.pbRatio !== null && f.pbRatio !== undefined ? `${f.pbRatio.toFixed(2)}x` : "N/A"],
+    ["Book Value", formatPrice(f.bookValue, data.financials.currency)],
+    ["Face Value", formatPrice(f.faceValue, data.financials.currency)],
+    ["VWAP", formatPrice(f.vwap, data.financials.currency)],
     ["Dividend Yield", formatPercent(data.financials.dividendYield)],
-    ["Beta", formatNumber(data.financials.beta)],
     ["52W High", formatPrice(data.financials.fiftyTwoWeekHigh, data.financials.currency)],
     ["52W Low", formatPrice(data.financials.fiftyTwoWeekLow, data.financials.currency)],
   ];
@@ -206,19 +207,20 @@ export async function generatePDF(data: ReportData): Promise<Buffer> {
     doc.fillColor("#1a56db").fontSize(15).font("Helvetica-Bold").text("Financial Highlights", 50, 215);
     doc.fillColor("#111827").font("Helvetica").fontSize(10);
 
+    const fp = data.financials as any;
     const left = [
       ["Current Price", formatPrice(data.financials.price, data.financials.currency)],
-      ["Market Cap", formatMarketCap(data.financials.marketCap)],
+      ["Market Cap", formatMarketCap(data.financials.marketCap, data.financials.currency)],
       ["P/E Ratio", formatNumber(data.financials.pe)],
       ["EPS", formatPrice(data.financials.eps, data.financials.currency)],
       ["ROE", formatPercent(data.financials.roe)],
-      ["Debt/Equity", formatNumber(data.financials.debtToEquity)],
+      ["P/B Ratio", fp.pbRatio !== null && fp.pbRatio !== undefined ? `${fp.pbRatio.toFixed(2)}x` : "N/A"],
     ];
     const right = [
-      ["Revenue Growth", formatPercent(data.financials.revenueGrowth)],
-      ["Earnings Growth", formatPercent(data.financials.earningsGrowth)],
+      ["Book Value", formatPrice(fp.bookValue, data.financials.currency)],
+      ["Face Value", formatPrice(fp.faceValue, data.financials.currency)],
+      ["VWAP", formatPrice(fp.vwap, data.financials.currency)],
       ["Dividend Yield", formatPercent(data.financials.dividendYield)],
-      ["Beta", formatNumber(data.financials.beta)],
       ["52W High", formatPrice(data.financials.fiftyTwoWeekHigh, data.financials.currency)],
       ["52W Low", formatPrice(data.financials.fiftyTwoWeekLow, data.financials.currency)],
     ];
@@ -323,13 +325,14 @@ export async function generateOnePager(data: ReportData): Promise<Buffer> {
     doc.moveTo(40, 165).lineTo(doc.page.width - 40, 165).stroke("#1a56db");
 
     doc.fillColor("#1a56db").fontSize(13).font("Helvetica-Bold").text("Key Metrics", 40, 175);
+    const fop = data.financials as any;
     const keyMetrics = [
       `Price: ${formatPrice(data.financials.price, data.financials.currency)}`,
-      `Market Cap: ${formatMarketCap(data.financials.marketCap)}`,
+      `Market Cap: ${formatMarketCap(data.financials.marketCap, data.financials.currency)}`,
       `P/E: ${formatNumber(data.financials.pe)}`,
+      `EPS: ${formatPrice(data.financials.eps, data.financials.currency)}`,
       `ROE: ${formatPercent(data.financials.roe)}`,
-      `Revenue Growth: ${formatPercent(data.financials.revenueGrowth)}`,
-      `Debt/Equity: ${formatNumber(data.financials.debtToEquity)}`,
+      `P/B: ${fop.pbRatio !== null && fop.pbRatio !== undefined ? `${fop.pbRatio.toFixed(2)}x` : "N/A"}`,
     ];
     doc.fillColor("#111827").fontSize(10).font("Helvetica");
     keyMetrics.forEach((m, i) => {

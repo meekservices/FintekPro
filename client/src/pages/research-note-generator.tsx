@@ -34,6 +34,10 @@ interface FinancialData {
   pe: number | null;
   eps: number | null;
   roe: number | null;
+  pbRatio: number | null;
+  bookValue: number | null;
+  faceValue: number | null;
+  vwap: number | null;
   debtToEquity: number | null;
   revenueGrowth: number | null;
   earningsGrowth: number | null;
@@ -97,12 +101,18 @@ function fmtPct(val: number | null): string {
   return `${(val * 100).toFixed(2)}%`;
 }
 
-function fmtCap(val: number | null): string {
+function fmtCap(val: number | null, currency = "INR"): string {
   if (!val) return "N/A";
-  if (val >= 1e12) return `₹${(val / 1e12).toFixed(2)}T`;
-  if (val >= 1e9) return `₹${(val / 1e9).toFixed(2)}B`;
-  if (val >= 1e7) return `₹${(val / 1e7).toFixed(2)} Cr`;
-  return `₹${val.toFixed(0)}`;
+  if (currency === "INR") {
+    if (val >= 1e12) return `₹${(val / 1e12).toFixed(2)} L Cr`;
+    if (val >= 1e9) return `₹${(val / 1e9).toFixed(2)} K Cr`;
+    if (val >= 1e7) return `₹${(val / 1e7).toFixed(2)} Cr`;
+    return `₹${val.toFixed(0)}`;
+  }
+  if (val >= 1e12) return `$${(val / 1e12).toFixed(2)}T`;
+  if (val >= 1e9) return `$${(val / 1e9).toFixed(2)}B`;
+  if (val >= 1e6) return `$${(val / 1e6).toFixed(2)}M`;
+  return `$${val.toFixed(0)}`;
 }
 
 function RatingBadge({ rating }: { rating: string }) {
@@ -428,14 +438,16 @@ export default function ResearchNoteGenerator() {
                 <CardContent>
                   <div className="grid grid-cols-2 gap-2">
                     <MetricCard label="Current Price" value={fmt(f.price, f.currency === "INR" ? "₹" : "$")} highlight />
-                    <MetricCard label="Market Cap" value={fmtCap(f.marketCap)} />
+                    <MetricCard label="Market Cap" value={fmtCap(f.marketCap, f.currency)} />
                     <MetricCard label="P/E Ratio" value={fmt(f.pe)} />
                     <MetricCard label="EPS" value={fmt(f.eps, f.currency === "INR" ? "₹" : "$")} />
                     <MetricCard label="ROE" value={fmtPct(f.roe)} />
-                    <MetricCard label="Debt / Equity" value={fmt(f.debtToEquity)} />
-                    <MetricCard label="Revenue Growth" value={fmtPct(f.revenueGrowth)} />
-                    <MetricCard label="Earnings Growth" value={fmtPct(f.earningsGrowth)} />
+                    <MetricCard label="P/B Ratio" value={f.pbRatio !== null ? fmt(f.pbRatio, "", "x") : "N/A"} />
+                    <MetricCard label="Book Value" value={fmt(f.bookValue, f.currency === "INR" ? "₹" : "$")} />
+                    <MetricCard label="Face Value" value={fmt(f.faceValue, f.currency === "INR" ? "₹" : "$")} />
+                    <MetricCard label="VWAP" value={fmt(f.vwap, f.currency === "INR" ? "₹" : "$")} />
                     <MetricCard label="Dividend Yield" value={fmtPct(f.dividendYield)} />
+                    <MetricCard label="Debt / Equity" value={fmt(f.debtToEquity)} />
                     <MetricCard label="Beta" value={fmt(f.beta)} />
                   </div>
                 </CardContent>

@@ -1,18 +1,24 @@
 /**
  * Financial data service for Research Note Generator.
- * Primary source: NSE India public API (no API key, no rate limits).
- * Fallback: Yahoo Finance quote() for non-NSE symbols.
+ *
+ * Data sources (in priority order):
+ *  1. NSE India public API — price, PE, 52-week range, market cap via issuedSize
+ *  2. FintekPro DB (screener_financials) — EPS, book value → derive ROE, P/B
+ *  3. Yahoo Finance quote() — fallback for non-NSE or unknown symbols
  */
 
 import yahooFinance from "yahoo-finance2";
+import { db } from "../../db";
+import { sql } from "drizzle-orm";
 
 export interface FinancialData {
   price: number | null;
   previousClose: number | null;
-  marketCap: number | null;
+  marketCap: number | null;         // ₹ crores
   pe: number | null;
   eps: number | null;
-  roe: number | null;
+  roe: number | null;               // % — derived from EPS / BookValue
+  pbRatio: number | null;           // Price / Book Value
   debtToEquity: number | null;
   revenueGrowth: number | null;
   earningsGrowth: number | null;
@@ -22,14 +28,15 @@ export interface FinancialData {
   beta: number | null;
   targetMeanPrice: number | null;
   currency: string;
+  bookValue: number | null;         // per share ₹
+  faceValue: number | null;
+  vwap: number | null;
 }
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const cache = new Map<string, { data: FinancialData; expiresAt: number }>();
 
-const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
-// ─── NSE India provider ───────────────────────────────────────────────────────
+// ─── NSE India ────────────────────────────────────────────────────────────────
 
 const NSE_HEADERS = {
   "User-Agent":
@@ -50,12 +57,12 @@ async function refreshNseCookies(): Promise<void> {
       nseCookies = setCookie.split(",").map((c) => c.split(";")[0]).join("; ");
       nseCookieExpiry = Date.now() + 5 * 60 * 1000;
     }
-  } catch (err: any) {
-    console.warn("[ResearchNote] NSE cookie refresh failed:", err?.message);
+  } catch (e: any) {
+    console.warn("[ResearchNote] NSE cookie refresh failed:", e?.message);
   }
 }
 
-async function fetchFromNSE(nseSymbol: string): Promise<FinancialData> {
+async function fetchFromNSE(nseSymbol: string): Promise<Partial<FinancialData>> {
   await refreshNseCookies();
 
   const url = `https://www.nseindia.com/api/quote-equity?symbol=${encodeURIComponent(nseSymbol.toUpperCase())}`;
@@ -68,70 +75,141 @@ async function fetchFromNSE(nseSymbol: string): Promise<FinancialData> {
     signal: AbortSignal.timeout(12_000),
   });
 
-  if (!res.ok) {
-    throw new Error(`NSE API returned ${res.status} for ${nseSymbol}`);
-  }
+  if (!res.ok) throw new Error(`NSE API ${res.status} for ${nseSymbol}`);
 
   const d = await res.json() as any;
   const pi = d.priceInfo ?? {};
   const meta = d.metadata ?? {};
+  const sec = d.securityInfo ?? {};
   const whl = pi.weekHighLow ?? {};
 
-  const price = pi.lastPrice ?? null;
-  const pe = meta.pdSymbolPe ?? null;
-
-  // Estimate EPS from price and PE
-  const eps = price !== null && pe !== null && pe > 0 ? price / pe : null;
+  const price: number | null = pi.lastPrice ?? null;
+  const issuedSize: number | null = sec.issuedSize ?? null;
+  const marketCap =
+    price !== null && issuedSize !== null
+      ? price * issuedSize   // absolute ₹ (e.g. RELIANCE ≈ 1.92e13)
+      : null;
 
   return {
     price,
     previousClose: pi.previousClose ?? null,
-    marketCap: null, // Not directly available from this endpoint
-    pe,
-    eps,
-    roe: null,
-    debtToEquity: null,
-    revenueGrowth: null,
-    earningsGrowth: null,
-    fiftyTwoWeekHigh: whl.max ?? null,
-    fiftyTwoWeekLow: whl.min ?? null,
-    dividendYield: null,
-    beta: null,
-    targetMeanPrice: null,
+    marketCap,
+    pe: meta.pdSymbolPe ?? null,
+    fiftyTwoWeekHigh: typeof whl.max === "number" ? whl.max : null,
+    fiftyTwoWeekLow: typeof whl.min === "number" ? whl.min : null,
+    faceValue: sec.faceValue ?? null,
+    vwap: pi.vwap ?? null,
     currency: "INR",
   };
 }
 
-// ─── Yahoo Finance fallback (quote only — different endpoint, lighter) ────────
+// ─── FintekPro DB enrichment ──────────────────────────────────────────────────
 
-async function fetchFromYahoo(symbol: string): Promise<FinancialData> {
+async function fetchFromDB(nseSymbol: string): Promise<{
+  eps: number | null;
+  bookValue: number | null;
+  dividendYield: number | null;
+}> {
+  try {
+    const rows = await db.execute(sql`
+      SELECT eps, book_value, dividend_yield
+      FROM screener_financials
+      WHERE symbol = ${nseSymbol.toUpperCase()}
+      ORDER BY fiscal_year DESC
+      LIMIT 1
+    `);
+    const r = ((rows as any).rows ?? rows)[0] as any;
+    if (!r) return { eps: null, bookValue: null, dividendYield: null };
+    return {
+      eps: r.eps !== null ? parseFloat(r.eps) : null,
+      bookValue: r.book_value !== null ? parseFloat(r.book_value) : null,
+      dividendYield: r.dividend_yield !== null ? parseFloat(r.dividend_yield) : null,
+    };
+  } catch (e: any) {
+    console.warn("[ResearchNote] DB enrichment failed:", e?.message);
+    return { eps: null, bookValue: null, dividendYield: null };
+  }
+}
+
+// ─── Yahoo Finance fallback ───────────────────────────────────────────────────
+
+async function fetchFromYahoo(symbol: string): Promise<Partial<FinancialData>> {
   const q = (await yahooFinance.quote(symbol, {}, { validateResult: false })) as any;
-  if (!q || !q.regularMarketPrice) throw new Error(`No price data from Yahoo for ${symbol}`);
+  if (!q?.regularMarketPrice) throw new Error(`No price from Yahoo for ${symbol}`);
   return {
     price: q.regularMarketPrice ?? null,
     previousClose: q.regularMarketPreviousClose ?? null,
     marketCap: q.marketCap ?? null,
     pe: q.trailingPE ?? null,
     eps: q.epsTrailingTwelveMonths ?? null,
-    roe: null,
-    debtToEquity: null,
-    revenueGrowth: null,
-    earningsGrowth: null,
     fiftyTwoWeekHigh: q.fiftyTwoWeekHigh ?? null,
     fiftyTwoWeekLow: q.fiftyTwoWeekLow ?? null,
     dividendYield: q.trailingAnnualDividendYield ?? null,
     beta: q.beta ?? null,
-    targetMeanPrice: null,
     currency: q.currency ?? "INR",
   };
 }
 
-// ─── Public API ───────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Strip exchange suffix to get bare NSE symbol (e.g. "RELIANCE.NS" → "RELIANCE") */
 function toNseSymbol(symbol: string): string {
   return symbol.replace(/\.(NS|BO|NSE|BSE)$/i, "").toUpperCase();
 }
+
+function isRateLimit(err: any): boolean {
+  const m: string = err?.message ?? "";
+  return m.includes("Too Many Requests") || m.includes("429");
+}
+
+function buildFull(
+  base: Partial<FinancialData>,
+  db: { eps: number | null; bookValue: number | null; dividendYield: number | null }
+): FinancialData {
+  // Prefer DB EPS (annual reported) over derived value
+  const eps = db.eps ?? base.eps ?? null;
+  const bookValue = db.bookValue ?? base.bookValue ?? null;
+  const price = base.price ?? null;
+  const pe = base.pe ?? null;
+
+  // ROE ≈ EPS / BookValue — send as decimal fraction (frontend multiplies ×100)
+  const roe =
+    eps !== null && bookValue !== null && bookValue > 0
+      ? Math.round((eps / bookValue) * 10000) / 10000   // e.g. 0.1250 for 12.5%
+      : null;
+
+  // P/B = Price / BookValue
+  const pbRatio =
+    price !== null && bookValue !== null && bookValue > 0
+      ? Math.round((price / bookValue) * 100) / 100
+      : null;
+
+  // Dividend yield: prefer DB value, fallback NSE/Yahoo
+  const dividendYield = db.dividendYield ?? base.dividendYield ?? null;
+
+  return {
+    price,
+    previousClose: base.previousClose ?? null,
+    marketCap: base.marketCap ?? null,
+    pe,
+    eps,
+    roe,
+    pbRatio,
+    debtToEquity: null,
+    revenueGrowth: null,
+    earningsGrowth: null,
+    fiftyTwoWeekHigh: base.fiftyTwoWeekHigh ?? null,
+    fiftyTwoWeekLow: base.fiftyTwoWeekLow ?? null,
+    dividendYield,
+    beta: base.beta ?? null,
+    targetMeanPrice: null,
+    currency: base.currency ?? "INR",
+    bookValue,
+    faceValue: base.faceValue ?? null,
+    vwap: base.vwap ?? null,
+  };
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
 
 export async function getFinancialData(symbol: string): Promise<FinancialData> {
   const cached = cache.get(symbol);
@@ -142,41 +220,44 @@ export async function getFinancialData(symbol: string): Promise<FinancialData> {
 
   const nseSymbol = toNseSymbol(symbol);
 
-  // 1. Try NSE India (primary — no rate limits)
-  try {
-    console.log(`[ResearchNote] Fetching ${nseSymbol} from NSE India...`);
-    const data = await fetchFromNSE(nseSymbol);
-    if (data.price !== null) {
-      cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
-      console.log(`[ResearchNote] NSE data cached for ${symbol} (price: ${data.price}, pe: ${data.pe})`);
-      return data;
-    }
-    throw new Error("NSE returned null price");
-  } catch (nseErr: any) {
-    console.warn(`[ResearchNote] NSE India failed for ${nseSymbol}: ${nseErr?.message}`);
+  // Always enrich from DB (fast, parallel with NSE)
+  const [nseResult, dbResult] = await Promise.allSettled([
+    fetchFromNSE(nseSymbol),
+    fetchFromDB(nseSymbol),
+  ]);
+
+  const dbData =
+    dbResult.status === "fulfilled"
+      ? dbResult.value
+      : { eps: null, bookValue: null, dividendYield: null };
+
+  if (nseResult.status === "fulfilled" && nseResult.value.price !== null) {
+    const data = buildFull(nseResult.value, dbData);
+    cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+    console.log(
+      `[ResearchNote] Cached ${symbol} — price: ${data.price}, mktCap: ${data.marketCap}cr, ROE: ${data.roe}%, EPS: ${data.eps}`
+    );
+    return data;
   }
 
-  // 2. Fallback: Yahoo Finance quote()
-  const yahooSymbols = [
-    symbol.includes(".") ? symbol : `${symbol}.NS`,
-    symbol.includes(".") ? symbol.replace(/\.(NS|BO)$/, ".BO") : `${symbol}.BO`,
-  ];
+  console.warn(`[ResearchNote] NSE India failed for ${nseSymbol}:`, (nseResult as any).reason?.message);
 
+  // Fallback: Yahoo Finance
+  const yahooSymbols = [`${nseSymbol}.NS`, `${nseSymbol}.BO`];
   for (const ySym of yahooSymbols) {
     try {
-      console.log(`[ResearchNote] Fallback: fetching ${ySym} from Yahoo Finance...`);
-      const data = await fetchFromYahoo(ySym);
+      console.log(`[ResearchNote] Yahoo fallback: ${ySym}`);
+      const yData = await fetchFromYahoo(ySym);
+      const data = buildFull(yData, dbData);
       cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
-      console.log(`[ResearchNote] Yahoo data cached for ${symbol}`);
       return data;
-    } catch (yErr: any) {
-      const msg: string = yErr?.message ?? "";
-      if (msg.includes("Too Many Requests") || msg.includes("429")) {
+    } catch (e: any) {
+      if (isRateLimit(e)) {
         throw new Error(
-          "Financial data is temporarily unavailable. Yahoo Finance is rate-limiting this server. Please try again in 60 seconds."
+          "Financial data is temporarily unavailable. Please wait 60 seconds and try again."
         );
       }
-      console.warn(`[ResearchNote] Yahoo fallback failed for ${ySym}: ${msg}`);
+      console.warn(`[ResearchNote] Yahoo failed for ${ySym}:`, e?.message);
     }
   }
 
