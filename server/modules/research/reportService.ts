@@ -27,7 +27,7 @@ export interface ReportData {
 export async function generatePPT(data: ReportData): Promise<Buffer> {
   const ppt = new PptxGenJS();
   ppt.layout = "LAYOUT_WIDE";
-  ppt.author = "Sangram Kesari Mohanty";
+  ppt.author = "FintekPro Research";
   ppt.company = "FintekPro Research";
   ppt.subject = `${data.companyName} Research Note`;
 
@@ -63,7 +63,7 @@ export async function generatePPT(data: ReportData): Promise<Buffer> {
     fill: { color: "334155" },
     align: "center",
   });
-  slide1.addText(`Prepared by: Sangram Kesari Mohanty, CFP | FintekPro Research | ${data.generatedAt}`, {
+  slide1.addText(`FintekPro Research | ${data.generatedAt}`, {
     x: 0.5, y: 6.8, w: 12, h: 0.3,
     fontSize: 10, color: "94A3B8", italic: true,
   });
@@ -168,10 +168,8 @@ export async function generatePPT(data: ReportData): Promise<Buffer> {
   const slide5 = ppt.addSlide();
   slide5.background = { color: BRAND_COLOR };
   slide5.addText("FintekPro Research", { x: 0.5, y: 2.0, w: 12, h: 0.6, fontSize: 28, bold: true, color: "FFFFFF", align: "center" });
-  slide5.addText("Prepared by", { x: 0.5, y: 2.8, w: 12, h: 0.4, fontSize: 14, color: "CBD5E1", align: "center" });
-  slide5.addText("Sangram Kesari Mohanty", { x: 0.5, y: 3.2, w: 12, h: 0.5, fontSize: 20, bold: true, color: "FFFFFF", align: "center" });
-  slide5.addText("Certified Financial Planner", { x: 0.5, y: 3.7, w: 12, h: 0.4, fontSize: 14, color: "CBD5E1", align: "center" });
-  slide5.addText(data.generatedAt, { x: 0.5, y: 4.3, w: 12, h: 0.3, fontSize: 11, color: "94A3B8", align: "center" });
+  slide5.addText("Institutional Research | Investment Advisory", { x: 0.5, y: 2.8, w: 12, h: 0.4, fontSize: 14, color: "CBD5E1", align: "center" });
+  slide5.addText(data.generatedAt, { x: 0.5, y: 3.4, w: 12, h: 0.3, fontSize: 11, color: "94A3B8", align: "center" });
 
   const buffer: Buffer = await (ppt as any).write({ outputType: "nodebuffer" });
   return buffer;
@@ -291,8 +289,8 @@ export async function generatePDF(data: ReportData): Promise<Buffer> {
 
     const bottomY = doc.page.height - 80;
     doc.rect(0, bottomY - 10, doc.page.width, 90).fill("#F1F5F9");
-    doc.fillColor("#1a56db").fontSize(12).font("Helvetica-Bold").text("Prepared by: Sangram Kesari Mohanty, CFP", 50, bottomY);
-    doc.fillColor("#475569").fontSize(10).font("Helvetica").text("FintekPro Research | Certified Financial Planner", 50, bottomY + 18);
+    doc.fillColor("#1a56db").fontSize(12).font("Helvetica-Bold").text("FintekPro Research", 50, bottomY);
+    doc.fillColor("#475569").fontSize(10).font("Helvetica").text("Institutional Research | Investment Advisory", 50, bottomY + 18);
     doc.fillColor("#94A3B8").fontSize(8).font("Helvetica-Oblique").text(
       "Disclaimer: This report is for informational purposes only and does not constitute investment advice. Please consult your financial advisor.",
       50, bottomY + 38, { width: pageWidth }
@@ -361,7 +359,7 @@ export async function generateOnePager(data: ReportData): Promise<Buffer> {
 
     const bY = doc.page.height - 70;
     doc.rect(0, bY - 10, doc.page.width, 80).fill("#F1F5F9");
-    doc.fillColor("#1a56db").fontSize(11).font("Helvetica-Bold").text("Sangram Kesari Mohanty, CFP | FintekPro Research", 40, bY);
+    doc.fillColor("#1a56db").fontSize(11).font("Helvetica-Bold").text("FintekPro Research", 40, bY);
     doc.fillColor("#94A3B8").fontSize(8).font("Helvetica-Oblique").text(
       "For informational use only. Not investment advice. Consult your financial advisor.", 40, bY + 18, { width: doc.page.width - 80 }
     );
