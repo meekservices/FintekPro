@@ -1,0 +1,59 @@
+chunk-XQLYTHWV.js?v=54a9b747:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:42 [PWA] Service Worker registered: https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/
+queryClient.ts:226  POST https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/research-note/preview 500 (Internal Server Error)
+apiRequest @ queryClient.ts:226
+mutationFn @ research-note-generator.tsx:142
+fn @ @tanstack_react-query.js?v=54a9b747:1189
+run @ @tanstack_react-query.js?v=54a9b747:494
+start @ @tanstack_react-query.js?v=54a9b747:536
+execute @ @tanstack_react-query.js?v=54a9b747:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=54a9b747:2630
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:3295
+handlePreview @ research-note-generator.tsx:185
+callCallback2 @ chunk-XQLYTHWV.js?v=54a9b747:3674
+invokeGuardedCallbackDev @ chunk-XQLYTHWV.js?v=54a9b747:3699
+invokeGuardedCallback @ chunk-XQLYTHWV.js?v=54a9b747:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-XQLYTHWV.js?v=54a9b747:3736
+executeDispatch @ chunk-XQLYTHWV.js?v=54a9b747:7014
+processDispatchQueueItemsInOrder @ chunk-XQLYTHWV.js?v=54a9b747:7034
+processDispatchQueue @ chunk-XQLYTHWV.js?v=54a9b747:7043
+dispatchEventsForPlugins @ chunk-XQLYTHWV.js?v=54a9b747:7051
+(anonymous) @ chunk-XQLYTHWV.js?v=54a9b747:7174
+batchedUpdates$1 @ chunk-XQLYTHWV.js?v=54a9b747:18913
+batchedUpdates @ chunk-XQLYTHWV.js?v=54a9b747:3579
+dispatchEventForPluginEventSystem @ chunk-XQLYTHWV.js?v=54a9b747:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-XQLYTHWV.js?v=54a9b747:5478
+dispatchEvent @ chunk-XQLYTHWV.js?v=54a9b747:5472
+dispatchDiscreteEvent @ chunk-XQLYTHWV.js?v=54a9b747:5449
+queryClient.ts:226  POST https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/api/research-note/preview 500 (Internal Server Error)
+apiRequest @ queryClient.ts:226
+mutationFn @ research-note-generator.tsx:142
+fn @ @tanstack_react-query.js?v=54a9b747:1189
+run @ @tanstack_react-query.js?v=54a9b747:494
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:515
+Promise.catch
+run @ @tanstack_react-query.js?v=54a9b747:498
+start @ @tanstack_react-query.js?v=54a9b747:536
+execute @ @tanstack_react-query.js?v=54a9b747:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=54a9b747:2630
+(anonymous) @ @tanstack_react-query.js?v=54a9b747:3295
+handlePreview @ research-note-generator.tsx:185
+callCallback2 @ chunk-XQLYTHWV.js?v=54a9b747:3674
+invokeGuardedCallbackDev @ chunk-XQLYTHWV.js?v=54a9b747:3699
+invokeGuardedCallback @ chunk-XQLYTHWV.js?v=54a9b747:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-XQLYTHWV.js?v=54a9b747:3736
+executeDispatch @ chunk-XQLYTHWV.js?v=54a9b747:7014
+processDispatchQueueItemsInOrder @ chunk-XQLYTHWV.js?v=54a9b747:7034
+processDispatchQueue @ chunk-XQLYTHWV.js?v=54a9b747:7043
+dispatchEventsForPlugins @ chunk-XQLYTHWV.js?v=54a9b747:7051
+(anonymous) @ chunk-XQLYTHWV.js?v=54a9b747:7174
+batchedUpdates$1 @ chunk-XQLYTHWV.js?v=54a9b747:18913
+batchedUpdates @ chunk-XQLYTHWV.js?v=54a9b747:3579
+dispatchEventForPluginEventSystem @ chunk-XQLYTHWV.js?v=54a9b747:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-XQLYTHWV.js?v=54a9b747:5478
+dispatchEvent @ chunk-XQLYTHWV.js?v=54a9b747:5472
+dispatchDiscreteEvent @ chunk-XQLYTHWV.js?v=54a9b747:5449
