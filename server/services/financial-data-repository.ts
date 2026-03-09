@@ -114,11 +114,11 @@ class FinancialDataRepository {
     
     try {
       const [snapshotResp, detailsResp] = await Promise.all([
-        axios.get(`https://api.massive.com/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`, {
+        axios.get(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`, {
           params: { apiKey },
           timeout: 8000,
         }).catch(() => null),
-        axios.get(`https://api.massive.com/v3/reference/tickers/${symbol}`, {
+        axios.get(`https://api.polygon.io/v3/reference/tickers/${symbol}`, {
           params: { apiKey },
           timeout: 8000,
         }).catch(() => null),
@@ -723,7 +723,26 @@ class FinancialDataRepository {
         }
       }
 
-      const remaining = symbols.filter(s => !savedSymbols.has(s));
+      let remaining = symbols.filter(s => !savedSymbols.has(s));
+
+      if (remaining.length > 0 && process.env.POLYGON_API_KEY) {
+        console.log(`[FinancialDataRepository] ${remaining.length} stocks need Polygon fallback...`);
+        const polygonSaved = new Set<string>();
+        for (const sym of remaining) {
+          try {
+            const result = await this.fetchFromMassive(sym);
+            if (result.success && result.data?.currentPrice) {
+              await this.saveToDatabase(result.data);
+              success++;
+              polygonSaved.add(sym);
+            }
+          } catch (_) {}
+          await new Promise(r => setTimeout(r, 300));
+        }
+        remaining = remaining.filter(s => !polygonSaved.has(s));
+        if (polygonSaved.size > 0) console.log(`[FinancialDataRepository] Polygon saved ${polygonSaved.size} stocks`);
+      }
+
       if (remaining.length > 0) {
         console.log(`[FinancialDataRepository] ${remaining.length} stocks need Yahoo fallback...`);
         const yahooResult = await this.refreshViaYahoo(remaining, 'global_stock');
@@ -731,9 +750,30 @@ class FinancialDataRepository {
         failed += yahooResult.failed;
       }
     } else {
-      const yahooResult = await this.refreshViaYahoo(symbols, 'global_stock');
-      success = yahooResult.success;
-      failed = yahooResult.failed;
+      let remaining = [...symbols];
+
+      if (process.env.POLYGON_API_KEY) {
+        console.log(`[FinancialDataRepository] ${remaining.length} stocks trying Polygon...`);
+        const polygonSaved = new Set<string>();
+        for (const sym of remaining) {
+          try {
+            const result = await this.fetchFromMassive(sym);
+            if (result.success && result.data?.currentPrice) {
+              await this.saveToDatabase(result.data);
+              success++;
+              polygonSaved.add(sym);
+            }
+          } catch (_) {}
+          await new Promise(r => setTimeout(r, 300));
+        }
+        remaining = remaining.filter(s => !polygonSaved.has(s));
+      }
+
+      if (remaining.length > 0) {
+        const yahooResult = await this.refreshViaYahoo(remaining, 'global_stock');
+        success += yahooResult.success;
+        failed += yahooResult.failed;
+      }
     }
 
     console.log(`📊 [FinancialDataRepository] Refreshed global stocks: ${success} success, ${failed} failed`);
@@ -757,20 +797,9 @@ class FinancialDataRepository {
         }
       }
 
-      const remaining = symbols.filter(s => !savedSymbols.has(s));
-      if (remaining.length > 0) {
-        console.log(`[FinancialDataRepository] ${remaining.length} ETFs need Yahoo fallback...`);
-        const yahooResult = await this.refreshViaYahoo(remaining, 'etf');
-        success += yahooResult.success;
-        failed += yahooResult.failed;
-      }
-    } else {
-      const yahooResult = await this.refreshViaYahoo(symbols, 'etf');
-      success = yahooResult.success;
-      failed = yahooResult.failed;
-    }
+      let remaining = symbols.filter(s => !savedSymbols.has(s));
 
-    console.log(`📊 [FinancialDataRepository] Refreshed ETFs: ${success} success, ${failed} failed`);
+      if (remaining.length > 0
     return { success, failed };
   }
 
