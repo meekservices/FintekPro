@@ -187,7 +187,16 @@ export default function ResearchNoteGenerator() {
       setPreviewData(data);
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message || "Failed to fetch data", variant: "destructive" });
+      const msg: string = err?.message ?? "";
+      const isRateLimit = msg.toLowerCase().includes("rate-limit") || msg.toLowerCase().includes("too many");
+      toast({
+        title: isRateLimit ? "Yahoo Finance Rate Limit" : "Data Fetch Failed",
+        description: isRateLimit
+          ? "Yahoo Finance is temporarily limiting requests. Please wait 30–60 seconds and try again."
+          : (msg || "Failed to fetch data"),
+        variant: "destructive",
+        duration: isRateLimit ? 10000 : 5000,
+      });
     },
   });
 
