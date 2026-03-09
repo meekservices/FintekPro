@@ -2301,7 +2301,7 @@ function AgentRoutes() {
           </Suspense>
         )}
       </Route>
-      <Route path="/research/generate">
+      <Route path="/agent/research/generate">
         {() => (
           <Suspense fallback={<LoadingState />}>
             <ResearchNoteGenerator />
