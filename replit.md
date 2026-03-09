@@ -69,6 +69,65 @@ BLACK_SCHOLES(65) for derivatives (uses underlying from golden_prices)
 - Probe42 unlisted data requires `PROBE42_API_KEY` env var
 - Derivative pricing uses underlying from golden_prices DB (no external call needed)
 
+## Institutional Market Data Layer
+
+### Architecture Summary
+FintekPro's institutional market data backbone sits below the pricing engine and feeds all portfolio valuation, analytics, and compliance systems.
+
+### New DB Tables (created via boot-time migration `server/db-migrations/institutional-data-migration.ts`)
+| Table | Purpose |
+|---|---|
+| `corporate_actions` | Splits, bonuses, dividends, rights, mergers per ISIN. Drives price adjustment in `golden_prices`. |
+| `price_adjustments` | Immutable audit of every split/bonus adjustment applied to `golden_prices` historical rows. |
+| `symbol_mapping` | Multi-provider symbol translation: NSE ↔ BSE ↔ AMFI ↔ SCREENER ↔ FMP ↔ Bloomberg. |
+| `credit_ratings` | Full history of rating changes per ISIN (CRISIL/ICRA/CARE/India Ratings). Seeded from `corporate_bonds` at boot. |
+
+### Unified Security Master (VIEW)
+- `security_master` — PostgreSQL VIEW (not a table) created by `server/db-migrations/security-master-migration.ts`
+- UNION ALL across `listed_stocks` (equity) + `mutual_funds` + `corporate_bonds` + `unlisted_companies`
+- Columns: `isin, instrument_name, asset_class, exchange, symbol, sector, status, current_price, currency, updated_at`
+- Read-only. No writes go here. Used for cross-asset ISIN lookups.
+
+### Corporate Actions Engine
+- Python ETL: `services/python/routes/corporate_actions.py`
+  - `POST /api/corporate-actions/sync` — fetch NSE CA archive CSV, parse, upsert by (isin, ex_date, action_type)
+  - `GET /api/corporate-actions/pending` — actions with ex_date ≤ today, not yet applied
+  - `POST /api/corporate-actions/apply-adjustments` — backward adjust `golden_prices` prices by `adjustment_factor`, log each row to `price_adjustments`, trigger returns recompute
+  - `GET /api/corporate-actions/list` and `GET /api/corporate-actions/history/:isin`
+- Node.js proxy at `/api/python/corporate-actions/*`
+- Cron: 7:10 PM IST daily (sync) + 7:20 PM IST (apply adjustments) — production only
+
+### Symbol Mapping Service
+- `server/services/symbol-mapping-service.ts`
+- Boot-time seeder: maps 2821+ listed_stocks (NSE + BSE codes) + mutual_funds (AMFI scheme codes) → `symbol_mapping`
+- API: `GET /api/marketdata/symbol-map/:isin`, `GET /api/marketdata/resolve-symbol?provider=NSE&symbol=INFY`, `POST /api/marketdata/symbol-map`
+
+### Credit Ratings Service
+- `server/services/credit-ratings-service.ts`
+- Boot-time seeder: seeds from `corporate_bonds.credit_rating / rating_agency / rating_date`
+- API: `GET /api/marketdata/credit-rating/:isin`, `GET /api/marketdata/credit-rating/:isin/history`, `POST /api/marketdata/credit-rating`
+- `upsertRating()` auto-computes `ratingAction` (Upgraded/Downgraded/Affirmed) and marks prior rows `is_current=false`
+
+### Security Master API
+- `GET /api/marketdata/security/search?q=` — search by name, symbol, or ISIN across ALL asset classes (top 50 results)
+- `GET /api/marketdata/security/:isin` — fetch one instrument by ISIN from the unified view
+- Note: `/search` is registered before `/:isin` to avoid Express route shadowing
+
+### Data Lake (Object Storage)
+- Python ETL: `services/python/routes/data_lake.py`
+  - `POST /api/data-lake/store-bhavcopy` — download NSE bhavcopy ZIP → store to Replit object storage at `public/data-lake/nse/{YYYY}/{MM}/{DD}/`
+  - `POST /api/data-lake/store-amfi-nav` — download AMFI NAV text → store to `public/data-lake/amfi/{YYYY}/{MM}/{DD}/`
+  - `GET /api/data-lake/list?asset=nse|amfi&from_date=&to_date=`
+  - `GET /api/data-lake/retrieve?path=`
+- Node.js proxy at `/api/python/data-lake/*`
+- Cron: 6:30 PM IST daily (NSE bhavcopy) + 7:00 PM IST (AMFI NAV) — production only
+- Internal caller: `server/services/python-service-caller.ts`
+
+### Disabled Cron Jobs
+- `Daily Price Updater` (was 8:45 PM IST weekdays) — **DISABLED** 2026-03-09
+- `Historical Backfill Engine` (was 2:00 AM IST daily) — **DISABLED** 2026-03-09
+- Both wrote to `instrument_prices` which was a dead-end table (only read for COUNT stats). Golden Source Pricing Engine at 9 PM IST fully replaced them. FMP/Alpha Vantage API quota savings.
+
 ## Research Note Generator Module
 
 ### Architecture

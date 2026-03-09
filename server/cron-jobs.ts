@@ -22,11 +22,14 @@ import { pmsNavSyncScheduler } from './services/pms-nav-sync-scheduler';
 import { commodityPriceSyncScheduler } from './services/commodity-price-sync-scheduler';
 import { exitLoadSyncScheduler } from './services/exit-load-sync-scheduler';
 import { amfiNavScheduler } from './services/amfi-nav-scheduler';
+import { callPython } from './clients/python-client';
 import { dataEnrichmentScheduler } from './services/data-enrichment-scheduler';
 import { financialMetricsRefreshScheduler } from './services/financial-metrics-refresh-scheduler';
 import { historicalNavRefreshJob } from './services/historical-nav-refresh-job';
 import { isProductionEnvironment, isEnrichmentWindow, logEnrichmentSkip } from './utils/enrichment-guard';
 import { startZohoSyncScheduler } from './zoho/sync-scheduler';
+
+import { initializeDataLakeCron } from './cron/data-lake-cron';
 
 const STAGGER_DELAY_MS = 120000;
 
@@ -196,6 +199,41 @@ export function initializeCronJobs(): void {
         }
       });
       console.log('📊 [MFExtended] Daily MF TER/AUM enrichment scheduled (11:30 PM IST)');
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+
+    staggeredStart('Data Lake Archival', () => {
+      initializeDataLakeCron();
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+
+    staggeredStart('Corporate Actions Sync', () => {
+      // 7:10 PM IST = 1:40 PM UTC
+      cron.schedule('40 13 * * *', async () => {
+        console.log('[CRON] Starting daily corporate actions sync (7:10 PM IST)...');
+        try {
+          await callPython('/api/corporate-actions/sync', 'POST');
+          console.log('[CRON] Corporate actions sync completed');
+        } catch (error: any) {
+          console.error('[CRON] Corporate actions sync failed:', error.message);
+        }
+      });
+      console.log('📊 [CorpActions] Daily corporate actions sync scheduled (7:10 PM IST)');
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+
+    staggeredStart('Corporate Actions Apply', () => {
+      // 7:20 PM IST = 1:50 PM UTC
+      cron.schedule('50 13 * * *', async () => {
+        console.log('[CRON] Starting daily corporate actions apply (7:20 PM IST)...');
+        try {
+          await callPython('/api/corporate-actions/apply-adjustments', 'POST');
+          console.log('[CRON] Corporate actions apply completed');
+        } catch (error: any) {
+          console.error('[CRON] Corporate actions apply failed:', error.message);
+        }
+      });
+      console.log('📊 [CorpActions] Daily corporate actions apply scheduled (7:20 PM IST)');
     }, delay);
     delay += STAGGER_DELAY_MS;
   } else {

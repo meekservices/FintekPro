@@ -32936,3 +32936,111 @@ export const priceAuditLog = pgTable("price_audit_log", {
 
 export type PriceAuditEntry = typeof priceAuditLog.$inferSelect;
 export type InsertPriceAuditEntry = typeof priceAuditLog.$inferInsert;
+
+// ── Corporate Actions Engine ──────────────────────────────────────────────────
+// Tracks splits, bonus issues, dividends, rights, mergers.
+// Drives split-adjusted price corrections in golden_prices time-series.
+export const corporateActions = pgTable("corporate_actions", {
+  id: serial("id").primaryKey(),
+  isin: varchar("isin", { length: 20 }).notNull(),
+  symbol: varchar("symbol", { length: 50 }),
+  actionType: varchar("action_type", { length: 50 }).notNull(), // SPLIT, BONUS, DIVIDEND, RIGHTS, MERGER, DEMERGER, BUYBACK
+  exDate: date("ex_date").notNull(),
+  recordDate: date("record_date"),
+  payDate: date("pay_date"),
+  ratio: varchar("ratio", { length: 30 }), // e.g. "2:1" for 2-for-1 split
+  adjustmentFactor: decimal("adjustment_factor", { precision: 15, scale: 8 }), // e.g. 0.5 for 2:1 split; multiply historical prices by this
+  dividendAmount: decimal("dividend_amount", { precision: 15, scale: 4 }), // per share amount for cash dividends
+  purpose: text("purpose"), // raw text from NSE (e.g. "SPLIT RS 10/- TO RS 5/-")
+  isAppliedToGoldenPrices: boolean("is_applied_to_golden_prices").default(false),
+  appliedAt: timestamp("applied_at"),
+  source: varchar("source", { length: 50 }).default("NSE"),
+  rawData: jsonb("raw_data"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_corp_actions_isin").on(table.isin),
+  index("idx_corp_actions_ex_date").on(table.exDate),
+  index("idx_corp_actions_type").on(table.actionType),
+  index("idx_corp_actions_applied").on(table.isAppliedToGoldenPrices),
+  uniqueIndex("idx_corp_actions_isin_ex_type").on(table.isin, table.exDate, table.actionType),
+]);
+
+export type CorporateAction = typeof corporateActions.$inferSelect;
+export type InsertCorporateAction = typeof corporateActions.$inferInsert;
+export const insertCorporateActionSchema = createInsertSchema(corporateActions).omit({ id: true, createdAt: true, updatedAt: true });
+
+// ── Price Adjustments Log — immutable audit of every split/bonus adjustment ──
+// Records the original vs adjusted price for each golden_prices row touched.
+export const priceAdjustments = pgTable("price_adjustments", {
+  id: serial("id").primaryKey(),
+  corporateActionId: integer("corporate_action_id").notNull(),
+  isin: varchar("isin", { length: 20 }).notNull(),
+  priceDate: date("price_date").notNull(),
+  originalPrice: decimal("original_price", { precision: 20, scale: 6 }).notNull(),
+  adjustedPrice: decimal("adjusted_price", { precision: 20, scale: 6 }).notNull(),
+  adjustmentFactor: decimal("adjustment_factor", { precision: 15, scale: 8 }).notNull(),
+  appliedAt: timestamp("applied_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_price_adj_isin").on(table.isin),
+  index("idx_price_adj_corp_action").on(table.corporateActionId),
+  index("idx_price_adj_date").on(table.priceDate),
+]);
+
+export type PriceAdjustment = typeof priceAdjustments.$inferSelect;
+export type InsertPriceAdjustment = typeof priceAdjustments.$inferInsert;
+export const insertPriceAdjustmentSchema = createInsertSchema(priceAdjustments).omit({ id: true, appliedAt: true });
+
+// ── Symbol Mapping Engine — multi-provider identifier translation ─────────────
+// Maps ISIN to provider-specific symbols: NSE symbol, BSE scrip code,
+// Bloomberg ticker, Probe42 ID, Reuters RIC, AMFI scheme code, etc.
+// Single source of truth for cross-provider symbol resolution.
+export const symbolMapping = pgTable("symbol_mapping", {
+  id: serial("id").primaryKey(),
+  isin: varchar("isin", { length: 20 }).notNull(),
+  provider: varchar("provider", { length: 50 }).notNull(), // NSE, BSE, BLOOMBERG, PROBE42, REUTERS, SCREENER, AMFI, FMP
+  providerSymbol: varchar("provider_symbol", { length: 100 }).notNull(),
+  providerName: text("provider_name"), // human-readable company/fund name from that provider
+  isPrimary: boolean("is_primary").default(false), // true = preferred identifier for this provider
+  isActive: boolean("is_active").default(true),
+  lastVerifiedAt: timestamp("last_verified_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_symbol_mapping_isin").on(table.isin),
+  index("idx_symbol_mapping_provider").on(table.provider),
+  index("idx_symbol_mapping_symbol").on(table.providerSymbol),
+  uniqueIndex("idx_symbol_mapping_isin_provider").on(table.isin, table.provider),
+]);
+
+export type SymbolMapping = typeof symbolMapping.$inferSelect;
+export type InsertSymbolMapping = typeof symbolMapping.$inferInsert;
+export const insertSymbolMappingSchema = createInsertSchema(symbolMapping).omit({ id: true, createdAt: true });
+
+// ── Credit Ratings Layer — full history of rating changes per ISIN ───────────
+// Stores each rating event (Assigned / Affirmed / Upgraded / Downgraded).
+// is_current=true marks the latest active rating. Seeded from corporate_bonds.
+// Required by SEBI PMS/AIF for recording rating at time of investment.
+export const creditRatings = pgTable("credit_ratings", {
+  id: serial("id").primaryKey(),
+  isin: varchar("isin", { length: 20 }).notNull(),
+  instrumentName: text("instrument_name"),
+  rating: varchar("rating", { length: 20 }).notNull(), // AAA, AA+, AA, AA-, A+, A, A-, BBB+, ...
+  ratingOutlook: varchar("rating_outlook", { length: 30 }), // Stable, Positive, Negative, Watch Positive, Watch Negative
+  agency: varchar("agency", { length: 30 }).notNull(), // CRISIL, ICRA, CARE, INDIA_RATINGS, BRICKWORK, ACUITE
+  ratingDate: date("rating_date").notNull(),
+  previousRating: varchar("previous_rating", { length: 20 }),
+  ratingAction: varchar("rating_action", { length: 40 }), // Assigned, Affirmed, Upgraded, Downgraded, Watch, Withdrawn
+  isCurrent: boolean("is_current").default(true),
+  source: varchar("source", { length: 50 }).default("bonds_table"),
+  rawData: jsonb("raw_data"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_credit_ratings_isin").on(table.isin),
+  index("idx_credit_ratings_agency").on(table.agency),
+  index("idx_credit_ratings_date").on(table.ratingDate),
+  index("idx_credit_ratings_current").on(table.isCurrent),
+]);
+
+export type CreditRating = typeof creditRatings.$inferSelect;
+export type InsertCreditRating = typeof creditRatings.$inferInsert;
+export const insertCreditRatingSchema = createInsertSchema(creditRatings).omit({ id: true, createdAt: true });

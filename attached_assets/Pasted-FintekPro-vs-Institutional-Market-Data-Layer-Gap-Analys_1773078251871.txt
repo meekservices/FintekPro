@@ -1,0 +1,42 @@
+FintekPro vs. Institutional Market Data Layer — Gap Analysis
+Already built ✅
+Design Component	FintekPro Implementation	Notes
+Pricing Engine (Golden Prices)	GoldenPricingEngine.ts + golden_prices + price_audit_log	Fully built. Multi-source hierarchy, SEBI audit, confidence scoring.
+Python ETL / FastAPI	services/python/ — 10 route modules	Analytics-heavy. Price returns, MF analytics, MVO, regime detection, factor models all live here.
+AMFI NAV Engine	mf-data-sync-service.ts, amfi-official-nav-service.ts, mf_nav_history	Full NAV ingestion + monthly returns + risk metrics via Python.
+Fundamentals Layer	screener_financials table + Screener.in scraper + Probe42 service	Equivalent to the design's company_financials.
+Security Master (partial)	listed_stocks table	Has ISIN, symbol, BSE code, sector, market cap, CIN, PAN, index membership. Functions as security master but is stock-only. MFs have mutual_funds, unlisted has unlisted_companies.
+Data Validation	Golden Pricing Engine flags >20% deviation, stale markers	Covers price validation. Not extended to NAV or fundamental data.
+SEBI Compliance Layer	price_audit_log — immutable audit trail per price change/override	Timestamps, source, changed_by, override reason — fully SEBI compliant.
+Data Service APIs	/api/pricing/*, /api/python/*, Research Note endpoints	Functional but not under a unified /marketdata/ namespace.
+Partially built ⚠️
+Design Component	What Exists	What's Missing
+Symbol Mapping Engine	listed_stocks has symbol + ISIN + BSE code + NSE code. isin-intelligence-service.ts resolves ISINs.	No formal symbol_mapping table for multi-provider translation (Bloomberg terminal symbol, Probe42 company name, Reuters RIC, etc.). If a 3rd data provider uses a different identifier, there's no mapping table to resolve it.
+Fundamentals (Probe42)	Probe42 service integrated, MCA data service exists	Probe42 fundamentals aren't always stored in a normalized schema — scattered across listed_stocks + screener_financials + probe42_companies
+Not yet built ❌ — gaps
+Design Component	Current State	Impact if Missing
+Corporate Actions Engine	listed_stocks.corporate_actions_pending (boolean flag only) + corporate_actions_details (raw JSONB blob)	Highest impact — without split/bonus/dividend adjustments, your historical CAGR calculations are wrong. A 2:1 split doubles share count and halves price; if you don't adjust historical prices, the 1Y return shows -50% when the actual return was 0%. instrument_returns and golden_prices time-series are all unadjusted prices right now.
+Credit Data Layer (CredHive)	Bond rating field stored as plain text in the bonds table	No proper credit ratings history. Can't track downgrades/upgrades over time (which affects portfolio risk). SEBI requires PMS/AIF to record ratings at time of investment.
+Data Lake (Raw File Storage)	Object storage available but unused for market data	Can't replay ETL jobs after a bad run. No raw bhavcopy archive. Can't prove what the source file contained during a SEBI audit.
+Event-Driven Architecture	Cron-only — no queue, no Redis, no Kafka	Corporate action detected → recalculate adjusted prices → revalue all affected portfolios: this chain can't be triggered cleanly by cron. Needs event queue.
+Unified Security Master	Three separate tables (listed_stocks, mutual_funds, unlisted_companies, bonds)	No single table to query "what is this ISIN?" regardless of asset class. Cross-asset portfolio analytics must join multiple tables.
+Priority recommendation
+Build in this order:
+
+1. Corporate Actions Engine       ← URGENT — fixes data quality of all returns/CAGR
+   - Table: corporate_actions (isin, type, ex_date, ratio)
+   - Python ETL: pull from NSE corporate actions archive
+   - Apply split/bonus adjustments to golden_prices historical data
+2. Unified Security Master        ← HIGH — cross-asset ISIN resolution
+   - One table: security_master (isin, asset_class, exchange, status)
+   - Consolidates listed_stocks + mutual_funds + bonds + unlisted
+3. Symbol Mapping Table           ← MEDIUM — multi-provider support
+   - symbol_mapping (isin, provider, provider_symbol)
+   - Needed when adding Bloomberg, Reuters, or additional data vendors
+4. Credit Ratings Layer           ← MEDIUM — PMS/AIF SEBI compliance
+   - credit_ratings (isin, rating, agency, rating_date)
+   - Pull from CRISIL/ICRA publicly available ratings
+5. Data Lake (Object Storage)     ← LOW — audit/replay
+   - Store raw NSE bhavcopy CSV, AMFI NAV text file daily
+   - Already have object storage available — just need the Python writer
+The corporate actions gap is the most urgent because it silently corrupts all historical return calculations that are already running. Everything else is additive.

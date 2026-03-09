@@ -225,6 +225,100 @@ import overlapIntelligenceRoutes from './routes/overlap-intelligence';
 import sipSimulatorRoutes from './routes/sip-simulator';
 import sebiAuditRoutes from './routes/sebi-audit';
 
+// Security Master API
+function registerSecurityMasterRoutes(app: Express) {
+  // GET /api/marketdata/security/search?q= — MUST come before /:isin to prevent route shadowing
+  app.get("/api/marketdata/security/search", async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query || query.length < 2) {
+        return res.status(400).json({ message: "Search query must be at least 2 characters" });
+      }
+      
+      const searchTerm = `%${query}%`;
+      const results = await db.execute(sql`
+        SELECT * FROM security_master 
+        WHERE instrument_name ILIKE ${searchTerm} 
+           OR symbol ILIKE ${searchTerm} 
+           OR isin ILIKE ${searchTerm}
+        LIMIT 50
+      `);
+      
+      res.json(results.rows);
+    } catch (error: any) {
+      console.error("[SecurityMaster] Search error:", error.message);
+      res.status(500).json({ message: "Internal server error searching securities" });
+    }
+  });
+
+  // GET /api/marketdata/security/:isin — queries the view and returns the matching row
+  app.get("/api/marketdata/security/:isin", async (req, res) => {
+    try {
+      const { isin } = req.params;
+      const results = await db.execute(sql`
+        SELECT * FROM security_master WHERE isin = ${isin}
+      `);
+      
+      if (!results.rows || results.rows.length === 0) {
+        return res.status(404).json({ message: `Security with ISIN ${isin} not found` });
+      }
+      
+      res.json(results.rows[0]);
+    } catch (error: any) {
+      console.error("[SecurityMaster] Fetch error:", error.message);
+      res.status(500).json({ message: "Internal server error fetching security data" });
+    }
+  });
+}
+
+// Symbol Mapping API
+function registerSymbolMappingRoutes(app: Express) {
+  // GET /api/marketdata/symbol-map/:isin — returns all providers for that ISIN
+  app.get("/api/marketdata/symbol-map/:isin", async (req, res) => {
+    try {
+      const { isin } = req.params;
+      const mappings = await symbolMappingService.lookupProviders(isin);
+      res.json(mappings);
+    } catch (error: any) {
+      console.error("[SymbolMapping] Fetch error:", error.message);
+      res.status(500).json({ message: "Internal server error fetching symbol mappings" });
+    }
+  });
+
+  // GET /api/marketdata/resolve-symbol?provider=NSE&symbol=RELIANCE — returns ISIN
+  app.get("/api/marketdata/resolve-symbol", async (req, res) => {
+    try {
+      const { provider, symbol } = req.query;
+      if (!provider || !symbol) {
+        return res.status(400).json({ message: "Provider and symbol are required" });
+      }
+      const isin = await symbolMappingService.resolveSymbol(provider as string, symbol as string);
+      if (!isin) {
+        return res.status(404).json({ message: "Symbol not found" });
+      }
+      res.json({ isin });
+    } catch (error: any) {
+      console.error("[SymbolMapping] Resolve error:", error.message);
+      res.status(500).json({ message: "Internal server error resolving symbol" });
+    }
+  });
+
+  // POST /api/marketdata/symbol-map — add a new symbol mapping (for admin)
+  app.post("/api/marketdata/symbol-map", async (req, res) => {
+    try {
+      const validatedData = insertSymbolMappingSchema.parse(req.body);
+      const newMapping = await symbolMappingService.addMapping(validatedData);
+      res.status(201).json(newMapping);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation failed", errors: error.errors });
+      }
+      console.error("[SymbolMapping] Add error:", error.message);
+      res.status(500).json({ message: "Internal server error adding symbol mapping" });
+    }
+  });
+}
+
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
   stcgAmount: z.number().min(0, "STCG amount must be positive"),
@@ -252,8 +346,15 @@ const taxReminderSubscriptionSchema = z.object({
   })
 });
 
+import { symbolMappingService } from './services/symbol-mapping-service';
+import { creditRatingsService } from './services/credit-ratings-service';
+import { insertCreditRatingSchema, insertSymbolMappingSchema } from "@shared/schema";
+
 export async function registerRoutes(app: Express, existingServer?: Server): Promise<Server> {
   const server = existingServer || createServer(app);
+  registerSecurityMasterRoutes(app);
+  registerSymbolMappingRoutes(app);
+  
   // Health check endpoint - skip if already registered in index.ts (fast boot mode)
   if (!existingServer) {
     app.get("/api/health", (req, res) => {
@@ -330,6 +431,42 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     
     const hasErrors = Object.values(diagnostics.checks).some((check: any) => check.status === 'error');
     res.status(hasErrors ? 503 : 200).json(diagnostics);
+  });
+
+  // Credit Ratings Routes
+  app.get("/api/marketdata/credit-rating/:isin", async (req, res) => {
+    try {
+      const rating = await creditRatingsService.getCurrentRating(req.params.isin);
+      if (!rating) return res.status(404).json({ message: "Rating not found" });
+      res.json(rating);
+    } catch (error) {
+      console.error("Error fetching current rating:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/marketdata/credit-rating/:isin/history", async (req, res) => {
+    try {
+      const history = await creditRatingsService.getRatingHistory(req.params.isin);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching rating history:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/marketdata/credit-rating", async (req, res) => {
+    try {
+      const validatedData = insertCreditRatingSchema.parse(req.body);
+      const newRating = await creditRatingsService.upsertRating(validatedData);
+      res.status(201).json(newRating);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation failed", errors: error.errors });
+      }
+      console.error("Error upserting credit rating:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
   });
   
   // Initialize market movers cache at startup (production only - external API calls + DB writes)
@@ -782,6 +919,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   registerAgentGovernanceRoutes(app);
   registerLeadLeakageRoutes(app);
   registerAppointmentManagementRoutes(app);
+  registerSecurityMasterRoutes(app);
   app.use(onboardingInvitationsRoutes);
   app.use(prospectProposalsRoutes);
   app.use(instrumentsRoutes);

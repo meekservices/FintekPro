@@ -14,6 +14,8 @@ from routes.factor_model import router as factor_model_router
 from routes.ml_scoring import router as ml_scoring_router
 from routes.regime import router as regime_router
 from routes.price_returns import router as price_returns_router
+from routes.corporate_actions import router as corporate_actions_router
+from routes.data_lake import router as data_lake_router
 
 load_dotenv()
 
@@ -53,6 +55,8 @@ app.include_router(factor_model_router)
 app.include_router(ml_scoring_router)
 app.include_router(regime_router)
 app.include_router(price_returns_router)
+app.include_router(corporate_actions_router)
+app.include_router(data_lake_router)
 
 
 @app.get("/health")
@@ -110,5 +114,16 @@ async def health():
             "regime-detect",
             "regime-history",
             "regime-detect-batch",
+            # Corporate Actions
+            "corporate-actions-sync",
+            "corporate-actions-pending",
+            "corporate-actions-apply",
+            "corporate-actions-list",
+            "corporate-actions-history",
+            # Data Lake
+            "data-lake-store-bhavcopy",
+            "data-lake-store-amfi-nav",
+            "data-lake-list",
+            "data-lake-retrieve",
         ],
     }

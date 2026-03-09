@@ -239,6 +239,13 @@ router.post('/api/python/regime/detect-batch', requireAuth, async (req, res) => 
 //  GET  /api/python/price-returns/:isin         → read stored returns
 //  GET  /api/python/price-returns/:isin/history → return history
 //
+// Corporate Actions:
+//  POST /api/python/corporate-actions/sync
+//  GET  /api/python/corporate-actions/pending
+//  POST /api/python/corporate-actions/apply-adjustments
+//  GET  /api/python/corporate-actions/list
+//  GET  /api/python/corporate-actions/history/:isin
+//
 router.post('/api/python/price-returns/compute', requireAuth, async (req, res) => {
   return proxyToPython(req, res, '/api/price-returns/compute');
 });
@@ -257,6 +264,44 @@ router.get('/api/python/price-returns/:isin/history', requireAuth, async (req, r
 
 router.get('/api/python/price-returns/:isin', requireAuth, async (req, res) => {
   return proxyToPython(req, res, `/api/price-returns/${req.params.isin}`);
+});
+
+// ── Corporate Actions ────────────────────────────────────────────────────────
+router.post('/api/python/corporate-actions/sync', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/corporate-actions/sync');
+});
+
+router.get('/api/python/corporate-actions/pending', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/corporate-actions/pending');
+});
+
+router.post('/api/python/corporate-actions/apply-adjustments', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/corporate-actions/apply-adjustments');
+});
+
+router.get('/api/python/corporate-actions/list', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/corporate-actions/list');
+});
+
+router.get('/api/python/corporate-actions/history/:isin', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, `/api/corporate-actions/history/${req.params.isin}`);
+});
+
+// ── Data Lake ─────────────────────────────────────────────────────────────
+router.post('/api/python/data-lake/store-bhavcopy', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/data-lake/store-bhavcopy');
+});
+
+router.post('/api/python/data-lake/store-amfi-nav', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/data-lake/store-amfi-nav');
+});
+
+router.get('/api/python/data-lake/list', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/data-lake/list');
+});
+
+router.get('/api/python/data-lake/retrieve', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/data-lake/retrieve');
 });
 
 export default router;

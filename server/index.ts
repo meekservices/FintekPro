@@ -85,7 +85,8 @@ import { setupGracefulShutdown } from "./graceful-shutdown";
 import { auditTrailMiddleware } from "./middleware/audit-trail";
 import { randomBytes } from "crypto";
 import fs from "fs";
-import path from "path";
+import { symbolMappingService } from "./services/symbol-mapping-service";
+import { creditRatingsService } from "./services/credit-ratings-service";
 import "./services/sms-service"; // Initialize SMS service
 import { registerAuthEventConsumers } from "./services/auth-event-consumers";
 
@@ -1040,6 +1041,12 @@ server.listen({
   const { runGoldenPricingMigration } = await import("./db-migrations/golden-pricing-migration");
   await runGoldenPricingMigration();
 
+  const { runInstitutionalDataMigration } = await import("./db-migrations/institutional-data-migration");
+  await runInstitutionalDataMigration();
+
+  const { initializeSecurityMaster } = await import("./db-migrations/security-master-migration");
+  await initializeSecurityMaster();
+
   // Register additional routes from routes.ts (but don't create a new server - we already have one)
   await registerRoutes(app, server);
 
@@ -1071,6 +1078,16 @@ server.listen({
   // ============================================================================
   bootState.routesReady = true;
   console.log(`✅ All routes registered (total boot time: ${bootState.getBootTime()}ms)`);
+
+  // Seed credit ratings from existing data (fire-and-forget)
+  creditRatingsService.seedCreditRatings().catch(err => {
+    console.error("Failed to seed credit ratings:", err);
+  });
+
+  // Seed symbol mapping from existing data (fire-and-forget)
+  symbolMappingService.seedSymbolMapping().catch(err => {
+    console.error("Failed to seed symbol mapping:", err);
+  });
 
   // Initialize background services now that server is fully ready
   

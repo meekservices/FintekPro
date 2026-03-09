@@ -1,0 +1,170 @@
+import { db } from "../db";
+import { symbolMapping, listedStocks, mutualFunds } from "@shared/schema";
+import { sql, eq, and } from "drizzle-orm";
+
+export class SymbolMappingService {
+  /**
+   * seedSymbolMapping() — runs at boot to populate from existing data:
+   * - For each listed_stock with isin: INSERT NSE entry (provider='NSE', provider_symbol=symbol)
+   * - For each listed_stock with bse_code: INSERT BSE entry (provider='BSE', provider_symbol=bse_code)
+   * - For each listed_stock with exchange_info: Parse and insert entries
+   * - For each mutual_fund with isin: INSERT AMFI entry (provider='AMFI', provider_symbol=scheme_code)
+   */
+  async seedSymbolMapping() {
+    console.log("🌱 Starting Symbol Mapping seeding...");
+    try {
+      // 1. Seed from listed_stocks
+      const stocks = await db.select().from(listedStocks).where(sql`isin IS NOT NULL`);
+      console.log(`Found ${stocks.length} stocks to map`);
+
+      for (const stock of stocks) {
+        if (!stock.isin) continue;
+
+        // NSE Mapping
+        if (stock.symbol) {
+          await this.upsertMapping({
+            isin: stock.isin,
+            provider: "NSE",
+            providerSymbol: stock.symbol,
+            providerName: stock.companyName,
+            isPrimary: stock.dataSource === "nse"
+          });
+        }
+
+        // BSE Mapping
+        if (stock.bseCode) {
+          await this.upsertMapping({
+            isin: stock.isin,
+            provider: "BSE",
+            providerSymbol: stock.bseCode,
+            providerName: stock.companyName,
+            isPrimary: stock.dataSource === "bse"
+          });
+        }
+
+        // Additional providers from exchange_info if it exists
+        if (stock.exchangeInfo && typeof stock.exchangeInfo === 'object') {
+          const info = stock.exchangeInfo as any;
+          if (info.global && Array.isArray(info.global)) {
+            for (const g of info.global) {
+              if (g.provider && g.symbol) {
+                await this.upsertMapping({
+                  isin: stock.isin,
+                  provider: g.provider.toUpperCase(),
+                  providerSymbol: g.symbol,
+                  providerName: stock.companyName
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // 2. Seed from mutual_funds
+      const mfs = await db.select().from(mutualFunds).where(sql`isin IS NOT NULL`);
+      console.log(`Found ${mfs.length} mutual funds to map`);
+
+      for (const mf of mfs) {
+        if (!mf.isin) continue;
+
+        // AMFI Mapping
+        if (mf.schemeCode) {
+          await this.upsertMapping({
+            isin: mf.isin,
+            provider: "AMFI",
+            providerSymbol: mf.schemeCode.toString(),
+            providerName: mf.schemeName,
+            isPrimary: true
+          });
+        }
+      }
+
+      console.log("✅ Symbol Mapping seeding completed.");
+    } catch (error) {
+      console.error("❌ Error seeding Symbol Mapping:", error);
+      throw error;
+    }
+  }
+
+  private async upsertMapping(data: {
+    isin: string;
+    provider: string;
+    providerSymbol: string;
+    providerName?: string | null;
+    isPrimary?: boolean;
+  }) {
+    try {
+      await db.insert(symbolMapping)
+        .values({
+          isin: data.isin,
+          provider: data.provider,
+          providerSymbol: data.providerSymbol,
+          providerName: data.providerName || null,
+          isPrimary: data.isPrimary || false,
+          isActive: true,
+          lastVerifiedAt: new Date()
+        })
+        .onConflictDoUpdate({
+          target: [symbolMapping.isin, symbolMapping.provider],
+          set: {
+            providerSymbol: data.providerSymbol,
+            providerName: data.providerName || null,
+            isPrimary: data.isPrimary || false,
+            lastVerifiedAt: new Date()
+          }
+        });
+    } catch (err) {
+      // Log error but continue with other mappings
+      console.error(`Failed to upsert mapping for ${data.isin} (${data.provider}):`, err);
+    }
+  }
+
+  /**
+   * resolveSymbol(provider: string, providerSymbol: string): Promise<string | null>
+   * returns ISIN
+   */
+  async resolveSymbol(provider: string, providerSymbol: string): Promise<string | null> {
+    const results = await db.select({ isin: symbolMapping.isin })
+      .from(symbolMapping)
+      .where(
+        and(
+          eq(symbolMapping.provider, provider.toUpperCase()),
+          eq(symbolMapping.providerSymbol, providerSymbol),
+          eq(symbolMapping.isActive, true)
+        )
+      )
+      .limit(1);
+    
+    return results.length > 0 ? results[0].isin : null;
+  }
+
+  /**
+   * lookupProviders(isin: string): Promise<SymbolMapping[]>
+   * returns all mappings for an ISIN
+   */
+  async lookupProviders(isin: string) {
+    return await db.select()
+      .from(symbolMapping)
+      .where(
+        and(
+          eq(symbolMapping.isin, isin),
+          eq(symbolMapping.isActive, true)
+        )
+      );
+  }
+
+  /**
+   * addMapping(data) - Add a new symbol mapping
+   */
+  async addMapping(data: any) {
+    return await db.insert(symbolMapping)
+      .values({
+        ...data,
+        provider: data.provider.toUpperCase(),
+        lastVerifiedAt: new Date()
+      })
+      .returning();
+  }
+}
+
+export const symbolMappingService = new SymbolMappingService();
