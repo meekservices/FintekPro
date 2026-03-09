@@ -242,10 +242,12 @@ export function initializeCronJobs(): void {
   }
 
   // ── Startup stock enrichment (ALL environments) ──────────────────────────────
-  // Runs once at server start (60s delay to avoid boot contention) AND daily at 3 AM.
-  // Fills listed_stocks with real PE, ROE, and fundamentals for any stock that is stale
-  // (enrichment_status != 'complete' OR last_enriched_at is older than 24 hours).
-  // This ensures ALL environments have accurate data for research note generation.
+  // Runs once at server start to fill listed_stocks with Screener.in fundamentals.
+  // Production: top 20 stocks only (VM memory constraint), delayed 5 min to let
+  //   staggered production jobs (REIT/MF/AIF/PMS etc.) settle first.
+  // Development: top 20 stocks, delayed 90s (no competing staggered jobs).
+  const startupEnrichLimit = isProductionEnvironment() ? 20 : 20;
+  const startupEnrichDelay = isProductionEnvironment() ? 300000 : 90000; // 5 min prod, 90s dev
   setTimeout(async () => {
     try {
       const { db: dbConn } = await import('./db');
@@ -260,77 +262,69 @@ export function initializeCronJobs(): void {
             OR last_enriched_at < NOW() - INTERVAL '24 hours'
           )
         ORDER BY market_cap_value DESC NULLS LAST
-        LIMIT 100
+        LIMIT ${startupEnrichLimit}
       `);
       const staleSymbols: string[] = ((staleRows as any).rows ?? staleRows).map((r: any) => r.symbol);
       if (staleSymbols.length === 0) {
         console.log('[Startup] All top stocks already enriched — no action needed');
         return;
       }
-      console.log(`[Startup] Enriching ${staleSymbols.length} stale stocks via Screener.in (batches of 10, 2s delay)...`);
+      console.log(`[Startup] Enriching ${staleSymbols.length} stale stocks via Screener.in (1 at a time, 1.5s delay)...`);
       const { fetchFromScreener } = await import('./modules/research/dataService');
-      const BATCH = 10;
-      for (let i = 0; i < staleSymbols.length; i += BATCH) {
-        const batch = staleSymbols.slice(i, i + BATCH);
-        for (const sym of batch) {
-          try {
-            const screenerData = await fetchFromScreener(sym);
-            if (screenerData.roe !== null || screenerData.debtToEquity !== null) {
-              // Update most recent existing screener row; insert if none exists
-              const updRes = await dbConn.execute(sqlTag`
-                UPDATE screener_financials SET
-                  roe = COALESCE(${screenerData.roe}, roe),
-                  roce = COALESCE(${screenerData.roce}, roce),
-                  dividend_yield = COALESCE(${screenerData.dividendYield}, dividend_yield),
-                  book_value = COALESCE(${screenerData.bookValue}, book_value),
-                  revenue_growth = COALESCE(${screenerData.revenueGrowth}, revenue_growth),
-                  earnings_growth = COALESCE(${screenerData.earningsGrowth}, earnings_growth),
-                  debt_to_equity = COALESCE(${screenerData.debtToEquity}, debt_to_equity),
-                  last_updated = NOW()
-                WHERE id = (
-                  SELECT id FROM screener_financials
-                  WHERE symbol = ${sym}
-                  ORDER BY fiscal_year DESC NULLS LAST, last_updated DESC NULLS LAST
-                  LIMIT 1
-                )
-              `);
-              const rowsUpdated = (updRes as any).rowCount ?? 0;
-              if (!rowsUpdated) {
-                const curYear = new Date().getFullYear();
-                await dbConn.execute(sqlTag`
-                  INSERT INTO screener_financials (symbol, period, fiscal_year, roe, roce, dividend_yield, book_value, revenue_growth, earnings_growth, debt_to_equity, last_updated)
-                  VALUES (${sym}, 'annual', ${curYear}, ${screenerData.roe}, ${screenerData.roce}, ${screenerData.dividendYield}, ${screenerData.bookValue}, ${screenerData.revenueGrowth}, ${screenerData.earningsGrowth}, ${screenerData.debtToEquity}, NOW())
-                `).catch(() => {}); // ignore if any issue
-              }
-              // Mark enriched
-              await dbConn.execute(sqlTag`
-                UPDATE listed_stocks SET enrichment_status = 'complete', last_enriched_at = NOW()
+      for (const sym of staleSymbols) {
+        try {
+          const screenerData = await fetchFromScreener(sym);
+          if (screenerData.roe !== null || screenerData.debtToEquity !== null) {
+            const updRes = await dbConn.execute(sqlTag`
+              UPDATE screener_financials SET
+                roe = COALESCE(${screenerData.roe}, roe),
+                roce = COALESCE(${screenerData.roce}, roce),
+                dividend_yield = COALESCE(${screenerData.dividendYield}, dividend_yield),
+                book_value = COALESCE(${screenerData.bookValue}, book_value),
+                revenue_growth = COALESCE(${screenerData.revenueGrowth}, revenue_growth),
+                earnings_growth = COALESCE(${screenerData.earningsGrowth}, earnings_growth),
+                debt_to_equity = COALESCE(${screenerData.debtToEquity}, debt_to_equity),
+                last_updated = NOW()
+              WHERE id = (
+                SELECT id FROM screener_financials
                 WHERE symbol = ${sym}
-              `);
-            } else {
+                ORDER BY fiscal_year DESC NULLS LAST, last_updated DESC NULLS LAST
+                LIMIT 1
+              )
+            `);
+            const rowsUpdated = (updRes as any).rowCount ?? 0;
+            if (!rowsUpdated) {
+              const curYear = new Date().getFullYear();
               await dbConn.execute(sqlTag`
-                UPDATE listed_stocks SET enrichment_status = 'failed', last_enriched_at = NOW()
-                WHERE symbol = ${sym}
-              `);
+                INSERT INTO screener_financials (symbol, period, fiscal_year, roe, roce, dividend_yield, book_value, revenue_growth, earnings_growth, debt_to_equity, last_updated)
+                VALUES (${sym}, 'annual', ${curYear}, ${screenerData.roe}, ${screenerData.roce}, ${screenerData.dividendYield}, ${screenerData.bookValue}, ${screenerData.revenueGrowth}, ${screenerData.earningsGrowth}, ${screenerData.debtToEquity}, NOW())
+              `).catch(() => {});
             }
-          } catch (e: any) {
-            console.warn(`[Startup] Enrichment failed for ${sym}:`, e?.message?.slice(0, 60));
+            await dbConn.execute(sqlTag`
+              UPDATE listed_stocks SET enrichment_status = 'complete', last_enriched_at = NOW()
+              WHERE symbol = ${sym}
+            `);
+          } else {
+            await dbConn.execute(sqlTag`
+              UPDATE listed_stocks SET enrichment_status = 'failed', last_enriched_at = NOW()
+              WHERE symbol = ${sym}
+            `);
           }
-          await new Promise(r => setTimeout(r, 800)); // 800ms between each symbol
+        } catch (e: any) {
+          console.warn(`[Startup] Enrichment failed for ${sym}:`, e?.message?.slice(0, 60));
         }
-        if (i + BATCH < staleSymbols.length) {
-          await new Promise(r => setTimeout(r, 2000)); // 2s between batches
-        }
+        await new Promise(r => setTimeout(r, 1500)); // 1.5s between each symbol (fully sequential)
       }
       console.log(`[Startup] Enrichment pass complete for ${staleSymbols.length} stocks`);
     } catch (e: any) {
       console.warn('[Startup] Stock enrichment startup pass failed:', e?.message?.slice(0, 80));
     }
-  }, 90000); // 90 seconds after boot
+  }, startupEnrichDelay);
   
   // Probe42 Sync Job - Run every 6 hours (production only - writes to DB)
+  // Staggered to 05:xx to avoid collision with Stale Order Cleanup at 00:xx
   if (isProductionEnvironment()) {
-    cron.schedule('0 */6 * * *', async () => {
+    cron.schedule('5 */6 * * *', async () => {
       console.log('[CRON] Starting Probe42 sync job...');
       try {
         const companies = await storage.getAllUnlistedCompanies({});
@@ -819,9 +813,9 @@ export function initializeCronJobs(): void {
     }
   });
 
-  // Processing Order Timeout - Run every hour
+  // Processing Order Timeout - Run every hour at :15 (staggered from Stale Order Cleanup at :00)
   // Auto-fail orders stuck in 'processing' for >4 hours (indicates execution failure)
-  cron.schedule('0 * * * *', async () => {
+  cron.schedule('15 * * * *', async () => {
     console.log('[CRON] Checking for stuck processing orders...');
     try {
       const { db } = await import('./db');
@@ -882,8 +876,8 @@ export function initializeCronJobs(): void {
     }
   });
 
-  // KYC Upgrade Reminder Job - Run every 4 hours
-  cron.schedule('0 */4 * * *', async () => {
+  // KYC Upgrade Reminder Job - Run every 4 hours at :30 (staggered from order jobs at :00/:15)
+  cron.schedule('30 */4 * * *', async () => {
     console.log('[CRON] Processing KYC upgrade reminders...');
     try {
       const { kycUpgradeNotificationService } = await import('./services/kyc-upgrade-notification-service');
