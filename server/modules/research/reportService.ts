@@ -79,17 +79,17 @@ export async function generatePPT(data: ReportData): Promise<Buffer> {
   const f = data.financials as any;
   const metrics = [
     ["Current Price", formatPrice(data.financials.price, data.financials.currency)],
-    ["Market Cap", formatMarketCap(data.financials.marketCap, data.financials.currency)],
-    ["P/E Ratio", formatNumber(data.financials.pe)],
-    ["EPS", formatPrice(data.financials.eps, data.financials.currency)],
-    ["ROE", formatPercent(data.financials.roe)],
-    ["P/B Ratio", f.pbRatio !== null && f.pbRatio !== undefined ? `${f.pbRatio.toFixed(2)}x` : "N/A"],
-    ["Book Value", formatPrice(f.bookValue, data.financials.currency)],
-    ["Face Value", formatPrice(f.faceValue, data.financials.currency)],
-    ["VWAP", formatPrice(f.vwap, data.financials.currency)],
-    ["Dividend Yield", formatPercent(data.financials.dividendYield)],
-    ["52W High", formatPrice(data.financials.fiftyTwoWeekHigh, data.financials.currency)],
-    ["52W Low", formatPrice(data.financials.fiftyTwoWeekLow, data.financials.currency)],
+    ["Market Cap",    formatMarketCap(data.financials.marketCap, data.financials.currency)],
+    ["P/E Ratio",     formatNumber(data.financials.pe)],
+    ["EPS",           formatPrice(data.financials.eps, data.financials.currency)],
+    ["ROE",           formatPercent(data.financials.roe)],
+    ["ROCE",          formatPercent(f.roce)],
+    ["P/B Ratio",     f.pbRatio != null ? `${Number(f.pbRatio).toFixed(2)}x` : "N/A"],
+    ["Debt / Equity", formatNumber(data.financials.debtToEquity)],
+    ["Dividend Yield",formatPercent(data.financials.dividendYield)],
+    ["Revenue Growth",formatPercent(data.financials.revenueGrowth)],
+    ["Earnings Growth",formatPercent(data.financials.earningsGrowth)],
+    ["52W High",      formatPrice(data.financials.fiftyTwoWeekHigh, data.financials.currency)],
   ];
 
   metrics.forEach(([label, value], i) => {
@@ -209,20 +209,20 @@ export async function generatePDF(data: ReportData): Promise<Buffer> {
 
     const fp = data.financials as any;
     const left = [
-      ["Current Price", formatPrice(data.financials.price, data.financials.currency)],
-      ["Market Cap", formatMarketCap(data.financials.marketCap, data.financials.currency)],
-      ["P/E Ratio", formatNumber(data.financials.pe)],
-      ["EPS", formatPrice(data.financials.eps, data.financials.currency)],
-      ["ROE", formatPercent(data.financials.roe)],
-      ["P/B Ratio", fp.pbRatio !== null && fp.pbRatio !== undefined ? `${fp.pbRatio.toFixed(2)}x` : "N/A"],
+      ["Current Price",  formatPrice(data.financials.price, data.financials.currency)],
+      ["Market Cap",     formatMarketCap(data.financials.marketCap, data.financials.currency)],
+      ["P/E Ratio",      formatNumber(data.financials.pe)],
+      ["EPS",            formatPrice(data.financials.eps, data.financials.currency)],
+      ["ROE",            formatPercent(data.financials.roe)],
+      ["ROCE",           formatPercent(fp.roce)],
     ];
     const right = [
-      ["Book Value", formatPrice(fp.bookValue, data.financials.currency)],
-      ["Face Value", formatPrice(fp.faceValue, data.financials.currency)],
-      ["VWAP", formatPrice(fp.vwap, data.financials.currency)],
+      ["Debt / Equity",  formatNumber(data.financials.debtToEquity)],
       ["Dividend Yield", formatPercent(data.financials.dividendYield)],
-      ["52W High", formatPrice(data.financials.fiftyTwoWeekHigh, data.financials.currency)],
-      ["52W Low", formatPrice(data.financials.fiftyTwoWeekLow, data.financials.currency)],
+      ["Revenue Growth", formatPercent(data.financials.revenueGrowth)],
+      ["Earnings Growth",formatPercent(data.financials.earningsGrowth)],
+      ["52W High",       formatPrice(data.financials.fiftyTwoWeekHigh, data.financials.currency)],
+      ["52W Low",        formatPrice(data.financials.fiftyTwoWeekLow, data.financials.currency)],
     ];
 
     let y = 240;
@@ -329,10 +329,10 @@ export async function generateOnePager(data: ReportData): Promise<Buffer> {
     const keyMetrics = [
       `Price: ${formatPrice(data.financials.price, data.financials.currency)}`,
       `Market Cap: ${formatMarketCap(data.financials.marketCap, data.financials.currency)}`,
-      `P/E: ${formatNumber(data.financials.pe)}`,
-      `EPS: ${formatPrice(data.financials.eps, data.financials.currency)}`,
-      `ROE: ${formatPercent(data.financials.roe)}`,
-      `P/B: ${fop.pbRatio !== null && fop.pbRatio !== undefined ? `${fop.pbRatio.toFixed(2)}x` : "N/A"}`,
+      `P/E: ${formatNumber(data.financials.pe)} | P/B: ${fop.pbRatio != null ? Number(fop.pbRatio).toFixed(2) + "x" : "N/A"}`,
+      `ROE: ${formatPercent(data.financials.roe)} | ROCE: ${formatPercent(fop.roce)}`,
+      `D/E: ${formatNumber(data.financials.debtToEquity)} | Div.Yield: ${formatPercent(data.financials.dividendYield)}`,
+      `Rev.Growth: ${formatPercent(data.financials.revenueGrowth)} | EPS Growth: ${formatPercent(data.financials.earningsGrowth)}`,
     ];
     doc.fillColor("#111827").fontSize(10).font("Helvetica");
     keyMetrics.forEach((m, i) => {

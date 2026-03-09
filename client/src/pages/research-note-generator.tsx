@@ -34,6 +34,7 @@ interface FinancialData {
   pe: number | null;
   eps: number | null;
   roe: number | null;
+  roce: number | null;
   pbRatio: number | null;
   bookValue: number | null;
   faceValue: number | null;
@@ -442,12 +443,15 @@ export default function ResearchNoteGenerator() {
                     <MetricCard label="P/E Ratio" value={fmt(f.pe)} />
                     <MetricCard label="EPS" value={fmt(f.eps, f.currency === "INR" ? "₹" : "$")} />
                     <MetricCard label="ROE" value={fmtPct(f.roe)} />
+                    <MetricCard label="ROCE" value={fmtPct(f.roce)} />
                     <MetricCard label="P/B Ratio" value={f.pbRatio !== null ? fmt(f.pbRatio, "", "x") : "N/A"} />
                     <MetricCard label="Book Value" value={fmt(f.bookValue, f.currency === "INR" ? "₹" : "$")} />
+                    <MetricCard label="Debt / Equity" value={fmt(f.debtToEquity)} />
+                    <MetricCard label="Dividend Yield" value={fmtPct(f.dividendYield)} />
+                    <MetricCard label="Revenue Growth" value={fmtPct(f.revenueGrowth)} />
+                    <MetricCard label="Earnings Growth" value={fmtPct(f.earningsGrowth)} />
                     <MetricCard label="Face Value" value={fmt(f.faceValue, f.currency === "INR" ? "₹" : "$")} />
                     <MetricCard label="VWAP" value={fmt(f.vwap, f.currency === "INR" ? "₹" : "$")} />
-                    <MetricCard label="Dividend Yield" value={fmtPct(f.dividendYield)} />
-                    <MetricCard label="Debt / Equity" value={fmt(f.debtToEquity)} />
                     <MetricCard label="Beta" value={fmt(f.beta)} />
                   </div>
                 </CardContent>

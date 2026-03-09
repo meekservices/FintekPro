@@ -2,9 +2,12 @@
  * Financial data service for Research Note Generator.
  *
  * Data sources (in priority order):
- *  1. NSE India public API — price, PE, 52-week range, market cap via issuedSize
- *  2. FintekPro DB (screener_financials) — EPS, book value → derive ROE, P/B
- *  3. Yahoo Finance quote() — fallback for non-NSE or unknown symbols
+ *  1. NSE India public API   — price, PE, 52-week range, market cap, VWAP, Face Value
+ *  2. Screener.in HTML scrape — ROE, ROCE, Dividend Yield, Book Value, Revenue/Earnings Growth, D/E
+ *  3. FintekPro DB (screener_financials) — cached Screener.in enrichment from previous fetches
+ *  4. Yahoo Finance quote()  — fallback for non-NSE or unknown symbols
+ *
+ * Write-through: after live Screener.in fetch, results are cached in DB for future requests.
  */
 
 import yahooFinance from "yahoo-finance2";
@@ -14,35 +17,50 @@ import { sql } from "drizzle-orm";
 export interface FinancialData {
   price: number | null;
   previousClose: number | null;
-  marketCap: number | null;         // ₹ crores
+  marketCap: number | null;         // absolute ₹ rupees
   pe: number | null;
   eps: number | null;
-  roe: number | null;               // % — derived from EPS / BookValue
+  roe: number | null;               // decimal fraction (0.084 = 8.4%)
+  roce: number | null;              // decimal fraction
   pbRatio: number | null;           // Price / Book Value
   debtToEquity: number | null;
-  revenueGrowth: number | null;
-  earningsGrowth: number | null;
+  revenueGrowth: number | null;     // decimal fraction (0.064 = 6.4%)
+  earningsGrowth: number | null;    // decimal fraction
   fiftyTwoWeekHigh: number | null;
   fiftyTwoWeekLow: number | null;
-  dividendYield: number | null;
+  dividendYield: number | null;     // decimal fraction (0.0039 = 0.39%)
   beta: number | null;
   targetMeanPrice: number | null;
   currency: string;
-  bookValue: number | null;         // per share ₹
+  bookValue: number | null;
   faceValue: number | null;
   vwap: number | null;
 }
+
+// ─── Screener data shape ──────────────────────────────────────────────────────
+
+interface ScreenerData {
+  roe: number | null;
+  roce: number | null;
+  dividendYield: number | null;
+  bookValue: number | null;
+  revenueGrowth: number | null;
+  earningsGrowth: number | null;
+  debtToEquity: number | null;
+}
+
+// ─── Caches ───────────────────────────────────────────────────────────────────
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const cache = new Map<string, { data: FinancialData; expiresAt: number }>();
 
 // ─── NSE India ────────────────────────────────────────────────────────────────
 
-const NSE_HEADERS = {
+const BROWSER_HEADERS = {
   "User-Agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  Accept: "application/json",
-  "Accept-Language": "en-US,en;q=0.5",
+  Accept: "text/html,application/xhtml+xml,application/json,*/*",
+  "Accept-Language": "en-US,en;q=0.9",
 };
 
 let nseCookies = "";
@@ -51,7 +69,7 @@ let nseCookieExpiry = 0;
 async function refreshNseCookies(): Promise<void> {
   if (Date.now() < nseCookieExpiry) return;
   try {
-    const res = await fetch("https://www.nseindia.com", { headers: NSE_HEADERS });
+    const res = await fetch("https://www.nseindia.com", { headers: BROWSER_HEADERS });
     const setCookie = res.headers.get("set-cookie") ?? "";
     if (setCookie) {
       nseCookies = setCookie.split(",").map((c) => c.split(";")[0]).join("; ");
@@ -64,70 +82,244 @@ async function refreshNseCookies(): Promise<void> {
 
 async function fetchFromNSE(nseSymbol: string): Promise<Partial<FinancialData>> {
   await refreshNseCookies();
-
   const url = `https://www.nseindia.com/api/quote-equity?symbol=${encodeURIComponent(nseSymbol.toUpperCase())}`;
   const res = await fetch(url, {
     headers: {
-      ...NSE_HEADERS,
+      ...BROWSER_HEADERS,
+      Accept: "application/json",
       Cookie: nseCookies,
       Referer: `https://www.nseindia.com/get-quotes/equity?symbol=${nseSymbol}`,
     },
     signal: AbortSignal.timeout(12_000),
   });
-
   if (!res.ok) throw new Error(`NSE API ${res.status} for ${nseSymbol}`);
-
   const d = await res.json() as any;
-  const pi = d.priceInfo ?? {};
+  const pi  = d.priceInfo ?? {};
   const meta = d.metadata ?? {};
-  const sec = d.securityInfo ?? {};
-  const whl = pi.weekHighLow ?? {};
-
+  const sec  = d.securityInfo ?? {};
+  const whl  = pi.weekHighLow ?? {};
   const price: number | null = pi.lastPrice ?? null;
   const issuedSize: number | null = sec.issuedSize ?? null;
-  const marketCap =
-    price !== null && issuedSize !== null
-      ? price * issuedSize   // absolute ₹ (e.g. RELIANCE ≈ 1.92e13)
-      : null;
-
   return {
     price,
     previousClose: pi.previousClose ?? null,
-    marketCap,
+    marketCap: price !== null && issuedSize !== null ? price * issuedSize : null,
     pe: meta.pdSymbolPe ?? null,
     fiftyTwoWeekHigh: typeof whl.max === "number" ? whl.max : null,
-    fiftyTwoWeekLow: typeof whl.min === "number" ? whl.min : null,
+    fiftyTwoWeekLow:  typeof whl.min === "number" ? whl.min : null,
     faceValue: sec.faceValue ?? null,
     vwap: pi.vwap ?? null,
     currency: "INR",
   };
 }
 
-// ─── FintekPro DB enrichment ──────────────────────────────────────────────────
+// ─── Screener.in enrichment ───────────────────────────────────────────────────
 
-async function fetchFromDB(nseSymbol: string): Promise<{
+function parseNum(text: string): number | null {
+  const clean = text.replace(/,/g, "").trim();
+  const n = parseFloat(clean);
+  return isNaN(n) ? null : n;
+}
+
+function extractTopMetric(html: string, label: string): number | null {
+  // Matches: "ROE 8.40 %" or "Book Value ₹ 648" in the top metrics li items
+  const re = new RegExp(`${label}[^<]*?([\\d,\\.]+)`, "i");
+  const m = re.exec(html);
+  return m ? parseNum(m[1]) : null;
+}
+
+function extractTableLastTwoRows(html: string, sectionId: string, rowLabel: string): [number | null, number | null] {
+  const sectionStart = html.indexOf(`id="${sectionId}"`);
+  if (sectionStart < 0) return [null, null];
+  const sectionEnd = html.indexOf("</section>", sectionStart);
+  const section = html.slice(sectionStart, sectionEnd > 0 ? sectionEnd : sectionStart + 40000);
+
+  // Split by <tr> tags
+  const rows = section.split(/<tr[^>]*>/i);
+  for (const row of rows) {
+    const nameMatch = row.match(/class="text"[^>]*>([\s\S]*?)<\/td>/i);
+    if (!nameMatch) continue;
+    const name = nameMatch[1].replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\+/g, "").trim();
+    if (!name.toLowerCase().includes(rowLabel.toLowerCase())) continue;
+    const cells = [...row.matchAll(/<td[^>]*>\s*([\d,\.]+)\s*<\/td>/g)].map(m => parseNum(m[1]));
+    if (cells.length >= 2) {
+      return [cells[cells.length - 2], cells[cells.length - 1]];
+    }
+  }
+  return [null, null];
+}
+
+async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData> {
+  const empty: ScreenerData = {
+    roe: null, roce: null, dividendYield: null, bookValue: null,
+    revenueGrowth: null, earningsGrowth: null, debtToEquity: null,
+  };
+
+  try {
+    // Step 1: Get the company URL
+    const searchRes = await fetch(
+      `https://www.screener.in/api/company/search/?q=${encodeURIComponent(nseSymbol)}`,
+      { headers: { ...BROWSER_HEADERS, Accept: "application/json" }, signal: AbortSignal.timeout(10_000) }
+    );
+    if (!searchRes.ok) return empty;
+    const results = await searchRes.json() as any[];
+    if (!results?.length) return empty;
+
+    // Prefer consolidated view
+    const company = results.find((r: any) => r.url?.includes("consolidated")) ?? results[0];
+    const companyUrl = `https://www.screener.in${company.url}`;
+
+    // Step 2: Fetch the company page
+    const pageRes = await fetch(companyUrl, {
+      headers: { ...BROWSER_HEADERS, Referer: "https://www.screener.in/" },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!pageRes.ok) return empty;
+    const html = await pageRes.text();
+
+    // Step 3: Parse top section (id="top") for key ratios
+    const topStart = html.indexOf('id="top"');
+    const topEnd   = html.indexOf("</section>", topStart);
+    const topHtml  = topStart >= 0 ? html.slice(topStart, topEnd > 0 ? topEnd : topStart + 8000) : "";
+
+    // Extract all <li> items from top section
+    const liItems = [...topHtml.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)].map(m =>
+      m[1].replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim()
+    );
+
+    let roe: number | null = null;
+    let roce: number | null = null;
+    let dividendYield: number | null = null;
+    let bookValue: number | null = null;
+
+    for (const item of liItems) {
+      const numMatch = item.match(/([\d,\.]+)\s*%?$/);
+      if (!numMatch) continue;
+      const val = parseNum(numMatch[1]);
+      const lower = item.toLowerCase();
+      if (/\broe\b/.test(lower) && roe === null)           roe = val !== null ? val / 100 : null;
+      else if (/\broce\b/.test(lower) && roce === null)     roce = val !== null ? val / 100 : null;
+      else if (/dividend yield/.test(lower) && dividendYield === null) dividendYield = val !== null ? val / 100 : null;
+      else if (/book value/.test(lower) && bookValue === null) {
+        // Book value has ₹ prefix — extract the number after ₹
+        const bvMatch = item.match(/₹\s*([\d,\.]+)/);
+        bookValue = bvMatch ? parseNum(bvMatch[1]) : val;
+      }
+    }
+
+    // Step 4: P&L table — extract Revenue and Net Profit for last 2 years
+    const [revPrev, revLatest] = extractTableLastTwoRows(html, "profit-loss", "Sales");
+    const [patPrev, patLatest] = extractTableLastTwoRows(html, "profit-loss", "Net Profit");
+
+    const revenueGrowth: number | null =
+      revPrev && revLatest && revPrev > 0
+        ? (revLatest - revPrev) / revPrev
+        : null;
+
+    const earningsGrowth: number | null =
+      patPrev && patLatest && Math.abs(patPrev) > 0
+        ? (patLatest - patPrev) / Math.abs(patPrev)
+        : null;
+
+    // Step 5: Balance sheet — compute Debt/Equity
+    const [, equityCapital] = extractTableLastTwoRows(html, "balance-sheet", "Equity Capital");
+    const [, reserves]      = extractTableLastTwoRows(html, "balance-sheet", "Reserves");
+    const [, borrowings]    = extractTableLastTwoRows(html, "balance-sheet", "Borrowings");
+
+    const totalEquity = (equityCapital ?? 0) + (reserves ?? 0);
+    const debtToEquity: number | null =
+      borrowings !== null && totalEquity > 0
+        ? Math.round((borrowings / totalEquity) * 1000) / 1000
+        : null;
+
+    console.log(
+      `[ResearchNote] Screener.in ${nseSymbol} → ROE:${roe !== null ? (roe * 100).toFixed(2) + "%" : "N/A"}`,
+      `ROCE:${roce !== null ? (roce * 100).toFixed(2) + "%" : "N/A"}`,
+      `DY:${dividendYield !== null ? (dividendYield * 100).toFixed(2) + "%" : "N/A"}`,
+      `D/E:${debtToEquity ?? "N/A"}`,
+      `RevGrowth:${revenueGrowth !== null ? (revenueGrowth * 100).toFixed(1) + "%" : "N/A"}`,
+      `EPS Growth:${earningsGrowth !== null ? (earningsGrowth * 100).toFixed(1) + "%" : "N/A"}`
+    );
+
+    return { roe, roce, dividendYield, bookValue, revenueGrowth, earningsGrowth, debtToEquity };
+  } catch (e: any) {
+    console.warn("[ResearchNote] Screener.in fetch failed:", e?.message);
+    return empty;
+  }
+}
+
+// ─── DB enrichment (read all cached fields) ───────────────────────────────────
+
+interface DBData {
   eps: number | null;
   bookValue: number | null;
+  roe: number | null;
+  roce: number | null;
   dividendYield: number | null;
-}> {
+  debtToEquity: number | null;
+  revenueGrowth: number | null;
+  earningsGrowth: number | null;
+  beta: number | null;
+}
+
+async function fetchFromDB(nseSymbol: string): Promise<DBData> {
+  const empty: DBData = {
+    eps: null, bookValue: null, roe: null, roce: null, dividendYield: null,
+    debtToEquity: null, revenueGrowth: null, earningsGrowth: null, beta: null,
+  };
   try {
     const rows = await db.execute(sql`
-      SELECT eps, book_value, dividend_yield
+      SELECT eps, book_value, roe, roce, dividend_yield,
+             debt_to_equity, revenue_growth, earnings_growth
       FROM screener_financials
       WHERE symbol = ${nseSymbol.toUpperCase()}
-      ORDER BY fiscal_year DESC
+      ORDER BY fiscal_year DESC NULLS LAST, last_updated DESC NULLS LAST
       LIMIT 1
     `);
     const r = ((rows as any).rows ?? rows)[0] as any;
-    if (!r) return { eps: null, bookValue: null, dividendYield: null };
+    if (!r) return empty;
+    const pf = (v: any) => (v !== null && v !== undefined ? parseFloat(v) : null);
     return {
-      eps: r.eps !== null ? parseFloat(r.eps) : null,
-      bookValue: r.book_value !== null ? parseFloat(r.book_value) : null,
-      dividendYield: r.dividend_yield !== null ? parseFloat(r.dividend_yield) : null,
+      eps:           pf(r.eps),
+      bookValue:     pf(r.book_value),
+      roe:           pf(r.roe),
+      roce:          pf(r.roce),
+      dividendYield: pf(r.dividend_yield),
+      debtToEquity:  pf(r.debt_to_equity),
+      revenueGrowth: pf(r.revenue_growth),
+      earningsGrowth: pf(r.earnings_growth),
+      beta:          null,
     };
   } catch (e: any) {
-    console.warn("[ResearchNote] DB enrichment failed:", e?.message);
-    return { eps: null, bookValue: null, dividendYield: null };
+    console.warn("[ResearchNote] DB read failed:", e?.message);
+    return empty;
+  }
+}
+
+// ─── DB write-back (cache Screener.in results) ───────────────────────────────
+
+async function writeScreenerToDB(nseSymbol: string, s: ScreenerData): Promise<void> {
+  try {
+    // Only update rows that exist (don't create new ones)
+    await db.execute(sql`
+      UPDATE screener_financials
+      SET
+        roe            = COALESCE(${s.roe}, roe),
+        roce           = COALESCE(${s.roce}, roce),
+        dividend_yield = COALESCE(${s.dividendYield}, dividend_yield),
+        book_value     = COALESCE(${s.bookValue}, book_value),
+        revenue_growth = COALESCE(${s.revenueGrowth}, revenue_growth),
+        earnings_growth= COALESCE(${s.earningsGrowth}, earnings_growth),
+        debt_to_equity = COALESCE(${s.debtToEquity}, debt_to_equity),
+        last_updated   = now()
+      WHERE symbol = ${nseSymbol.toUpperCase()}
+        AND fiscal_year = (
+          SELECT MAX(fiscal_year) FROM screener_financials
+          WHERE symbol = ${nseSymbol.toUpperCase()}
+        )
+    `);
+  } catch (e: any) {
+    console.warn("[ResearchNote] DB write-back failed:", e?.message);
   }
 }
 
@@ -143,14 +335,14 @@ async function fetchFromYahoo(symbol: string): Promise<Partial<FinancialData>> {
     pe: q.trailingPE ?? null,
     eps: q.epsTrailingTwelveMonths ?? null,
     fiftyTwoWeekHigh: q.fiftyTwoWeekHigh ?? null,
-    fiftyTwoWeekLow: q.fiftyTwoWeekLow ?? null,
+    fiftyTwoWeekLow:  q.fiftyTwoWeekLow ?? null,
     dividendYield: q.trailingAnnualDividendYield ?? null,
     beta: q.beta ?? null,
     currency: q.currency ?? "INR",
   };
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Merge & build final FinancialData ────────────────────────────────────────
 
 function toNseSymbol(symbol: string): string {
   return symbol.replace(/\.(NS|BO|NSE|BSE)$/i, "").toUpperCase();
@@ -163,49 +355,51 @@ function isRateLimit(err: any): boolean {
 
 function buildFull(
   base: Partial<FinancialData>,
-  db: { eps: number | null; bookValue: number | null; dividendYield: number | null }
+  dbData: DBData,
+  screener: ScreenerData
 ): FinancialData {
-  // Prefer DB EPS (annual reported) over derived value
-  const eps = db.eps ?? base.eps ?? null;
-  const bookValue = db.bookValue ?? base.bookValue ?? null;
   const price = base.price ?? null;
-  const pe = base.pe ?? null;
 
-  // ROE ≈ EPS / BookValue — send as decimal fraction (frontend multiplies ×100)
+  // ROE: Screener.in (real) > DB > derived from EPS/BookValue
   const roe =
-    eps !== null && bookValue !== null && bookValue > 0
-      ? Math.round((eps / bookValue) * 10000) / 10000   // e.g. 0.1250 for 12.5%
-      : null;
+    screener.roe ??
+    dbData.roe ??
+    (() => {
+      const eps = dbData.eps ?? base.eps ?? null;
+      const bv  = screener.bookValue ?? dbData.bookValue ?? null;
+      return eps !== null && bv !== null && bv > 0 ? eps / bv : null;
+    })();
 
-  // P/B = Price / BookValue
+  // Book Value: Screener.in (more accurate) > DB
+  const bookValue = screener.bookValue ?? dbData.bookValue ?? null;
+
+  // P/B: Price / BookValue
   const pbRatio =
     price !== null && bookValue !== null && bookValue > 0
       ? Math.round((price / bookValue) * 100) / 100
       : null;
 
-  // Dividend yield: prefer DB value, fallback NSE/Yahoo
-  const dividendYield = db.dividendYield ?? base.dividendYield ?? null;
-
   return {
     price,
     previousClose: base.previousClose ?? null,
-    marketCap: base.marketCap ?? null,
-    pe,
-    eps,
+    marketCap:     base.marketCap ?? null,
+    pe:            base.pe ?? null,
+    eps:           dbData.eps ?? base.eps ?? null,
     roe,
+    roce:          screener.roce ?? dbData.roce ?? null,
     pbRatio,
-    debtToEquity: null,
-    revenueGrowth: null,
-    earningsGrowth: null,
+    debtToEquity:  screener.debtToEquity ?? dbData.debtToEquity ?? null,
+    revenueGrowth: screener.revenueGrowth ?? dbData.revenueGrowth ?? null,
+    earningsGrowth: screener.earningsGrowth ?? dbData.earningsGrowth ?? null,
     fiftyTwoWeekHigh: base.fiftyTwoWeekHigh ?? null,
-    fiftyTwoWeekLow: base.fiftyTwoWeekLow ?? null,
-    dividendYield,
-    beta: base.beta ?? null,
+    fiftyTwoWeekLow:  base.fiftyTwoWeekLow ?? null,
+    dividendYield: screener.dividendYield ?? dbData.dividendYield ?? base.dividendYield ?? null,
+    beta:          dbData.beta ?? base.beta ?? null,
     targetMeanPrice: null,
-    currency: base.currency ?? "INR",
+    currency:      base.currency ?? "INR",
     bookValue,
-    faceValue: base.faceValue ?? null,
-    vwap: base.vwap ?? null,
+    faceValue:     base.faceValue ?? null,
+    vwap:          base.vwap ?? null,
   };
 }
 
@@ -220,42 +414,52 @@ export async function getFinancialData(symbol: string): Promise<FinancialData> {
 
   const nseSymbol = toNseSymbol(symbol);
 
-  // Always enrich from DB (fast, parallel with NSE)
-  const [nseResult, dbResult] = await Promise.allSettled([
+  // Fire all three sources in parallel
+  const [nseResult, dbResult, screenerResult] = await Promise.allSettled([
     fetchFromNSE(nseSymbol),
     fetchFromDB(nseSymbol),
+    fetchFromScreener(nseSymbol),
   ]);
 
-  const dbData =
-    dbResult.status === "fulfilled"
-      ? dbResult.value
-      : { eps: null, bookValue: null, dividendYield: null };
+  const dbData: DBData =
+    dbResult.status === "fulfilled" ? dbResult.value : {
+      eps: null, bookValue: null, roe: null, roce: null, dividendYield: null,
+      debtToEquity: null, revenueGrowth: null, earningsGrowth: null, beta: null,
+    };
+
+  const screener: ScreenerData =
+    screenerResult.status === "fulfilled" ? screenerResult.value : {
+      roe: null, roce: null, dividendYield: null, bookValue: null,
+      revenueGrowth: null, earningsGrowth: null, debtToEquity: null,
+    };
+
+  // Write Screener.in results back to DB asynchronously (non-blocking)
+  if (screenerResult.status === "fulfilled") {
+    writeScreenerToDB(nseSymbol, screener).catch(() => {});
+  }
 
   if (nseResult.status === "fulfilled" && nseResult.value.price !== null) {
-    const data = buildFull(nseResult.value, dbData);
+    const data = buildFull(nseResult.value, dbData, screener);
     cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
     console.log(
-      `[ResearchNote] Cached ${symbol} — price: ${data.price}, mktCap: ${data.marketCap}cr, ROE: ${data.roe}%, EPS: ${data.eps}`
+      `[ResearchNote] Fetched ${symbol} — ₹${data.price} | ROE:${data.roe !== null ? (data.roe * 100).toFixed(1) + "%" : "N/A"} | D/E:${data.debtToEquity ?? "N/A"} | RevG:${data.revenueGrowth !== null ? (data.revenueGrowth * 100).toFixed(1) + "%" : "N/A"}`
     );
     return data;
   }
 
-  console.warn(`[ResearchNote] NSE India failed for ${nseSymbol}:`, (nseResult as any).reason?.message);
+  console.warn(`[ResearchNote] NSE failed for ${nseSymbol}:`, (nseResult as any).reason?.message);
 
-  // Fallback: Yahoo Finance
-  const yahooSymbols = [`${nseSymbol}.NS`, `${nseSymbol}.BO`];
-  for (const ySym of yahooSymbols) {
+  // Fallback to Yahoo Finance
+  for (const ySym of [`${nseSymbol}.NS`, `${nseSymbol}.BO`]) {
     try {
       console.log(`[ResearchNote] Yahoo fallback: ${ySym}`);
       const yData = await fetchFromYahoo(ySym);
-      const data = buildFull(yData, dbData);
+      const data  = buildFull(yData, dbData, screener);
       cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
       return data;
     } catch (e: any) {
       if (isRateLimit(e)) {
-        throw new Error(
-          "Financial data is temporarily unavailable. Please wait 60 seconds and try again."
-        );
+        throw new Error("Financial data is temporarily unavailable. Please wait 60 seconds and try again.");
       }
       console.warn(`[ResearchNote] Yahoo failed for ${ySym}:`, e?.message);
     }
