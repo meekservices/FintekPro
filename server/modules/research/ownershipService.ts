@@ -1,6 +1,121 @@
 import { db } from "../../db";
 import { sql } from "drizzle-orm";
 import { formatMarketCap } from "./financialEngine";
+import { fetchFromScreener } from "./dataService";
+
+const BROWSER_HEADERS_GF = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "Accept-Language": "en-US,en;q=0.9",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+};
+
+const peerEnrichCache = new Map<string, { roe: number | null; pe: number | null; pb: number | null; de: number | null; expiresAt: number }>();
+
+/** Scrape P/E and P/B from Google Finance static HTML for Indian stocks */
+async function fetchFromGoogleFinance(symbol: string): Promise<{ pe: number | null; pb: number | null }> {
+  const fallback = { pe: null, pb: null };
+  try {
+    const url = `https://www.google.com/finance/quote/${symbol.toUpperCase()}:NSE`;
+    const res = await fetch(url, {
+      headers: BROWSER_HEADERS_GF,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return fallback;
+    const html = await res.text();
+
+    const parseNum = (s: string) => { const n = parseFloat(s.replace(/,/g, "")); return isNaN(n) ? null : n; };
+
+    // Google Finance embeds key stats in data-* attributes or JSON blobs
+    // Try regex approach on the raw HTML for P/E and P/B labels
+    let pe: number | null = null;
+    let pb: number | null = null;
+
+    // Pattern: label followed by a number within ~300 chars
+    const peMatch = html.match(/[Pp]\s*\/\s*[Ee]\s+[Rr]atio[\s\S]{0,300}?>\s*([\d,\.]+)\s*</);
+    if (peMatch) pe = parseNum(peMatch[1]);
+
+    const pbMatch = html.match(/[Pp]rice\s+\/\s+[Bb]ook[\s\S]{0,300}?>\s*([\d,\.]+)\s*</);
+    if (pbMatch) pb = parseNum(pbMatch[1]);
+
+    // Also try extracting from JSON data blobs (Google Finance embeds structured data)
+    const jsonMatches = [...html.matchAll(/\[["']P\/E ratio["'],["']([\d\.]+)["']\]/g)];
+    if (jsonMatches.length && pe === null) pe = parseNum(jsonMatches[0][1]);
+
+    if (pe !== null || pb !== null) {
+      console.log(`[ResearchNote][Peer] Google Finance ${symbol}: PE=${pe ?? "N/A"}, PB=${pb ?? "N/A"}`);
+    }
+    return { pe, pb };
+  } catch {
+    return fallback;
+  }
+}
+
+/** Enrich a peer stock using Screener.in (primary) + Google Finance (secondary for PE/PB) */
+async function enrichPeer(symbol: string): Promise<{ roe: number | null; pe: number | null; pb: number | null; de: number | null; bookValue: number | null }> {
+  const cached = peerEnrichCache.get(symbol);
+  if (cached && cached.expiresAt > Date.now()) return { roe: cached.roe, pe: cached.pe, pb: cached.pb, de: cached.de, bookValue: null };
+
+  const fallback = { roe: null, pe: null, pb: null, de: null, bookValue: null };
+  try {
+    // Primary: Screener.in — reliable for Indian stocks, has ROE, ROCE, Stock P/E, D/E, Book Value
+    const screener = await fetchFromScreener(symbol);
+    const result = {
+      roe:       screener.roe,
+      pe:        screener.pe,
+      pb:        screener.pb,
+      de:        screener.debtToEquity,
+      bookValue: screener.bookValue,
+    };
+
+    // Secondary: Google Finance for PE/PB if Screener.in didn't provide them
+    if (result.pe === null || result.pb === null) {
+      const gf = await fetchFromGoogleFinance(symbol);
+      if (result.pe === null && gf.pe !== null) result.pe = gf.pe;
+      if (result.pb === null && gf.pb !== null) result.pb = gf.pb;
+    }
+
+    peerEnrichCache.set(symbol, { roe: result.roe, pe: result.pe, pb: result.pb, de: result.de, expiresAt: Date.now() + 30 * 60 * 1000 });
+
+    // Write back to DB for future use — try UPDATE first, then INSERT if no row exists
+    const sym = symbol.toUpperCase();
+    if (result.roe !== null || result.de !== null) {
+      (async () => {
+        try {
+          const upd = await db.execute(sql`
+            UPDATE screener_financials
+            SET
+              roe            = COALESCE(${result.roe}, roe),
+              debt_to_equity = COALESCE(${result.de}, debt_to_equity),
+              last_updated   = NOW()
+            WHERE symbol = ${sym}
+          `);
+          const rowsUpdated = (upd as any).rowCount ?? (upd as any).count ?? 0;
+          if (!rowsUpdated) {
+            await db.execute(sql`
+              INSERT INTO screener_financials (symbol, roe, debt_to_equity, last_updated)
+              VALUES (${sym}, ${result.roe}, ${result.de}, NOW())
+            `);
+          }
+        } catch (e: any) {
+          console.warn(`[ResearchNote][Peer] DB write-back failed for ${sym}:`, e?.message?.slice(0, 60));
+        }
+      })();
+    }
+    if (result.pe !== null) {
+      db.execute(sql`
+        UPDATE listed_stocks SET pe_ratio = ${result.pe}
+        WHERE symbol = ${sym} AND (pe_ratio IS NULL OR pe_ratio::numeric = 20)
+      `).catch(() => {});
+    }
+
+    console.log(`[ResearchNote][Peer] ${symbol}: ROE=${result.roe !== null ? (result.roe * 100).toFixed(1) + "%" : "N/A"}, PE=${result.pe ?? "N/A"}, PB=${result.pb ?? "N/A"}, BV=${result.bookValue ?? "N/A"}`);
+    return result;
+  } catch (e: any) {
+    console.warn(`[ResearchNote][Peer] Enrichment failed for ${symbol}:`, e?.message?.slice(0, 80));
+    peerEnrichCache.set(symbol, { ...fallback, expiresAt: Date.now() + 5 * 60 * 1000 });
+    return fallback;
+  }
+}
 
 export interface ShareholdingData {
   promoterPct: number | null;
@@ -129,6 +244,13 @@ export async function fetchShareholding(nseSymbol: string): Promise<Shareholding
   }
 }
 
+function mcapFmt(crores: number | null): string {
+  if (!crores) return "N/A";
+  if (crores >= 100000) return `₹${(crores / 100000).toFixed(2)} L Cr`;
+  if (crores >= 1000) return `₹${(crores / 1000).toFixed(2)} K Cr`;
+  return `₹${crores.toFixed(0)} Cr`;
+}
+
 export async function fetchPeers(sector: string | null, excludeSymbol: string): Promise<PeerData[]> {
   if (!sector) return [];
   const cacheKey = `${sector}__${excludeSymbol}`;
@@ -137,34 +259,73 @@ export async function fetchPeers(sector: string | null, excludeSymbol: string): 
 
   try {
     const cleanSym = excludeSymbol.replace(/\.(NS|BO)$/i, "").toUpperCase();
+
+    // Join screener_financials to get ROE/ROCE from enriched cache
     const rows = await db.execute(sql`
-      SELECT symbol, company_name, current_price, pe_ratio, pb_ratio, roe, market_cap_value
-      FROM listed_stocks
-      WHERE sector = ${sector}
-        AND UPPER(symbol) != ${cleanSym}
-        AND is_active = true
-      ORDER BY market_cap_value DESC NULLS LAST
+      SELECT
+        ls.symbol, ls.company_name, ls.current_price, ls.pe_ratio, ls.pb_ratio,
+        ls.market_cap_value,
+        COALESCE(sf.roe, NULLIF(ls.roe::numeric, 0) / 100) AS roe,
+        sf.roce, sf.debt_to_equity
+      FROM listed_stocks ls
+      LEFT JOIN screener_financials sf ON sf.symbol = ls.symbol
+      WHERE ls.sector = ${sector}
+        AND UPPER(ls.symbol) != ${cleanSym}
+        AND ls.is_active = true
+      ORDER BY ls.market_cap_value DESC NULLS LAST
       LIMIT 4
     `);
 
     const rawRows = (rows as any).rows ?? rows;
-    const peers: PeerData[] = rawRows.map((r: any) => {
-      const mcap = r.market_cap_value ? parseFloat(r.market_cap_value) : null;
+
+    // Build initial peer list
+    const pf = (v: any) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+
+    interface MutablePeer extends PeerData { _needsEnrich: boolean; }
+
+    const peers: MutablePeer[] = rawRows.map((r: any) => {
+      const mcap = r.market_cap_value ? pf(r.market_cap_value) : null;
+      const peFromDb = r.pe_ratio ? pf(r.pe_ratio) : null;
+      const isPlaceholderPE = peFromDb !== null && peFromDb === 20;
       return {
         symbol: r.symbol,
         name: r.company_name,
-        price: r.current_price ? parseFloat(r.current_price) : null,
-        pe: r.pe_ratio ? parseFloat(r.pe_ratio) : null,
-        pb: r.pb_ratio ? parseFloat(r.pb_ratio) : null,
-        roe: r.roe ? parseFloat(r.roe) / 100 : null,
+        price: r.current_price ? pf(r.current_price) : null,
+        pe: isPlaceholderPE ? null : peFromDb,
+        pb: r.pb_ratio ? pf(r.pb_ratio) : null,
+        roe: r.roe !== null && r.roe !== undefined ? pf(r.roe) : null,
         marketCap: mcap ? mcap * 1e7 : null,
-        marketCapFormatted: mcap ? (mcap >= 100000 ? `₹${(mcap / 100000).toFixed(2)} L Cr` : mcap >= 1000 ? `₹${(mcap / 1000).toFixed(2)} K Cr` : `₹${mcap.toFixed(0)} Cr`) : "N/A",
+        marketCapFormatted: mcapFmt(mcap),
+        _needsEnrich: !r.roe || isPlaceholderPE,
       };
     });
 
-    peersCache.set(cacheKey, { data: peers, expiresAt: Date.now() + CACHE_TTL });
-    console.log(`[ResearchNote] Peers for ${sector}: ${peers.map(p => p.symbol).join(", ")}`);
-    return peers;
+    // Enrich peers missing ROE/PE via Screener.in + Google Finance (sequential to avoid rate limits)
+    const needsEnrich = peers.filter(p => p._needsEnrich || p.roe === null || p.pe === null);
+    if (needsEnrich.length > 0) {
+      console.log(`[ResearchNote] Enriching ${needsEnrich.length} peers via Screener.in: ${needsEnrich.map(p => p.symbol).join(", ")}`);
+      for (let i = 0; i < needsEnrich.length; i++) {
+        const peer = needsEnrich[i];
+        if (i > 0) await new Promise(r => setTimeout(r, 1200)); // stagger to avoid rate limiting
+        try {
+          const enriched = await enrichPeer(peer.symbol);
+          if (enriched.roe !== null && peer.roe === null) peer.roe = enriched.roe;
+          if (enriched.pe  !== null && peer.pe  === null) peer.pe  = enriched.pe;
+          if (enriched.pb  !== null && peer.pb  === null) peer.pb  = enriched.pb;
+          // Compute P/B from price ÷ book value when Screener.in gives book value but not explicit PB
+          if (peer.pb === null && peer.price !== null && enriched.bookValue && enriched.bookValue > 0) {
+            peer.pb = Math.round((peer.price / enriched.bookValue) * 100) / 100;
+          }
+        } catch { /* already logged inside enrichPeer */ }
+      }
+    }
+
+    // Strip internal flag before caching
+    const finalPeers: PeerData[] = peers.map(({ _needsEnrich: _, ...p }) => p);
+
+    peersCache.set(cacheKey, { data: finalPeers, expiresAt: Date.now() + CACHE_TTL });
+    console.log(`[ResearchNote] Peers for ${sector}: ${finalPeers.map(p => `${p.symbol}(ROE:${p.roe !== null ? (p.roe * 100).toFixed(1) + "%" : "N/A"},PE:${p.pe ?? "N/A"})`).join(", ")}`);
+    return finalPeers;
   } catch (e: any) {
     console.warn(`[ResearchNote] fetchPeers failed:`, e?.message);
     return [];

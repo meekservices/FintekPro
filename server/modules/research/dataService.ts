@@ -49,7 +49,7 @@ export interface FinancialData {
 
 // ─── Screener data shape ──────────────────────────────────────────────────────
 
-interface ScreenerData {
+export interface ScreenerData {
   roe: number | null;
   roce: number | null;
   dividendYield: number | null;
@@ -57,6 +57,8 @@ interface ScreenerData {
   revenueGrowth: number | null;
   earningsGrowth: number | null;
   debtToEquity: number | null;
+  pe: number | null;
+  pb: number | null;
 }
 
 // ─── Caches ───────────────────────────────────────────────────────────────────
@@ -159,10 +161,11 @@ function extractTableLastTwoRows(html: string, sectionId: string, rowLabel: stri
   return [null, null];
 }
 
-async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData> {
+export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData> {
   const empty: ScreenerData = {
     roe: null, roce: null, dividendYield: null, bookValue: null,
     revenueGrowth: null, earningsGrowth: null, debtToEquity: null,
+    pe: null, pb: null,
   };
 
   try {
@@ -201,19 +204,23 @@ async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData> {
     let roce: number | null = null;
     let dividendYield: number | null = null;
     let bookValue: number | null = null;
+    let pe: number | null = null;
+    let pb: number | null = null;
 
     for (const item of liItems) {
       const numMatch = item.match(/([\d,\.]+)\s*%?$/);
       if (!numMatch) continue;
       const val = parseNum(numMatch[1]);
       const lower = item.toLowerCase();
-      if (/\broe\b/.test(lower) && roe === null)           roe = val !== null ? val / 100 : null;
-      else if (/\broce\b/.test(lower) && roce === null)     roce = val !== null ? val / 100 : null;
-      else if (/dividend yield/.test(lower) && dividendYield === null) dividendYield = val !== null ? val / 100 : null;
+      if (/\broe\b/.test(lower) && roe === null)                          roe = val !== null ? val / 100 : null;
+      else if (/\broce\b/.test(lower) && roce === null)                   roce = val !== null ? val / 100 : null;
+      else if (/dividend yield/.test(lower) && dividendYield === null)    dividendYield = val !== null ? val / 100 : null;
+      else if (/stock p\/e|pe ratio|\bp\/e\b/.test(lower) && pe === null) pe = val;
+      else if (/price to book|p\/b ratio/.test(lower) && pb === null)     pb = val;
       else if (/book value/.test(lower) && bookValue === null) {
-        // Book value has ₹ prefix — extract the number after ₹
-        const bvMatch = item.match(/₹\s*([\d,\.]+)/);
+        const bvMatch = item.match(/(?:₹|Rs\.?)\s*([\d,\.]+)/i);
         bookValue = bvMatch ? parseNum(bvMatch[1]) : val;
+        if (bookValue === null && val !== null) bookValue = val;
       }
     }
 
@@ -245,13 +252,14 @@ async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData> {
     console.log(
       `[ResearchNote] Screener.in ${nseSymbol} → ROE:${roe !== null ? (roe * 100).toFixed(2) + "%" : "N/A"}`,
       `ROCE:${roce !== null ? (roce * 100).toFixed(2) + "%" : "N/A"}`,
+      `PE:${pe ?? "N/A"} PB:${pb ?? "N/A"}`,
       `DY:${dividendYield !== null ? (dividendYield * 100).toFixed(2) + "%" : "N/A"}`,
       `D/E:${debtToEquity ?? "N/A"}`,
       `RevGrowth:${revenueGrowth !== null ? (revenueGrowth * 100).toFixed(1) + "%" : "N/A"}`,
       `EPS Growth:${earningsGrowth !== null ? (earningsGrowth * 100).toFixed(1) + "%" : "N/A"}`
     );
 
-    return { roe, roce, dividendYield, bookValue, revenueGrowth, earningsGrowth, debtToEquity };
+    return { roe, roce, dividendYield, bookValue, revenueGrowth, earningsGrowth, debtToEquity, pe, pb };
   } catch (e: any) {
     console.warn("[ResearchNote] Screener.in fetch failed:", e?.message);
     return empty;
