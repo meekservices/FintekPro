@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useState, useRef, useEffect } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { AgentLayout } from "@/components/layout/agent-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import {
   Info,
   DollarSign,
   Percent,
+  X,
 } from "lucide-react";
 
 interface FinancialData {
@@ -75,6 +76,15 @@ interface PreviewData {
   weekRange52Position: string;
   valuationSummary: string;
   generatedAt: string;
+}
+
+interface CompanySearchResult {
+  symbol: string;
+  isin: string;
+  company_name: string;
+  sector: string | null;
+  nse_code: string | null;
+  bse_code: string | null;
 }
 
 function fmt(val: number | null, prefix = "", suffix = "", decimals = 2): string {
@@ -133,9 +143,41 @@ function MetricCard({ label, value, highlight }: { label: string; value: string;
 }
 
 export default function ResearchNoteGenerator() {
-  const [query, setQuery] = useState("");
+  const [searchText, setSearchText] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedCompany, setSelectedCompany] = useState<CompanySearchResult | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const { toast } = useToast();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchText), 280);
+    return () => clearTimeout(t);
+  }, [searchText]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const { data: searchResults = [], isFetching: isSearching } = useQuery<CompanySearchResult[]>({
+    queryKey: ["/api/research-note/search", debouncedSearch],
+    queryFn: async () => {
+      if (debouncedSearch.length < 2) return [];
+      return apiRequest(`/api/research-note/search?q=${encodeURIComponent(debouncedSearch)}`, "GET");
+    },
+    enabled: debouncedSearch.length >= 2,
+    staleTime: 30000,
+  });
+
+  const symbolToAnalyse = selectedCompany ? selectedCompany.symbol : searchText.trim();
 
   const previewMutation = useMutation({
     mutationFn: async (symbol: string) => {
@@ -154,7 +196,7 @@ export default function ResearchNoteGenerator() {
       const res = await fetch(`/api/research-note/generate/${type}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol: query }),
+        body: JSON.stringify({ symbol: symbolToAnalyse }),
         credentials: "include",
       });
       if (!res.ok) {
@@ -180,13 +222,28 @@ export default function ResearchNoteGenerator() {
     },
   });
 
+  const handleSelect = (company: CompanySearchResult) => {
+    setSelectedCompany(company);
+    setSearchText(company.company_name);
+    setShowDropdown(false);
+    setPreviewData(null);
+  };
+
+  const handleClear = () => {
+    setSelectedCompany(null);
+    setSearchText("");
+    setPreviewData(null);
+    setShowDropdown(false);
+    inputRef.current?.focus();
+  };
+
   const handlePreview = () => {
-    if (!query.trim()) return;
-    previewMutation.mutate(query.trim());
+    if (!symbolToAnalyse) return;
+    previewMutation.mutate(symbolToAnalyse);
   };
 
   const handleDownload = (type: "ppt" | "pdf" | "onepager") => {
-    if (!query.trim()) return;
+    if (!symbolToAnalyse) return;
     downloadMutation.mutate({ type });
   };
 
@@ -213,25 +270,104 @@ export default function ResearchNoteGenerator() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Company Search</CardTitle>
-            <CardDescription>Enter ISIN, NSE symbol, or company name (e.g. RELIANCE, AJAXENGG, TCS.NS)</CardDescription>
+            <CardDescription>Search from FintekPro database by company name, NSE symbol, or ISIN</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <div className="flex gap-2 items-start">
+              <div className="relative flex-1" ref={dropdownRef}>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
                 <Input
-                  className="pl-9"
-                  placeholder="e.g. RELIANCE, AJAXENGG, TCS, INFY..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handlePreview()}
+                  ref={inputRef}
+                  className="pl-9 pr-8"
+                  placeholder="Type company name, symbol (RELIANCE, TCS) or ISIN..."
+                  value={searchText}
+                  onChange={(e) => {
+                    setSearchText(e.target.value);
+                    setSelectedCompany(null);
+                    setShowDropdown(true);
+                  }}
+                  onFocus={() => { if (searchText.length >= 2) setShowDropdown(true); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { setShowDropdown(false); handlePreview(); }
+                    if (e.key === "Escape") setShowDropdown(false);
+                  }}
                 />
+                {searchText && (
+                  <button
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={handleClear}
+                    type="button"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+
+                {showDropdown && debouncedSearch.length >= 2 && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                    {isSearching ? (
+                      <div className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching...
+                      </div>
+                    ) : searchResults.length === 0 ? (
+                      <div className="px-3 py-3 text-sm text-muted-foreground">No companies found. Try a different name or symbol.</div>
+                    ) : (
+                      searchResults.map((c) => (
+                        <button
+                          key={c.isin}
+                          className="w-full text-left px-3 py-2.5 hover:bg-muted transition-colors border-b border-border/50 last:border-0"
+                          onMouseDown={(e) => { e.preventDefault(); handleSelect(c); }}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">{c.company_name}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">{c.symbol}</span>
+                                {c.sector && <span className="ml-2 text-muted-foreground">· {c.sector}</span>}
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{c.isin}</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
-              <Button onClick={handlePreview} disabled={!query.trim() || previewMutation.isPending}>
+              <Button onClick={handlePreview} disabled={!symbolToAnalyse || previewMutation.isPending}>
                 {previewMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <BarChart3 className="h-4 w-4 mr-2" />}
                 Analyse
               </Button>
             </div>
+
+            {selectedCompany && (
+              <div className="mt-3 flex items-center gap-3 px-3 py-2 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <Building2 className="h-4 w-4 text-blue-600 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200 truncate">{selectedCompany.company_name}</p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 font-mono mt-0.5">
+                    ISIN: {selectedCompany.isin} · NSE: {selectedCompany.symbol}
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-blue-700 border-blue-300 text-[10px] shrink-0">Selected</Badge>
+              </div>
+            )}
+
+            {!selectedCompany && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {["RELIANCE", "TCS", "INFY", "HDFCBANK", "AJAXENGG"].map((s) => (
+                  <button
+                    key={s}
+                    className="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors font-mono"
+                    onClick={() => { setSearchText(s); setSelectedCompany(null); setShowDropdown(true); setDebouncedSearch(s); }}
+                    type="button"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

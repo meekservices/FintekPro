@@ -5,11 +5,58 @@ import { momentumSignal, priceLevels, weekRange52Position } from "../modules/res
 import { valuationSummary, pegRating, priceToTargetUpside } from "../modules/research/valuationEngine";
 import { computeRating } from "../modules/research/recommendationEngine";
 import { generatePPT, generatePDF, generateOnePager, ReportData } from "../modules/research/reportService";
+import { db } from "../db";
+import { sql } from "drizzle-orm";
 
 const router = Router();
 
+router.get("/search", async (req: Request, res: Response) => {
+  try {
+    const q = (req.query.q as string || "").trim();
+    if (!q || q.length < 2) return res.json([]);
+
+    const pattern = `%${q.toUpperCase()}%`;
+    const rows = await db.execute(sql`
+      SELECT symbol, isin, company_name, sector, nse_code, bse_code
+      FROM listed_stocks
+      WHERE is_active = true
+        AND (
+          UPPER(company_name) LIKE ${pattern}
+          OR UPPER(symbol) LIKE ${pattern}
+          OR UPPER(isin) LIKE ${pattern}
+          OR UPPER(COALESCE(nse_code, '')) LIKE ${pattern}
+        )
+      ORDER BY
+        CASE WHEN UPPER(symbol) = ${q.toUpperCase()} THEN 0
+             WHEN UPPER(symbol) LIKE ${q.toUpperCase() + "%"} THEN 1
+             ELSE 2 END,
+        company_name
+      LIMIT 10
+    `);
+
+    res.json(rows.rows || rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+async function resolveFromDB(input: string): Promise<{ symbol: string; name: string; exchange: string; isin?: string } | null> {
+  const upper = input.toUpperCase().trim();
+  const rows = await db.execute(sql`
+    SELECT symbol, company_name, isin, 'NSE' as exchange
+    FROM listed_stocks
+    WHERE is_active = true
+      AND (UPPER(isin) = ${upper} OR UPPER(symbol) = ${upper})
+    LIMIT 1
+  `);
+  const r = (rows.rows || rows)[0] as any;
+  if (!r) return null;
+  return { symbol: r.symbol + ".NS", name: r.company_name, exchange: "NSE", isin: r.isin };
+}
+
 async function buildReportData(symbol: string): Promise<ReportData> {
-  const company = await resolveCompany(symbol);
+  const dbResult = await resolveFromDB(symbol);
+  const company = dbResult ?? await resolveCompany(symbol);
   const financials = await getFinancialData(company.symbol);
 
   const momentum = momentumSignal(
