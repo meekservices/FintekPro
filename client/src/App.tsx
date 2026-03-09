@@ -172,6 +172,7 @@ const AgentStockAI = lazyWithRetry(() => import("@/pages/agent-stock-ai"));
 const AgentThemeSettings = lazyWithRetry(() => import("@/pages/agent/theme-settings"));
 const AgentResearchLists = lazyWithRetry(() => import("@/pages/agent-research-lists"));
 const AgentResearchListDetail = lazyWithRetry(() => import("@/pages/agent-research-list-detail"));
+const ResearchNoteGenerator = lazyWithRetry(() => import("@/pages/research-note-generator"));
 const AgentScreener = lazyWithRetry(() => import("@/pages/agent-screener"));
 const AgentResearchAnalytics = lazyWithRetry(() => import("@/pages/agent-research-analytics"));
 const AgentTreasuryPage = lazyWithRetry(() => import("@/pages/agent-treasury"));
@@ -2297,6 +2298,13 @@ function AgentRoutes() {
         {() => (
           <Suspense fallback={<LoadingState />}>
             <AgentResearchAnalytics />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/research/generate">
+        {() => (
+          <Suspense fallback={<LoadingState />}>
+            <ResearchNoteGenerator />
           </Suspense>
         )}
       </Route>

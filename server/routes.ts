@@ -33,6 +33,7 @@ import mcaIntelligenceRoutes from './routes/mca-intelligence-routes';
 import mcaDirectPaymentRoutes from './routes/mca-direct-payment-routes';
 import mcaFinancialBackfillRoutes from './routes/mca-financial-backfill-routes';
 import researchWorkspaceRoutes from './routes/research-workspace';
+import researchNoteRoutes from './routes/research-note-routes';
 import screenerRoutes from './routes/screener-routes';
 import intrinsicValueRoutes from './routes/intrinsic-value';
 import signatureRoutes from './routes/signature-routes';
@@ -883,6 +884,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Knowledge Hub Routes
   app.use("/api/knowledge-hub", knowledgeHubRoutes);
   app.use("/api/research-lists", isAuthenticated, researchWorkspaceRoutes);
+  app.use("/api/research-note", researchNoteRoutes);
   app.use(screenerRoutes);
   console.log("✅ Knowledge Hub & Screener routes registered");
 
