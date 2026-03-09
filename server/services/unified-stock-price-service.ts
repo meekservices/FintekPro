@@ -1,19 +1,19 @@
 /**
  * Unified Stock Price Service
  * 
- * Consolidates all stock price fetching into one place with:
- * - Multi-source support (NSE, BSE)
- * - In-memory caching with configurable TTLs
- * - Batch fetching for multiple symbols
- * - Automatic fallback between sources
- * - Rate limit handling
- * - Reusable provider instances
+ * DB-first pattern:
+ * - After every successful API fetch, write price to listed_stocks (async, non-blocking)
+ * - If all providers fail, serve last-known price from listed_stocks (stale-serve)
+ * 
+ * Provider priority: NSE → FMP → BSE → Yahoo (most rate-limited, last resort)
  */
 
 import { requestDedupeService } from './request-deduplication-service';
 import { NseIndia } from 'stock-nse-india';
 import yahooFinance from 'yahoo-finance2';
 import axios from 'axios';
+import { db } from '../db';
+import { sql } from 'drizzle-orm';
 
 yahooFinance.suppressNotices(['yahooSurvey']);
 
@@ -28,7 +28,7 @@ interface StockPrice {
   open?: number;
   volume?: number;
   timestamp: number;
-  source: 'NSE' | 'BSE' | 'YAHOO' | 'FMP' | 'CACHE';
+  source: 'NSE' | 'BSE' | 'YAHOO' | 'FMP' | 'CACHE' | 'DB_STALE';
 }
 
 interface ProviderHealth {
@@ -66,6 +66,8 @@ class UnifiedStockPriceService {
     apiCalls: 0,
     errors: 0,
     batchRequests: 0,
+    dbStaleServes: 0,
+    dbWritebacks: 0,
   };
 
   constructor() {
@@ -92,9 +94,6 @@ class UnifiedStockPriceService {
     }, 60 * 1000);
   }
 
-  /**
-   * Stop the cleanup interval (for graceful shutdown)
-   */
   stop(): void {
     if (this.cleanupIntervalId) {
       clearInterval(this.cleanupIntervalId);
@@ -132,6 +131,63 @@ class UnifiedStockPriceService {
   }
 
   /**
+   * Write price data back to listed_stocks for stale-serve fallback.
+   * Non-blocking — fires and forgets.
+   */
+  private writeToDb(price: StockPrice): void {
+    const sym = price.symbol.toUpperCase();
+    db.execute(sql`
+      UPDATE listed_stocks
+      SET
+        current_price     = ${price.price},
+        previous_close    = COALESCE(${price.previousClose ?? null}, previous_close),
+        day_change_percent= COALESCE(${price.changePercent ?? null}, day_change_percent),
+        last_updated      = NOW()
+      WHERE symbol = ${sym}
+    `).then(() => {
+      this.metrics.dbWritebacks++;
+    }).catch((e: any) => {
+      // Non-critical — just log quietly
+      console.debug(`[StockPrice] DB write-back skipped for ${sym}: ${e?.message?.slice(0, 50)}`);
+    });
+  }
+
+  /**
+   * Last-resort: fetch most recent known price from listed_stocks when all live providers fail.
+   */
+  private async fetchStaleFromDb(symbol: string): Promise<StockPrice | null> {
+    try {
+      const rows = await db.execute(sql`
+        SELECT current_price, previous_close, day_change_percent, last_updated
+        FROM listed_stocks
+        WHERE symbol = ${symbol.toUpperCase()} AND current_price IS NOT NULL
+        LIMIT 1
+      `);
+      const r = ((rows as any).rows ?? rows)[0] as any;
+      if (!r || !r.current_price) return null;
+
+      const price = parseFloat(r.current_price);
+      const prevClose = r.previous_close ? parseFloat(r.previous_close) : undefined;
+      const chgPct = r.day_change_percent ? parseFloat(r.day_change_percent) : undefined;
+      const lastUpdated = r.last_updated ? new Date(r.last_updated) : null;
+
+      console.warn(`[StockPrice] All providers failed for ${symbol} — serving stale DB price ₹${price} (last updated: ${lastUpdated?.toISOString() ?? 'unknown'})`);
+      this.metrics.dbStaleServes++;
+
+      return {
+        symbol,
+        price,
+        previousClose: prevClose,
+        changePercent: chgPct,
+        timestamp: lastUpdated?.getTime() ?? Date.now(),
+        source: 'DB_STALE',
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Get stock price for a single symbol
    */
   async getPrice(symbol: string, exchange?: 'NSE' | 'BSE'): Promise<StockPrice | null> {
@@ -149,12 +205,24 @@ class UnifiedStockPriceService {
         const price = await this.fetchFromSource(symbol, exchange);
         if (price) {
           this.setCache(symbol, price, CACHE_TTL.REALTIME, exchange);
+          // Write-back to DB for stale-serve fallback
+          this.writeToDb(price);
+          return price;
         }
-        return price;
+
+        // All live providers failed — try stale DB as last resort
+        const stalePrice = await this.fetchStaleFromDb(symbol);
+        if (stalePrice) {
+          this.setCache(symbol, stalePrice, CACHE_TTL.INTRADAY, exchange);
+          return stalePrice;
+        }
+
+        return null;
       } catch (error: any) {
         this.metrics.errors++;
         console.error(`[StockPrice] Failed to fetch ${symbol}: ${error.message}`);
-        return null;
+        // Try stale DB on exception too
+        return this.fetchStaleFromDb(symbol);
       }
     });
   }
@@ -312,7 +380,7 @@ class UnifiedStockPriceService {
 
   /**
    * Fetch from available sources with fallback
-   * Priority: NSE (direct exchange) → FMP (reliable API) → BSE → Yahoo (most rate-limited, last resort)
+   * Priority: NSE → FMP → BSE → Yahoo (most rate-limited, last resort)
    */
   private async fetchFromSource(symbol: string, exchange?: 'NSE' | 'BSE'): Promise<StockPrice | null> {
     if ((exchange === 'NSE' || !exchange) && !this.isProviderCoolingDown('nse')) {
@@ -404,25 +472,16 @@ class UnifiedStockPriceService {
     return null;
   }
 
-  /**
-   * Prefetch prices for a watchlist (background operation)
-   */
   async prefetchWatchlist(symbols: string[]): Promise<void> {
     console.log(`[StockPrice] Prefetching ${symbols.length} symbols...`);
     await this.getBatchPrices(symbols);
   }
 
-  /**
-   * Warm the cache with popular stocks
-   */
   async warmCache(popularSymbols: string[] = ['RELIANCE', 'TCS', 'INFY', 'HDFC', 'ICICIBANK']): Promise<void> {
     console.log(`[StockPrice] Warming cache with ${popularSymbols.length} popular symbols...`);
     await this.getBatchPrices(popularSymbols);
   }
 
-  /**
-   * Get cache statistics
-   */
   getMetrics() {
     const hitRate = (this.metrics.cacheHits + this.metrics.cacheMisses) > 0
       ? ((this.metrics.cacheHits / (this.metrics.cacheHits + this.metrics.cacheMisses)) * 100).toFixed(2)
@@ -442,6 +501,8 @@ class UnifiedStockPriceService {
       apiCalls: 0,
       errors: 0,
       batchRequests: 0,
+      dbStaleServes: 0,
+      dbWritebacks: 0,
     };
   }
 }

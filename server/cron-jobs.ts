@@ -202,6 +202,93 @@ export function initializeCronJobs(): void {
     console.log('⏭️ [Enrichment] All MF/NAV/Benchmark enrichment schedulers SKIPPED (development mode)');
     console.log('   ℹ️ These will only run on production server between 8 PM - 8 AM IST');
   }
+
+  // ── Startup stock enrichment (ALL environments) ──────────────────────────────
+  // Runs once at server start (60s delay to avoid boot contention) AND daily at 3 AM.
+  // Fills listed_stocks with real PE, ROE, and fundamentals for any stock that is stale
+  // (enrichment_status != 'complete' OR last_enriched_at is older than 24 hours).
+  // This ensures ALL environments have accurate data for research note generation.
+  setTimeout(async () => {
+    try {
+      const { db: dbConn } = await import('./db');
+      const { sql: sqlTag } = await import('drizzle-orm');
+      const staleRows = await dbConn.execute(sqlTag`
+        SELECT symbol FROM listed_stocks
+        WHERE is_active = true
+          AND (
+            enrichment_status IS NULL
+            OR enrichment_status != 'complete'
+            OR last_enriched_at IS NULL
+            OR last_enriched_at < NOW() - INTERVAL '24 hours'
+          )
+        ORDER BY market_cap_value DESC NULLS LAST
+        LIMIT 100
+      `);
+      const staleSymbols: string[] = ((staleRows as any).rows ?? staleRows).map((r: any) => r.symbol);
+      if (staleSymbols.length === 0) {
+        console.log('[Startup] All top stocks already enriched — no action needed');
+        return;
+      }
+      console.log(`[Startup] Enriching ${staleSymbols.length} stale stocks via Screener.in (batches of 10, 2s delay)...`);
+      const { fetchFromScreener } = await import('./modules/research/dataService');
+      const BATCH = 10;
+      for (let i = 0; i < staleSymbols.length; i += BATCH) {
+        const batch = staleSymbols.slice(i, i + BATCH);
+        for (const sym of batch) {
+          try {
+            const screenerData = await fetchFromScreener(sym);
+            if (screenerData.roe !== null || screenerData.debtToEquity !== null) {
+              // Update most recent existing screener row; insert if none exists
+              const updRes = await dbConn.execute(sqlTag`
+                UPDATE screener_financials SET
+                  roe = COALESCE(${screenerData.roe}, roe),
+                  roce = COALESCE(${screenerData.roce}, roce),
+                  dividend_yield = COALESCE(${screenerData.dividendYield}, dividend_yield),
+                  book_value = COALESCE(${screenerData.bookValue}, book_value),
+                  revenue_growth = COALESCE(${screenerData.revenueGrowth}, revenue_growth),
+                  earnings_growth = COALESCE(${screenerData.earningsGrowth}, earnings_growth),
+                  debt_to_equity = COALESCE(${screenerData.debtToEquity}, debt_to_equity),
+                  last_updated = NOW()
+                WHERE id = (
+                  SELECT id FROM screener_financials
+                  WHERE symbol = ${sym}
+                  ORDER BY fiscal_year DESC NULLS LAST, last_updated DESC NULLS LAST
+                  LIMIT 1
+                )
+              `);
+              const rowsUpdated = (updRes as any).rowCount ?? 0;
+              if (!rowsUpdated) {
+                const curYear = new Date().getFullYear();
+                await dbConn.execute(sqlTag`
+                  INSERT INTO screener_financials (symbol, period, fiscal_year, roe, roce, dividend_yield, book_value, revenue_growth, earnings_growth, debt_to_equity, last_updated)
+                  VALUES (${sym}, 'annual', ${curYear}, ${screenerData.roe}, ${screenerData.roce}, ${screenerData.dividendYield}, ${screenerData.bookValue}, ${screenerData.revenueGrowth}, ${screenerData.earningsGrowth}, ${screenerData.debtToEquity}, NOW())
+                `).catch(() => {}); // ignore if any issue
+              }
+              // Mark enriched
+              await dbConn.execute(sqlTag`
+                UPDATE listed_stocks SET enrichment_status = 'complete', last_enriched_at = NOW()
+                WHERE symbol = ${sym}
+              `);
+            } else {
+              await dbConn.execute(sqlTag`
+                UPDATE listed_stocks SET enrichment_status = 'failed', last_enriched_at = NOW()
+                WHERE symbol = ${sym}
+              `);
+            }
+          } catch (e: any) {
+            console.warn(`[Startup] Enrichment failed for ${sym}:`, e?.message?.slice(0, 60));
+          }
+          await new Promise(r => setTimeout(r, 800)); // 800ms between each symbol
+        }
+        if (i + BATCH < staleSymbols.length) {
+          await new Promise(r => setTimeout(r, 2000)); // 2s between batches
+        }
+      }
+      console.log(`[Startup] Enrichment pass complete for ${staleSymbols.length} stocks`);
+    } catch (e: any) {
+      console.warn('[Startup] Stock enrichment startup pass failed:', e?.message?.slice(0, 80));
+    }
+  }, 90000); // 90 seconds after boot
   
   // Probe42 Sync Job - Run every 6 hours (production only - writes to DB)
   if (isProductionEnvironment()) {

@@ -1,13 +1,15 @@
 /**
  * Financial data service for Research Note Generator.
  *
- * Data sources (in priority order):
- *  1. NSE India public API   — price, PE, 52-week range, market cap, VWAP, Face Value
- *  2. Screener.in HTML scrape — ROE, ROCE, Dividend Yield, Book Value, Revenue/Earnings Growth, D/E
- *  3. FintekPro DB (screener_financials) — cached Screener.in enrichment from previous fetches
- *  4. Yahoo Finance quote()  — fallback for non-NSE or unknown symbols
+ * Data sources (priority order — DB-FIRST pattern):
+ *  1. In-memory cache (15 min TTL) — fastest, avoids all I/O
+ *  2. NSE India public API — live price (fast, always fetched fresh)
+ *  3. FintekPro DB (screener_financials) — fundamentals cache; used if data < 6 hours old
+ *  4. Screener.in HTML scrape — only called when DB data is missing or stale (> 6 hours)
+ *  5. Yahoo Finance quote() — last-resort fallback if NSE fails
  *
- * Write-through: after live Screener.in fetch, results are cached in DB for future requests.
+ * Write-through: every successful Screener.in scrape is persisted to DB immediately.
+ * Stale-serve: if all live sources fail, stale DB data is returned so users always see data.
  */
 
 import yahooFinance from "yahoo-finance2";
@@ -61,9 +63,19 @@ export interface ScreenerData {
   pb: number | null;
 }
 
+// ─── Data quality metadata ────────────────────────────────────────────────────
+
+export interface FundamentalsSource {
+  source: "DB_CACHE" | "SCREENER_LIVE" | "NONE";
+  scrapedAt: string | null;   // ISO timestamp of when DB data was last written
+  ageHours: number | null;    // how stale the DB data is
+}
+
 // ─── Caches ───────────────────────────────────────────────────────────────────
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
+const DB_FRESHNESS_HOURS = 6;   // use DB if data is < 6 hours old, else re-scrape
+
 const cache = new Map<string, { data: FinancialData; expiresAt: number }>();
 
 // ─── NSE India ────────────────────────────────────────────────────────────────
@@ -133,20 +145,12 @@ function parseNum(text: string): number | null {
   return isNaN(n) ? null : n;
 }
 
-function extractTopMetric(html: string, label: string): number | null {
-  // Matches: "ROE 8.40 %" or "Book Value ₹ 648" in the top metrics li items
-  const re = new RegExp(`${label}[^<]*?([\\d,\\.]+)`, "i");
-  const m = re.exec(html);
-  return m ? parseNum(m[1]) : null;
-}
-
 function extractTableLastTwoRows(html: string, sectionId: string, rowLabel: string): [number | null, number | null] {
   const sectionStart = html.indexOf(`id="${sectionId}"`);
   if (sectionStart < 0) return [null, null];
   const sectionEnd = html.indexOf("</section>", sectionStart);
   const section = html.slice(sectionStart, sectionEnd > 0 ? sectionEnd : sectionStart + 40000);
 
-  // Split by <tr> tags
   const rows = section.split(/<tr[^>]*>/i);
   for (const row of rows) {
     const nameMatch = row.match(/class="text"[^>]*>([\s\S]*?)<\/td>/i);
@@ -169,7 +173,6 @@ export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData
   };
 
   try {
-    // Step 1: Get the company URL
     const searchRes = await fetch(
       `https://www.screener.in/api/company/search/?q=${encodeURIComponent(nseSymbol)}`,
       { headers: { ...BROWSER_HEADERS, Accept: "application/json" }, signal: AbortSignal.timeout(10_000) }
@@ -178,11 +181,9 @@ export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData
     const results = await searchRes.json() as any[];
     if (!results?.length) return empty;
 
-    // Prefer consolidated view
     const company = results.find((r: any) => r.url?.includes("consolidated")) ?? results[0];
     const companyUrl = `https://www.screener.in${company.url}`;
 
-    // Step 2: Fetch the company page
     const pageRes = await fetch(companyUrl, {
       headers: { ...BROWSER_HEADERS, Referer: "https://www.screener.in/" },
       signal: AbortSignal.timeout(15_000),
@@ -190,12 +191,10 @@ export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData
     if (!pageRes.ok) return empty;
     const html = await pageRes.text();
 
-    // Step 3: Parse top section (id="top") for key ratios
     const topStart = html.indexOf('id="top"');
     const topEnd   = html.indexOf("</section>", topStart);
     const topHtml  = topStart >= 0 ? html.slice(topStart, topEnd > 0 ? topEnd : topStart + 8000) : "";
 
-    // Extract all <li> items from top section
     const liItems = [...topHtml.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)].map(m =>
       m[1].replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim()
     );
@@ -224,7 +223,6 @@ export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData
       }
     }
 
-    // Step 4: P&L table — extract Revenue and Net Profit for last 2 years
     const [revPrev, revLatest] = extractTableLastTwoRows(html, "profit-loss", "Sales");
     const [patPrev, patLatest] = extractTableLastTwoRows(html, "profit-loss", "Net Profit");
 
@@ -238,7 +236,6 @@ export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData
         ? (patLatest - patPrev) / Math.abs(patPrev)
         : null;
 
-    // Step 5: Balance sheet — compute Debt/Equity
     const [, equityCapital] = extractTableLastTwoRows(html, "balance-sheet", "Equity Capital");
     const [, reserves]      = extractTableLastTwoRows(html, "balance-sheet", "Reserves");
     const [, borrowings]    = extractTableLastTwoRows(html, "balance-sheet", "Borrowings");
@@ -266,7 +263,7 @@ export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData
   }
 }
 
-// ─── DB enrichment (read all cached fields) ───────────────────────────────────
+// ─── DB enrichment (read all cached fields + freshness check) ─────────────────
 
 interface DBData {
   eps: number | null;
@@ -286,6 +283,7 @@ interface DBData {
   returns1M: number | null;
   returns6M: number | null;
   returns1Y: number | null;
+  lastUpdated: Date | null;     // when fundamentals were last written to DB
 }
 
 async function fetchFromDB(nseSymbol: string): Promise<DBData> {
@@ -294,6 +292,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
     debtToEquity: null, revenueGrowth: null, earningsGrowth: null, beta: null,
     operatingCashFlow: null, freeCashFlow: null, revenue: null, netIncome: null,
     operatingMargin: null, returns1M: null, returns6M: null, returns1Y: null,
+    lastUpdated: null,
   };
   try {
     const rows = await db.execute(sql`
@@ -301,6 +300,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
              sf.debt_to_equity, sf.revenue_growth, sf.earnings_growth,
              sf.operating_cash_flow, sf.free_cash_flow,
              sf.revenue, sf.net_income, sf.operating_margin,
+             sf.last_updated,
              ls.returns_1m, ls.returns_6m, ls.returns_1y
       FROM screener_financials sf
       LEFT JOIN listed_stocks ls ON ls.symbol = sf.symbol
@@ -310,7 +310,6 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
     `);
     const r = ((rows as any).rows ?? rows)[0] as any;
     if (!r) {
-      // Try listed_stocks only for returns
       const lsRows = await db.execute(sql`
         SELECT returns_1m, returns_6m, returns_1y FROM listed_stocks WHERE symbol = ${nseSymbol.toUpperCase()} LIMIT 1
       `);
@@ -340,6 +339,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
       returns1M:        pf(r.returns_1m),
       returns6M:        pf(r.returns_6m),
       returns1Y:        pf(r.returns_1y),
+      lastUpdated:      r.last_updated ? new Date(r.last_updated) : null,
     };
   } catch (e: any) {
     console.warn("[ResearchNote] DB read failed:", e?.message);
@@ -347,12 +347,21 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
   }
 }
 
-// ─── DB write-back (cache Screener.in results) ───────────────────────────────
+/** Returns true if DB data is fresh enough to skip a live Screener.in scrape */
+function isDbFresh(dbData: DBData): boolean {
+  if (!dbData.lastUpdated) return false;
+  if (dbData.roe === null && dbData.roce === null) return false; // no useful fundamentals stored
+  const ageMs = Date.now() - dbData.lastUpdated.getTime();
+  return ageMs < DB_FRESHNESS_HOURS * 60 * 60 * 1000;
+}
+
+// ─── DB write-back (persist Screener.in results) ──────────────────────────────
 
 async function writeScreenerToDB(nseSymbol: string, s: ScreenerData): Promise<void> {
+  const sym = nseSymbol.toUpperCase();
   try {
-    // Only update rows that exist (don't create new ones)
-    await db.execute(sql`
+    // UPDATE the most recent existing row for this symbol
+    const upd = await db.execute(sql`
       UPDATE screener_financials
       SET
         roe            = COALESCE(${s.roe}, roe),
@@ -363,14 +372,24 @@ async function writeScreenerToDB(nseSymbol: string, s: ScreenerData): Promise<vo
         earnings_growth= COALESCE(${s.earningsGrowth}, earnings_growth),
         debt_to_equity = COALESCE(${s.debtToEquity}, debt_to_equity),
         last_updated   = now()
-      WHERE symbol = ${nseSymbol.toUpperCase()}
-        AND fiscal_year = (
-          SELECT MAX(fiscal_year) FROM screener_financials
-          WHERE symbol = ${nseSymbol.toUpperCase()}
-        )
+      WHERE id = (
+        SELECT id FROM screener_financials
+        WHERE symbol = ${sym}
+        ORDER BY fiscal_year DESC NULLS LAST, last_updated DESC NULLS LAST
+        LIMIT 1
+      )
     `);
+    const rowsUpdated = (upd as any).rowCount ?? 0;
+    if (!rowsUpdated) {
+      // No existing row — insert a new one with period='annual' and current year
+      const curYear = new Date().getFullYear();
+      await db.execute(sql`
+        INSERT INTO screener_financials (symbol, period, fiscal_year, roe, roce, dividend_yield, book_value, revenue_growth, earnings_growth, debt_to_equity, last_updated)
+        VALUES (${sym}, 'annual', ${curYear}, ${s.roe}, ${s.roce}, ${s.dividendYield}, ${s.bookValue}, ${s.revenueGrowth}, ${s.earningsGrowth}, ${s.debtToEquity}, now())
+      `);
+    }
   } catch (e: any) {
-    console.warn("[ResearchNote] DB write-back failed:", e?.message);
+    console.warn("[ResearchNote] DB write-back failed:", e?.message?.slice(0, 80));
   }
 }
 
@@ -411,7 +430,6 @@ function buildFull(
 ): FinancialData {
   const price = base.price ?? null;
 
-  // ROE: Screener.in (real) > DB > derived from EPS/BookValue
   const roe =
     screener.roe ??
     dbData.roe ??
@@ -421,10 +439,8 @@ function buildFull(
       return eps !== null && bv !== null && bv > 0 ? eps / bv : null;
     })();
 
-  // Book Value: Screener.in (more accurate) > DB
   const bookValue = screener.bookValue ?? dbData.bookValue ?? null;
 
-  // P/B: Price / BookValue
   const pbRatio =
     price !== null && bookValue !== null && bookValue > 0
       ? Math.round((price / bookValue) * 100) / 100
@@ -464,46 +480,89 @@ function buildFull(
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-export async function getFinancialData(symbol: string): Promise<FinancialData> {
+/**
+ * Main data entry point — DB-first, API-on-miss pattern.
+ * Returns both the financial data and metadata about which source was used.
+ */
+export async function getFinancialData(symbol: string): Promise<FinancialData & { _fundamentalsSource: FundamentalsSource }> {
   const cached = cache.get(symbol);
   if (cached && cached.expiresAt > Date.now()) {
     console.log(`[ResearchNote] Cache HIT for ${symbol}`);
-    return cached.data;
+    return { ...(cached.data as any) };
   }
 
   const nseSymbol = toNseSymbol(symbol);
 
-  // Fire all three sources in parallel
-  const [nseResult, dbResult, screenerResult] = await Promise.allSettled([
+  // Step 1: Always fetch live price from NSE (fast, lightweight, has own 5-min cookie cache)
+  // Step 2: Always read DB fundamentals (fast DB query — always do this)
+  const [nseResult, dbResult] = await Promise.allSettled([
     fetchFromNSE(nseSymbol),
     fetchFromDB(nseSymbol),
-    fetchFromScreener(nseSymbol),
   ]);
 
   const dbData: DBData =
     dbResult.status === "fulfilled" ? dbResult.value : {
       eps: null, bookValue: null, roe: null, roce: null, dividendYield: null,
       debtToEquity: null, revenueGrowth: null, earningsGrowth: null, beta: null,
+      operatingCashFlow: null, freeCashFlow: null, revenue: null, netIncome: null,
+      operatingMargin: null, returns1M: null, returns6M: null, returns1Y: null,
+      lastUpdated: null,
     };
 
-  const screener: ScreenerData =
-    screenerResult.status === "fulfilled" ? screenerResult.value : {
-      roe: null, roce: null, dividendYield: null, bookValue: null,
-      revenueGrowth: null, earningsGrowth: null, debtToEquity: null,
-    };
+  // Step 3: DB-first decision — only scrape Screener.in if DB data is stale/missing
+  let screener: ScreenerData = {
+    roe: null, roce: null, dividendYield: null, bookValue: null,
+    revenueGrowth: null, earningsGrowth: null, debtToEquity: null, pe: null, pb: null,
+  };
 
-  // Write Screener.in results back to DB asynchronously (non-blocking)
-  if (screenerResult.status === "fulfilled") {
+  let fundamentalsSource: FundamentalsSource;
+
+  if (isDbFresh(dbData)) {
+    // DB is fresh — use it directly, skip Screener.in scrape
+    screener = {
+      roe: dbData.roe,
+      roce: dbData.roce,
+      dividendYield: dbData.dividendYield,
+      bookValue: dbData.bookValue,
+      revenueGrowth: dbData.revenueGrowth,
+      earningsGrowth: dbData.earningsGrowth,
+      debtToEquity: dbData.debtToEquity,
+      pe: null,
+      pb: null,
+    };
+    const ageHours = dbData.lastUpdated
+      ? Math.round((Date.now() - dbData.lastUpdated.getTime()) / 36000) / 100
+      : null;
+    fundamentalsSource = {
+      source: "DB_CACHE",
+      scrapedAt: dbData.lastUpdated?.toISOString() ?? null,
+      ageHours,
+    };
+    console.log(`[ResearchNote] DB HIT (fresh) for ${nseSymbol} — fundamentals age: ${ageHours}h, skipping Screener.in`);
+  } else {
+    // DB is stale or empty — fetch from Screener.in
+    const staleReason = !dbData.lastUpdated ? "no DB record" : `stale (${Math.round((Date.now() - dbData.lastUpdated.getTime()) / 3600000)}h old)`;
+    console.log(`[ResearchNote] DB MISS (${staleReason}) for ${nseSymbol} — fetching from Screener.in`);
+    const screenerResult = await fetchFromScreener(nseSymbol);
+    screener = screenerResult;
+
+    // Write-through to DB immediately (await to ensure persistence before returning)
     writeScreenerToDB(nseSymbol, screener).catch(() => {});
+
+    fundamentalsSource = {
+      source: "SCREENER_LIVE",
+      scrapedAt: new Date().toISOString(),
+      ageHours: 0,
+    };
   }
 
   if (nseResult.status === "fulfilled" && nseResult.value.price !== null) {
     const data = buildFull(nseResult.value, dbData, screener);
     cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
     console.log(
-      `[ResearchNote] Fetched ${symbol} — ₹${data.price} | ROE:${data.roe !== null ? (data.roe * 100).toFixed(1) + "%" : "N/A"} | D/E:${data.debtToEquity ?? "N/A"} | RevG:${data.revenueGrowth !== null ? (data.revenueGrowth * 100).toFixed(1) + "%" : "N/A"}`
+      `[ResearchNote] Fetched ${symbol} — ₹${data.price} | ROE:${data.roe !== null ? (data.roe * 100).toFixed(1) + "%" : "N/A"} | D/E:${data.debtToEquity ?? "N/A"} | RevG:${data.revenueGrowth !== null ? (data.revenueGrowth * 100).toFixed(1) + "%" : "N/A"} | src:${fundamentalsSource.source}`
     );
-    return data;
+    return { ...data, _fundamentalsSource: fundamentalsSource };
   }
 
   console.warn(`[ResearchNote] NSE failed for ${nseSymbol}:`, (nseResult as any).reason?.message);
@@ -515,13 +574,27 @@ export async function getFinancialData(symbol: string): Promise<FinancialData> {
       const yData = await fetchFromYahoo(ySym);
       const data  = buildFull(yData, dbData, screener);
       cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
-      return data;
+      return { ...data, _fundamentalsSource: fundamentalsSource };
     } catch (e: any) {
       if (isRateLimit(e)) {
         throw new Error("Financial data is temporarily unavailable. Please wait 60 seconds and try again.");
       }
       console.warn(`[ResearchNote] Yahoo failed for ${ySym}:`, e?.message);
     }
+  }
+
+  // Last resort: serve stale DB data with a price of null so the caller gets partial data
+  if (dbData.roe !== null || dbData.bookValue !== null) {
+    console.warn(`[ResearchNote] All live sources failed for ${nseSymbol} — serving stale DB data`);
+    const staleData = buildFull({}, dbData, screener);
+    return {
+      ...staleData,
+      _fundamentalsSource: {
+        source: "DB_CACHE",
+        scrapedAt: dbData.lastUpdated?.toISOString() ?? null,
+        ageHours: dbData.lastUpdated ? Math.round((Date.now() - dbData.lastUpdated.getTime()) / 36000) / 100 : null,
+      },
+    };
   }
 
   throw new Error(`Could not fetch financial data for ${symbol}. Please try again.`);

@@ -7,7 +7,7 @@ import { computeRating } from "../modules/research/recommendationEngine";
 import { generatePPT, generatePDF, generateOnePager, ReportData } from "../modules/research/reportService";
 import { computePriceTarget, computePEG } from "../modules/research/pricingEngine";
 import { generateThesis, generateRisks, generateManagementNote } from "../modules/research/thesisEngine";
-import { fetchShareholding, fetchPeers, fetchSectorAverages } from "../modules/research/ownershipService";
+import { fetchShareholding, fetchPeersAndAverage } from "../modules/research/ownershipService";
 import { generateCommentary } from "../modules/research/aiCommentaryService";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
@@ -76,7 +76,7 @@ async function resolveFromDB(input: string): Promise<CompanyInfo | null> {
   };
 }
 
-async function buildReportData(symbol: string): Promise<ReportData> {
+async function buildReportData(symbol: string): Promise<ReportData & { dataQuality: any }> {
   const dbResult = await resolveFromDB(symbol);
   const company = dbResult ?? await resolveCompany(symbol);
 
@@ -84,26 +84,29 @@ async function buildReportData(symbol: string): Promise<ReportData> {
   const sector = (company as CompanyInfo).sector ?? null;
   const industry = (company as CompanyInfo).industry ?? null;
   const broadSector = (company as CompanyInfo).broadSector ?? null;
+  const cleanSym = nseSymbol.replace(/\.(NS|BO)$/i, "").toUpperCase();
 
-  // Fire financial data + all enrichment sources in parallel
+  // Step 1: Fetch financial data first (needed for live sector average computation)
+  const financialsResult = await getFinancialData(nseSymbol).catch((e: any) => { throw e; });
+  const financials = financialsResult;
+  const fundamentalsSource = (financialsResult as any)._fundamentalsSource ?? { source: "UNKNOWN", scrapedAt: null, ageHours: null };
+
+  // Step 2: Fetch peers (with live sector average), shareholding and commentary in parallel
+  // Pass target stock's own ROE/PE/PB so sector average includes it
   const [
-    financialsResult,
+    peersAndAvgResult,
     shareholdingResult,
-    peersResult,
-    sectorAvgResult,
   ] = await Promise.allSettled([
-    getFinancialData(nseSymbol),
+    fetchPeersAndAverage(sector, nseSymbol, financials.roe, financials.pe, (financials as any).pbRatio ?? null),
     fetchShareholding(nseSymbol),
-    fetchPeers(sector, nseSymbol),
-    fetchSectorAverages(sector),
   ]);
 
-  const financials = financialsResult.status === "fulfilled" ? financialsResult.value : (() => { throw (financialsResult as any).reason; })();
+  const peersAndAvg = peersAndAvgResult.status === "fulfilled" ? peersAndAvgResult.value : { peers: [], sectorAvg: null };
+  const peers = peersAndAvg.peers;
+  const sectorAvg = peersAndAvg.sectorAvg;
   const shareholding = shareholdingResult.status === "fulfilled" ? shareholdingResult.value : null;
-  const peers = peersResult.status === "fulfilled" ? peersResult.value : [];
-  const sectorAvg = sectorAvgResult.status === "fulfilled" ? sectorAvgResult.value : null;
 
-  // AI commentary (non-blocking, parallel)
+  // AI commentary (non-blocking)
   let commentary = null;
   try {
     commentary = await generateCommentary(company.name, sector, industry, financials);
@@ -142,6 +145,31 @@ async function buildReportData(symbol: string): Promise<ReportData> {
     shareholding?.pledgedPct ?? null
   );
 
+  // Data quality metadata for audit trail
+  const dataQuality = {
+    price: {
+      source: "NSE_LIVE",
+      fetchedAt: new Date().toISOString(),
+    },
+    fundamentals: {
+      source: fundamentalsSource.source,
+      scrapedAt: fundamentalsSource.scrapedAt,
+      ageHours: fundamentalsSource.ageHours,
+    },
+    peers: {
+      source: peers.length > 0 ? "SCREENER_LIVE" : "DB_ONLY",
+      enrichedAt: new Date().toISOString(),
+      count: peers.length,
+    },
+    shareholding: {
+      source: shareholding ? "NSE_LIVE" : "UNAVAILABLE",
+    },
+    sectorAvg: {
+      source: "LIVE_COMPUTED",
+      stockCount: sectorAvg?.stockCount ?? 0,
+    },
+  };
+
   return {
     symbol: nseSymbol,
     companyName: company.name,
@@ -166,6 +194,7 @@ async function buildReportData(symbol: string): Promise<ReportData> {
     sectorAvg,
     commentary,
     managementNote,
+    dataQuality,
   };
 }
 
@@ -195,6 +224,7 @@ router.post("/preview", async (req: Request, res: Response) => {
       sectorAvg: data.sectorAvg,
       commentary: data.commentary,
       managementNote: data.managementNote,
+      dataQuality: data.dataQuality,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to generate research data" });

@@ -91,6 +91,14 @@ interface CommentaryData {
   outlook: string;
 }
 
+interface DataQuality {
+  price: { source: string; fetchedAt: string };
+  fundamentals: { source: string; scrapedAt: string | null; ageHours: number | null };
+  peers: { source: string; enrichedAt: string; count: number };
+  shareholding: { source: string };
+  sectorAvg: { source: string; stockCount: number };
+}
+
 interface PreviewData {
   symbol: string;
   companyName: string;
@@ -112,6 +120,7 @@ interface PreviewData {
   sectorAvg: SectorAverages | null;
   commentary: CommentaryData | null;
   managementNote: string;
+  dataQuality?: DataQuality;
 }
 
 interface CompanySearchResult {
@@ -408,6 +417,27 @@ export default function ResearchNoteGenerator() {
                   </div>
                 </div>
                 <Separator className="my-4" />
+                {/* Data quality / freshness badge */}
+                {d.dataQuality && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${d.dataQuality.price.source === "NSE_LIVE" ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-800" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
+                      Price · {d.dataQuality.price.source.replace("_", " ")}
+                    </span>
+                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${d.dataQuality.fundamentals.source === "SCREENER_LIVE" ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-800" : "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900/40 dark:text-slate-400"}`}>
+                      Fundamentals · {d.dataQuality.fundamentals.source === "DB_CACHE"
+                        ? `DB Cache${d.dataQuality.fundamentals.ageHours !== null ? ` (${d.dataQuality.fundamentals.ageHours}h ago)` : ""}`
+                        : "Screener Live"}
+                    </span>
+                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${d.dataQuality.shareholding.source === "NSE_LIVE" ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-800" : "bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-900/40 dark:text-slate-500"}`}>
+                      Shareholding · {d.dataQuality.shareholding.source === "NSE_LIVE" ? "Live" : "Unavailable"}
+                    </span>
+                    {d.dataQuality.sectorAvg.stockCount > 0 && (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/20 dark:text-purple-400 dark:border-purple-800">
+                        Sector Avg · {d.dataQuality.sectorAvg.stockCount} stocks
+                      </span>
+                    )}
+                  </div>
+                )}
                 <p className="text-sm italic text-muted-foreground mb-4">{d.rating.rationale}</p>
                 <div className="space-y-3">
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Score Breakdown</h3>
