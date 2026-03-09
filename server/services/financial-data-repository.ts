@@ -799,7 +799,15 @@ class FinancialDataRepository {
 
       let remaining = symbols.filter(s => !savedSymbols.has(s));
 
-      if (remaining.length > 0
+      if (remaining.length > 0) {
+        console.log(`[FinancialDataRepository] ${remaining.length} ETFs need Yahoo fallback...`);
+        const yahooResult = await this.refreshViaYahoo(remaining, 'etf');
+        success += yahooResult.success;
+        failed += yahooResult.failed;
+      }
+    }
+
+    console.log(`📊 [FinancialDataRepository] Refreshed ETFs: ${success} success, ${failed} failed`);
     return { success, failed };
   }
 
