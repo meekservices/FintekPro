@@ -1,0 +1,20 @@
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+Unchecked runtime.lastError: The message port closed before a response was received.
+chunk-XQLYTHWV.js?v=61da5dfa:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:42 [PWA] Service Worker registered: https://9f719c13-8d1d-4ac0-a6a3-26e422460c16-00-103c8jl0ot3tt.worf.replit.dev/
+api/user:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+utils.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+heuristicsRedefinitions.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+extensionState.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+api/login:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)
