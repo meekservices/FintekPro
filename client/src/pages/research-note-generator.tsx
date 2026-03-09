@@ -9,22 +9,11 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
-  FileText,
-  PresentationIcon,
-  Download,
-  Search,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Building2,
-  BarChart3,
-  Target,
-  ShieldAlert,
-  Loader2,
-  Info,
-  DollarSign,
-  Percent,
-  X,
+  FileText, PresentationIcon, Download, Search,
+  TrendingUp, TrendingDown, Minus, Building2,
+  BarChart3, Target, ShieldAlert, Loader2, Info,
+  DollarSign, Percent, X, AlertTriangle, Users,
+  ChevronRight, Sparkles,
 } from "lucide-react";
 
 interface FinancialData {
@@ -48,39 +37,81 @@ interface FinancialData {
   beta: number | null;
   targetMeanPrice: number | null;
   currency: string;
+  returns1M: number | null;
+  returns6M: number | null;
+  returns1Y: number | null;
 }
 
-interface RatingBreakdown {
-  fundamentals: number;
-  valuation: number;
-  momentum: number;
+interface RatingBreakdown { fundamentals: number; valuation: number; momentum: number; }
+interface RatingResult { rating: string; score: number; breakdown: RatingBreakdown; rationale: string; }
+interface PriceLevels { support: number; resistance: number; stopLoss: number; target1: number; target2: number; }
+
+interface PriceTarget {
+  peBased: number | null;
+  pbBased: number | null;
+  blended: number | null;
+  upside: number | null;
+  bear: number | null;
+  base: number | null;
+  bull: number | null;
+  method: string;
 }
 
-interface RatingResult {
-  rating: string;
-  score: number;
-  breakdown: RatingBreakdown;
-  rationale: string;
+interface ShareholdingData {
+  promoterPct: number | null;
+  promoterPrevPct: number | null;
+  promoterChange: number | null;
+  fiiPct: number | null;
+  diiPct: number | null;
+  publicPct: number | null;
+  pledgedPct: number | null;
+  quarter: string | null;
 }
 
-interface PriceLevels {
-  support: number;
-  resistance: number;
-  stopLoss: number;
-  target1: number;
-  target2: number;
+interface PeerData {
+  symbol: string;
+  name: string;
+  price: number | null;
+  pe: number | null;
+  pb: number | null;
+  roe: number | null;
+  marketCapFormatted: string;
+}
+
+interface SectorAverages {
+  avgPE: number | null;
+  avgPB: number | null;
+  avgROE: number | null;
+  stockCount: number;
+}
+
+interface CommentaryData {
+  industryTrends: string;
+  expansionPlans: string;
+  outlook: string;
 }
 
 interface PreviewData {
   symbol: string;
   companyName: string;
   exchange: string;
+  sector: string | null;
+  industry: string | null;
   financials: FinancialData;
   rating: RatingResult;
   levels: PriceLevels;
   weekRange52Position: string;
   valuationSummary: string;
   generatedAt: string;
+  priceTarget: PriceTarget | null;
+  peg: number | null;
+  thesis: string[];
+  risks: string[];
+  shareholding: ShareholdingData | null;
+  peers: PeerData[];
+  sectorAvg: SectorAverages | null;
+  commentary: CommentaryData | null;
+  managementNote: string;
 }
 
 interface CompanySearchResult {
@@ -102,6 +133,12 @@ function fmtPct(val: number | null): string {
   return `${(val * 100).toFixed(2)}%`;
 }
 
+function signPct(val: number | null): string {
+  if (val === null || val === undefined) return "N/A";
+  const s = (val * 100).toFixed(1);
+  return val >= 0 ? `+${s}%` : `${s}%`;
+}
+
 function fmtCap(val: number | null, currency = "INR"): string {
   if (!val) return "N/A";
   if (currency === "INR") {
@@ -110,10 +147,12 @@ function fmtCap(val: number | null, currency = "INR"): string {
     if (val >= 1e7) return `₹${(val / 1e7).toFixed(2)} Cr`;
     return `₹${val.toFixed(0)}`;
   }
-  if (val >= 1e12) return `$${(val / 1e12).toFixed(2)}T`;
-  if (val >= 1e9) return `$${(val / 1e9).toFixed(2)}B`;
-  if (val >= 1e6) return `$${(val / 1e6).toFixed(2)}M`;
   return `$${val.toFixed(0)}`;
+}
+
+function priceRs(val: number | null): string {
+  if (val === null) return "N/A";
+  return `₹${Math.round(val).toLocaleString("en-IN")}`;
 }
 
 function RatingBadge({ rating }: { rating: string }) {
@@ -123,8 +162,7 @@ function RatingBadge({ rating }: { rating: string }) {
   const Icon = isBuy ? TrendingUp : isHold ? Minus : TrendingDown;
   return (
     <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-white font-bold text-sm ${color}`}>
-      <Icon className="h-4 w-4" />
-      {rating}
+      <Icon className="h-4 w-4" />{rating}
     </span>
   );
 }
@@ -144,11 +182,12 @@ function ScoreBar({ label, score, weight }: { label: string; score: number; weig
   );
 }
 
-function MetricCard({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function MetricCard({ label, value, highlight, subText }: { label: string; value: string; highlight?: boolean; subText?: string }) {
   return (
     <div className={`rounded-lg border p-3 ${highlight ? "border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800" : "bg-card"}`}>
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
       <p className={`text-base font-bold ${highlight ? "text-blue-700 dark:text-blue-300" : "text-foreground"}`}>{value}</p>
+      {subText && <p className="text-xs text-muted-foreground mt-0.5">{subText}</p>}
     </div>
   );
 }
@@ -170,9 +209,7 @@ export default function ResearchNoteGenerator() {
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowDropdown(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -194,17 +231,13 @@ export default function ResearchNoteGenerator() {
     mutationFn: async (symbol: string) => {
       return await apiRequest("/api/research-note/preview", "POST", { body: { symbol } });
     },
-    onSuccess: (data: PreviewData) => {
-      setPreviewData(data);
-    },
+    onSuccess: (data: PreviewData) => { setPreviewData(data); },
     onError: (err: any) => {
       const msg: string = err?.message ?? "";
       const isRateLimit = msg.toLowerCase().includes("rate-limit") || msg.toLowerCase().includes("too many");
       toast({
         title: isRateLimit ? "Yahoo Finance Rate Limit" : "Data Fetch Failed",
-        description: isRateLimit
-          ? "Yahoo Finance is temporarily limiting requests. Please wait 30–60 seconds and try again."
-          : (msg || "Failed to fetch data"),
+        description: isRateLimit ? "Yahoo Finance is temporarily limiting requests. Please wait 30–60 seconds and try again." : (msg || "Failed to fetch data"),
         variant: "destructive",
         duration: isRateLimit ? 10000 : 5000,
       });
@@ -224,22 +257,16 @@ export default function ResearchNoteGenerator() {
         throw new Error(err.error || "Generation failed");
       }
       const blob = await res.blob();
-      const contentDisposition = res.headers.get("Content-Disposition") || "";
-      const match = contentDisposition.match(/filename="(.+?)"/);
+      const cd = res.headers.get("Content-Disposition") || "";
+      const match = cd.match(/filename="(.+?)"/);
       const filename = match ? match[1] : `Research_${type}.${type === "ppt" ? "pptx" : "pdf"}`;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
+      a.href = url; a.download = filename; a.click();
       URL.revokeObjectURL(url);
     },
-    onSuccess: () => {
-      toast({ title: "Download started", description: "Your report is downloading." });
-    },
-    onError: (err: any) => {
-      toast({ title: "Download failed", description: err.message || "An error occurred", variant: "destructive" });
-    },
+    onSuccess: () => toast({ title: "Download started", description: "Your report is downloading." }),
+    onError: (err: any) => toast({ title: "Download failed", description: err.message || "An error occurred", variant: "destructive" }),
   });
 
   const handleSelect = (company: CompanySearchResult) => {
@@ -248,27 +275,13 @@ export default function ResearchNoteGenerator() {
     setShowDropdown(false);
     setPreviewData(null);
   };
-
-  const handleClear = () => {
-    setSelectedCompany(null);
-    setSearchText("");
-    setPreviewData(null);
-    setShowDropdown(false);
-    inputRef.current?.focus();
-  };
-
-  const handlePreview = () => {
-    if (!symbolToAnalyse) return;
-    previewMutation.mutate(symbolToAnalyse);
-  };
-
-  const handleDownload = (type: "ppt" | "pdf" | "onepager") => {
-    if (!symbolToAnalyse) return;
-    downloadMutation.mutate({ type });
-  };
+  const handleClear = () => { setSelectedCompany(null); setSearchText(""); setPreviewData(null); setShowDropdown(false); inputRef.current?.focus(); };
+  const handlePreview = () => { if (!symbolToAnalyse) return; previewMutation.mutate(symbolToAnalyse); };
+  const handleDownload = (type: "ppt" | "pdf" | "onepager") => { if (!symbolToAnalyse) return; downloadMutation.mutate({ type }); };
 
   const d = previewData;
   const f = d?.financials;
+  const cp = f?.currency === "INR" ? "₹" : "$";
 
   return (
     <AgentLayout>
@@ -279,14 +292,15 @@ export default function ResearchNoteGenerator() {
               <FileText className="h-6 w-6 text-blue-600" />
               Research Note Generator
             </h1>
-            <p className="text-muted-foreground mt-1">Generate institutional-grade research reports for any listed company</p>
+            <p className="text-muted-foreground mt-1">Generate institutional-grade equity research reports for any listed company</p>
           </div>
           <div className="text-right text-xs text-muted-foreground hidden md:block">
-            <p className="font-medium text-foreground">Sangram Kesari Mohanty, CFP</p>
-            <p>FintekPro Research</p>
+            <p className="font-medium text-foreground">FintekPro Research</p>
+            <p>Institutional Research Desk</p>
           </div>
         </div>
 
+        {/* Search */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Company Search</CardTitle>
@@ -301,57 +315,35 @@ export default function ResearchNoteGenerator() {
                   className="pl-9 pr-8"
                   placeholder="Type company name, symbol (RELIANCE, TCS) or ISIN..."
                   value={searchText}
-                  onChange={(e) => {
-                    setSearchText(e.target.value);
-                    setSelectedCompany(null);
-                    setShowDropdown(true);
-                  }}
+                  onChange={(e) => { setSearchText(e.target.value); setSelectedCompany(null); setShowDropdown(true); }}
                   onFocus={() => { if (searchText.length >= 2) setShowDropdown(true); }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { setShowDropdown(false); handlePreview(); }
-                    if (e.key === "Escape") setShowDropdown(false);
-                  }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { setShowDropdown(false); handlePreview(); } if (e.key === "Escape") setShowDropdown(false); }}
                 />
                 {searchText && (
-                  <button
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    onClick={handleClear}
-                    type="button"
-                  >
+                  <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={handleClear} type="button">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 )}
-
                 {showDropdown && debouncedSearch.length >= 2 && (
                   <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-64 overflow-y-auto">
                     {isSearching ? (
-                      <div className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching...
-                      </div>
+                      <div className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching...</div>
                     ) : searchResults.length === 0 ? (
-                      <div className="px-3 py-3 text-sm text-muted-foreground">No companies found. Try a different name or symbol.</div>
-                    ) : (
-                      searchResults.map((c) => (
-                        <button
-                          key={c.isin}
-                          className="w-full text-left px-3 py-2.5 hover:bg-muted transition-colors border-b border-border/50 last:border-0"
-                          onMouseDown={(e) => { e.preventDefault(); handleSelect(c); }}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-foreground truncate">{c.company_name}</p>
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">{c.symbol}</span>
-                                {c.sector && <span className="ml-2 text-muted-foreground">· {c.sector}</span>}
-                              </p>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <p className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{c.isin}</p>
-                            </div>
+                      <div className="px-3 py-3 text-sm text-muted-foreground">No companies found.</div>
+                    ) : searchResults.map((c) => (
+                      <button key={c.isin} className="w-full text-left px-3 py-2.5 hover:bg-muted transition-colors border-b border-border/50 last:border-0" onMouseDown={(e) => { e.preventDefault(); handleSelect(c); }}>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{c.company_name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">{c.symbol}</span>
+                              {c.sector && <span className="ml-2">· {c.sector}</span>}
+                            </p>
                           </div>
-                        </button>
-                      ))
-                    )}
+                          <p className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">{c.isin}</p>
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
@@ -366,9 +358,7 @@ export default function ResearchNoteGenerator() {
                 <Building2 className="h-4 w-4 text-blue-600 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-blue-800 dark:text-blue-200 truncate">{selectedCompany.company_name}</p>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 font-mono mt-0.5">
-                    ISIN: {selectedCompany.isin} · NSE: {selectedCompany.symbol}
-                  </p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 font-mono mt-0.5">ISIN: {selectedCompany.isin} · NSE: {selectedCompany.symbol}</p>
                 </div>
                 <Badge variant="outline" className="text-blue-700 border-blue-300 text-[10px] shrink-0">Selected</Badge>
               </div>
@@ -377,12 +367,8 @@ export default function ResearchNoteGenerator() {
             {!selectedCompany && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {["RELIANCE", "TCS", "INFY", "HDFCBANK", "AJAXENGG"].map((s) => (
-                  <button
-                    key={s}
-                    className="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors font-mono"
-                    onClick={() => { setSearchText(s); setSelectedCompany(null); setShowDropdown(true); setDebouncedSearch(s); }}
-                    type="button"
-                  >
+                  <button key={s} className="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors font-mono"
+                    onClick={() => { setSearchText(s); setSelectedCompany(null); setShowDropdown(true); setDebouncedSearch(s); }} type="button">
                     {s}
                   </button>
                 ))}
@@ -391,23 +377,29 @@ export default function ResearchNoteGenerator() {
           </CardContent>
         </Card>
 
+        {/* Loading */}
         {previewMutation.isPending && (
           <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
             <CardContent className="py-8 flex items-center justify-center gap-3 text-blue-600">
               <Loader2 className="h-5 w-5 animate-spin" />
-              <span className="font-medium">Fetching financial data and running models...</span>
+              <span className="font-medium">Fetching live data, running valuation models, generating AI commentary...</span>
             </CardContent>
           </Card>
         )}
 
         {d && f && (
           <>
+            {/* Header card */}
             <Card>
               <CardContent className="pt-5">
                 <div className="flex flex-wrap items-start gap-4 justify-between">
                   <div>
                     <h2 className="text-xl font-bold">{d.companyName}</h2>
-                    <p className="text-sm text-muted-foreground">{d.symbol} · {d.exchange}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {d.symbol.replace(".NS","").replace(".BO","")} · {d.exchange}
+                      {d.sector && <span> · {d.sector}</span>}
+                      {d.industry && d.industry !== d.sector && <span> · {d.industry}</span>}
+                    </p>
                     <p className="text-xs text-muted-foreground mt-1">Generated: {d.generatedAt}</p>
                   </div>
                   <div className="flex flex-col items-end gap-2">
@@ -415,11 +407,8 @@ export default function ResearchNoteGenerator() {
                     <span className="text-sm font-medium text-muted-foreground">Score: {d.rating.score}/100</span>
                   </div>
                 </div>
-
                 <Separator className="my-4" />
-
                 <p className="text-sm italic text-muted-foreground mb-4">{d.rating.rationale}</p>
-
                 <div className="space-y-3">
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Score Breakdown</h3>
                   <ScoreBar label="Fundamentals" score={d.rating.breakdown.fundamentals} weight="40%" />
@@ -429,57 +418,102 @@ export default function ResearchNoteGenerator() {
               </CardContent>
             </Card>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              <Card>
+            {/* Price Target + Scenario */}
+            {d.priceTarget?.blended && (
+              <Card className="border-blue-200">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-blue-500" /> Financial Snapshot
+                    <Target className="h-4 w-4 text-blue-600" /> Price Target & Valuation
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div className="rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 p-3 text-center">
+                      <p className="text-xs text-red-600 dark:text-red-400 font-medium">Bear Case</p>
+                      <p className="text-lg font-bold text-red-700 dark:text-red-300">{priceRs(d.priceTarget.bear)}</p>
+                    </div>
+                    <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-400 p-3 text-center">
+                      <p className="text-xs text-blue-600 font-medium">Base Target (FintekPro Est.)</p>
+                      <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{priceRs(d.priceTarget.blended)}</p>
+                      <p className="text-xs font-medium mt-1" style={{ color: (d.priceTarget.upside ?? 0) >= 0 ? "#16a34a" : "#dc2626" }}>
+                        {(d.priceTarget.upside ?? 0) >= 0 ? "▲" : "▼"} {Math.abs(d.priceTarget.upside ?? 0).toFixed(1)}% from CMP
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 p-3 text-center">
+                      <p className="text-xs text-green-600 dark:text-green-400 font-medium">Bull Case</p>
+                      <p className="text-lg font-bold text-green-700 dark:text-green-300">{priceRs(d.priceTarget.bull)}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                    <span>Method: <strong className="text-foreground">{d.priceTarget.method}</strong></span>
+                    {d.peg !== null && <span>PEG Ratio: <strong className="text-foreground">{d.peg.toFixed(2)}x</strong></span>}
+                    {d.priceTarget.peBased && <span>PE-Based: <strong className="text-foreground">{priceRs(d.priceTarget.peBased)}</strong></span>}
+                    {d.priceTarget.pbBased && <span>PB-Based: <strong className="text-foreground">{priceRs(d.priceTarget.pbBased)}</strong></span>}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Financial Snapshot + Technical */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2"><DollarSign className="h-4 w-4 text-blue-500" /> Financial Snapshot</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <div className="grid grid-cols-2 gap-2">
-                    <MetricCard label="Current Price" value={fmt(f.price, f.currency === "INR" ? "₹" : "$")} highlight />
+                    <MetricCard label="Current Price" value={fmt(f.price, cp)} highlight />
                     <MetricCard label="Market Cap" value={fmtCap(f.marketCap, f.currency)} />
                     <MetricCard label="P/E Ratio" value={fmt(f.pe)} />
-                    <MetricCard label="EPS" value={fmt(f.eps, f.currency === "INR" ? "₹" : "$")} />
+                    <MetricCard label="EPS" value={fmt(f.eps, cp)} />
                     <MetricCard label="ROE" value={fmtPct(f.roe)} />
                     <MetricCard label="ROCE" value={fmtPct(f.roce)} />
                     <MetricCard label="P/B Ratio" value={f.pbRatio !== null ? fmt(f.pbRatio, "", "x") : "N/A"} />
-                    <MetricCard label="Book Value" value={fmt(f.bookValue, f.currency === "INR" ? "₹" : "$")} />
+                    <MetricCard label="Book Value" value={fmt(f.bookValue, cp)} />
                     <MetricCard label="Debt / Equity" value={fmt(f.debtToEquity)} />
                     <MetricCard label="Dividend Yield" value={fmtPct(f.dividendYield)} />
                     <MetricCard label="Revenue Growth" value={fmtPct(f.revenueGrowth)} />
                     <MetricCard label="Earnings Growth" value={fmtPct(f.earningsGrowth)} />
-                    <MetricCard label="Face Value" value={fmt(f.faceValue, f.currency === "INR" ? "₹" : "$")} />
-                    <MetricCard label="VWAP" value={fmt(f.vwap, f.currency === "INR" ? "₹" : "$")} />
-                    <MetricCard label="Beta" value={fmt(f.beta)} />
+                    <MetricCard label="Face Value" value={fmt(f.faceValue, cp)} />
+                    <MetricCard label="VWAP" value={fmt(f.vwap, cp)} />
                   </div>
+                  {(f.returns1M !== null || f.returns1Y !== null) && (
+                    <div className="mt-3 pt-3 border-t grid grid-cols-3 gap-2 text-center">
+                      {[["1M", f.returns1M], ["6M", f.returns6M], ["1Y", f.returns1Y]].map(([label, val]) => (
+                        <div key={String(label)}>
+                          <p className="text-xs text-muted-foreground">{label} Return</p>
+                          <p className={`text-sm font-bold ${(val as number | null) === null ? "text-muted-foreground" : (val as number) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {(val as number | null) !== null ? signPct(val as number) : "N/A"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Target className="h-4 w-4 text-purple-500" /> Technical Levels
-                  </CardTitle>
+                  <CardTitle className="text-sm flex items-center gap-2"><Target className="h-4 w-4 text-purple-500" /> Technical Levels</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-2">
-                    <MetricCard label="Support" value={fmt(d.levels.support, f.currency === "INR" ? "₹" : "$")} />
-                    <MetricCard label="Resistance" value={fmt(d.levels.resistance, f.currency === "INR" ? "₹" : "$")} />
-                    <MetricCard label="Stop Loss" value={fmt(d.levels.stopLoss, f.currency === "INR" ? "₹" : "$")} />
-                    <MetricCard label="Target 1" value={fmt(d.levels.target1, f.currency === "INR" ? "₹" : "$")} highlight />
-                    <MetricCard label="Target 2" value={fmt(d.levels.target2, f.currency === "INR" ? "₹" : "$")} highlight />
-                    <MetricCard label="Analyst Target" value={fmt(f.targetMeanPrice, f.currency === "INR" ? "₹" : "$")} />
+                    <MetricCard label="Support" value={fmt(d.levels.support, cp)} />
+                    <MetricCard label="Resistance" value={fmt(d.levels.resistance, cp)} />
+                    <MetricCard label="Stop Loss" value={fmt(d.levels.stopLoss, cp)} />
+                    <MetricCard label="Target 1" value={fmt(d.levels.target1, cp)} highlight />
+                    <MetricCard label="Target 2" value={fmt(d.levels.target2, cp)} highlight />
+                    <MetricCard label="Price Target" value={d.priceTarget?.blended ? `${priceRs(d.priceTarget.blended)} (Est.)` : fmt(f.targetMeanPrice, cp)} highlight={!!d.priceTarget?.blended} />
                   </div>
                   <div className="rounded-lg bg-muted/50 p-3 text-xs space-y-1">
-                    <p><span className="font-medium">52W High:</span> {fmt(f.fiftyTwoWeekHigh, f.currency === "INR" ? "₹" : "$")} · <span className="font-medium">Low:</span> {fmt(f.fiftyTwoWeekLow, f.currency === "INR" ? "₹" : "$")}</p>
+                    <p><span className="font-medium">52W High:</span> {fmt(f.fiftyTwoWeekHigh, cp)} · <span className="font-medium">Low:</span> {fmt(f.fiftyTwoWeekLow, cp)}</p>
                     <p className="text-muted-foreground">{d.weekRange52Position}</p>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
+            {/* Valuation summary */}
             <Card className="border-muted bg-muted/20">
               <CardContent className="pt-4">
                 <div className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -489,13 +523,175 @@ export default function ResearchNoteGenerator() {
               </CardContent>
             </Card>
 
+            {/* Investment Thesis */}
+            {d.thesis && d.thesis.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2"><TrendingUp className="h-4 w-4 text-green-600" /> Investment Thesis</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {d.thesis.map((bullet, i) => (
+                    <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900">
+                      <div className="shrink-0 w-5 h-5 rounded-full bg-green-600 text-white text-xs flex items-center justify-center font-bold mt-0.5">{i + 1}</div>
+                      <p className="text-sm text-foreground">{bullet}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Risk Factors */}
+            {d.risks && d.risks.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-red-600" /> Key Risk Factors</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {d.risks.map((risk, i) => (
+                    <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900">
+                      <div className="shrink-0 w-5 h-5 rounded-full bg-red-600 text-white text-xs flex items-center justify-center font-bold mt-0.5">{i + 1}</div>
+                      <p className="text-sm text-foreground">{risk}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Peer Comparison */}
+            {d.peers && d.peers.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2"><Users className="h-4 w-4 text-indigo-600" /> Peer Comparison</CardTitle>
+                  {d.sector && <p className="text-xs text-muted-foreground">Sector: {d.sector}</p>}
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 text-muted-foreground font-medium">Company</th>
+                          <th className="text-right py-2 text-muted-foreground font-medium">Price</th>
+                          <th className="text-right py-2 text-muted-foreground font-medium">P/E</th>
+                          <th className="text-right py-2 text-muted-foreground font-medium">ROE</th>
+                          <th className="text-right py-2 text-muted-foreground font-medium">Mkt Cap</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {/* Target stock row */}
+                        <tr className="border-b bg-blue-50 dark:bg-blue-950/20">
+                          <td className="py-2 font-semibold text-blue-700 dark:text-blue-300">
+                            {d.companyName.length > 25 ? d.companyName.slice(0, 25) + "…" : d.companyName}
+                            <span className="ml-2 text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded">YOU</span>
+                          </td>
+                          <td className="text-right py-2 font-bold">{f.price ? `₹${Math.round(f.price).toLocaleString("en-IN")}` : "N/A"}</td>
+                          <td className="text-right py-2">{f.pe?.toFixed(1) ?? "N/A"}</td>
+                          <td className="text-right py-2">{fmtPct(f.roe)}</td>
+                          <td className="text-right py-2">{fmtCap(f.marketCap, f.currency)}</td>
+                        </tr>
+                        {d.peers.map((peer) => (
+                          <tr key={peer.symbol} className="border-b last:border-0 hover:bg-muted/40">
+                            <td className="py-2 text-foreground">
+                              {peer.name.length > 25 ? peer.name.slice(0, 25) + "…" : peer.name}
+                              <span className="ml-1 text-[10px] text-muted-foreground font-mono">({peer.symbol})</span>
+                            </td>
+                            <td className="text-right py-2">{peer.price ? `₹${Math.round(peer.price).toLocaleString("en-IN")}` : "N/A"}</td>
+                            <td className="text-right py-2">{peer.pe?.toFixed(1) ?? "N/A"}</td>
+                            <td className="text-right py-2">{fmtPct(peer.roe)}</td>
+                            <td className="text-right py-2">{peer.marketCapFormatted}</td>
+                          </tr>
+                        ))}
+                        {d.sectorAvg && (
+                          <tr className="border-t bg-muted/30">
+                            <td className="py-1.5 text-xs text-muted-foreground italic">Sector Average ({d.sectorAvg.stockCount} stocks)</td>
+                            <td className="text-right py-1.5 text-xs text-muted-foreground">—</td>
+                            <td className="text-right py-1.5 text-xs text-muted-foreground">{d.sectorAvg.avgPE?.toFixed(1) ?? "—"}</td>
+                            <td className="text-right py-1.5 text-xs text-muted-foreground">{fmtPct(d.sectorAvg.avgROE)}</td>
+                            <td className="text-right py-1.5 text-xs text-muted-foreground">—</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Shareholding */}
+            {d.shareholding && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2"><Percent className="h-4 w-4 text-violet-600" /> Shareholding Pattern</CardTitle>
+                  {d.shareholding.quarter && <p className="text-xs text-muted-foreground">As of {d.shareholding.quarter}</p>}
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                    {[
+                      { label: "Promoter", val: d.shareholding.promoterPct, change: d.shareholding.promoterChange, color: "blue" },
+                      { label: "FII / FPI", val: d.shareholding.fiiPct, change: null, color: "purple" },
+                      { label: "DII / MF", val: d.shareholding.diiPct, change: null, color: "green" },
+                      { label: "Public", val: d.shareholding.publicPct, change: null, color: "amber" },
+                    ].map(({ label, val, change, color }) => (
+                      <div key={label} className={`rounded-lg border p-3 bg-${color}-50 dark:bg-${color}-950/20 border-${color}-200 dark:border-${color}-800`}>
+                        <p className={`text-xs font-medium text-${color}-700 dark:text-${color}-300`}>{label}</p>
+                        <p className={`text-xl font-bold text-${color}-800 dark:text-${color}-200`}>{val !== null ? `${val.toFixed(1)}%` : "N/A"}</p>
+                        {change !== null && (
+                          <p className={`text-xs mt-0.5 ${change >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {change >= 0 ? "▲" : "▼"} {Math.abs(change).toFixed(2)}% QoQ
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {d.shareholding.pledgedPct !== null && d.shareholding.pledgedPct > 0 && (
+                    <div className={`flex items-center gap-2 text-xs p-2 rounded ${d.shareholding.pledgedPct > 10 ? "bg-red-50 dark:bg-red-950/20 text-red-700" : "bg-amber-50 dark:bg-amber-950/20 text-amber-700"}`}>
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      Pledged shares: {d.shareholding.pledgedPct.toFixed(1)}%
+                      {d.shareholding.pledgedPct > 10 && " — elevated pledge is an overhang risk"}
+                    </div>
+                  )}
+                  {d.shareholding.promoterChange !== null && d.shareholding.promoterChange < -1.5 && (
+                    <div className="flex items-center gap-2 text-xs p-2 rounded bg-red-50 dark:bg-red-950/20 text-red-700 mt-2">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      Promoter holding declined {Math.abs(d.shareholding.promoterChange).toFixed(1)}% QoQ — watch for further movement
+                    </div>
+                  )}
+                  {d.managementNote && (
+                    <p className="text-xs text-muted-foreground mt-3 italic">{d.managementNote}</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* AI Industry Commentary */}
+            {d.commentary && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2"><Sparkles className="h-4 w-4 text-amber-500" /> Industry Trends & Sector Outlook</CardTitle>
+                  <p className="text-[10px] text-muted-foreground">AI-generated overview based on sector dynamics and company profile</p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {[
+                    { label: "Industry Trends & Tailwinds", text: d.commentary.industryTrends },
+                    { label: "Expansion & Strategic Initiatives", text: d.commentary.expansionPlans },
+                    { label: "Investor Outlook", text: d.commentary.outlook },
+                  ].map(({ label, text }) => (
+                    <div key={label} className="flex items-start gap-3">
+                      <ChevronRight className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-0.5">{label}</p>
+                        <p className="text-sm text-foreground">{text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Download Reports */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Download className="h-5 w-5 text-blue-600" />
-                  Download Reports
-                </CardTitle>
-                <CardDescription>All reports are branded with FintekPro Research and prepared by Sangram Kesari Mohanty, CFP</CardDescription>
+                <CardTitle className="text-base flex items-center gap-2"><Download className="h-5 w-5 text-blue-600" /> Download Reports</CardTitle>
+                <CardDescription>All reports are branded with FintekPro Research</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid sm:grid-cols-3 gap-3">
@@ -504,66 +700,45 @@ export default function ResearchNoteGenerator() {
                       <PresentationIcon className="h-5 w-5 text-orange-500" />
                       <div>
                         <p className="font-semibold text-sm">Research PPT</p>
-                        <p className="text-xs text-muted-foreground">5-slide institutional presentation</p>
+                        <p className="text-xs text-muted-foreground">10-slide institutional presentation</p>
                       </div>
                     </div>
-                    <Button
-                      className="w-full"
-                      variant="outline"
-                      onClick={() => handleDownload("ppt")}
-                      disabled={downloadMutation.isPending}
-                    >
+                    <Button className="w-full" variant="outline" onClick={() => handleDownload("ppt")} disabled={downloadMutation.isPending}>
                       {downloadMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
                       Download .pptx
                     </Button>
                   </div>
-
                   <div className="border rounded-lg p-4 space-y-3">
                     <div className="flex items-center gap-2">
                       <FileText className="h-5 w-5 text-red-500" />
                       <div>
                         <p className="font-semibold text-sm">Research PDF</p>
-                        <p className="text-xs text-muted-foreground">Full A4 research report</p>
+                        <p className="text-xs text-muted-foreground">3-page institutional report</p>
                       </div>
                     </div>
-                    <Button
-                      className="w-full"
-                      variant="outline"
-                      onClick={() => handleDownload("pdf")}
-                      disabled={downloadMutation.isPending}
-                    >
+                    <Button className="w-full" variant="outline" onClick={() => handleDownload("pdf")} disabled={downloadMutation.isPending}>
                       {downloadMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
                       Download PDF
                     </Button>
                   </div>
-
                   <div className="border rounded-lg p-4 space-y-3">
                     <div className="flex items-center gap-2">
                       <Percent className="h-5 w-5 text-green-500" />
                       <div>
                         <p className="font-semibold text-sm">One-Page Note</p>
-                        <p className="text-xs text-muted-foreground">Quick client summary</p>
+                        <p className="text-xs text-muted-foreground">Quick reference with target price</p>
                       </div>
                     </div>
-                    <Button
-                      className="w-full"
-                      variant="outline"
-                      onClick={() => handleDownload("onepager")}
-                      disabled={downloadMutation.isPending}
-                    >
+                    <Button className="w-full" variant="outline" onClick={() => handleDownload("onepager")} disabled={downloadMutation.isPending}>
                       {downloadMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
                       Download PDF
                     </Button>
                   </div>
                 </div>
-
                 <div className="mt-4 p-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
                   <div className="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-300">
                     <ShieldAlert className="h-4 w-4 mt-0.5 shrink-0" />
-                    <p>
-                      <strong>Disclaimer:</strong> These reports are for informational purposes only and do not constitute investment advice.
-                      Past performance is not indicative of future results. Please consult your financial advisor before making any investment decisions.
-                    </p>
+                    <p><strong>Disclaimer:</strong> These reports are for informational purposes only and do not constitute investment advice. Past performance is not indicative of future results. Please consult a SEBI-registered investment advisor before making any investment decisions.</p>
                   </div>
                 </div>
               </CardContent>
@@ -578,19 +753,7 @@ export default function ResearchNoteGenerator() {
               <div>
                 <p className="font-medium text-foreground">Enter a company to get started</p>
                 <p className="text-sm mt-1">Search by NSE symbol (e.g. RELIANCE), ISIN, or company name.</p>
-                <p className="text-sm">FintekPro will fetch live financial data and generate your report.</p>
-              </div>
-              <div className="flex flex-wrap justify-center gap-2 mt-2">
-                {["RELIANCE", "TCS", "INFY", "HDFCBANK", "AJAXENGG"].map((ex) => (
-                  <Badge
-                    key={ex}
-                    variant="secondary"
-                    className="cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30"
-                    onClick={() => { setQuery(ex); }}
-                  >
-                    {ex}
-                  </Badge>
-                ))}
+                <p className="text-sm">Live data + valuation models + AI sector commentary.</p>
               </div>
             </CardContent>
           </Card>

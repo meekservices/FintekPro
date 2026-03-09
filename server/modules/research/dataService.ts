@@ -35,6 +35,16 @@ export interface FinancialData {
   bookValue: number | null;
   faceValue: number | null;
   vwap: number | null;
+  // Extended fields from screener_financials
+  operatingCashFlow: number | null; // absolute ₹ crores
+  freeCashFlow: number | null;      // absolute ₹ crores
+  revenue: number | null;           // absolute ₹ crores
+  netIncome: number | null;         // absolute ₹ crores
+  operatingMargin: number | null;   // decimal fraction
+  // Price returns from listed_stocks
+  returns1M: number | null;         // decimal fraction
+  returns6M: number | null;
+  returns1Y: number | null;
 }
 
 // ─── Screener data shape ──────────────────────────────────────────────────────
@@ -260,35 +270,68 @@ interface DBData {
   revenueGrowth: number | null;
   earningsGrowth: number | null;
   beta: number | null;
+  operatingCashFlow: number | null;
+  freeCashFlow: number | null;
+  revenue: number | null;
+  netIncome: number | null;
+  operatingMargin: number | null;
+  returns1M: number | null;
+  returns6M: number | null;
+  returns1Y: number | null;
 }
 
 async function fetchFromDB(nseSymbol: string): Promise<DBData> {
   const empty: DBData = {
     eps: null, bookValue: null, roe: null, roce: null, dividendYield: null,
     debtToEquity: null, revenueGrowth: null, earningsGrowth: null, beta: null,
+    operatingCashFlow: null, freeCashFlow: null, revenue: null, netIncome: null,
+    operatingMargin: null, returns1M: null, returns6M: null, returns1Y: null,
   };
   try {
     const rows = await db.execute(sql`
-      SELECT eps, book_value, roe, roce, dividend_yield,
-             debt_to_equity, revenue_growth, earnings_growth
-      FROM screener_financials
-      WHERE symbol = ${nseSymbol.toUpperCase()}
-      ORDER BY fiscal_year DESC NULLS LAST, last_updated DESC NULLS LAST
+      SELECT sf.eps, sf.book_value, sf.roe, sf.roce, sf.dividend_yield,
+             sf.debt_to_equity, sf.revenue_growth, sf.earnings_growth,
+             sf.operating_cash_flow, sf.free_cash_flow,
+             sf.revenue, sf.net_income, sf.operating_margin,
+             ls.returns_1m, ls.returns_6m, ls.returns_1y
+      FROM screener_financials sf
+      LEFT JOIN listed_stocks ls ON ls.symbol = sf.symbol
+      WHERE sf.symbol = ${nseSymbol.toUpperCase()}
+      ORDER BY sf.fiscal_year DESC NULLS LAST, sf.last_updated DESC NULLS LAST
       LIMIT 1
     `);
     const r = ((rows as any).rows ?? rows)[0] as any;
-    if (!r) return empty;
+    if (!r) {
+      // Try listed_stocks only for returns
+      const lsRows = await db.execute(sql`
+        SELECT returns_1m, returns_6m, returns_1y FROM listed_stocks WHERE symbol = ${nseSymbol.toUpperCase()} LIMIT 1
+      `);
+      const lr = ((lsRows as any).rows ?? lsRows)[0] as any;
+      if (lr) {
+        const pf = (v: any) => (v !== null && v !== undefined ? parseFloat(v) : null);
+        return { ...empty, returns1M: pf(lr.returns_1m), returns6M: pf(lr.returns_6m), returns1Y: pf(lr.returns_1y) };
+      }
+      return empty;
+    }
     const pf = (v: any) => (v !== null && v !== undefined ? parseFloat(v) : null);
     return {
-      eps:           pf(r.eps),
-      bookValue:     pf(r.book_value),
-      roe:           pf(r.roe),
-      roce:          pf(r.roce),
-      dividendYield: pf(r.dividend_yield),
-      debtToEquity:  pf(r.debt_to_equity),
-      revenueGrowth: pf(r.revenue_growth),
-      earningsGrowth: pf(r.earnings_growth),
-      beta:          null,
+      eps:              pf(r.eps),
+      bookValue:        pf(r.book_value),
+      roe:              pf(r.roe),
+      roce:             pf(r.roce),
+      dividendYield:    pf(r.dividend_yield),
+      debtToEquity:     pf(r.debt_to_equity),
+      revenueGrowth:    pf(r.revenue_growth),
+      earningsGrowth:   pf(r.earnings_growth),
+      beta:             null,
+      operatingCashFlow: pf(r.operating_cash_flow),
+      freeCashFlow:     pf(r.free_cash_flow),
+      revenue:          pf(r.revenue),
+      netIncome:        pf(r.net_income),
+      operatingMargin:  pf(r.operating_margin),
+      returns1M:        pf(r.returns_1m),
+      returns6M:        pf(r.returns_6m),
+      returns1Y:        pf(r.returns_1y),
     };
   } catch (e: any) {
     console.warn("[ResearchNote] DB read failed:", e?.message);
@@ -400,6 +443,14 @@ function buildFull(
     bookValue,
     faceValue:     base.faceValue ?? null,
     vwap:          base.vwap ?? null,
+    operatingCashFlow: dbData.operatingCashFlow ?? null,
+    freeCashFlow:   dbData.freeCashFlow ?? null,
+    revenue:        dbData.revenue ?? null,
+    netIncome:      dbData.netIncome ?? null,
+    operatingMargin: dbData.operatingMargin ?? null,
+    returns1M:      dbData.returns1M ?? null,
+    returns6M:      dbData.returns6M ?? null,
+    returns1Y:      dbData.returns1Y ?? null,
   };
 }
 

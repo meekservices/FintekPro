@@ -3,6 +3,29 @@
 ## Overview
 FintekPro is a full-stack TypeScript financial services platform for personal finance and investment management. It provides secure financial planning, portfolio management, and real-time market data across diverse asset classes. Key capabilities include family collaboration, a unified KYC system, an AI-powered financial assistant, an Unlisted Marketplace, and comprehensive multi-origination loan lifecycle support. The platform aims to be a leading digital financial ecosystem, empowering individual investors and financial advisors with advanced tools and insights.
 
+## Research Note Generator Module
+
+### Architecture
+- `server/modules/research/` — all backend engines:
+  - `dataService.ts` — NSE + Screener.in + DB parallel fetch; `FinancialData` interface includes OCF, FCF, revenue, netIncome, operatingMargin, returns1M/6M/1Y
+  - `pricingEngine.ts` — PE-based + PB-based + blended price target; bear/base/bull scenarios; PEG ratio
+  - `thesisEngine.ts` — 4 data-driven thesis bullets + 4-5 risk bullets generated from financial ratios
+  - `ownershipService.ts` — NSE shareholding API fetch; peer comparison via `listed_stocks`; sector averages
+  - `aiCommentaryService.ts` — Gemini AI 3-sentence sector narrative; 60-min cache; sector fallbacks
+  - `reportService.ts` — PPT (10 slides), PDF (3 pages), One-Pager generation
+  - `recommendationEngine.ts`, `technicalEngine.ts`, `valuationEngine.ts` — existing engines
+- `server/routes/research-note-routes.ts` — routes; `buildReportData()` fires all enrichment in parallel
+- `client/src/pages/research-note-generator.tsx` — full frontend UI with peers, shareholding, thesis, AI commentary
+
+### PPT Fix
+- ESM/CJS fix: `const PptxCtor = (PptxGenJS as any).default ?? PptxGenJS; const ppt = new PptxCtor();`
+- This must always be used — `new PptxGenJS()` directly causes "not a constructor" crash
+
+### Data Units
+- `listed_stocks.market_cap_value` is in **crores** (not absolute rupees)
+- `financials.marketCap` from NSE is in **absolute rupees**
+- Peer market cap: stored as crores → formatted inline as "₹237K Cr" format
+
 ## User Preferences
 I want iterative development.
 I prefer detailed explanations.
