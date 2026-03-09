@@ -55,12 +55,11 @@ export async function generateCommentary(
   const sectorKey = sector ?? "";
 
   try {
-    const { GoogleGenerativeAI } = await import("@google/genai");
+    const { GoogleGenAI } = await import("@google/genai");
     const geminiKey = process.env.GEMINI_API_KEY;
     if (!geminiKey) throw new Error("No Gemini API key");
 
-    const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const ai = new GoogleGenAI({ apiKey: geminiKey });
 
     const prompt = `You are a senior equity research analyst at a top Indian brokerage. 
 Write EXACTLY 3 sentences responding to the following three questions — one sentence each, no more, no less.
@@ -81,11 +80,11 @@ Rules:
 - Return ONLY the 3 sentences, numbered 1., 2., 3. with no extra text`;
 
     const result = await Promise.race([
-      model.generateContent(prompt),
+      ai.models.generateContent({ model: "gemini-2.0-flash", contents: prompt }),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12_000)),
     ]) as any;
 
-    const text: string = result.response.text();
+    const text: string = result.text ?? result.response?.text?.() ?? "";
     const lines = text.split("\n").map((l: string) => l.replace(/^\d+\.\s*/, "").trim()).filter((l: string) => l.length > 20);
 
     if (lines.length >= 3) {

@@ -67,6 +67,21 @@ async function enrichPeer(symbol: string): Promise<{ roe: number | null; pe: num
       if (result.pe === null && gf.pe !== null) result.pe = gf.pe;
       if (result.pb === null && gf.pb !== null) result.pb = gf.pb;
     }
+    // Last resort: fetch PB from NSE quote-equity API (returns pdPriceToBV)
+    if (result.pb === null) {
+      try {
+        await ensureNseCookies();
+        const nseRes = await fetch(
+          `https://www.nseindia.com/api/quote-equity?symbol=${encodeURIComponent(symbol.toUpperCase())}`,
+          { headers: { ...BROWSER_HEADERS, Accept: "application/json", Cookie: nseCookies, Referer: `https://www.nseindia.com/get-quotes/equity?symbol=${symbol}` }, signal: AbortSignal.timeout(10_000) }
+        );
+        if (nseRes.ok) {
+          const q = await nseRes.json() as any;
+          const pb = parseFloat(q?.metadata?.pdPriceToBV ?? "");
+          if (!isNaN(pb) && pb > 0) result.pb = pb;
+        }
+      } catch { /* non-critical */ }
+    }
 
     peerEnrichCache.set(symbol, { roe: result.roe, pe: result.pe, pb: result.pb, de: result.de, expiresAt: Date.now() + 30 * 60 * 1000 });
 
@@ -173,6 +188,128 @@ function formatDate(d: Date): string {
   return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
 }
 
+/** Scrape shareholding pattern from Screener.in (fallback when NSE API fails) */
+async function fetchShareholdingFromScreener(nseSymbol: string): Promise<ShareholdingData | null> {
+  const sym = nseSymbol.toUpperCase();
+  try {
+    const searchRes = await fetch(
+      `https://www.screener.in/api/company/search/?q=${encodeURIComponent(sym)}`,
+      { headers: { ...BROWSER_HEADERS, Accept: "application/json" }, signal: AbortSignal.timeout(10_000) }
+    );
+    if (!searchRes.ok) return null;
+    const results = await searchRes.json() as any[];
+    if (!results?.length) return null;
+
+    const company = results.find((r: any) => r.url?.includes("consolidated")) ?? results[0];
+    const pageRes = await fetch(`https://www.screener.in${company.url}`, {
+      headers: { ...BROWSER_HEADERS, Accept: "text/html", Referer: "https://www.screener.in/" },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!pageRes.ok) return null;
+    const html = await pageRes.text();
+
+    // Extract the #shareholding section
+    const secStart = html.indexOf('id="shareholding"');
+    if (secStart < 0) return null;
+    const secEnd   = html.indexOf("</section>", secStart);
+    const section  = html.slice(secStart, secEnd > 0 ? secEnd : secStart + 20000);
+
+    // Parse quarter headers from thead
+    const theadMatch = section.match(/<thead[^>]*>([\s\S]*?)<\/thead>/i);
+    const quarters: string[] = [];
+    if (theadMatch) {
+      const thMatches = [...theadMatch[1].matchAll(/<th[^>]*>\s*([A-Za-z]+ \d{4})\s*<\/th>/g)];
+      for (const m of thMatches) quarters.push(m[1]);
+    }
+    const prevQ   = quarters.length >= 2 ? quarters[quarters.length - 2] : null;
+    const latestQ = quarters.length >= 1 ? quarters[quarters.length - 1] : null;
+
+    const parseNum = (s: string) => { const n = parseFloat(s.replace(/,/g, "")); return isNaN(n) ? null : n; };
+
+    // Parse row values — extract last 2 numeric cells
+    function extractRowValues(rowHtml: string): [number | null, number | null] {
+      const cells = [...rowHtml.matchAll(/<td[^>]*>\s*([\d,\.]+)\s*<\/td>/g)].map(m => parseNum(m[1]));
+      if (cells.length === 0) return [null, null];
+      return [cells.length >= 2 ? cells[cells.length - 2] : null, cells[cells.length - 1]];
+    }
+
+    // Parse shareholding using robust regex scan — find each <tr> block and extract label + last-two numbers
+    let promoterPrevPct: number | null = null, promoterPct: number | null = null;
+    let fiiPct: number | null = null, diiPct: number | null = null, publicPct: number | null = null;
+    let pledgedPct: number | null = null;
+
+    // Split on full <tr> blocks (including attributes) and work on the inner content
+    const trBlocks = [...section.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)].map(m => m[1]);
+
+    const extractNums = (html: string): number[] =>
+      [...html.matchAll(/<td[^>]*>\s*(-?[\d,\.]+)%?\s*<\/td>/g)].map(m => parseNum(m[1])).filter((v): v is number => v !== null);
+
+    const extractLabelFromBlock = (html: string): string => {
+      // Try class="text" <td> first
+      const m1 = html.match(/<td[^>]*class="text"[^>]*>([\s\S]*?)<\/td>/i) ??
+                 html.match(/<td[^>]*>([\s\S]*?)<\/td>/i);
+      if (!m1) return "";
+      return m1[1].replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").trim().toLowerCase();
+    };
+
+    console.log(`[ResearchNote] Screener.in shareholding parse for ${sym}: trBlocks=${trBlocks.length}, quarters=${quarters.join("|")}`);
+
+    for (const block of trBlocks) {
+      const label = extractLabelFromBlock(block);
+      if (!label || /^\d+[\d.,]*$/.test(label)) continue;
+      const nums = extractNums(block);
+      if (nums.length === 0) continue;
+      const latest = nums[nums.length - 1];
+      const prev   = nums.length >= 2 ? nums[nums.length - 2] : null;
+      if (/promoter/.test(label) && !/pledg/.test(label) && promoterPct === null) {
+        promoterPct = latest; promoterPrevPct = prev;
+      } else if ((/\bfii\b|\bfpi\b|foreign institutional|foreign portfolio/).test(label) && fiiPct === null) {
+        fiiPct = latest;
+      } else if ((/\bdii\b|domestic institutional/).test(label) && diiPct === null) {
+        diiPct = latest;
+      } else if (/\bpublic\b/.test(label) && !/institution/.test(label) && publicPct === null) {
+        publicPct = latest;
+      } else if (/pledg/.test(label) && pledgedPct === null) {
+        pledgedPct = latest;
+      }
+    }
+
+    // Fallback: if FII+DII not found separately, check for "institutions" total row
+    if (fiiPct === null && diiPct === null) {
+      for (const block of trBlocks) {
+        const label = extractLabelFromBlock(block);
+        if (/institution/.test(label)) {
+          const nums = extractNums(block);
+          if (nums.length > 0) { fiiPct = nums[nums.length - 1]; break; }
+        }
+      }
+    }
+    console.log(`[ResearchNote] Screener.in shareholding result for ${sym}: promoter=${promoterPct}, fii=${fiiPct}, dii=${diiPct}, public=${publicPct}`);
+
+    // Must have at least promoter%
+    if (promoterPct === null) return null;
+
+    const data: ShareholdingData = {
+      promoterPct,
+      promoterPrevPct,
+      promoterChange: (promoterPct !== null && promoterPrevPct !== null)
+        ? Math.round((promoterPct - promoterPrevPct) * 100) / 100 : null,
+      fiiPct,
+      diiPct,
+      mutualFundPct: null,
+      publicPct,
+      pledgedPct,
+      quarter: latestQ,
+      prevQuarter: prevQ,
+    };
+    console.log(`[ResearchNote] Shareholding (Screener.in) ${sym}: Promoter ${promoterPct}% FII ${fiiPct}% DII ${diiPct}% Public ${publicPct}%`);
+    return data;
+  } catch (e: any) {
+    console.warn(`[ResearchNote] Screener.in shareholding failed for ${sym}:`, e?.message?.slice(0, 60));
+    return null;
+  }
+}
+
 export async function fetchShareholding(nseSymbol: string): Promise<ShareholdingData | null> {
   const sym = nseSymbol.replace(/\.(NS|BO)$/i, "").toUpperCase();
   const cached = shareholdingCache.get(sym);
@@ -228,10 +365,16 @@ export async function fetchShareholding(nseSymbol: string): Promise<Shareholding
     };
 
     shareholdingCache.set(sym, { data, expiresAt: Date.now() + CACHE_TTL });
-    console.log(`[ResearchNote] Shareholding ${sym}: Promoter ${data.promoterPct}% (Δ${data.promoterChange}%), FII ${data.fiiPct}%`);
+    console.log(`[ResearchNote] Shareholding (NSE) ${sym}: Promoter ${data.promoterPct}% (Δ${data.promoterChange}%), FII ${data.fiiPct}%`);
     return data;
   } catch (e: any) {
-    console.warn(`[ResearchNote] Shareholding fetch failed for ${sym}:`, e?.message);
+    console.warn(`[ResearchNote] NSE shareholding failed for ${sym}:`, e?.message?.slice(0, 60), "— trying Screener.in");
+    // Fallback: scrape shareholding from Screener.in
+    const screenerSh = await fetchShareholdingFromScreener(sym);
+    if (screenerSh) {
+      shareholdingCache.set(sym, { data: screenerSh, expiresAt: Date.now() + CACHE_TTL });
+      return screenerSh;
+    }
     shareholdingCache.set(sym, { data: null as any, expiresAt: Date.now() + 5 * 60 * 1000 });
     return null;
   }

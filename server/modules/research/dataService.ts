@@ -61,6 +61,12 @@ export interface ScreenerData {
   debtToEquity: number | null;
   pe: number | null;
   pb: number | null;
+  // Absolute financial figures (₹ Crores)
+  revenue: number | null;
+  netIncome: number | null;
+  operatingCashFlow: number | null;
+  freeCashFlow: number | null;
+  operatingMargin: number | null;   // decimal fraction
 }
 
 // ─── Data quality metadata ────────────────────────────────────────────────────
@@ -153,11 +159,20 @@ function extractTableLastTwoRows(html: string, sectionId: string, rowLabel: stri
 
   const rows = section.split(/<tr[^>]*>/i);
   for (const row of rows) {
-    const nameMatch = row.match(/class="text"[^>]*>([\s\S]*?)<\/td>/i);
-    if (!nameMatch) continue;
-    const name = nameMatch[1].replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\+/g, "").trim();
+    // Try class="text" first, then fall back to any first <td> that looks like a label
+    const strictMatch = row.match(/class="text"[^>]*>([\s\S]*?)<\/td>/i);
+    let name: string;
+    if (strictMatch) {
+      name = strictMatch[1].replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\+/g, "").trim();
+    } else {
+      const anyMatch = row.match(/<td[^>]*>([\s\S]*?)<\/td>/i);
+      if (!anyMatch) continue;
+      const candidate = anyMatch[1].replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\+/g, "").trim();
+      if (/^\d+[\d.,\s]*$/.test(candidate) || candidate.length < 2) continue; // skip numeric/empty cells
+      name = candidate;
+    }
     if (!name.toLowerCase().includes(rowLabel.toLowerCase())) continue;
-    const cells = [...row.matchAll(/<td[^>]*>\s*([\d,\.]+)\s*<\/td>/g)].map(m => parseNum(m[1]));
+    const cells = [...row.matchAll(/<td[^>]*>\s*(-?[\d,\.]+)\s*<\/td>/g)].map(m => parseNum(m[1]));
     if (cells.length >= 2) {
       return [cells[cells.length - 2], cells[cells.length - 1]];
     }
@@ -170,6 +185,7 @@ export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData
     roe: null, roce: null, dividendYield: null, bookValue: null,
     revenueGrowth: null, earningsGrowth: null, debtToEquity: null,
     pe: null, pb: null,
+    revenue: null, netIncome: null, operatingCashFlow: null, freeCashFlow: null, operatingMargin: null,
   };
 
   try {
@@ -236,6 +252,29 @@ export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData
         ? (patLatest - patPrev) / Math.abs(patPrev)
         : null;
 
+    // Absolute revenue and net income (₹ Crores)
+    const revenue: number | null = revLatest;
+    const netIncome: number | null = patLatest;
+
+    // Operating Profit (absolute) → use to compute OPM %
+    const [, opRaw] = extractTableLastTwoRows(html, "profit-loss", "Operating Profit");
+    const operatingMargin: number | null =
+      opRaw !== null && revLatest !== null && revLatest > 0
+        ? Math.round((opRaw / revLatest) * 10000) / 10000   // decimal fraction e.g. 0.254
+        : null;
+
+    // Cash flows from cash flow section (₹ Crores) — try multiple row label variants
+    const [, cfoRaw1] = extractTableLastTwoRows(html, "cash-flow", "Cash from Operating");
+    const [, cfoRaw2] = extractTableLastTwoRows(html, "cash-flow", "Operating Activities");
+    const cfoRaw = cfoRaw1 ?? cfoRaw2;
+    const [, cfiRaw1] = extractTableLastTwoRows(html, "cash-flow", "Cash from Investing");
+    const [, cfiRaw2] = extractTableLastTwoRows(html, "cash-flow", "Investing Activities");
+    const cfiRaw = cfiRaw1 ?? cfiRaw2;
+    const operatingCashFlow: number | null = cfoRaw ?? null;
+    // FCF = Operating CF + Investing CF (investing is typically negative = capex outflows)
+    const freeCashFlow: number | null =
+      cfoRaw !== null && cfiRaw !== null ? Math.round((cfoRaw + cfiRaw) * 100) / 100 : null;
+
     const [, equityCapital] = extractTableLastTwoRows(html, "balance-sheet", "Equity Capital");
     const [, reserves]      = extractTableLastTwoRows(html, "balance-sheet", "Reserves");
     const [, borrowings]    = extractTableLastTwoRows(html, "balance-sheet", "Borrowings");
@@ -252,11 +291,16 @@ export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData
       `PE:${pe ?? "N/A"} PB:${pb ?? "N/A"}`,
       `DY:${dividendYield !== null ? (dividendYield * 100).toFixed(2) + "%" : "N/A"}`,
       `D/E:${debtToEquity ?? "N/A"}`,
-      `RevGrowth:${revenueGrowth !== null ? (revenueGrowth * 100).toFixed(1) + "%" : "N/A"}`,
-      `EPS Growth:${earningsGrowth !== null ? (earningsGrowth * 100).toFixed(1) + "%" : "N/A"}`
+      `Rev:${revenue !== null ? "₹" + revenue.toFixed(0) + "Cr" : "N/A"}`,
+      `OPM:${operatingMargin !== null ? (operatingMargin * 100).toFixed(1) + "%" : "N/A"}`,
+      `CFO:${operatingCashFlow !== null ? "₹" + operatingCashFlow.toFixed(0) + "Cr" : "N/A"}`,
+      `FCF:${freeCashFlow !== null ? "₹" + freeCashFlow.toFixed(0) + "Cr" : "N/A"}`
     );
 
-    return { roe, roce, dividendYield, bookValue, revenueGrowth, earningsGrowth, debtToEquity, pe, pb };
+    return {
+      roe, roce, dividendYield, bookValue, revenueGrowth, earningsGrowth, debtToEquity, pe, pb,
+      revenue, netIncome, operatingCashFlow, freeCashFlow, operatingMargin,
+    };
   } catch (e: any) {
     console.warn("[ResearchNote] Screener.in fetch failed:", e?.message);
     return empty;
@@ -274,7 +318,7 @@ interface DBData {
   debtToEquity: number | null;
   revenueGrowth: number | null;
   earningsGrowth: number | null;
-  beta: number | null;
+  beta: number | null;          // from listed_stocks.beta
   operatingCashFlow: number | null;
   freeCashFlow: number | null;
   revenue: number | null;
@@ -301,7 +345,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
              sf.operating_cash_flow, sf.free_cash_flow,
              sf.revenue, sf.net_income, sf.operating_margin,
              sf.last_updated,
-             ls.returns_1m, ls.returns_6m, ls.returns_1y
+             ls.returns_1m, ls.returns_6m, ls.returns_1y, ls.beta
       FROM screener_financials sf
       LEFT JOIN listed_stocks ls ON ls.symbol = sf.symbol
       WHERE sf.symbol = ${nseSymbol.toUpperCase()}
@@ -330,7 +374,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
       debtToEquity:     pf(r.debt_to_equity),
       revenueGrowth:    pf(r.revenue_growth),
       earningsGrowth:   pf(r.earnings_growth),
-      beta:             null,
+      beta:             pf(r.beta),
       operatingCashFlow: pf(r.operating_cash_flow),
       freeCashFlow:     pf(r.free_cash_flow),
       revenue:          pf(r.revenue),
@@ -351,6 +395,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 function isDbFresh(dbData: DBData): boolean {
   if (!dbData.lastUpdated) return false;
   if (dbData.roe === null && dbData.roce === null) return false; // no useful fundamentals stored
+  if (dbData.revenue === null) return false;                     // re-scrape if new fields missing
   const ageMs = Date.now() - dbData.lastUpdated.getTime();
   return ageMs < DB_FRESHNESS_HOURS * 60 * 60 * 1000;
 }
@@ -360,18 +405,22 @@ function isDbFresh(dbData: DBData): boolean {
 async function writeScreenerToDB(nseSymbol: string, s: ScreenerData): Promise<void> {
   const sym = nseSymbol.toUpperCase();
   try {
-    // UPDATE the most recent existing row for this symbol
     const upd = await db.execute(sql`
       UPDATE screener_financials
       SET
-        roe            = COALESCE(${s.roe}, roe),
-        roce           = COALESCE(${s.roce}, roce),
-        dividend_yield = COALESCE(${s.dividendYield}, dividend_yield),
-        book_value     = COALESCE(${s.bookValue}, book_value),
-        revenue_growth = COALESCE(${s.revenueGrowth}, revenue_growth),
-        earnings_growth= COALESCE(${s.earningsGrowth}, earnings_growth),
-        debt_to_equity = COALESCE(${s.debtToEquity}, debt_to_equity),
-        last_updated   = now()
+        roe              = COALESCE(${s.roe}, roe),
+        roce             = COALESCE(${s.roce}, roce),
+        dividend_yield   = COALESCE(${s.dividendYield}, dividend_yield),
+        book_value       = COALESCE(${s.bookValue}, book_value),
+        revenue_growth   = COALESCE(${s.revenueGrowth}, revenue_growth),
+        earnings_growth  = COALESCE(${s.earningsGrowth}, earnings_growth),
+        debt_to_equity   = COALESCE(${s.debtToEquity}, debt_to_equity),
+        revenue          = COALESCE(${s.revenue}, revenue),
+        net_income       = COALESCE(${s.netIncome}, net_income),
+        operating_cash_flow = COALESCE(${s.operatingCashFlow}, operating_cash_flow),
+        free_cash_flow   = COALESCE(${s.freeCashFlow}, free_cash_flow),
+        operating_margin = COALESCE(${s.operatingMargin}, operating_margin),
+        last_updated     = now()
       WHERE id = (
         SELECT id FROM screener_financials
         WHERE symbol = ${sym}
@@ -381,11 +430,19 @@ async function writeScreenerToDB(nseSymbol: string, s: ScreenerData): Promise<vo
     `);
     const rowsUpdated = (upd as any).rowCount ?? 0;
     if (!rowsUpdated) {
-      // No existing row — insert a new one with period='annual' and current year
       const curYear = new Date().getFullYear();
       await db.execute(sql`
-        INSERT INTO screener_financials (symbol, period, fiscal_year, roe, roce, dividend_yield, book_value, revenue_growth, earnings_growth, debt_to_equity, last_updated)
-        VALUES (${sym}, 'annual', ${curYear}, ${s.roe}, ${s.roce}, ${s.dividendYield}, ${s.bookValue}, ${s.revenueGrowth}, ${s.earningsGrowth}, ${s.debtToEquity}, now())
+        INSERT INTO screener_financials (
+          symbol, period, fiscal_year, roe, roce, dividend_yield, book_value,
+          revenue_growth, earnings_growth, debt_to_equity,
+          revenue, net_income, operating_cash_flow, free_cash_flow, operating_margin,
+          last_updated
+        ) VALUES (
+          ${sym}, 'annual', ${curYear}, ${s.roe}, ${s.roce}, ${s.dividendYield}, ${s.bookValue},
+          ${s.revenueGrowth}, ${s.earningsGrowth}, ${s.debtToEquity},
+          ${s.revenue}, ${s.netIncome}, ${s.operatingCashFlow}, ${s.freeCashFlow}, ${s.operatingMargin},
+          now()
+        )
       `);
     }
   } catch (e: any) {
@@ -467,15 +524,81 @@ function buildFull(
     bookValue,
     faceValue:     base.faceValue ?? null,
     vwap:          base.vwap ?? null,
-    operatingCashFlow: dbData.operatingCashFlow ?? null,
-    freeCashFlow:   dbData.freeCashFlow ?? null,
-    revenue:        dbData.revenue ?? null,
-    netIncome:      dbData.netIncome ?? null,
-    operatingMargin: dbData.operatingMargin ?? null,
+    operatingCashFlow: screener.operatingCashFlow ?? dbData.operatingCashFlow ?? null,
+    freeCashFlow:   screener.freeCashFlow   ?? dbData.freeCashFlow   ?? null,
+    revenue:        screener.revenue        ?? dbData.revenue        ?? null,
+    netIncome:      screener.netIncome      ?? dbData.netIncome      ?? null,
+    operatingMargin: screener.operatingMargin ?? dbData.operatingMargin ?? null,
     returns1M:      dbData.returns1M ?? null,
     returns6M:      dbData.returns6M ?? null,
     returns1Y:      dbData.returns1Y ?? null,
   };
+}
+
+// ─── NSE Historical Returns ───────────────────────────────────────────────────
+
+async function fetchNSEReturns(nseSymbol: string): Promise<{ returns1M: number | null; returns6M: number | null; returns1Y: number | null }> {
+  const empty = { returns1M: null, returns6M: null, returns1Y: null };
+  try {
+    await refreshNseCookies();
+    const today = new Date();
+    const toDate = `${String(today.getDate()).padStart(2, "0")}-${String(today.getMonth() + 1).padStart(2, "0")}-${today.getFullYear()}`;
+    const from1Y = new Date(today); from1Y.setFullYear(today.getFullYear() - 1);
+    const from1Ystr = `${String(from1Y.getDate()).padStart(2, "0")}-${String(from1Y.getMonth() + 1).padStart(2, "0")}-${from1Y.getFullYear()}`;
+
+    const url = `https://www.nseindia.com/api/historical/cm/equity?symbol=${encodeURIComponent(nseSymbol.toUpperCase())}&series=%5B%22EQ%22%5D&from=${from1Ystr}&to=${toDate}&csv=false`;
+    const res = await fetch(url, {
+      headers: { ...BROWSER_HEADERS, Accept: "application/json", Cookie: nseCookies, Referer: `https://www.nseindia.com/get-quotes/equity?symbol=${nseSymbol}` },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) {
+      console.warn(`[ResearchNote] NSE returns HTTP ${res.status} for ${nseSymbol}`);
+      return empty;
+    }
+    const json = await res.json() as any;
+    const data: any[] = json?.data ?? [];
+    if (data.length < 2) return empty;
+
+    // Sort ascending by date
+    const sorted = data.sort((a: any, b: any) =>
+      new Date(a.CH_TIMESTAMP).getTime() - new Date(b.CH_TIMESTAMP).getTime()
+    );
+
+    const latestPrice = parseFloat(sorted[sorted.length - 1].CH_CLOSING_PRICE);
+    if (!latestPrice) return empty;
+
+    const pf = (v: any) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+    const findClose = (daysAgo: number): number | null => {
+      const target = Date.now() - daysAgo * 86400000;
+      // Find the closest record on or before target
+      let best: any = null;
+      for (const d of sorted) {
+        const t = new Date(d.CH_TIMESTAMP).getTime();
+        if (t <= target) best = d;
+      }
+      return best ? pf(best.CH_CLOSING_PRICE) : null;
+    };
+
+    const close1M  = findClose(30);
+    const close6M  = findClose(180);
+    const close1Y  = sorted[0] ? pf(sorted[0].CH_CLOSING_PRICE) : null;
+
+    const ret = (base: number | null) => base && base > 0 ? Math.round(((latestPrice - base) / base) * 10000) / 10000 : null;
+
+    const returns = { returns1M: ret(close1M), returns6M: ret(close6M), returns1Y: ret(close1Y) };
+    console.log(`[ResearchNote] NSE returns ${nseSymbol}: 1M=${returns.returns1M !== null ? (returns.returns1M * 100).toFixed(1) + "%" : "N/A"}, 6M=${returns.returns6M !== null ? (returns.returns6M * 100).toFixed(1) + "%" : "N/A"}, 1Y=${returns.returns1Y !== null ? (returns.returns1Y * 100).toFixed(1) + "%" : "N/A"}`);
+
+    // Persist to listed_stocks for future DB-first hits
+    db.execute(sql`
+      UPDATE listed_stocks SET returns_1m = ${returns.returns1M}, returns_6m = ${returns.returns6M}, returns_1y = ${returns.returns1Y}
+      WHERE symbol = ${nseSymbol.toUpperCase()}
+    `).catch(() => {});
+
+    return returns;
+  } catch (e: any) {
+    console.warn(`[ResearchNote] NSE returns fetch failed for ${nseSymbol}:`, e?.message?.slice(0, 60));
+    return empty;
+  }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -513,6 +636,7 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
   let screener: ScreenerData = {
     roe: null, roce: null, dividendYield: null, bookValue: null,
     revenueGrowth: null, earningsGrowth: null, debtToEquity: null, pe: null, pb: null,
+    revenue: null, netIncome: null, operatingCashFlow: null, freeCashFlow: null, operatingMargin: null,
   };
 
   let fundamentalsSource: FundamentalsSource;
@@ -529,6 +653,11 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
       debtToEquity: dbData.debtToEquity,
       pe: null,
       pb: null,
+      revenue: dbData.revenue,
+      netIncome: dbData.netIncome,
+      operatingCashFlow: dbData.operatingCashFlow,
+      freeCashFlow: dbData.freeCashFlow,
+      operatingMargin: dbData.operatingMargin,
     };
     const ageHours = dbData.lastUpdated
       ? Math.round((Date.now() - dbData.lastUpdated.getTime()) / 36000) / 100
@@ -557,10 +686,15 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
   }
 
   if (nseResult.status === "fulfilled" && nseResult.value.price !== null) {
-    const data = buildFull(nseResult.value, dbData, screener);
+    let data = buildFull(nseResult.value, dbData, screener);
+    // Fetch price returns from NSE historical API when not in DB
+    if (data.returns1M === null && data.returns6M === null && data.returns1Y === null) {
+      const returns = await fetchNSEReturns(nseSymbol);
+      data = { ...data, ...returns };
+    }
     cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
     console.log(
-      `[ResearchNote] Fetched ${symbol} — ₹${data.price} | ROE:${data.roe !== null ? (data.roe * 100).toFixed(1) + "%" : "N/A"} | D/E:${data.debtToEquity ?? "N/A"} | RevG:${data.revenueGrowth !== null ? (data.revenueGrowth * 100).toFixed(1) + "%" : "N/A"} | src:${fundamentalsSource.source}`
+      `[ResearchNote] Fetched ${symbol} — ₹${data.price} | ROE:${data.roe !== null ? (data.roe * 100).toFixed(1) + "%" : "N/A"} | Rev:${data.revenue !== null ? "₹" + data.revenue.toFixed(0) + "Cr" : "N/A"} | OPM:${data.operatingMargin !== null ? (data.operatingMargin * 100).toFixed(1) + "%" : "N/A"} | src:${fundamentalsSource.source}`
     );
     return { ...data, _fundamentalsSource: fundamentalsSource };
   }

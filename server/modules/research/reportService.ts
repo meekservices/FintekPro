@@ -250,10 +250,10 @@ export async function generatePPT(data: ReportData): Promise<Buffer> {
     },
     {
       label: "PEG Ratio",
-      company: numFmt(data.peg),
+      company: (data.peg !== null && data.peg > 0) ? numFmt(data.peg) : (f.earningsGrowth !== null && f.earningsGrowth <= 0 ? "N/M" : "N/A"),
       sector: "—",
-      signal: data.peg ? (data.peg < 1 ? "Undervalued" : data.peg < 2 ? "Fair" : "Expensive") : "N/A",
-      signalCol: data.peg ? (data.peg < 1 ? ACCENT_GREEN : data.peg < 2 ? ACCENT_AMBER : ACCENT_RED) : LIGHT_TEXT,
+      signal: (data.peg !== null && data.peg > 0) ? (data.peg < 1 ? "Undervalued" : data.peg < 2 ? "Fair" : "Expensive") : (f.earningsGrowth !== null && f.earningsGrowth <= 0 ? "Neg. Growth" : "N/A"),
+      signalCol: (data.peg !== null && data.peg > 0) ? (data.peg < 1 ? ACCENT_GREEN : data.peg < 2 ? ACCENT_AMBER : ACCENT_RED) : ACCENT_AMBER,
     },
     {
       label: "ROE",
