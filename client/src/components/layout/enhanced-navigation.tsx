@@ -486,7 +486,6 @@ export function EnhancedNavigation() {
           { name: "AI Recommendations", href: "/ai-recommendations", icon: Sparkles, description: "AI-powered insights", badge: "AI" },
           { name: "Pick of the Day", href: "/agent/picks", icon: Star, description: "Daily investment picks" },
           { name: "Research Workspace", href: "/agent/research-lists", icon: Search, description: "Research & watchlists" },
-          { name: "Generate Research Note", href: "/research/generate", icon: FileText, description: "Institutional PPT & PDF reports", badge: "NEW" },
           { name: "Investment Baskets", href: "/agent/baskets", icon: Grid3x3, description: "Curated thematic portfolios", badge: "NEW" },
           { name: "Market Alerts", href: "/agent/market-alerts", icon: BellRing, description: "Significant moves in client holdings", badge: "LIVE" },
           { name: "Portfolio Drift", href: "/agent/portfolio-drift", icon: Crosshair, description: "Detect allocation drift across clients" },

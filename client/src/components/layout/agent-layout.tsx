@@ -171,6 +171,7 @@ const agentNavCategories: NavCategory[] = [
     icon: Microscope,
     items: [
       { title: "Research Lists", href: "/agent/research-lists", icon: ListChecks, description: "Curated instrument lists" },
+      { title: "Research Note", href: "/research/generate", icon: FileText, description: "Institutional PPT & PDF reports", badge: "AI" },
       { title: "Screener", href: "/agent/screener", icon: Filter, description: "Filter instruments" },
       { title: "Analytics", href: "/agent/research-analytics", icon: BarChart3, description: "Performance analysis" },
     ]
@@ -456,11 +457,23 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                         isActive ? "text-foreground" : "text-muted-foreground group-hover:text-emerald-400"
                       )} />
                       <span className={cn(
-                        "text-[13px]",
+                        "text-[13px] flex-1",
                         isActive ? "font-medium" : ""
                       )}>
                         {item.title}
                       </span>
+                      {item.badge && (
+                        <span className={cn(
+                          "text-[9px] font-bold px-1 py-0.5 rounded leading-none",
+                          item.badge === "AI"
+                            ? "bg-blue-600 text-white"
+                            : item.badge === "LIVE"
+                            ? "bg-red-500 text-white animate-pulse"
+                            : "bg-emerald-600 text-white"
+                        )}>
+                          {item.badge}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
