@@ -9020,14 +9020,14 @@ export class DatabaseStorage implements IStorage {
 
   async createAgentNotification(data: { agentId: string; title: string; body: string; type?: string; link?: string }): Promise<void> {
     await db.execute(sql`
-      INSERT INTO agent_notifications (agent_id, title, message, type, metadata)
-      VALUES (${data.agentId}, ${data.title}, ${data.body}, ${data.type || 'prospect'}, ${data.link ? JSON.stringify({ link: data.link }) : null}::jsonb)
+      INSERT INTO agent_notifications (agent_id, title, body, type, link)
+      VALUES (${data.agentId}, ${data.title}, ${data.body}, ${data.type || 'prospect'}, ${data.link || null})
     `);
   }
 
   async getAgentNotifications(agentId: string): Promise<any[]> {
     const result = await db.execute(sql`
-      SELECT id, agent_id, title, message, type, is_read, metadata, created_at
+      SELECT id, agent_id, title, body, type, link, read_at, created_at
       FROM agent_notifications
       WHERE agent_id = ${agentId}
       ORDER BY created_at DESC
@@ -9037,18 +9037,18 @@ export class DatabaseStorage implements IStorage {
       id: r.id,
       agentId: r.agent_id,
       title: r.title,
-      body: r.message,
+      body: r.body,
       type: r.type,
-      link: r.metadata?.link ?? null,
-      readAt: r.is_read ? r.created_at : null,
+      link: r.link ?? null,
+      readAt: r.read_at ?? null,
       createdAt: r.created_at,
-      unread: !r.is_read,
+      unread: r.read_at === null,
     }));
   }
 
   async markAgentNotificationRead(id: string): Promise<void> {
     await db.execute(sql`
-      UPDATE agent_notifications SET is_read = true WHERE id = ${id}
+      UPDATE agent_notifications SET read_at = NOW() WHERE id = ${id}
     `);
   }
 }
