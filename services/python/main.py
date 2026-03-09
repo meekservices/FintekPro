@@ -13,6 +13,7 @@ from routes.fixed_income import router as fixed_income_router
 from routes.factor_model import router as factor_model_router
 from routes.ml_scoring import router as ml_scoring_router
 from routes.regime import router as regime_router
+from routes.price_returns import router as price_returns_router
 
 load_dotenv()
 
@@ -51,6 +52,7 @@ app.include_router(fixed_income_router)
 app.include_router(factor_model_router)
 app.include_router(ml_scoring_router)
 app.include_router(regime_router)
+app.include_router(price_returns_router)
 
 
 @app.get("/health")

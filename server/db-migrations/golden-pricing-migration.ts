@@ -77,7 +77,43 @@ export async function runGoldenPricingMigration(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_price_audit_created ON price_audit_log(created_at)
     `);
 
-    console.log("✅ [GoldenPricing] DB tables ready (golden_prices, price_audit_log)");
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS instrument_returns (
+        id SERIAL PRIMARY KEY,
+        isin VARCHAR(20) NOT NULL,
+        symbol VARCHAR(50),
+        as_of_date DATE NOT NULL,
+        asset_class VARCHAR(30) NOT NULL DEFAULT 'equity',
+        current_price NUMERIC(20,6),
+        return_1d NUMERIC(10,8),
+        return_1w NUMERIC(10,8),
+        return_1m NUMERIC(10,8),
+        return_3m NUMERIC(10,8),
+        return_6m NUMERIC(10,8),
+        return_ytd NUMERIC(10,8),
+        return_1y NUMERIC(10,8),
+        return_3y NUMERIC(10,8),
+        return_5y NUMERIC(10,8),
+        price_1d_ago NUMERIC(20,6),
+        price_1w_ago NUMERIC(20,6),
+        price_1m_ago NUMERIC(20,6),
+        price_3m_ago NUMERIC(20,6),
+        price_6m_ago NUMERIC(20,6),
+        price_1y_ago NUMERIC(20,6),
+        abs_change_1d NUMERIC(20,6),
+        computed_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        UNIQUE(isin, as_of_date)
+      )
+    `);
+
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS idx_instr_ret_isin ON instrument_returns(isin)
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS idx_instr_ret_date ON instrument_returns(as_of_date)
+    `);
+
+    console.log("✅ [GoldenPricing] DB tables ready (golden_prices, price_audit_log, instrument_returns)");
   } catch (e: any) {
     console.error("[GoldenPricing] Migration error:", e?.message);
   }

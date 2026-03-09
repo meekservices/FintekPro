@@ -1022,6 +1022,18 @@ export function initializeCronJobs(): void {
             `[GoldenPricing] Run complete: ${result.succeeded}/${result.processed} priced, ` +
             `${result.flagged} flagged, ${result.failed} failed in ${result.durationMs}ms`
           );
+
+          // After pricing, trigger Python to compute point-to-point returns
+          // for all instruments from golden_prices time-series.
+          try {
+            const { callPython } = await import('./clients/python-client');
+            const triggerResult = await callPython('/api/price-returns/daily-run', 'POST', {});
+            if (triggerResult) {
+              console.log('[GoldenPricing] Python returns computation started in background');
+            }
+          } catch (retErr: any) {
+            console.warn('[GoldenPricing] Python returns trigger failed (non-critical):', retErr?.message);
+          }
         } catch (error: any) {
           console.error('[GoldenPricing] Daily run failed:', error.message);
         }

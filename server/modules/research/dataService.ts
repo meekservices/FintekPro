@@ -15,6 +15,7 @@
 import yahooFinance from "yahoo-finance2";
 import { db } from "../../db";
 import { sql } from "drizzle-orm";
+import { callPython } from "../../clients/python-client";
 
 export interface FinancialData {
   price: number | null;
@@ -535,68 +536,41 @@ function buildFull(
   };
 }
 
-// ─── NSE Historical Returns ───────────────────────────────────────────────────
+// ─── Python-Powered Price Returns ────────────────────────────────────────────
+//
+// Reads the golden_prices time-series from the DB (via the Python sidecar)
+// and computes 1D / 1W / 1M / 3M / 6M / YTD / 1Y / 3Y / 5Y using Pandas.
+// Writes results back to instrument_returns + listed_stocks (write_back=true).
+// Falls back to null if Python is unavailable (service gracefully returns null).
 
-async function fetchNSEReturns(nseSymbol: string): Promise<{ returns1M: number | null; returns6M: number | null; returns1Y: number | null }> {
+async function fetchPythonReturns(nseSymbol: string): Promise<{ returns1M: number | null; returns6M: number | null; returns1Y: number | null }> {
   const empty = { returns1M: null, returns6M: null, returns1Y: null };
   try {
-    await refreshNseCookies();
-    const today = new Date();
-    const toDate = `${String(today.getDate()).padStart(2, "0")}-${String(today.getMonth() + 1).padStart(2, "0")}-${today.getFullYear()}`;
-    const from1Y = new Date(today); from1Y.setFullYear(today.getFullYear() - 1);
-    const from1Ystr = `${String(from1Y.getDate()).padStart(2, "0")}-${String(from1Y.getMonth() + 1).padStart(2, "0")}-${from1Y.getFullYear()}`;
-
-    const url = `https://www.nseindia.com/api/historical/cm/equity?symbol=${encodeURIComponent(nseSymbol.toUpperCase())}&series=%5B%22EQ%22%5D&from=${from1Ystr}&to=${toDate}&csv=false`;
-    const res = await fetch(url, {
-      headers: { ...BROWSER_HEADERS, Accept: "application/json", Cookie: nseCookies, Referer: `https://www.nseindia.com/get-quotes/equity?symbol=${nseSymbol}` },
-      signal: AbortSignal.timeout(15_000),
+    const result = await callPython<{
+      status: string;
+      raw?: { return_1m: number | null; return_6m: number | null; return_1y: number | null };
+    }>("/api/price-returns/compute", "POST", {
+      symbol: nseSymbol.toUpperCase(),
+      asset_class: "equity",
+      write_back: true,
     });
-    if (!res.ok) {
-      console.warn(`[ResearchNote] NSE returns HTTP ${res.status} for ${nseSymbol}`);
+
+    if (!result || result.status === "no_price_history" || result.status === "isin_not_found") {
+      console.warn(`[ResearchNote] Python returns: ${result?.status ?? "unavailable"} for ${nseSymbol}`);
       return empty;
     }
-    const json = await res.json() as any;
-    const data: any[] = json?.data ?? [];
-    if (data.length < 2) return empty;
 
-    // Sort ascending by date
-    const sorted = data.sort((a: any, b: any) =>
-      new Date(a.CH_TIMESTAMP).getTime() - new Date(b.CH_TIMESTAMP).getTime()
+    const raw = result.raw ?? {};
+    const pf = (v: any) => (v !== null && v !== undefined && !isNaN(Number(v)) ? Number(v) : null);
+    const returns = { returns1M: pf(raw.return_1m), returns6M: pf(raw.return_6m), returns1Y: pf(raw.return_1y) };
+    console.log(
+      `[ResearchNote] Python returns ${nseSymbol}: 1M=${returns.returns1M !== null ? (returns.returns1M * 100).toFixed(1) + "%" : "N/A"}, ` +
+      `6M=${returns.returns6M !== null ? (returns.returns6M * 100).toFixed(1) + "%" : "N/A"}, ` +
+      `1Y=${returns.returns1Y !== null ? (returns.returns1Y * 100).toFixed(1) + "%" : "N/A"}`
     );
-
-    const latestPrice = parseFloat(sorted[sorted.length - 1].CH_CLOSING_PRICE);
-    if (!latestPrice) return empty;
-
-    const pf = (v: any) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
-    const findClose = (daysAgo: number): number | null => {
-      const target = Date.now() - daysAgo * 86400000;
-      // Find the closest record on or before target
-      let best: any = null;
-      for (const d of sorted) {
-        const t = new Date(d.CH_TIMESTAMP).getTime();
-        if (t <= target) best = d;
-      }
-      return best ? pf(best.CH_CLOSING_PRICE) : null;
-    };
-
-    const close1M  = findClose(30);
-    const close6M  = findClose(180);
-    const close1Y  = sorted[0] ? pf(sorted[0].CH_CLOSING_PRICE) : null;
-
-    const ret = (base: number | null) => base && base > 0 ? Math.round(((latestPrice - base) / base) * 10000) / 10000 : null;
-
-    const returns = { returns1M: ret(close1M), returns6M: ret(close6M), returns1Y: ret(close1Y) };
-    console.log(`[ResearchNote] NSE returns ${nseSymbol}: 1M=${returns.returns1M !== null ? (returns.returns1M * 100).toFixed(1) + "%" : "N/A"}, 6M=${returns.returns6M !== null ? (returns.returns6M * 100).toFixed(1) + "%" : "N/A"}, 1Y=${returns.returns1Y !== null ? (returns.returns1Y * 100).toFixed(1) + "%" : "N/A"}`);
-
-    // Persist to listed_stocks for future DB-first hits
-    db.execute(sql`
-      UPDATE listed_stocks SET returns_1m = ${returns.returns1M}, returns_6m = ${returns.returns6M}, returns_1y = ${returns.returns1Y}
-      WHERE symbol = ${nseSymbol.toUpperCase()}
-    `).catch(() => {});
-
     return returns;
   } catch (e: any) {
-    console.warn(`[ResearchNote] NSE returns fetch failed for ${nseSymbol}:`, e?.message?.slice(0, 60));
+    console.warn(`[ResearchNote] Python returns fetch failed for ${nseSymbol}:`, e?.message?.slice(0, 80));
     return empty;
   }
 }
@@ -689,7 +663,7 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
     let data = buildFull(nseResult.value, dbData, screener);
     // Fetch price returns from NSE historical API when not in DB
     if (data.returns1M === null && data.returns6M === null && data.returns1Y === null) {
-      const returns = await fetchNSEReturns(nseSymbol);
+      const returns = await fetchPythonReturns(nseSymbol);
       data = { ...data, ...returns };
     }
     cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });

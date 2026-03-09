@@ -231,4 +231,32 @@ router.post('/api/python/regime/detect-batch', requireAuth, async (req, res) => 
   return proxyToPython(req, res, '/api/regime/detect-batch');
 });
 
+// ── Point-to-Point Price Returns (golden_prices time-series → Pandas) ─────────
+//
+//  POST /api/python/price-returns/compute       → compute one ISIN
+//  POST /api/python/price-returns/batch         → compute many ISINs
+//  POST /api/python/price-returns/daily-run     → run all (background)
+//  GET  /api/python/price-returns/:isin         → read stored returns
+//  GET  /api/python/price-returns/:isin/history → return history
+//
+router.post('/api/python/price-returns/compute', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/price-returns/compute');
+});
+
+router.post('/api/python/price-returns/batch', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/price-returns/batch');
+});
+
+router.post('/api/python/price-returns/daily-run', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, '/api/price-returns/daily-run');
+});
+
+router.get('/api/python/price-returns/:isin/history', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, `/api/price-returns/${req.params.isin}/history`);
+});
+
+router.get('/api/python/price-returns/:isin', requireAuth, async (req, res) => {
+  return proxyToPython(req, res, `/api/price-returns/${req.params.isin}`);
+});
+
 export default router;

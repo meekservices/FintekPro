@@ -13,6 +13,7 @@ FintekPro is a full-stack TypeScript financial services platform for personal fi
 ### DB Tables (Production Neon DB)
 - `golden_prices` — (isin, price_date) UNIQUE; stores price, source, confidence_score, is_flagged, deviation_pct, metadata
 - `price_audit_log` — immutable SEBI audit trail of every price change/override
+- `instrument_returns` — (isin, as_of_date) UNIQUE; stores Python-computed returns (1D/1W/1M/3M/6M/YTD/1Y/3Y/5Y) + reference prices
 
 ### Source Hierarchy (equity)
 ```
@@ -36,8 +37,32 @@ BLACK_SCHOLES(65) for derivatives (uses underlying from golden_prices)
 
 ### Cron Responsibility Reduction
 - Single `runDailyGoldenPricing()` cronjob at 9:00 PM IST (Mon-Fri) replaces individual equity/MF/bond/unlisted price fetchers
+- After each golden pricing run, Python `/api/price-returns/daily-run` is triggered to recompute all returns
 - Weekly stale-marker (Sundays 8 PM IST) marks prices older than 5 days
 - All other services read from `golden_prices` first → fewer API calls to external sources
+
+## Python Point-to-Point Price Returns Engine
+
+### Architecture
+- `services/python/routes/price_returns.py` — reads `golden_prices` time-series via asyncpg, computes returns with Pandas, writes to `instrument_returns` and write-back to `listed_stocks`
+- Replaces `fetchNSEReturns()` in `server/modules/research/dataService.ts` (NSE historical API was blocked from Replit)
+- Node.js calls Python via `callPython('/api/price-returns/compute', 'POST', { symbol })` — symbol-to-ISIN is resolved by Python from `listed_stocks`
+
+### Periods Computed
+| Period | Method |
+|--------|--------|
+| 1D, 1W, 1M, 3M, 6M | Simple % = (P_now - P_past) / P_past |
+| YTD | Simple % from Jan 1 of current year |
+| 1Y, 3Y, 5Y | CAGR = (P_now / P_past)^(1/years) - 1 |
+
+### Returns stored as decimal fractions (0.085 = 8.5%). Multiply by 100 for display.
+
+### API Endpoints (proxied via `/api/python/price-returns/*`)
+- `POST /compute` — one ISIN or symbol; resolves ISIN, computes, writes back
+- `POST /batch` — array of instruments
+- `GET /:isin` — read pre-computed returns from instrument_returns
+- `GET /:isin/history` — full return history (last N dates)
+- `POST /daily-run` — background task: compute all ISINs in golden_prices
 
 ### Known Limitations
 - NSE Bhavcopy blocked from Replit dev env (HTTP 404 bot protection) — FMP fallback applies in dev
