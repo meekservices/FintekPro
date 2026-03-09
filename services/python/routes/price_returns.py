@@ -215,8 +215,12 @@ async def upsert_instrument_returns(isin: str, symbol: Optional[str],
     )
 
 
-async def sync_to_listed_stocks(isin: str, ret: Dict[str, Any], conn) -> None:
-    """Write-back 1M/6M/1Y to listed_stocks so existing code still works."""
+async def sync_to_stock_tables(isin: str, symbol: Optional[str], ret: Dict[str, Any], conn) -> None:
+    """
+    Write-back returns to all stock tables so existing code and scoring engines work:
+      - listed_stocks.returns_1m/6m/1y  (used by dataService, research notes, pick-of-the-day)
+      - screener_financials.return_1y/return_3y/return_5y  (used by derived-metrics growth_score)
+    """
     await conn.execute(
         """
         UPDATE listed_stocks SET
@@ -230,6 +234,33 @@ async def sync_to_listed_stocks(isin: str, ret: Dict[str, Any], conn) -> None:
         ret.get("return_6m"),
         ret.get("return_1y"),
     )
+
+    # Resolve symbol if not provided
+    sym = symbol
+    if not sym:
+        row = await conn.fetchrow("SELECT symbol FROM listed_stocks WHERE isin = $1 LIMIT 1", isin)
+        sym = row["symbol"] if row else None
+
+    if sym:
+        # Update the most recent screener_financials row for this symbol
+        # return_1y/3y/5y are decimal fractions (e.g. 0.12 = 12%)
+        await conn.execute(
+            """
+            UPDATE screener_financials SET
+                return_1y = $2,
+                return_3y = $3,
+                return_5y = $4
+            WHERE id = (
+                SELECT id FROM screener_financials
+                WHERE UPPER(symbol) = UPPER($1)
+                ORDER BY id DESC LIMIT 1
+            )
+            """,
+            sym,
+            ret.get("return_1y"),
+            ret.get("return_3y"),
+            ret.get("return_5y"),
+        )
 
 
 # ─── Request/Response models ──────────────────────────────────────────────────
@@ -286,7 +317,7 @@ async def compute_single(
                 isin, body.symbol, as_of, body.asset_class, ret, conn
             )
             if body.asset_class == "equity":
-                await sync_to_listed_stocks(isin, ret, conn)
+                await sync_to_stock_tables(isin, body.symbol, ret, conn)
 
     # Format for display (multiply by 100 → percentage)
     formatted = {
@@ -332,7 +363,7 @@ async def compute_batch(
                 if body.write_back:
                     await upsert_instrument_returns(isin, symbol, as_of, asset_class, ret, conn)
                     if asset_class == "equity":
-                        await sync_to_listed_stocks(isin, ret, conn)
+                        await sync_to_stock_tables(isin, symbol, ret, conn)
                 results[isin] = {
                     "status": "computed",
                     "return_1d": ret.get("return_1d"),
@@ -464,7 +495,7 @@ async def daily_returns_run(
                     ret = compute_returns(series)
                     await upsert_instrument_returns(isin, symbol, today, asset_class, ret, conn)
                     if asset_class == "equity":
-                        await sync_to_listed_stocks(isin, ret, conn)
+                        await sync_to_stock_tables(isin, symbol, ret, conn)
                     succeeded += 1
                 except Exception as e:
                     logger.error(f"Daily returns run error for {isin}: {e}")
