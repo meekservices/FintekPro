@@ -139,8 +139,7 @@ export default function ResearchNoteGenerator() {
 
   const previewMutation = useMutation({
     mutationFn: async (symbol: string) => {
-      const res = await apiRequest("POST", "/api/research-note/preview", { symbol });
-      return res.json();
+      return await apiRequest("/api/research-note/preview", "POST", { body: { symbol } });
     },
     onSuccess: (data: PreviewData) => {
       setPreviewData(data);
