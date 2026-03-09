@@ -1036,6 +1036,10 @@ server.listen({
   
   registerRoleRoutes(app);
   
+  // Boot-time migrations (CREATE TABLE IF NOT EXISTS — idempotent and safe)
+  const { runGoldenPricingMigration } = await import("./db-migrations/golden-pricing-migration");
+  await runGoldenPricingMigration();
+
   // Register additional routes from routes.ts (but don't create a new server - we already have one)
   await registerRoutes(app, server);
 

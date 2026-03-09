@@ -3,6 +3,47 @@
 ## Overview
 FintekPro is a full-stack TypeScript financial services platform for personal finance and investment management. It provides secure financial planning, portfolio management, and real-time market data across diverse asset classes. Key capabilities include family collaboration, a unified KYC system, an AI-powered financial assistant, an Unlisted Marketplace, and comprehensive multi-origination loan lifecycle support. The platform aims to be a leading digital financial ecosystem, empowering individual investors and financial advisors with advanced tools and insights.
 
+## Bloomberg-Style Golden Source Pricing Engine
+
+### Architecture
+- `server/services/golden-pricing/GoldenPricingEngine.ts` — core engine: multi-source price discovery, hierarchy waterfall, validation, audit, batch operations
+- `server/routes/golden-pricing-routes.ts` — REST API (9 endpoints)
+- `server/db-migrations/golden-pricing-migration.ts` — boot-time `CREATE TABLE IF NOT EXISTS` (idempotent)
+
+### DB Tables (Production Neon DB)
+- `golden_prices` — (isin, price_date) UNIQUE; stores price, source, confidence_score, is_flagged, deviation_pct, metadata
+- `price_audit_log` — immutable SEBI audit trail of every price change/override
+
+### Source Hierarchy (equity)
+```
+NSE_BHAVCOPY(98) → FMP(85) → LAST_TRADE(70) → MODEL_PRICE(60)
+AMFI_NAV(97) for MFs
+YIELD_CURVE(80) for bonds (DCF model using 7.13% RBI yield)
+PROBE42(75) → MODEL_PRICE(60) for unlisted (30% liquidity discount)
+BLACK_SCHOLES(65) for derivatives (uses underlying from golden_prices)
+```
+
+### API Endpoints (all at `/api/pricing/*`)
+- `GET /stats?date=` — per-asset-class breakdown of priced instruments
+- `GET /flagged` — instruments with >20% deviation
+- `POST /batch` — bulk ISIN lookup (up to 200)
+- `POST /price-now` — on-demand pricing for any instrument
+- `POST /override` — admin manual override with SEBI audit entry
+- `POST /run-daily` — trigger full daily run (async, returns immediately)
+- `GET /audit/:isin` — full SEBI audit trail for an ISIN
+- `GET /:isin/history` — price history with date range
+- `GET /:isin?date=` — latest or date-specific golden price
+
+### Cron Responsibility Reduction
+- Single `runDailyGoldenPricing()` cronjob at 9:00 PM IST (Mon-Fri) replaces individual equity/MF/bond/unlisted price fetchers
+- Weekly stale-marker (Sundays 8 PM IST) marks prices older than 5 days
+- All other services read from `golden_prices` first → fewer API calls to external sources
+
+### Known Limitations
+- NSE Bhavcopy blocked from Replit dev env (HTTP 404 bot protection) — FMP fallback applies in dev
+- Probe42 unlisted data requires `PROBE42_API_KEY` env var
+- Derivative pricing uses underlying from golden_prices DB (no external call needed)
+
 ## Research Note Generator Module
 
 ### Architecture

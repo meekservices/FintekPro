@@ -32867,3 +32867,72 @@ export const agentBasketItems = pgTable("agent_basket_items", {
 export type AgentBasketItem = typeof agentBasketItems.$inferSelect;
 export type InsertAgentBasketItem = typeof agentBasketItems.$inferInsert;
 export const insertAgentBasketItemSchema = createInsertSchema(agentBasketItems).omit({ id: true, addedAt: true });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BLOOMBERG-STYLE GOLDEN SOURCE PRICING ENGINE
+// Multi-source price discovery → single authoritative "golden price"
+// SEBI-compliant for PMS/AIF portfolios
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Source hierarchy constants (stored as varchar for readability) ──
+// Priority: NSE_BHAVCOPY > BSE_CLOSE > AMFI_NAV > FMP > ALPHAVANTAGE >
+//           LAST_TRADE > PROBE42 > YIELD_CURVE > MODEL_PRICE > BROKER_QUOTE
+
+export const goldenPrices = pgTable("golden_prices", {
+  id: serial("id").primaryKey(),
+  isin: varchar("isin", { length: 20 }).notNull(),
+  symbol: varchar("symbol", { length: 50 }),
+  priceDate: date("price_date").notNull(),
+  assetClass: varchar("asset_class", { length: 30 }).notNull().default("equity"),
+  price: decimal("price", { precision: 20, scale: 6 }).notNull(),
+  openPrice: decimal("open_price", { precision: 20, scale: 6 }),
+  highPrice: decimal("high_price", { precision: 20, scale: 6 }),
+  lowPrice: decimal("low_price", { precision: 20, scale: 6 }),
+  volume: decimal("volume", { precision: 20, scale: 0 }),
+  changePercent: decimal("change_percent", { precision: 10, scale: 4 }),
+  source: varchar("source", { length: 50 }).notNull(),
+  confidenceScore: integer("confidence_score").notNull().default(50),
+  isValidated: boolean("is_validated").notNull().default(false),
+  isStale: boolean("is_stale").notNull().default(false),
+  isFlagged: boolean("is_flagged").notNull().default(false),
+  flagReason: text("flag_reason"),
+  previousPrice: decimal("previous_price", { precision: 20, scale: 6 }),
+  deviationPct: decimal("deviation_pct", { precision: 10, scale: 4 }),
+  currency: varchar("currency", { length: 10 }).default("INR"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("idx_golden_prices_isin_date").on(table.isin, table.priceDate),
+  index("idx_golden_prices_date").on(table.priceDate),
+  index("idx_golden_prices_symbol").on(table.symbol),
+  index("idx_golden_prices_asset_class").on(table.assetClass),
+  index("idx_golden_prices_flagged").on(table.isFlagged),
+]);
+
+export type GoldenPrice = typeof goldenPrices.$inferSelect;
+export type InsertGoldenPrice = typeof goldenPrices.$inferInsert;
+export const insertGoldenPriceSchema = createInsertSchema(goldenPrices).omit({ id: true, createdAt: true, updatedAt: true });
+
+// ── Price Audit Log — immutable record of every change / override ──
+export const priceAuditLog = pgTable("price_audit_log", {
+  id: serial("id").primaryKey(),
+  isin: varchar("isin", { length: 20 }).notNull(),
+  priceDate: date("price_date").notNull(),
+  oldPrice: decimal("old_price", { precision: 20, scale: 6 }),
+  newPrice: decimal("new_price", { precision: 20, scale: 6 }).notNull(),
+  oldSource: varchar("old_source", { length: 50 }),
+  newSource: varchar("new_source", { length: 50 }).notNull(),
+  changeReason: text("change_reason").notNull(),
+  changedBy: varchar("changed_by", { length: 100 }).notNull().default("system"),
+  confidenceScore: integer("confidence_score"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_price_audit_isin").on(table.isin),
+  index("idx_price_audit_date").on(table.priceDate),
+  index("idx_price_audit_created").on(table.createdAt),
+]);
+
+export type PriceAuditEntry = typeof priceAuditLog.$inferSelect;
+export type InsertPriceAuditEntry = typeof priceAuditLog.$inferInsert;

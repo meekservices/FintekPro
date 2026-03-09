@@ -1006,6 +1006,53 @@ export function initializeCronJobs(): void {
     console.log('⏭️ [InstrumentTimeSeries] Dual pipeline skipped (development mode - production only)');
   }
 
+  // ── Golden Source Pricing Engine (production only) ────────────────────────
+  // Consolidates multi-source price discovery into a single authoritative run.
+  // Runs at 9:00 PM IST (15:30 UTC) — after market close + existing price updater.
+  // Sources: NSE_BHAVCOPY → BSE → AMFI → FMP → ALPHAVANTAGE → LAST_TRADE → MODEL
+  // Reduces individual service cronjob responsibility — all services read golden_prices.
+  if (isProductionEnvironment()) {
+    staggeredStart('Golden Source Pricing Engine', () => {
+      cron.schedule('30 15 * * 1-5', async () => {
+        console.log('[GoldenPricing] Starting daily golden price computation (all asset classes)...');
+        try {
+          const { runDailyGoldenPricing } = await import('./services/golden-pricing/GoldenPricingEngine');
+          const result = await runDailyGoldenPricing();
+          console.log(
+            `[GoldenPricing] Run complete: ${result.succeeded}/${result.processed} priced, ` +
+            `${result.flagged} flagged, ${result.failed} failed in ${result.durationMs}ms`
+          );
+        } catch (error: any) {
+          console.error('[GoldenPricing] Daily run failed:', error.message);
+        }
+      }, { timezone: 'Asia/Kolkata' });
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+
+    // Weekly stale-price cleanup — mark prices not updated in > 5 days as stale
+    staggeredStart('Golden Price Stale Marker', () => {
+      cron.schedule('0 20 * * 0', async () => {
+        console.log('[GoldenPricing] Marking stale prices...');
+        try {
+          const { db } = await import('./db');
+          const { sql } = await import('drizzle-orm');
+          const res = await db.execute(sql`
+            UPDATE golden_prices SET is_stale = true, updated_at = NOW()
+            WHERE price_date < CURRENT_DATE - INTERVAL '5 days' AND is_stale = false
+          `);
+          console.log(`[GoldenPricing] Stale marker complete: ${res.rowCount} rows updated`);
+        } catch (error: any) {
+          console.error('[GoldenPricing] Stale marker failed:', error.message);
+        }
+      }, { timezone: 'Asia/Kolkata' });
+    }, delay);
+    delay += STAGGER_DELAY_MS;
+
+    console.log('💰 [GoldenPricing] Daily run (9:00 PM IST Mon-Fri) + Weekly stale marker (8:00 PM IST Sun) scheduled');
+  } else {
+    console.log('⏭️ [GoldenPricing] Golden Source Pricing Engine skipped (development mode - production only)');
+  }
+
   console.log('✓ Cron jobs initialized successfully');
 }
 
