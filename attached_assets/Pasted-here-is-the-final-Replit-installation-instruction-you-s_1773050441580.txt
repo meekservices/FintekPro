@@ -1,0 +1,271 @@
+here is the final Replit installation instruction you should paste into your Replit AI / developer task board. This version is simpler, production-safe, and without Docker, suitable for an existing Node/TypeScript backend.
+FintekPro Feature Installation
+Institutional Research Note Generator
+Goal
+Allow FintekPro to generate institutional-grade research reports automatically.
+Input:
+ISIN
+NSE Symbol
+Company Name
+Output:
+Institutional PPT
+Research PDF
+One-page client note
+Example:
+Input: AJAXENGG
+Output:
+AjaxEngineering_Research.pptx
+AjaxEngineering_Report.pdf
+AjaxEngineering_Summary.pdf
+Step 1 — Install Dependencies
+Run in Replit shell:
+npm install axios pptxgenjs puppeteer chart.js chartjs-node-canvas dayjs lodash
+npm install yahoo-finance2
+Optional analytics (if Python available):
+pip install pandas matplotlib
+Step 2 — Create Research Module
+Create folder:
+src/modules/research
+Structure:
+research
+ ├ resolver.ts
+ ├ dataService.ts
+ ├ financialEngine.ts
+ ├ valuationEngine.ts
+ ├ technicalEngine.ts
+ ├ chartEngine.ts
+ ├ recommendationEngine.ts
+ ├ reportService.ts
+ └ researchController.ts
+Step 3 — Company Resolver
+File:
+resolver.ts
+Purpose: convert ISIN / company name / NSE symbol → standardized symbol
+Example:
+import axios from "axios";
+
+export async function resolveCompany(query:string){
+
+ const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${query}`;
+
+ const res = await axios.get(url);
+
+ const stock = res.data.quotes[0];
+
+ return {
+  symbol: stock.symbol,
+  name: stock.shortname
+ };
+
+}
+Step 4 — Financial Data Service
+File:
+dataService.ts
+Pull:
+price
+PE
+market cap
+ROE
+Example:
+import yahooFinance from "yahoo-finance2";
+
+export async function getFinancialData(symbol:string){
+
+ const data = await yahooFinance.quoteSummary(symbol,{
+  modules:["price","financialData","defaultKeyStatistics"]
+ });
+
+ return {
+  price:data.price.regularMarketPrice,
+  marketCap:data.price.marketCap,
+  pe:data.defaultKeyStatistics.trailingPE,
+  roe:data.financialData.returnOnEquity
+ };
+
+}
+Step 5 — Financial Analysis Engine
+File:
+financialEngine.ts
+Example:
+export function calculateCAGR(start:number,end:number,years:number){
+
+ return (Math.pow(end/start,1/years)-1)*100;
+
+}
+Used for:
+revenue CAGR
+profit CAGR
+Step 6 — Valuation Engine
+File:
+valuationEngine.ts
+Example:
+export function valuation(pe:number,growth:number){
+
+ const peg = pe/growth;
+
+ if(peg < 1) return "Undervalued";
+ if(peg < 2) return "Fair";
+
+ return "Overvalued";
+
+}
+Step 7 — Technical Analysis Engine
+File:
+technicalEngine.ts
+Example:
+export function priceLevels(price:number){
+
+ return {
+  support: price * 0.9,
+  resistance: price * 1.15
+ };
+
+}
+Step 8 — Chart Generator
+File:
+chartEngine.ts
+Library:
+chartjs-node-canvas
+Example:
+import { ChartJSNodeCanvas } from "chartjs-node-canvas";
+
+export async function revenueChart(data:number[]){
+
+ const chart = new ChartJSNodeCanvas({width:800,height:400});
+
+ const config = {
+  type:"line",
+  data:{
+   labels:["Y1","Y2","Y3","Y4","Y5"],
+   datasets:[{
+    label:"Revenue",
+    data:data
+   }]
+  }
+ };
+
+ return await chart.renderToBuffer(config);
+
+}
+Step 9 — Recommendation Engine
+File:
+recommendationEngine.ts
+Logic:
+Fundamentals 40%
+Valuation 30%
+Momentum 30%
+Example:
+export function rating(score:number){
+
+ if(score>75) return "BUY";
+
+ if(score>50) return "HOLD";
+
+ return "SELL";
+
+}
+Step 10 — PPT Generator
+File:
+reportService.ts
+Library:
+pptxgenjs
+Example:
+import PptxGenJS from "pptxgenjs";
+
+export async function generatePPT(data:any){
+
+ const ppt = new PptxGenJS();
+
+ const slide = ppt.addSlide();
+
+ slide.addText(data.company,{
+  x:1,
+  y:1,
+  fontSize:28
+ });
+
+ slide.addText(`Recommendation: ${data.rating}`,{
+  x:1,
+  y:2
+ });
+
+ await ppt.writeFile({
+  fileName:`${data.symbol}_Research.pptx`
+ });
+
+}
+Step 11 — PDF Research Report
+Use:
+puppeteer
+Example:
+import puppeteer from "puppeteer";
+
+export async function generatePDF(html:string){
+
+ const browser = await puppeteer.launch();
+
+ const page = await browser.newPage();
+
+ await page.setContent(html);
+
+ await page.pdf({
+  path:"research.pdf",
+  format:"A4"
+ });
+
+ await browser.close();
+
+}
+Step 12 — API Endpoint
+Add route:
+POST /api/research/generate
+Example:
+router.post("/generate",async(req,res)=>{
+
+ const {symbol} = req.body;
+
+ const company = await resolveCompany(symbol);
+
+ const data = await getFinancialData(symbol);
+
+ const rating = "BUY";
+
+ await generatePPT({
+  company:company.name,
+  symbol,
+  rating
+ });
+
+ res.json({
+  message:"Research generated"
+ });
+
+});
+Step 13 — FintekPro UI
+Add new menu:
+Research
+   └ Generate Research Note
+Input:
+Company / ISIN / NSE Symbol
+Buttons:
+Generate PPT
+Generate PDF
+Generate One Pager
+Step 14 — Branding
+Automatically include:
+Prepared By
+Sangram Kesari Mohanty
+Certified Financial Planner
+FintekPro Research
+Final Result
+FintekPro will be able to generate institutional-grade research reports automatically.
+Example workflow:
+User enters: RELIANCE
+↓
+FintekPro fetches financial data
+↓
+Runs valuation model
+↓
+Generates research note
+↓
+Downloads PPT / PDF
