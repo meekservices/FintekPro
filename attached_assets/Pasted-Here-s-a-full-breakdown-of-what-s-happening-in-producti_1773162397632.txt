@@ -1,0 +1,41 @@
+Here's a full breakdown of what's happening in production on fintekpro.com:
+
+Group 1 — Database (Neon cold-start at boot)
+
+Three services fail at startup before the Neon DB connection pool warms up: seedDefaultStoreCategories, CKYC provider seed, and SubscriptionSync. They all hit a timeout exceeded when trying to connect error within the first 5 seconds of boot, then the pool recovers. These are non-blocking and self-heal, but they produce noisy error logs and mean those three seeding routines silently skip on every cold start.
+
+Group 2 — Global Stocks & ETFs (100% failure every cycle)
+
+Yahoo Finance is consistently rate-limiting the server — all 34 global stocks and all 20 ETFs fail every refresh cycle. Polygon (the primary) gets HTTP 403 on all symbols too. This means the US equities section of the platform shows stale or empty data in production. This is the most user-facing issue in the list.
+
+Group 3 — Screener.in blocked (Research Note Generator)
+
+Screener.in is returning timeouts on every single request from the production server — 7+ consecutive failures logged. Screener.in blocks datacenter/cloud IPs as anti-scraping. Research note generation will not work in production with a direct HTTP fetch.
+
+Group 4 — Market Movers (intermittent)
+
+NSE India succeeds on the first boot (15 stocks, ~99s) but fails on the second hourly cycle (NSE, BSE, Yahoo, Finnhub all fail), then recovers again on the third. The failure is intermittent depending on NSE's bot detection state at the time of the request. The cached data from the previous successful cycle is served in the meantime.
+
+Group 5 — NSE NCB & BSE Bond endpoints (404/ETIMEDOUT)
+
+NSE's auction, SGB, and yield curve endpoints return 404 — NSE has likely changed these API paths. BSE's bond endpoints (infrastructure, tax-free, tradable) timeout with ETIMEDOUT — BSE's production servers block Replit's IP range. Both are skipped gracefully.
+
+Group 6 — node-cron missed executions
+
+The HistoricalNav backfill job is downloading thousands of records sequentially and blocking the Node.js event loop for seconds at a time. This causes node-cron to miss scheduled minute-tick events. It's not a crash, but it degrades the scheduling precision of other crons while the backfill is running.
+
+Group 7 — Neon library errors (non-fatal)
+
+Two occurrences, both throttled and self-reported as non-fatal. These are transient Neon WebSocket drops that the pool auto-recovers from.
+
+Summary — what needs fixing vs what's expected:
+
+Issue	Severity	Fix Needed?
+Global stocks / ETFs 100% fail	High	Yes — need a working data source for US equities
+Screener.in blocked	High	Yes — need proxy or alternative for Research Notes
+Neon cold-start seed timeouts	Medium	Yes — add startup delay / retry before seeding
+NSE NCB 404s	Medium	Yes — update NSE API paths
+node-cron missed executions	Low	Optional — move HistoricalNav to async worker
+MarketMoversCache intermittent	Low	Self-healing, DB cache covers gaps
+BSE Bond ETIMEDOUT	Low	Expected from Replit IPs
+Neon library errors	Low	Non-fatal, auto-throttled

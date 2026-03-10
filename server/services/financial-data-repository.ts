@@ -2,6 +2,7 @@ import { pool } from '../db';
 import yahooFinance from 'yahoo-finance2';
 import axios from 'axios';
 import { executeWithRetry } from '../utils/retry';
+import { callPython } from '../clients/python-client';
 
 const YAHOO_RETRY_OPTIONS = {
   maxAttempts: 2,
@@ -706,24 +707,92 @@ class FinancialDataRepository {
     return null;
   }
 
+  private async fetchBatchFromPython(symbols: string[], instrumentType: 'global_stock' | 'etf'): Promise<Map<string, InstrumentData>> {
+    const results = new Map<string, InstrumentData>();
+    if (!symbols.length) return results;
+
+    try {
+      const resp = await callPython<{ results: Record<string, any>; count: number }>('/market/quotes', 'POST', { symbols });
+      if (!resp?.results) return results;
+
+      for (const [sym, q] of Object.entries(resp.results)) {
+        const price = q.price != null ? Number(q.price) : undefined;
+        const prevClose = q.previousClose != null ? Number(q.previousClose) : undefined;
+        if (!price) continue;
+
+        const suffix = sym.includes('.HK') ? { exchange: 'HKEX', currency: 'HKD', country: 'HK' }
+          : sym.includes('.T')  ? { exchange: 'TSE',  currency: 'JPY', country: 'JP' }
+          : sym.includes('.L')  ? { exchange: 'LSE',  currency: 'GBP', country: 'UK' }
+          : sym.includes('.NS') ? { exchange: 'NSE',  currency: 'INR', country: 'IN' }
+          : sym.includes('.BO') ? { exchange: 'BSE',  currency: 'INR', country: 'IN' }
+          : { exchange: q.exchange || 'US', currency: q.currency || 'USD', country: 'US' };
+
+        results.set(sym, {
+          instrumentType,
+          symbol: sym,
+          name: sym,
+          exchange: suffix.exchange,
+          currency: suffix.currency,
+          country: suffix.country,
+          currentPrice: price,
+          previousClose: prevClose,
+          dayChange: q.change != null ? Number(q.change) : undefined,
+          dayChangePercent: q.changePercent != null ? Number(q.changePercent) : undefined,
+          dayHigh: q.dayHigh != null ? Number(q.dayHigh) : undefined,
+          dayLow: q.dayLow != null ? Number(q.dayLow) : undefined,
+          volume: q.volume != null ? Number(q.volume) : undefined,
+          marketCap: q.marketCap != null ? Number(q.marketCap) : undefined,
+          dataSource: 'python-yfinance',
+          confidenceScore: 90,
+        });
+      }
+
+      if (results.size > 0) {
+        console.log(`[FinancialDataRepository] Python/yfinance fetched ${results.size}/${symbols.length} ${instrumentType}s`);
+      }
+    } catch (err: any) {
+      console.warn(`[FinancialDataRepository] Python sidecar unavailable for ${instrumentType}s: ${err.message}`);
+    }
+
+    return results;
+  }
+
   async refreshGlobalStocks(symbols: string[]): Promise<{ success: number; failed: number }> {
     let success = 0;
     let failed = 0;
 
+    // Priority 0: Python sidecar via yfinance (fastest, no Node.js rate limits)
+    const pythonResults = await this.fetchBatchFromPython(symbols, 'global_stock');
+    const pythonSaved = new Set<string>();
+    for (const [sym, data] of pythonResults) {
+      try {
+        await this.saveToDatabase(data);
+        success++;
+        pythonSaved.add(sym);
+      } catch (_) {}
+    }
+    let remaining0 = symbols.filter(s => !pythonSaved.has(s));
+    if (remaining0.length === 0) {
+      console.log(`📊 [FinancialDataRepository] Refreshed global stocks: ${success} success, ${failed} failed`);
+      return { success, failed };
+    }
+    failed = remaining0.length;
+
     if (process.env.FMP_API_KEY) {
-      const fmpResults = await this.fetchBatchFromFMP(symbols, 'global_stock');
+      const fmpResults = await this.fetchBatchFromFMP(remaining0, 'global_stock');
       const savedSymbols = new Set<string>();
       for (const [sym, data] of fmpResults) {
         try {
           await this.saveToDatabase(data);
           success++;
+          failed = Math.max(0, failed - 1);
           savedSymbols.add(sym);
         } catch (err: any) {
           console.log(`⚠️ [FMP] Save failed for ${sym}: ${err.message}`);
         }
       }
 
-      let remaining = symbols.filter(s => !savedSymbols.has(s));
+      let remaining = remaining0.filter(s => !savedSymbols.has(s));
 
       if (remaining.length > 0 && process.env.POLYGON_API_KEY) {
         console.log(`[FinancialDataRepository] ${remaining.length} stocks need Polygon fallback...`);
@@ -734,6 +803,7 @@ class FinancialDataRepository {
             if (result.success && result.data?.currentPrice) {
               await this.saveToDatabase(result.data);
               success++;
+              failed = Math.max(0, failed - 1);
               polygonSaved.add(sym);
             }
           } catch (_) {}
@@ -747,10 +817,10 @@ class FinancialDataRepository {
         console.log(`[FinancialDataRepository] ${remaining.length} stocks need Yahoo fallback...`);
         const yahooResult = await this.refreshViaYahoo(remaining, 'global_stock');
         success += yahooResult.success;
-        failed += yahooResult.failed;
+        failed = Math.max(0, failed - yahooResult.success);
       }
     } else {
-      let remaining = [...symbols];
+      let remaining = [...remaining0];
 
       if (process.env.POLYGON_API_KEY) {
         console.log(`[FinancialDataRepository] ${remaining.length} stocks trying Polygon...`);
@@ -761,6 +831,7 @@ class FinancialDataRepository {
             if (result.success && result.data?.currentPrice) {
               await this.saveToDatabase(result.data);
               success++;
+              failed = Math.max(0, failed - 1);
               polygonSaved.add(sym);
             }
           } catch (_) {}
@@ -772,7 +843,7 @@ class FinancialDataRepository {
       if (remaining.length > 0) {
         const yahooResult = await this.refreshViaYahoo(remaining, 'global_stock');
         success += yahooResult.success;
-        failed += yahooResult.failed;
+        failed = Math.max(0, failed - yahooResult.success);
       }
     }
 
@@ -784,26 +855,50 @@ class FinancialDataRepository {
     let success = 0;
     let failed = 0;
 
+    // Priority 0: Python sidecar via yfinance
+    const pythonResults = await this.fetchBatchFromPython(symbols, 'etf');
+    const pythonSaved = new Set<string>();
+    for (const [sym, data] of pythonResults) {
+      try {
+        await this.saveToDatabase(data);
+        success++;
+        pythonSaved.add(sym);
+      } catch (_) {}
+    }
+    let remaining0 = symbols.filter(s => !pythonSaved.has(s));
+    if (remaining0.length === 0) {
+      console.log(`📊 [FinancialDataRepository] Refreshed ETFs: ${success} success, ${failed} failed`);
+      return { success, failed };
+    }
+    failed = remaining0.length;
+
     if (process.env.FMP_API_KEY) {
-      const fmpResults = await this.fetchBatchFromFMP(symbols, 'etf');
+      const fmpResults = await this.fetchBatchFromFMP(remaining0, 'etf');
       const savedSymbols = new Set<string>();
       for (const [sym, data] of fmpResults) {
         try {
           await this.saveToDatabase(data);
           success++;
+          failed = Math.max(0, failed - 1);
           savedSymbols.add(sym);
         } catch (err: any) {
           console.log(`⚠️ [FMP] Save failed for ETF ${sym}: ${err.message}`);
         }
       }
 
-      let remaining = symbols.filter(s => !savedSymbols.has(s));
+      let remaining = remaining0.filter(s => !savedSymbols.has(s));
 
       if (remaining.length > 0) {
         console.log(`[FinancialDataRepository] ${remaining.length} ETFs need Yahoo fallback...`);
         const yahooResult = await this.refreshViaYahoo(remaining, 'etf');
         success += yahooResult.success;
-        failed += yahooResult.failed;
+        failed = Math.max(0, failed - yahooResult.success);
+      }
+    } else {
+      if (remaining0.length > 0) {
+        const yahooResult = await this.refreshViaYahoo(remaining0, 'etf');
+        success += yahooResult.success;
+        failed = Math.max(0, failed - yahooResult.success);
       }
     }
 

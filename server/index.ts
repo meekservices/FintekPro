@@ -1054,7 +1054,7 @@ server.listen({
     await notifDb.execute(notifSql`
       CREATE TABLE IF NOT EXISTS agent_notifications (
         id          SERIAL PRIMARY KEY,
-        agent_id    INTEGER NOT NULL,
+        agent_id    TEXT NOT NULL,
         title       TEXT NOT NULL,
         body        TEXT NOT NULL,
         type        TEXT NOT NULL DEFAULT 'info',
@@ -1062,6 +1062,19 @@ server.listen({
         read_at     TIMESTAMPTZ,
         created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
+    `);
+    // Migrate agent_id from INTEGER to TEXT if still an integer column (old deployments)
+    await notifDb.execute(notifSql`
+      DO $$ BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'agent_notifications'
+            AND column_name = 'agent_id'
+            AND data_type = 'integer'
+        ) THEN
+          ALTER TABLE agent_notifications ALTER COLUMN agent_id TYPE TEXT USING agent_id::TEXT;
+        END IF;
+      END $$;
     `);
     await notifDb.execute(notifSql`
       CREATE INDEX IF NOT EXISTS idx_agent_notifications_agent_id
@@ -1200,37 +1213,43 @@ server.listen({
   }
   
   // Initialize CKYC Provider Configuration (production only - writes to DB)
+  // 5s delay lets Neon pool fully warm before first DB write
   if (isProductionEnvironment()) {
-    try {
-      import('./services/ckyc-provider-resolution-service').then(({ ckycProviderResolutionService }) => {
-        ckycProviderResolutionService.seedDefaultProviders().then(() => {
-          console.log('✅ CKYC Provider Configuration Service initialized');
+    setTimeout(() => {
+      try {
+        import('./services/ckyc-provider-resolution-service').then(({ ckycProviderResolutionService }) => {
+          ckycProviderResolutionService.seedDefaultProviders().then(() => {
+            console.log('✅ CKYC Provider Configuration Service initialized');
+          }).catch(error => {
+            console.warn('⚠️ CKYC Provider seeding skipped (will retry on first request):', error instanceof Error ? error.message : 'Unknown error');
+          });
         }).catch(error => {
-          console.warn('⚠️ CKYC Provider seeding skipped (will retry on first request):', error instanceof Error ? error.message : 'Unknown error');
+          console.warn('⚠️ CKYC Provider Service not loaded (app continues without it):', error instanceof Error ? error.message : 'Unknown error');
         });
-      }).catch(error => {
-        console.warn('⚠️ CKYC Provider Service not loaded (app continues without it):', error instanceof Error ? error.message : 'Unknown error');
-      });
-    } catch (error) {
-      console.warn('⚠️ Error importing CKYC provider service (non-blocking):', error instanceof Error ? error.message : 'Unknown error');
-    }
+      } catch (error) {
+        console.warn('⚠️ Error importing CKYC provider service (non-blocking):', error instanceof Error ? error.message : 'Unknown error');
+      }
+    }, 5000);
   } else {
     console.log('⏭️ [CKYCProvider] Seeding skipped (development mode - production only)');
   }
   
   // Initialize AMFI Subscription Sync Service (production only - syncs per-fund subscription status from mfapi.in)
+  // 5s delay lets Neon pool fully warm before DB writes
   if (isProductionEnvironment()) {
-    try {
-      import('./services/amfi-subscription-sync-service').then(({ amfiSubscriptionSyncService }) => {
-        amfiSubscriptionSyncService.sync().catch(err =>
-          console.error('❌ [SubscriptionSync] Boot-time sync failed:', err)
-        );
-      }).catch(error => {
-        console.error('❌ Failed to import amfi-subscription-sync-service:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error initializing subscription sync:', error);
-    }
+    setTimeout(() => {
+      try {
+        import('./services/amfi-subscription-sync-service').then(({ amfiSubscriptionSyncService }) => {
+          amfiSubscriptionSyncService.sync().catch(err =>
+            console.error('❌ [SubscriptionSync] Boot-time sync failed:', err)
+          );
+        }).catch(error => {
+          console.error('❌ Failed to import amfi-subscription-sync-service:', error);
+        });
+      } catch (error) {
+        console.error('❌ Error initializing subscription sync:', error);
+      }
+    }, 5000);
   } else {
     console.log('⏭️ [SubscriptionSync] Boot-time sync skipped (development mode - production only)');
   }
@@ -1330,10 +1349,13 @@ server.listen({
   }
   
   // Seed default store categories if not present (production only - writes to DB)
+  // 5s delay lets Neon pool fully warm before DB writes
   if (isProductionEnvironment()) {
-    storage.seedDefaultStoreCategories().catch(error => {
-      console.error('❌ Failed to seed store categories:', error);
-    });
+    setTimeout(() => {
+      storage.seedDefaultStoreCategories().catch(error => {
+        console.error('❌ Failed to seed store categories:', error);
+      });
+    }, 5000);
   } else {
     console.log('⏭️ [StoreCategories] Seeding skipped (development mode - production only)');
   }

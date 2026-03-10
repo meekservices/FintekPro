@@ -1,5 +1,6 @@
 import yahooFinance from 'yahoo-finance2';
 import { pool } from '../db';
+import { callPython } from '../clients/python-client';
 
 interface Stock {
   symbol: string;
@@ -45,6 +46,7 @@ interface CacheMetrics {
     finnhub: ProviderMetrics;
     nse: ProviderMetrics;
     bse: ProviderMetrics;
+    python: ProviderMetrics;
   };
   lastSuccessfulProvider: string | null;
 }
@@ -687,6 +689,14 @@ class MarketMoversCache {
         lastLatency: 0,
         rateLimitErrors: 0,
       },
+      python: {
+        successCount: 0,
+        failureCount: 0,
+        lastSuccess: 0,
+        lastFailure: 0,
+        lastLatency: 0,
+        rateLimitErrors: 0,
+      },
     },
     lastSuccessfulProvider: null,
   };
@@ -1021,6 +1031,30 @@ class MarketMoversCache {
     return stockQuotes;
   }
 
+  private async fetchFromPython(): Promise<Stock[]> {
+    const startTime = Date.now();
+
+    const resp = await callPython<{
+      gainers: Stock[];
+      losers: Stock[];
+      total: number;
+      source: string;
+    }>('/market/movers/indian', 'GET');
+
+    if (!resp || (!resp.gainers?.length && !resp.losers?.length)) {
+      throw new Error('Python sidecar returned empty market movers');
+    }
+
+    const all = [...(resp.gainers || []), ...(resp.losers || [])];
+    if (all.length === 0) throw new Error('No stocks from Python provider');
+
+    this.metrics.providers.python.lastLatency = Date.now() - startTime;
+    this.metrics.providers.python.successCount++;
+    this.metrics.providers.python.lastSuccess = Date.now();
+
+    return all;
+  }
+
   private async refreshCache(): Promise<void> {
     if (this.refreshLock) {
       console.log('⏳ [MarketMoversCache] Refresh already in progress, skipping');
@@ -1064,7 +1098,21 @@ class MarketMoversCache {
         }
       }
 
-      // Priority 3: Yahoo Finance (last resort, most rate-limited)
+      // Priority 3: Python sidecar/yfinance (datacenter-friendly, NIFTY50 coverage)
+      if (stockQuotes.length === 0) {
+        try {
+          console.log('🔄 [MarketMoversCache] Trying Python/yfinance fallback...');
+          stockQuotes = await this.fetchFromPython();
+          successProvider = 'python';
+          console.log(`✅ [MarketMoversCache] Python/yfinance succeeded with ${stockQuotes.length} stocks`);
+        } catch (pyError: any) {
+          console.warn('⚠️ [MarketMoversCache] Python/yfinance failed:', pyError?.message || pyError);
+          this.metrics.providers.python.failureCount++;
+          this.metrics.providers.python.lastFailure = Date.now();
+        }
+      }
+
+      // Priority 4: Yahoo Finance (last resort, most rate-limited)
       if (stockQuotes.length === 0 && !this.yahooRateLimited) {
         try {
           console.log('🔄 [MarketMoversCache] Trying Yahoo Finance fallback...');
@@ -1078,7 +1126,7 @@ class MarketMoversCache {
         }
       }
 
-      // Priority 4: Finnhub (limited Indian stock coverage)
+      // Priority 5: Finnhub (limited Indian stock coverage)
       if (stockQuotes.length === 0 && this.finnhubProvider.isEnabled()) {
         try {
           console.log('🔄 [MarketMoversCache] Trying Finnhub fallback...');

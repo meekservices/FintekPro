@@ -73,7 +73,7 @@ export interface ScreenerData {
 // ─── Data quality metadata ────────────────────────────────────────────────────
 
 export interface FundamentalsSource {
-  source: "DB_CACHE" | "SCREENER_LIVE" | "NONE";
+  source: "DB_CACHE" | "SCREENER_LIVE" | "PYTHON_YFINANCE" | "NONE";
   scrapedAt: string | null;   // ISO timestamp of when DB data was last written
   ageHours: number | null;    // how stale the DB data is
 }
@@ -179,6 +179,65 @@ function extractTableLastTwoRows(html: string, sectionId: string, rowLabel: stri
     }
   }
   return [null, null];
+}
+
+async function fetchFundamentalsFromPython(nseSymbol: string): Promise<ScreenerData | null> {
+  try {
+    const resp = await callPython<any>('/market/fundamentals', 'POST', { symbol: nseSymbol });
+    if (!resp || resp.error) return null;
+
+    const pf = (v: any): number | null => {
+      if (v === null || v === undefined) return null;
+      const n = Number(v);
+      return isFinite(n) ? n : null;
+    };
+
+    const result: ScreenerData = {
+      roe: pf(resp.roe),
+      roce: null,
+      dividendYield: pf(resp.dividendYield),
+      bookValue: pf(resp.bookValue),
+      revenueGrowth: pf(resp.revenueGrowth),
+      earningsGrowth: pf(resp.earningsGrowth),
+      debtToEquity: pf(resp.debtToEquity),
+      pe: pf(resp.pe),
+      pb: pf(resp.pb),
+      revenue: pf(resp.revenue),
+      netIncome: pf(resp.netIncome),
+      operatingCashFlow: pf(resp.operatingCashFlow),
+      freeCashFlow: pf(resp.freeCashFlow),
+      operatingMargin: pf(resp.operatingMargin),
+    };
+
+    const hasData = Object.values(result).some(v => v !== null);
+    if (!hasData) return null;
+
+    console.log(`[ResearchNote] Python/yfinance fundamentals for ${nseSymbol}: ROE=${result.roe !== null ? (result.roe * 100).toFixed(1) + "%" : "N/A"}, Rev=${result.revenue !== null ? "₹" + result.revenue.toFixed(0) + "Cr" : "N/A"}`);
+    return result;
+  } catch (e: any) {
+    console.warn(`[ResearchNote] Python fundamentals failed for ${nseSymbol}:`, e?.message?.slice(0, 80));
+    return null;
+  }
+}
+
+function mergeScreenerWithPython(screener: ScreenerData, python: ScreenerData): ScreenerData {
+  const pick = <T>(a: T | null, b: T | null): T | null => a !== null ? a : b;
+  return {
+    roe: pick(screener.roe, python.roe),
+    roce: pick(screener.roce, python.roce),
+    dividendYield: pick(screener.dividendYield, python.dividendYield),
+    bookValue: pick(screener.bookValue, python.bookValue),
+    revenueGrowth: pick(screener.revenueGrowth, python.revenueGrowth),
+    earningsGrowth: pick(screener.earningsGrowth, python.earningsGrowth),
+    debtToEquity: pick(screener.debtToEquity, python.debtToEquity),
+    pe: pick(screener.pe, python.pe),
+    pb: pick(screener.pb, python.pb),
+    revenue: pick(screener.revenue, python.revenue),
+    netIncome: pick(screener.netIncome, python.netIncome),
+    operatingCashFlow: pick(screener.operatingCashFlow, python.operatingCashFlow),
+    freeCashFlow: pick(screener.freeCashFlow, python.freeCashFlow),
+    operatingMargin: pick(screener.operatingMargin, python.operatingMargin),
+  };
 }
 
 export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData> {
@@ -647,16 +706,25 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
     const staleReason = !dbData.lastUpdated ? "no DB record" : `stale (${Math.round((Date.now() - dbData.lastUpdated.getTime()) / 3600000)}h old)`;
     console.log(`[ResearchNote] DB MISS (${staleReason}) for ${nseSymbol} — fetching from Screener.in`);
     const screenerResult = await fetchFromScreener(nseSymbol);
-    screener = screenerResult;
 
-    // Write-through to DB immediately (await to ensure persistence before returning)
-    writeScreenerToDB(nseSymbol, screener).catch(() => {});
-
-    fundamentalsSource = {
-      source: "SCREENER_LIVE",
-      scrapedAt: new Date().toISOString(),
-      ageHours: 0,
-    };
+    // If Screener.in returned sparse data (revenue is the primary signal), try Python/yfinance
+    if (screenerResult.revenue === null) {
+      const pyData = await fetchFundamentalsFromPython(nseSymbol);
+      if (pyData) {
+        screener = mergeScreenerWithPython(screenerResult, pyData);
+        fundamentalsSource = { source: "PYTHON_YFINANCE", scrapedAt: new Date().toISOString(), ageHours: 0 };
+        writeScreenerToDB(nseSymbol, screener).catch(() => {});
+      } else {
+        screener = screenerResult;
+        fundamentalsSource = { source: "SCREENER_LIVE", scrapedAt: new Date().toISOString(), ageHours: 0 };
+        writeScreenerToDB(nseSymbol, screener).catch(() => {});
+      }
+    } else {
+      screener = screenerResult;
+      // Write-through to DB immediately (await to ensure persistence before returning)
+      writeScreenerToDB(nseSymbol, screener).catch(() => {});
+      fundamentalsSource = { source: "SCREENER_LIVE", scrapedAt: new Date().toISOString(), ageHours: 0 };
+    }
   }
 
   if (nseResult.status === "fulfilled" && nseResult.value.price !== null) {

@@ -16,6 +16,7 @@ from routes.regime import router as regime_router
 from routes.price_returns import router as price_returns_router
 from routes.corporate_actions import router as corporate_actions_router
 from routes.data_lake import router as data_lake_router
+from routes.market_data import router as market_data_router
 
 load_dotenv()
 
@@ -32,8 +33,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="FintekPro Python Analytics Service",
-    description="Pandas/SciPy/sklearn-powered quantitative analytics: MF analytics, portfolio construction (MVO), fixed income (bond analytics, treasury optimizer), risk factor models (FF3/Carhart4), ML scoring (GBR), regime detection (GMM+signals), and batch financial metrics.",
-    version="3.0.0",
+    description="Pandas/SciPy/sklearn/yfinance-powered analytics: MF analytics, portfolio construction (MVO), fixed income, risk factor models, ML scoring, regime detection, batch financial metrics, and live market data (global stocks, ETFs, Indian fundamentals, market movers).",
+    version="4.0.0",
     lifespan=lifespan,
 )
 
@@ -57,6 +58,7 @@ app.include_router(regime_router)
 app.include_router(price_returns_router)
 app.include_router(corporate_actions_router)
 app.include_router(data_lake_router)
+app.include_router(market_data_router)
 
 
 @app.get("/health")
@@ -64,7 +66,7 @@ async def health():
     return {
         "status": "ok",
         "service": "fintekpro-python",
-        "version": "3.0.0",
+        "version": "4.0.0",
         "capabilities": [
             # Portfolio analytics
             "portfolio-summary",
@@ -125,5 +127,9 @@ async def health():
             "data-lake-store-amfi-nav",
             "data-lake-list",
             "data-lake-retrieve",
+            # Market Data (yfinance)
+            "market-quotes-batch",
+            "market-fundamentals-indian",
+            "market-movers-nifty50",
         ],
     }
