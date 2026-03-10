@@ -3,6 +3,16 @@
 ## Overview
 FintekPro is a full-stack TypeScript financial services platform for personal finance and investment management. It provides secure financial planning, portfolio management, and real-time market data across diverse asset classes. Key capabilities include family collaboration, a unified KYC system, an AI-powered financial assistant, an Unlisted Marketplace, and comprehensive multi-origination loan lifecycle support. The platform aims to be a leading digital financial ecosystem, empowering individual investors and financial advisors with advanced tools and insights.
 
+## Previously Unused Endpoints Now Wired (March 2026)
+- **Golden Pricing Dashboard** (`/admin/pricing-engine`): Bloomberg-style admin UI for live prices, engine stats, flagged price anomalies, manual overrides, and ISIN audit trails
+- **Institutional Data Layer** (`/admin/institutional-data`): UI for corporate actions, credit ratings, security master search, and symbol mapping (NSE↔BSE↔ISIN)
+- **Python Quant Analytics Hub** (`/agent/quant-analytics`): Portfolio XIRR, rolling returns, SIP simulator, return forecasting, fund overlap, MVO/Black-Litterman optimizer — all calling Python sidecar
+- **XAI Explainability**: "Explain with XAI" button on each pick in `/agent/picks`, calls `POST /api/explainability/explain/product`
+- **Return Forecasting Engine**: "Return Forecast" tab in `/wealth-management`, calls `POST /api/returns/portfolio`
+- **Asset Allocation Optimizer**: `/components/dashboard/asset-allocation.tsx` now calls `GET /api/allocation/risk-profiles` + `POST /api/allocation/optimize`
+- **Goal Planning API**: Goal planning calculator calls `POST /api/goals/calculate-sip` instead of local estimation
+- **Tax Completeness**: Form 12BB generator, ITR filing history, computation PDF export, dynamic broker list — all wired in `tds-compliance.tsx` and `tax-itr-self.tsx`
+
 ## Bloomberg-Style Golden Source Pricing Engine
 
 ### Architecture

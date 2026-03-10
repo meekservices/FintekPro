@@ -34,7 +34,7 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
     },
   });
 
-  const riskProfiles = riskProfilesData?.success ? riskProfilesData.data : Object.entries(RISK_PROFILES).map(([key, p]) => ({ name: key, label: p.name, ...p }));
+  const riskProfiles = riskProfilesData?.success ? riskProfilesData.data : Object.entries(RISK_PROFILES).map(([key, p]) => ({ id: key, label: p.name, ...p }));
 
   // Use real allocation data only - no mock data
   const hasAllocation = allocation && allocation.length > 0;
@@ -259,13 +259,13 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 {riskProfiles.map((profile: any) => (
                   <div 
-                    key={profile.name}
+                    key={profile.id || profile.name}
                     className={`text-center p-3 rounded-lg border-2 transition-all cursor-pointer ${
-                      selectedRiskProfile === profile.name ? 'border-primary ring-1 ring-primary' : 'border-transparent hover:border-border'
+                      selectedRiskProfile === (profile.id || profile.name) ? 'border-primary ring-1 ring-primary' : 'border-transparent hover:border-border'
                     }`}
                     style={{ backgroundColor: `${(profile.color || '#3b82f6')}15` }}
                     onClick={() => {
-                      setSelectedRiskProfile(profile.name);
+                      setSelectedRiskProfile(profile.id || profile.name);
                       optimizeMutation.mutate({
                         riskScore: profile.scoreRange ? (profile.scoreRange[0] + profile.scoreRange[1]) / 2 : 50,
                         segment: 'retail',
@@ -273,7 +273,7 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
                         existingAllocations: Object.fromEntries(chartData.map(d => [d.name.toLowerCase(), d.current]))
                       });
                     }}
-                    data-testid={`risk-profile-${profile.name.toLowerCase()}`}
+                    data-testid={`risk-profile-${(profile.id || profile.name).toLowerCase()}`}
                   >
                     <p className="font-bold text-xs mb-1" style={{ color: profile.color || '#3b82f6' }}>
                       {profile.label || profile.name.replace(/_/g, ' ')}

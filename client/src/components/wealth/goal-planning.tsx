@@ -115,11 +115,11 @@ export function GoalPlanning() {
 
   const [newGoal, setNewGoal] = useState({
     name: "",
-    type: "medium_term" as const,
+    type: "medium_term" as 'short_term' | 'medium_term' | 'long_term',
     targetAmount: "",
     targetDate: "",
-    priority: "medium" as const,
-    riskProfile: "moderate" as const
+    priority: "medium" as 'high' | 'medium' | 'low',
+    riskProfile: "moderate" as 'conservative' | 'moderate' | 'aggressive'
   });
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
