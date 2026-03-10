@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation, Redirect } from "wouter";
+import { Switch, Route, useLocation, Redirect, Router as WouterRouter } from "wouter";
 import { Suspense, useEffect } from "react";
 import { lazyWithRetry } from "./lib/lazy-with-retry";
 import { queryClient } from "./lib/queryClient";
@@ -2439,7 +2439,9 @@ function App() {
               <DSCBackgroundSync />
               <Toaster />
               <GDPRConsent />
-              <Router />
+              <WouterRouter>
+                <Router />
+              </WouterRouter>
             </TooltipProvider>
           </UnifiedCartProvider>
           </UserPreferencesProvider>
