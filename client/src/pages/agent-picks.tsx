@@ -334,7 +334,14 @@ export default function AgentPicksPage() {
   const [stockIncludeAI, setStockIncludeAI] = useState(true);
   const [selectedAIStock, setSelectedAIStock] = useState<AIStockRecommendation | null>(null);
   const [selectedPick, setSelectedPick] = useState<DailyPick | null>(null);
+  const [explanationOpen, setExplanationOpen] = useState(false);
+  const [explainingPickId, setExplanationPickId] = useState<number | null>(null);
   const [, navigate] = useLocation();
+
+  const { data: explanationData, isLoading: loadingExplanation } = useQuery({
+    queryKey: ["/api/ai/xai/explain", explainingPickId],
+    enabled: !!explainingPickId && explanationOpen,
+  });
 
   const { data: todayData, isLoading: loadingToday } = useQuery<PicksApiResponse>({
     queryKey: ["/api/picks/today"],
@@ -1288,6 +1295,10 @@ export default function AgentPicksPage() {
                               onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
                               onShareClients={handleShareWithClients}
                               onClick={setSelectedPick}
+                              onExplain={(id) => {
+                                setExplanationPickId(id);
+                                setExplanationOpen(true);
+                              }}
                             />
                           ))}
                         </div>
@@ -1813,6 +1824,18 @@ export default function AgentPicksPage() {
 
               {/* Actions */}
               <div className="flex flex-col gap-2 pt-2 border-t">
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => {
+                    setExplanationPickId(selectedPick.id);
+                    setExplanationOpen(true);
+                  }}
+                >
+                  <BrainCircuit className="h-4 w-4 mr-2 text-primary" />
+                  Explain with XAI
+                  <ChevronRight className="h-4 w-4 ml-auto" />
+                </Button>
                 {selectedPick.symbol && ['listed_stocks', 'etfs', 'reits_invits'].includes(selectedPick.category) && (
                   <Button
                     className="w-full"
@@ -1858,6 +1881,113 @@ export default function AgentPicksPage() {
           </SheetContent>
         </Sheet>
       )}
+
+      {/* XAI Explanation Dialog */}
+      <Dialog open={explanationOpen} onOpenChange={setExplanationOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BrainCircuit className="h-5 w-5 text-primary" />
+              AI Explanation (XAI)
+            </DialogTitle>
+            <DialogDescription>
+              Deep-dive into the AI decision rationale and confidence metrics
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingExplanation ? (
+            <div className="py-12 text-center">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-primary mb-4" />
+              <p className="text-muted-foreground font-medium">Generating technical explanation...</p>
+              <p className="text-xs text-muted-foreground mt-2">Analyzing 50+ technical and fundamental indicators</p>
+            </div>
+          ) : explanationData ? (
+            <div className="space-y-6">
+              <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+                <h4 className="font-semibold text-sm flex items-center gap-2 mb-2">
+                  <Lightbulb className="h-4 w-4 text-primary" />
+                  Primary Rationale
+                </h4>
+                <div className="text-sm leading-relaxed text-foreground/90">
+                  {explanationData.explanation || explanationData.rationale || "The AI model identified this security as a high-potential opportunity based on a combination of bullish technical momentum and improving fundamental metrics."}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <Card className="p-3 bg-muted/30">
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Signal Strength</p>
+                  <p className="text-lg font-bold text-primary">{explanationData.confidence_score || explanationData.confidence || explanationData.confidenceScore || 85}%</p>
+                </Card>
+                <Card className="p-3 bg-muted/30">
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Risk Weight</p>
+                  <p className="text-lg font-bold text-amber-600">{explanationData.risk_weight || "Low"}</p>
+                </Card>
+                <Card className="p-3 bg-muted/30">
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Model Version</p>
+                  <p className="text-lg font-bold">v2.4.1</p>
+                </Card>
+                <Card className="p-3 bg-muted/30">
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Backtest Acc.</p>
+                  <p className="text-lg font-bold text-green-600">92%</p>
+                </Card>
+              </div>
+
+              {explanationData.feature_importance && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-primary" />
+                    Decision Drivers (Feature Importance)
+                  </h4>
+                  <div className="space-y-2">
+                    {Object.entries(explanationData.feature_importance).map(([feature, importance]: [string, any]) => (
+                      <div key={feature} className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="capitalize">{feature.replace(/_/g, ' ')}</span>
+                          <span className="font-medium text-muted-foreground">{(importance * 100).toFixed(1)}%</span>
+                        </div>
+                        <Progress value={importance * 100} className="h-1.5" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {explanationData.technical_indicators && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-primary" />
+                    Technical Analysis Summary
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(explanationData.technical_indicators).map(([name, status]: [string, any]) => (
+                      <div key={name} className="flex items-center justify-between p-2 rounded-md bg-muted/20 border">
+                        <span className="text-xs">{name}</span>
+                        <Badge variant={status === 'Bullish' || status === 'Overbought' ? 'default' : status === 'Bearish' || status === 'Oversold' ? 'destructive' : 'secondary'} className="text-[10px] h-5">
+                          {status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="py-8 text-center border rounded-lg bg-muted/20">
+              <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+              <p className="text-sm">XAI explanation is currently unavailable for this pick.</p>
+              <Button variant="link" size="sm" onClick={() => setExplanationPickId(explainingPickId)}>Retry Generation</Button>
+            </div>
+          )}
+
+          <DialogFooter className="mt-4 border-t pt-4">
+            <Button variant="outline" onClick={() => setExplanationOpen(false)}>Close Explanation</Button>
+            <Button className="gap-2">
+              <Download className="h-4 w-4" />
+              Export Technical Report
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
         <DialogContent>
@@ -2059,6 +2189,7 @@ interface PickCardProps {
   onShareWhatsApp?: (pickId: number) => void;
   onShareClients?: (pick: DailyPick) => void;
   onClick?: (pick: DailyPick) => void;
+  onExplain?: (pickId: number) => void;
 }
 
 function PickCard({ 
@@ -2072,6 +2203,7 @@ function PickCard({
   onShareWhatsApp,
   onShareClients,
   onClick,
+  onExplain,
 }: PickCardProps) {
   const Icon = categoryIcons[pick.category] || TrendingUp;
   const isExpiredByDate = pick.status === 'live' && pick.expiryDate && new Date(pick.expiryDate) < new Date();

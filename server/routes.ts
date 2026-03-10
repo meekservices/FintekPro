@@ -211,6 +211,7 @@ import feeModeRoutes from "./routes/fee-mode";
 import cacheAdminRoutes from "./routes/cache-admin";
 import quantAdminRoutes from "./routes/quant-admin-routes";
 import parserAdminRoutes from "./routes/parser-admin";
+import institutionalRoutes from "./routes/institutional-routes";
 import historicalNavRoutes from "./routes/historical-nav";
 import { historicalNavRefreshJob } from "./services/historical-nav-refresh-job";
 import { cacheCleanupScheduler } from "./services/cache-cleanup-scheduler";
@@ -944,6 +945,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.use("/api/engine-health", engineHealthCheckRoutes);
   console.log("✅ Engine Health Check routes registered");
   app.use(mfAnalyticsAdminRoutes);
+  app.use(institutionalRoutes);
+  console.log("✅ Institutional routes registered");
   console.log("✅ MF Analytics Admin routes registered");
   app.use("/api/activity-centre", activityCentreRoutes);
   app.use("/api/admin/task-oversight", taskOversightRoutes);

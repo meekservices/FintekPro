@@ -85,6 +85,7 @@ import { useSubdomain } from "@/hooks/useSubdomain";
 import { useAuth } from "@/hooks/useAuth";
 import { IdleTimeoutManager } from "@/components/IdleTimeoutManager";
 const AdminDashboard = lazyWithRetry(() => import("@/pages/admin/dashboard"));
+const GoldenPricingDashboard = lazyWithRetry(() => import("@/pages/admin/golden-pricing-dashboard"));
 const SystemHealthMonitor = lazyWithRetry(() => import("@/pages/admin/system-health"));
 const EngineHealthCheck = lazyWithRetry(() => import("@/pages/admin/engine-health-check"));
 const MFAnalyticsOps = lazyWithRetry(() => import("@/pages/admin/mf-analytics-ops"));
@@ -137,6 +138,7 @@ const UnlistedPreviewPage = lazyWithRetry(() => import("@/pages/admin/unlisted-p
 const UnlistedPricingPreviewPage = lazyWithRetry(() => import("@/pages/admin/unlisted-pricing-preview"));
 const DuplicateManagementPage = lazyWithRetry(() => import("@/pages/admin/duplicate-management"));
 const AdminThemeSettings = lazyWithRetry(() => import("@/pages/admin/theme-settings"));
+const InstitutionalData = lazyWithRetry(() => import("@/pages/admin/institutional-data"));
 const ComprehensivePortfolio = lazyWithRetry(() => import("@/pages/comprehensive-portfolio"));
 const DocumentsPage = lazyWithRetry(() => import("@/pages/documents"));
 const BBPSPage = lazyWithRetry(() => import("@/pages/BBPSPage"));
@@ -177,6 +179,7 @@ const AgentScreener = lazyWithRetry(() => import("@/pages/agent-screener"));
 const AgentResearchAnalytics = lazyWithRetry(() => import("@/pages/agent-research-analytics"));
 const AgentTreasuryPage = lazyWithRetry(() => import("@/pages/agent-treasury"));
 const AgentRevenueCockpit = lazyWithRetry(() => import("@/pages/agent-revenue-cockpit"));
+const AgentQuantAnalytics = lazyWithRetry(() => import("@/pages/agent-quant-analytics"));
 const AgentLeadPipeline = lazyWithRetry(() => import("@/pages/agent-lead-pipeline"));
 const AgentClientProfile = lazyWithRetry(() => import("@/pages/agent-client-profile"));
 const AgentTasks = lazyWithRetry(() => import("@/pages/agent-tasks"));
@@ -701,6 +704,13 @@ function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
+      <Route path="/admin/institutional-data">
+        {() => (
+          <AdminLayout>
+            <InstitutionalData />
+          </AdminLayout>
+        )}
+      </Route>
       <Route path="/admin/production-readiness">
         {() => (
           <AdminLayout>
@@ -912,6 +922,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <SystemHealthMonitor />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/pricing-engine">
+        {() => (
+          <AdminLayout>
+            <GoldenPricingDashboard />
           </AdminLayout>
         )}
       </Route>
@@ -2298,6 +2315,15 @@ function AgentRoutes() {
         {() => (
           <Suspense fallback={<LoadingState />}>
             <AgentResearchAnalytics />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/agent/quant-analytics">
+        {() => (
+          <Suspense fallback={<LoadingState />}>
+            <AgentLayout>
+              <AgentQuantAnalytics />
+            </AgentLayout>
           </Suspense>
         )}
       </Route>

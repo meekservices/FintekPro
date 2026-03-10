@@ -143,6 +143,28 @@ export default function TDSCompliancePage() {
     employees: [{ pan: "", name: "", grossSalary: "", tdsDeducted: "" }],
   });
 
+  // Form 12BB State
+  const [form12bbData, setForm12bbData] = useState({
+    employeeName: "",
+    pan: "",
+    employerName: "",
+    employerTAN: "",
+    financialYear: "2024-25",
+    declarations: {
+      designation: "",
+      hra: { isApplicable: false, rentPaid: "", landlordName: "", landlordPAN: "", landlordAddress: "" },
+      lta: { isApplicable: false, amount: "" },
+      homeLoanInterest: { isApplicable: false, lenderName: "", lenderPAN: "", interestAmount: "" },
+      section80C: "",
+      section80CCD: "",
+      section80D: "",
+      section80E: "",
+      section80G: "",
+      otherDeductions: "",
+      place: "",
+    }
+  });
+
   // Analytics State
   const [analyticsTAN, setAnalyticsTAN] = useState("");
   const [analyticsFY, setAnalyticsFY] = useState("2024-25");
@@ -226,6 +248,46 @@ export default function TDSCompliancePage() {
   const { data: analyticsData, refetch: refetchAnalytics, isLoading: isLoadingAnalytics } = useQuery({
     queryKey: ["/api/tds/analytics", analyticsTAN, analyticsFY],
     enabled: !!analyticsTAN && analyticsTAN.length === 10,
+  });
+
+  // Fetch Clients (CA Practice Management)
+  const { data: clientsData, isLoading: isLoadingClients } = useQuery({
+    queryKey: ["/api/tax/practice/clients"],
+    enabled: activeTab === "clients",
+  });
+
+  // Generate Form 12BB Mutation
+  const generateForm12BBMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const formattedData = {
+        ...data,
+        declarations: {
+          ...data.declarations,
+          section80C: parseFloat(data.declarations.section80C) || 0,
+          section80D: parseFloat(data.declarations.section80D) || 0,
+          section80E: parseFloat(data.declarations.section80E) || 0,
+          section80G: parseFloat(data.declarations.section80G) || 0,
+          hra: {
+            ...data.declarations.hra,
+            rentPaid: parseFloat(data.declarations.hra.rentPaid) || 0,
+          },
+          homeLoanInterest: {
+            ...data.declarations.homeLoanInterest,
+            interestAmount: parseFloat(data.declarations.homeLoanInterest.interestAmount) || 0,
+          }
+        }
+      };
+      return apiRequest("/api/tax/form12bb/generate", {
+        method: "POST",
+        body: JSON.stringify(formattedData),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Form 12BB Generated",
+        description: "Your investment declaration has been generated.",
+      });
+    },
   });
 
   const handleSalarySubmit = () => {
@@ -372,15 +434,256 @@ export default function TDSCompliancePage() {
             <FileText className="h-4 w-4 mr-2" />
             Form 16
           </TabsTrigger>
+          <TabsTrigger value="form12bb" data-testid="tab-form12bb">
+            <FileText className="h-4 w-4 mr-2" />
+            Form 12BB
+          </TabsTrigger>
           <TabsTrigger value="filing" data-testid="tab-filing">
             <Upload className="h-4 w-4 mr-2" />
             Return Filing
+          </TabsTrigger>
+          <TabsTrigger value="clients" data-testid="tab-clients">
+            <Users className="h-4 w-4 mr-2" />
+            Clients
           </TabsTrigger>
           <TabsTrigger value="analytics" data-testid="tab-analytics">
             <BarChart3 className="h-4 w-4 mr-2" />
             Analytics
           </TabsTrigger>
         </ScrollableTabsList>
+
+        {/* Form 12BB Generator Tab */}
+        <TabsContent value="form12bb" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-blue-600" />
+                Form 12BB Generator
+              </CardTitle>
+              <CardDescription>
+                Generate investment declaration (Form 12BB) for your employer
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-sm text-muted-foreground">Employee & Employer Details</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="employeeName">Employee Name</Label>
+                      <Input
+                        id="employeeName"
+                        placeholder="Full Name"
+                        value={form12bbData.employeeName}
+                        onChange={(e) => setForm12bbData(prev => ({ ...prev, employeeName: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="employeePan">PAN</Label>
+                      <Input
+                        id="employeePan"
+                        placeholder="ABCDE1234F"
+                        value={form12bbData.pan}
+                        onChange={(e) => setForm12bbData(prev => ({ ...prev, pan: e.target.value.toUpperCase() }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="employerName">Employer Name</Label>
+                      <Input
+                        id="employerName"
+                        placeholder="Company Name"
+                        value={form12bbData.employerName}
+                        onChange={(e) => setForm12bbData(prev => ({ ...prev, employerName: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="employerTan">Employer TAN</Label>
+                      <Input
+                        id="employerTan"
+                        placeholder="MUMT12345A"
+                        value={form12bbData.employerTAN}
+                        onChange={(e) => setForm12bbData(prev => ({ ...prev, employerTAN: e.target.value.toUpperCase() }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-sm text-muted-foreground">Investment Declarations</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="f12bb-80c">Section 80C</Label>
+                      <Input
+                        id="f12bb-80c"
+                        type="number"
+                        placeholder="₹0"
+                        value={form12bbData.declarations.section80C}
+                        onChange={(e) => setForm12bbData(prev => ({
+                          ...prev,
+                          declarations: { ...prev.declarations, section80C: e.target.value }
+                        }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="f12bb-80d">Section 80D</Label>
+                      <Input
+                        id="f12bb-80d"
+                        type="number"
+                        placeholder="₹0"
+                        value={form12bbData.declarations.section80D}
+                        onChange={(e) => setForm12bbData(prev => ({
+                          ...prev,
+                          declarations: { ...prev.declarations, section80D: e.target.value }
+                        }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="f12bb-hra">Rent Paid (HRA)</Label>
+                      <Input
+                        id="f12bb-hra"
+                        type="number"
+                        placeholder="₹0"
+                        value={form12bbData.declarations.hra.rentPaid}
+                        onChange={(e) => setForm12bbData(prev => ({
+                          ...prev,
+                          declarations: {
+                            ...prev.declarations,
+                            hra: { ...prev.declarations.hra, rentPaid: e.target.value, isApplicable: true }
+                          }
+                        }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="f12bb-homeloan">Home Loan Interest</Label>
+                      <Input
+                        id="f12bb-homeloan"
+                        type="number"
+                        placeholder="₹0"
+                        value={form12bbData.declarations.homeLoanInterest.interestAmount}
+                        onChange={(e) => setForm12bbData(prev => ({
+                          ...prev,
+                          declarations: {
+                            ...prev.declarations,
+                            homeLoanInterest: { ...prev.declarations.homeLoanInterest, interestAmount: e.target.value, isApplicable: true }
+                          }
+                        }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => generateForm12BBMutation.mutate(form12bbData)}
+                  disabled={generateForm12BBMutation.isPending}
+                >
+                  {generateForm12BBMutation.isPending ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  Generate Form 12BB
+                </Button>
+              </div>
+
+              {generateForm12BBMutation.data?.success && (
+                <Alert className="bg-green-50 border-green-200">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertTitle>Form 12BB Generated</AlertTitle>
+                  <AlertDescription className="flex items-center justify-between">
+                    <span>Your declaration for FY {form12bbData.financialYear} is ready.</span>
+                    <Button variant="outline" size="sm" className="ml-4">
+                      <Download className="h-4 w-4 mr-2" /> Download PDF
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* CA Practice Management - Clients Tab */}
+        <TabsContent value="clients" className="space-y-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-blue-600" />
+                  Client Management
+                </CardTitle>
+                <CardDescription>
+                  Manage your tax practice clients and bulk upload data
+                </CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="gap-2">
+                  <Upload className="h-4 w-4" /> Bulk Upload
+                </Button>
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" /> Add Client
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isLoadingClients ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ) : (
+                <div className="rounded-md border">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="p-3 text-left font-medium">Name</th>
+                        <th className="p-3 text-left font-medium">PAN</th>
+                        <th className="p-3 text-left font-medium">ITR Form</th>
+                        <th className="p-3 text-left font-medium">Status</th>
+                        <th className="p-3 text-left font-medium">Last Updated</th>
+                        <th className="p-3 text-right font-medium">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clientsData?.data?.map((client: any) => (
+                        <tr key={client.id} className="border-b hover:bg-muted/50">
+                          <td className="p-3 font-medium">{client.name}</td>
+                          <td className="p-3">{client.pan}</td>
+                          <td className="p-3">
+                            <Badge variant="outline">{client.itrForm}</Badge>
+                          </td>
+                          <td className="p-3">
+                            <Badge className={
+                              client.status === "filed" ? "bg-green-100 text-green-700" :
+                              client.status === "review" ? "bg-yellow-100 text-yellow-700" :
+                              "bg-blue-100 text-blue-700"
+                            }>
+                              {client.status.replace("_", " ")}
+                            </Badge>
+                          </td>
+                          <td className="p-3 text-muted-foreground text-xs">
+                            {new Date(client.updatedAt).toLocaleDateString()}
+                          </td>
+                          <td className="p-3 text-right">
+                            <Button variant="ghost" size="sm">View</Button>
+                          </td>
+                        </tr>
+                      ))}
+                      {(!clientsData?.data || clientsData.data.length === 0) && (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                            No clients found. Start by adding a new client.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Salary TDS Calculator Tab */}
         <TabsContent value="calculator" className="space-y-6">

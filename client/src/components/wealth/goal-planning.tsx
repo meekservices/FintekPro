@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { useMutation } from "@tanstack/react-query";
 import { 
   Target, 
   Home, 
@@ -51,6 +52,28 @@ const goalIcons = {
 };
 
 export function GoalPlanning() {
+  const calculateSipMutation = useMutation({
+    mutationFn: async (params: any) => {
+      const res = await fetch('/api/goals/calculate-sip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      return res.json();
+    }
+  });
+
+  const calculateLumpsumMutation = useMutation({
+    mutationFn: async (params: any) => {
+      const res = await fetch('/api/goals/calculate-lumpsum', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      return res.json();
+    }
+  });
+
   const [goals, setGoals] = useState<FinancialGoal[]>([
     {
       id: "1",
@@ -190,19 +213,30 @@ export function GoalPlanning() {
     }).format(amount);
   };
 
-  const handleAddGoal = () => {
+  const handleAddGoal = async () => {
     if (!newGoal.name || !newGoal.targetAmount || !newGoal.targetDate) return;
+
+    const months = calculateMonthsToGoal(newGoal.targetDate);
+    const target = parseInt(newGoal.targetAmount);
+    
+    // Call API for precise SIP calculation
+    const sipResult = await calculateSipMutation.mutateAsync({
+      targetAmount: target,
+      years: months / 12,
+      expectedReturn: newGoal.riskProfile === 'aggressive' ? 15 : newGoal.riskProfile === 'moderate' ? 12 : 8,
+      inflationRate: 6
+    });
 
     const goal: FinancialGoal = {
       id: Date.now().toString(),
       name: newGoal.name,
       type: newGoal.type,
-      targetAmount: parseInt(newGoal.targetAmount),
+      targetAmount: target,
       currentAmount: 0,
       targetDate: newGoal.targetDate,
       priority: newGoal.priority,
       recommendedInvestments: [],
-      monthlyContribution: 0,
+      monthlyContribution: sipResult?.success ? sipResult.data.monthlySip : 0,
       riskProfile: newGoal.riskProfile
     };
 
@@ -233,18 +267,30 @@ export function GoalPlanning() {
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdateGoal = () => {
+  const handleUpdateGoal = async () => {
     if (!editingGoal || !editFormData.name || !editFormData.targetAmount || !editFormData.targetDate) return;
+
+    const months = calculateMonthsToGoal(editFormData.targetDate);
+    const target = parseInt(editFormData.targetAmount);
+    
+    // Call API for precise SIP calculation
+    const sipResult = await calculateSipMutation.mutateAsync({
+      targetAmount: target - (parseInt(editFormData.currentAmount) || 0),
+      years: months / 12,
+      expectedReturn: editFormData.riskProfile === 'aggressive' ? 15 : editFormData.riskProfile === 'moderate' ? 12 : 8,
+      inflationRate: 6
+    });
 
     const updatedGoal: FinancialGoal = {
       ...editingGoal,
       name: editFormData.name,
       type: editFormData.type,
-      targetAmount: parseInt(editFormData.targetAmount),
+      targetAmount: target,
       currentAmount: parseInt(editFormData.currentAmount) || 0,
       targetDate: editFormData.targetDate,
       priority: editFormData.priority,
       riskProfile: editFormData.riskProfile,
+      monthlyContribution: sipResult?.success ? sipResult.data.monthlySip : 0,
       recommendedInvestments: []
     };
 

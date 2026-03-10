@@ -106,6 +106,36 @@ export default function TaxITRPreviewPage() {
   const [isLocked, setIsLocked] = useState(false);
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
 
+  const exportMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/tax/export/computation-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pan: draft?.pan,
+          assessmentYear: draft?.assessmentYear,
+          itrForm: draft?.itrForm,
+          data: draft
+        })
+      });
+      if (!response.ok) throw new Error("Export failed");
+      return response.blob();
+    },
+    onSuccess: (blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Tax_Computation_${draft?.pan}_${draft?.assessmentYear}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast({ title: "Success", description: "Tax computation PDF exported successfully." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to export computation PDF.", variant: "destructive" });
+    }
+  });
+
   const draftId = params?.draftId ? parseInt(params.draftId) : 1;
 
   const { data: draft, isLoading, error: draftError } = useQuery<ITRDraft>({
@@ -432,8 +462,15 @@ export default function TaxITRPreviewPage() {
             {isLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
             {isLocked ? "Locked" : "Unlocked"}
           </Badge>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Download className="h-4 w-4" /> Download PDF
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-2" 
+            onClick={() => exportMutation.mutate()}
+            disabled={exportMutation.isPending}
+          >
+            <Download className="h-4 w-4" /> 
+            {exportMutation.isPending ? "Exporting..." : "Download PDF"}
           </Button>
           <Button variant="outline" size="sm" className="gap-2">
             <Printer className="h-4 w-4" /> Print

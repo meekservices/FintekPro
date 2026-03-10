@@ -70,6 +70,125 @@ interface PortfolioHolding {
   updatedAt: string;
 }
 
+function ReturnForecast({ holdings }: { holdings: PortfolioHolding[] }) {
+  const { data: returnData, isLoading } = useQuery({
+    queryKey: ['/api/returns/portfolio', holdings.map(h => h.id).join(',')],
+    queryFn: async () => {
+      const assets = holdings.map(h => ({
+        assetId: h.id,
+        assetType: (h.assetType.toLowerCase().includes('fund') ? 'mutual_fund' : 
+                   h.assetType.toLowerCase().includes('bond') ? 'bond' : 
+                   h.assetType.toLowerCase().includes('gold') ? 'gold' : 'equity') as any,
+        assetName: h.symbol,
+        currentValue: (parseFloat(h.quantity) || 0) * (parseFloat(h.avgPrice) || 0), // Use avgPrice as current for mock
+        investedAmount: (parseFloat(h.quantity) || 0) * (parseFloat(h.avgPrice) || 0),
+        inceptionDate: h.updatedAt || new Date().toISOString(),
+      }));
+
+      if (assets.length === 0) return null;
+
+      const res = await fetch('/api/returns/portfolio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assets }),
+      });
+      if (!res.ok) throw new Error('Failed to fetch return forecast');
+      return res.json();
+    },
+    enabled: holdings.length > 0,
+  });
+
+  if (isLoading) return <div className="p-8 text-center"><Skeleton className="h-64 w-full" /></div>;
+  if (!returnData || !returnData.success) return <div className="p-8 text-center text-muted-foreground border rounded-lg bg-card">No return data available. Add holdings to see forecasting.</div>;
+
+  const { portfolio, assets } = returnData.data;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/20 dark:to-blue-950/20 border-indigo-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-indigo-800 dark:text-indigo-300">Portfolio CAGR</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-indigo-700 dark:text-indigo-400">{portfolio.cagr.toFixed(2)}%</div>
+            <p className="text-xs text-indigo-600 mt-1">Weighted average annual growth</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 border-emerald-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Expected 1Y Gain</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-400">₹{((portfolio.currentValue * portfolio.cagr) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+            <p className="text-xs text-emerald-600 mt-1">Projected absolute gain</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-amber-800 dark:text-amber-300">Portfolio Volatility</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-amber-700 dark:text-amber-400">{portfolio.volatility.toFixed(1)}%</div>
+            <p className="text-xs text-amber-600 mt-1">Estimated risk profile</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            Asset-Wise Return Metrics
+          </CardTitle>
+          <CardDescription>Detailed forecasting and risk analysis per asset</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {assets.map((asset: any) => (
+              <div key={asset.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h4 className="font-bold text-lg">{asset.name}</h4>
+                    <Badge variant="outline" className="mt-1">{asset.type.replace('_', ' ')}</Badge>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">Portfolio Weight</p>
+                    <p className="font-semibold">{asset.weight.toFixed(1)}%</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase">Annualized Return</p>
+                    <p className="font-bold text-green-600">{(asset.metrics?.annualizedReturn || 0).toFixed(2)}%</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase">Absolute Return</p>
+                    <p className="font-bold">{(asset.metrics?.absoluteReturn || 0).toFixed(2)}%</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase">Holding Period</p>
+                    <p className="font-bold">{(asset.metrics?.holdingPeriodYears || 0).toFixed(2)} Yrs</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase">Risk Rating</p>
+                    <Badge variant="secondary" className="mt-1">
+                      {asset.weight > 40 ? 'High' : asset.weight > 20 ? 'Medium' : 'Low'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function PremiumInvestments() {
   const [location] = useLocation();
   const { user } = useAuth();
@@ -178,6 +297,10 @@ export default function PremiumInvestments() {
             <TabsTrigger value="goals" data-testid="tab-goals">
               <Target className="w-4 h-4 mr-2" />
               Goal Planning
+            </TabsTrigger>
+            <TabsTrigger value="returns" data-testid="tab-returns">
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Return Forecast
             </TabsTrigger>
             <TabsTrigger value="retirement" data-testid="tab-retirement">
               <Shield className="w-4 h-4 mr-2" />
@@ -950,6 +1073,11 @@ export default function PremiumInvestments() {
           {/* Investment Recommendations Tab */}
           <TabsContent value="recommendations">
             <InvestmentRecommendations portfolioId={portfolioId} />
+          </TabsContent>
+
+          {/* Return Forecast Tab */}
+          <TabsContent value="returns" className="space-y-6">
+            <ReturnForecast holdings={holdings || []} />
           </TabsContent>
 
           {/* Goal Planning Tab */}

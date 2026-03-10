@@ -2,11 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { useAssetAllocation } from "@/hooks/use-portfolio";
 import { ASSET_TYPE_LABELS, ASSET_COLORS, RISK_PROFILES } from "@/lib/constants";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { RebalanceDashboard } from "./rebalance-dashboard";
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 
 interface AssetAllocationProps {
   portfolioId: string;
@@ -15,6 +17,24 @@ interface AssetAllocationProps {
 export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
   const { data: allocation, isLoading, error } = useAssetAllocation(portfolioId);
   const [isRebalanceOpen, setIsRebalanceOpen] = useState(false);
+  const [selectedRiskProfile, setSelectedRiskProfile] = useState<string | null>(null);
+
+  const { data: riskProfilesData } = useQuery<any>({
+    queryKey: ['/api/allocation/risk-profiles'],
+  });
+
+  const optimizeMutation = useMutation({
+    mutationFn: async (params: any) => {
+      const res = await fetch('/api/allocation/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      return res.json();
+    },
+  });
+
+  const riskProfiles = riskProfilesData?.success ? riskProfilesData.data : Object.entries(RISK_PROFILES).map(([key, p]) => ({ name: key, label: p.name, ...p }));
 
   // Use real allocation data only - no mock data
   const hasAllocation = allocation && allocation.length > 0;
@@ -234,28 +254,60 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
               </ResponsiveContainer>
             </div>
             
-            {/* Risk Profile */}
             <div className="mt-6" data-testid="risk-profiles">
               <h4 className="font-semibold text-foreground mb-3">Recommended Allocation by Risk Profile</h4>
-              <div className="grid grid-cols-3 gap-4">
-                {Object.entries(RISK_PROFILES).map(([key, profile]) => (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {riskProfiles.map((profile: any) => (
                   <div 
-                    key={key}
-                    className="text-center p-3 rounded-lg border-2 border-transparent hover:border-border transition-colors cursor-pointer"
-                    style={{ backgroundColor: `${profile.color}15` }}
-                    data-testid={`risk-profile-${key.toLowerCase()}`}
+                    key={profile.name}
+                    className={`text-center p-3 rounded-lg border-2 transition-all cursor-pointer ${
+                      selectedRiskProfile === profile.name ? 'border-primary ring-1 ring-primary' : 'border-transparent hover:border-border'
+                    }`}
+                    style={{ backgroundColor: `${(profile.color || '#3b82f6')}15` }}
+                    onClick={() => {
+                      setSelectedRiskProfile(profile.name);
+                      optimizeMutation.mutate({
+                        riskScore: profile.scoreRange ? (profile.scoreRange[0] + profile.scoreRange[1]) / 2 : 50,
+                        segment: 'retail',
+                        investmentHorizon: 5,
+                        existingAllocations: Object.fromEntries(chartData.map(d => [d.name.toLowerCase(), d.current]))
+                      });
+                    }}
+                    data-testid={`risk-profile-${profile.name.toLowerCase()}`}
                   >
-                    <p className="font-medium mb-1" style={{ color: profile.color }}>
-                      {profile.name}
+                    <p className="font-bold text-xs mb-1" style={{ color: profile.color || '#3b82f6' }}>
+                      {profile.label || profile.name.replace(/_/g, ' ')}
                     </p>
-                    <div className="text-xs space-y-1">
-                      <p>Equity: {profile.equity}%</p>
-                      <p>Debt: {profile.debt}%</p>
-                      <p>Others: {profile.gold + profile.alternative}%</p>
+                    <div className="text-[10px] space-y-0.5 text-muted-foreground">
+                      {profile.equity !== undefined && <p>Equity: {profile.equity}%</p>}
+                      {profile.debt !== undefined && <p>Debt: {profile.debt}%</p>}
+                      {profile.description && <p className="line-clamp-2 mt-1 italic">{profile.description}</p>}
                     </div>
                   </div>
                 ))}
               </div>
+
+              {optimizeMutation.isPending && (
+                <div className="mt-4 p-4 border rounded-lg animate-pulse bg-muted/50">
+                  <p className="text-sm text-center">Optimizing portfolio for {selectedRiskProfile} profile...</p>
+                </div>
+              )}
+
+              {optimizeMutation.data?.success && (
+                <div className="mt-4 p-4 border border-green-200 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                  <h4 className="font-semibold text-green-800 dark:text-green-300 text-sm mb-2">Optimized Allocation Suggestion</h4>
+                  <div className="flex flex-wrap gap-4">
+                    {Object.entries(optimizeMutation.data.data.targetAllocation).map(([asset, weight]: [string, any]) => (
+                      <div key={asset} className="flex items-center gap-2">
+                        <Badge variant="outline" className="capitalize">{asset}: {weight}%</Badge>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-green-700 dark:text-green-400 mt-2">
+                    {optimizeMutation.data.data.rationale || "AI-optimized based on mean-variance analysis and historical risk-adjusted returns."}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

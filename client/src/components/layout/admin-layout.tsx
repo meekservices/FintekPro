@@ -136,6 +136,7 @@ const navCategories: NavCategory[] = [
     items: [
       { title: "KYC Management", href: "/admin/kyc-compliance", icon: FileCheck, description: "Review KYC submissions" },
       { title: "KYC V2 Management", href: "/admin/kyc-v2-management", icon: ShieldAlert, description: "Video KYC, approvals & direct rejection" },
+      { title: "Institutional Data", href: "/admin/institutional-data", icon: Database, description: "Corp actions, ratings & master" },
       { title: "Transaction Queue", href: "/admin/financial-operations", icon: ClipboardList, description: "Pending transactions" },
       { title: "E-Sign Documents", href: "/admin/esign-management", icon: FileSignature, description: "Electronic signatures" },
       { title: "Store Management", href: "/admin/store-management", icon: Store, description: "Categories & products" },
@@ -232,6 +233,7 @@ const navCategories: NavCategory[] = [
       { title: "KYC Flow", href: "/admin/kyc-flow", icon: FileCheck, description: "Unified KYC provider config" },
       { title: "System Health", href: "/admin/system-health", icon: Activity, description: "Performance monitoring" },
       { title: "Engine Health", href: "/admin/engine-health-check", icon: Activity, description: "Calculation engine validation" },
+      { title: "Pricing Engine", href: "/admin/pricing-engine", icon: DollarSign, description: "Golden Pricing Dashboard" },
       { title: "API Usage", href: "/admin/api-usage", icon: Activity, description: "API cost tracking" },
       { title: "Feature Flags", href: "/admin/feature-flags", icon: Lightbulb, description: "A/B testing controls" },
       { title: "PDF Parser", href: "/admin/parser-config", icon: FileText, description: "Unified PDF parser settings" },

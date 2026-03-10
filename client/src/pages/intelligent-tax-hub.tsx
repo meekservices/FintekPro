@@ -241,6 +241,15 @@ export default function IntelligentTaxHub() {
   const [selectedYear, setSelectedYear] = useState("2024-25");
   const [scenarioIncome, setScenarioIncome] = useState<number>(1000000);
 
+  // Refund Status State
+  const [refundQuery, setRefundQuery] = useState({ pan: user?.panNumber || "", ay: "2025-26" });
+
+  // Refund Status Query
+  const { data: refundData, isFetching: isFetchingRefund, refetch: refetchRefund } = useQuery<{ success: boolean; data: any }>({
+    queryKey: ['/api/tax/refund/status', refundQuery.pan, refundQuery.ay],
+    enabled: false // Only run on manual click
+  });
+
   // Dashboard Data Query
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery<DashboardData>({
     queryKey: ['/api/tax-hub/dashboard', selectedYear],
@@ -441,6 +450,103 @@ export default function IntelligentTaxHub() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Refund Status Tracker Card */}
+        <Card data-testid="card-refund-status">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-blue-600" />
+              ITR Refund Status Tracker
+            </CardTitle>
+            <CardDescription>Check real-time refund status from Income Tax Portal</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-3 gap-4 mb-6">
+              <div className="space-y-2">
+                <Label htmlFor="refund-pan">PAN Number</Label>
+                <Input
+                  id="refund-pan"
+                  placeholder="ABCDE1234F"
+                  value={refundQuery.pan}
+                  onChange={(e) => setRefundQuery(prev => ({ ...prev, pan: e.target.value.toUpperCase() }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="refund-ay">Assessment Year</Label>
+                <Select
+                  value={refundQuery.ay}
+                  onValueChange={(v) => setRefundQuery(prev => ({ ...prev, ay: v }))}
+                >
+                  <SelectTrigger id="refund-ay">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2025-26">2025-26</SelectItem>
+                    <SelectItem value="2024-25">2024-25</SelectItem>
+                    <SelectItem value="2023-24">2023-24</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end">
+                <Button
+                  className="w-full gap-2"
+                  onClick={() => refetchRefund()}
+                  disabled={isFetchingRefund}
+                >
+                  {isFetchingRefund ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+                  Check Status
+                </Button>
+              </div>
+            </div>
+
+            {refundData?.success && refundData.data && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-top-4">
+                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Current Status</p>
+                    <h3 className="text-lg font-bold flex items-center gap-2">
+                      {refundData.data.status === "NO_FILING_FOUND" ? (
+                        <AlertCircle className="h-5 w-5 text-yellow-500" />
+                      ) : (
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                      )}
+                      {refundData.data.status.replace(/_/g, " ")}
+                    </h3>
+                  </div>
+                  {refundData.data.refundAmount && (
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Refund Amount</p>
+                      <p className="text-lg font-bold text-green-600">₹{refundData.data.refundAmount.toLocaleString()}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-muted"></div>
+                  <div className="space-y-6 relative">
+                    {refundData.data.stages.map((stage: any, idx: number) => (
+                      <div key={idx} className="flex items-start gap-4 ml-2">
+                        <div className={`z-10 w-5 h-5 rounded-full flex items-center justify-center ${
+                          stage.status === "completed" ? "bg-green-500 text-white" :
+                          stage.status === "in_progress" ? "bg-blue-500 text-white animate-pulse" :
+                          "bg-muted-foreground text-white"
+                        }`}>
+                          {stage.status === "completed" ? <CheckCircle className="h-3 w-3" /> : <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                        </div>
+                        <div className="flex-1">
+                          <p className={`text-sm font-medium ${stage.status === "completed" ? "text-foreground" : "text-muted-foreground"}`}>
+                            {stage.stage}
+                          </p>
+                          {stage.date && <p className="text-xs text-muted-foreground">{stage.date}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* ITR Filing Status Tracker */}
         <Card data-testid="card-filing-status-tracker">

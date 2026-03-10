@@ -864,7 +864,21 @@ export default function TaxITRSelfPage() {
   const [taxRegime, setTaxRegime] = useState<"old" | "new">("new");
   const [visitedSteps, setVisitedSteps] = useState<Set<string>>(new Set(["basic"]));
   const [form16Uploading, setForm16Uploading] = useState(false);
-  
+  const [activeSubTab, setActiveSubTab] = useState<string>("wizard");
+
+  const { data: panContext } = useQuery<PANContext>({
+    queryKey: ["/api/tax/pan-context"],
+  });
+
+  const { data: historyData, isLoading: isLoadingHistory } = useQuery({
+    queryKey: ["/api/tax/history", panContext?.pan],
+    enabled: !!panContext?.pan && activeSubTab === "history",
+  });
+
+  const { data: supportedBrokers } = useQuery({
+    queryKey: ["/api/tax/brokers/supported"],
+  });
+
   const [incomeSources, setIncomeSources] = useState<IncomeSource>({
     hasSalary: true,
     hasHouseProperty: false,
@@ -3045,7 +3059,7 @@ export default function TaxITRSelfPage() {
     enabled: incomeSources.hasCapitalGains,
   });
 
-  const brokerList = brokersQuery.data?.brokers || [];
+  const brokerList = supportedBrokers?.data || brokersQuery.data?.brokers || [];
   const filteredBrokers = brokerList.filter(b =>
     b.name.toLowerCase().includes(cgBrokerSearch.toLowerCase()) ||
     b.category.toLowerCase().includes(cgBrokerSearch.toLowerCase())
@@ -8244,6 +8258,79 @@ export default function TaxITRSelfPage() {
 
   const currentStepConfig = activeSteps[safeCurrentStep];
 
+  if (activeSubTab === "history") {
+    return (
+      <div className="container mx-auto p-4 sm:p-6 space-y-4 max-w-5xl">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => setActiveSubTab("wizard")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-xl sm:text-2xl font-bold">Tax Filing History</h1>
+            <p className="text-sm text-muted-foreground">PAN: {panContext?.pan}</p>
+          </div>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-blue-600" />
+              Tax Computation History
+            </CardTitle>
+            <CardDescription>
+              View and manage your past tax computations and filings
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingHistory ? (
+              <div className="space-y-4">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : (
+              <div className="rounded-md border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="p-3 text-left font-medium">Assessment Year</th>
+                      <th className="p-3 text-left font-medium">Saved Date</th>
+                      <th className="p-3 text-left font-medium">Taxable Income</th>
+                      <th className="p-3 text-left font-medium">Tax Payable</th>
+                      <th className="p-3 text-right font-medium">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historyData?.data?.map((item: any) => (
+                      <tr key={item.id} className="border-b hover:bg-muted/50">
+                        <td className="p-3 font-medium">{item.assessmentYear}</td>
+                        <td className="p-3 text-muted-foreground">
+                          {new Date(item.savedAt).toLocaleDateString()}
+                        </td>
+                        <td className="p-3">₹{item.data?.taxableIncome?.toLocaleString() || 0}</td>
+                        <td className="p-3">₹{item.data?.taxPayable?.toLocaleString() || 0}</td>
+                        <td className="p-3 text-right">
+                          <Button variant="ghost" size="sm">View</Button>
+                        </td>
+                      </tr>
+                    ))}
+                    {(!historyData?.data || historyData.data.length === 0) && (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                          No history found for PAN {panContext?.pan}.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-4 max-w-5xl" data-testid="page-itr-self">
       <div className="flex items-center gap-3">
@@ -8254,9 +8341,14 @@ export default function TaxITRSelfPage() {
           <h1 className="text-xl sm:text-2xl font-bold">Self-File Income Tax Return</h1>
           <p className="text-sm text-muted-foreground">AY {assessmentYear} | {recommendedForm} | {taxRegime === "new" ? "New" : "Old"} Regime</p>
         </div>
-        <Badge variant="outline" className="hidden sm:flex">
-          Step {safeCurrentStep + 1}/{activeSteps.length}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setActiveSubTab("history")}>
+            <Clock className="h-4 w-4 mr-2" /> History
+          </Button>
+          <Badge variant="outline" className="hidden sm:flex">
+            Step {safeCurrentStep + 1}/{activeSteps.length}
+          </Badge>
+        </div>
       </div>
 
       <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-hide">
