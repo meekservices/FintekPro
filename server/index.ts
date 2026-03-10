@@ -1047,6 +1047,30 @@ server.listen({
   const { initializeSecurityMaster } = await import("./db-migrations/security-master-migration");
   await initializeSecurityMaster();
 
+  // Boot-time: create agent_notifications table if missing
+  try {
+    const { db: notifDb } = await import('./db');
+    const { sql: notifSql } = await import('drizzle-orm');
+    await notifDb.execute(notifSql`
+      CREATE TABLE IF NOT EXISTS agent_notifications (
+        id          SERIAL PRIMARY KEY,
+        agent_id    INTEGER NOT NULL,
+        title       TEXT NOT NULL,
+        body        TEXT NOT NULL,
+        type        TEXT NOT NULL DEFAULT 'info',
+        link        TEXT,
+        read_at     TIMESTAMPTZ,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await notifDb.execute(notifSql`
+      CREATE INDEX IF NOT EXISTS idx_agent_notifications_agent_id
+        ON agent_notifications (agent_id)
+    `);
+  } catch (e: any) {
+    console.error('[Migration] agent_notifications table error:', e?.message);
+  }
+
   // Register additional routes from routes.ts (but don't create a new server - we already have one)
   await registerRoutes(app, server);
 
