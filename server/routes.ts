@@ -213,7 +213,6 @@ import quantAdminRoutes from "./routes/quant-admin-routes";
 import parserAdminRoutes from "./routes/parser-admin";
 import institutionalRoutes from "./routes/institutional-routes";
 import historicalNavRoutes from "./routes/historical-nav";
-import { historicalNavRefreshJob } from "./services/historical-nav-refresh-job";
 import { cacheCleanupScheduler } from "./services/cache-cleanup-scheduler";
 import { exitLoadSyncScheduler } from "./services/exit-load-sync-scheduler";
 import exchangeFilingsRoutes from "./routes/exchange-filings-routes";

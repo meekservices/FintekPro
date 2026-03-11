@@ -25,7 +25,6 @@ import { amfiNavScheduler } from './services/amfi-nav-scheduler';
 import { callPython } from './clients/python-client';
 import { dataEnrichmentScheduler } from './services/data-enrichment-scheduler';
 import { financialMetricsRefreshScheduler } from './services/financial-metrics-refresh-scheduler';
-import { historicalNavRefreshJob } from './services/historical-nav-refresh-job';
 import { isProductionEnvironment, isEnrichmentWindow, logEnrichmentSkip } from './utils/enrichment-guard';
 import { startZohoSyncScheduler } from './zoho/sync-scheduler';
 
