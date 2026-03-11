@@ -566,30 +566,17 @@ export function initializeCronJobs(): void {
     console.log('⏭️ [Price/MoneyControl/BondCalendar] Skipped (development mode - production only)');
   }
 
-  // Live MF NAV Refresh - Run every day at 10:30 PM IST (5:00 PM UTC) after market close
-  if (isProductionEnvironment()) {
-    cron.schedule('0 17 * * *', async () => {
-      if (!isEnrichmentWindow()) { console.log('⏭️ [Live MF NAV] Outside 8PM-8AM IST window, skipping'); return; }
-      console.log('[CRON] Starting live MF NAV refresh...');
-      try {
-        const { liveMFDataService } = await import('./services/live-mf-data-service');
-        const success = await liveMFDataService.refreshCache();
-        
-        if (success) {
-          const stats = liveMFDataService.getCacheStats();
-          console.log(`[CRON] Live MF NAV refreshed: ${stats.size} funds loaded from AMFI`);
-          
-          const result = await liveMFDataService.updateDatabaseWithLiveData();
-          console.log(`[CRON] Database sync: ${result.updated} funds updated`);
-        } else {
-          console.warn('[CRON] Live MF NAV refresh failed');
-        }
-      } catch (error: any) {
-        console.error('[CRON] Live MF NAV refresh failed:', error.message);
-      }
-    });
+  // [DISABLED] Live MF NAV Refresh (0 17 * * *) removed — duplicate of amfiNavScheduler which
+  // already fetches AMFI NAVAll.txt → DB at 11:30 PM IST. Running both within 1 hour is redundant.
+  console.log('⏭️ [Live MF NAV] Disabled — amfiNavScheduler covers AMFI→DB sync at 11:30 PM IST');
 
-    // Morning MF NAV Pre-warm - Run at 9:05 AM IST (3:35 AM UTC) - staggered from expiry warning at 3:30
+  // [DISABLED] MF NAV History Sync (30 17 * * *) removed — called mfDataSyncService.runDailySync()
+  // which hit api.mfapi.in/{schemeCode} for 100 published funds (same MFAPI-per-scheme pattern as
+  // the disabled historicalNavRefreshJob). On-demand fetching via mutual-fund-metrics-service still works.
+  console.log('⏭️ [MF NAV History] Disabled — MFAPI per-scheme spam removed; on-demand fetch retained');
+
+  // Morning MF NAV Pre-warm - Run at 9:05 AM IST (3:35 AM UTC) - staggered from expiry warning at 3:30
+  if (isProductionEnvironment()) {
     cron.schedule('35 3 * * *', async () => {
       if (!isProductionEnvironment()) return;
       console.log('[CRON] Pre-warming MF NAV cache...');
@@ -600,19 +587,6 @@ export function initializeCronJobs(): void {
         console.log(`[CRON] MF NAV cache pre-warmed: ${stats.size} funds`);
       } catch (error: any) {
         console.error('[CRON] MF NAV pre-warm failed:', error.message);
-      }
-    });
-
-    // MF NAV History Sync - Run daily at 11 PM IST (5:30 PM UTC) to store historical NAV data
-    cron.schedule('30 17 * * *', async () => {
-      if (!isEnrichmentWindow()) { console.log('⏭️ [MF NAV History] Outside 8PM-8AM IST window, skipping'); return; }
-      console.log('[CRON] Starting MF NAV history sync...');
-      try {
-        const { mfDataSyncService } = await import('./services/mf-data-sync-service');
-        await mfDataSyncService.runDailySync();
-        console.log('[CRON] MF NAV history sync completed');
-      } catch (error: any) {
-        console.error('[CRON] MF NAV history sync failed:', error.message);
       }
     });
 
@@ -639,7 +613,7 @@ export function initializeCronJobs(): void {
       }
     });
   } else {
-    console.log('⏭️ [MF Cron Jobs] Live MF NAV, NAV History, Monthly Returns, NAV Pre-warm SKIPPED (development mode)');
+    console.log('⏭️ [MF Cron Jobs] Monthly Returns, NAV Pre-warm SKIPPED (development mode)');
   }
 
   // Probe42 Prospecting Alerts & Lead Scoring (production only - writes to DB)
