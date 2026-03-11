@@ -148,6 +148,7 @@ export interface PeerData {
   roe: number | null;
   marketCap: number | null;
   marketCapFormatted: string;
+  dividendYield: number | null;
 }
 
 export interface SectorAverages {
@@ -457,7 +458,7 @@ export async function fetchPeersAndAverage(
         ls.symbol, ls.company_name, ls.current_price, ls.pe_ratio, ls.pb_ratio,
         ls.market_cap_value,
         COALESCE(sf.roe, NULLIF(ls.roe::numeric, 0) / 100) AS roe,
-        sf.roce, sf.debt_to_equity
+        sf.roce, sf.debt_to_equity, sf.dividend_yield
       FROM listed_stocks ls
       LEFT JOIN screener_financials sf ON sf.symbol = ls.symbol
       WHERE ls.sector = ${sector}
@@ -485,6 +486,7 @@ export async function fetchPeersAndAverage(
         roe: r.roe !== null && r.roe !== undefined ? pf(r.roe) : null,
         marketCap: mcap ? mcap * 1e7 : null,
         marketCapFormatted: mcapFmt(mcap),
+        dividendYield: r.dividend_yield ? pf(r.dividend_yield) : null,
         _needsEnrich: !r.roe || isPlaceholderPE,
       };
     });

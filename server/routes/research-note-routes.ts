@@ -170,6 +170,9 @@ async function buildReportData(symbol: string): Promise<ReportData & { dataQuali
     },
   };
 
+  // Extract historical data from screener result (stored on the financials source object)
+  const screenerData = (financialsResult as any)._screenerData ?? null;
+
   return {
     symbol: nseSymbol,
     companyName: company.name,
@@ -195,6 +198,16 @@ async function buildReportData(symbol: string): Promise<ReportData & { dataQuali
     commentary,
     managementNote,
     dataQuality,
+    companyDescription: screenerData?.companyDescription ?? null,
+    plHistory: screenerData?.plHistory ?? null,
+    bsHistory: screenerData?.bsHistory ?? null,
+    cfHistory: screenerData?.cfHistory ?? null,
+    ratiosHistory: screenerData?.ratiosHistory ?? null,
+    quarterlyHistory: screenerData?.quarterlyHistory ?? null,
+    salesCagr3Y: screenerData?.salesCagr3Y ?? null,
+    salesCagr5Y: screenerData?.salesCagr5Y ?? null,
+    profitCagr3Y: screenerData?.profitCagr3Y ?? null,
+    profitCagr5Y: screenerData?.profitCagr5Y ?? null,
   };
 }
 
@@ -225,6 +238,16 @@ router.post("/preview", async (req: Request, res: Response) => {
       commentary: data.commentary,
       managementNote: data.managementNote,
       dataQuality: data.dataQuality,
+      companyDescription: data.companyDescription,
+      plHistory: data.plHistory,
+      bsHistory: data.bsHistory,
+      cfHistory: data.cfHistory,
+      ratiosHistory: data.ratiosHistory,
+      quarterlyHistory: data.quarterlyHistory,
+      salesCagr3Y: data.salesCagr3Y,
+      salesCagr5Y: data.salesCagr5Y,
+      profitCagr3Y: data.profitCagr3Y,
+      profitCagr5Y: data.profitCagr5Y,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to generate research data" });

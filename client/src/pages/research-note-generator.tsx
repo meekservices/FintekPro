@@ -13,7 +13,7 @@ import {
   TrendingUp, TrendingDown, Minus, Building2,
   BarChart3, Target, ShieldAlert, Loader2, Info,
   DollarSign, Percent, X, AlertTriangle, Users,
-  ChevronRight, Sparkles,
+  ChevronRight, Sparkles, TableIcon, Activity, Layers,
 } from "lucide-react";
 
 interface FinancialData {
@@ -76,6 +76,12 @@ interface PeerData {
   pb: number | null;
   roe: number | null;
   marketCapFormatted: string;
+  dividendYield: number | null;
+}
+
+interface HistoricalTable {
+  headers: string[];
+  rows: { label: string; values: (number | null)[] }[];
 }
 
 interface SectorAverages {
@@ -121,6 +127,16 @@ interface PreviewData {
   commentary: CommentaryData | null;
   managementNote: string;
   dataQuality?: DataQuality;
+  companyDescription: string | null;
+  plHistory: HistoricalTable | null;
+  bsHistory: HistoricalTable | null;
+  cfHistory: HistoricalTable | null;
+  ratiosHistory: HistoricalTable | null;
+  quarterlyHistory: HistoricalTable | null;
+  salesCagr3Y: number | null;
+  salesCagr5Y: number | null;
+  profitCagr3Y: number | null;
+  profitCagr5Y: number | null;
 }
 
 interface CompanySearchResult {
@@ -543,6 +559,226 @@ export default function ResearchNoteGenerator() {
               </Card>
             </div>
 
+            {/* Company Description */}
+            {d.companyDescription && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2"><Building2 className="h-4 w-4 text-slate-600" /> About the Company</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-foreground leading-relaxed">{d.companyDescription}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* CAGR Callout Badges */}
+            {(d.salesCagr3Y !== null || d.salesCagr5Y !== null || d.profitCagr3Y !== null || d.profitCagr5Y !== null) && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2"><Activity className="h-4 w-4 text-blue-600" /> Growth Rates (CAGR)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: "Revenue 3Y CAGR", val: d.salesCagr3Y },
+                      { label: "Revenue 5Y CAGR", val: d.salesCagr5Y },
+                      { label: "Profit 3Y CAGR", val: d.profitCagr3Y },
+                      { label: "Profit 5Y CAGR", val: d.profitCagr5Y },
+                    ].filter(x => x.val !== null).map(({ label, val }) => {
+                      const pct = ((val as number) * 100);
+                      const positive = pct >= 0;
+                      return (
+                        <div key={label} className={`rounded-lg border px-3 py-2 text-center min-w-[110px] ${positive ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800" : "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800"}`}>
+                          <p className="text-xs text-muted-foreground">{label}</p>
+                          <p className={`text-base font-bold ${positive ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
+                            {positive ? "+" : ""}{pct.toFixed(1)}%
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Multi-Year P&L */}
+            {d.plHistory && d.plHistory.rows.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2"><TableIcon className="h-4 w-4 text-blue-600" /> Multi-Year Profit & Loss (₹ Cr)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b bg-blue-50 dark:bg-blue-950/20">
+                          <th className="text-left py-2 px-2 font-semibold text-muted-foreground min-w-[130px]">Metric</th>
+                          {d.plHistory.headers.map(h => (
+                            <th key={h} className="text-right py-2 px-2 font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
+                          ))}
+                          {(d.salesCagr5Y !== null || d.salesCagr3Y !== null) && (
+                            <th className="text-right py-2 px-2 font-semibold text-blue-700 dark:text-blue-400 whitespace-nowrap">5Y CAGR</th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {d.plHistory.rows.map((row, ri) => {
+                          const isPercent = row.label.toLowerCase().includes("opm") || row.label.toLowerCase().includes("%");
+                          const isEps = row.label.toLowerCase().includes("eps");
+                          const cagr = row.label.toLowerCase().includes("sales") ? d.salesCagr5Y :
+                                       row.label.toLowerCase().includes("net profit") ? d.profitCagr5Y : null;
+                          return (
+                            <tr key={row.label} className={`border-b last:border-0 ${ri % 2 === 0 ? "" : "bg-muted/30"}`}>
+                              <td className="py-1.5 px-2 font-medium text-foreground">{row.label}</td>
+                              {row.values.map((v, vi) => {
+                                const prev = vi > 0 ? row.values[vi - 1] : null;
+                                const trend = v !== null && prev !== null && prev !== 0 ? (v > prev ? "text-green-600" : v < prev ? "text-red-600" : "") : "";
+                                const display = v === null ? "—" : isPercent ? `${v.toFixed(1)}%` : isEps ? v.toFixed(2) : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+                                return <td key={vi} className={`text-right py-1.5 px-2 ${trend}`}>{display}</td>;
+                              })}
+                              {(d.salesCagr5Y !== null || d.salesCagr3Y !== null) && (
+                                <td className="text-right py-1.5 px-2 font-semibold">
+                                  {cagr !== null ? (
+                                    <span className={cagr >= 0 ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}>
+                                      {cagr >= 0 ? "+" : ""}{(cagr * 100).toFixed(1)}%
+                                    </span>
+                                  ) : "—"}
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Quarterly Results */}
+            {d.quarterlyHistory && d.quarterlyHistory.rows.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2"><BarChart3 className="h-4 w-4 text-purple-600" /> Quarterly Results (₹ Cr)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b bg-purple-50 dark:bg-purple-950/20">
+                          <th className="text-left py-2 px-2 font-semibold text-muted-foreground min-w-[130px]">Metric</th>
+                          {d.quarterlyHistory.headers.map((h, i) => (
+                            <th key={h} className={`text-right py-2 px-2 font-semibold whitespace-nowrap ${i === d.quarterlyHistory!.headers.length - 1 ? "text-purple-700 dark:text-purple-400" : "text-muted-foreground"}`}>{h}</th>
+                          ))}
+                          <th className="text-right py-2 px-2 font-semibold text-muted-foreground">QoQ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {d.quarterlyHistory.rows.map((row, ri) => {
+                          const isPercent = row.label.toLowerCase().includes("opm") || row.label.toLowerCase().includes("%");
+                          const isEps = row.label.toLowerCase().includes("eps");
+                          const lastTwo = row.values.slice(-2);
+                          const qoq = lastTwo.length === 2 && lastTwo[0] !== null && lastTwo[1] !== null && lastTwo[0] !== 0
+                            ? ((lastTwo[1] - lastTwo[0]) / Math.abs(lastTwo[0])) : null;
+                          return (
+                            <tr key={row.label} className={`border-b last:border-0 ${ri % 2 === 0 ? "" : "bg-muted/30"}`}>
+                              <td className="py-1.5 px-2 font-medium text-foreground">{row.label}</td>
+                              {row.values.map((v, vi) => {
+                                const isLatest = vi === row.values.length - 1;
+                                const display = v === null ? "—" : isPercent ? `${v.toFixed(1)}%` : isEps ? v.toFixed(2) : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+                                return (
+                                  <td key={vi} className={`text-right py-1.5 px-2 ${isLatest ? "font-semibold text-purple-700 dark:text-purple-400" : ""}`}>
+                                    {display}
+                                  </td>
+                                );
+                              })}
+                              <td className="text-right py-1.5 px-2 font-semibold">
+                                {qoq !== null ? (
+                                  <span className={qoq >= 0 ? "text-green-600" : "text-red-600"}>
+                                    {qoq >= 0 ? "▲" : "▼"} {Math.abs(qoq * 100).toFixed(1)}%
+                                  </span>
+                                ) : "—"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Key Efficiency Ratios */}
+            {d.ratiosHistory && d.ratiosHistory.rows.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2"><Activity className="h-4 w-4 text-teal-600" /> Key Efficiency Ratios (5-Year Trend)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b bg-teal-50 dark:bg-teal-950/20">
+                          <th className="text-left py-2 px-2 font-semibold text-muted-foreground min-w-[160px]">Metric</th>
+                          {d.ratiosHistory.headers.map(h => (
+                            <th key={h} className="text-right py-2 px-2 font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {d.ratiosHistory.rows.map((row, ri) => {
+                          const isPercent = row.label.toLowerCase().includes("roce") || row.label.toLowerCase().includes("%");
+                          return (
+                            <tr key={row.label} className={`border-b last:border-0 ${ri % 2 === 0 ? "" : "bg-muted/30"}`}>
+                              <td className="py-1.5 px-2 font-medium text-foreground">{row.label}</td>
+                              {row.values.map((v, vi) => {
+                                const display = v === null ? "—" : isPercent ? `${v.toFixed(1)}%` : v.toFixed(0);
+                                return <td key={vi} className="text-right py-1.5 px-2">{display}</td>;
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Balance Sheet Snapshot */}
+            {d.bsHistory && d.bsHistory.rows.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2"><Layers className="h-4 w-4 text-amber-600" /> Balance Sheet Snapshot (₹ Cr)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b bg-amber-50 dark:bg-amber-950/20">
+                          <th className="text-left py-2 px-2 font-semibold text-muted-foreground min-w-[130px]">Metric</th>
+                          {d.bsHistory.headers.map(h => (
+                            <th key={h} className="text-right py-2 px-2 font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {d.bsHistory.rows.map((row, ri) => (
+                          <tr key={row.label} className={`border-b last:border-0 ${ri % 2 === 0 ? "" : "bg-muted/30"}`}>
+                            <td className="py-1.5 px-2 font-medium text-foreground">{row.label}</td>
+                            {row.values.map((v, vi) => (
+                              <td key={vi} className="text-right py-1.5 px-2">{v !== null ? v.toLocaleString("en-IN", { maximumFractionDigits: 0 }) : "—"}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Valuation summary */}
             <Card className="border-muted bg-muted/20">
               <CardContent className="pt-4">
@@ -602,7 +838,9 @@ export default function ResearchNoteGenerator() {
                           <th className="text-left py-2 text-muted-foreground font-medium">Company</th>
                           <th className="text-right py-2 text-muted-foreground font-medium">Price</th>
                           <th className="text-right py-2 text-muted-foreground font-medium">P/E</th>
+                          <th className="text-right py-2 text-muted-foreground font-medium">P/B</th>
                           <th className="text-right py-2 text-muted-foreground font-medium">ROE</th>
+                          <th className="text-right py-2 text-muted-foreground font-medium">Div Yld</th>
                           <th className="text-right py-2 text-muted-foreground font-medium">Mkt Cap</th>
                         </tr>
                       </thead>
@@ -610,23 +848,27 @@ export default function ResearchNoteGenerator() {
                         {/* Target stock row */}
                         <tr className="border-b bg-blue-50 dark:bg-blue-950/20">
                           <td className="py-2 font-semibold text-blue-700 dark:text-blue-300">
-                            {d.companyName.length > 25 ? d.companyName.slice(0, 25) + "…" : d.companyName}
+                            {d.companyName.length > 22 ? d.companyName.slice(0, 22) + "…" : d.companyName}
                             <span className="ml-2 text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded">YOU</span>
                           </td>
                           <td className="text-right py-2 font-bold">{f.price ? `₹${Math.round(f.price).toLocaleString("en-IN")}` : "N/A"}</td>
                           <td className="text-right py-2">{f.pe?.toFixed(1) ?? "N/A"}</td>
+                          <td className="text-right py-2">{f.pbRatio !== null ? f.pbRatio.toFixed(1) : "N/A"}</td>
                           <td className="text-right py-2">{fmtPct(f.roe)}</td>
+                          <td className="text-right py-2">{fmtPct(f.dividendYield)}</td>
                           <td className="text-right py-2">{fmtCap(f.marketCap, f.currency)}</td>
                         </tr>
                         {d.peers.map((peer) => (
                           <tr key={peer.symbol} className="border-b last:border-0 hover:bg-muted/40">
                             <td className="py-2 text-foreground">
-                              {peer.name.length > 25 ? peer.name.slice(0, 25) + "…" : peer.name}
+                              {peer.name.length > 22 ? peer.name.slice(0, 22) + "…" : peer.name}
                               <span className="ml-1 text-[10px] text-muted-foreground font-mono">({peer.symbol})</span>
                             </td>
                             <td className="text-right py-2">{peer.price ? `₹${Math.round(peer.price).toLocaleString("en-IN")}` : "N/A"}</td>
                             <td className="text-right py-2">{peer.pe?.toFixed(1) ?? "N/A"}</td>
+                            <td className="text-right py-2">{peer.pb !== null ? peer.pb.toFixed(1) : "N/A"}</td>
                             <td className="text-right py-2">{fmtPct(peer.roe)}</td>
+                            <td className="text-right py-2">{peer.dividendYield !== null ? fmtPct(peer.dividendYield) : "—"}</td>
                             <td className="text-right py-2">{peer.marketCapFormatted}</td>
                           </tr>
                         ))}
@@ -635,7 +877,9 @@ export default function ResearchNoteGenerator() {
                             <td className="py-1.5 text-xs text-muted-foreground italic">Sector Average ({d.sectorAvg.stockCount} stocks)</td>
                             <td className="text-right py-1.5 text-xs text-muted-foreground">—</td>
                             <td className="text-right py-1.5 text-xs text-muted-foreground">{d.sectorAvg.avgPE?.toFixed(1) ?? "—"}</td>
+                            <td className="text-right py-1.5 text-xs text-muted-foreground">{d.sectorAvg.avgPB?.toFixed(1) ?? "—"}</td>
                             <td className="text-right py-1.5 text-xs text-muted-foreground">{fmtPct(d.sectorAvg.avgROE)}</td>
+                            <td className="text-right py-1.5 text-xs text-muted-foreground">—</td>
                             <td className="text-right py-1.5 text-xs text-muted-foreground">—</td>
                           </tr>
                         )}

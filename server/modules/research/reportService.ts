@@ -1,6 +1,6 @@
 import PptxGenJS from "pptxgenjs";
 import PDFDocument from "pdfkit";
-import type { FinancialData } from "./dataService";
+import type { FinancialData, HistoricalTable } from "./dataService";
 import type { RatingResult } from "./recommendationEngine";
 import type { PriceLevels } from "./technicalEngine";
 import type { PriceTarget } from "./pricingEngine";
@@ -42,6 +42,17 @@ export interface ReportData {
   sectorAvg: SectorAverages | null;
   commentary: CommentaryData | null;
   managementNote: string;
+  // Extended Screener.in historical data
+  companyDescription: string | null;
+  plHistory: HistoricalTable | null;
+  bsHistory: HistoricalTable | null;
+  cfHistory: HistoricalTable | null;
+  ratiosHistory: HistoricalTable | null;
+  quarterlyHistory: HistoricalTable | null;
+  salesCagr3Y: number | null;
+  salesCagr5Y: number | null;
+  profitCagr3Y: number | null;
+  profitCagr5Y: number | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -333,6 +344,91 @@ export async function generatePPT(data: ReportData): Promise<Buffer> {
 
   if (data.peers.length === 0) {
     s5.addText("Peer data unavailable for this sector.", { x: 0.4, y: 3.0, w: 12, h: 0.4, fontSize: 12, color: LIGHT_TEXT, italic: true, align: "center" });
+  }
+
+  // ── Slide 5b: 5-Year Financial History ───────────────────────────────────
+  if (data.plHistory && data.plHistory.rows.length > 0) {
+    const s5b = ppt.addSlide();
+    s5b.background = { color: LIGHT_BG };
+    s5b.addText("5-Year Financial History", { x: 0.4, y: 0.2, w: 12, h: 0.45, fontSize: 20, bold: true, color: DARK_TEXT });
+    s5b.addShape(ppt.ShapeType.line, { x: 0.4, y: 0.7, w: 12, h: 0, line: { color: BRAND_COLOR, width: 2 } });
+
+    const pl = data.plHistory;
+    const colW = pl.headers.length > 0 ? Math.min(1.8, 10.5 / pl.headers.length) : 1.8;
+    const labelW = 12 - colW * pl.headers.length - 0.4;
+
+    // Sub-header
+    s5b.addText("Profit & Loss (₹ Crores)", { x: 0.4, y: 0.82, w: 6, h: 0.3, fontSize: 11, bold: true, color: MID_TEXT });
+    if (data.salesCagr5Y !== null || data.profitCagr5Y !== null) {
+      const cagrParts = [];
+      if (data.salesCagr5Y !== null) cagrParts.push(`Rev 5Y CAGR: ${data.salesCagr5Y >= 0 ? "+" : ""}${(data.salesCagr5Y * 100).toFixed(1)}%`);
+      if (data.profitCagr5Y !== null) cagrParts.push(`PAT 5Y CAGR: ${data.profitCagr5Y >= 0 ? "+" : ""}${(data.profitCagr5Y * 100).toFixed(1)}%`);
+      s5b.addText(cagrParts.join("  ·  "), { x: 6.5, y: 0.84, w: 5.9, h: 0.28, fontSize: 10, color: data.salesCagr5Y !== null && data.salesCagr5Y >= 0 ? ACCENT_GREEN : ACCENT_RED, align: "right", bold: true });
+    }
+
+    // Header row
+    const headerY = 1.15;
+    s5b.addShape(ppt.ShapeType.rect, { x: 0.4, y: headerY, w: 12, h: 0.38, fill: { color: BRAND_COLOR }, line: { color: BRAND_COLOR } });
+    s5b.addText("Metric", { x: 0.5, y: headerY + 0.06, w: labelW, h: 0.28, fontSize: 9, bold: true, color: WHITE });
+    pl.headers.forEach((h, hi) => {
+      s5b.addText(h, { x: 0.4 + labelW + hi * colW, y: headerY + 0.06, w: colW, h: 0.28, fontSize: 9, bold: true, color: WHITE, align: "right" });
+    });
+
+    const plKeyRows = pl.rows.filter(r =>
+      r.label.toLowerCase().includes("sales") ||
+      r.label.toLowerCase().includes("opm") ||
+      r.label.toLowerCase().includes("net profit") ||
+      r.label.toLowerCase().includes("eps")
+    ).slice(0, 6);
+
+    plKeyRows.forEach((row, ri) => {
+      const ry2 = headerY + 0.42 + ri * 0.52;
+      const bg = ri % 2 === 0 ? WHITE : ALT_ROW;
+      const isPercent = row.label.toLowerCase().includes("opm") || row.label.toLowerCase().includes("%");
+      const isEps = row.label.toLowerCase().includes("eps");
+      s5b.addShape(ppt.ShapeType.rect, { x: 0.4, y: ry2, w: 12, h: 0.48, fill: { color: bg }, line: { color: "E2E8F0", width: 0.5 } });
+      s5b.addText(row.label, { x: 0.5, y: ry2 + 0.1, w: labelW, h: 0.3, fontSize: 10, color: MID_TEXT });
+      row.values.forEach((v, vi) => {
+        const prev = vi > 0 ? row.values[vi - 1] : null;
+        const col = v !== null && prev !== null && prev !== 0 ? (v > prev ? ACCENT_GREEN : v < prev ? ACCENT_RED : DARK_TEXT) : DARK_TEXT;
+        const display = v === null ? "N/A" : isPercent ? `${v.toFixed(1)}%` : isEps ? v.toFixed(2) : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+        s5b.addText(display, { x: 0.4 + labelW + vi * colW, y: ry2 + 0.1, w: colW, h: 0.3, fontSize: 10, bold: true, color: col, align: "right" });
+      });
+    });
+
+    // Quarterly summary section below if available
+    if (data.quarterlyHistory && data.quarterlyHistory.rows.length > 0) {
+      const qStartY = headerY + 0.42 + plKeyRows.length * 0.52 + 0.3;
+      if (qStartY < 6.5) {
+        const qh = data.quarterlyHistory;
+        s5b.addText("Recent Quarterly Results (₹ Crores)", { x: 0.4, y: qStartY, w: 12, h: 0.3, fontSize: 11, bold: true, color: MID_TEXT });
+        const qColW = qh.headers.length > 0 ? Math.min(1.8, 10.5 / qh.headers.length) : 1.8;
+        const qLabelW = 12 - qColW * qh.headers.length - 0.4;
+        const qHY = qStartY + 0.32;
+        s5b.addShape(ppt.ShapeType.rect, { x: 0.4, y: qHY, w: 12, h: 0.35, fill: { color: "7c3aed" }, line: { color: "7c3aed" } });
+        s5b.addText("Metric", { x: 0.5, y: qHY + 0.06, w: qLabelW, h: 0.25, fontSize: 8.5, bold: true, color: WHITE });
+        qh.headers.forEach((h, hi) => {
+          s5b.addText(h, { x: 0.4 + qLabelW + hi * qColW, y: qHY + 0.06, w: qColW, h: 0.25, fontSize: 8.5, bold: true, color: WHITE, align: "right" });
+        });
+        const qKeyRows = qh.rows.filter(r =>
+          r.label.toLowerCase().includes("sales") ||
+          r.label.toLowerCase().includes("opm") ||
+          r.label.toLowerCase().includes("net profit")
+        ).slice(0, 3);
+        qKeyRows.forEach((row, ri) => {
+          const qRY = qHY + 0.38 + ri * 0.45;
+          const bg = ri % 2 === 0 ? WHITE : ALT_ROW;
+          const isPercent = row.label.toLowerCase().includes("opm") || row.label.toLowerCase().includes("%");
+          s5b.addShape(ppt.ShapeType.rect, { x: 0.4, y: qRY, w: 12, h: 0.4, fill: { color: bg }, line: { color: "E2E8F0", width: 0.5 } });
+          s5b.addText(row.label, { x: 0.5, y: qRY + 0.08, w: qLabelW, h: 0.28, fontSize: 9.5, color: MID_TEXT });
+          row.values.forEach((v, vi) => {
+            const display = v === null ? "N/A" : isPercent ? `${v.toFixed(1)}%` : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+            const isLatest = vi === row.values.length - 1;
+            s5b.addText(display, { x: 0.4 + qLabelW + vi * qColW, y: qRY + 0.08, w: qColW, h: 0.28, fontSize: 9.5, bold: isLatest, color: isLatest ? "7c3aed" : DARK_TEXT, align: "right" });
+          });
+        });
+      }
+    }
   }
 
   // ── Slide 6: Shareholding & Governance ───────────────────────────────────
@@ -831,7 +927,130 @@ export async function generatePDF(data: ReportData): Promise<Buffer> {
     const fY2 = doc.page.height - 40;
     doc.rect(0, fY2, W, 40).fill("#F1F5F9");
     doc.fillColor("#1a56db").fontSize(9).font("Helvetica-Bold").text("FintekPro Research", 45, fY2 + 10);
-    doc.fillColor("#94A3B8").fontSize(7).font("Helvetica-Oblique").text("Page 2 of 3  ·  For Professional Use Only", W - 160, fY2 + 12);
+    doc.fillColor("#94A3B8").fontSize(7).font("Helvetica-Oblique").text("Page 2  ·  For Professional Use Only", W - 160, fY2 + 12);
+
+    // ── PAGE 3 (Historical Financials) — conditional ───────────────────────
+    if (data.plHistory && data.plHistory.rows.length > 0) {
+      doc.addPage();
+      doc.rect(0, 0, W, 30).fill("#0f3460");
+      doc.fillColor("#FFFFFF").fontSize(11).font("Helvetica-Bold").text("FintekPro Research", 45, 9);
+      doc.fillColor("#94A3B8").fontSize(9).font("Helvetica").text(`${data.companyName} — Historical Financials`, 170, 10);
+
+      let yH = 45;
+
+      // Company description
+      if (data.companyDescription) {
+        doc.fillColor("#1a56db").fontSize(11).font("Helvetica-Bold").text("About the Company", 45, yH);
+        yH += 16;
+        doc.fillColor("#374151").fontSize(8.5).font("Helvetica").text(data.companyDescription, 45, yH, { width: PW });
+        yH += (Math.ceil(data.companyDescription.length / 120) * 13) + 12;
+        doc.moveTo(45, yH).lineTo(W - 45, yH).stroke("#E2E8F0");
+        yH += 10;
+      }
+
+      // CAGR badges
+      const cagrItems = [
+        data.salesCagr3Y !== null ? `Revenue 3Y CAGR: ${data.salesCagr3Y >= 0 ? "+" : ""}${(data.salesCagr3Y * 100).toFixed(1)}%` : null,
+        data.salesCagr5Y !== null ? `Revenue 5Y CAGR: ${data.salesCagr5Y >= 0 ? "+" : ""}${(data.salesCagr5Y * 100).toFixed(1)}%` : null,
+        data.profitCagr3Y !== null ? `Profit 3Y CAGR: ${data.profitCagr3Y >= 0 ? "+" : ""}${(data.profitCagr3Y * 100).toFixed(1)}%` : null,
+        data.profitCagr5Y !== null ? `Profit 5Y CAGR: ${data.profitCagr5Y >= 0 ? "+" : ""}${(data.profitCagr5Y * 100).toFixed(1)}%` : null,
+      ].filter(Boolean) as string[];
+      if (cagrItems.length > 0) {
+        const bw2 = PW / cagrItems.length;
+        cagrItems.forEach((label, i) => {
+          const isPos = label.includes("+");
+          const bg = isPos ? "#F0FDF4" : "#FEF2F2";
+          const col = isPos ? "#15803d" : "#dc2626";
+          doc.rect(45 + i * bw2, yH, bw2 - 4, 28).fill(bg).stroke("#E2E8F0");
+          doc.fillColor("#64748B").fontSize(7.5).font("Helvetica").text(label.split(":")[0], 50 + i * bw2, yH + 4, { width: bw2 - 10 });
+          doc.fillColor(col).fontSize(11).font("Helvetica-Bold").text(label.split(":")[1]?.trim() ?? "", 50 + i * bw2, yH + 14, { width: bw2 - 10 });
+        });
+        yH += 38;
+      }
+
+      // Multi-year P&L table
+      doc.fillColor("#1a56db").fontSize(11).font("Helvetica-Bold").text("Multi-Year Profit & Loss (₹ Crores)", 45, yH);
+      yH += 16;
+      const pl2 = data.plHistory;
+      const plColW2 = pl2.headers.length > 0 ? Math.floor((PW - 120) / pl2.headers.length) : 60;
+      const plLabelW2 = PW - plColW2 * pl2.headers.length;
+
+      doc.rect(45, yH, PW, 14).fill("#1a56db");
+      doc.fillColor("#FFFFFF").fontSize(7.5).font("Helvetica-Bold").text("Metric", 50, yH + 4, { width: plLabelW2 });
+      pl2.headers.forEach((h, hi) => {
+        doc.fillColor("#FFFFFF").fontSize(7.5).font("Helvetica-Bold").text(h, 45 + plLabelW2 + hi * plColW2, yH + 4, { width: plColW2, align: "right" });
+      });
+      yH += 14;
+
+      const plRows2 = pl2.rows.filter(r =>
+        r.label.toLowerCase().includes("sales") ||
+        r.label.toLowerCase().includes("opm") ||
+        r.label.toLowerCase().includes("net profit") ||
+        r.label.toLowerCase().includes("eps")
+      ).slice(0, 7);
+
+      plRows2.forEach((row, ri) => {
+        const isPercent = row.label.toLowerCase().includes("opm") || row.label.toLowerCase().includes("%");
+        const isEps = row.label.toLowerCase().includes("eps");
+        const bg = ri % 2 === 0 ? "#FFFFFF" : "#EFF6FF";
+        doc.rect(45, yH, PW, 14).fill(bg);
+        doc.fillColor("#374151").fontSize(7.5).font("Helvetica").text(row.label, 50, yH + 3, { width: plLabelW2 });
+        row.values.forEach((v, vi) => {
+          const prev = vi > 0 ? row.values[vi - 1] : null;
+          const col = v !== null && prev !== null && prev !== 0 ? (v > prev ? "#16a34a" : v < prev ? "#dc2626" : "#111827") : "#111827";
+          const display = v === null ? "—" : isPercent ? `${v.toFixed(1)}%` : isEps ? v.toFixed(2) : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+          doc.fillColor(col).fontSize(8).font("Helvetica-Bold").text(display, 45 + plLabelW2 + vi * plColW2, yH + 3, { width: plColW2, align: "right" });
+        });
+        yH += 14;
+      });
+
+      yH += 10;
+
+      // Quarterly results
+      if (data.quarterlyHistory && data.quarterlyHistory.rows.length > 0) {
+        doc.moveTo(45, yH).lineTo(W - 45, yH).stroke("#E2E8F0");
+        yH += 10;
+        doc.fillColor("#1a56db").fontSize(11).font("Helvetica-Bold").text("Quarterly Results (₹ Crores)", 45, yH);
+        yH += 16;
+        const qh2 = data.quarterlyHistory;
+        const qColW2 = qh2.headers.length > 0 ? Math.floor((PW - 120) / qh2.headers.length) : 60;
+        const qLabelW2 = PW - qColW2 * qh2.headers.length;
+
+        doc.rect(45, yH, PW, 14).fill("#7c3aed");
+        doc.fillColor("#FFFFFF").fontSize(7.5).font("Helvetica-Bold").text("Metric", 50, yH + 4, { width: qLabelW2 });
+        qh2.headers.forEach((h, hi) => {
+          doc.fillColor("#FFFFFF").fontSize(7.5).font("Helvetica-Bold").text(h, 45 + qLabelW2 + hi * qColW2, yH + 4, { width: qColW2, align: "right" });
+        });
+        yH += 14;
+
+        const qRows2 = qh2.rows.filter(r =>
+          r.label.toLowerCase().includes("sales") ||
+          r.label.toLowerCase().includes("opm") ||
+          r.label.toLowerCase().includes("net profit") ||
+          r.label.toLowerCase().includes("eps")
+        ).slice(0, 5);
+
+        qRows2.forEach((row, ri) => {
+          const isPercent = row.label.toLowerCase().includes("opm") || row.label.toLowerCase().includes("%");
+          const isEps = row.label.toLowerCase().includes("eps");
+          const bg = ri % 2 === 0 ? "#FFFFFF" : "#F5F3FF";
+          doc.rect(45, yH, PW, 14).fill(bg);
+          doc.fillColor("#374151").fontSize(7.5).font("Helvetica").text(row.label, 50, yH + 3, { width: qLabelW2 });
+          row.values.forEach((v, vi) => {
+            const isLatest = vi === row.values.length - 1;
+            const display = v === null ? "—" : isPercent ? `${v.toFixed(1)}%` : isEps ? v.toFixed(2) : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+            doc.fillColor(isLatest ? "#7c3aed" : "#111827").fontSize(8).font(isLatest ? "Helvetica-Bold" : "Helvetica").text(display, 45 + qLabelW2 + vi * qColW2, yH + 3, { width: qColW2, align: "right" });
+          });
+          yH += 14;
+        });
+      }
+
+      // Footer historical page
+      const fYH = doc.page.height - 40;
+      doc.rect(0, fYH, W, 40).fill("#F1F5F9");
+      doc.fillColor("#1a56db").fontSize(9).font("Helvetica-Bold").text("FintekPro Research", 45, fYH + 10);
+      doc.fillColor("#94A3B8").fontSize(7).font("Helvetica-Oblique").text("Historical Data · For Professional Use Only", W - 200, fYH + 12);
+    }
 
     // ── PAGE 3 ─────────────────────────────────────────────────────────────
     doc.addPage();

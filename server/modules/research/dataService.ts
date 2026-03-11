@@ -52,6 +52,11 @@ export interface FinancialData {
 
 // ─── Screener data shape ──────────────────────────────────────────────────────
 
+export interface HistoricalTable {
+  headers: string[];
+  rows: { label: string; values: (number | null)[] }[];
+}
+
 export interface ScreenerData {
   roe: number | null;
   roce: number | null;
@@ -68,6 +73,17 @@ export interface ScreenerData {
   operatingCashFlow: number | null;
   freeCashFlow: number | null;
   operatingMargin: number | null;   // decimal fraction
+  // Extended historical data
+  plHistory: HistoricalTable | null;
+  bsHistory: HistoricalTable | null;
+  cfHistory: HistoricalTable | null;
+  ratiosHistory: HistoricalTable | null;
+  quarterlyHistory: HistoricalTable | null;
+  companyDescription: string | null;
+  salesCagr3Y: number | null;
+  salesCagr5Y: number | null;
+  profitCagr3Y: number | null;
+  profitCagr5Y: number | null;
 }
 
 // ─── Data quality metadata ────────────────────────────────────────────────────
@@ -160,7 +176,6 @@ function extractTableLastTwoRows(html: string, sectionId: string, rowLabel: stri
 
   const rows = section.split(/<tr[^>]*>/i);
   for (const row of rows) {
-    // Try class="text" first, then fall back to any first <td> that looks like a label
     const strictMatch = row.match(/class="text"[^>]*>([\s\S]*?)<\/td>/i);
     let name: string;
     if (strictMatch) {
@@ -169,7 +184,7 @@ function extractTableLastTwoRows(html: string, sectionId: string, rowLabel: stri
       const anyMatch = row.match(/<td[^>]*>([\s\S]*?)<\/td>/i);
       if (!anyMatch) continue;
       const candidate = anyMatch[1].replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\+/g, "").trim();
-      if (/^\d+[\d.,\s]*$/.test(candidate) || candidate.length < 2) continue; // skip numeric/empty cells
+      if (/^\d+[\d.,\s]*$/.test(candidate) || candidate.length < 2) continue;
       name = candidate;
     }
     if (!name.toLowerCase().includes(rowLabel.toLowerCase())) continue;
@@ -179,6 +194,74 @@ function extractTableLastTwoRows(html: string, sectionId: string, rowLabel: stri
     }
   }
   return [null, null];
+}
+
+/**
+ * Extract a full historical table from a Screener.in section.
+ * Returns column headers (years/quarters) and row data.
+ */
+function extractFullTable(
+  html: string,
+  sectionId: string,
+  rowLabels: string[],
+  maxCols = 6
+): HistoricalTable | null {
+  const sectionStart = html.indexOf(`id="${sectionId}"`);
+  if (sectionStart < 0) return null;
+  const sectionEnd = html.indexOf("</section>", sectionStart);
+  const section = html.slice(sectionStart, sectionEnd > 0 ? sectionEnd : sectionStart + 60000);
+
+  // Parse column headers from thead
+  const theadMatch = section.match(/<thead[^>]*>([\s\S]*?)<\/thead>/i);
+  let headers: string[] = [];
+  if (theadMatch) {
+    headers = [...theadMatch[1].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/gi)]
+      .map(m => m[1].replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").trim())
+      .filter(h => h.length > 0 && h !== "+");
+  }
+
+  // Trim to last maxCols data columns (skip the row-label column)
+  const dataHeaders = headers.length > 1 ? headers.slice(1) : headers;
+  const trimmedHeaders = dataHeaders.slice(-maxCols);
+
+  const tbodyMatch = section.match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/i);
+  const body = tbodyMatch ? tbodyMatch[1] : section;
+  const trBlocks = [...body.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)].map(m => m[1]);
+
+  const resultRows: { label: string; values: (number | null)[] }[] = [];
+
+  for (const wantedLabel of rowLabels) {
+    for (const block of trBlocks) {
+      // Extract label from first td
+      const labelMatch = block.match(/<td[^>]*>([\s\S]*?)<\/td>/i);
+      if (!labelMatch) continue;
+      const rawLabel = labelMatch[1].replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\+/g, "").trim();
+      if (!rawLabel.toLowerCase().includes(wantedLabel.toLowerCase())) continue;
+
+      // Extract all numeric cells
+      const allCells = [...block.matchAll(/<td[^>]*>\s*(-?[\d,\.]+)%?\s*<\/td>/g)]
+        .map(m => parseNum(m[1]));
+
+      // Take the last maxCols values
+      const vals = allCells.slice(-maxCols);
+      // Pad front with nulls if fewer than expected
+      while (vals.length < trimmedHeaders.length) vals.unshift(null);
+
+      resultRows.push({ label: rawLabel, values: vals });
+      break;
+    }
+  }
+
+  if (resultRows.length === 0) return null;
+  return { headers: trimmedHeaders, rows: resultRows };
+}
+
+function computeCagr(values: (number | null)[], years: number): number | null {
+  if (values.length < years + 1) return null;
+  const end = values[values.length - 1];
+  const start = values[values.length - 1 - years];
+  if (end === null || start === null || start <= 0) return null;
+  return Math.pow(end / start, 1 / years) - 1;
 }
 
 async function fetchFundamentalsFromPython(nseSymbol: string): Promise<ScreenerData | null> {
@@ -237,6 +320,17 @@ function mergeScreenerWithPython(screener: ScreenerData, python: ScreenerData): 
     operatingCashFlow: pick(screener.operatingCashFlow, python.operatingCashFlow),
     freeCashFlow: pick(screener.freeCashFlow, python.freeCashFlow),
     operatingMargin: pick(screener.operatingMargin, python.operatingMargin),
+    // Historical tables only come from Screener — Python doesn't supply them
+    plHistory: screener.plHistory,
+    bsHistory: screener.bsHistory,
+    cfHistory: screener.cfHistory,
+    ratiosHistory: screener.ratiosHistory,
+    quarterlyHistory: screener.quarterlyHistory,
+    companyDescription: screener.companyDescription,
+    salesCagr3Y: screener.salesCagr3Y,
+    salesCagr5Y: screener.salesCagr5Y,
+    profitCagr3Y: screener.profitCagr3Y,
+    profitCagr5Y: screener.profitCagr5Y,
   };
 }
 
@@ -246,6 +340,8 @@ export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData
     revenueGrowth: null, earningsGrowth: null, debtToEquity: null,
     pe: null, pb: null,
     revenue: null, netIncome: null, operatingCashFlow: null, freeCashFlow: null, operatingMargin: null,
+    plHistory: null, bsHistory: null, cfHistory: null, ratiosHistory: null, quarterlyHistory: null,
+    companyDescription: null, salesCagr3Y: null, salesCagr5Y: null, profitCagr3Y: null, profitCagr5Y: null,
   };
 
   try {
@@ -345,6 +441,55 @@ export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData
         ? Math.round((borrowings / totalEquity) * 1000) / 1000
         : null;
 
+    // ─── Extended historical tables ───────────────────────────────────────────
+
+    // Multi-year P&L
+    const plHistory = extractFullTable(html, "profit-loss", [
+      "Sales", "Expenses", "Operating Profit", "OPM %", "Other Income", "Interest", "Depreciation", "Net Profit", "EPS in Rs",
+    ], 6);
+
+    // Multi-year Balance Sheet
+    const bsHistory = extractFullTable(html, "balance-sheet", [
+      "Equity Capital", "Reserves", "Borrowings", "Fixed Assets", "Total Assets",
+    ], 6);
+
+    // Multi-year Cash Flows
+    const cfHistory = extractFullTable(html, "cash-flow", [
+      "Cash from Operating", "Cash from Investing", "Cash from Financing", "Net Cash Flow",
+    ], 6);
+
+    // Key ratios (efficiency metrics)
+    const ratiosHistory = extractFullTable(html, "ratios", [
+      "Debtor Days", "Inventory Days", "Days Payable", "Cash Conversion Cycle", "Working Capital Days", "ROCE %",
+    ], 6);
+
+    // Quarterly results
+    const quarterlyHistory = extractFullTable(html, "quarters", [
+      "Sales", "Expenses", "Operating Profit", "OPM %", "Net Profit", "EPS in Rs",
+    ], 5);
+
+    // Company description
+    let companyDescription: string | null = null;
+    const aboutStart = html.search(/<div[^>]*class="[^"]*about[^"]*"[^>]*>/i);
+    if (aboutStart >= 0) {
+      const chunk = html.slice(aboutStart, aboutStart + 4000);
+      const pMatch = chunk.match(/<p[^>]*>([\s\S]{20,800}?)<\/p>/i);
+      if (pMatch) {
+        companyDescription = pMatch[1]
+          .replace(/<[^>]+>/g, "")
+          .replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+          .replace(/\s+/g, " ").trim();
+      }
+    }
+
+    // CAGR calculations from P&L historical data
+    const salesRow = plHistory?.rows.find(r => r.label.toLowerCase().includes("sales"));
+    const profitRow = plHistory?.rows.find(r => r.label.toLowerCase().includes("net profit"));
+    const salesCagr3Y = salesRow ? computeCagr(salesRow.values, 3) : null;
+    const salesCagr5Y = salesRow ? computeCagr(salesRow.values, 5) : null;
+    const profitCagr3Y = profitRow ? computeCagr(profitRow.values, 3) : null;
+    const profitCagr5Y = profitRow ? computeCagr(profitRow.values, 5) : null;
+
     console.log(
       `[ResearchNote] Screener.in ${nseSymbol} → ROE:${roe !== null ? (roe * 100).toFixed(2) + "%" : "N/A"}`,
       `ROCE:${roce !== null ? (roce * 100).toFixed(2) + "%" : "N/A"}`,
@@ -354,12 +499,16 @@ export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData
       `Rev:${revenue !== null ? "₹" + revenue.toFixed(0) + "Cr" : "N/A"}`,
       `OPM:${operatingMargin !== null ? (operatingMargin * 100).toFixed(1) + "%" : "N/A"}`,
       `CFO:${operatingCashFlow !== null ? "₹" + operatingCashFlow.toFixed(0) + "Cr" : "N/A"}`,
-      `FCF:${freeCashFlow !== null ? "₹" + freeCashFlow.toFixed(0) + "Cr" : "N/A"}`
+      `FCF:${freeCashFlow !== null ? "₹" + freeCashFlow.toFixed(0) + "Cr" : "N/A"}`,
+      `PLHist:${plHistory?.rows.length ?? 0}rows`,
+      `Qtrs:${quarterlyHistory?.rows.length ?? 0}rows`
     );
 
     return {
       roe, roce, dividendYield, bookValue, revenueGrowth, earningsGrowth, debtToEquity, pe, pb,
       revenue, netIncome, operatingCashFlow, freeCashFlow, operatingMargin,
+      plHistory, bsHistory, cfHistory, ratiosHistory, quarterlyHistory,
+      companyDescription, salesCagr3Y, salesCagr5Y, profitCagr3Y, profitCagr5Y,
     };
   } catch (e: any) {
     console.warn("[ResearchNote] Screener.in fetch failed:", e?.message);
@@ -691,6 +840,9 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
       operatingCashFlow: dbData.operatingCashFlow,
       freeCashFlow: dbData.freeCashFlow,
       operatingMargin: dbData.operatingMargin,
+      // Historical tables not stored in DB — always null when served from cache
+      plHistory: null, bsHistory: null, cfHistory: null, ratiosHistory: null, quarterlyHistory: null,
+      companyDescription: null, salesCagr3Y: null, salesCagr5Y: null, profitCagr3Y: null, profitCagr5Y: null,
     };
     const ageHours = dbData.lastUpdated
       ? Math.round((Date.now() - dbData.lastUpdated.getTime()) / 36000) / 100
@@ -738,7 +890,7 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
     console.log(
       `[ResearchNote] Fetched ${symbol} — ₹${data.price} | ROE:${data.roe !== null ? (data.roe * 100).toFixed(1) + "%" : "N/A"} | Rev:${data.revenue !== null ? "₹" + data.revenue.toFixed(0) + "Cr" : "N/A"} | OPM:${data.operatingMargin !== null ? (data.operatingMargin * 100).toFixed(1) + "%" : "N/A"} | src:${fundamentalsSource.source}`
     );
-    return { ...data, _fundamentalsSource: fundamentalsSource };
+    return { ...data, _fundamentalsSource: fundamentalsSource, _screenerData: screener };
   }
 
   console.warn(`[ResearchNote] NSE failed for ${nseSymbol}:`, (nseResult as any).reason?.message);
@@ -750,7 +902,7 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
       const yData = await fetchFromYahoo(ySym);
       const data  = buildFull(yData, dbData, screener);
       cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
-      return { ...data, _fundamentalsSource: fundamentalsSource };
+      return { ...data, _fundamentalsSource: fundamentalsSource, _screenerData: screener };
     } catch (e: any) {
       if (isRateLimit(e)) {
         throw new Error("Financial data is temporarily unavailable. Please wait 60 seconds and try again.");
@@ -770,6 +922,7 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
         scrapedAt: dbData.lastUpdated?.toISOString() ?? null,
         ageHours: dbData.lastUpdated ? Math.round((Date.now() - dbData.lastUpdated.getTime()) / 36000) / 100 : null,
       },
+      _screenerData: screener,
     };
   }
 
