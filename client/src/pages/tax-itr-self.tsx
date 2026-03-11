@@ -866,8 +866,9 @@ export default function TaxITRSelfPage() {
   const [form16Uploading, setForm16Uploading] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<string>("wizard");
 
-  const { data: panContext } = useQuery<PANContext>({
+  const { data: panContext, isLoading: panLoading } = useQuery<PANContext>({
     queryKey: ["/api/tax/pan-context"],
+    enabled: isAuthenticated,
   });
 
   const { data: historyData, isLoading: isLoadingHistory } = useQuery({
@@ -1145,11 +1146,6 @@ export default function TaxITRSelfPage() {
 
   const [sandboxTaxResult, setSandboxTaxResult] = useState<SandboxTaxResult | null>(null);
   const [taxCalcError, setTaxCalcError] = useState<string | null>(null);
-
-  const { data: panContext, isLoading: panLoading } = useQuery<PANContext>({
-    queryKey: ["/api/tax/pan-context"],
-    enabled: isAuthenticated
-  });
 
   const saveDraftMutation = useMutation({
     mutationFn: async (draft: Partial<ITRDraft>) => {

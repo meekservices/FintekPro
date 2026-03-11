@@ -15,4 +15,5 @@ dependencies = [
     "scipy>=1.17.1",
     "statsmodels>=0.14.6",
     "uvicorn[standard]>=0.41.0",
+    "yfinance==0.2.43",
 ]
