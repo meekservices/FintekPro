@@ -67,19 +67,33 @@ class HistoricalNavRefreshJob {
     
     let successCount = 0;
     let newRecords = 0;
+    let warmupConsecutiveFailures = 0;
+    const WARMUP_CIRCUIT_BREAKER = 3;
     
     for (const schemeCode of popularSchemes) {
+      if (warmupConsecutiveFailures >= WARMUP_CIRCUIT_BREAKER) {
+        console.warn(`[HistoricalNavRefresh] Warmup circuit breaker tripped — MFAPI appears down. Skipping remaining warmup schemes.`);
+        break;
+      }
+
       try {
         const result = await historicalNavService.fetchAndStoreMutualFundHistory(schemeCode);
         if (result.success) {
           successCount++;
           newRecords += result.recordsStored;
+          warmupConsecutiveFailures = 0;
+        } else {
+          warmupConsecutiveFailures++;
         }
         // Yield event loop then rate-limit delay
         await new Promise(resolve => setImmediate(resolve));
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
-        console.error(`[HistoricalNavRefresh] Failed to warmup ${schemeCode}:`, error);
+        const msg = error instanceof Error ? error.message : String(error);
+        if (warmupConsecutiveFailures === 0) {
+          console.error(`[HistoricalNavRefresh] Warmup failed for ${schemeCode}: ${msg}`);
+        }
+        warmupConsecutiveFailures++;
       }
     }
     
@@ -105,7 +119,9 @@ class HistoricalNavRefreshJob {
     };
     
     const MAX_RUN_MS = 45 * 60 * 1000; // 45-minute hard cap per refresh run
+    const CIRCUIT_BREAKER_THRESHOLD = 5; // abort after this many consecutive 5xx failures
     const batchStart = Date.now();
+    let consecutiveFailures = 0;
 
     try {
       // Get all unique schemes we have data for
@@ -125,24 +141,39 @@ class HistoricalNavRefreshJob {
           break;
         }
 
+        // Circuit breaker: if MFAPI is returning 5xx on every call, stop hammering it
+        if (consecutiveFailures >= CIRCUIT_BREAKER_THRESHOLD) {
+          console.warn(`[HistoricalNavRefresh] Circuit breaker tripped — ${consecutiveFailures} consecutive failures. MFAPI appears down. Aborting run.`);
+          break;
+        }
+
         try {
           const result = await historicalNavService.fetchAndStoreMutualFundHistory(scheme.identifier);
           
           if (result.success) {
             stats.successfulRefreshes++;
             stats.newRecordsAdded += result.recordsStored;
+            consecutiveFailures = 0; // reset on success
           } else {
             stats.failedRefreshes++;
+            consecutiveFailures++;
           }
         } catch (error) {
-          console.error(`[HistoricalNavRefresh] Error refreshing ${scheme.identifier}:`, error);
+          const msg = error instanceof Error ? error.message : String(error);
+          // Only log first failure per run to avoid flooding logs with repeated 502s
+          if (consecutiveFailures === 0) {
+            console.error(`[HistoricalNav] Error fetching ${scheme.identifier}: ${msg}`);
+          }
           stats.failedRefreshes++;
+          consecutiveFailures++;
         }
 
         // Yield the event loop so node-cron and other timers can fire between schemes
         await new Promise(resolve => setImmediate(resolve));
-        // Rate limit — 500ms between requests
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Rate limit — 500ms between requests (skip if circuit about to trip)
+        if (consecutiveFailures < CIRCUIT_BREAKER_THRESHOLD) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
       
       console.log(`[HistoricalNavRefresh] Daily refresh complete:`, {
