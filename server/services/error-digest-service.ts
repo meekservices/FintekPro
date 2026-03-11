@@ -3,7 +3,7 @@ import { emailService } from "../email-service";
 import { aiService } from "./ai-service";
 import { db } from "../db";
 import { users } from "../../shared/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 
 interface ErrorDigest {
   period: string;

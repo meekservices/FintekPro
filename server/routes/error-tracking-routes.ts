@@ -16,8 +16,10 @@ router.post("/ingest", async (req: Request, res: Response) => {
     
     const error = await errorTrackingService.ingestError(validatedData, ipAddress);
     
-    // Send critical alert for critical/error severity
-    if (validatedData.severity === 'critical' || validatedData.severity === 'error') {
+    // Send critical alert only on first occurrence (occurrenceCount === 1) to prevent
+    // duplicate emails every time the same error is reported again.
+    const isFirstOccurrence = error.occurrenceCount === 1;
+    if (isFirstOccurrence && (validatedData.severity === 'critical' || validatedData.severity === 'error')) {
       errorDigestService.sendCriticalAlert({
         id: error.id,
         errorCode: validatedData.errorCode,

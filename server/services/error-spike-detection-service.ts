@@ -62,9 +62,9 @@ class ErrorSpikeDetectionService {
     message: string;
     environment?: string;
   }): Promise<void> {
-    if (errorEntry.severity === 'critical') {
-      await this.sendCriticalAlert(errorEntry);
-    }
+    // NOTE: Per-error critical alerts are handled by errorTrackingService.triggerCriticalAlert()
+    // and the route's errorDigestService.sendCriticalAlert() (first occurrence only).
+    // This service is only responsible for SPIKE detection alerts.
 
     const spikeResult = await this.checkForSpike(errorEntry.errorCode, errorEntry.module);
     
