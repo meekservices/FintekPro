@@ -75,7 +75,8 @@ class HistoricalNavRefreshJob {
           successCount++;
           newRecords += result.recordsStored;
         }
-        // Small delay between requests
+        // Yield event loop then rate-limit delay
+        await new Promise(resolve => setImmediate(resolve));
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
         console.error(`[HistoricalNavRefresh] Failed to warmup ${schemeCode}:`, error);
@@ -103,6 +104,9 @@ class HistoricalNavRefreshJob {
       nextRunAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
     };
     
+    const MAX_RUN_MS = 45 * 60 * 1000; // 45-minute hard cap per refresh run
+    const batchStart = Date.now();
+
     try {
       // Get all unique schemes we have data for
       const existingSchemes = await db.selectDistinct({
@@ -116,6 +120,11 @@ class HistoricalNavRefreshJob {
       
       // Refresh each scheme
       for (const scheme of existingSchemes) {
+        if (Date.now() - batchStart > MAX_RUN_MS) {
+          console.warn(`[HistoricalNavRefresh] 45m time cap reached — stopping after ${stats.successfulRefreshes} schemes`);
+          break;
+        }
+
         try {
           const result = await historicalNavService.fetchAndStoreMutualFundHistory(scheme.identifier);
           
@@ -125,14 +134,15 @@ class HistoricalNavRefreshJob {
           } else {
             stats.failedRefreshes++;
           }
-          
-          // Rate limit - wait 500ms between requests
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
         } catch (error) {
           console.error(`[HistoricalNavRefresh] Error refreshing ${scheme.identifier}:`, error);
           stats.failedRefreshes++;
         }
+
+        // Yield the event loop so node-cron and other timers can fire between schemes
+        await new Promise(resolve => setImmediate(resolve));
+        // Rate limit — 500ms between requests
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
       
       console.log(`[HistoricalNavRefresh] Daily refresh complete:`, {

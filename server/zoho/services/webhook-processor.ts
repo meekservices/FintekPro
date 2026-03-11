@@ -37,6 +37,8 @@ const FIELD_AUTHORITY: Record<string, { zoho: string[]; fintekpro: string[] }> =
 };
 
 let _processingLock = false;
+let _lockAcquiredAt: number | null = null;
+const LOCK_TIMEOUT_MS = 10 * 60 * 1000;
 
 interface ProcessingResult {
   eventId: string;
@@ -67,15 +69,23 @@ export class ZohoWebhookProcessor {
     }
 
     if (_processingLock) {
-      console.log('[WebhookProcessor] Skipped - another processing batch is already running');
-      return { processed: 0, succeeded: 0, failed: 0, deadLettered: 0, results: [] };
+      if (_lockAcquiredAt && Date.now() - _lockAcquiredAt > LOCK_TIMEOUT_MS) {
+        console.warn('[WebhookProcessor] Lock held for >10m — force-releasing stale lock');
+        _processingLock = false;
+        _lockAcquiredAt = null;
+      } else {
+        console.log('[WebhookProcessor] Skipped - another processing batch is already running');
+        return { processed: 0, succeeded: 0, failed: 0, deadLettered: 0, results: [] };
+      }
     }
 
     _processingLock = true;
+    _lockAcquiredAt = Date.now();
     try {
       return await this._processBatch(limit);
     } finally {
       _processingLock = false;
+      _lockAcquiredAt = null;
     }
   }
 
