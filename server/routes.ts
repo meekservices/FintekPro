@@ -993,13 +993,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
   // Historical NAV Data Service (Portfolio Metrics from Real Data)
   app.use("/api/historical-nav", historicalNavRoutes);
-  if (isProductionEnvironment()) {
-    historicalNavRefreshJob.initialize();
-    console.log("✅ Historical NAV Data routes registered (with daily refresh job)");
-  } else {
-    console.log("✅ Historical NAV Data routes registered");
-    console.log("⏭️ [HistoricalNavRefresh] Daily refresh skipped (development mode - production only)");
-  }
+  console.log("✅ Historical NAV Data routes registered");
+  console.log("⏭️ [HistoricalNavRefresh] Auto-refresh disabled — MFAPI dependency removed");
 
   // Global Advisory Routes (EPIC 1 & 2)
   app.use("/api/global-advisory", globalAdvisoryRoutes);

@@ -112,10 +112,7 @@ export function initializeCronJobs(): void {
     }, delay);
     delay += STAGGER_DELAY_MS;
     
-    staggeredStart('Historical NAV Refresh', () => {
-      historicalNavRefreshJob.initialize();
-      console.log('📊 [HistoricalNAV] Historical NAV data refresh job started (daily incremental updates)');
-    }, delay);
+    console.log('⏭️ [HistoricalNAV] Historical NAV refresh job disabled — MFAPI dependency removed');
     delay += STAGGER_DELAY_MS;
     
     staggeredStart('Benchmark Sync', () => {
