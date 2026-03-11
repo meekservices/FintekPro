@@ -63,6 +63,7 @@ import {
   ChevronRight,
   Info,
   X,
+  Download,
 } from "lucide-react";
 
 interface DailyPick {
