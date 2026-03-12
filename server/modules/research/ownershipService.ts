@@ -264,9 +264,9 @@ async function fetchShareholdingFromScreener(nseSymbol: string): Promise<Shareho
       const prev   = nums.length >= 2 ? nums[nums.length - 2] : null;
       if (/promoter/.test(label) && !/pledg/.test(label) && promoterPct === null) {
         promoterPct = latest; promoterPrevPct = prev;
-      } else if ((/\bfii\b|\bfpi\b|foreign institutional|foreign portfolio/).test(label) && fiiPct === null) {
+      } else if ((/\bfiis?\b|\bfpis?\b|foreign institutional|foreign portfolio|foreign invest/).test(label) && fiiPct === null) {
         fiiPct = latest;
-      } else if ((/\bdii\b|domestic institutional/).test(label) && diiPct === null) {
+      } else if ((/\bdiis?\b|domestic institutional|domestic invest/).test(label) && diiPct === null) {
         diiPct = latest;
       } else if (/\bpublic\b/.test(label) && !/institution/.test(label) && publicPct === null) {
         publicPct = latest;
@@ -332,7 +332,9 @@ export async function fetchShareholding(nseSymbol: string): Promise<Shareholding
     if (!res.ok) throw new Error(`NSE shareholding HTTP ${res.status}`);
     const raw = await res.json() as any;
 
-    const records: any[] = Array.isArray(raw) ? raw : (raw?.data ?? raw?.shareholdingPatterns ?? []);
+    const records: any[] = Array.isArray(raw)
+      ? raw
+      : (raw?.data ?? raw?.shareholdingPatterns ?? raw?.dateRecords ?? raw?.shareholdingPatternList ?? []);
     if (records.length < 1) throw new Error("No shareholding records");
 
     const sorted = records.sort((a: any, b: any) => {
@@ -352,17 +354,32 @@ export async function fetchShareholding(nseSymbol: string): Promise<Shareholding
     const promoterPct = pf(latest.promoterAndPromoterGroupShareHolding ?? latest.promoter ?? latest.promoterTotal);
     const promoterPrevPct = prev ? pf(prev.promoterAndPromoterGroupShareHolding ?? prev.promoter ?? prev.promoterTotal) : null;
 
+    const fiiRaw = pf(
+      latest.foreignInstitutionalInvestors ?? latest.foreignPortfolioInvestors ??
+      latest.fpi ?? latest.fpiTotal ?? latest.fii ?? latest.fiiTotal ?? latest.fiis ?? null
+    );
+    const diiRaw = pf(
+      latest.domesticInstitutionalInvestors ?? latest.domesticInstitutions ??
+      latest.dii ?? latest.diiTotal ?? latest.diis ?? null
+    );
+    const pubRaw = pf(latest.public ?? latest.publicShareholding ?? latest.publicTotal ?? latest.nonInstitutionShareHolding ?? null);
+
+    // If FII/DII not in top-level, try to infer from institution total (nonPromoterNonPublicShareholding)
+    const instTotal = pf(latest.nonPromoterNonPublicShareholding ?? latest.institutionShareHolding ?? latest.institutions ?? null);
+    const fiiResolved = fiiRaw ?? (instTotal !== null && diiRaw === null ? instTotal : null);
+    const diiResolved = diiRaw;
+
     const data: ShareholdingData = {
       promoterPct,
       promoterPrevPct,
       promoterChange: (promoterPct !== null && promoterPrevPct !== null) ? Math.round((promoterPct - promoterPrevPct) * 100) / 100 : null,
-      fiiPct: pf(latest.foreignInstitutionalInvestors ?? latest.fii ?? latest.fiiTotal),
-      diiPct: pf(latest.domesticInstitutionalInvestors ?? latest.dii ?? latest.diiTotal),
+      fiiPct: fiiResolved,
+      diiPct: diiResolved,
       mutualFundPct: pf(latest.mutualFunds ?? latest.mutualFund),
-      publicPct: pf(latest.public ?? latest.publicShareholding ?? latest.publicTotal),
+      publicPct: pubRaw,
       pledgedPct: pf(latest.pledgedSharePercentage ?? latest.pledged),
-      quarter: latest.quarter ?? latest.shareholdingDate ?? null,
-      prevQuarter: prev?.quarter ?? prev?.shareholdingDate ?? null,
+      quarter: latest.quarter ?? latest.shareholdingDate ?? latest.dateDesc ?? null,
+      prevQuarter: prev?.quarter ?? prev?.shareholdingDate ?? prev?.dateDesc ?? null,
     };
 
     shareholdingCache.set(sym, { data, expiresAt: Date.now() + CACHE_TTL });
