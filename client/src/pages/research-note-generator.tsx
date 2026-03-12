@@ -169,9 +169,10 @@ function signPct(val: number | null): string {
 function fmtCap(val: number | null, currency = "INR"): string {
   if (!val) return "N/A";
   if (currency === "INR") {
+    // val is in raw rupees (1 Cr = 1e7, 1 K Cr = 1,000 Cr = 1e10, 1 L Cr = 1,00,000 Cr = 1e12)
     if (val >= 1e12) return `₹${(val / 1e12).toFixed(2)} L Cr`;
-    if (val >= 1e9) return `₹${(val / 1e9).toFixed(2)} K Cr`;
-    if (val >= 1e7) return `₹${(val / 1e7).toFixed(2)} Cr`;
+    if (val >= 1e10) return `₹${(val / 1e10).toFixed(2)} K Cr`;
+    if (val >= 1e7)  return `₹${(val / 1e7).toFixed(2)} Cr`;
     return `₹${val.toFixed(0)}`;
   }
   return `$${val.toFixed(0)}`;

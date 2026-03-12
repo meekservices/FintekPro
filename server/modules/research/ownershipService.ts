@@ -63,27 +63,7 @@ async function enrichPeer(symbol: string): Promise<{ roe: number | null; pe: num
       bookValue: screener.bookValue,
     };
 
-    if (result.pe === null || result.pb === null) {
-      const gf = await fetchFromGoogleFinance(symbol);
-      if (result.pe === null && gf.pe !== null) result.pe = gf.pe;
-      if (result.pb === null && gf.pb !== null) result.pb = gf.pb;
-    }
-    // Try NSE API for P/B
-    if (result.pb === null) {
-      try {
-        await ensureNseCookies();
-        const nseRes = await fetch(
-          `https://www.nseindia.com/api/quote-equity?symbol=${encodeURIComponent(symbol.toUpperCase())}`,
-          { headers: { ...BROWSER_HEADERS, Accept: "application/json", Cookie: nseCookies, Referer: `https://www.nseindia.com/get-quotes/equity?symbol=${symbol}` }, signal: AbortSignal.timeout(10_000) }
-        );
-        if (nseRes.ok) {
-          const q = await nseRes.json() as any;
-          const pb = parseFloat(q?.metadata?.pdPriceToBV ?? "");
-          if (!isNaN(pb) && pb > 0) result.pb = pb;
-        }
-      } catch { /* non-critical */ }
-    }
-    // Final fallback: yfinance via Python sidecar (runs on localhost, fast)
+    // 2nd tier: yfinance via Python sidecar (reliable, localhost, no rate limits)
     if (result.pe === null || result.pb === null || result.roe === null) {
       try {
         const pyResp = await callPython<{ results: Record<string, any> }>(
@@ -99,6 +79,27 @@ async function enrichPeer(symbol: string): Promise<{ roe: number | null; pe: num
           if (result.bookValue === null && py.bookValue != null) result.bookValue = pf(py.bookValue);
         }
       } catch { /* Python sidecar unavailable — non-critical */ }
+    }
+    // 3rd tier: NSE API for P/B (reliable, official)
+    if (result.pb === null) {
+      try {
+        await ensureNseCookies();
+        const nseRes = await fetch(
+          `https://www.nseindia.com/api/quote-equity?symbol=${encodeURIComponent(symbol.toUpperCase())}`,
+          { headers: { ...BROWSER_HEADERS, Accept: "application/json", Cookie: nseCookies, Referer: `https://www.nseindia.com/get-quotes/equity?symbol=${symbol}` }, signal: AbortSignal.timeout(10_000) }
+        );
+        if (nseRes.ok) {
+          const q = await nseRes.json() as any;
+          const pb = parseFloat(q?.metadata?.pdPriceToBV ?? "");
+          if (!isNaN(pb) && pb > 0) result.pb = pb;
+        }
+      } catch { /* non-critical */ }
+    }
+    // 4th tier: Google Finance HTML scraping (fragile — JS-rendered page, last resort only)
+    if (result.pe === null || result.pb === null) {
+      const gf = await fetchFromGoogleFinance(symbol);
+      if (result.pe === null && gf.pe !== null) result.pe = gf.pe;
+      if (result.pb === null && gf.pb !== null) result.pb = gf.pb;
     }
 
     peerEnrichCache.set(symbol, { roe: result.roe, pe: result.pe, pb: result.pb, de: result.de, expiresAt: Date.now() + 30 * 60 * 1000 });
