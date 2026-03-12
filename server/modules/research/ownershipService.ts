@@ -2,6 +2,7 @@ import { db } from "../../db";
 import { sql } from "drizzle-orm";
 import { formatMarketCap } from "./financialEngine";
 import { fetchFromScreener } from "./dataService";
+import { callPython } from "../../clients/python-client";
 
 const BROWSER_HEADERS_GF = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -67,7 +68,7 @@ async function enrichPeer(symbol: string): Promise<{ roe: number | null; pe: num
       if (result.pe === null && gf.pe !== null) result.pe = gf.pe;
       if (result.pb === null && gf.pb !== null) result.pb = gf.pb;
     }
-    // Last resort: fetch PB from NSE quote-equity API (returns pdPriceToBV)
+    // Try NSE API for P/B
     if (result.pb === null) {
       try {
         await ensureNseCookies();
@@ -81,6 +82,23 @@ async function enrichPeer(symbol: string): Promise<{ roe: number | null; pe: num
           if (!isNaN(pb) && pb > 0) result.pb = pb;
         }
       } catch { /* non-critical */ }
+    }
+    // Final fallback: yfinance via Python sidecar (runs on localhost, fast)
+    if (result.pe === null || result.pb === null || result.roe === null) {
+      try {
+        const pyResp = await callPython<{ results: Record<string, any> }>(
+          '/market/peer-enrich', 'POST', { symbols: [symbol] }
+        );
+        const py = pyResp?.results?.[symbol];
+        if (py) {
+          const pf = (v: any) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+          if (result.pe === null && py.pe != null) result.pe = pf(py.pe);
+          if (result.pb === null && py.pb != null) result.pb = pf(py.pb);
+          if (result.roe === null && py.roe != null) result.roe = pf(py.roe);
+          if (result.de === null && py.debtToEquity != null) result.de = pf(py.debtToEquity);
+          if (result.bookValue === null && py.bookValue != null) result.bookValue = pf(py.bookValue);
+        }
+      } catch { /* Python sidecar unavailable — non-critical */ }
     }
 
     peerEnrichCache.set(symbol, { roe: result.roe, pe: result.pe, pb: result.pb, de: result.de, expiresAt: Date.now() + 30 * 60 * 1000 });

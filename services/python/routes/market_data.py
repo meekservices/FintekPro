@@ -4,23 +4,13 @@ FintekPro Python Market Data Routes — powered by yfinance
 Endpoints:
   POST /market/quotes          — batch price quotes for global stocks & ETFs
   POST /market/fundamentals    — Indian/global stock fundamentals + derived ratios + historical tables
+  POST /market/peer-enrich     — lightweight peer enrichment (PE, PB, ROE) for a batch of symbols
   GET  /market/movers/indian   — NIFTY50 top gainers & losers
   GET  /market/health          — provider health check
 
-Ratios derivable from yfinance (reducing Screener.in load):
-  Point-in-time : ROE, ROCE, P/E, P/B, D/E, Div Yield, Book Value,
-                  Operating Margin, Revenue, Net Income, OCF, FCF,
-                  Revenue Growth, Earnings Growth, EPS, Beta
-  Historical    : P&L history (4yr), Balance Sheet history (4yr),
-                  Cash Flow history (4yr), Quarterly history (4 qtrs)
-  Derived ratios: Debtor Days, Inventory Days, Days Payable, CCC,
-                  Working Capital Days, ROCE %
-  CAGR          : Sales CAGR 3Y, Profit CAGR 3Y
-  Description   : Company description (longBusinessSummary)
-
-NOT derivable through Python (only Screener.in has):
-  - Pros / Cons (Screener's machine-generated analysis)
-  - Sales / Profit CAGR 5Y (yfinance has max 4 years)
+Indian stock yfinance row name notes:
+  yfinance uses inconsistent row names for Indian (GAAP) vs US (US-GAAP) stocks.
+  All row-name lookups use ordered candidate lists (first match wins) so we handle both.
 """
 
 import asyncio
@@ -47,10 +37,50 @@ NIFTY50_SYMBOLS = [
     "TITAN.NS", "SUNPHARMA.NS", "ONGC.NS", "GRASIM.NS", "JSWSTEEL.NS",
     "TATAMOTORS.NS", "INDUSINDBK.NS", "TECHM.NS", "CIPLA.NS", "ADANIENT.NS",
     "ADANIPORTS.NS", "COALINDIA.NS", "DIVISLAB.NS", "DRREDDY.NS", "EICHERMOT.NS",
-    "HEROMOTOCO.NS", "HINDALCO.NS", "M&M.NS", "NESTLEIND.NS", "SHREECEM.NS",
+    "HEROMOTOCO.NS", "HINDALCO.NS", "M&M.NS", "SHREECEM.NS",
     "TATACONSUM.NS", "TATASTEEL.NS", "UPL.NS", "VEDL.NS", "BAJAJFINSV.NS",
     "BPCL.NS", "BRITANNIA.NS", "DABUR.NS", "GODREJCP.NS", "PIDILITIND.NS",
 ]
+
+# ── yfinance row-name candidates (first match wins) ───────────────────────────
+# These handle both US-GAAP and Indian-GAAP labels that yfinance uses
+
+_REVENUE_ROWS    = ["Total Revenue", "Operating Revenue", "Revenue", "Net Revenue"]
+_OP_INCOME_ROWS  = ["Operating Income", "EBIT", "Ebit",
+                    "Net Operating Income", "Income From Operations"]
+_NET_INCOME_ROWS = [
+    "Net Income",
+    "Net Income Common Stockholders",
+    "Net Income From Continuing Operation Net Minority Interest",
+    "Net Income From Continuing And Discontinued Operation",
+    "Normalized Income",
+]
+_INTEREST_ROWS   = ["Interest Expense", "Interest Expense Non Operating",
+                    "Net Interest Income"]
+_DEPR_ROWS       = ["Reconciled Depreciation", "Depreciation And Amortization",
+                    "Depreciation", "Depreciation Amortization Depletion",
+                    "Depreciation Depletion And Amortization"]
+_EPS_ROWS        = ["Basic EPS", "Diluted EPS", "Earnings Per Share"]
+_GROSS_PROFIT    = ["Gross Profit"]
+_EBITDA_ROWS     = ["EBITDA", "Normalized EBITDA"]
+
+_EQUITY_ROWS     = ["Common Stock", "Capital Stock", "Share Capital",
+                    "Common Stock Equity", "Stockholders Equity"]
+_RESERVES_ROWS   = ["Retained Earnings", "Additional Paid In Capital",
+                    "Gains Losses Not Affecting Retained Earnings"]
+_DEBT_ROWS       = ["Total Debt", "Long Term Debt And Capital Lease Obligation",
+                    "Long Term Debt", "Net Debt"]
+_SHORT_DEBT      = ["Current Debt And Capital Lease Obligation",
+                    "Current Debt", "Short Term Debt"]
+_PPE_ROWS        = ["Net PPE", "Property Plant Equipment Net",
+                    "Net Property Plant And Equipment"]
+_TOTAL_ASSET_ROWS = ["Total Assets"]
+_CURR_ASSET_ROWS  = ["Current Assets"]
+_CURR_LIAB_ROWS   = ["Current Liabilities"]
+_RECV_ROWS        = ["Accounts Receivable", "Net Receivables", "Receivables"]
+_INVENT_ROWS      = ["Inventory", "Inventories"]
+_AP_ROWS          = ["Accounts Payable", "Payables"]
+_GP_ROWS          = ["Gross Profit"]
 
 
 class QuotesRequest(BaseModel):
@@ -61,7 +91,11 @@ class FundamentalsRequest(BaseModel):
     symbol: str
 
 
-# ─── helpers ──────────────────────────────────────────────────────────────────
+class PeerEnrichRequest(BaseModel):
+    symbols: List[str]   # bare NSE symbols e.g. ["BEML", "TIL"]
+
+
+# ─── helper functions ─────────────────────────────────────────────────────────
 
 def _safe_float(v) -> Optional[float]:
     if v is None:
@@ -74,31 +108,26 @@ def _safe_float(v) -> Optional[float]:
 
 
 def _to_crore(v) -> Optional[float]:
-    """Convert raw INR value (as reported by yfinance) to ₹ Crores."""
     if v is None:
         return None
     try:
         f = float(v)
-        if f != f:
-            return None
-        return round(f / 1e7, 2)
+        return round(f / 1e7, 2) if f == f else None
     except (TypeError, ValueError):
         return None
 
 
 def _fmt_date(ts) -> str:
-    """Format a pandas Timestamp as 'Mar 2024'."""
     try:
         return ts.strftime("%b %Y")
     except Exception:
         return str(ts)[:7]
 
 
-def _df_val(df, row_names, col):
+def _df_val(df, row_names, col) -> Optional[float]:
     """
-    Safely read a cell from a yfinance DataFrame.
-    row_names can be a list of candidate names (tries each in order).
-    Returns float or None.
+    Read one cell from a yfinance DataFrame.
+    row_names: str or list of candidate names (first found wins).
     """
     if df is None or df.empty:
         return None
@@ -116,24 +145,19 @@ def _df_val(df, row_names, col):
     return None
 
 
-def _build_history(df, mappings, in_crore=True, max_cols=6, pct_scale=False):
+def _build_history(df, mappings, in_crore=True, max_cols=6):
     """
     Build a HistoricalTable dict from a yfinance DataFrame.
+    Only rows with at least one non-null value are returned.
 
-    df       : yfinance financials/balance_sheet/cashflow (cols=dates, rows=items)
-    mappings : list of (screener_label, yf_row_name_or_list, optional_transform)
-               transform(raw_float) → display_value
-    in_crore : divide raw values by 1e7 when True
-    max_cols : keep last N fiscal periods
-    pct_scale: if True, multiply by 100 (for percentage rows already in decimal)
+    mappings: list of (label, row_name_or_list [, transform_fn])
     """
     if df is None or df.empty:
         return None
     try:
         import pandas as pd
-        import numpy as np
 
-        cols = sorted(df.columns)  # chronological (oldest → newest)
+        cols = sorted(df.columns)
         if len(cols) > max_cols:
             cols = cols[-max_cols:]
 
@@ -148,11 +172,6 @@ def _build_history(df, mappings, in_crore=True, max_cols=6, pct_scale=False):
                 label, yf_name = item
 
             names = [yf_name] if isinstance(yf_name, str) else yf_name
-            found = None
-            for name in names:
-                if name in df.index:
-                    found = name
-                    break
 
             vals = []
             for c in cols:
@@ -167,11 +186,13 @@ def _build_history(df, mappings, in_crore=True, max_cols=6, pct_scale=False):
                 elif in_crore:
                     vals.append(_to_crore(raw))
                 else:
-                    vals.append(round(raw * 100, 2) if pct_scale else round(raw, 4))
-            rows.append({"label": label, "values": vals})
+                    vals.append(round(float(raw), 4))
 
-        non_null_rows = [r for r in rows if any(v is not None for v in r["values"])]
-        if not non_null_rows:
+            # Only include rows that have at least one non-null value
+            if any(v is not None for v in vals):
+                rows.append({"label": label, "values": vals})
+
+        if not rows:
             return None
         return {"headers": headers, "rows": rows}
     except Exception as e:
@@ -194,10 +215,9 @@ def _cagr(values: list, years: int) -> Optional[float]:
 
 def _fetch_fundamentals_sync(symbol: str) -> dict:
     """
-    Fetch full fundamentals for an Indian/global stock via yfinance.
+    Full fundamentals for an Indian/global stock via yfinance.
     Returns point-in-time ratios + historical tables + derived ratios.
-    All values that were previously only available from Screener.in are now
-    derived here, reducing external scrape calls to Screener for pros/cons only.
+    Only history rows with real data are included (all-null rows are dropped).
     """
     try:
         import yfinance as yf
@@ -206,14 +226,13 @@ def _fetch_fundamentals_sync(symbol: str) -> dict:
 
     ns_symbol = symbol
     if not (symbol.endswith(".NS") or symbol.endswith(".BO") or
-            "." in symbol.split("/")[-1]):
+            ("." in symbol.split("/")[-1] and not symbol.endswith(".NS"))):
         ns_symbol = f"{symbol}.NS"
 
     try:
         t = yf.Ticker(ns_symbol)
         info = t.info or {}
 
-        # Try .BO if .NS info is empty
         if not info.get("regularMarketPrice") and not info.get("currentPrice"):
             if ns_symbol.endswith(".NS"):
                 bo_sym = ns_symbol.replace(".NS", ".BO")
@@ -224,58 +243,53 @@ def _fetch_fundamentals_sync(symbol: str) -> dict:
                     t = t_bo
                     info = bo_info
 
-        roe_raw = _safe_float(info.get("returnOnEquity"))
-        de_raw = _safe_float(info.get("debtToEquity"))
+        roe_raw    = _safe_float(info.get("returnOnEquity"))
+        de_raw     = _safe_float(info.get("debtToEquity"))
         revenue_raw = info.get("totalRevenue")
-        net_income_raw = info.get("netIncomeToCommon")
-        fcf_raw = info.get("freeCashflow")
-        cfo_raw = info.get("operatingCashflow")
 
-        # ── Point-in-time fundamentals ────────────────────────────────────────
         base = {
-            "roe": roe_raw,
-            "roce": None,           # computed below from financial statements
-            "pe": _safe_float(info.get("trailingPE")) or _safe_float(info.get("forwardPE")),
-            "pb": _safe_float(info.get("priceToBook")),
-            "dividendYield": _safe_float(info.get("dividendYield")),
-            "debtToEquity": round(de_raw / 100, 4) if de_raw is not None else None,
-            "revenue": _to_crore(revenue_raw),
-            "netIncome": _to_crore(net_income_raw),
-            "operatingMargin": _safe_float(info.get("operatingMargins")),
-            "freeCashFlow": _to_crore(fcf_raw),
-            "operatingCashFlow": _to_crore(cfo_raw),
-            "bookValue": _safe_float(info.get("bookValue")),
-            "earningsGrowth": _safe_float(info.get("earningsGrowth")),
-            "revenueGrowth": _safe_float(info.get("revenueGrowth")),
-            "beta": _safe_float(info.get("beta")),
-            "eps": _safe_float(info.get("trailingEps")),
-            "price": _safe_float(info.get("currentPrice")) or _safe_float(info.get("regularMarketPrice")),
-            "name": info.get("longName") or info.get("shortName"),
-            "sector": info.get("sector"),
-            "industry": info.get("industry"),
-            "symbol": ns_symbol,
-            "source": "yfinance",
-            # History tables — populated below
-            "plHistory": None,
-            "bsHistory": None,
-            "cfHistory": None,
-            "ratiosHistory": None,
+            "roe":              roe_raw,
+            "roce":             None,
+            "pe":               _safe_float(info.get("trailingPE")) or _safe_float(info.get("forwardPE")),
+            "pb":               _safe_float(info.get("priceToBook")),
+            "dividendYield":    _safe_float(info.get("dividendYield")),
+            "debtToEquity":     round(de_raw / 100, 4) if de_raw is not None else None,
+            "revenue":          _to_crore(revenue_raw),
+            "netIncome":        _to_crore(info.get("netIncomeToCommon")),
+            "operatingMargin":  _safe_float(info.get("operatingMargins")),
+            "freeCashFlow":     _to_crore(info.get("freeCashflow")),
+            "operatingCashFlow":_to_crore(info.get("operatingCashflow")),
+            "bookValue":        _safe_float(info.get("bookValue")),
+            "earningsGrowth":   _safe_float(info.get("earningsGrowth")),
+            "revenueGrowth":    _safe_float(info.get("revenueGrowth")),
+            "beta":             _safe_float(info.get("beta")),
+            "eps":              _safe_float(info.get("trailingEps")),
+            "price":            (_safe_float(info.get("currentPrice")) or
+                                 _safe_float(info.get("regularMarketPrice"))),
+            "name":             info.get("longName") or info.get("shortName"),
+            "sector":           info.get("sector"),
+            "industry":         info.get("industry"),
+            "symbol":           ns_symbol,
+            "source":           "yfinance",
+            "plHistory":        None,
+            "bsHistory":        None,
+            "cfHistory":        None,
+            "ratiosHistory":    None,
             "quarterlyHistory": None,
             "companyDescription": None,
-            "salesCagr3Y": None,
-            "salesCagr5Y": None,    # yfinance gives max 4 years; computed if data available
-            "profitCagr3Y": None,
-            "profitCagr5Y": None,
+            "salesCagr3Y":      None,
+            "salesCagr5Y":      None,
+            "profitCagr3Y":     None,
+            "profitCagr5Y":     None,
         }
 
-        # ── Company description ───────────────────────────────────────────────
         desc = info.get("longBusinessSummary")
         if desc and isinstance(desc, str) and len(desc) > 20:
-            base["companyDescription"] = desc[:1200]  # cap at 1200 chars
+            base["companyDescription"] = desc[:1200]
 
-        # ── Fetch annual statements ───────────────────────────────────────────
+        # ── Fetch statements ──────────────────────────────────────────────────
         try:
-            fin = t.financials          # Annual P&L (cols=dates, rows=items)
+            fin = t.financials
         except Exception:
             fin = None
         try:
@@ -295,238 +309,250 @@ def _fetch_fundamentals_sync(symbol: str) -> dict:
         except Exception:
             qbs = None
 
-        # ── P&L History ───────────────────────────────────────────────────────
+        # ── Annual P&L History ────────────────────────────────────────────────
         if fin is not None and not fin.empty:
-            def opm_pct(raw):
-                return None  # placeholder; computed per-column below
+            fin_cols = sorted(fin.columns)[-6:]
+            headers  = [_fmt_date(c) for c in fin_cols]
+            pl_rows  = []
 
-            # OPM % needs Revenue and Operating Income together — build specially
-            pl_rows = []
-            fin_cols = sorted(fin.columns)[-6:]  # last 6 years max
-            headers = [_fmt_date(c) for c in fin_cols]
-
-            label_map = [
-                ("Sales",           ["Total Revenue"]),
-                ("Operating Profit",["Operating Income", "EBIT"]),
-                ("Other Income",    ["Other Non Operating Income", "Non Operating Income Other"]),
-                ("Interest",        ["Interest Expense", "Net Interest Income"]),
-                ("Depreciation",    ["Reconciled Depreciation", "Depreciation And Amortization"]),
-                ("Net Profit",      ["Net Income", "Net Income Common Stockholders"]),
-                ("EPS in Rs",       ["Basic EPS", "Diluted EPS"]),
-            ]
-
-            for label, names in label_map:
+            # Helper: build one row, skip if entirely null
+            def _pl_row(label, names, transform=None):
                 vals = []
                 for c in fin_cols:
                     raw = _df_val(fin, names, c)
                     if raw is None:
                         vals.append(None)
-                    elif label == "EPS in Rs":
-                        vals.append(round(float(raw), 2))          # already in ₹ per share
-                    elif label == "Interest":
-                        vals.append(_to_crore(abs(raw)))            # interest expense can be negative
+                    elif transform:
+                        try:
+                            vals.append(transform(raw))
+                        except Exception:
+                            vals.append(None)
                     else:
                         vals.append(_to_crore(raw))
-                pl_rows.append({"label": label, "values": vals})
+                if any(v is not None for v in vals):
+                    pl_rows.append({"label": label, "values": vals})
 
-            # OPM % = Operating Income / Revenue (as %)
-            opm_vals = []
+            _pl_row("Sales",            _REVENUE_ROWS)
+
+            # Operating Profit: try direct first, then derive from EBITDA - Depreciation
+            op_vals = []
             for c in fin_cols:
-                rev = _df_val(fin, ["Total Revenue"], c)
-                op  = _df_val(fin, ["Operating Income", "EBIT"], c)
-                if rev and op and rev > 0:
-                    opm_vals.append(round(op / rev * 100, 2))
-                else:
-                    opm_vals.append(None)
-            # Insert OPM % after Operating Profit
-            op_idx = next((i for i, r in enumerate(pl_rows) if r["label"] == "Operating Profit"), None)
-            if op_idx is not None:
-                pl_rows.insert(op_idx + 1, {"label": "OPM %", "values": opm_vals})
+                v = _df_val(fin, _OP_INCOME_ROWS, c)
+                if v is None:
+                    # derive: EBITDA - Depreciation
+                    ebitda = _df_val(fin, _EBITDA_ROWS, c)
+                    dep    = _df_val(fin, _DEPR_ROWS, c)
+                    if ebitda is not None and dep is not None:
+                        v = ebitda - dep
+                    elif ebitda is not None:
+                        # Use EBITDA as best proxy
+                        v = ebitda
+                op_vals.append(_to_crore(v) if v is not None else None)
 
-            if any(any(v is not None for v in r["values"]) for r in pl_rows):
+            if any(v is not None for v in op_vals):
+                pl_rows.append({"label": "Operating Profit", "values": op_vals})
+
+                # OPM %: Op Profit / Revenue × 100
+                opm_vals = []
+                rev_lookup = [_to_crore(_df_val(fin, _REVENUE_ROWS, c)) for c in fin_cols]
+                for op_v, rev_v in zip(op_vals, rev_lookup):
+                    opm_vals.append(
+                        round(op_v / rev_v * 100, 2)
+                        if op_v is not None and rev_v is not None and rev_v > 0
+                        else None
+                    )
+                if any(v is not None for v in opm_vals):
+                    pl_rows.append({"label": "OPM %", "values": opm_vals})
+
+            _pl_row("Other Income",    ["Other Non Operating Income",
+                                        "Non Operating Income Other",
+                                        "Other Income Expense"])
+            _pl_row("Interest",        _INTEREST_ROWS,
+                    transform=lambda v: _to_crore(abs(v)))   # interest can be sign-flipped
+            _pl_row("Depreciation",    _DEPR_ROWS)
+            _pl_row("Net Profit",      _NET_INCOME_ROWS)
+            _pl_row("EPS in Rs",       _EPS_ROWS,
+                    transform=lambda v: round(float(v), 2))   # already per share
+
+            if pl_rows:
                 base["plHistory"] = {"headers": headers, "rows": pl_rows}
 
-            # ── CAGR from P&L ─────────────────────────────────────────────────
-            rev_series = [_to_crore(_df_val(fin, ["Total Revenue"], c)) for c in fin_cols]
-            pat_series = [_to_crore(_df_val(fin, ["Net Income", "Net Income Common Stockholders"], c)) for c in fin_cols]
-
-            base["salesCagr3Y"]  = _cagr(rev_series, 3)
-            base["salesCagr5Y"]  = _cagr(rev_series, 5)
-            base["profitCagr3Y"] = _cagr(pat_series, 3)
-            base["profitCagr5Y"] = _cagr(pat_series, 5)
+            # ── CAGR ──────────────────────────────────────────────────────────
+            rev_s = [_to_crore(_df_val(fin, _REVENUE_ROWS, c)) for c in fin_cols]
+            pat_s = [_to_crore(_df_val(fin, _NET_INCOME_ROWS, c)) for c in fin_cols]
+            base["salesCagr3Y"]  = _cagr(rev_s, 3)
+            base["salesCagr5Y"]  = _cagr(rev_s, 5)
+            base["profitCagr3Y"] = _cagr(pat_s, 3)
+            base["profitCagr5Y"] = _cagr(pat_s, 5)
 
         # ── Balance Sheet History ─────────────────────────────────────────────
         if bs is not None and not bs.empty:
-            bs_cols = sorted(bs.columns)[-6:]
-            bs_headers = [_fmt_date(c) for c in bs_cols]
-            bs_rows = []
-
-            bs_map = [
-                ("Equity Capital",  ["Common Stock", "Share Capital"]),
-                ("Reserves",        ["Retained Earnings", "Additional Paid In Capital"]),
-                ("Borrowings",      ["Long Term Debt", "Short Long Term Debt"]),
-                ("Fixed Assets",    ["Net PPE", "Property Plant Equipment Net"]),
-                ("Total Assets",    ["Total Assets"]),
+            bs_mappings = [
+                ("Equity Capital",  _EQUITY_ROWS),
+                ("Reserves",        _RESERVES_ROWS),
+                ("Borrowings",      _DEBT_ROWS),
+                ("Fixed Assets",    _PPE_ROWS),
+                ("Total Assets",    _TOTAL_ASSET_ROWS),
             ]
+            base["bsHistory"] = _build_history(bs, bs_mappings, in_crore=True)
 
-            for label, names in bs_map:
-                vals = []
-                for c in bs_cols:
-                    raw = _df_val(bs, names, c)
-                    vals.append(_to_crore(raw) if raw is not None else None)
-                bs_rows.append({"label": label, "values": vals})
-
-            if any(any(v is not None for v in r["values"]) for r in bs_rows):
-                base["bsHistory"] = {"headers": bs_headers, "rows": bs_rows}
-
-            # ── ROCE from most-recent year ────────────────────────────────────
-            if fin is not None and not fin.empty and bs_cols:
-                latest_bs = bs_cols[-1]
-                # Match P&L col nearest to BS date
+            # ROCE from latest year
+            if fin is not None and not fin.empty:
+                bs_cols  = sorted(bs.columns)
                 fin_cols_all = sorted(fin.columns)
-                latest_fin = fin_cols_all[-1] if fin_cols_all else None
-
-                if latest_fin is not None:
-                    ebit = _df_val(fin, ["Operating Income", "EBIT"], latest_fin)
-                    total_assets = _df_val(bs, ["Total Assets"], latest_bs)
-                    curr_liab = _df_val(bs, ["Current Liabilities"], latest_bs)
-                    if ebit and total_assets:
-                        cap_employed = total_assets - (curr_liab or 0)
-                        if cap_employed > 0:
-                            base["roce"] = round(ebit / cap_employed, 4)  # decimal fraction
+                if bs_cols and fin_cols_all:
+                    latest_bs  = bs_cols[-1]
+                    latest_fin = fin_cols_all[-1]
+                    ebit = (_df_val(fin, _OP_INCOME_ROWS, latest_fin) or
+                            (_df_val(fin, _EBITDA_ROWS, latest_fin) or 0) -
+                            (_df_val(fin, _DEPR_ROWS, latest_fin) or 0))
+                    ta   = _df_val(bs, _TOTAL_ASSET_ROWS, latest_bs)
+                    cl   = _df_val(bs, _CURR_LIAB_ROWS,   latest_bs)
+                    if ebit and ta:
+                        cap_emp = ta - (cl or 0)
+                        if cap_emp > 0:
+                            base["roce"] = round(ebit / cap_emp, 4)
 
         # ── Cash Flow History ─────────────────────────────────────────────────
         if cf is not None and not cf.empty:
             cf_cols = sorted(cf.columns)[-6:]
             cf_headers = [_fmt_date(c) for c in cf_cols]
             cf_rows = []
-
             cf_map = [
-                ("Cash from Operating",  ["Operating Cash Flow"]),
-                ("Cash from Investing",  ["Investing Cash Flow"]),
-                ("Cash from Financing",  ["Financing Cash Flow"]),
+                ("Cash from Operating", ["Operating Cash Flow"]),
+                ("Cash from Investing", ["Investing Cash Flow"]),
+                ("Cash from Financing", ["Financing Cash Flow"]),
             ]
-
-            row_series = {}
+            series_by_label = {}
             for label, names in cf_map:
                 vals = []
                 for c in cf_cols:
                     raw = _df_val(cf, names, c)
                     vals.append(_to_crore(raw) if raw is not None else None)
-                cf_rows.append({"label": label, "values": vals})
-                row_series[label] = vals
+                if any(v is not None for v in vals):
+                    cf_rows.append({"label": label, "values": vals})
+                series_by_label[label] = vals
 
-            # Net Cash Flow = sum of the three
+            # Net Cash Flow
             net_vals = []
             for i in range(len(cf_cols)):
-                parts = [
-                    row_series.get("Cash from Operating", [None]*len(cf_cols))[i],
-                    row_series.get("Cash from Investing",  [None]*len(cf_cols))[i],
-                    row_series.get("Cash from Financing",  [None]*len(cf_cols))[i],
-                ]
+                parts = [series_by_label.get(lbl, [None]*len(cf_cols))[i]
+                         for lbl in ["Cash from Operating",
+                                     "Cash from Investing",
+                                     "Cash from Financing"]]
                 net = sum(p for p in parts if p is not None) if any(p is not None for p in parts) else None
                 net_vals.append(round(net, 2) if net is not None else None)
-            cf_rows.append({"label": "Net Cash Flow", "values": net_vals})
+            if any(v is not None for v in net_vals):
+                cf_rows.append({"label": "Net Cash Flow", "values": net_vals})
 
-            if any(any(v is not None for v in r["values"]) for r in cf_rows):
+            if cf_rows:
                 base["cfHistory"] = {"headers": cf_headers, "rows": cf_rows}
 
         # ── Quarterly History ─────────────────────────────────────────────────
         if qfin is not None and not qfin.empty:
-            q_cols = sorted(qfin.columns)[-5:]    # last 5 quarters
+            q_cols = sorted(qfin.columns)[-5:]
             q_headers = [_fmt_date(c) for c in q_cols]
             q_rows = []
 
-            q_map = [
-                ("Sales",            ["Total Revenue"]),
-                ("Operating Profit", ["Operating Income", "EBIT"]),
-                ("Net Profit",       ["Net Income", "Net Income Common Stockholders"]),
-                ("EPS in Rs",        ["Basic EPS", "Diluted EPS"]),
-            ]
-
-            for label, names in q_map:
+            def _q_row(label, names, transform=None):
                 vals = []
                 for c in q_cols:
                     raw = _df_val(qfin, names, c)
                     if raw is None:
                         vals.append(None)
-                    elif label == "EPS in Rs":
-                        vals.append(round(float(raw), 2))
+                    elif transform:
+                        try:
+                            vals.append(transform(raw))
+                        except Exception:
+                            vals.append(None)
                     else:
                         vals.append(_to_crore(raw))
-                q_rows.append({"label": label, "values": vals})
+                if any(v is not None for v in vals):
+                    q_rows.append({"label": label, "values": vals})
 
-            # Quarterly OPM %
-            q_opm = []
+            _q_row("Sales",       _REVENUE_ROWS)
+
+            # Quarterly Operating Profit
+            q_op_vals = []
             for c in q_cols:
-                rev = _df_val(qfin, ["Total Revenue"], c)
-                op  = _df_val(qfin, ["Operating Income", "EBIT"], c)
-                q_opm.append(round(op / rev * 100, 2) if rev and op and rev > 0 else None)
-            op_i = next((i for i, r in enumerate(q_rows) if r["label"] == "Operating Profit"), None)
-            if op_i is not None:
-                q_rows.insert(op_i + 1, {"label": "OPM %", "values": q_opm})
+                v = _df_val(qfin, _OP_INCOME_ROWS, c)
+                if v is None:
+                    ebitda = _df_val(qfin, _EBITDA_ROWS, c)
+                    dep    = _df_val(qfin, _DEPR_ROWS, c)
+                    if ebitda is not None and dep is not None:
+                        v = ebitda - dep
+                    elif ebitda is not None:
+                        v = ebitda
+                q_op_vals.append(_to_crore(v) if v is not None else None)
 
-            if any(any(v is not None for v in r["values"]) for r in q_rows):
+            if any(v is not None for v in q_op_vals):
+                q_rows.append({"label": "Operating Profit", "values": q_op_vals})
+                q_opm = []
+                q_rev = [_to_crore(_df_val(qfin, _REVENUE_ROWS, c)) for c in q_cols]
+                for op_v, rev_v in zip(q_op_vals, q_rev):
+                    q_opm.append(
+                        round(op_v / rev_v * 100, 2)
+                        if op_v is not None and rev_v is not None and rev_v > 0
+                        else None
+                    )
+                if any(v is not None for v in q_opm):
+                    q_rows.append({"label": "OPM %", "values": q_opm})
+
+            _q_row("Net Profit",  _NET_INCOME_ROWS)
+            _q_row("EPS in Rs",   _EPS_ROWS, transform=lambda v: round(float(v), 2))
+
+            if q_rows:
                 base["quarterlyHistory"] = {"headers": q_headers, "rows": q_rows}
 
-        # ── Working Capital Ratios (ratiosHistory) ────────────────────────────
-        # Derived from balance sheet + income statement
+        # ── Working Capital Ratios ────────────────────────────────────────────
         if bs is not None and not bs.empty and fin is not None and not fin.empty:
             try:
-                # Use the years that appear in BOTH statements
                 common_years = sorted(set(bs.columns) & set(fin.columns))[-6:]
                 if common_years:
                     r_headers = [_fmt_date(c) for c in common_years]
                     ratio_rows = []
 
-                    def _ratio_row(label, values):
-                        ratio_rows.append({"label": label, "values": values})
-
-                    # Debtor Days = (Accounts Receivable / Revenue) * 365
-                    deb_vals = []
-                    inv_vals = []
-                    pay_vals = []
-                    ccc_vals = []
-                    wc_vals  = []
-                    roce_vals = []
-
+                    deb_v, inv_v, pay_v, ccc_v, wc_v, roce_v = [], [], [], [], [], []
                     for c in common_years:
-                        rev  = _df_val(fin, ["Total Revenue"], c)
-                        cogs_raw = None
-                        gp = _df_val(fin, ["Gross Profit"], c)
-                        if rev and gp:
-                            cogs_raw = rev - gp
-                        ar   = _df_val(bs, ["Accounts Receivable", "Net Receivables"], c)
-                        inv  = _df_val(bs, ["Inventory"], c)
-                        ap   = _df_val(bs, ["Accounts Payable"], c)
-                        ca   = _df_val(bs, ["Current Assets"], c)
-                        cl   = _df_val(bs, ["Current Liabilities"], c)
-                        ta   = _df_val(bs, ["Total Assets"], c)
-                        ebit = _df_val(fin, ["Operating Income", "EBIT"], c)
+                        rev  = _df_val(fin, _REVENUE_ROWS, c)
+                        gp   = _df_val(fin, _GP_ROWS, c)
+                        cogs = (rev - gp) if rev and gp else None
+                        ar   = _df_val(bs, _RECV_ROWS,    c)
+                        inv  = _df_val(bs, _INVENT_ROWS,  c)
+                        ap   = _df_val(bs, _AP_ROWS,      c)
+                        ca   = _df_val(bs, _CURR_ASSET_ROWS, c)
+                        cl   = _df_val(bs, _CURR_LIAB_ROWS,  c)
+                        ta   = _df_val(bs, _TOTAL_ASSET_ROWS, c)
+                        ebit = _df_val(fin, _OP_INCOME_ROWS, c)
+                        if ebit is None:
+                            eb = _df_val(fin, _EBITDA_ROWS, c)
+                            dp = _df_val(fin, _DEPR_ROWS, c)
+                            if eb and dp:
+                                ebit = eb - dp
 
                         dd = round(ar / rev * 365, 1) if ar and rev and rev > 0 else None
-                        id_ = round(inv / cogs_raw * 365, 1) if inv and cogs_raw and cogs_raw > 0 else None
-                        dp  = round(ap / cogs_raw * 365, 1) if ap and cogs_raw and cogs_raw > 0 else None
-                        ccc = round(dd + id_ - dp, 1) if dd is not None and id_ is not None and dp is not None else None
+                        id_ = round(inv / cogs * 365, 1) if inv and cogs and cogs > 0 else None
+                        dp_ = round(ap / cogs * 365, 1) if ap and cogs and cogs > 0 else None
+                        ccc = round(dd + id_ - dp_, 1) if all(x is not None for x in [dd, id_, dp_]) else None
                         wc  = round(((ca or 0) - (cl or 0)) / rev * 365, 1) if ca and rev and rev > 0 else None
                         cap_emp = ta - (cl or 0) if ta else None
                         roce_yr = round(ebit / cap_emp * 100, 2) if ebit and cap_emp and cap_emp > 0 else None
 
-                        deb_vals.append(dd)
-                        inv_vals.append(id_)
-                        pay_vals.append(dp)
-                        ccc_vals.append(ccc)
-                        wc_vals.append(wc)
-                        roce_vals.append(roce_yr)
+                        deb_v.append(dd); inv_v.append(id_); pay_v.append(dp_)
+                        ccc_v.append(ccc); wc_v.append(wc); roce_v.append(roce_yr)
 
-                    _ratio_row("Debtor Days", deb_vals)
-                    _ratio_row("Inventory Days", inv_vals)
-                    _ratio_row("Days Payable", pay_vals)
-                    _ratio_row("Cash Conversion Cycle", ccc_vals)
-                    _ratio_row("Working Capital Days", wc_vals)
-                    _ratio_row("ROCE %", roce_vals)
+                    for label, vals in [
+                        ("Debtor Days", deb_v),
+                        ("Inventory Days", inv_v),
+                        ("Days Payable", pay_v),
+                        ("Cash Conversion Cycle", ccc_v),
+                        ("Working Capital Days", wc_v),
+                        ("ROCE %", roce_v),
+                    ]:
+                        if any(v is not None for v in vals):
+                            ratio_rows.append({"label": label, "values": vals})
 
-                    if any(any(v is not None for v in r["values"]) for r in ratio_rows):
+                    if ratio_rows:
                         base["ratiosHistory"] = {"headers": r_headers, "rows": ratio_rows}
             except Exception as e:
                 logger.debug(f"[yfinance] ratiosHistory error: {e}")
@@ -538,18 +564,53 @@ def _fetch_fundamentals_sync(symbol: str) -> dict:
         return {"error": str(e), "source": "yfinance"}
 
 
-def _fetch_quotes_sync(symbols: List[str]) -> dict:
-    """Batch fetch live price quotes via yfinance fast_info."""
+def _fetch_peer_enrich_sync(symbols: List[str]) -> dict:
+    """
+    Lightweight: fetch PE, PB, ROE, D/E for a list of NSE symbols via yfinance.
+    Used as fallback when Screener.in fails for peers.
+    Returns {symbol: {pe, pb, roe, debtToEquity, bookValue, price, marketCap}}.
+    """
     try:
         import yfinance as yf
     except ImportError:
-        logger.error("[yfinance] yfinance not installed")
+        return {}
+
+    results = {}
+    for sym in symbols:
+        ns = f"{sym}.NS" if not sym.endswith((".NS", ".BO")) else sym
+        try:
+            t = yf.Ticker(ns)
+            info = t.info or {}
+            if not info:
+                continue
+            roe_raw = _safe_float(info.get("returnOnEquity"))
+            de_raw  = _safe_float(info.get("debtToEquity"))
+            results[sym] = {
+                "pe":           _safe_float(info.get("trailingPE")),
+                "pb":           _safe_float(info.get("priceToBook")),
+                "roe":          roe_raw,
+                "debtToEquity": round(de_raw / 100, 4) if de_raw is not None else None,
+                "bookValue":    _safe_float(info.get("bookValue")),
+                "price":        (_safe_float(info.get("currentPrice")) or
+                                 _safe_float(info.get("regularMarketPrice"))),
+                "marketCap":    _safe_float(info.get("marketCap")),
+                "dividendYield":_safe_float(info.get("dividendYield")),
+            }
+        except Exception as e:
+            logger.debug(f"[yfinance] peer-enrich skip {sym}: {e}")
+
+    return results
+
+
+def _fetch_quotes_sync(symbols: List[str]) -> dict:
+    try:
+        import yfinance as yf
+    except ImportError:
         return {}
 
     results = {}
     if not symbols:
         return results
-
     try:
         joined = " ".join(symbols)
         tickers = yf.Tickers(joined)
@@ -586,7 +647,6 @@ def _fetch_quotes_sync(symbols: List[str]) -> dict:
 
 
 def _fetch_movers_sync() -> dict:
-    """Fetch NIFTY50 gainers/losers using yfinance batch download."""
     try:
         import yfinance as yf
         import pandas as pd
@@ -597,14 +657,9 @@ def _fetch_movers_sync() -> dict:
     try:
         symbols = list(dict.fromkeys(NIFTY50_SYMBOLS))
         data = yf.download(
-            symbols,
-            period="2d",
-            interval="1d",
-            group_by="ticker",
-            auto_adjust=True,
-            progress=False,
-            threads=True,
-            timeout=30,
+            symbols, period="2d", interval="1d",
+            group_by="ticker", auto_adjust=True,
+            progress=False, threads=True, timeout=30,
         )
 
         for sym in symbols:
@@ -621,18 +676,15 @@ def _fetch_movers_sync() -> dict:
                     continue
 
                 today_close = float(closes.iloc[-1])
-                prev_close = float(closes.iloc[-2])
-
+                prev_close  = float(closes.iloc[-2])
                 if today_close <= 0 or prev_close <= 0:
                     continue
 
-                change = today_close - prev_close
+                change     = today_close - prev_close
                 change_pct = (change / prev_close) * 100
-                display_sym = sym.replace(".NS", "").replace(".BO", "")
-
+                display    = sym.replace(".NS", "").replace(".BO", "")
                 stocks.append({
-                    "symbol": display_sym,
-                    "name": display_sym,
+                    "symbol": display, "name": display,
                     "price": round(today_close, 2),
                     "change": round(change, 2),
                     "changePercent": round(change_pct, 4),
@@ -640,20 +692,15 @@ def _fetch_movers_sync() -> dict:
                 })
             except Exception:
                 pass
-
     except Exception as e:
         logger.error(f"[yfinance] Market movers download error: {e}")
 
     stocks.sort(key=lambda x: x["changePercent"], reverse=True)
     gainers = [s for s in stocks if s["changePercent"] > 0][:5]
-    losers = sorted([s for s in stocks if s["changePercent"] < 0], key=lambda x: x["changePercent"])[:5]
-
-    return {
-        "gainers": gainers,
-        "losers": losers,
-        "total": len(stocks),
-        "source": "yfinance",
-    }
+    losers  = sorted([s for s in stocks if s["changePercent"] < 0],
+                     key=lambda x: x["changePercent"])[:5]
+    return {"gainers": gainers, "losers": losers,
+            "total": len(stocks), "source": "yfinance"}
 
 
 # ─── routes ───────────────────────────────────────────────────────────────────
@@ -663,13 +710,11 @@ async def batch_quotes(
     payload: QuotesRequest,
     _: TokenPayload = Depends(verify_token),
 ):
-    """Batch price quotes for global stocks and ETFs via yfinance."""
     symbols = payload.symbols
     if not symbols:
         raise HTTPException(status_code=400, detail="symbols list required")
     if len(symbols) > 150:
         raise HTTPException(status_code=400, detail="Max 150 symbols per request")
-
     loop = asyncio.get_event_loop()
     results = await loop.run_in_executor(_executor, _fetch_quotes_sync, symbols)
     return {"results": results, "count": len(results), "source": "yfinance"}
@@ -681,22 +726,36 @@ async def stock_fundamentals(
     _: TokenPayload = Depends(verify_token),
 ):
     """
-    Fetch Indian stock fundamentals via yfinance.
-    Returns point-in-time ratios + 4-year historical tables + derived working-capital ratios.
-    This reduces dependency on Screener.in to pros/cons analysis only.
+    Full Indian stock fundamentals via yfinance.
+    Returns point-in-time ratios + 4-year historical tables (only rows with data).
     """
     symbol = payload.symbol.strip().upper()
     if not symbol:
         raise HTTPException(status_code=400, detail="symbol required")
-
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(_executor, _fetch_fundamentals_sync, symbol)
     return result
 
 
+@router.post("/peer-enrich")
+async def peer_enrich(
+    payload: PeerEnrichRequest,
+    _: TokenPayload = Depends(verify_token),
+):
+    """
+    Lightweight peer enrichment: PE, PB, ROE, D/E for up to 10 NSE symbols.
+    Used as fallback when Screener.in fails for peer comparison.
+    """
+    symbols = payload.symbols[:10]
+    if not symbols:
+        raise HTTPException(status_code=400, detail="symbols list required")
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(_executor, _fetch_peer_enrich_sync, symbols)
+    return {"results": result, "count": len(result)}
+
+
 @router.get("/movers/indian")
 async def indian_market_movers(_: TokenPayload = Depends(verify_token)):
-    """NIFTY50 top gainers and losers via yfinance batch download."""
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(_executor, _fetch_movers_sync)
     return result
@@ -704,7 +763,6 @@ async def indian_market_movers(_: TokenPayload = Depends(verify_token)):
 
 @router.get("/health")
 async def market_data_health():
-    """Check yfinance availability."""
     try:
         import yfinance as yf
         version = getattr(yf, "__version__", "unknown")
