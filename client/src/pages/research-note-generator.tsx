@@ -781,12 +781,155 @@ export default function ResearchNoteGenerator() {
               </Card>
             )}
 
-            {/* Valuation summary */}
-            <Card className="border-muted bg-muted/20">
-              <CardContent className="pt-4">
-                <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <Info className="h-4 w-4 mt-0.5 shrink-0" />
-                  <p>{d.valuationSummary}</p>
+            {/* Valuation Snapshot */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-blue-600" /> Valuation Snapshot
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {/* P/E Ratio */}
+                  {d.financials.pe !== null && (() => {
+                    const v = d.financials.pe!;
+                    const { label, color } = v < 15
+                      ? { label: "Attractive", color: "green" }
+                      : v < 30
+                      ? { label: "Moderate", color: "amber" }
+                      : { label: "Premium", color: "red" };
+                    const border = color === "green" ? "border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
+                      : color === "amber" ? "border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20"
+                      : "border-l-red-500 bg-red-50/50 dark:bg-red-950/20";
+                    const text = color === "green" ? "text-green-700 dark:text-green-400"
+                      : color === "amber" ? "text-amber-700 dark:text-amber-400"
+                      : "text-red-700 dark:text-red-400";
+                    return (
+                      <div className={`border-l-4 ${border} rounded-r-lg p-3 space-y-1`}>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">P/E Ratio</p>
+                        <p className="text-xl font-bold text-foreground">{v.toFixed(1)}x</p>
+                        <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded ${text}`}>{label}</span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* ROE */}
+                  {d.financials.roe !== null && (() => {
+                    const v = d.financials.roe!;
+                    const pct = v > 1 ? v : v * 100;
+                    const { label, color } = pct >= 20
+                      ? { label: "High ROE", color: "green" }
+                      : pct >= 10
+                      ? { label: "Moderate", color: "amber" }
+                      : { label: "Low ROE", color: "red" };
+                    const border = color === "green" ? "border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
+                      : color === "amber" ? "border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20"
+                      : "border-l-red-500 bg-red-50/50 dark:bg-red-950/20";
+                    const text = color === "green" ? "text-green-700 dark:text-green-400"
+                      : color === "amber" ? "text-amber-700 dark:text-amber-400"
+                      : "text-red-700 dark:text-red-400";
+                    return (
+                      <div className={`border-l-4 ${border} rounded-r-lg p-3 space-y-1`}>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Return on Equity</p>
+                        <p className="text-xl font-bold text-foreground">{pct.toFixed(1)}%</p>
+                        <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded ${text}`}>{label}</span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* P/B Ratio */}
+                  {d.financials.pbRatio !== null && (() => {
+                    const v = d.financials.pbRatio!;
+                    const { label, color } = v < 1
+                      ? { label: "Below Book", color: "green" }
+                      : v < 3
+                      ? { label: "Fair Value", color: "green" }
+                      : v < 6
+                      ? { label: "Premium", color: "amber" }
+                      : { label: "High Premium", color: "red" };
+                    const border = color === "green" ? "border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
+                      : color === "amber" ? "border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20"
+                      : "border-l-red-500 bg-red-50/50 dark:bg-red-950/20";
+                    const text = color === "green" ? "text-green-700 dark:text-green-400"
+                      : color === "amber" ? "text-amber-700 dark:text-amber-400"
+                      : "text-red-700 dark:text-red-400";
+                    return (
+                      <div className={`border-l-4 ${border} rounded-r-lg p-3 space-y-1`}>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Price / Book</p>
+                        <p className="text-xl font-bold text-foreground">{v.toFixed(2)}x</p>
+                        <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded ${text}`}>{label}</span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Debt / Equity */}
+                  {d.financials.debtToEquity !== null && (() => {
+                    const v = d.financials.debtToEquity!;
+                    const { label, color } = v < 0.5
+                      ? { label: "Debt-Free", color: "green" }
+                      : v < 1.5
+                      ? { label: "Manageable", color: "amber" }
+                      : { label: "Leveraged", color: "red" };
+                    const border = color === "green" ? "border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
+                      : color === "amber" ? "border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20"
+                      : "border-l-red-500 bg-red-50/50 dark:bg-red-950/20";
+                    const text = color === "green" ? "text-green-700 dark:text-green-400"
+                      : color === "amber" ? "text-amber-700 dark:text-amber-400"
+                      : "text-red-700 dark:text-red-400";
+                    return (
+                      <div className={`border-l-4 ${border} rounded-r-lg p-3 space-y-1`}>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Debt / Equity</p>
+                        <p className="text-xl font-bold text-foreground">{v.toFixed(2)}x</p>
+                        <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded ${text}`}>{label}</span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* ROCE / Revenue Growth */}
+                  {(d.financials.roce !== null || d.financials.revenueGrowth !== null) && (() => {
+                    if (d.financials.roce !== null) {
+                      const v = d.financials.roce!;
+                      const pct = v > 1 ? v : v * 100;
+                      const { label, color } = pct >= 15
+                        ? { label: "Excellent", color: "green" }
+                        : pct >= 10
+                        ? { label: "Decent", color: "amber" }
+                        : { label: "Weak", color: "red" };
+                      const border = color === "green" ? "border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
+                        : color === "amber" ? "border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20"
+                        : "border-l-red-500 bg-red-50/50 dark:bg-red-950/20";
+                      const text = color === "green" ? "text-green-700 dark:text-green-400"
+                        : color === "amber" ? "text-amber-700 dark:text-amber-400"
+                        : "text-red-700 dark:text-red-400";
+                      return (
+                        <div className={`border-l-4 ${border} rounded-r-lg p-3 space-y-1`}>
+                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">ROCE</p>
+                          <p className="text-xl font-bold text-foreground">{pct.toFixed(1)}%</p>
+                          <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded ${text}`}>{label}</span>
+                        </div>
+                      );
+                    }
+                    const v = d.financials.revenueGrowth!;
+                    const pct = v > 1 ? v : v * 100;
+                    const { label, color } = pct > 15
+                      ? { label: "High Growth", color: "green" }
+                      : pct > 0
+                      ? { label: "Positive", color: "amber" }
+                      : { label: "Declining", color: "red" };
+                    const border = color === "green" ? "border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
+                      : color === "amber" ? "border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20"
+                      : "border-l-red-500 bg-red-50/50 dark:bg-red-950/20";
+                    const text = color === "green" ? "text-green-700 dark:text-green-400"
+                      : color === "amber" ? "text-amber-700 dark:text-amber-400"
+                      : "text-red-700 dark:text-red-400";
+                    return (
+                      <div className={`border-l-4 ${border} rounded-r-lg p-3 space-y-1`}>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Revenue Growth</p>
+                        <p className="text-xl font-bold text-foreground">{pct > 0 ? "+" : ""}{pct.toFixed(1)}%</p>
+                        <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded ${text}`}>{label}</span>
+                      </div>
+                    );
+                  })()}
                 </div>
               </CardContent>
             </Card>
