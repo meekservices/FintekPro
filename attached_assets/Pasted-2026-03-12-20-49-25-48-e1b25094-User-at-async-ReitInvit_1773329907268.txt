@@ -1,0 +1,126 @@
+2026-03-12 20:49:25.48
+e1b25094
+User
+at async ReitInvitDataService.refreshAllReits (file:///home/runner/workspace/dist/index.js:117313:26)
+2026-03-12 20:49:25.48
+e1b25094
+User
+at async ReitInvitDataService.refreshReit (file:///home/runner/workspace/dist/index.js:117247:34)
+2026-03-12 20:49:31.23
+e1b25094
+User
+[PythonClient] POST /market/quotes unreachable: fetch failed
+2026-03-12 20:51:21.88
+e1b25094
+User
+[ResearchNote] Screener.in fetch failed: The operation was aborted due to timeout
+2026-03-12 20:51:40.01
+e1b25094
+User
+[ResearchNote] Screener.in fetch failed: The operation was aborted due to timeout
+2026-03-12 20:52:00.28
+e1b25094
+User
+[ResearchNote] Screener.in fetch failed: The operation was aborted due to timeout
+2026-03-12 20:52:49.88
+e1b25094
+User
+[ResearchNote] Screener.in fetch failed: The operation was aborted due to timeout
+2026-03-12 20:53:06.88
+e1b25094
+User
+[ResearchNote] Screener.in fetch failed: The operation was aborted due to timeout
+2026-03-12 20:54:08.28
+e1b25094
+User
+We'll try to continue anyway - you can safely ignore this if the request succeeds
+2026-03-12 20:54:08.28
+e1b25094
+User
+We expected a redirect to guce.yahoo.com, but got https://finance.yahoo.com/quote/AAPL/
+2026-03-12 20:54:09.98
+e1b25094
+User
+[HistoricalNav] Error fetching 148277: The operation was aborted due to timeout
+2026-03-12 20:57:53.28
+e1b25094
+User
+[HistoricalNav] Error fetching 107138: The operation was aborted due to timeout
+2026-03-12 21:03:37.58
+e1b25094
+User
+at async NeonPreparedQuery.execute (file:///home/runner/workspace/node_modules/drizzle-orm/neon-serverless/session.js:76:20)
+2026-03-12 21:03:37.58
+e1b25094
+User
+at listOnTimeout (node:internal/timers:545:9)
+2026-03-12 21:03:37.58
+e1b25094
+User
+at async InvestmentDataCache.refreshProductType (file:///home/runner/workspace/dist/index.js:296405:25)
+2026-03-12 21:03:37.58
+e1b25094
+User
+❌ [InvestmentDataCache] Failed to fetch Unlisted Equities: Error: timeout exceeded when trying to connect
+2026-03-12 21:03:37.58
+e1b25094
+User
+[Global] Neon library error (non-fatal, throttling further occurrences for 5m)
+2026-03-12 21:03:37.58
+e1b25094
+User
+at async NeonPreparedQuery.execute (file:///home/runner/workspace/node_modules/drizzle-orm/neon-serverless/session.js:76:20)
+2026-03-12 21:03:37.58
+e1b25094
+User
+at listOnTimeout (node:internal/timers:545:9)
+2026-03-12 21:03:37.58
+e1b25094
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2026-03-12 21:03:37.58
+e1b25094
+User
+at process.processTimers (node:internal/timers:519:7)
+2026-03-12 21:03:37.58
+e1b25094
+User
+at async InvestmentDataCache.refreshProductType (file:///home/runner/workspace/dist/index.js:296405:25)
+2026-03-12 21:03:37.58
+e1b25094
+User
+at async InvestmentDataCache.fetchIPOs (file:///home/runner/workspace/dist/index.js:296527:23)
+2026-03-12 21:03:37.58
+e1b25094
+User
+at runNextTicks (node:internal/process/task_queues:60:5)
+2026-03-12 21:03:37.58
+e1b25094
+User
+at process.processTimers (node:internal/timers:519:7)
+2026-03-12 21:03:37.58
+e1b25094
+User
+❌ [InvestmentDataCache] Failed to fetch IPOs: Error: timeout exceeded when trying to connect
+2026-03-12 21:03:37.58
+e1b25094
+User
+at runNextTicks (node:internal/process/task_queues:60:5)
+2026-03-12 21:03:37.58
+e1b25094
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2026-03-12 21:03:37.58
+e1b25094
+User
+at async InvestmentDataCache.fetchUnlistedEquities (file:///home/runner/workspace/dist/index.js:296558:28)
+2026-03-12 21:04:15.48
+e1b25094
+User
+[2026-03-12T15:34:14.182Z] [PID: 39] [NODE-CRON] [WARN] missed execution at Thu Mar 12 2026 15:34:00 GMT+0000 (Coordinated Universal Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+2026-03-12 21:05:37.08
+e1b25094
+User
+[PythonClient] POST /market/quotes unreachable: fetch failed
+Wrap
+Colors
