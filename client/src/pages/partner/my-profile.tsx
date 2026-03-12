@@ -51,6 +51,8 @@ interface PartnerProfile {
   bankAccountHolderName: string | null;
   isCaQualified: boolean;
   caMembershipNumber: string | null;
+  caVerificationStatus: string | null;
+  caVerifiedAt: string | null;
 }
 
 function StatusBadge({ value, trueLabel = "Verified", falseLabel = "Pending" }: { value: boolean; trueLabel?: string; falseLabel?: string }) {
@@ -100,6 +102,24 @@ export default function PartnerMyProfile() {
       toast({ title: "Profile updated", description: "Your changes have been saved." });
     },
     onError: () => toast({ title: "Update failed", description: "Please try again.", variant: "destructive" }),
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: (membershipNumber: string) =>
+      apiRequest("/api/partner/verify-ca-membership", { method: "POST", body: JSON.stringify({ membershipNumber }) }),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/partner/profile"] });
+      if (data?.status === "verified") {
+        toast({ title: "ICAI Membership Verified", description: data.memberName ? `Verified: ${data.memberName} (${data.memberType || "CA"})` : "Your ICAI membership has been verified." });
+      } else if (data?.status === "pending_review") {
+        toast({ title: "Submitted for Review", description: "Your ICAI number format is valid and has been queued for admin verification." });
+      }
+    },
+    onError: (err: any) => toast({
+      title: "Verification failed",
+      description: err?.message || "Could not verify ICAI number. Please check and try again.",
+      variant: "destructive",
+    }),
   });
 
   const startEdit = () => {
@@ -366,9 +386,14 @@ export default function PartnerMyProfile() {
             <CardTitle className="text-sm flex items-center gap-2">
               <GraduationCap className={`h-4 w-4 ${profile.isCaQualified ? "text-emerald-600" : "text-muted-foreground"}`} />
               CA Qualification
-              {profile.isCaQualified && (
+              {profile.isCaQualified && profile.caVerificationStatus === "verified" && (
                 <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 gap-1 ml-1">
-                  <CheckCircle2 className="h-3 w-3" /> CA Verified
+                  <CheckCircle2 className="h-3 w-3" /> ICAI Verified
+                </Badge>
+              )}
+              {profile.isCaQualified && profile.caVerificationStatus !== "verified" && (
+                <Badge variant="outline" className="text-amber-600 border-amber-300 gap-1 ml-1 text-[11px]">
+                  <ShieldAlert className="h-3 w-3" /> Verification Pending
                 </Badge>
               )}
             </CardTitle>
@@ -402,13 +427,31 @@ export default function PartnerMyProfile() {
                   <Label htmlFor="ca-member" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     ICAI Membership Number
                   </Label>
-                  <Input
-                    id="ca-member"
-                    placeholder="e.g. 123456"
-                    value={caForm.caMembershipNumber}
-                    onChange={e => setCaForm(f => ({ ...f, caMembershipNumber: e.target.value }))}
-                    className="h-8 text-sm"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="ca-member"
+                      placeholder="e.g. 123456"
+                      value={caForm.caMembershipNumber}
+                      onChange={e => setCaForm(f => ({ ...f, caMembershipNumber: e.target.value }))}
+                      className="h-8 text-sm"
+                      maxLength={6}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1 text-xs whitespace-nowrap border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-400"
+                      disabled={!caForm.caMembershipNumber || caForm.caMembershipNumber.length < 6 || verifyMutation.isPending}
+                      onClick={() => verifyMutation.mutate(caForm.caMembershipNumber)}
+                    >
+                      {verifyMutation.isPending
+                        ? <span className="animate-spin rounded-full h-3 w-3 border-t border-indigo-600 inline-block" />
+                        : <ShieldCheck className="h-3 w-3" />
+                      }
+                      {verifyMutation.isPending ? "Verifying…" : "Verify"}
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">6-digit ICAI membership number (ACA/FCA). Verification checks the ICAI registry.</p>
                 </div>
               )}
               <div className="flex gap-2 pt-1">
@@ -443,11 +486,58 @@ export default function PartnerMyProfile() {
               {profile.isCaQualified && (
                 <div className="space-y-3">
                   <Separator />
-                  <Field
-                    label="ICAI Membership Number"
-                    value={profile.caMembershipNumber}
-                    icon={BadgeCheck}
-                  />
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ICAI Membership Number</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <BadgeCheck className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <p className="text-sm font-medium text-foreground">
+                          {profile.caMembershipNumber || <span className="text-muted-foreground italic">Not provided</span>}
+                        </p>
+                      </div>
+                      {/* Verification status badge */}
+                      {profile.caVerificationStatus === "verified" && (
+                        <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 gap-1 text-[11px]">
+                          <CheckCircle2 className="h-3 w-3" /> ICAI Verified
+                        </Badge>
+                      )}
+                      {profile.caVerificationStatus === "pending_review" && (
+                        <Badge variant="outline" className="text-amber-600 border-amber-300 gap-1 text-[11px]">
+                          <Clock className="h-3 w-3" /> Pending Review
+                        </Badge>
+                      )}
+                      {(profile.caVerificationStatus === "unverified" || !profile.caVerificationStatus) && profile.caMembershipNumber && (
+                        <Badge variant="outline" className="text-slate-500 border-slate-300 gap-1 text-[11px]">
+                          <ShieldAlert className="h-3 w-3" /> Unverified
+                        </Badge>
+                      )}
+                      {profile.caVerificationStatus === "failed" && (
+                        <Badge variant="outline" className="text-red-600 border-red-300 gap-1 text-[11px]">
+                          <XCircle className="h-3 w-3" /> Not Found in ICAI
+                        </Badge>
+                      )}
+                      {/* Verify button — shown when unverified or failed */}
+                      {profile.caMembershipNumber && profile.caVerificationStatus !== "verified" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-[11px] gap-1 border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-400"
+                          disabled={verifyMutation.isPending}
+                          onClick={() => verifyMutation.mutate(profile.caMembershipNumber!)}
+                        >
+                          {verifyMutation.isPending
+                            ? <><span className="animate-spin rounded-full h-3 w-3 border-t border-indigo-600 inline-block" /> Verifying...</>
+                            : <><ShieldCheck className="h-3 w-3" /> Verify Now</>
+                          }
+                        </Button>
+                      )}
+                    </div>
+                    {profile.caVerifiedAt && profile.caVerificationStatus === "verified" && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Verified on {new Date(profile.caVerifiedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                      </p>
+                    )}
+                  </div>
                   <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 space-y-1.5">
                     <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">CA Access Unlocked</p>
                     <ul className="text-xs text-emerald-700 dark:text-emerald-400 space-y-0.5 list-disc list-inside">

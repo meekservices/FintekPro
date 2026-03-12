@@ -78,6 +78,9 @@ async function ensureTable() {
     // Add CA qualification columns if they don't exist yet (idempotent)
     await db.execute(sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS is_ca_qualified BOOLEAN DEFAULT FALSE`);
     await db.execute(sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS ca_membership_number TEXT`);
+    await db.execute(sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS ca_verification_status TEXT DEFAULT 'unverified'`);
+    await db.execute(sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS ca_verified_at TIMESTAMPTZ`);
+    await db.execute(sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS ca_verified_by TEXT`);
     console.log("✅ [AgentEmpanelment] Table ready");
   } catch (err: any) {
     console.error("[AgentEmpanelment] Table init error:", err.message);

@@ -634,6 +634,8 @@ export function registerPartnerPortalRoutes(app: Express): void {
         // CA qualification
         isCaQualified: emp.is_ca_qualified || false,
         caMembershipNumber: emp.ca_membership_number || null,
+        caVerificationStatus: emp.ca_verification_status || "unverified",
+        caVerifiedAt: emp.ca_verified_at || null,
       });
     } catch (error) {
       console.error("Error fetching partner profile:", error);
@@ -653,6 +655,114 @@ export function registerPartnerPortalRoutes(app: Express): void {
       res.json({ isCaQualified: emp.is_ca_qualified || false, caMembershipNumber: emp.ca_membership_number || null });
     } catch {
       res.json({ isCaQualified: false, caMembershipNumber: null });
+    }
+  });
+
+  // POST /api/partner/verify-ca-membership — verify ICAI membership number
+  app.post("/api/partner/verify-ca-membership", requirePartnerSession, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { membershipNumber } = req.body;
+
+      if (!membershipNumber) {
+        return res.status(400).json({ error: "ICAI membership number is required" });
+      }
+
+      // Format validation: ICAI membership numbers are 6 digits (ACA/FCA)
+      const cleaned = String(membershipNumber).trim().replace(/^M-?/i, ""); // strip M- prefix for life members
+      if (!/^\d{6}$/.test(cleaned)) {
+        return res.status(422).json({
+          status: "invalid_format",
+          error: "ICAI membership numbers must be exactly 6 digits (e.g. 123456). Please check and try again."
+        });
+      }
+
+      // Check if another partner already claimed this ICAI number
+      const dupCheck = await db.execute(sql`
+        SELECT ae.agent_id FROM agent_empanelments ae
+        WHERE ae.ca_membership_number = ${cleaned}
+          AND ae.agent_id != ${userId}
+          AND ae.is_ca_qualified = true
+        LIMIT 1
+      `);
+      if (dupCheck.rows.length > 0) {
+        return res.status(409).json({
+          status: "duplicate",
+          error: "This ICAI membership number is already registered with another partner account. Contact support if you believe this is an error."
+        });
+      }
+
+      // --- Karza API integration (real-time ICAI verification) ---
+      const karzaKey = process.env.KARZA_API_KEY;
+      if (karzaKey) {
+        try {
+          const karzaRes = await fetch("https://api.karza.in/v3/sync/icai-member-check", {
+            method: "POST",
+            headers: {
+              "x-karza-key": karzaKey,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ membershipNo: cleaned }),
+            signal: AbortSignal.timeout(8000),
+          });
+          const karzaData: any = await karzaRes.json();
+          console.log(`[CAVerify] Karza response for ${cleaned}:`, JSON.stringify(karzaData).slice(0, 200));
+
+          const isVerified = karzaData?.statusCode === 101 || karzaData?.result?.memberStatus === "Active";
+          const memberName = karzaData?.result?.memberName || karzaData?.result?.name || null;
+          const memberType = karzaData?.result?.membershipType || null; // ACA / FCA
+
+          if (isVerified) {
+            await db.execute(sql`
+              UPDATE agent_empanelments
+              SET ca_verification_status = 'verified',
+                  ca_membership_number = ${cleaned},
+                  ca_verified_at = NOW(),
+                  ca_verified_by = 'karza',
+                  updated_at = NOW()
+              WHERE agent_id = ${userId}
+            `);
+            return res.json({
+              status: "verified",
+              membershipNumber: cleaned,
+              memberName,
+              memberType,
+              message: `ICAI membership ${cleaned} verified successfully via ICAI registry.`,
+            });
+          } else {
+            await db.execute(sql`
+              UPDATE agent_empanelments
+              SET ca_verification_status = 'failed', updated_at = NOW()
+              WHERE agent_id = ${userId}
+            `);
+            return res.status(422).json({
+              status: "not_found",
+              error: `Membership number ${cleaned} was not found in the ICAI registry, or the membership is inactive. Please verify the number and retry.`,
+            });
+          }
+        } catch (karzaErr: any) {
+          console.warn("[CAVerify] Karza API error, falling back:", karzaErr.message);
+          // Fall through to format-valid fallback
+        }
+      }
+
+      // --- Fallback: format is valid, update to 'pending_review' (admin will manually verify) ---
+      await db.execute(sql`
+        UPDATE agent_empanelments
+        SET ca_verification_status = 'pending_review',
+            ca_membership_number = ${cleaned},
+            updated_at = NOW()
+        WHERE agent_id = ${userId}
+      `);
+
+      res.json({
+        status: "pending_review",
+        membershipNumber: cleaned,
+        message: "Format is valid. Your ICAI membership number has been submitted for manual admin verification. You will be notified once verified.",
+      });
+    } catch (error: any) {
+      console.error("[CAVerify] Error:", error.message);
+      res.status(500).json({ error: "Verification failed. Please try again." });
     }
   });
 
