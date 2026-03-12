@@ -209,7 +209,7 @@ FintekPro's Agent Portal includes 5 BuildWealth-inspired advisor tools: Investme
 ### Service Mesh Architecture (Phase 1)
 FintekPro uses a **dual-auth, zero-disruption service mesh** to split heavy domains into independent deployable micro-services. The main portal issues short-lived JWTs that micro-services validate. Routes transparently proxy to micro-services when respective environment variables (`<SERVICE>_SERVICE_URL`) are set, falling back to local in-process execution otherwise.
 
-**Python Analytics Service** (`services/python/`) — FastAPI + pandas/scipy/sklearn sidecar v3.0.0, offering 39 capabilities including:
+**Python Analytics Service** (`services/python/`) — FastAPI + pandas/scipy/sklearn sidecar v4.0.0, offering 51 capabilities including:
 - **Portfolio Analytics**: portfolio summary, FIFO capital gains, AMC breakdown, batch financial metrics.
 - **Quant Engine**: XIRR, rolling returns, MVO, Black-Litterman, backtest metrics, drift prediction, Indian Market Asset Allocation Optimizer.
 - **MF Analytics**: compute-metrics, scheme-analytics, monthly-series, bulk-compute-db, cross-sectional-rank, risk-from-monthly, sync-change-pct, derived-metrics, nav-backfill, amfi-enrich, monthly-pipeline.
@@ -219,6 +219,13 @@ FintekPro uses a **dual-auth, zero-disruption service mesh** to split heavy doma
 - **Risk Factor Models**: CAPM/Fama-French 3-Factor/Carhart 4-Factor OLS regression.
 - **ML Scoring Engine**: GradientBoostingRegressor per asset class.
 - **Regime Detection**: 6-signal weighted scoring + sklearn GMM overlay.
+
+**Active Python integrations (as of Mar 2026):**
+1. `ai-proposal-engine.ts` → `/api/portfolio/overlap-analysis` — MF cosine-similarity overlap (with heuristic fallback)
+2. `ai-proposal-engine.ts` → `/api/quant/asset-allocation` — scipy SLSQP target allocation overrides diagnostics targets for BUY/SELL recommendations (NEW)
+3. `proposal-whatif-engine.ts` → `/api/forecasting/sip-simulate` — vectorised numpy SIP projection for all 4 what-if scenarios (NEW, replaces simple compound math)
+4. `unified-ai-recommendation-engine.ts` → `/api/regime/detect` — GMM regime detection (bull/bear/sideways/high_vol) with 5-min cache
+5. `unified-ai-recommendation-engine.ts` → `/api/ml/score` — GBR ML predicted-return blend into `adjReturn`/`adjConf` when model is trained (NEW)
 
 ### System Design Choices
 FintekPro employs a subdomain-based portal architecture for Admin, Partner, Agent, and Client portals with role-based access control and session-based portal validation. A Financial Metrics Engine provides 40+ derived ratios. It uses a Centralized Service Registry pattern, a Staggered Startup System, and Fast Boot Optimization. A Regulatory Gaps Tracker monitors compliance. A Production Bootstrap & Self-Healing Data System provides automated, idempotent reference data seeding. An Instrument Time-Series Architecture uses a dual-pipeline system for instrument price data: a Daily Incremental Engine and a Historical Backfill Engine. A Central Engine Registry defines mandatory engines for specific domains like AI Recommendations, AI Alpha, Profit-Optimized Scoring, Commission, Tax, Risk, KYC, Rebalancing, Portfolio Import, Financial Metrics, Proposals, Goal Planning, SIP Simulation, Return Forecasting, Investable Surplus, Overlap Analysis, Fund Classification, Screener, Fixed Income, Corporate Treasury, Explainability, Signal Orchestration, and Charge Classification. The Instrument Charge Classification Matrix details charge types and regulators.

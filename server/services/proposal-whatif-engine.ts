@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { proposalWhatIfScenarios, investmentProposals, InsertProposalWhatIfScenario } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
+import { callPython } from '../clients/python-client';
 
 export type WhatIfMode = 'static' | 'interactive';
 
@@ -64,7 +65,7 @@ export class WhatIfSimulatorEngine {
       if (!assumptions) {
         throw new Error('Assumptions required for interactive mode');
       }
-      const customScenario = this.calculateProjection(
+      const customScenario = await this.pythonProjection(
         'custom',
         totalAmount,
         baseReturn + assumptions.returnDelta,
@@ -97,7 +98,7 @@ export class WhatIfSimulatorEngine {
 
     for (const scenario of STATIC_SCENARIOS) {
       const adjustedReturn = baseReturn + scenario.returnDelta;
-      const projection = this.calculateProjection(
+      const projection = await this.pythonProjection(
         scenario.name,
         totalAmount,
         adjustedReturn,
@@ -149,6 +150,51 @@ export class WhatIfSimulatorEngine {
       valueAtRisk95: Math.round(valueAtRisk95)
     };
   }
+
+  // ── Python SIP simulation (falls back to calculateProjection) ───────────
+  private static async pythonProjection(
+    scenarioName: string,
+    totalAmount: number,
+    annualReturn: number,
+    volatilityMult: number,
+    riskProfile: string
+  ): Promise<WhatIfProjection> {
+    try {
+      const pyResult = await callPython<any>('/api/forecasting/sip-simulate', 'POST', {
+        sipAmount: 0,
+        horizonMonths: 120,
+        expectedReturn: annualReturn,
+        inflationRate: 6.0,
+        existingCorpus: totalAmount,
+        benchmarkReturn: annualReturn - 1.5,
+      });
+
+      if (pyResult?.summary && pyResult?.snapshots?.length) {
+        const snapAt = (months: number): number => {
+          const snap = pyResult.snapshots.find((s: any) => s.month >= months);
+          return snap ? Math.round(snap.corpus) : 0;
+        };
+        const finalCorpus = Math.round(pyResult.summary.finalCorpus ?? totalAmount);
+        const xirr = pyResult.summary.xirr ?? annualReturn / 100;
+        const baseVol = riskProfile === 'aggressive' ? 0.25 : riskProfile === 'moderate' ? 0.18 : 0.12;
+        const adjVol = baseVol * volatilityMult;
+        return {
+          scenarioName,
+          projectedValue1Y:  snapAt(12)  || Math.round(totalAmount * Math.pow(1 + annualReturn / 100, 1)),
+          projectedValue3Y:  snapAt(36)  || Math.round(totalAmount * Math.pow(1 + annualReturn / 100, 3)),
+          projectedValue5Y:  snapAt(60)  || Math.round(totalAmount * Math.pow(1 + annualReturn / 100, 5)),
+          projectedValue10Y: finalCorpus || Math.round(totalAmount * Math.pow(1 + annualReturn / 100, 10)),
+          maxDrawdown:       Math.round(Math.min(adjVol * 2.5, 0.6) * 10000) / 100,
+          probabilityOfLoss: Math.max(0, Math.round(((0.5 - xirr / adjVol * 0.1) * 100) * 100) / 100),
+          valueAtRisk95:     Math.round(totalAmount * (1 - adjVol * 1.645)),
+        };
+      }
+    } catch {
+      // sidecar unavailable
+    }
+    return this.calculateProjection(scenarioName, totalAmount, annualReturn, volatilityMult, riskProfile);
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   private static async saveScenario(
     proposalId: string,

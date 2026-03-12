@@ -648,6 +648,38 @@ class UnifiedAIRecommendationEngine {
       }
     }
 
+    // ── Python ML Score: GBR-predicted return blended in ─────────────────────
+    let mlNote = '';
+    try {
+      const mlAssets = [{
+        id: product.id,
+        pe: product.peRatio ?? null,
+        returns1y: product.rawData?.returns?.['1y'] ?? product.rawData?.return1y ?? null,
+        returns3y: product.rawData?.returns?.['3y'] ?? product.rawData?.return3y ?? null,
+        volatility: product.rawData?.volatility ?? product.volatility ?? null,
+        sharpeRatio: product.rawData?.sharpeRatio ?? product.sharpeRatio ?? null,
+        yield: product.dividendYield ?? product.rawData?.dividendYield ?? null,
+        confidenceScore: base.confidenceScore,
+      }];
+      const mlResult = await callPython<any>('/api/ml/score', 'POST', {
+        assetClass: product.category === 'mutual_funds' ? 'mutual_fund' : product.category,
+        assets: mlAssets,
+        regime: regime.regime,
+      });
+      if (mlResult?.results?.length && !mlResult.error) {
+        const mlScore = mlResult.results[0];
+        if (mlScore?.predictedReturn != null) {
+          const mlReturnDelta = Math.min(10, Math.max(-10, mlScore.predictedReturn * 100));
+          adjReturn = Math.min(100, Math.max(0, adjReturn + mlReturnDelta * 0.3));
+          adjConf   = Math.min(95,  Math.max(20, adjConf + (mlScore.confidence - 50) * 0.1));
+          mlNote = ` ML score: predicted Δreturn ${mlReturnDelta > 0 ? '+' : ''}${mlReturnDelta.toFixed(1)}% (conf: ${mlScore.confidence}%).`;
+        }
+      }
+    } catch {
+      // ML model not trained or sidecar unavailable — regime scores used as-is
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const adjOverall = Math.round(adjReturn * 0.35 + (100 - adjRisk) * 0.25 + base.qualityScore * 0.25 + base.valuationScore * 0.15);
     const adjRec = this.determineRecommendation(adjOverall, base.suitabilityScore);
     const regimeLabel: Record<string, string> = { bull: 'bullish', bear: 'bearish', sideways: 'sideways', high_vol: 'high-volatility' };
@@ -660,7 +692,7 @@ class UnifiedAIRecommendationEngine {
       confidenceScore: Math.round(adjConf),
       confidenceLevel: this.getConfidenceLevel(adjConf),
       recommendation: adjRec,
-      selectionRationale: `${base.selectionRationale}${mfRankNote ? ' ' + mfRankNote : ''} Python regime: ${regimeLabel[regime.regime] || regime.regime} (signal score: ${regime.signal_score.toFixed(2)}, confidence: ${(regime.confidence * 100).toFixed(0)}%).`,
+      selectionRationale: `${base.selectionRationale}${mfRankNote ? ' ' + mfRankNote : ''} Python regime: ${regimeLabel[regime.regime] || regime.regime} (signal score: ${regime.signal_score.toFixed(2)}, confidence: ${(regime.confidence * 100).toFixed(0)}%).${mlNote}`,
       keyStrengths: [
         ...base.keyStrengths.slice(0, 3),
         ...(regime.regime === 'bull' ? ['Favourable market conditions (regime: bull)'] : []),

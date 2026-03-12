@@ -753,6 +753,60 @@ export class AIProposalEngine {
       }
     }
 
+    // ── Python scipy asset-allocation: refine deviation targets ──────────────
+    try {
+      const [clientProf] = await db.select().from(clientRiskProfiles)
+        .where(eq(clientRiskProfiles.userId, userId)).limit(1);
+      const riskScorePct = Math.min(100, Math.max(1, Math.round((diag.portfolioRiskScore ?? 5) * 10)));
+      const horizonYears = clientProf?.timeHorizonYears ?? 5;
+      const objectives = (clientProf?.investmentObjectives as string[] | null) ?? [];
+      const goalType = objectives.includes('income') ? 'income'
+        : objectives.includes('preservation') ? 'preservation'
+        : objectives.includes('growth') ? 'growth'
+        : 'balanced';
+
+      const pyAlloc = await callPython<any>('/api/quant/asset-allocation', 'POST', {
+        riskScore: riskScorePct,
+        segment: 'retail',
+        investmentHorizon: horizonYears,
+        goalType,
+        investableAmount: snapshot.totalValue || 0,
+        liquidityNeeds: clientProf?.liquidityNeed ?? 'medium',
+      });
+
+      if (pyAlloc?.allocations?.length && allocationDeviation) {
+        const ASSET_TYPE_MAP: Record<string, string> = {
+          large_cap_equity: 'equity', mid_cap_equity: 'equity',
+          small_cap_equity: 'equity', multi_cap_equity: 'equity',
+          international_equity: 'equity', flexi_cap_equity: 'equity',
+          government_bonds: 'debt', corporate_bonds: 'debt',
+          liquid_funds: 'debt', short_duration_debt: 'debt',
+          gold: 'gold', real_estate: 'real_estate',
+          cash_equivalents: 'cash', cash: 'cash',
+        };
+        const pyTargets: Record<string, number> = {};
+        for (const a of pyAlloc.allocations) {
+          const key = ASSET_TYPE_MAP[a.assetType] ?? a.assetType;
+          pyTargets[key] = (pyTargets[key] || 0) + a.allocation;
+        }
+        for (const [assetClass, dev] of Object.entries(allocationDeviation)) {
+          if (pyTargets[assetClass] !== undefined) {
+            (dev as any).target = pyTargets[assetClass];
+            (dev as any).deviation = dev.current - pyTargets[assetClass];
+          }
+        }
+        for (const [assetClass, pyTarget] of Object.entries(pyTargets)) {
+          if (!allocationDeviation[assetClass]) {
+            const currentPct = (snapshot.assetAllocation as any)?.[assetClass]?.percentage || 0;
+            allocationDeviation[assetClass] = { current: currentPct, target: pyTarget, deviation: currentPct - pyTarget };
+          }
+        }
+      }
+    } catch {
+      // Python unavailable — proceed with stored diagnostics targets
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     if (allocationDeviation) {
       for (const [assetClass, dev] of Object.entries(allocationDeviation)) {
         if (dev.deviation > 15) {
