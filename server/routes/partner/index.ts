@@ -5,6 +5,44 @@ import * as schema from '@shared/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 import { registerPartnerHierarchyRoutes } from './hierarchy-routes';
 
+async function ensurePartnerTables() {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS partner_team_members (
+        id            SERIAL PRIMARY KEY,
+        partner_user_id  VARCHAR(255) NOT NULL,
+        agent_user_id    VARCHAR(255) NOT NULL,
+        role             TEXT NOT NULL DEFAULT 'agent',
+        commission_split_pct NUMERIC(5,2) DEFAULT 0,
+        status           TEXT NOT NULL DEFAULT 'active',
+        joined_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (partner_user_id, agent_user_id)
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS partner_agent_invitations (
+        id                   SERIAL PRIMARY KEY,
+        partner_user_id      VARCHAR(255) NOT NULL,
+        invite_code          VARCHAR(50) NOT NULL UNIQUE,
+        invitee_name         TEXT,
+        invitee_email        TEXT,
+        invitee_mobile       TEXT,
+        status               TEXT NOT NULL DEFAULT 'pending',
+        accepted_by_user_id  VARCHAR(255),
+        accepted_at          TIMESTAMPTZ,
+        expires_at           TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days'),
+        created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    console.log("✅ [PartnerTables] partner_team_members + partner_agent_invitations ready");
+  } catch (err: any) {
+    console.error("[PartnerTables] Table init error:", err.message);
+  }
+}
+ensurePartnerTables();
+
 export function registerPartnerPortalRoutes(app: Express): void {
   // Partner Authentication
   app.post("/api/partner/auth/login", async (req, res) => {
@@ -938,10 +976,10 @@ export function registerPartnerPortalRoutes(app: Express): void {
         SELECT ptm.*, 
                u.first_name, u.last_name, u.email, u.mobile, u.roles,
                u.created_at as agent_joined_platform_at,
-               ae.status as empanelment_status, ae.arn_number, ae.pan_number
+               ae.status as empanelment_status, ae.arn_code, ae.pan_number
         FROM partner_team_members ptm
         JOIN users u ON u.id = ptm.agent_user_id
-        LEFT JOIN agent_empanelments ae ON ae.user_id = ptm.agent_user_id
+        LEFT JOIN agent_empanelments ae ON ae.agent_id = ptm.agent_user_id
         WHERE ptm.partner_user_id = ${userId}
         ORDER BY ptm.joined_at DESC
       `);
