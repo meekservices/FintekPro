@@ -8,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { Switch } from "@/components/ui/switch";
 import {
   User, Mail, Phone, Building2, BadgeCheck, ShieldCheck, ShieldAlert,
   CreditCard, Landmark, Edit2, Save, X, Award, Briefcase, Calendar,
-  CheckCircle2, Clock, XCircle, KeyRound, Layers
+  CheckCircle2, Clock, XCircle, KeyRound, Layers, GraduationCap
 } from "lucide-react";
 
 interface PartnerProfile {
@@ -48,6 +49,8 @@ interface PartnerProfile {
   bankBranch: string | null;
   bankVerified: boolean;
   bankAccountHolderName: string | null;
+  isCaQualified: boolean;
+  caMembershipNumber: string | null;
 }
 
 function StatusBadge({ value, trueLabel = "Verified", falseLabel = "Pending" }: { value: boolean; trueLabel?: string; falseLabel?: string }) {
@@ -79,6 +82,8 @@ export default function PartnerMyProfile() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ firstName: "", lastName: "", mobile: "", companyName: "" });
+  const [caEditing, setCaEditing] = useState(false);
+  const [caForm, setCaForm] = useState({ isCaQualified: false, caMembershipNumber: "" });
 
   const { data: profile, isLoading } = useQuery<PartnerProfile>({
     queryKey: ["/api/partner/profile"],
@@ -86,10 +91,12 @@ export default function PartnerMyProfile() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: typeof form) => apiRequest("/api/partner/profile", { method: "PATCH", body: JSON.stringify(data) }),
+    mutationFn: (data: any) => apiRequest("/api/partner/profile", { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/partner/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/partner/ca-status"] });
       setEditing(false);
+      setCaEditing(false);
       toast({ title: "Profile updated", description: "Your changes have been saved." });
     },
     onError: () => toast({ title: "Update failed", description: "Please try again.", variant: "destructive" }),
@@ -104,6 +111,15 @@ export default function PartnerMyProfile() {
       companyName: profile.companyName || "",
     });
     setEditing(true);
+  };
+
+  const startCaEdit = () => {
+    if (!profile) return;
+    setCaForm({
+      isCaQualified: profile.isCaQualified,
+      caMembershipNumber: profile.caMembershipNumber || "",
+    });
+    setCaEditing(true);
   };
 
   if (isLoading) {
@@ -342,6 +358,122 @@ export default function PartnerMyProfile() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── CA Qualification ── */}
+      <Card className={profile.isCaQualified ? "border-emerald-400 dark:border-emerald-600 ring-1 ring-emerald-200 dark:ring-emerald-800" : ""}>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <GraduationCap className={`h-4 w-4 ${profile.isCaQualified ? "text-emerald-600" : "text-muted-foreground"}`} />
+              CA Qualification
+              {profile.isCaQualified && (
+                <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 gap-1 ml-1">
+                  <CheckCircle2 className="h-3 w-3" /> CA Verified
+                </Badge>
+              )}
+            </CardTitle>
+            {!caEditing && (
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={startCaEdit}>
+                <Edit2 className="h-3 w-3" /> Edit
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {caEditing ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <Switch
+                  id="ca-toggle"
+                  checked={caForm.isCaQualified}
+                  onCheckedChange={v => setCaForm(f => ({ ...f, isCaQualified: v }))}
+                />
+                <div>
+                  <Label htmlFor="ca-toggle" className="text-sm font-medium cursor-pointer">
+                    I am a Chartered Accountant (CA)
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Enables ITR filing cases, CA assignments, and Form 15CA/15CB workflows
+                  </p>
+                </div>
+              </div>
+              {caForm.isCaQualified && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="ca-member" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    ICAI Membership Number
+                  </Label>
+                  <Input
+                    id="ca-member"
+                    placeholder="e.g. 123456"
+                    value={caForm.caMembershipNumber}
+                    onChange={e => setCaForm(f => ({ ...f, caMembershipNumber: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+              )}
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" className="h-7 gap-1" disabled={updateMutation.isPending}
+                  onClick={() => updateMutation.mutate(caForm as any)}>
+                  <Save className="h-3 w-3" /> Save
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 gap-1" onClick={() => setCaEditing(false)}>
+                  <X className="h-3 w-3" /> Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40">
+                <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${
+                  profile.isCaQualified ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-slate-100 dark:bg-slate-800"
+                }`}>
+                  <GraduationCap className={`h-5 w-5 ${profile.isCaQualified ? "text-emerald-600" : "text-muted-foreground"}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">
+                    {profile.isCaQualified ? "Chartered Accountant" : "Non-CA Partner"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {profile.isCaQualified
+                      ? "Full CA workflow access — ITR cases, Form 15CA/15CB, CA assignments"
+                      : "Partner & agent management only — CA workflows not applicable"}
+                  </p>
+                </div>
+              </div>
+              {profile.isCaQualified && (
+                <div className="space-y-3">
+                  <Separator />
+                  <Field
+                    label="ICAI Membership Number"
+                    value={profile.caMembershipNumber}
+                    icon={BadgeCheck}
+                  />
+                  <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 space-y-1.5">
+                    <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">CA Access Unlocked</p>
+                    <ul className="text-xs text-emerald-700 dark:text-emerald-400 space-y-0.5 list-disc list-inside">
+                      <li>ITR filing &amp; review cases</li>
+                      <li>Form 15CA / 15CB preparation</li>
+                      <li>CA Management dashboard</li>
+                      <li>CA Support ticket queue</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+              {!profile.isCaQualified && (
+                <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-3 space-y-1.5">
+                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Standard Partner Access</p>
+                  <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-0.5 list-disc list-inside">
+                    <li>Manage partners &amp; agents under you</li>
+                    <li>Mutual fund &amp; equity distribution</li>
+                    <li>Revenue &amp; payout tracking</li>
+                    <li>CA-related workflows not applicable</li>
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── Account Info ── */}
       <Card>

@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
 interface PartnerLayoutProps {
@@ -168,6 +168,17 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
+  const { data: caStatus } = useQuery<{ isCaQualified: boolean }>({
+    queryKey: ["/api/partner/ca-status"],
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
+  const isCaQualified = caStatus?.isCaQualified ?? false;
+
+  const visibleNavSections = partnerNavSections.filter(s =>
+    s.section !== "CA Services" || isCaQualified
+  );
+
   const toggleExpanded = (title: string) => {
     setExpandedItems(prev => 
       prev.includes(title) 
@@ -305,7 +316,7 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
         >
           {sidebarOpen && (
             <nav className="p-4 space-y-4">
-              {partnerNavSections.map((section) => (
+              {visibleNavSections.map((section) => (
                 <div key={section.section}>
                   <h3 className="px-3 mb-2 text-xs font-semibold text-indigo-400 uppercase tracking-wider">
                     {section.section}

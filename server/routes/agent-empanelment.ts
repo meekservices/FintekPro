@@ -75,6 +75,9 @@ async function ensureTable() {
         updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
+    // Add CA qualification columns if they don't exist yet (idempotent)
+    await db.execute(sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS is_ca_qualified BOOLEAN DEFAULT FALSE`);
+    await db.execute(sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS ca_membership_number TEXT`);
     console.log("✅ [AgentEmpanelment] Table ready");
   } catch (err: any) {
     console.error("[AgentEmpanelment] Table init error:", err.message);

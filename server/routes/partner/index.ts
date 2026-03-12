@@ -543,6 +543,9 @@ export function registerPartnerPortalRoutes(app: Express): void {
         bankBranch: emp.bank_branch || null,
         bankVerified: emp.bank_verified || false,
         bankAccountHolderName: emp.bank_account_holder_name || null,
+        // CA qualification
+        isCaQualified: emp.is_ca_qualified || false,
+        caMembershipNumber: emp.ca_membership_number || null,
       });
     } catch (error) {
       console.error("Error fetching partner profile:", error);
@@ -550,11 +553,26 @@ export function registerPartnerPortalRoutes(app: Express): void {
     }
   });
 
-  // PATCH /api/partner/profile — update personal info
+  // GET /api/partner/ca-status — lightweight CA qualification check for sidebar
+  app.get("/api/partner/ca-status", requirePartnerSession, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const rows = await db.execute(sql`
+        SELECT is_ca_qualified, ca_membership_number
+        FROM agent_empanelments WHERE agent_id = ${userId} LIMIT 1
+      `);
+      const emp: any = rows.rows?.[0] || {};
+      res.json({ isCaQualified: emp.is_ca_qualified || false, caMembershipNumber: emp.ca_membership_number || null });
+    } catch {
+      res.json({ isCaQualified: false, caMembershipNumber: null });
+    }
+  });
+
+  // PATCH /api/partner/profile — update personal info + CA qualification
   app.patch("/api/partner/profile", requirePartnerSession, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const { firstName, lastName, mobile, companyName } = req.body;
+      const { firstName, lastName, mobile, companyName, isCaQualified, caMembershipNumber } = req.body;
       await db.execute(sql`
         UPDATE users
         SET first_name = COALESCE(${firstName ?? null}, first_name),
@@ -570,6 +588,24 @@ export function registerPartnerPortalRoutes(app: Express): void {
             WHERE contact_email = ${req.user.email}
           `);
         } catch { /* OK if no partners row */ }
+      }
+      // Update CA qualification in agent_empanelments (upsert)
+      if (isCaQualified !== undefined) {
+        try {
+          // Ensure row exists first
+          await db.execute(sql`
+            INSERT INTO agent_empanelments (agent_id, emp_status)
+            VALUES (${userId}, 'draft')
+            ON CONFLICT (agent_id) DO NOTHING
+          `);
+          await db.execute(sql`
+            UPDATE agent_empanelments
+            SET is_ca_qualified    = ${isCaQualified},
+                ca_membership_number = COALESCE(${caMembershipNumber ?? null}, ca_membership_number),
+                updated_at         = NOW()
+            WHERE agent_id = ${userId}
+          `);
+        } catch (e) { /* OK */ }
       }
       res.json({ success: true, message: "Profile updated" });
     } catch (error) {
