@@ -277,9 +277,19 @@ async function fetchFundamentalsFromPython(nseSymbol: string): Promise<ScreenerD
       return isFinite(n) ? n : null;
     };
 
+    // Validate a HistoricalTable from Python response
+    const parseHistory = (v: any): HistoricalTable | null => {
+      if (!v || typeof v !== 'object') return null;
+      if (!Array.isArray(v.headers) || !Array.isArray(v.rows)) return null;
+      if (v.rows.length === 0) return null;
+      // At least one non-null value must exist
+      const hasData = v.rows.some((r: any) => Array.isArray(r.values) && r.values.some((x: any) => x !== null));
+      return hasData ? v : null;
+    };
+
     const result: ScreenerData = {
       roe: pf(resp.roe),
-      roce: null,
+      roce: pf(resp.roce),
       dividendYield: pf(resp.dividendYield),
       bookValue: pf(resp.bookValue),
       revenueGrowth: pf(resp.revenueGrowth),
@@ -292,12 +302,32 @@ async function fetchFundamentalsFromPython(nseSymbol: string): Promise<ScreenerD
       operatingCashFlow: pf(resp.operatingCashFlow),
       freeCashFlow: pf(resp.freeCashFlow),
       operatingMargin: pf(resp.operatingMargin),
+      // Historical tables — now populated by the extended Python sidecar
+      plHistory: parseHistory(resp.plHistory),
+      bsHistory: parseHistory(resp.bsHistory),
+      cfHistory: parseHistory(resp.cfHistory),
+      ratiosHistory: parseHistory(resp.ratiosHistory),
+      quarterlyHistory: parseHistory(resp.quarterlyHistory),
+      companyDescription: typeof resp.companyDescription === 'string' && resp.companyDescription.length > 10
+        ? resp.companyDescription : null,
+      salesCagr3Y: pf(resp.salesCagr3Y),
+      salesCagr5Y: pf(resp.salesCagr5Y),
+      profitCagr3Y: pf(resp.profitCagr3Y),
+      profitCagr5Y: pf(resp.profitCagr5Y),
+      pros: [],   // Screener-unique — Python cannot derive these
+      cons: [],
     };
 
-    const hasData = Object.values(result).some(v => v !== null);
+    const hasData = Object.values(result).some(v => v !== null && v !== undefined && !(Array.isArray(v) && v.length === 0));
     if (!hasData) return null;
 
-    console.log(`[ResearchNote] Python/yfinance fundamentals for ${nseSymbol}: ROE=${result.roe !== null ? (result.roe * 100).toFixed(1) + "%" : "N/A"}, Rev=${result.revenue !== null ? "₹" + result.revenue.toFixed(0) + "Cr" : "N/A"}`);
+    const histCount = [result.plHistory, result.bsHistory, result.cfHistory, result.quarterlyHistory].filter(Boolean).length;
+    console.log(
+      `[ResearchNote] Python/yfinance fundamentals for ${nseSymbol}: ` +
+      `ROE=${result.roe !== null ? (result.roe * 100).toFixed(1) + "%" : "N/A"}, ` +
+      `Rev=${result.revenue !== null ? "₹" + result.revenue.toFixed(0) + "Cr" : "N/A"}, ` +
+      `Hist=${histCount}/4 tables, CAGR3Y=${result.salesCagr3Y !== null ? (result.salesCagr3Y * 100).toFixed(1) + "%" : "N/A"}`
+    );
     return result;
   } catch (e: any) {
     console.warn(`[ResearchNote] Python fundamentals failed for ${nseSymbol}:`, e?.message?.slice(0, 80));
@@ -306,7 +336,10 @@ async function fetchFundamentalsFromPython(nseSymbol: string): Promise<ScreenerD
 }
 
 function mergeScreenerWithPython(screener: ScreenerData, python: ScreenerData): ScreenerData {
-  const pick = <T>(a: T | null, b: T | null): T | null => a !== null ? a : b;
+  const pick = <T>(a: T | null | undefined, b: T | null | undefined): T | null => {
+    if (a !== null && a !== undefined) return a;
+    return b ?? null;
+  };
   return {
     roe: pick(screener.roe, python.roe),
     roce: pick(screener.roce, python.roce),
@@ -322,17 +355,18 @@ function mergeScreenerWithPython(screener: ScreenerData, python: ScreenerData): 
     operatingCashFlow: pick(screener.operatingCashFlow, python.operatingCashFlow),
     freeCashFlow: pick(screener.freeCashFlow, python.freeCashFlow),
     operatingMargin: pick(screener.operatingMargin, python.operatingMargin),
-    // Historical tables only come from Screener — Python doesn't supply them
-    plHistory: screener.plHistory,
-    bsHistory: screener.bsHistory,
-    cfHistory: screener.cfHistory,
-    ratiosHistory: screener.ratiosHistory,
-    quarterlyHistory: screener.quarterlyHistory,
-    companyDescription: screener.companyDescription,
-    salesCagr3Y: screener.salesCagr3Y,
-    salesCagr5Y: screener.salesCagr5Y,
-    profitCagr3Y: screener.profitCagr3Y,
-    profitCagr5Y: screener.profitCagr5Y,
+    // Historical tables: Screener.in first; Python-derived as fallback when Screener timed out
+    plHistory: pick(screener.plHistory, python.plHistory),
+    bsHistory: pick(screener.bsHistory, python.bsHistory),
+    cfHistory: pick(screener.cfHistory, python.cfHistory),
+    ratiosHistory: pick(screener.ratiosHistory, python.ratiosHistory),
+    quarterlyHistory: pick(screener.quarterlyHistory, python.quarterlyHistory),
+    companyDescription: pick(screener.companyDescription, python.companyDescription),
+    salesCagr3Y: pick(screener.salesCagr3Y, python.salesCagr3Y),
+    salesCagr5Y: pick(screener.salesCagr5Y, python.salesCagr5Y),
+    profitCagr3Y: pick(screener.profitCagr3Y, python.profitCagr3Y),
+    profitCagr5Y: pick(screener.profitCagr5Y, python.profitCagr5Y),
+    // Pros/Cons: only Screener.in has these — never in Python
     pros: screener.pros ?? [],
     cons: screener.cons ?? [],
   };
@@ -895,21 +929,34 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
     console.log(`[ResearchNote] DB MISS (${staleReason}) for ${nseSymbol} — fetching from Screener.in`);
     const screenerResult = await fetchFromScreener(nseSymbol);
 
-    // If Screener.in returned sparse data (revenue is the primary signal), try Python/yfinance
+    // Tier 1: Screener.in completely failed (revenue null) — use Python for everything
     if (screenerResult.revenue === null) {
       const pyData = await fetchFundamentalsFromPython(nseSymbol);
       if (pyData) {
         screener = mergeScreenerWithPython(screenerResult, pyData);
         fundamentalsSource = { source: "PYTHON_YFINANCE", scrapedAt: new Date().toISOString(), ageHours: 0 };
-        writeScreenerToDB(nseSymbol, screener).catch(() => {});
       } else {
         screener = screenerResult;
         fundamentalsSource = { source: "SCREENER_LIVE", scrapedAt: new Date().toISOString(), ageHours: 0 };
-        writeScreenerToDB(nseSymbol, screener).catch(() => {});
       }
+      writeScreenerToDB(nseSymbol, screener).catch(() => {});
+    } else if (screenerResult.plHistory === null) {
+      // Tier 2: Screener returned point-in-time ratios but history tables are missing
+      // (happens when Screener HTML parse was partial or tables timed out)
+      // Enrich immediately with Python-derived history — adds ~1-2s on localhost, <50ms if sidecar unreachable
+      const pyData = await fetchFundamentalsFromPython(nseSymbol);
+      if (pyData) {
+        screener = mergeScreenerWithPython(screenerResult, pyData);
+        const histCount = [screener.plHistory, screener.bsHistory, screener.cfHistory, screener.quarterlyHistory].filter(Boolean).length;
+        console.log(`[ResearchNote] Python enriched missing history for ${nseSymbol}: ${histCount}/4 tables`);
+      } else {
+        screener = screenerResult;
+      }
+      fundamentalsSource = { source: "SCREENER_LIVE", scrapedAt: new Date().toISOString(), ageHours: 0 };
+      writeScreenerToDB(nseSymbol, screener).catch(() => {});
     } else {
+      // Tier 3: Screener returned full data including history tables — use directly
       screener = screenerResult;
-      // Write-through to DB immediately (await to ensure persistence before returning)
       writeScreenerToDB(nseSymbol, screener).catch(() => {});
       fundamentalsSource = { source: "SCREENER_LIVE", scrapedAt: new Date().toISOString(), ageHours: 0 };
     }
