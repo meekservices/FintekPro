@@ -467,28 +467,114 @@ export function registerPartnerPortalRoutes(app: Express): void {
     next();
   };
 
-  // Partner profile - returns current user's partner profile
+  // Partner profile - returns current user's full partner profile
   app.get("/api/partner/profile", requirePartnerSession, async (req: any, res) => {
     try {
-      const hasPartnerRole = true;
+      const userId = req.user.id;
+
+      // Fetch from users table
+      const userRows = await db.execute(sql`
+        SELECT first_name, last_name, email, mobile, created_at, profile_image_url,
+               roles, agent_empanelment_status
+        FROM users WHERE id = ${userId} LIMIT 1
+      `);
+      const u = userRows.rows[0] as any || {};
+
+      // Fetch from partners table (may not exist for all partners)
+      let partner: any = {};
+      try {
+        const partnerRows = await db.execute(sql`
+          SELECT company_name, partner_level, hierarchy_partner_type, hierarchy_status,
+                 kyc_status, approval_status, arn_code, contact_phone,
+                 pan_number, created_at as partner_created_at
+          FROM partners WHERE contact_email = ${req.user.email} LIMIT 1
+        `);
+        if (partnerRows.rows.length > 0) partner = partnerRows.rows[0] as any;
+      } catch { /* partners table may not exist */ }
+
+      // Fetch from agent_empanelments table
+      let emp: any = {};
+      try {
+        const empRows = await db.execute(sql`
+          SELECT arn_code, pan_number, pan_verified, pan_name, aadhaar_verified,
+                 euin_number, nism_certificate_number, nism_certificate_type, nism_expiry_date,
+                 ria_number, posp_number, services_offered,
+                 bank_account_number, bank_ifsc, bank_name, bank_branch, bank_verified,
+                 bank_account_holder_name, status as emp_status
+          FROM agent_empanelments WHERE agent_id = ${userId} LIMIT 1
+        `);
+        if (empRows.rows.length > 0) emp = empRows.rows[0] as any;
+      } catch { /* may not exist */ }
 
       res.json({
-        id: req.user.id,
-        userId: req.user.userId,
-        firstName: req.user.firstName,
-        lastName: req.user.lastName,
-        email: req.user.email,
-        mobile: req.user.mobile,
-        roles: req.user.roles,
-        partnerType: "distributor",
-        companyName: req.user.firstName + " " + req.user.lastName + " Associates",
-        arnNumber: "ARN-" + (req.user.userId || "000000").slice(-6),
-        status: "active",
-        joinedAt: req.user.lastLoginAt || new Date().toISOString()
+        id: userId,
+        firstName: u.first_name || req.user.firstName || "",
+        lastName: u.last_name || req.user.lastName || "",
+        email: u.email || req.user.email || "",
+        mobile: u.mobile || partner.contact_phone || req.user.mobile || "",
+        roles: u.roles || req.user.roles || [],
+        profileImageUrl: u.profile_image_url || null,
+        joinedAt: u.created_at || partner.partner_created_at || req.user.lastLoginAt,
+        empanelmentStatus: u.agent_empanelment_status || emp.emp_status || null,
+        // Partner record fields
+        companyName: partner.company_name || null,
+        partnerLevel: partner.partner_level || "L1",
+        partnerType: partner.hierarchy_partner_type || "distributor",
+        hierarchyStatus: partner.hierarchy_status || "ACTIVE",
+        kycStatus: partner.kyc_status || (emp.pan_verified ? "VERIFIED" : "PENDING"),
+        approvalStatus: partner.approval_status || "PENDING",
+        // Credentials
+        arnCode: emp.arn_code || partner.arn_code || null,
+        panNumber: emp.pan_number || partner.pan_number || null,
+        panVerified: emp.pan_verified || false,
+        panName: emp.pan_name || null,
+        aadhaarVerified: emp.aadhaar_verified || false,
+        euinNumber: emp.euin_number || null,
+        nismCertificateNumber: emp.nism_certificate_number || null,
+        nismCertificateType: emp.nism_certificate_type || null,
+        nismExpiryDate: emp.nism_expiry_date || null,
+        riaNumber: emp.ria_number || null,
+        pospNumber: emp.posp_number || null,
+        servicesOffered: emp.services_offered || [],
+        // Bank
+        bankAccountNumber: emp.bank_account_number || null,
+        bankIfsc: emp.bank_ifsc || null,
+        bankName: emp.bank_name || null,
+        bankBranch: emp.bank_branch || null,
+        bankVerified: emp.bank_verified || false,
+        bankAccountHolderName: emp.bank_account_holder_name || null,
       });
     } catch (error) {
       console.error("Error fetching partner profile:", error);
       res.status(500).json({ error: "Failed to fetch profile" });
+    }
+  });
+
+  // PATCH /api/partner/profile — update personal info
+  app.patch("/api/partner/profile", requirePartnerSession, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { firstName, lastName, mobile, companyName } = req.body;
+      await db.execute(sql`
+        UPDATE users
+        SET first_name = COALESCE(${firstName ?? null}, first_name),
+            last_name  = COALESCE(${lastName ?? null}, last_name),
+            mobile     = COALESCE(${mobile ?? null}, mobile),
+            updated_at = NOW()
+        WHERE id = ${userId}
+      `);
+      if (companyName) {
+        try {
+          await db.execute(sql`
+            UPDATE partners SET company_name = ${companyName}, updated_at = NOW()
+            WHERE contact_email = ${req.user.email}
+          `);
+        } catch { /* OK if no partners row */ }
+      }
+      res.json({ success: true, message: "Profile updated" });
+    } catch (error) {
+      console.error("Error updating partner profile:", error);
+      res.status(500).json({ error: "Failed to update profile" });
     }
   });
 

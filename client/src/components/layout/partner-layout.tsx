@@ -20,7 +20,8 @@ import {
   ChevronRight,
   AlertCircle,
   GitBranch,
-  Receipt
+  Receipt,
+  UserCircle
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -139,6 +140,12 @@ const partnerNavSections: NavSection[] = [
   {
     section: "Support & Settings",
     items: [
+      {
+        title: "My Profile",
+        href: "/partner/my-profile",
+        icon: UserCircle,
+        description: "Credentials, KYC & bank details"
+      },
       {
         title: "Support Tickets",
         href: "/partner-portal?tab=support",

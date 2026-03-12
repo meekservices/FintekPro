@@ -203,6 +203,7 @@ const AgentDSAPerformance = lazyWithRetry(() => import("@/pages/agent/dsa-perfor
 const AgentPayoutClaims = lazyWithRetry(() => import("@/pages/agent/payout-claims"));
 const AgentRevenueSheet = lazyWithRetry(() => import("@/pages/agent/revenue-sheet"));
 const PartnerRevenueSheet = lazyWithRetry(() => import("@/pages/partner/revenue-sheet"));
+const PartnerMyProfile = lazyWithRetry(() => import("@/pages/partner/my-profile"));
 const AdvisorBrandProfile = lazyWithRetry(() => import("@/pages/agent/advisor-brand-profile"));
 const PublicAdvisorProfile = lazyWithRetry(() => import("@/pages/public-advisor-profile"));
 const AdminAgentPayouts = lazyWithRetry(() => import("@/pages/admin/agent-payouts"));
@@ -1641,6 +1642,15 @@ function PartnerRoutes() {
           <PartnerLayout>
             <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
               <PartnerTeamManagement />
+            </Suspense>
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/partner/my-profile">
+        {() => (
+          <PartnerLayout>
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <PartnerMyProfile />
             </Suspense>
           </PartnerLayout>
         )}
