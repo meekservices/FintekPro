@@ -1,6 +1,7 @@
 import { db } from "../db";
-import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, companyRatios, companyFinancials, globalInstruments, instrumentMaster, sgbPrimaryIssues, stockFinancialMetrics, reits, invits, pickWatchlist, userNotifications } from "@shared/schema";
-import { eq, and, desc, gte, sql, ilike, or } from "drizzle-orm";
+import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, companyRatios, companyFinancials, globalInstruments, instrumentMaster, sgbPrimaryIssues, stockFinancialMetrics, reits, invits, pickWatchlist, userNotifications, goldenPrices } from "@shared/schema";
+import { eq, and, desc, gte, sql, ilike, or, asc } from "drizzle-orm";
+import { callPython } from "../clients/python-client";
 import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 import { FinancialMetricsCalculator } from "./financial-metrics-calculator";
 import { 
@@ -29,7 +30,7 @@ export type PickCategory =
 
 export type PickStatus = 'live' | 'target_hit' | 'stoploss_hit' | 'expired';
 
-export const SCORER_VERSION = "2.0.0";
+export const SCORER_VERSION = "3.0.0";
 export const SCORER_MIN_THRESHOLD = 15;
 
 export interface ScoreBreakdown {
@@ -399,21 +400,35 @@ class PickOfTheDayService {
     }
 
     let currentRegime: string | null = null;
+    // ── Python sidecar regime (GMM + 6-signal) — primary ─────────────────────
     try {
-      const { aiRegimeDetectionEngine } = await import('./ai-regime-detection-engine');
-      const regime = await aiRegimeDetectionEngine.getCurrentRegime();
-      if (regime) {
-        currentRegime = regime.regimeLabel;
-        console.log(`[PickOfTheDay] Current market regime: ${currentRegime} (confidence: ${regime.confidence}%)`);
-      } else {
-        const detected = await aiRegimeDetectionEngine.detectCurrentRegime();
-        await aiRegimeDetectionEngine.persistRegime(detected);
-        currentRegime = detected.regimeLabel;
-        console.log(`[PickOfTheDay] Detected regime on-demand: ${currentRegime}`);
+      const pyRegime = await callPython<any>('/api/regime/detect', 'POST', { lookback_days: 90 });
+      if (pyRegime?.regime) {
+        currentRegime = pyRegime.regime;
+        console.log(`[PickOfTheDay] Python regime: ${currentRegime} (signal_score: ${pyRegime.signal_score?.toFixed(2)}, confidence: ${(pyRegime.confidence * 100)?.toFixed(0)}%)`);
       }
-    } catch (err) {
-      console.warn('[PickOfTheDay] Regime detection unavailable, proceeding without regime context');
+    } catch {
+      // Python unavailable — fall through to local engine
     }
+    // ── Local regime engine fallback ──────────────────────────────────────────
+    if (!currentRegime) {
+      try {
+        const { aiRegimeDetectionEngine } = await import('./ai-regime-detection-engine');
+        const regime = await aiRegimeDetectionEngine.getCurrentRegime();
+        if (regime) {
+          currentRegime = regime.regimeLabel;
+          console.log(`[PickOfTheDay] Local regime: ${currentRegime} (confidence: ${regime.confidence}%)`);
+        } else {
+          const detected = await aiRegimeDetectionEngine.detectCurrentRegime();
+          await aiRegimeDetectionEngine.persistRegime(detected);
+          currentRegime = detected.regimeLabel;
+          console.log(`[PickOfTheDay] Local regime (on-demand): ${currentRegime}`);
+        }
+      } catch (err) {
+        console.warn('[PickOfTheDay] Regime detection unavailable, proceeding without regime context');
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
     (this as any)._currentRegime = currentRegime;
 
     this.clearRotationCache();
@@ -488,6 +503,39 @@ class PickOfTheDayService {
             (pick.keyMetrics as any).mlPredictedReturn = mlResult.predictedReturn;
             (pick.keyMetrics as any).mlModelVersion = mlResult.modelVersion;
             (pick.keyMetrics as any).mlFeatureContributions = mlResult.featureContributions;
+
+            // ── Python GBR ML Score blend ──────────────────────────────────────
+            try {
+              const pyML = await callPython<any>('/api/ml/score', 'POST', {
+                assetClass: pick.category,
+                assets: [{
+                  id: pick.instrumentId || pick.symbol || pick.instrumentName,
+                  returns1y: numericFeatures.returns1Y ?? numericFeatures.returns1y ?? null,
+                  returns3y: numericFeatures.returns3Y ?? numericFeatures.returns3y ?? null,
+                  volatility: numericFeatures.volatility ?? null,
+                  sharpeRatio: numericFeatures.sharpeRatio ?? null,
+                  pe: numericFeatures.pe ?? numericFeatures.peRatio ?? null,
+                  yield: numericFeatures.yield ?? null,
+                  confidenceScore: pick.confidenceScore,
+                }],
+                regime: currentRegime ?? 'sideways',
+              });
+              if (pyML?.results?.length && !pyML.error) {
+                const pyScore = pyML.results[0];
+                if (pyScore?.predictedReturn != null) {
+                  const pyDelta = Math.min(15, Math.max(-15, pyScore.predictedReturn * 100));
+                  pick.confidenceScore = Math.min(95, Math.max(20, Math.round(
+                    pick.confidenceScore * 0.7 + (pick.confidenceScore + pyDelta) * 0.3
+                  )));
+                  (pick.keyMetrics as any).pyMlPredictedReturn = pyScore.predictedReturn;
+                  (pick.keyMetrics as any).pyMlConfidence = pyScore.confidence;
+                  (pick.keyMetrics as any).scorerVersion = SCORER_VERSION;
+                }
+              }
+            } catch {
+              // Python GBR unavailable — local ML confidence used
+            }
+            // ──────────────────────────────────────────────────────────────────
           }
         }
       }
@@ -582,44 +630,42 @@ class PickOfTheDayService {
         }
       }
 
-      if (needsRsi && topStock.symbol) {
+      // ── RSI from golden_prices (NSE-sourced, no Yahoo Finance) ─────────────
+      if (needsRsi && (topStock.isin || topStock.symbol)) {
         try {
-          const yahooFinance = (await import('yahoo-finance2')).default;
-          const suffixes = ['.NS', '.BO'];
-          for (const suffix of suffixes) {
-            if (directRsi != null) break;
-            try {
-              const yahooSymbol = `${topStock.symbol}${suffix}`;
-              const endDate = new Date();
-              const startDate = new Date();
-              startDate.setDate(startDate.getDate() - 30);
-              const chartResult = await yahooFinance.chart(yahooSymbol, {
-                period1: startDate,
-                period2: endDate,
-                interval: '1d',
-              });
-              const quotes = chartResult?.quotes;
-              if (quotes && quotes.length >= 15) {
-                const closes = quotes.map((q: any) => q.close).filter((c: any) => c != null);
-                if (closes.length >= 15) {
-                  let gains = 0, losses = 0;
-                  for (let i = 1; i <= 14; i++) {
-                    const diff = closes[closes.length - i] - closes[closes.length - i - 1];
-                    if (diff > 0) gains += diff;
-                    else losses += Math.abs(diff);
-                  }
-                  const avgGain = gains / 14;
-                  const avgLoss = losses / 14;
-                  directRsi = avgLoss === 0 ? 100 : Math.round((100 - (100 / (1 + avgGain / avgLoss))) * 100) / 100;
-                  console.log(`[PickOfTheDay] Yahoo Finance RSI(14) for ${topStock.symbol} via ${suffix}: ${directRsi}`);
-                }
-              }
-            } catch {}
+          const cutoff = new Date();
+          cutoff.setDate(cutoff.getDate() - 35);
+          const priceRows = await db
+            .select({ price: goldenPrices.price, priceDate: goldenPrices.priceDate })
+            .from(goldenPrices)
+            .where(
+              and(
+                topStock.isin
+                  ? eq(goldenPrices.isin, topStock.isin)
+                  : eq(goldenPrices.symbol, topStock.symbol!),
+                gte(goldenPrices.priceDate, cutoff.toISOString().split('T')[0])
+              )
+            )
+            .orderBy(asc(goldenPrices.priceDate))
+            .limit(40);
+          if (priceRows.length >= 15) {
+            const closes = priceRows.map(r => parseFloat(r.price));
+            let gains = 0, losses = 0;
+            for (let i = closes.length - 14; i < closes.length; i++) {
+              const diff = closes[i] - closes[i - 1];
+              if (diff > 0) gains += diff;
+              else losses += Math.abs(diff);
+            }
+            const avgGain = gains / 14;
+            const avgLoss = losses / 14;
+            directRsi = avgLoss === 0 ? 100 : Math.round((100 - (100 / (1 + avgGain / avgLoss))) * 100) / 100;
+            console.log(`[PickOfTheDay] Golden prices RSI(14) for ${topStock.symbol}: ${directRsi}`);
           }
         } catch (err) {
-          console.warn(`[PickOfTheDay] Yahoo Finance RSI calculation failed for ${topStock.symbol}:`, err);
+          console.warn(`[PickOfTheDay] Golden prices RSI fallback failed for ${topStock.symbol}:`, err);
         }
       }
+      // ─────────────────────────────────────────────────────────────────────────
 
       const enrichedRationaleData: Record<string, any> = {};
       if (topEnriched) {
