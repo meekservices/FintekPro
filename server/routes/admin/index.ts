@@ -29,6 +29,31 @@ const requireAdmin = async (req: any, res: Response, next: any) => {
   next();
 };
 
+async function ensureAgentNotificationsTable() {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS agent_notifications (
+        id          SERIAL PRIMARY KEY,
+        agent_id    VARCHAR(255) NOT NULL,
+        title       TEXT NOT NULL,
+        body        TEXT NOT NULL,
+        type        TEXT NOT NULL DEFAULT 'info',
+        link        TEXT,
+        read_at     TIMESTAMPTZ,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS idx_agent_notifications_agent_id
+        ON agent_notifications(agent_id)
+    `);
+    console.log("✅ [AgentNotifications] Table ready");
+  } catch (err: any) {
+    console.error("[AgentNotifications] Table init error:", err.message);
+  }
+}
+ensureAgentNotificationsTable();
+
 export function registerAdminPanelRoutes(app: Express): void {
   // Test endpoint without auth to verify real data
   app.get("/api/admin/dashboard/test", async (req, res) => {
