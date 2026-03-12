@@ -474,8 +474,7 @@ export function registerPartnerPortalRoutes(app: Express): void {
 
       // Fetch from users table
       const userRows = await db.execute(sql`
-        SELECT first_name, last_name, email, mobile, created_at, profile_image_url,
-               roles, agent_empanelment_status
+        SELECT first_name, last_name, email, mobile, created_at, profile_image_url, roles
         FROM users WHERE id = ${userId} LIMIT 1
       `);
       const u = userRows.rows[0] as any || {};
@@ -515,7 +514,7 @@ export function registerPartnerPortalRoutes(app: Express): void {
         roles: u.roles || req.user.roles || [],
         profileImageUrl: u.profile_image_url || null,
         joinedAt: u.created_at || partner.partner_created_at || req.user.lastLoginAt,
-        empanelmentStatus: u.agent_empanelment_status || emp.emp_status || null,
+        empanelmentStatus: emp.emp_status || null,
         // Partner record fields
         companyName: partner.company_name || null,
         partnerLevel: partner.partner_level || "L1",
