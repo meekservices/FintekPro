@@ -208,6 +208,10 @@ async function buildReportData(symbol: string): Promise<ReportData & { dataQuali
     salesCagr5Y: screenerData?.salesCagr5Y ?? null,
     profitCagr3Y: screenerData?.profitCagr3Y ?? null,
     profitCagr5Y: screenerData?.profitCagr5Y ?? null,
+    keyPoints: {
+      pros: screenerData?.pros ?? [],
+      cons: screenerData?.cons ?? [],
+    },
   };
 }
 
@@ -248,6 +252,7 @@ router.post("/preview", async (req: Request, res: Response) => {
       salesCagr5Y: data.salesCagr5Y,
       profitCagr3Y: data.profitCagr3Y,
       profitCagr5Y: data.profitCagr5Y,
+      keyPoints: (data as any).keyPoints ?? { pros: [], cons: [] },
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to generate research data" });
