@@ -234,6 +234,9 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
             <Button asChild className="w-full">
               <a href="/auth">Sign In</a>
             </Button>
+            <Button asChild className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
+              <a href="/partner/register">Register as Partner</a>
+            </Button>
             <Button variant="outline" asChild className="w-full">
               <a href="https://fintekpro.com">Go to Main Portal</a>
             </Button>

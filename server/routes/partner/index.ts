@@ -447,6 +447,95 @@ export function registerPartnerPortalRoutes(app: Express): void {
     }
   });
 
+  // ============ PARTNER SELF-REGISTRATION (public — no auth required) ============
+
+  app.post("/api/partner/register", async (req: any, res) => {
+    try {
+      const { firstName, lastName, email, mobile, companyName, partnerType,
+              arnCode, city, state, isCA, caMembershipNumber } = req.body;
+
+      // Basic validation
+      if (!firstName || !lastName || !email || !mobile || !companyName || !partnerType) {
+        return res.status(400).json({ error: "Required fields missing" });
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ error: "Invalid email address" });
+      }
+      if (!/^[6-9]\d{9}$/.test(mobile)) {
+        return res.status(400).json({ error: "Invalid Indian mobile number" });
+      }
+
+      // Check duplicate email
+      const existing = await db.execute(sql`
+        SELECT id FROM users WHERE email = ${email} LIMIT 1
+      `);
+      if (existing.rows.length > 0) {
+        return res.status(409).json({ error: "An account with this email already exists. Please sign in instead." });
+      }
+
+      // Check duplicate mobile
+      const existingMobile = await db.execute(sql`
+        SELECT id FROM users WHERE mobile = ${mobile} LIMIT 1
+      `);
+      if (existingMobile.rows.length > 0) {
+        return res.status(409).json({ error: "An account with this mobile number already exists." });
+      }
+
+      // Create user account (PENDING partner role)
+      const userIdCode = "PRT" + Math.floor(100000 + Math.random() * 900000);
+      const userRows = await db.execute(sql`
+        INSERT INTO users (
+          id, user_id, first_name, last_name, email, mobile,
+          roles, is_email_verified, is_mobile_verified, is_active,
+          password, created_at, updated_at
+        ) VALUES (
+          gen_random_uuid(), ${userIdCode}, ${firstName}, ${lastName},
+          ${email}, ${mobile},
+          ARRAY['partner']::text[], false, false, false,
+          'PENDING_ACTIVATION', NOW(), NOW()
+        )
+        RETURNING id
+      `);
+      const userId = (userRows.rows[0] as any)?.id;
+
+      // Create partners record (PENDING approval)
+      await db.execute(sql`
+        INSERT INTO partners (
+          id, company_name, contact_email, contact_phone, partner_type,
+          arn_code, hierarchy_partner_type, hierarchy_status, partner_level,
+          approval_status, kyc_status, is_active, is_verified,
+          ca_city, ca_state, password, created_at, updated_at
+        ) VALUES (
+          gen_random_uuid(), ${companyName}, ${email}, ${"91" + mobile},
+          ${partnerType}, ${arnCode || null}, ${partnerType.toUpperCase()},
+          'PENDING_APPROVAL', 'L1', 'PENDING', 'PENDING',
+          false, false,
+          ${city || null}, ${state || null},
+          'PENDING_ACTIVATION', NOW(), NOW()
+        )
+      `);
+
+      // If CA, create empanelment record with CA flag
+      if (isCA && userId) {
+        await db.execute(sql`
+          INSERT INTO agent_empanelments (agent_id, status, is_ca_qualified, ca_membership_number, created_at, updated_at)
+          VALUES (${userId}, 'draft', ${true}, ${caMembershipNumber || null}, NOW(), NOW())
+          ON CONFLICT (agent_id) DO UPDATE
+          SET is_ca_qualified = true, ca_membership_number = COALESCE(${caMembershipNumber || null}, agent_empanelments.ca_membership_number)
+        `);
+      }
+
+      console.log(`[PartnerRegister] New partner application: ${email} (${partnerType}) — user ${userId}`);
+      res.json({ success: true, message: "Partner application submitted. Pending admin review." });
+    } catch (error: any) {
+      console.error("[PartnerRegister] Error:", error.message);
+      if (error.code === "23505") {
+        return res.status(409).json({ error: "An account with this email or mobile already exists." });
+      }
+      res.status(500).json({ error: "Registration failed. Please try again." });
+    }
+  });
+
   // ============ PARTNER DASHBOARD DATA ROUTES (for user-session based auth) ============
 
   const requirePartnerSession = (req: any, res: any, next: any) => {

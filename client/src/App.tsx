@@ -204,6 +204,7 @@ const AgentPayoutClaims = lazyWithRetry(() => import("@/pages/agent/payout-claim
 const AgentRevenueSheet = lazyWithRetry(() => import("@/pages/agent/revenue-sheet"));
 const PartnerRevenueSheet = lazyWithRetry(() => import("@/pages/partner/revenue-sheet"));
 const PartnerMyProfile = lazyWithRetry(() => import("@/pages/partner/my-profile"));
+const PartnerRegister = lazyWithRetry(() => import("@/pages/partner-register"));
 const AdvisorBrandProfile = lazyWithRetry(() => import("@/pages/agent/advisor-brand-profile"));
 const PublicAdvisorProfile = lazyWithRetry(() => import("@/pages/public-advisor-profile"));
 const AdminAgentPayouts = lazyWithRetry(() => import("@/pages/admin/agent-payouts"));
@@ -1572,6 +1573,13 @@ function PartnerRoutes() {
     <Switch>
       <Route path="/auth" component={AuthPage} />
       <Route path="/partner/auth" component={AuthPage} />
+      <Route path="/partner/register">
+        {() => (
+          <Suspense fallback={<div className="min-h-screen bg-indigo-950 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-500"></div></div>}>
+            <PartnerRegister />
+          </Suspense>
+        )}
+      </Route>
       {/* Public proposal preview - accessible on all subdomains */}
       <Route path="/proposal/:shareToken" component={PublicProposalPage} />
       <Route path="/">
