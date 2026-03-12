@@ -419,9 +419,8 @@ export async function fetchShareholding(nseSymbol: string): Promise<Shareholding
 
 function mcapFmt(crores: number | null): string {
   if (!crores) return "N/A";
-  if (crores >= 100000) return `₹${(crores / 100000).toFixed(2)} L Cr`;
-  if (crores >= 1000) return `₹${(crores / 1000).toFixed(2)} K Cr`;
-  return `₹${crores.toFixed(0)} Cr`;
+  // Always display in Crores to match table caption
+  return `₹${Math.round(crores).toLocaleString("en-IN")} Cr`;
 }
 
 /**

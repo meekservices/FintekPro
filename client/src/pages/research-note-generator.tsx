@@ -169,13 +169,12 @@ function signPct(val: number | null): string {
 function fmtCap(val: number | null, currency = "INR"): string {
   if (!val) return "N/A";
   if (currency === "INR") {
-    // val is in raw rupees (1 Cr = 1e7, 1 K Cr = 1,000 Cr = 1e10, 1 L Cr = 1,00,000 Cr = 1e12)
-    if (val >= 1e12) return `₹${(val / 1e12).toFixed(2)} L Cr`;
-    if (val >= 1e10) return `₹${(val / 1e10).toFixed(2)} K Cr`;
-    if (val >= 1e7)  return `₹${(val / 1e7).toFixed(2)} Cr`;
-    return `₹${val.toFixed(0)}`;
+    // Always display in Crores to match table caption
+    const cr = val / 1e7;
+    return `₹${Math.round(cr).toLocaleString("en-IN")} Cr`;
   }
-  return `$${val.toFixed(0)}`;
+  const bn = val / 1e9;
+  return `$${bn.toFixed(2)}B`;
 }
 
 function priceRs(val: number | null): string {
@@ -987,7 +986,7 @@ export default function ResearchNoteGenerator() {
                           <th className="text-right py-2 text-muted-foreground font-medium">P/B</th>
                           <th className="text-right py-2 text-muted-foreground font-medium">ROE</th>
                           <th className="text-right py-2 text-muted-foreground font-medium">Div Yld</th>
-                          <th className="text-right py-2 text-muted-foreground font-medium">Mkt Cap</th>
+                          <th className="text-right py-2 text-muted-foreground font-medium">Mkt Cap (₹ Cr)</th>
                         </tr>
                       </thead>
                       <tbody>
