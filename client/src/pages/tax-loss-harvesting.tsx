@@ -17,7 +17,7 @@ import {
   Info,
   ArrowUpDown,
   Lightbulb,
-  Calculator
+  Calculator,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";

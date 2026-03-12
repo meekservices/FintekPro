@@ -48,7 +48,7 @@ import {
   Users,
   Banknote,
   Lightbulb,
-  FileSearch
+  FileSearch,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";

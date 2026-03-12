@@ -91,7 +91,7 @@ import {
   Sparkles,
   ChevronRight,
   RotateCcw,
-  FolderUp
+  FolderUp,
 } from "lucide-react";
 import { PortfolioImportPanel } from "@/components/portfolio/PortfolioImportPanel";
 

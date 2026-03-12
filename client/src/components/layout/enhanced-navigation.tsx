@@ -86,7 +86,7 @@ import {
   Grid3x3,
   HeartPulse,
   Crosshair,
-  BellRing
+  BellRing,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";

@@ -22,7 +22,7 @@ import {
   ArrowDown,
   FileText,
   RefreshCw,
-  Bot
+  Bot,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";

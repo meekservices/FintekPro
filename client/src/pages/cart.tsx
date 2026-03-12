@@ -37,7 +37,7 @@ import {
   Coins,
   FileText,
   Landmark,
-  Package
+  Package,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import type { UnifiedCartItem, ProductCategory } from "@shared/schema";

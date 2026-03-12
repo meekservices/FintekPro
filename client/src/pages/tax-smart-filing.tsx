@@ -34,7 +34,7 @@ import {
   Receipt,
   Lightbulb,
   Eye,
-  EyeOff
+  EyeOff,
 } from "lucide-react";
 
 // Form validation schemas

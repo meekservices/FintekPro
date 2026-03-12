@@ -80,7 +80,7 @@ import {
   FileText,
   Scale,
   ShieldAlert,
-  GitBranch
+  GitBranch,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";

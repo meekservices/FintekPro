@@ -48,7 +48,7 @@ import {
   ArrowUpRight,
   TrendingDown,
   Info,
-  Layers
+  Layers,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 

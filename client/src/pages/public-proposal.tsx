@@ -33,7 +33,7 @@ import {
   AlertTriangle,
   Lightbulb,
   Award,
-  AlertCircle
+  AlertCircle,
 } from "lucide-react";
 
 function formatIndianCurrency(val: number | string | null | undefined): string {

@@ -10,7 +10,7 @@ import {
   CheckCircle,
   Target,
   PieChart,
-  BarChart3
+  BarChart3,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { QuickInsights } from "@/components/portfolio/QuickInsights";

@@ -49,7 +49,7 @@ import {
   Flame,
   Eye,
   Play,
-  Pause
+  Pause,
 } from "lucide-react";
 
 interface StockRecommendation {

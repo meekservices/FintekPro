@@ -14,7 +14,7 @@ import {
   Target,
   Shield,
   Info,
-  Lightbulb
+  Lightbulb,
 } from "lucide-react";
 
 interface Holding {

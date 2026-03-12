@@ -34,7 +34,7 @@ import {
   ArrowRight,
   ArrowLeft,
   FileCheck,
-  Sparkles
+  Sparkles,
 } from "lucide-react";
 import {
   Command,

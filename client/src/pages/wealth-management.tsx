@@ -30,7 +30,7 @@ import {
   Lightbulb,
   Clock,
   FileText,
-  Star
+  Star,
 } from "lucide-react";
 import { GoalPlanning } from "@/components/wealth/goal-planning";
 import { ObligationMapping } from "@/components/wealth/obligation-mapping";

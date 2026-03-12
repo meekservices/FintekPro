@@ -38,7 +38,7 @@ import {
   Lock,
   Activity,
   TrendingUp,
-  Settings
+  Settings,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";

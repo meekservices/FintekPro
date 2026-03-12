@@ -52,7 +52,7 @@ import {
   Brain,
   Sparkles,
   AlertCircle,
-  Lightbulb
+  Lightbulb,
 } from "lucide-react";
 import { Link } from "wouter";
 

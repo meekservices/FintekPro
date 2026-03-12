@@ -27,7 +27,7 @@ import {
   Upload, Link, FileText, AlertCircle, Settings2, Globe, ChevronUp, ChevronDown, Info,
   Pencil, RotateCcw, Save, X, Lightbulb, Calculator, LayoutGrid, Wand2,
   Activity, Wallet, BarChart3, ListChecks, ArrowUpCircle, FileCheck,
-  CalendarDays, ClipboardCheck, UserCheck, RefreshCcw, Scissors
+  CalendarDays, ClipboardCheck, UserCheck, RefreshCcw, Scissors,
 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import jsPDF from "jspdf";

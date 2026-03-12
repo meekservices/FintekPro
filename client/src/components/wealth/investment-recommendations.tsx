@@ -27,7 +27,7 @@ import {
   Briefcase,
   LineChart,
   Users,
-  Coins
+  Coins,
 } from "lucide-react";
 
 interface InvestmentRecommendationsProps {

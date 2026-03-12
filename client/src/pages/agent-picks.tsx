@@ -64,6 +64,7 @@ import {
   Info,
   X,
   Download,
+  Lightbulb,
 } from "lucide-react";
 
 interface DailyPick {
