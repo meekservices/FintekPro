@@ -42,7 +42,10 @@ export function getSession() {
   if (cachedSessionMiddleware) return cachedSessionMiddleware;
   
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const idleTimeoutMs = 15 * 60 * 1000; // 15 minutes - RBI Digital Lending Guidelines
+  const idleTimeoutMs        = 15 * 60 * 1000; // 15 minutes - RBI Digital Lending Guidelines (customer portal)
+  const agentIdleTimeoutMs   =  8 * 60 * 60 * 1000; // 8 hours - agent/admin/partner back-office portals
+  // Roles that get the extended timeout (not subject to the 15-min RBI customer rule)
+  const PRIVILEGED_ROLES = ['agent', 'admin', 'partner', 'compliance_officer', 'super_admin', 'sub_agent', 'associate'];
   const pgStore = connectPg(session);
   
   // Create a dedicated pool for sessions with resilient settings
@@ -167,24 +170,51 @@ export function getSession() {
         return next();
       }
       
-      // Server-side idle timeout enforcement (RBI Digital Lending Guidelines)
+      // Server-side idle timeout enforcement
+      // Customers (RBI Digital Lending Guidelines): 15 minutes
+      // Agents / admins / partners (back-office): 8 hours
       if (req.session && (req.session as any).passport?.user) {
         const now = Date.now();
         const lastActivity = (req.session as any).lastActivity || now;
         const timeSinceLastActivity = now - lastActivity;
-        
-        if (timeSinceLastActivity > idleTimeoutMs) {
-          console.log(`[Session] Idle timeout exceeded (${Math.round(timeSinceLastActivity / 60000)}m) - destroying session`);
-          return req.session.destroy((destroyErr: any) => {
-            if (destroyErr) {
-              console.warn('[Session] Error destroying idle session:', destroyErr.message);
-            }
-            res.clearCookie('fintekpro.sid', { path: '/' });
-            next();
-          });
-        }
-        
-        (req.session as any).lastActivity = now;
+
+        // Resolve effective timeout — cached in session to avoid a DB hit on every request
+        const resolveTimeout = async (): Promise<number> => {
+          if ((req.session as any).sessionIdleTimeoutMs) {
+            return (req.session as any).sessionIdleTimeoutMs;
+          }
+          try {
+            const userId = (req.session as any).passport.user as string;
+            const user = await storage.getUser(userId);
+            const roles: string[] = (user as any)?.roles || ((user as any)?.role ? [(user as any).role] : []);
+            const isPrivileged = roles.some((r: string) => PRIVILEGED_ROLES.includes(r));
+            const timeout = isPrivileged ? agentIdleTimeoutMs : idleTimeoutMs;
+            (req.session as any).sessionIdleTimeoutMs = timeout;
+            console.log(`[Session] Role-based timeout set for ${userId}: ${Math.round(timeout / 60000)}m (roles: ${roles.join(',') || 'none'})`);
+            return timeout;
+          } catch {
+            return idleTimeoutMs; // safe default
+          }
+        };
+
+        resolveTimeout().then((effectiveTimeout) => {
+          if (timeSinceLastActivity > effectiveTimeout) {
+            console.log(`[Session] Idle timeout exceeded (${Math.round(timeSinceLastActivity / 60000)}m, limit: ${Math.round(effectiveTimeout / 60000)}m) - destroying session`);
+            return req.session.destroy((destroyErr: any) => {
+              if (destroyErr) {
+                console.warn('[Session] Error destroying idle session:', destroyErr.message);
+              }
+              res.clearCookie('fintekpro.sid', { path: '/' });
+              next();
+            });
+          }
+          (req.session as any).lastActivity = now;
+          next();
+        }).catch(() => {
+          (req.session as any).lastActivity = now;
+          next();
+        });
+        return; // next() will be called inside the promise chain
       }
       
       next();
