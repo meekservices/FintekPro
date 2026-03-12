@@ -100,13 +100,13 @@ export function MarketMovers() {
               </div>
               <div className="text-right">
                 <p className="font-bold text-foreground" data-testid={`stock-price-${stock.symbol}`}>
-                  ₹{stock.price.toLocaleString()}
+                  ₹{(stock.price ?? 0).toLocaleString()}
                 </p>
                 <p 
-                  className={`text-sm ${stock.change >= 0 ? 'text-finance-green' : 'text-finance-red'}`}
+                  className={`text-sm ${(stock.change ?? 0) >= 0 ? 'text-finance-green' : 'text-finance-red'}`}
                   data-testid={`stock-change-${stock.symbol}`}
                 >
-                  {stock.change >= 0 ? '+' : ''}₹{Math.abs(stock.change).toFixed(2)} ({stock.changePercent >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%)
+                  {(stock.change ?? 0) >= 0 ? '+' : ''}₹{Math.abs(stock.change ?? 0).toFixed(2)} ({(stock.changePercent ?? 0) >= 0 ? '+' : ''}{(stock.changePercent ?? 0).toFixed(2)}%)
                 </p>
               </div>
             </div>

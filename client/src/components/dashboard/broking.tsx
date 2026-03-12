@@ -933,7 +933,7 @@ export function BrokingDashboard() {
                     >
                       <div className="text-xs font-medium truncate mb-1">{item.sector}</div>
                       <div className="text-xs">
-                        {item.change >= 0 ? '+' : ''}{item.change.toFixed(2)}%
+                        {(item.change ?? 0) >= 0 ? '+' : ''}{(item.change ?? 0).toFixed(2)}%
                       </div>
                       <div className="text-xs opacity-75">
                         {getSentimentLabel(item.sentiment)}
@@ -1005,7 +1005,7 @@ export function BrokingDashboard() {
                       <div key={index} className="flex items-center justify-between text-sm">
                         <span className="truncate flex-1">{item.sector}</span>
                         <span className={`font-medium ${getChangeColor(item.change)}`}>
-                          {item.change >= 0 ? '+' : ''}{item.change.toFixed(2)}%
+                          {(item.change ?? 0) >= 0 ? '+' : ''}{(item.change ?? 0).toFixed(2)}%
                         </span>
                       </div>
                     ))}

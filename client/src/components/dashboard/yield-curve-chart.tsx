@@ -104,14 +104,14 @@ export function YieldCurveChart() {
             {showHistorical && (
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Historical:</span>
-                <span className="font-medium text-muted-foreground">{data.historicalYield.toFixed(2)}%</span>
+                <span className="font-medium text-muted-foreground">{(data.historicalYield ?? 0).toFixed(2)}%</span>
               </div>
             )}
             <div className="flex justify-between gap-4 pt-1 border-t border-border">
               <span className="text-muted-foreground">Change:</span>
-              <span className={`font-medium flex items-center gap-1 ${data.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {data.change >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                {data.change >= 0 ? '+' : ''}{data.change.toFixed(2)}%
+              <span className={`font-medium flex items-center gap-1 ${(data.change ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {(data.change ?? 0) >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                {(data.change ?? 0) >= 0 ? '+' : ''}{(data.change ?? 0).toFixed(2)}%
               </span>
             </div>
           </div>

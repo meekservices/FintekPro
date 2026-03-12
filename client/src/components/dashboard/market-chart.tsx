@@ -142,10 +142,10 @@ export function MarketChart({ symbol = "^NSEI" }: MarketChartProps) {
             <div className="text-center">
               <p className="text-muted-foreground mb-2">Market Chart</p>
               <p className="text-2xl font-bold text-finance-blue">
-                {symbol} - {chartData[chartData.length - 1]?.close.toFixed(2)}
+                {symbol} - {(chartData[chartData.length - 1]?.close ?? 0).toFixed(2)}
               </p>
-              <p className={`text-sm ${(stats?.change || 0) >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
-                {stats?.change >= 0 ? '+' : ''}{stats?.change.toFixed(2)} ({stats?.changePercent.toFixed(2)}%)
+              <p className={`text-sm ${(stats?.change ?? 0) >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
+                {(stats?.change ?? 0) >= 0 ? '+' : ''}{(stats?.change ?? 0).toFixed(2)} ({(stats?.changePercent ?? 0).toFixed(2)}%)
               </p>
             </div>
           ) : (

@@ -119,7 +119,7 @@ export function PortfolioSummary({ userId }: PortfolioSummaryProps) {
               className={`font-bold ${summary.todayPnL >= 0 ? 'text-finance-green' : 'text-finance-red'}`}
               data-testid="portfolio-pnl"
             >
-              {summary.todayPnL >= 0 ? '+' : ''}₹{summary.todayPnL.toLocaleString()} ({summary.todayPnLPercent.toFixed(2)}%)
+              {(summary.todayPnL ?? 0) >= 0 ? '+' : ''}₹{(summary.todayPnL ?? 0).toLocaleString()} ({(summary.todayPnLPercent ?? 0).toFixed(2)}%)
             </span>
           </div>
         </div>
