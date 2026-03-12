@@ -6,6 +6,82 @@ import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isName
 
 const router = Router();
 
+// ── Boot-time table creation ─────────────────────────────────────────────────
+async function ensureTable() {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS agent_empanelments (
+        id                          SERIAL PRIMARY KEY,
+        agent_id                    VARCHAR(255) NOT NULL UNIQUE,
+        status                      TEXT NOT NULL DEFAULT 'draft',
+        current_step                INTEGER NOT NULL DEFAULT 1,
+
+        -- Step 1: Identity
+        pan_verified                BOOLEAN DEFAULT FALSE,
+        pan_number                  TEXT,
+        pan_name                    TEXT,
+        aadhaar_verified            BOOLEAN DEFAULT FALSE,
+        aadhaar_last4               TEXT,
+
+        -- Step 2: Services
+        services_offered            TEXT[],
+
+        -- Step 3: Credentials
+        arn_code                    TEXT,
+        arn_expiry_date             TEXT,
+        euin_number                 TEXT,
+        nism_certificate_number     TEXT,
+        nism_certificate_type       TEXT,
+        nism_expiry_date            TEXT,
+        ria_number                  TEXT,
+        posp_number                 TEXT,
+        posp_insurer                TEXT,
+        dsa_code                    TEXT,
+
+        -- Step 4: Bank
+        bank_account_number         TEXT,
+        bank_ifsc                   TEXT,
+        bank_account_holder_name    TEXT,
+        bank_name                   TEXT,
+        bank_branch                 TEXT,
+        bank_verified               BOOLEAN DEFAULT FALSE,
+        bank_verified_at            TIMESTAMPTZ,
+        bank_penny_drop_ref         TEXT,
+        bank_name_match_score       NUMERIC,
+
+        -- Step 5: Documents
+        doc_nism_certificate        TEXT,
+        doc_graduation_certificate  TEXT,
+        doc_pan_card                TEXT,
+        doc_cancelled_cheque        TEXT,
+        doc_photo                   TEXT,
+
+        -- Step 6: Declarations
+        pmla_declaration_signed     BOOLEAN DEFAULT FALSE,
+        pmla_signed_at              TIMESTAMPTZ,
+        criminal_record_declaration BOOLEAN DEFAULT FALSE,
+        fatca_declaration_signed    BOOLEAN DEFAULT FALSE,
+        code_of_conduct_accepted    BOOLEAN DEFAULT FALSE,
+        anti_mis_selling_accepted   BOOLEAN DEFAULT FALSE,
+
+        -- Submission & Review
+        submitted_at                TIMESTAMPTZ,
+        reviewed_by                 TEXT,
+        reviewed_at                 TIMESTAMPTZ,
+        rejection_reason            TEXT,
+        approval_notes              TEXT,
+
+        created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    console.log("✅ [AgentEmpanelment] Table ready");
+  } catch (err: any) {
+    console.error("[AgentEmpanelment] Table init error:", err.message);
+  }
+}
+ensureTable();
+
 // Helper: get or create draft empanelment for agent
 async function getOrCreateEmpanelment(agentId: string) {
   const rows = await db.execute(sql`
