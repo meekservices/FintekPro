@@ -2,13 +2,14 @@
  * Data Enrichment Orchestrator Service
  * Handles multi-source financial data enrichment with:
  * - Priority-based source selection for Indian market:
- *   Probe42 (0.98) → MCA (0.95) → NSE/BSE (0.90) → Finnhub (0.75) → Yahoo (0.65)
+ *   Probe42 (0.98) → MCA (0.95) → NSE/BSE (0.90) → Finnhub (0.75) → Google Finance (0.70) → Yahoo (0.65)
  * - Metric-level source merging
  * - SEBI-compliant audit logging
  * - AI guardrails for data usage
  */
 
 import { probe42Service } from './probe42-service';
+import { fetchGFMetrics } from './google-finance-service';
 import { finnhubService } from './finnhub-service';
 import { exchangeFilingsService } from './exchange-filings-service';
 import { xbrlParserService } from './xbrl-parser-service';
@@ -17,7 +18,7 @@ import { nsdlISINService } from './nsdl-isin-service';
 import { ExternalServiceError } from '../utils/errors';
 import { nseIndiaProviderInstance, bseIndiaProviderInstance } from './market-movers-cache';
 
-export type DataSource = 'nse' | 'bse' | 'nse_bse' | 'probe42' | 'finnhub' | 'yahoo' | 'manual' | 'mca';
+export type DataSource = 'nse' | 'bse' | 'nse_bse' | 'probe42' | 'finnhub' | 'yahoo' | 'google_finance' | 'manual' | 'mca';
 
 export interface MetricValue {
   value: number | string | null;
@@ -87,9 +88,9 @@ export interface EnrichmentConfig {
 }
 
 const DEFAULT_CONFIG: EnrichmentConfig = {
-  // Indian market priority: MCA Intelligence (primary) → NSE → BSE → Finnhub → Yahoo
+  // Indian market priority: MCA Intelligence → NSE → BSE → Finnhub → Google Finance → Yahoo
   // Note: Probe42 /kyc endpoint disabled (requires higher subscription tier)
-  sourcePriority: ['mca', 'nse', 'bse', 'nse_bse', 'finnhub', 'yahoo', 'probe42'],
+  sourcePriority: ['mca', 'nse', 'bse', 'nse_bse', 'finnhub', 'google_finance', 'yahoo', 'probe42'],
   minConfidenceThreshold: 0.6,
   allowMixedSources: true,
   aiAllowed: true,
@@ -116,14 +117,15 @@ class DataEnrichmentService {
   getSourceConfidence(source: DataSource): number {
     // Indian market confidence scores - Probe42 is primary source for unlisted companies
     const confidenceMap: Record<DataSource, number> = {
-      probe42: 0.98,   // Primary source for Indian unlisted companies
-      mca: 0.95,       // Ministry of Corporate Affairs - official government source
-      nse: 0.92,       // NSE exchange filings (primary for listed stocks)
-      bse: 0.90,       // BSE exchange filings (good for SME and unlisted tracking)
-      nse_bse: 0.90,   // Combined exchange filings (legacy)
-      finnhub: 0.75,   // Limited Indian coverage
-      yahoo: 0.65,     // Some Indian stocks via .NS/.BO suffix
-      manual: 0.50,    // Manual overrides
+      probe42: 0.98,          // Primary source for Indian unlisted companies
+      mca: 0.95,              // Ministry of Corporate Affairs - official government source
+      nse: 0.92,              // NSE exchange filings (primary for listed stocks)
+      bse: 0.90,              // BSE exchange filings (good for SME and unlisted tracking)
+      nse_bse: 0.90,          // Combined exchange filings (legacy)
+      finnhub: 0.75,          // Limited Indian coverage
+      google_finance: 0.70,   // Google Finance HTML parsing (price + key ratios)
+      yahoo: 0.65,            // Some Indian stocks via .NS/.BO suffix
+      manual: 0.50,           // Manual overrides
     };
     return confidenceMap[source] ?? 0.5;
   }
@@ -1354,7 +1356,49 @@ class DataEnrichmentService {
       }
     }
 
-    // 5. YAHOO FINANCE - Last Resort (0.65 confidence)
+    // 5. GOOGLE FINANCE - (0.70 confidence) — price + PE + PB + market cap + 52w range
+    if (company.symbol) {
+      try {
+        const gf = await fetchGFMetrics(company.symbol, 'NSE');
+        if (gf) {
+          const gfConf = this.getSourceConfidence('google_finance');
+          const gfMetricMap: Record<string, number | null> = {
+            peRatio: gf.pe ?? null,
+            pbRatio: gf.pb ?? null,
+            dividendYield: gf.dividendYield ?? null,
+          };
+          let fetched = 0;
+          for (const [key, val] of Object.entries(gfMetricMap)) {
+            if (val == null) continue;
+            const mv: MetricValue = {
+              value: val,
+              source: 'google_finance',
+              retrievedAt: new Date(),
+              confidenceScore: gfConf,
+            };
+            const existing = collectedMetrics.get(key) || [];
+            existing.push(mv);
+            collectedMetrics.set(key, existing);
+            fetched++;
+          }
+          if (fetched > 0) {
+            enriched.sources.push('google_finance');
+            auditTrail.push({
+              id: crypto.randomUUID(),
+              timestamp: new Date(),
+              action: 'fetch',
+              source: 'google_finance',
+              confidence: gfConf,
+              reason: `Fetched ${fetched} metrics from Google Finance`,
+            });
+          }
+        }
+      } catch (error: any) {
+        // Google Finance is optional — never block the waterfall
+      }
+    }
+
+    // 6. YAHOO FINANCE - Last Resort (0.65 confidence)
     // Uses .NS (NSE) or .BO (BSE) suffix for Indian stocks
     if (company.symbol || options.externalSymbols?.yahoo) {
       try {

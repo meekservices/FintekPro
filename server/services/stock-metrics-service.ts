@@ -18,6 +18,7 @@
 import { db } from '../db';
 import { listedStocks, stockFinancialAuditLog } from '@shared/schema';
 import { eq, isNull, or, sql } from 'drizzle-orm';
+import { fetchGFMetrics } from './google-finance-service';
 
 interface StockMetrics {
   peRatio: number | null;
@@ -147,8 +148,77 @@ export class StockMetricsService {
   }
 
   /**
+   * Fetch stock metrics from FMP (Financial Modeling Prep)
+   * More reliable than Yahoo Finance for Indian stocks; uses .NS suffix
+   */
+  async fetchFromFMP(symbol: string): Promise<StockMetrics | null> {
+    const apiKey = process.env.FMP_API_KEY;
+    if (!apiKey) return null;
+    try {
+      const fmpSymbol = `${symbol}.NS`;
+      const profileRes = await fetch(
+        `https://financialmodelingprep.com/stable/profile?symbol=${encodeURIComponent(fmpSymbol)}&apikey=${apiKey}`,
+        { signal: AbortSignal.timeout(10_000) },
+      );
+      const profileData: any = profileRes.ok
+        ? ((await profileRes.json()) as any[])?.[0]
+        : null;
+
+      if (!profileData?.price && !profileData?.marketCap) return null;
+
+      const dividendYield =
+        profileData?.lastDividend != null && profileData?.price
+          ? (profileData.lastDividend / profileData.price) * 100
+          : null;
+
+      return {
+        peRatio: null,
+        pbRatio: null,
+        roe: null,
+        roce: null,
+        dividendYield,
+        eps: null,
+        debtToEquity: null,
+        marketCapValue: profileData?.marketCap ?? null,
+        dataSource: 'FMP',
+        lastUpdated: new Date(),
+      };
+    } catch (error: any) {
+      console.error(`[StockMetrics] FMP error for ${symbol}:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch stock metrics from Google Finance via HTML parsing
+   * Third fallback after Finnhub and FMP
+   */
+  async fetchFromGoogleFinance(symbol: string): Promise<StockMetrics | null> {
+    try {
+      const gf = await fetchGFMetrics(symbol, 'NSE');
+      if (!gf) return null;
+      const roe = null;
+      return {
+        peRatio: gf.pe ?? null,
+        pbRatio: gf.pb ?? null,
+        roe,
+        roce: null,
+        dividendYield: gf.dividendYield ?? null,
+        eps: gf.eps ?? null,
+        debtToEquity: null,
+        marketCapValue: gf.marketCap ?? null,
+        dataSource: 'Google Finance',
+        lastUpdated: new Date(),
+      };
+    } catch (error: any) {
+      console.error(`[StockMetrics] Google Finance error for ${symbol}:`, error.message);
+      return null;
+    }
+  }
+
+  /**
    * Fetch stock metrics from Yahoo Finance
-   * Fallback data source when Finnhub doesn't have data
+   * Last fallback data source
    */
   async fetchFromYahooFinance(symbol: string): Promise<StockMetrics | null> {
     try {
@@ -219,18 +289,24 @@ export class StockMetricsService {
   }
 
   /**
-   * Fetch metrics for a stock, trying multiple sources
+   * Fetch metrics for a stock, trying multiple sources.
+   * Priority: Finnhub → FMP → Google Finance → Yahoo Finance
    */
   async fetchMetricsForStock(symbol: string): Promise<StockMetrics | null> {
-    // Try Finnhub first
     let metrics = await this.fetchFromFinnhub(symbol);
-    
-    // Fall back to Yahoo Finance if Finnhub fails
+
+    if (!metrics) {
+      metrics = await this.fetchFromFMP(symbol);
+    }
+
+    if (!metrics) {
+      metrics = await this.fetchFromGoogleFinance(symbol);
+    }
+
     if (!metrics) {
       metrics = await this.fetchFromYahooFinance(symbol);
     }
 
-    // Calculate ROCE if we have ROE
     if (metrics && metrics.roe !== null) {
       metrics.roce = this.calculateROCE(metrics.roe, metrics.debtToEquity);
     }

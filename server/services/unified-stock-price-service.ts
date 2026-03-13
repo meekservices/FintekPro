@@ -1,17 +1,18 @@
 /**
  * Unified Stock Price Service
- * 
+ *
  * DB-first pattern:
  * - After every successful API fetch, write price to listed_stocks (async, non-blocking)
  * - If all providers fail, serve last-known price from listed_stocks (stale-serve)
- * 
- * Provider priority: NSE → FMP → BSE → Yahoo (most rate-limited, last resort)
+ *
+ * Provider priority: NSE → FMP → BSE → Google Finance → Yahoo (most rate-limited, last resort)
  */
 
 import { requestDedupeService } from './request-deduplication-service';
 import { NseIndia } from 'stock-nse-india';
 import yahooFinance from 'yahoo-finance2';
 import axios from 'axios';
+import { fetchGFQuote } from './google-finance-service';
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
 
@@ -28,7 +29,7 @@ interface StockPrice {
   open?: number;
   volume?: number;
   timestamp: number;
-  source: 'NSE' | 'BSE' | 'YAHOO' | 'FMP' | 'CACHE' | 'DB_STALE';
+  source: 'NSE' | 'BSE' | 'YAHOO' | 'FMP' | 'GOOGLE_FINANCE' | 'CACHE' | 'DB_STALE';
 }
 
 interface ProviderHealth {
@@ -318,6 +319,26 @@ class UnifiedStockPriceService {
     return msg.includes('too many requests') || msg.includes('429') || msg.includes('rate limit');
   }
 
+  private async fetchFromGoogleFinance(symbol: string): Promise<StockPrice | null> {
+    try {
+      const gfQuote = await fetchGFQuote(symbol, 'NSE');
+      if (gfQuote?.price) {
+        return {
+          symbol,
+          price: gfQuote.price,
+          previousClose: gfQuote.previousClose ?? undefined,
+          change: gfQuote.change ?? undefined,
+          changePercent: gfQuote.changePercent ?? undefined,
+          timestamp: Date.now(),
+          source: 'GOOGLE_FINANCE' as const,
+        };
+      }
+    } catch (error: any) {
+      console.warn(`[StockPrice] Google Finance fetch failed for ${symbol}: ${error.message}`);
+    }
+    return null;
+  }
+
   private async fetchFromYahoo(symbol: string): Promise<StockPrice | null> {
     try {
       const yahooSymbol = `${symbol}.NS`;
@@ -352,8 +373,8 @@ class UnifiedStockPriceService {
     if (!apiKey) return null;
     try {
       const fmpSymbol = `${symbol}.NS`;
-      const response = await axios.get(`https://financialmodelingprep.com/api/v3/quote/${encodeURIComponent(fmpSymbol)}`, {
-        params: { apikey: apiKey },
+      const response = await axios.get(`https://financialmodelingprep.com/stable/profile`, {
+        params: { symbol: fmpSymbol, apikey: apiKey },
         timeout: 10000,
       });
       const data = response.data?.[0];
@@ -361,12 +382,12 @@ class UnifiedStockPriceService {
         return {
           symbol,
           price: data.price,
-          previousClose: data.previousClose,
+          previousClose: undefined,
           change: data.change,
-          changePercent: data.changesPercentage,
-          high: data.dayHigh,
-          low: data.dayLow,
-          open: data.open,
+          changePercent: data.changePercentage,
+          high: undefined,
+          low: undefined,
+          open: undefined,
           volume: data.volume,
           timestamp: Date.now(),
           source: 'FMP' as const,
@@ -399,6 +420,12 @@ class UnifiedStockPriceService {
       const bsePrice = await this.fetchFromBSE(symbol);
       if (bsePrice) { this.recordSuccess('bse'); return bsePrice; }
       this.recordFailure('bse');
+    }
+
+    if (!this.isProviderCoolingDown('google_finance')) {
+      const gfPrice = await this.fetchFromGoogleFinance(symbol);
+      if (gfPrice) { this.recordSuccess('google_finance'); return gfPrice; }
+      this.recordFailure('google_finance');
     }
 
     if (!this.isProviderCoolingDown('yahoo')) {

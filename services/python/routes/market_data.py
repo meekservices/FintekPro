@@ -1,5 +1,5 @@
 """
-FintekPro Python Market Data Routes — powered by yfinance
+FintekPro Python Market Data Routes — yfinance + Google Finance
 
 Endpoints:
   POST /market/quotes          — batch price quotes for global stocks & ETFs
@@ -7,6 +7,9 @@ Endpoints:
   POST /market/peer-enrich     — lightweight peer enrichment (PE, PB, ROE) for a batch of symbols
   GET  /market/movers/indian   — NIFTY50 top gainers & losers
   GET  /market/health          — provider health check
+
+Source waterfall for peer enrichment:
+  yfinance (primary) → Google Finance (fallback for symbols yfinance misses)
 
 Indian stock yfinance row name notes:
   yfinance uses inconsistent row names for Indian (GAAP) vs US (US-GAAP) stocks.
@@ -22,6 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from auth import TokenPayload, verify_token
+from .google_finance import fetch_gf_peer_batch
 
 logger = logging.getLogger(__name__)
 
@@ -744,13 +748,39 @@ async def peer_enrich(
 ):
     """
     Lightweight peer enrichment: PE, PB, ROE, D/E for up to 10 NSE symbols.
-    Used as fallback when Screener.in fails for peer comparison.
+    Waterfall: yfinance (primary) → Google Finance (fallback for symbols yfinance missed).
     """
     symbols = payload.symbols[:10]
     if not symbols:
         raise HTTPException(status_code=400, detail="symbols list required")
+
     loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(_executor, _fetch_peer_enrich_sync, symbols)
+
+    # Tier 1: yfinance
+    result: dict = await loop.run_in_executor(_executor, _fetch_peer_enrich_sync, symbols)
+
+    # Tier 2: Google Finance — fill in any symbols yfinance missed
+    missed = [s for s in symbols if s not in result]
+    if missed:
+        try:
+            gf_results = await loop.run_in_executor(_executor, fetch_gf_peer_batch, missed)
+            for sym, data in gf_results.items():
+                if sym not in result:
+                    result[sym] = {
+                        "pe":           data.get("pe"),
+                        "pb":           data.get("pb"),
+                        "roe":          None,
+                        "debtToEquity": None,
+                        "bookValue":    None,
+                        "price":        data.get("price"),
+                        "marketCap":    None,
+                        "dividendYield":data.get("dividendYield"),
+                        "eps":          data.get("eps"),
+                        "source":       "google_finance",
+                    }
+        except Exception as gf_err:
+            logger.debug(f"[peer-enrich] Google Finance fallback error: {gf_err}")
+
     return {"results": result, "count": len(result)}
 
 
@@ -763,9 +793,41 @@ async def indian_market_movers(_: TokenPayload = Depends(verify_token)):
 
 @router.get("/health")
 async def market_data_health():
+    providers = {}
     try:
         import yfinance as yf
-        version = getattr(yf, "__version__", "unknown")
-        return {"status": "ok", "provider": "yfinance", "version": version}
+        providers["yfinance"] = {"status": "ok", "version": getattr(yf, "__version__", "unknown")}
     except ImportError:
-        return {"status": "unavailable", "error": "yfinance not installed"}
+        providers["yfinance"] = {"status": "unavailable"}
+
+    try:
+        from .google_finance import _try_jsonp
+        gf_result = _try_jsonp("RELIANCE", "NSE")
+        providers["google_finance"] = {
+            "status": "ok" if gf_result else "degraded",
+            "note": "JSONP endpoint" if gf_result else "JSONP unavailable — HTML fallback active",
+        }
+    except Exception as e:
+        providers["google_finance"] = {"status": "error", "error": str(e)}
+
+    overall_ok = providers.get("yfinance", {}).get("status") == "ok"
+    return {"status": "ok" if overall_ok else "degraded", "providers": providers}
+
+
+@router.get("/google-finance/test")
+async def test_google_finance(symbol: str = "RELIANCE", exchange: str = "NSE"):
+    """Quick connectivity test for Google Finance data for a given symbol."""
+    from .google_finance import fetch_gf_quote, fetch_gf_metrics
+    import time
+    start = time.time()
+    quote = fetch_gf_quote(symbol, exchange)
+    metrics = fetch_gf_metrics(symbol, exchange) if quote else None
+    elapsed = round((time.time() - start) * 1000)
+    return {
+        "symbol": symbol,
+        "exchange": exchange,
+        "quote": quote,
+        "metrics": metrics,
+        "latencyMs": elapsed,
+        "success": quote is not None or metrics is not None,
+    }

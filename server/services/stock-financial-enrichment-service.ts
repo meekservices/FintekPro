@@ -247,7 +247,11 @@ class StockFinancialEnrichmentService {
     try {
       const response = await axios.get(url, { timeout: 15000 });
       this.fmpCallCount++;
-      return response.data as T;
+      const d = response.data;
+      if (d && typeof d === 'object' && !Array.isArray(d) && d['Error Message']?.includes('Legacy Endpoint')) {
+        return null;
+      }
+      return d as T;
     } catch (error: any) {
       if (error.response?.status === 429) {
         console.warn(`[Stock Enrichment] FMP rate limited`);

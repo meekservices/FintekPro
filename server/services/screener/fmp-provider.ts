@@ -53,6 +53,9 @@ class FMPFreeProvider implements IDataProvider {
       }
 
       const data = await response.json();
+      if (data && typeof data === 'object' && !Array.isArray(data) && data['Error Message']?.includes('Legacy Endpoint')) {
+        return null;
+      }
       return data as T;
     } catch (err: any) {
       console.warn(`[FMP] Request failed for ${endpoint}: ${err.message}`);

@@ -293,65 +293,59 @@ class FinancialDataRepository {
     const results = new Map<string, InstrumentData>();
     if (!apiKey || symbols.length === 0) return results;
 
+    const safeFloat = (v: any): number | undefined => {
+      if (v == null) return undefined;
+      const n = typeof v === 'string' ? parseFloat(v.replace(/[()%$,\s]/g, '')) : Number(v);
+      return isFinite(n) ? n : undefined;
+    };
+
     try {
-      const symbolList = symbols.join(',');
-      const url = `https://financialmodelingprep.com/api/v3/quote/${encodeURIComponent(symbolList)}?apikey=${apiKey}`;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000);
-
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: { 'Accept': 'application/json', 'User-Agent': 'FintekPro/2.5' },
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        console.log(`[FMP Batch] HTTP ${response.status} for ${symbols.length} symbols`);
-        return results;
-      }
-
-      const quotes: any[] = await response.json();
-      if (!Array.isArray(quotes)) return results;
-
-      const safeFloat = (v: any): number | undefined => {
-        if (v == null) return undefined;
-        const n = typeof v === 'string' ? parseFloat(v.replace(/[()%$,\s]/g, '')) : Number(v);
-        return isFinite(n) ? n : undefined;
-      };
-
-      for (const q of quotes) {
-        if (!q.symbol || !safeFloat(q.price)) continue;
+      const capped = symbols.slice(0, 10);
+      const fetchOne = async (sym: string): Promise<[string, InstrumentData] | null> => {
+        const resp = await fetch(
+          `https://financialmodelingprep.com/stable/profile?symbol=${encodeURIComponent(sym)}&apikey=${apiKey}`,
+          { signal: AbortSignal.timeout(10000), headers: { 'Accept': 'application/json', 'User-Agent': 'FintekPro/2.5' } }
+        );
+        if (!resp.ok) return null;
+        const d: any[] = await resp.json();
+        const q = d?.[0];
+        if (!q?.price) return null;
         const data: InstrumentData = {
           instrumentType,
-          symbol: q.symbol,
-          name: q.name || q.symbol,
+          symbol: q.symbol || sym,
+          name: q.companyName || sym,
           exchange: q.exchange || 'US',
-          currency: 'USD',
-          country: 'US',
+          currency: q.currency || 'USD',
+          country: q.country || 'US',
           currentPrice: safeFloat(q.price),
-          previousClose: safeFloat(q.previousClose),
+          previousClose: undefined,
           dayChange: safeFloat(q.change),
-          dayChangePercent: safeFloat(q.changesPercentage),
-          dayHigh: safeFloat(q.dayHigh),
-          dayLow: safeFloat(q.dayLow),
-          openPrice: safeFloat(q.open),
+          dayChangePercent: safeFloat(q.changePercentage),
+          dayHigh: undefined,
+          dayLow: undefined,
+          openPrice: undefined,
           volume: safeFloat(q.volume),
           marketCap: safeFloat(q.marketCap),
-          peRatio: safeFloat(q.pe),
-          dividendYield: safeFloat(q.avgVolume) ? undefined : undefined,
-          sector: instrumentType === 'etf' ? undefined : undefined,
+          peRatio: undefined,
+          dividendYield: undefined,
+          sector: q.sector || undefined,
           category: instrumentType === 'etf' ? (q.sector || undefined) : undefined,
-          expenseRatio: instrumentType === 'etf' ? undefined : undefined,
+          expenseRatio: undefined,
           aum: instrumentType === 'etf' ? safeFloat(q.marketCap) : undefined,
           dataSource: 'fmp',
-          confidenceScore: 93,
+          confidenceScore: 88,
         };
-        results.set(q.symbol, data);
+        return [q.symbol || sym, data];
+      };
+
+      const settled = await Promise.allSettled(capped.map(fetchOne));
+      for (const r of settled) {
+        if (r.status === 'fulfilled' && r.value) results.set(r.value[0], r.value[1]);
       }
 
-      console.log(`✅ [FMP Batch] Fetched ${results.size}/${symbols.length} ${instrumentType} quotes`);
+      console.log(`✅ [FMP Stable] Fetched ${results.size}/${capped.length} ${instrumentType} profiles`);
     } catch (error: any) {
-      console.log(`⚠️ [FMP Batch] Error: ${error.message}`);
+      console.log(`⚠️ [FMP Stable] Error: ${error.message}`);
     }
 
     return results;

@@ -145,7 +145,7 @@ async function fetchFMPPrice(symbol: string): Promise<RawPrice | null> {
     const apiKey = process.env.FMP_API_KEY ?? process.env.FINANCIAL_MODELING_PREP_API_KEY;
     if (!apiKey) return null;
     const resp = await fetch(
-      `https://financialmodelingprep.com/api/v3/quote/${symbol}.NS?apikey=${apiKey}`,
+      `https://financialmodelingprep.com/stable/profile?symbol=${symbol}.NS&apikey=${apiKey}`,
       { signal: AbortSignal.timeout(8000) }
     );
     if (!resp.ok) return null;
@@ -154,11 +154,11 @@ async function fetchFMPPrice(symbol: string): Promise<RawPrice | null> {
     const q = data[0];
     return {
       price: q.price,
-      open: q.open,
-      high: q.dayHigh,
-      low: q.dayLow,
+      open: undefined,
+      high: undefined,
+      low: undefined,
       volume: q.volume,
-      changePercent: q.changesPercentage,
+      changePercent: q.changePercentage,
       source: "FMP",
       confidence: SOURCE_CONFIDENCE.FMP,
     };
