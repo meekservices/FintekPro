@@ -38,12 +38,20 @@ function getMasterKey(): string {
   const key = process.env.FIELD_ENCRYPTION_KEY;
   
   if (!key) {
-    // In development, use a default key (NOT FOR PRODUCTION)
+    // Fall back to SESSION_SECRET (stable across restarts, already required for session management)
+    const sessionSecret = process.env.SESSION_SECRET;
+    if (sessionSecret && sessionSecret.length >= 32) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('⚠️ [ENCRYPTION] Using SESSION_SECRET as field encryption key. Set FIELD_ENCRYPTION_KEY for stronger isolation.');
+      }
+      return sessionSecret.substring(0, 64);
+    }
+    // Last resort: dev-only default key
     if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
       console.warn('⚠️ [ENCRYPTION] Using default encryption key. Set FIELD_ENCRYPTION_KEY in production!');
       return 'dev-encryption-key-do-not-use-in-prod-32chars';
     }
-    throw new EncryptionError('FIELD_ENCRYPTION_KEY environment variable is not set');
+    throw new EncryptionError('FIELD_ENCRYPTION_KEY or SESSION_SECRET environment variable is not set');
   }
   
   if (key.length < 32) {
