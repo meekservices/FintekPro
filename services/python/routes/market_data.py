@@ -801,12 +801,21 @@ async def market_data_health():
         providers["yfinance"] = {"status": "unavailable"}
 
     try:
-        from .google_finance import _try_jsonp
-        gf_result = _try_jsonp("RELIANCE", "NSE")
-        providers["google_finance"] = {
-            "status": "ok" if gf_result else "degraded",
-            "note": "JSONP endpoint" if gf_result else "JSONP unavailable — HTML fallback active",
-        }
+        from .google_finance import _CHROMIUM, _try_jsonp
+        if _CHROMIUM:
+            providers["google_finance"] = {
+                "status": "ok",
+                "engine": "headless-chromium",
+                "binary": _CHROMIUM,
+                "note": "Full JS rendering via headless Chromium",
+            }
+        else:
+            gf_result = _try_jsonp("RELIANCE", "NSE")
+            providers["google_finance"] = {
+                "status": "ok" if gf_result else "degraded",
+                "engine": "jsonp",
+                "note": "JSONP endpoint active" if gf_result else "Chromium unavailable; JSONP also failing",
+            }
     except Exception as e:
         providers["google_finance"] = {"status": "error", "error": str(e)}
 

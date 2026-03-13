@@ -1,23 +1,26 @@
 """
 Google Finance data provider for FintekPro.
-Provides price quotes and key metrics for Indian stocks (NSE/BSE) via
-Google Finance HTML parsing and the legacy JSONP info endpoint.
+Fetches live price, PE ratio, market cap and key metrics for Indian stocks
+using headless Chromium to fully render the JS-heavy Google Finance page.
 
 Strategy waterfall (tried in order):
-  1. finance.google.com/finance/info  — legacy JSONP (fast, sometimes works)
-  2. www.google.com/finance/quote     — HTML parsing with embedded JSON blob
-  3. Structured-data / og:description fallback
+  1. Headless Chromium --dump-dom  — renders the full page; parses data-last-price
+                                     and class="P6K39c" stat values  (PRIMARY)
+  2. finance.google.com/finance/info JSONP — legacy endpoint; sometimes alive   (FALLBACK)
 
 Provides:
-  fetch_gf_quote(symbol, exchange)   → {price, change, changePercent, ...}
-  fetch_gf_metrics(symbol, exchange) → {pe, pb, marketCap, high52w, low52w, ...}
-  fetch_gf_peer_batch(symbols)       → {SYMBOL: {pe, pb, roe, price, ...}, ...}
+  fetch_gf_quote(symbol, exchange)   → {price, pe, marketCap, timestamp, ...}
+  fetch_gf_metrics(symbol, exchange) → {pe, marketCap, eps, dividendYield, ...}
+  fetch_gf_peer_batch(symbols)       → {SYMBOL: {...}, ...}
 """
 
 import json
 import logging
 import re
+import shutil
+import subprocess
 import time
+from functools import lru_cache
 from typing import Dict, List, Optional
 
 import requests
@@ -32,11 +35,22 @@ _SESSION.headers.update({
         "Chrome/124.0.0.0 Safari/537.36"
     ),
     "Accept-Language": "en-IN,en;q=0.9",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 })
 
-_TIMEOUT = 12
+_CHROMIUM_TIMEOUT = 20
 _JSONP_TIMEOUT = 6
+
+
+# ─── Chromium path resolution ─────────────────────────────────────────────────
+
+def _chromium_binary() -> Optional[str]:
+    for name in ("chromium", "chromium-browser", "google-chrome"):
+        path = shutil.which(name)
+        if path:
+            return path
+    return None
+
+_CHROMIUM = _chromium_binary()
 
 
 def _safe_float(v) -> Optional[float]:
@@ -51,13 +65,131 @@ def _safe_float(v) -> Optional[float]:
         return None
 
 
-# ─── Strategy 1: Legacy JSONP endpoint ────────────────────────────────────────
+def _parse_market_cap(raw: str) -> Optional[float]:
+    """
+    Convert Google Finance market cap strings to raw float (INR).
+    Examples: '18.75T INR' → 18.75e12, '2.5L Cr' → 2.5e12, '85,000 Cr' → 8.5e11
+    """
+    if not raw:
+        return None
+    s = raw.upper().replace(",", "").replace("INR", "").replace("₹", "").strip()
+    m = re.match(r"([\d.]+)\s*([TBMKL]?)\s*(?:CR)?", s)
+    if not m:
+        return None
+    num = float(m.group(1))
+    suffix = m.group(2)
+    if suffix == "T":
+        return num * 1e12
+    if suffix == "B":
+        return num * 1e9
+    if suffix == "M":
+        return num * 1e6
+    if suffix == "K":
+        return num * 1e3
+    # bare Cr
+    if "CR" in s:
+        return num * 1e7
+    return num
+
+
+# ─── Strategy 1: Headless Chromium ───────────────────────────────────────────
+
+def _chromium_dump_dom(symbol: str, exchange: str) -> Optional[str]:
+    """
+    Run Chromium in headless mode to fully render the Google Finance page
+    and return the DOM as a string.
+    """
+    if not _CHROMIUM:
+        return None
+    url = f"https://www.google.com/finance/quote/{symbol}:{exchange}"
+    try:
+        result = subprocess.run(
+            [
+                _CHROMIUM,
+                "--headless=new",
+                "--no-sandbox",
+                "--disable-gpu",
+                "--disable-dev-shm-usage",
+                "--disable-extensions",
+                "--disable-background-networking",
+                "--dump-dom",
+                url,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=_CHROMIUM_TIMEOUT,
+        )
+        html = result.stdout
+        if len(html) < 10000:
+            return None
+        return html
+    except subprocess.TimeoutExpired:
+        logger.warning(f"[GoogleFinance] Chromium timeout for {exchange}:{symbol}")
+        return None
+    except Exception as e:
+        logger.debug(f"[GoogleFinance] Chromium error for {exchange}:{symbol}: {e}")
+        return None
+
+
+def _parse_chromium_html(html: str, symbol: str) -> Optional[dict]:
+    """
+    Parse the fully-rendered Google Finance HTML.
+    Extracts price from data-last-price, stats from class="P6K39c".
+    """
+    if not html:
+        return None
+
+    price_m = re.search(r'data-last-price="([\d.]+)"', html)
+    ts_m = re.search(r'data-last-normal-market-timestamp="(\d+)"', html)
+    if not price_m:
+        return None
+
+    price = _safe_float(price_m.group(1))
+    if not price:
+        return None
+
+    timestamp = int(ts_m.group(1)) if ts_m else None
+
+    def _stat_after(label: str) -> Optional[str]:
+        pos = html.find(label)
+        if pos < 0:
+            return None
+        snip = html[pos:pos + 500]
+        m = re.search(r'class="P6K39c">([^<]+)</div>', snip)
+        return m.group(1).strip() if m else None
+
+    pe_raw = _stat_after("P/E ratio")
+    mktcap_raw = _stat_after("Market cap")
+    div_raw = _stat_after("Div yield")
+    prev_close_raw = _stat_after("Prev close")
+
+    pe = _safe_float(pe_raw)
+    market_cap = _parse_market_cap(mktcap_raw) if mktcap_raw else None
+    div_yield_pct = div_raw.replace("%", "").strip() if div_raw else None
+    div_yield = _safe_float(div_yield_pct)
+    prev_close = _safe_float(prev_close_raw)
+
+    # Derive EPS from price/PE to avoid false match with P/E tooltip text
+    eps = round(price / pe, 2) if pe and pe > 0 else None
+
+    return {
+        "symbol": symbol,
+        "price": price,
+        "previousClose": prev_close,
+        "change": round(price - prev_close, 2) if prev_close else None,
+        "changePercent": round((price - prev_close) / prev_close * 100, 4) if prev_close else None,
+        "pe": pe,
+        "eps": eps,
+        "marketCap": market_cap,
+        "dividendYield": div_yield,
+        "timestamp": timestamp,
+        "source": "google_finance_chromium",
+    }
+
+
+# ─── Strategy 2: Legacy JSONP endpoint ───────────────────────────────────────
 
 def _try_jsonp(symbol: str, exchange: str) -> Optional[dict]:
-    """
-    finance.google.com/finance/info?client=ig&q=NSE:RELIANCE
-    Returns JSONP like:  // [{"id":"...", "t":"RELIANCE","l_fix":"2850.00","c_fix":"25.00","cp":"0.88",...}]
-    """
     url = f"https://finance.google.com/finance/info?client=ig&q={exchange}:{symbol}"
     try:
         resp = _SESSION.get(url, timeout=_JSONP_TIMEOUT)
@@ -86,220 +218,73 @@ def _try_jsonp(symbol: str, exchange: str) -> Optional[dict]:
         return None
 
 
-# ─── Strategy 2: HTML page parsing ────────────────────────────────────────────
-
-_GF_JSON_PATTERNS = [
-    # JSON blob embedded in data- attributes or script vars
-    r'"PRICE":\[\d+,(\d[\d,]*(?:\.\d+)?)',
-    r'"LAST_PRICE":\[\d+,(\d[\d,]*(?:\.\d+)?)',
-    r'"c\\?":\s*"(\d[\d,]*(?:\.\d+)?)"',   # some variants
-]
-
-_GF_PE_PATTERNS = [
-    r'"PE_RATIO":\[\d+,(\d[\d,]*(?:\.\d+)?)',
-    r'"PRICE_EARNINGS_RATIO":\[\d+,(\d[\d,]*(?:\.\d+)?)',
-    r'P/E ratio[^<]*<[^>]+>([0-9]+\.?[0-9]*)',
-]
-
-_GF_PB_PATTERNS = [
-    r'"PRICE_TO_BOOK":\[\d+,(\d[\d,]*(?:\.\d+)?)',
-    r'"PB_RATIO":\[\d+,(\d[\d,]*(?:\.\d+)?)',
-    r'Price/Book[^<]*<[^>]+>([0-9]+\.?[0-9]*)',
-]
-
-_GF_MKTCAP_PATTERNS = [
-    r'"MARKET_CAP":\[\d+,(\d[\d,]*(?:\.\d+)?)',
-    r'"MKTCAP":\[\d+,(\d[\d,]*(?:\.\d+)?)',
-    r'Market cap[^<]*<[^>]+>([₹0-9,\.T L Cr]+)',
-]
-
-_GF_HIGH52_PATTERNS = [
-    r'"HIGH_52_WEEKS":\[\d+,(\d[\d,]*(?:\.\d+)?)',
-    r'52-wk high[^<]*<[^>]+>([0-9,]+\.?[0-9]*)',
-]
-
-_GF_LOW52_PATTERNS = [
-    r'"LOW_52_WEEKS":\[\d+,(\d[\d,]*(?:\.\d+)?)',
-    r'52-wk low[^<]*<[^>]+>([0-9,]+\.?[0-9]*)',
-]
-
-_GF_DIVYIELD_PATTERNS = [
-    r'"DIVIDEND_YIELD":\[\d+,(\d[\d,]*(?:\.\d+)?)',
-    r'Div yield[^<]*<[^>]+>([0-9]+\.?[0-9]*)',
-]
-
-_GF_EPS_PATTERNS = [
-    r'"EPS":\[\d+,(-?\d[\d,]*(?:\.\d+)?)',
-    r'"EARNINGS_PER_SHARE":\[\d+,(-?\d[\d,]*(?:\.\d+)?)',
-    r'EPS[^<]*<[^>]+>([0-9]+\.?[0-9]*)',
-]
-
-
-def _extract_first(html: str, patterns: List[str]) -> Optional[float]:
-    for pat in patterns:
-        m = re.search(pat, html)
-        if m:
-            raw = m.group(1).replace(",", "")
-            val = _safe_float(raw)
-            if val is not None and val > 0:
-                return val
-    return None
-
-
-def _fetch_gf_html(symbol: str, exchange: str) -> Optional[str]:
-    url = f"https://www.google.com/finance/quote/{symbol}:{exchange}"
-    try:
-        resp = _SESSION.get(url, timeout=_TIMEOUT)
-        if resp.ok:
-            return resp.text
-    except Exception as e:
-        logger.debug(f"[GoogleFinance] HTML fetch failed for {exchange}:{symbol}: {e}")
-    return None
-
-
-def _parse_price_from_html(html: str) -> Optional[float]:
-    return _extract_first(html, _GF_JSON_PATTERNS)
-
-
-def _parse_change_from_html(html: str):
-    patterns = [
-        r'"CHANGE":\[\d+,(-?\d[\d,]*(?:\.\d+)?)',
-        r'"DAY_CHANGE":\[\d+,(-?\d[\d,]*(?:\.\d+)?)',
-    ]
-    for pat in patterns:
-        m = re.search(pat, html)
-        if m:
-            raw = m.group(1).replace(",", "")
-            val = _safe_float(raw)
-            if val is not None:
-                return val
-    return None
-
-
-def _parse_change_pct_from_html(html: str):
-    patterns = [
-        r'"CHANGE_PERCENT":\[\d+,(-?\d[\d,]*(?:\.\d+)?)',
-        r'"DAY_CHANGE_PERCENT":\[\d+,(-?\d[\d,]*(?:\.\d+)?)',
-    ]
-    for pat in patterns:
-        m = re.search(pat, html)
-        if m:
-            raw = m.group(1).replace(",", "")
-            val = _safe_float(raw)
-            if val is not None:
-                return val
-    return None
-
-
 # ─── Public API ───────────────────────────────────────────────────────────────
 
 def fetch_gf_quote(symbol: str, exchange: str = "NSE") -> Optional[dict]:
     """
-    Fetch live price quote for a stock from Google Finance.
-    Returns: {symbol, price, change, changePercent, previousClose, source}
+    Fetch live price quote from Google Finance.
+    Returns: {symbol, price, change, changePercent, previousClose, pe, marketCap, source}
     """
-    result = _try_jsonp(symbol, exchange)
-    if result and result.get("price"):
-        return result
-
-    if exchange == "NSE" and not result:
-        result = _try_jsonp(symbol, "BOM")
-
-    html = _fetch_gf_html(symbol, exchange)
-    if not html:
-        if exchange == "NSE":
-            html = _fetch_gf_html(symbol, "BOM")
-
+    html = _chromium_dump_dom(symbol, exchange)
     if html:
-        price = _parse_price_from_html(html)
-        if price:
-            return {
-                "symbol": symbol,
-                "price": price,
-                "change": _parse_change_from_html(html),
-                "changePercent": _parse_change_pct_from_html(html),
-                "source": "google_finance_html",
-            }
+        result = _parse_chromium_html(html, symbol)
+        if result and result.get("price"):
+            return result
+
+    if exchange == "NSE" and not html:
+        html = _chromium_dump_dom(symbol, "BOM")
+        if html:
+            result = _parse_chromium_html(html, symbol)
+            if result and result.get("price"):
+                return result
+
+    jsonp = _try_jsonp(symbol, exchange)
+    if jsonp and jsonp.get("price"):
+        return jsonp
+
+    if exchange == "NSE":
+        return _try_jsonp(symbol, "BOM")
 
     return None
 
 
 def fetch_gf_metrics(symbol: str, exchange: str = "NSE") -> Optional[dict]:
     """
-    Fetch key metrics (PE, PB, market cap, 52w range, dividend yield, EPS)
-    from Google Finance HTML.
-    Returns: {pe, pb, marketCap, high52w, low52w, dividendYield, eps, source}
+    Fetch key metrics: PE, market cap, EPS, dividend yield.
+    Returns: {pe, marketCap, eps, dividendYield, source}
     """
-    html = _fetch_gf_html(symbol, exchange)
-    if not html:
-        if exchange == "NSE":
-            html = _fetch_gf_html(symbol, "BOM")
-        if not html:
-            return None
+    result = fetch_gf_quote(symbol, exchange)
+    if not result:
+        return None
 
-    pe = _extract_first(html, _GF_PE_PATTERNS)
-    pb = _extract_first(html, _GF_PB_PATTERNS)
-    high52 = _extract_first(html, _GF_HIGH52_PATTERNS)
-    low52 = _extract_first(html, _GF_LOW52_PATTERNS)
-    div_yield = _extract_first(html, _GF_DIVYIELD_PATTERNS)
-    eps = _extract_first(html, _GF_EPS_PATTERNS)
-
-    mktcap_raw = None
-    for pat in _GF_MKTCAP_PATTERNS:
-        m = re.search(pat, html)
-        if m:
-            mktcap_raw = _safe_float(m.group(1).replace(",", "").replace("₹", "").strip())
-            if mktcap_raw:
-                break
-
-    if not any([pe, pb, high52, low52, div_yield]):
-        logger.debug(f"[GoogleFinance] No metrics extracted from HTML for {symbol}:{exchange}")
+    has_metrics = any(result.get(k) for k in ("pe", "marketCap", "eps", "dividendYield"))
+    if not has_metrics:
         return None
 
     return {
-        "pe": pe,
-        "pb": pb,
-        "marketCap": mktcap_raw,
-        "high52w": high52,
-        "low52w": low52,
-        "dividendYield": div_yield,
-        "eps": eps,
-        "source": "google_finance",
+        "pe": result.get("pe"),
+        "pb": None,
+        "marketCap": result.get("marketCap"),
+        "eps": result.get("eps"),
+        "dividendYield": result.get("dividendYield"),
+        "high52w": None,
+        "low52w": None,
+        "source": result.get("source", "google_finance"),
     }
 
 
 def fetch_gf_peer_batch(symbols: List[str], exchange: str = "NSE") -> Dict[str, dict]:
     """
-    Fetch basic metrics for a batch of symbols for peer comparison.
-    Retrieves PE, PB, dividend yield, price, EPS via Google Finance.
-    Returns {SYMBOL: {pe, pb, dividendYield, eps, price, ...}}
+    Fetch metrics for a batch of symbols for peer comparison.
+    Capped at 5 symbols to keep Chromium usage reasonable.
     """
     results = {}
-    for sym in symbols:
+    for sym in symbols[:5]:
         try:
-            html = _fetch_gf_html(sym, exchange)
-            if not html and exchange == "NSE":
-                html = _fetch_gf_html(sym, "BOM")
-            if not html:
-                continue
-
-            price = _parse_price_from_html(html)
-            pe = _extract_first(html, _GF_PE_PATTERNS)
-            pb = _extract_first(html, _GF_PB_PATTERNS)
-            div = _extract_first(html, _GF_DIVYIELD_PATTERNS)
-            eps = _extract_first(html, _GF_EPS_PATTERNS)
-
-            if any(v is not None for v in [price, pe, pb]):
-                results[sym] = {
-                    "price": price,
-                    "pe": pe,
-                    "pb": pb,
-                    "dividendYield": div,
-                    "eps": eps,
-                    "source": "google_finance",
-                }
-            time.sleep(0.5)
+            data = fetch_gf_quote(sym, exchange)
+            if data and data.get("price"):
+                results[sym] = data
+            time.sleep(1.0)
         except Exception as e:
             logger.debug(f"[GoogleFinance] peer batch skip {sym}: {e}")
-
     return results
