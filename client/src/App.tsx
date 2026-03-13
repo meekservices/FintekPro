@@ -2471,8 +2471,12 @@ function App() {
   useEffect(() => {
     const loader = document.getElementById('initial-loader');
     if (loader) loader.remove();
-    // Clear the preload-error reload guard so future deployments can trigger reload again
+    // Clear all stale-chunk reload guards so every portal recovers cleanly after a deploy.
+    // These are set by lazyWithRetry and the vite:preloadError handler.
     sessionStorage.removeItem('preload-err-reload');
+    for (const key of Object.keys(sessionStorage)) {
+      if (key.startsWith('chunk-reload-')) sessionStorage.removeItem(key);
+    }
   }, []);
   return (
     <ErrorBoundary>
