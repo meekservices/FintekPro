@@ -19,7 +19,7 @@ import { VersionCheckModal } from "@/components/VersionCheckModal";
 import { DSCBackgroundSync } from "@/components/DSCBackgroundSync";
 import { GlobalActionQueueMonitor } from "@/components/GlobalActionQueueMonitor";
 import { LoadingState } from "@/components/LoadingState";
-import Home from "@/pages/home";
+const Home = lazyWithRetry(() => import("@/pages/home"));
 const Portfolio = lazyWithRetry(() => import("@/pages/portfolio"));
 const Markets = lazyWithRetry(() => import("@/pages/markets"));
 const IPO = lazyWithRetry(() => import("@/pages/ipo"));
