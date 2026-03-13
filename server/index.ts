@@ -1084,6 +1084,20 @@ server.listen({
     console.error('[Migration] agent_notifications table error:', e?.message);
   }
 
+  // Migrate capital_gains_tax_reminders: add prospect_id + created_by_agent_id if missing
+  try {
+    const { db: mainDb } = await import('./db');
+    const { sql: migSql } = await import('drizzle-orm');
+    await mainDb.execute(migSql`
+      ALTER TABLE capital_gains_tax_reminders
+        ADD COLUMN IF NOT EXISTS prospect_id VARCHAR,
+        ADD COLUMN IF NOT EXISTS created_by_agent_id VARCHAR REFERENCES users(id)
+    `);
+    console.log('✅ [Migration] capital_gains_tax_reminders columns verified/added');
+  } catch (e: any) {
+    console.error('[Migration] capital_gains_tax_reminders error:', e?.message);
+  }
+
   // Register additional routes from routes.ts (but don't create a new server - we already have one)
   await registerRoutes(app, server);
 
