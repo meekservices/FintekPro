@@ -7389,6 +7389,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
+  // Test routes — development/staging only, disabled in production
+  if (!isProductionEnvironment()) {
   // Test AMFI integration
   app.get("/api/test-amfi", async (req, res) => {
     try {
@@ -7551,6 +7553,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       res.status(500).json({ success: false, error: error.message });
     }
   });
+  } // end !isProductionEnvironment() — test routes block
 
   // AMFI API endpoints for mutual fund data
   app.get("/api/amfi/mutual-funds", async (req, res) => {

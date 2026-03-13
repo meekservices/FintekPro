@@ -160,7 +160,8 @@ export class PortfolioReportPDFRenderer {
       styles: { fontSize: 8 },
     });
 
-    this.currentY = (this.pdf as any).lastAutoTable?.finalY + 8 ?? this.currentY + 10;
+    const tableY = (this.pdf as any).lastAutoTable?.finalY;
+    this.currentY = tableY != null ? tableY + 8 : this.currentY + 10;
     this.pdf.setFontSize(7);
     this.pdf.setTextColor(...COLORS.secondary);
     this.pdf.text(

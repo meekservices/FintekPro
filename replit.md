@@ -1,5 +1,13 @@
 # FintekPro - Financial Services Platform
 
+## Publish Readiness (March 2026)
+- **Build**: ✅ Zero TypeScript errors, zero build warnings. `dist/index.js` (14 MB) + `dist/public/` frontend assets.
+- **Security**: ✅ `/api/test-amfi`, `/api/test/twilio-{sms,whatsapp,verify,voice}` gated by `isProductionEnvironment()` (dev-only endpoints hidden in prod). Error testing routes already gated by `NODE_ENV === 'development'` in `server/index.ts`.
+- **SW Cache Busting**: ✅ BUILD_TIMESTAMP (changes every build) included in SW URL `?v=${APP_VERSION}&b=${BUILD_TIMESTAMP}` → cache names are unique per deployment → no stale chunks on any portal after publish.
+- **Lazy Loading Recovery**: ✅ `lazyWithRetry` properly awaits SW cache deletion before reload. App.tsx clears all `chunk-reload-*` and `preload-err-reload` session guards on mount.
+- **Deployment config** (`.replit`): `build = ["npm", "run", "build"]`, `run = ["npm", "run", "start"]` (→ `NODE_ENV=production node dist/index.js`), port 5000→80.
+- **Python sidecar**: starts on port 8001 from `server/index.ts` startup (non-blocking, spawned with `uvicorn`).
+
 ## Overview
 FintekPro is a full-stack TypeScript financial services platform for personal finance and investment management. It provides secure financial planning, portfolio management, and real-time market data across diverse asset classes. Key capabilities include family collaboration, a unified KYC system, an AI-powered financial assistant, an Unlisted Marketplace, and comprehensive multi-origination loan lifecycle support. The platform aims to be a leading digital financial ecosystem, empowering individual investors and financial advisors with advanced tools and insights.
 
