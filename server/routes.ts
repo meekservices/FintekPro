@@ -146,6 +146,7 @@ import adminMutualFundsRoutes from "./routes/admin-mutual-funds-routes";
 import adminGlobalInstrumentsRoutes from "./routes/admin-global-instruments";
 import adminApiUsageRoutes from "./routes/admin-api-usage-routes";
 import derivativesRoutes from "./routes/derivatives-routes";
+import excelAddinRoutes from "./routes/excel-addin-routes";
 import taxServicesRoutes from "./routes/tax-services-routes";
 import listedStocksAdminRoutes from "./routes/listed-stocks-admin";
 import demoProposalsRoutes, { agentDemoRouter } from "./routes/demo-proposals";
@@ -1004,6 +1005,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.use("/api/admin/global-instruments", requireAdmin, adminGlobalInstrumentsRoutes);
   app.use(adminApiUsageRoutes);
   app.use("/api/derivatives", derivativesRoutes);
+  app.use("/api/excel", excelAddinRoutes);
+  console.log("✅ Excel Add-in routes registered (/api/excel/*)");
   app.use("/api/admin/tax-services", requireAdmin, taxServicesRoutes);
   app.use("/api/unified-cart", unifiedCartRoutes);
   app.use("/api/admin", requireAdmin, listedStocksAdminRoutes);

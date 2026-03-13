@@ -61,6 +61,7 @@ const Privacy = lazyWithRetry(() => import("@/pages/privacy"));
 const Terms = lazyWithRetry(() => import("@/pages/terms"));
 const RefundPolicy = lazyWithRetry(() => import("@/pages/refund-policy"));
 const InvestmentDisclaimer = lazyWithRetry(() => import("@/pages/disclaimer"));
+const ExcelAddin = lazyWithRetry(() => import("@/pages/excel-addin"));
 const AIF = lazyWithRetry(() => import("@/pages/aif"));
 const AIFDetail = lazyWithRetry(() => import("@/pages/aif-detail"));
 const PMS = lazyWithRetry(() => import("@/pages/pms"));
@@ -2417,6 +2418,7 @@ function Router() {
       <Switch>
         {/* Public routes - no authentication or profile completion required */}
         <Route path="/auth" component={AuthPage} />
+        <Route path="/excel-addin" component={ExcelAddin} />
         <Route path="/profile" component={Profile} />
         <Route path="/proposal/:shareToken" component={PublicProposalPage} />
         <Route path="/onboarding" component={OnboardingPage} />
