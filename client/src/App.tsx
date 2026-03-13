@@ -2468,6 +2468,10 @@ function Router() {
 }
 
 function App() {
+  useEffect(() => {
+    const loader = document.getElementById('initial-loader');
+    if (loader) loader.remove();
+  }, []);
   return (
     <ErrorBoundary>
       <NetworkProvider>

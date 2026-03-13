@@ -82,10 +82,14 @@ if ('serviceWorker' in navigator) {
       }
     });
     
-    // Listen for controller change (new SW activated) and reload
+    // Listen for controller change (new SW activated) and reload.
+    // Guard: don't reload if the page just loaded (prevents double-reload on first visit).
+    const pageReadyAt = Date.now();
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA] New service worker activated, reloading...');
-      window.location.reload();
+      if (Date.now() - pageReadyAt > 4000) {
+        console.log('[PWA] New service worker activated, reloading...');
+        window.location.reload();
+      }
     });
   });
 }
