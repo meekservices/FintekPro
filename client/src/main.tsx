@@ -3,13 +3,19 @@ import App from "./App";
 import "./index.css";
 import { SessionProvider } from "@/contexts/session-context";
 import { SessionExpiredDialog } from "@/components/ui/session-expired-dialog";
-import { APP_VERSION } from "@shared/version";
+import { APP_VERSION, BUILD_TIMESTAMP } from "@shared/version";
 
 const SW_VERSION = APP_VERSION;
+// BUILD_TIMESTAMP changes on every `npm run build` — used to bust SW caches per deployment
+const SW_BUILD = encodeURIComponent(BUILD_TIMESTAMP);
 
 // Vite chunk loading error handler for stale cached chunks after deployments
 window.addEventListener('vite:preloadError', () => {
-  window.location.reload();
+  const key = 'preload-err-reload';
+  if (!sessionStorage.getItem(key)) {
+    sessionStorage.setItem(key, '1');
+    window.location.reload();
+  }
 });
 
 // Global error handlers to prevent unhandled promise rejections
@@ -37,7 +43,7 @@ window.addEventListener('error', (event) => {
 // Register Service Worker for PWA functionality
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register(`/sw.js?v=${SW_VERSION}`)
+    navigator.serviceWorker.register(`/sw.js?v=${SW_VERSION}&b=${SW_BUILD}`)
       .then((registration) => {
         console.log('[PWA] Service Worker registered:', registration.scope);
         

@@ -1,8 +1,10 @@
 const SW_URL = new URL(self.location.href);
 const VERSION = SW_URL.searchParams.get('v') || '10';
+// BUILD changes on every deployment — guarantees fresh caches after each publish
+const BUILD = SW_URL.searchParams.get('b') || VERSION;
 const CACHE_PREFIX = 'fintekpro';
-const SHELL_CACHE = `${CACHE_PREFIX}-shell-v${VERSION}`;
-const STATIC_CACHE = `${CACHE_PREFIX}-static-v${VERSION}`;
+const SHELL_CACHE = `${CACHE_PREFIX}-shell-${BUILD}`;
+const STATIC_CACHE = `${CACHE_PREFIX}-static-${BUILD}`;
 const EXPECTED_CACHES = [SHELL_CACHE, STATIC_CACHE];
 
 const SHELL_ASSETS = [

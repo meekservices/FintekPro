@@ -2471,6 +2471,8 @@ function App() {
   useEffect(() => {
     const loader = document.getElementById('initial-loader');
     if (loader) loader.remove();
+    // Clear the preload-error reload guard so future deployments can trigger reload again
+    sessionStorage.removeItem('preload-err-reload');
   }, []);
   return (
     <ErrorBoundary>
