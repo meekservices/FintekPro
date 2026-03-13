@@ -3,11 +3,13 @@ import App from "./App";
 import "./index.css";
 import { SessionProvider } from "@/contexts/session-context";
 import { SessionExpiredDialog } from "@/components/ui/session-expired-dialog";
-import { APP_VERSION, BUILD_TIMESTAMP } from "@shared/version";
+import { APP_VERSION } from "@shared/version";
 
 const SW_VERSION = APP_VERSION;
-// BUILD_TIMESTAMP changes on every `npm run build` — used to bust SW caches per deployment
-const SW_BUILD = encodeURIComponent(BUILD_TIMESTAMP);
+// In dev: use 'dev' so the SW URL never changes → no banner on every refresh.
+// In prod: use APP_VERSION so the banner only fires when a new version is actually deployed.
+// (BUILD_TIMESTAMP = new Date() runs at runtime in the browser, so it changes every page load — do NOT use it here.)
+const SW_BUILD = import.meta.env.DEV ? 'dev' : APP_VERSION;
 
 // Vite chunk loading error handler for stale cached chunks after deployments
 window.addEventListener('vite:preloadError', () => {

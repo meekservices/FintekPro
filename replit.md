@@ -3,7 +3,7 @@
 ## Publish Readiness (March 2026)
 - **Build**: ✅ Zero TypeScript errors, zero build warnings. `dist/index.js` (14 MB) + `dist/public/` frontend assets.
 - **Security**: ✅ `/api/test-amfi`, `/api/test/twilio-{sms,whatsapp,verify,voice}` gated by `isProductionEnvironment()` (dev-only endpoints hidden in prod). Error testing routes already gated by `NODE_ENV === 'development'` in `server/index.ts`.
-- **SW Cache Busting**: ✅ BUILD_TIMESTAMP (changes every build) included in SW URL `?v=${APP_VERSION}&b=${BUILD_TIMESTAMP}` → cache names are unique per deployment → no stale chunks on any portal after publish.
+- **SW Cache Busting**: ✅ SW URL is `?v=${APP_VERSION}&b=dev` in dev (stable, no banner spam) and `?v=${APP_VERSION}&b=${APP_VERSION}` in production (stable per version, banner only fires when APP_VERSION is bumped or sw.js content changes). NOTE: BUILD_TIMESTAMP = new Date() runs at runtime in the browser, NOT at build time — never use it in the SW URL.
 - **Lazy Loading Recovery**: ✅ `lazyWithRetry` properly awaits SW cache deletion before reload. App.tsx clears all `chunk-reload-*` and `preload-err-reload` session guards on mount.
 - **Deployment config** (`.replit`): `build = ["npm", "run", "build"]`, `run = ["npm", "run", "start"]` (→ `NODE_ENV=production node dist/index.js`), port 5000→80.
 - **Python sidecar**: starts on port 8001 from `server/index.ts` startup (non-blocking, spawned with `uvicorn`).
