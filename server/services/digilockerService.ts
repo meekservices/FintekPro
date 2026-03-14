@@ -18,8 +18,11 @@ import {
 } from "../../shared/schema";
 import { v4 as uuidv4 } from "uuid";
 
-// Database connection
-const sql = neon(process.env.DATABASE_URL!);
+// Database connection — uses PRODUCTION_DATABASE_URL (same Neon instance as the rest of the app).
+// DATABASE_URL is the old Replit-managed dev database which is being removed.
+const dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
+if (!dbUrl) throw new Error("No database URL configured (PRODUCTION_DATABASE_URL is required)");
+const sql = neon(dbUrl);
 const db = drizzle(sql);
 
 // DigiLocker Service Configuration

@@ -2538,7 +2538,7 @@ System Security Data:`;
       { name: 'Agents', url: '/api/admin/agents', category: 'Admin APIs', internal: true },
       
       // Database & Storage
-      { name: 'PostgreSQL Database', url: process.env.DATABASE_URL || 'postgresql://localhost', category: 'Database', internal: true },
+      { name: 'PostgreSQL Database', url: process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL || 'postgresql://localhost', category: 'Database', internal: true },
       
       // Third Party Services
       { name: 'WhatsApp Web Service', url: 'https://web.whatsapp.com', category: 'Third Party Services' }
