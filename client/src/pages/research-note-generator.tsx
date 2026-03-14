@@ -643,7 +643,8 @@ export default function ResearchNoteGenerator() {
                             const sv = row.values[startIdx];
                             const ev = row.values[endIdx];
                             if (sv === null || ev === null || sv <= 0) return null;
-                            return Math.pow(ev / sv, 1 / cagrYrs) - 1;
+                            const result = Math.pow(ev / sv, 1 / cagrYrs) - 1;
+                            return isFinite(result) ? result : null;
                           })();
                           return (
                             <tr key={row.label} className={`border-b last:border-0 ${ri % 2 === 0 ? "" : "bg-muted/30"}`}>
