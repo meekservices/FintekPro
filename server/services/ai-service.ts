@@ -318,33 +318,44 @@ class AIService {
     const prompt = userMessages.map(m => m.content).join('\n\n');
     const fullPrompt = systemMessage ? `${systemMessage}\n\n${prompt}` : prompt;
 
-    const response = await gemini.models.generateContent({
-      model: model.includes('gemini') ? model : 'gemini-2.5-flash',
-      config: {
-        temperature,
-        maxOutputTokens: maxTokens,
-      },
-      contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
-    });
-
-    // Ensure content is always a string - handle edge cases where response.text might be an object
-    let content = response.text || '';
-    if (typeof content !== 'string') {
-      console.warn('[AI Service] Gemini returned non-string content, converting to JSON:', typeof content);
-      content = JSON.stringify(content);
+    const geminiModel = model.includes('gemini') ? model : 'gemini-2.5-flash';
+    const maxRetries = 2;
+    let lastError: any;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await gemini.models.generateContent({
+          model: geminiModel,
+          config: { temperature, maxOutputTokens: maxTokens },
+          contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+        });
+        let content = response.text || '';
+        if (typeof content !== 'string') {
+          content = JSON.stringify(content);
+        }
+        const usage: AIUsageMetrics = {
+          provider: 'gemini',
+          model: geminiModel,
+          promptTokens: response.usageMetadata?.promptTokenCount || 0,
+          completionTokens: response.usageMetadata?.candidatesTokenCount || 0,
+          totalTokens: response.usageMetadata?.totalTokenCount || 0,
+          requestId: `gemini-${Date.now()}`,
+          timestamp: new Date()
+        };
+        this.usageMetrics.push(usage);
+        return { content, usage };
+      } catch (err: any) {
+        lastError = err;
+        const is429 = err?.status === 429 || err?.message?.includes('429') || err?.message?.toLowerCase().includes('quota') || err?.message?.toLowerCase().includes('rate limit');
+        if (is429 && attempt < maxRetries) {
+          const delay = (attempt + 1) * 2000;
+          console.warn(`[AIService] Gemini 429 rate limit, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})...`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        throw err;
+      }
     }
-    const usage: AIUsageMetrics = {
-      provider: 'gemini',
-      model: model.includes('gemini') ? model : 'gemini-2.5-flash',
-      promptTokens: response.usageMetadata?.promptTokenCount || 0,
-      completionTokens: response.usageMetadata?.candidatesTokenCount || 0,
-      totalTokens: response.usageMetadata?.totalTokenCount || 0,
-      requestId: `gemini-${Date.now()}`,
-      timestamp: new Date()
-    };
-
-    this.usageMetrics.push(usage);
-    return { content, usage };
+    throw lastError;
   }
 
   /**

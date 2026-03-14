@@ -12,6 +12,10 @@ import { proposalAuditService } from '../services/proposal-audit-service';
 
 const router = Router();
 
+GoalBenchmarkMapper.initializeDefaults().catch(e =>
+  console.warn('[ProposalBuilder] Benchmark defaults init warning:', e?.message)
+);
+
 const PdfConfigSchema = z.object({
   proposalId: z.string().optional(),
   version: z.string(),
