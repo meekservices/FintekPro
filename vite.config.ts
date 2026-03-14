@@ -81,8 +81,57 @@ export default defineConfig({
           ) return "vendor-charts";
 
           // ── App service chunks — only downloaded when the user visits that section ──
-          if (id.includes("/pages/admin") || id.includes("/pages/admin-")) {
+
+          // Admin sub-chunks (was one 2.3 MB chunk — now 4 smaller chunks)
+          if (id.includes("/pages/admin-kyc") || id.includes("/pages/admin-aadhaar") || id.includes("/pages/admin-ckyc") || id.includes("/pages/admin-pan-config")) {
+            return "admin-kyc";
+          }
+          if (id.includes("/pages/admin-loan") || id.includes("/pages/admin-dlm")) {
+            return "admin-loans";
+          }
+          if (
+            id.includes("/pages/admin-payout") || id.includes("/pages/admin-mf-") ||
+            id.includes("/pages/admin-ai-") || id.includes("/pages/admin-api-usage") ||
+            id.includes("/pages/admin-zoho") || id.includes("/pages/admin-data-") ||
+            id.includes("/pages/admin-mapping") || id.includes("/pages/admin-master-dsa")
+          ) {
+            return "admin-fin";
+          }
+          if (id.includes("/pages/admin")) {
             return "chunk-admin";
+          }
+
+          // Agent sub-chunks (was one 2.6 MB chunk — now 5 smaller chunks)
+          if (
+            id.includes("/pages/agent-crm-") || id.includes("/pages/agent-bulk-") ||
+            id.includes("/pages/agent-lead-") || id.includes("/pages/agent-meetings") ||
+            id.includes("/pages/agent-calendar") || id.includes("/pages/agent-tasks") ||
+            id.includes("/pages/agent-tracker") || id.includes("/pages/agent-market-alerts") ||
+            id.includes("/pages/agent-zoho-crm")
+          ) {
+            return "agent-crm";
+          }
+          if (
+            id.includes("/pages/agent-knowledge-") || id.includes("/pages/agent-training") ||
+            id.includes("/pages/agent-leaderboard") || id.includes("/pages/agent-performance") ||
+            id.includes("/pages/agent-sample-report") || id.includes("/pages/agent-demo-")
+          ) {
+            return "agent-knowledge";
+          }
+          if (
+            id.includes("/pages/agent-investment-advisory") || id.includes("/pages/agent-picks") ||
+            id.includes("/pages/agent-stock-ai") || id.includes("/pages/agent-quant-") ||
+            id.includes("/pages/agent-research-") || id.includes("/pages/agent-screener") ||
+            id.includes("/pages/agent-bond-") || id.includes("/pages/agent-derivatives") ||
+            id.includes("/pages/agent-field-view")
+          ) {
+            return "agent-advisory";
+          }
+          if (
+            id.includes("/pages/agent-kyc-") || id.includes("/pages/agent-esign") ||
+            id.includes("/pages/agent-client-onboarding") || id.includes("/pages/agent-client-acquisition")
+          ) {
+            return "agent-kyc";
           }
           if (
             id.includes("/pages/agent") ||

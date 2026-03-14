@@ -755,36 +755,27 @@ server.listen({
   const { registerFirmInventoryRoutes } = await import('./routes/firm-inventory');
   registerFirmInventoryRoutes(app);
   
-  // Register Agent Onboarding routes
-  const agentRoutes = await import('./agent-routes');
+  // ── Agent routes: import all in parallel, register in order ─────────────────
+  const [
+    agentRoutes, agentRevenueRoutes, agentBasketsRoutes, agentSipHealthRoutes,
+    agentPortfolioDriftRoutes, agentClientOrdersRoutes, agentMarketAlertsRoutes, agentTrackerRoutes,
+  ] = await Promise.all([
+    import('./agent-routes'),
+    import('./routes/agent-revenue-routes'),
+    import('./routes/agent-baskets'),
+    import('./routes/agent-sip-health'),
+    import('./routes/agent-portfolio-drift'),
+    import('./routes/agent-client-orders'),
+    import('./routes/agent-market-alerts'),
+    import('./routes/agent-tracker'),
+  ]);
   app.use(agentRoutes.default);
-  
-  // Register Agent Revenue & Lead Pipeline routes
-  const agentRevenueRoutes = await import('./routes/agent-revenue-routes');
   app.use(agentRevenueRoutes.default);
-
-  // Register Agent Investment Baskets routes (Wealthy Ideas)
-  const agentBasketsRoutes = await import('./routes/agent-baskets');
   app.use(agentBasketsRoutes.default);
-
-  // Register Agent SIP Health Monitor routes
-  const agentSipHealthRoutes = await import('./routes/agent-sip-health');
   app.use(agentSipHealthRoutes.default);
-
-  // Register Agent Portfolio Drift Monitor routes
-  const agentPortfolioDriftRoutes = await import('./routes/agent-portfolio-drift');
   app.use(agentPortfolioDriftRoutes.default);
-
-  // Register Agent Client Orders (Order-on-Behalf) routes
-  const agentClientOrdersRoutes = await import('./routes/agent-client-orders');
   app.use(agentClientOrdersRoutes.default);
-
-  // Register Agent Market Alerts routes
-  const agentMarketAlertsRoutes = await import('./routes/agent-market-alerts');
   app.use(agentMarketAlertsRoutes.default);
-
-  // Register Agent Tracker routes (MFCentral-powered business tracker)
-  const agentTrackerRoutes = await import('./routes/agent-tracker');
   app.use(agentTrackerRoutes.default);
 
   // Register Python Analytics Service proxy (proxies to PYTHON_SERVICE_URL when set)
@@ -792,73 +783,52 @@ server.listen({
   app.use(pythonProxyRoutes.default);
   console.log(`✅ Python Analytics Service proxy registered${process.env.PYTHON_SERVICE_URL ? ` → ${process.env.PYTHON_SERVICE_URL}` : ' (stub — set PYTHON_SERVICE_URL to activate)'}`);
   
-  // Register KYC Vault routes (Production-grade KYC system)
-  const { registerKYCVaultRoutes } = await import('./kyc-vault-routes');
-  registerKYCVaultRoutes(app);
-  
+  // ── KYC, marketing, user management: import all in parallel ─────────────────
+  const [
+    kycVaultMod, marketingMod, adminProspectsMod, twilioWebhookMod,
+    probe42AnalyticsMod, userMgmtMod, stakeholderMod, autoPopMod,
+  ] = await Promise.all([
+    import('./kyc-vault-routes'),
+    import('./marketing-routes'),
+    import('./routes/admin-prospects'),
+    import('./services/twilio-webhook-service'),
+    import('./routes/probe42-analytics-routes'),
+    import('./user-management-routes'),
+    import('./stakeholder-routes'),
+    import('./auto-population-routes'),
+  ]);
+  kycVaultMod.registerKYCVaultRoutes(app);
   // Initialize Zoho Campaigns using shared refresh token (non-blocking)
   import('./zoho-campaigns-service').then(m => m.initZohoCampaignsService()).catch(() => {});
+  marketingMod.registerMarketingRoutes(app);
+  adminProspectsMod.registerAdminProspectRoutes(app);
+  app.use('/api/twilio', twilioWebhookMod.createTwilioWebhookRouter());
+  app.use('/api/admin/analytics', probe42AnalyticsMod.default);
+  userMgmtMod.registerUserManagementRoutes(app);
+  stakeholderMod.registerStakeholderRoutes(app);
+  app.use('/api/auto-population', autoPopMod.autoPopulationRouter);
+  console.log('✅ KYC, marketing, prospect, user management routes registered');
   
-  // Register Marketing Automation routes (Zoho Campaigns, Twilio, Probe42)
-  const { registerMarketingRoutes } = await import('./marketing-routes');
-  registerMarketingRoutes(app);
-  
-  // Register Admin Prospect Dashboard routes (B2B leads, individual prospects, Zoho CRM import)
-  const { registerAdminProspectRoutes } = await import('./routes/admin-prospects');
-  registerAdminProspectRoutes(app);
-  console.log('✅ Admin Prospect Dashboard routes registered');
-  
-  // Register Twilio Webhook routes (Two-way SMS & WhatsApp communication)
-  const { createTwilioWebhookRouter } = await import('./services/twilio-webhook-service');
-  app.use('/api/twilio', createTwilioWebhookRouter());
-  console.log('✅ Twilio webhook routes registered');
-  
-  // Register Probe42 Advanced Analytics routes (Lead Scoring, Surplus Detection, Director Networks)
-  const probe42AnalyticsRoutes = await import('./routes/probe42-analytics-routes');
-  app.use('/api/admin/analytics', probe42AnalyticsRoutes.default);
-  console.log('✅ Probe42 Analytics routes registered');
-  
-  // Register User Management routes (Admin user CRUD operations)
-  const { registerUserManagementRoutes } = await import('./user-management-routes');
-  registerUserManagementRoutes(app);
-  
-  // Register Stakeholder routes (Partners, Agents, Suppliers)
-  const { registerStakeholderRoutes } = await import('./stakeholder-routes');
-  registerStakeholderRoutes(app);
-  
-  // Register Auto-Population routes (Post-KYC data fetching)
-  const { autoPopulationRouter } = await import('./auto-population-routes');
-  app.use('/api/auto-population', autoPopulationRouter);
-  
-  // Register Unlisted Marketplace routes
-  const unlistedRoutes = await import('./routes/unlisted');
+  // ── Marketplace routes: import all in parallel, register in order ────────────
+  const [
+    unlistedRoutes, complianceRoutes, bondMarketplaceRoutes, bondSeedAdminRoutes,
+    goldAdminRoutes, bondMarketplaceImprovements, bondCalendarRoutes,
+  ] = await Promise.all([
+    import('./routes/unlisted'),
+    import('./routes/compliance'),
+    import('./routes/bond-marketplace'),
+    import('./routes/bond-seed-admin'),
+    import('./routes/gold-admin'),
+    import('./routes/bond-marketplace-improvements'),
+    import('./routes/bond-calendar-routes'),
+  ]);
   app.use('/api/unlisted', unlistedRoutes.default);
-  
-  // Register Compliance routes
-  const complianceRoutes = await import('./routes/compliance');
   app.use('/api/compliance', complianceRoutes.default);
-  
-  // Register Bond Marketplace routes (SEBI NCS Compliant)
-  const bondMarketplaceRoutes = await import('./routes/bond-marketplace');
   app.use('/api/bonds', bondMarketplaceRoutes.default);
-  
-  // Register Bond Seed Admin routes (Fee Profiles, Catalog, Publish Workflow)
-  const bondSeedAdminRoutes = await import('./routes/bond-seed-admin');
   app.use('/api/admin/bond-seed', bondSeedAdminRoutes.default);
-  
-  // Register Migration routes (for one-time data sync between environments)
   app.use('/api/migration', bondSeedAdminRoutes.migrationRouter);
-  
-  // Register Gold/SGB Admin routes
-  const goldAdminRoutes = await import('./routes/gold-admin');
   app.use('/api/admin/gold', goldAdminRoutes.default);
-  
-  // Register Bond Marketplace Improvements routes (Enhanced Filtering, Eligibility, Watchlist, Suitability)
-  const bondMarketplaceImprovements = await import('./routes/bond-marketplace-improvements');
   app.use('/api/bonds', bondMarketplaceImprovements.default);
-  
-  // Register Bond Financial Calendar routes (Issuances, Maturities, Auctions)
-  const bondCalendarRoutes = await import('./routes/bond-calendar-routes');
   app.use('/api/bond-calendar', bondCalendarRoutes.default);
   
   // Initialize Financial Calendar Service
@@ -963,71 +933,47 @@ server.listen({
     console.log('⏭️ [AI Regime/Governance] Daily schedulers skipped (development mode - production only)');
   }
   
-  // Register MF Order Execution routes (SEBI-compliant buy/sell order management)
-  const mfOrdersRoutes = await import('./routes/mf-orders');
+  // ── MF + order routes: import all in parallel, register in order ─────────────
+  const [mfOrdersRoutes, orderRoutesMod, mfEnrichmentMod, aiMFRecommendationRoutes] = await Promise.all([
+    import('./routes/mf-orders'),
+    import('./order-routes'),
+    import('./routes/mf-enrichment-routes'),
+    import('./routes/ai-mf-recommendation-routes'),
+  ]);
   app.use(mfOrdersRoutes.default);
-  
-  // Register Unified Order Management routes (cross-product order lifecycle)
-  const { registerOrderRoutes } = await import('./order-routes');
-  registerOrderRoutes(app);
-  console.log('✅ Unified Order Management routes registered');
-  
-  // Register MF Enrichment & Internal Fund APIs (SEBI-compliant data pipeline)
-  const { registerMFEnrichmentRoutes } = await import('./routes/mf-enrichment-routes');
-  registerMFEnrichmentRoutes(app);
-
-  // Register AI MF Recommendation routes (Smart fund recommendations with rich rationale)
-  const aiMFRecommendationRoutes = await import('./routes/ai-mf-recommendation-routes');
+  orderRoutesMod.registerOrderRoutes(app);
+  mfEnrichmentMod.registerMFEnrichmentRoutes(app);
   app.use(aiMFRecommendationRoutes.default);
-  console.log('✅ AI MF Recommendation routes registered');
+  console.log('✅ MF orders, enrichment, AI recommendations, unified order routes registered');
   
-  const esignRoutes = await import('./routes/esign-routes');
+  // ── eSign + document routes: import all in parallel, register in order ───────
+  const [
+    esignRoutes, adminEsignRoutes, dscEsignRoutes, proposalEsignRoutes,
+    esignAiRoutes, eaadhaarDglRoutes, documentUploadRoutes, caRoutes,
+    reitInvitRoutes, adminDatabaseRoutes,
+  ] = await Promise.all([
+    import('./routes/esign-routes'),
+    import('./routes/admin-esign-routes'),
+    import('./routes/dsc-esign-routes'),
+    import('./routes/proposal-esign-routes'),
+    import('./routes/esign-ai-routes'),
+    import('./routes/truthscreen-eaadhaar-routes'),
+    import('./routes/document-upload-routes'),
+    import('./routes/ca-routes'),
+    import('./routes/reit-invit-routes'),
+    import('./routes/admin-database'),
+  ]);
   app.use(esignRoutes.default);
-  console.log('✅ TruthScreen eSign routes registered');
-  
-  // Register Admin eSign Provider Configuration routes
-  const adminEsignRoutes = await import('./routes/admin-esign-routes');
   app.use(adminEsignRoutes.default);
-  console.log('✅ Admin eSign provider configuration routes registered');
-  
-  // Register DSC Token eSign routes
-  const dscEsignRoutes = await import('./routes/dsc-esign-routes');
   app.use('/api/esign', dscEsignRoutes.default);
-  console.log('✅ DSC Token eSign routes registered');
-  
-  // Register Proposal eSign Workflow routes
-  const proposalEsignRoutes = await import('./routes/proposal-esign-routes');
   app.use('/api/proposal-esign', proposalEsignRoutes.default);
-  console.log('✅ Proposal eSign workflow routes registered');
-
-  // Register eSign AI Analysis routes
-  const esignAiRoutes = await import('./routes/esign-ai-routes');
   app.use('/api/esign/ai', esignAiRoutes.default);
-  console.log('✅ eSign AI analysis routes registered');
-
-  const eaadhaarDglRoutes = await import('./routes/truthscreen-eaadhaar-routes');
   app.use(eaadhaarDglRoutes.default);
-  console.log('✅ TruthScreen E-Aadhaar DigiLocker routes registered');
-
-  // Register Document Upload routes
-  const documentUploadRoutes = await import('./routes/document-upload-routes');
   app.use('/api/documents', documentUploadRoutes.default);
-  console.log('✅ Document upload routes registered');
-  
-  // Register CA (Chartered Accountant) routes
-  const caRoutes = await import('./routes/ca-routes');
   app.use('/api/ca', caRoutes.default);
-  console.log('✅ CA registration and assignment routes registered');
-  
-  // Register REIT/InvIT routes
-  const reitInvitRoutes = await import('./routes/reit-invit-routes');
   app.use('/api/reit-invit', reitInvitRoutes.default);
-  console.log('✅ REIT/InvIT investment routes registered');
-  
-  // Register Admin Database Management routes
-  const adminDatabaseRoutes = await import('./routes/admin-database');
   app.use('/api/admin/database', adminDatabaseRoutes.default);
-  console.log('✅ Admin Database Management routes registered');
+  console.log('✅ eSign, document upload, CA, REIT/InvIT routes registered');
 
   // Register error testing routes (development only)
   if (process.env.NODE_ENV === 'development') {
