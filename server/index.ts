@@ -143,7 +143,7 @@ ensureStaticBuild();
 const app = express();
 
 // Environment validation for production readiness
-const requiredEnvVars = ['DATABASE_URL', 'SESSION_SECRET'];
+const requiredEnvVars = ['PRODUCTION_DATABASE_URL', 'SESSION_SECRET'];
 const optionalButRecommended = ['OPENAI_API_KEY', 'TWILIO_ACCOUNT_SID', 'CASHFREE_APP_ID'];
 
 for (const envVar of requiredEnvVars) {
