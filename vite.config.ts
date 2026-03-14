@@ -140,25 +140,32 @@ export default defineConfig({
             id.includes("/pages/field-agent")
           ) return "chunk-agent";
 
+          // Tax sub-chunks (was one 686 KB chunk — now 3 smaller chunks)
+          if (
+            id.includes("/pages/tax-itr") || id.includes("/pages/itr-") ||
+            id.includes("/pages/tax-regime") || id.includes("/pages/tax-smart-filing") ||
+            id.includes("/pages/tax-compliance-form15")
+          ) return "tax-itr";
+          if (id.includes("/pages/ca-")) return "tax-ca";
           if (
             id.includes("/pages/tax") ||
             id.includes("/pages/itr") ||
-            id.includes("/pages/ca-") ||
             id.includes("/pages/tds")
           ) return "chunk-tax";
 
+          // Investments sub-chunks (was one 692 KB chunk — now 3 smaller chunks)
+          if (id.includes("/pages/mutual-funds")) return "investments-mf";
           if (
-            id.includes("/pages/mutual-funds") ||
-            id.includes("/pages/bonds") ||
-            id.includes("/pages/bond-") ||
+            id.includes("/pages/bonds") || id.includes("/pages/bond-") ||
+            id.includes("/pages/fixed-income") || id.includes("/pages/mld")
+          ) return "investments-bonds";
+          if (
             id.includes("/pages/aif") ||
             id.includes("/pages/pms") ||
             id.includes("/pages/ipo") ||
             id.includes("/pages/pre-ipo") ||
             id.includes("/pages/unlisted") ||
-            id.includes("/pages/fixed-income") ||
             id.includes("/pages/reit") ||
-            id.includes("/pages/mld") ||
             id.includes("/pages/alternative-investments")
           ) return "chunk-investments";
 

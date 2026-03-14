@@ -838,40 +838,36 @@ server.listen({
     });
   });
   
-  // Register Commission Configuration routes (Admin-Driven Role-Based Commission Calibration)
-  const commissionConfigRoutes = await import('./commission-config-routes');
+  // ── Commission, regulatory, ISIN, picks, AI alpha: import all in parallel ───
+  const [
+    commissionConfigRoutes, regulatoryFrameworkRoutes, isinIntelligenceRoutes,
+    pickOfTheDayRoutes, pickOfTheDayMod, enrichmentGuardMod,
+    aiAlphaEngineRoutes, cron,
+  ] = await Promise.all([
+    import('./commission-config-routes'),
+    import('./routes/regulatory-framework-routes'),
+    import('./routes/isin-intelligence'),
+    import('./routes/pick-of-the-day'),
+    import('./services/pick-of-the-day-service'),
+    import('./utils/enrichment-guard'),
+    import('./routes/ai-alpha-engine'),
+    import('node-cron'),
+  ]);
   app.use('/api/admin', commissionConfigRoutes.default);
-  console.log('✅ Commission configuration routes registered');
-  
-  // Register Regulatory Framework routes (SEBI/RBI Investor Classification, Brokerage, Eligibility, Overrides)
-  const regulatoryFrameworkRoutes = await import('./routes/regulatory-framework-routes');
   app.use('/api/regulatory', regulatoryFrameworkRoutes.default);
-  
-  // Register ISIN Intelligence Layer routes (Detection, Validation, Compliance)
-  const isinIntelligenceRoutes = await import('./routes/isin-intelligence');
   app.use('/api/isin', isinIntelligenceRoutes.default);
-  console.log('✅ ISIN Intelligence Layer routes registered');
-
-  // Register Pick of the Day routes
-  const pickOfTheDayRoutes = await import('./routes/pick-of-the-day');
   app.use('/api/picks', pickOfTheDayRoutes.default);
-  console.log('✅ Pick of the Day routes registered');
-
-  const { pickOfTheDayService } = await import('./services/pick-of-the-day-service');
-  const { isProductionEnvironment } = await import('./utils/enrichment-guard');
+  app.use('/api/ai', aiAlphaEngineRoutes.default);
+  const { pickOfTheDayService } = pickOfTheDayMod;
+  const { isProductionEnvironment } = enrichmentGuardMod;
   if (isProductionEnvironment()) {
     setTimeout(() => pickOfTheDayService.startDailyScheduler(), 60000);
   } else {
     console.log('⏭️ [PickOfTheDay] Daily scheduler skipped (development mode - production only)');
   }
-
-  // Register AI Alpha Engine routes (Backtesting, Regime Detection, Portfolio Optimization)
-  const aiAlphaEngineRoutes = await import('./routes/ai-alpha-engine');
-  app.use('/api/ai', aiAlphaEngineRoutes.default);
-  console.log('✅ AI Alpha Engine routes registered');
+  console.log('✅ Commission, regulatory, ISIN, picks, AI alpha routes registered');
 
   // AI Regime Detection & Model Governance schedulers (production only - writes to DB)
-  const cron = await import('node-cron');
   if (isProductionEnvironment()) {
     const { aiRegimeDetectionEngine } = await import('./services/ai-regime-detection-engine');
     cron.schedule('0 3 * * *', async () => {

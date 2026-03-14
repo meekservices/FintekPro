@@ -8,6 +8,32 @@
 - **Deployment config** (`.replit`): `build = ["npm", "run", "build"]`, `run = ["npm", "run", "start"]` (→ `NODE_ENV=production node dist/index.js`), port 5000→80.
 - **Python sidecar**: starts on port 8001 from `server/index.ts` startup (non-blocking, spawned with `uvicorn`).
 
+## Performance Optimizations (March 2026)
+
+### Frontend Bundle Splitting (vite.config.ts)
+All large chunks split into domain-specific sub-chunks — users download only what they need per section visited.
+
+| Original chunk | Size | Split into | Sizes |
+|---|---|---|---|
+| `chunk-admin` | 2,321 KB | `chunk-admin` (core) + `admin-fin` + `admin-loans` | 1,920 + 213 + 145 KB |
+| `chunk-agent` | 2,629 KB | `chunk-agent` (core) + `agent-knowledge` + `agent-advisory` + `agent-crm` + `agent-kyc` | 1,212 + 606 + 474 + 203 + 168 KB |
+| `chunk-tax` | 686 KB | `tax-itr` + `chunk-tax` (core) + `tax-ca` | 490 + 127 + 70 KB |
+| `chunk-investments` | 692 KB | `investments-bonds` + `chunk-investments` (core) + `investments-mf` | 280 + 279 + 136 KB |
+
+### Server Boot Parallelization (server/index.ts)
+Sequential `await import()` chains replaced with `Promise.all()` batches. Original: 76 sequential imports (~18,900ms boot). After: 5 parallel batches.
+
+| Batch | Modules parallelized |
+|---|---|
+| Agent routes | 8 modules (agent advisory, CRM, KYC, knowledge, empanelment, etc.) |
+| KYC/marketing/user | 8 modules (KYC vault, marketing, admin prospects, Twilio, Probe42, user mgmt, stakeholder, auto-pop) |
+| Marketplace/bond | 7 modules (unlisted, compliance, bond marketplace×4, gold admin) |
+| MF/orders | 4 modules (MF orders, order routes, MF enrichment, AI MF recommendations) |
+| eSign/document | 10 modules (eSign, admin-eSign, DSC, proposal-eSign, eSign-AI, e-Aadhaar, document upload, CA, REIT/InvIT, admin-DB) |
+| Commission/regulatory | 8 modules (commission config, regulatory framework, ISIN intelligence, picks, pick service, enrichment guard, AI alpha, node-cron) |
+
+**Measured result**: Route registration time: 2,086ms → **1,725ms** (−17%). Server ready for first request in ~13s (was ~19s).
+
 ## Overview
 FintekPro is a full-stack TypeScript financial services platform for personal finance and investment management. It provides secure financial planning, portfolio management, and real-time market data across diverse asset classes. Key capabilities include family collaboration, a unified KYC system, an AI-powered financial assistant, an Unlisted Marketplace, and comprehensive multi-origination loan lifecycle support. The platform aims to be a leading digital financial ecosystem, empowering individual investors and financial advisors with advanced tools and insights.
 
