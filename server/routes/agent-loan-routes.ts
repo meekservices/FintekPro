@@ -4,7 +4,7 @@ import { eq, and, desc, sql, inArray, or, ilike } from "drizzle-orm";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import multer from "multer";
-import XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { leadRegistryService } from "../services/lead-registry-service";
 import {
   dsaLoanApplications,
@@ -1451,9 +1451,13 @@ router.post("/banker-contacts/import-excel", upload.single("file"), async (req: 
     const file = (req as any).file;
     if (!file) return res.status(400).json({ success: false, error: "No file uploaded" });
 
-    const workbook = XLSX.read(file.buffer, { type: "buffer" });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows: any[] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(file.buffer);
+    const worksheet = workbook.worksheets[0];
+    const rows: any[] = [];
+    worksheet.eachRow({ includeEmpty: false }, (row) => {
+      rows.push((row.values as any[]).slice(1));
+    });
 
     if (rows.length < 2) {
       return res.status(400).json({ success: false, error: "Excel file is empty or has no data rows" });

@@ -1025,21 +1025,27 @@ class UnifiedPortfolioImportService {
     const startTime = Date.now();
 
     try {
-      const XLSX = await import('xlsx');
-      const workbook = XLSX.read(buffer, { type: 'buffer' });
+      const { default: ExcelJS } = await import('exceljs');
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer);
 
       // Get the target sheet (first sheet by default, or specified by name)
-      const sheetName = options?.sheetName || workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
+      const worksheet = options?.sheetName
+        ? workbook.getWorksheet(options.sheetName)
+        : workbook.worksheets[0];
 
-      if (!sheet) {
-        result.errors.push(`Sheet "${sheetName}" not found in Excel file`);
+      if (!worksheet) {
+        const sheetLabel = options?.sheetName || 'first sheet';
+        result.errors.push(`Sheet "${sheetLabel}" not found in Excel file`);
         result.parsingStatus = 'failed';
         return result;
       }
 
       // Convert sheet to JSON array
-      const jsonData: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      const jsonData: any[][] = [];
+      worksheet.eachRow({ includeEmpty: true }, (row) => {
+        jsonData.push((row.values as any[]).slice(1));
+      });
 
       if (jsonData.length < 2) {
         result.errors.push('Excel file must have headers and at least one data row');
