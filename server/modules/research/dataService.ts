@@ -258,10 +258,15 @@ function extractFullTable(
   return { headers: trimmedHeaders, rows: resultRows };
 }
 
-function computeCagr(values: (number | null)[], years: number): number | null {
-  if (values.length < years + 1) return null;
-  const end = values[values.length - 1];
-  const start = values[values.length - 1 - years];
+function computeCagr(values: (number | null)[], years: number, headers?: string[]): number | null {
+  // Build list of annual (non-TTM) indices
+  const annualIdxs = headers
+    ? headers.map((h, i) => ({ h, i })).filter(({ h }) => !h.toUpperCase().includes("TTM")).map(({ i }) => i)
+    : values.map((_, i) => i);
+  const annualVals = annualIdxs.map(i => values[i]);
+  if (annualVals.length < years + 1) return null;
+  const end = annualVals[annualVals.length - 1];
+  const start = annualVals[annualVals.length - 1 - years];
   if (end === null || start === null || start <= 0) return null;
   return Math.pow(end / start, 1 / years) - 1;
 }
@@ -553,10 +558,11 @@ export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData
     // CAGR calculations from P&L historical data
     const salesRow = plHistory?.rows.find(r => r.label.toLowerCase().includes("sales"));
     const profitRow = plHistory?.rows.find(r => r.label.toLowerCase().includes("net profit"));
-    const salesCagr3Y = salesRow ? computeCagr(salesRow.values, 3) : null;
-    const salesCagr5Y = salesRow ? computeCagr(salesRow.values, 5) : null;
-    const profitCagr3Y = profitRow ? computeCagr(profitRow.values, 3) : null;
-    const profitCagr5Y = profitRow ? computeCagr(profitRow.values, 5) : null;
+    const plHeaders = plHistory?.headers;
+    const salesCagr3Y = salesRow ? computeCagr(salesRow.values, 3, plHeaders) : null;
+    const salesCagr5Y = salesRow ? computeCagr(salesRow.values, 5, plHeaders) : null;
+    const profitCagr3Y = profitRow ? computeCagr(profitRow.values, 3, plHeaders) : null;
+    const profitCagr5Y = profitRow ? computeCagr(profitRow.values, 5, plHeaders) : null;
 
     console.log(
       `[ResearchNote] Screener.in ${nseSymbol} → ROE:${roe !== null ? (roe * 100).toFixed(2) + "%" : "N/A"}`,

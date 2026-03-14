@@ -627,22 +627,35 @@ export default function ResearchNoteGenerator() {
                         {d.plHistory.rows.map((row, ri) => {
                           const isPercent = row.label.toLowerCase().includes("opm") || row.label.toLowerCase().includes("%");
                           const isEps = row.label.toLowerCase().includes("eps");
-                          const cagr = row.label.toLowerCase().includes("sales") ? d.salesCagr5Y :
-                                       row.label.toLowerCase().includes("net profit") ? d.profitCagr5Y : null;
+                          const annualIndices = d.plHistory!.headers
+                            .map((h, i) => ({ h, i }))
+                            .filter(({ h }) => !h.toUpperCase().includes("TTM"))
+                            .map(({ i }) => i);
+                          const computedCagr = (() => {
+                            if (isPercent) return null;
+                            if (annualIndices.length < 2) return null;
+                            const startIdx = annualIndices[0];
+                            const endIdx = annualIndices[annualIndices.length - 1];
+                            const sv = row.values[startIdx];
+                            const ev = row.values[endIdx];
+                            const yrs = annualIndices.length - 1;
+                            if (sv === null || ev === null || sv <= 0) return null;
+                            return Math.pow(ev / sv, 1 / yrs) - 1;
+                          })();
                           return (
                             <tr key={row.label} className={`border-b last:border-0 ${ri % 2 === 0 ? "" : "bg-muted/30"}`}>
                               <td className="py-1.5 px-2 font-medium text-foreground">{row.label}</td>
                               {row.values.map((v, vi) => {
                                 const prev = vi > 0 ? row.values[vi - 1] : null;
-                                const trend = v !== null && prev !== null && prev !== 0 ? (v > prev ? "text-green-600" : v < prev ? "text-red-600" : "") : "";
+                                const trend = !isPercent && v !== null && prev !== null && prev !== 0 ? (v > prev ? "text-green-600" : v < prev ? "text-red-600" : "") : "";
                                 const display = v === null ? "—" : isPercent ? `${v.toFixed(1)}%` : isEps ? v.toFixed(2) : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
                                 return <td key={vi} className={`text-right py-1.5 px-2 ${trend}`}>{display}</td>;
                               })}
                               {(d.salesCagr5Y !== null || d.salesCagr3Y !== null) && (
                                 <td className="text-right py-1.5 px-2 font-semibold">
-                                  {cagr !== null ? (
-                                    <span className={cagr >= 0 ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}>
-                                      {cagr >= 0 ? "+" : ""}{(cagr * 100).toFixed(1)}%
+                                  {computedCagr !== null ? (
+                                    <span className={computedCagr >= 0 ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}>
+                                      {computedCagr >= 0 ? "+" : ""}{(computedCagr * 100).toFixed(1)}%
                                     </span>
                                   ) : "—"}
                                 </td>
@@ -673,6 +686,7 @@ export default function ResearchNoteGenerator() {
                             <th key={h} className={`text-right py-2 px-2 font-semibold whitespace-nowrap ${i === d.quarterlyHistory!.headers.length - 1 ? "text-purple-700 dark:text-purple-400" : "text-muted-foreground"}`}>{h}</th>
                           ))}
                           <th className="text-right py-2 px-2 font-semibold text-muted-foreground">QoQ</th>
+                          <th className="text-right py-2 px-2 font-semibold text-muted-foreground">YoY</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -682,6 +696,10 @@ export default function ResearchNoteGenerator() {
                           const lastTwo = row.values.slice(-2);
                           const qoq = lastTwo.length === 2 && lastTwo[0] !== null && lastTwo[1] !== null && lastTwo[0] !== 0
                             ? ((lastTwo[1] - lastTwo[0]) / Math.abs(lastTwo[0])) : null;
+                          const yoyStart = row.values[0];
+                          const yoyEnd = row.values[row.values.length - 1];
+                          const yoy = !isPercent && yoyStart !== null && yoyEnd !== null && yoyStart !== 0
+                            ? ((yoyEnd - yoyStart) / Math.abs(yoyStart)) : null;
                           return (
                             <tr key={row.label} className={`border-b last:border-0 ${ri % 2 === 0 ? "" : "bg-muted/30"}`}>
                               <td className="py-1.5 px-2 font-medium text-foreground">{row.label}</td>
@@ -698,6 +716,13 @@ export default function ResearchNoteGenerator() {
                                 {qoq !== null ? (
                                   <span className={qoq >= 0 ? "text-green-600" : "text-red-600"}>
                                     {qoq >= 0 ? "▲" : "▼"} {Math.abs(qoq * 100).toFixed(1)}%
+                                  </span>
+                                ) : "—"}
+                              </td>
+                              <td className="text-right py-1.5 px-2 font-semibold">
+                                {yoy !== null ? (
+                                  <span className={yoy >= 0 ? "text-green-600" : "text-red-600"}>
+                                    {yoy >= 0 ? "▲" : "▼"} {Math.abs(yoy * 100).toFixed(1)}%
                                   </span>
                                 ) : "—"}
                               </td>
@@ -769,11 +794,59 @@ export default function ResearchNoteGenerator() {
                         {d.bsHistory.rows.map((row, ri) => (
                           <tr key={row.label} className={`border-b last:border-0 ${ri % 2 === 0 ? "" : "bg-muted/30"}`}>
                             <td className="py-1.5 px-2 font-medium text-foreground">{row.label}</td>
-                            {row.values.map((v, vi) => (
-                              <td key={vi} className="text-right py-1.5 px-2">{v !== null ? v.toLocaleString("en-IN", { maximumFractionDigits: 0 }) : "—"}</td>
-                            ))}
+                            {row.values.map((v, vi) => {
+                              const prev = vi > 0 ? row.values[vi - 1] : null;
+                              const trend = v !== null && prev !== null && prev !== 0 ? (v > prev ? "text-green-600" : v < prev ? "text-red-600" : "") : "";
+                              return <td key={vi} className={`text-right py-1.5 px-2 ${trend}`}>{v !== null ? v.toLocaleString("en-IN", { maximumFractionDigits: 0 }) : "—"}</td>;
+                            })}
                           </tr>
                         ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Cash Flow Statement */}
+            {d.cfHistory && d.cfHistory.rows.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-cyan-600" /> Cash Flow Statement (₹ Cr)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b bg-cyan-50 dark:bg-cyan-950/20">
+                          <th className="text-left py-2 px-2 font-semibold text-muted-foreground min-w-[180px]">Metric</th>
+                          {d.cfHistory.headers.map(h => (
+                            <th key={h} className="text-right py-2 px-2 font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {d.cfHistory.rows.map((row, ri) => {
+                          const isNetCash = row.label.toLowerCase().includes("net cash");
+                          return (
+                            <tr key={row.label} className={`border-b last:border-0 ${ri % 2 === 0 ? "" : "bg-muted/30"} ${isNetCash ? "font-semibold" : ""}`}>
+                              <td className="py-1.5 px-2 font-medium text-foreground">{row.label}</td>
+                              {row.values.map((v, vi) => {
+                                const prev = vi > 0 ? row.values[vi - 1] : null;
+                                const trend = v !== null && prev !== null
+                                  ? (v > 0 && v > prev ? "text-green-600" : v < 0 ? "text-red-600" : "")
+                                  : "";
+                                return (
+                                  <td key={vi} className={`text-right py-1.5 px-2 ${trend}`}>
+                                    {v !== null ? v.toLocaleString("en-IN", { maximumFractionDigits: 0 }) : "—"}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
