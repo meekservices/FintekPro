@@ -288,7 +288,7 @@ export default function FieldAgentPortal() {
 
   const agentLevel = (agentProfile as any)?.agentLevel || 'agent';
   const levelLabel = agentLevel === 'master' ? 'Agent' : 
-                     agentLevel === 'sub_agent' ? 'Sub-Agent' : 'Associate';
+                     agentLevel === 'sub_agent' ? 'Field Executive' : 'Business Associate';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30" data-testid="field-agent-portal">

@@ -8,7 +8,7 @@
  *     │     │       ├── Partners
  *     │     │       │     ├── Agents
  *     │     │       │     │     ├── Sub-Agents
- *     │     │       │     │     │     └── Associates
+ *     │     │       │     │     │     └── Business Associates
  *     │     │       │     └── Partner Ops Support
  *     │     │       └── Distribution Team
  *     │     ├── Compliance Officer
@@ -486,8 +486,8 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
   // Level 7: Associates
   associate: {
     id: 'associate',
-    name: 'Associate',
-    description: 'Associate under a sub-agent',
+    name: 'Business Associate',
+    description: 'Business Associate under a Field Executive',
     parentRoles: ['sub_agent'],
     portal: 'agent',
     level: 7,
