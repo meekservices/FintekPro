@@ -161,7 +161,6 @@ class UnifiedAadhaarService {
     }
 
     console.log('✅ Unified Aadhaar Verification Service initialized');
-    console.log(`   Providers: Truthscreen(${truthscreenConfig.isConfigured}), Cashfree(${cashfreeConfig.isConfigured}), Sandbox(${sandboxConfig.isConfigured}), OfflineXML(true)`);
     console.log(`   Active Provider: ${this.activeProvider}`);
   }
 
