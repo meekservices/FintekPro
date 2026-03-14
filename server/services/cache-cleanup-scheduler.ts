@@ -41,8 +41,8 @@ class CacheCleanupScheduler {
       await this.logQuarterlyRefreshReminder();
     });
     
-    // Every hour: Update cache statistics
-    cron.schedule('0 * * * *', async () => {
+    // Every hour at :10 past (staggered from market-data refresh at :00)
+    cron.schedule('10 * * * *', async () => {
       await this.updateCacheStatistics();
     });
     

@@ -18365,9 +18365,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       
       // Get recent commissions
       const recentCommissions = await db.select()
-        .from(agentCommissions)
-        .where(eq(agentCommissions.agentId, agentId))
-        .orderBy(desc(agentCommissions.createdAt))
+        .from(schema.agentCommissions)
+        .where(eq(schema.agentCommissions.agentId, agentId))
+        .orderBy(desc(schema.agentCommissions.createdAt))
         .limit(3);
       
       recentCommissions.forEach((commission) => {
@@ -19309,46 +19309,46 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       
       // Get this month's commissions (business)
       const thisMonthCommissions = await db.select({ 
-        total: sum(agentCommissions.agentCommissionAmount) 
+        total: sum(schema.agentCommissions.agentCommissionAmount) 
       })
-        .from(agentCommissions)
+        .from(schema.agentCommissions)
         .where(and(
-          eq(agentCommissions.agentId, agentId),
-          gte(agentCommissions.createdAt, monthStart)
+          eq(schema.agentCommissions.agentId, agentId),
+          gte(schema.agentCommissions.createdAt, monthStart)
         ));
       const thisMonthBusiness = parseFloat(thisMonthCommissions[0]?.total || '0') || 0;
       
       // Get last month's commissions
       const lastMonthCommissions = await db.select({ 
-        total: sum(agentCommissions.agentCommissionAmount) 
+        total: sum(schema.agentCommissions.agentCommissionAmount) 
       })
-        .from(agentCommissions)
+        .from(schema.agentCommissions)
         .where(and(
-          eq(agentCommissions.agentId, agentId),
-          gte(agentCommissions.createdAt, lastMonthStart),
-          lte(agentCommissions.createdAt, lastMonthEnd)
+          eq(schema.agentCommissions.agentId, agentId),
+          gte(schema.agentCommissions.createdAt, lastMonthStart),
+          lte(schema.agentCommissions.createdAt, lastMonthEnd)
         ));
       const lastMonthBusiness = parseFloat(lastMonthCommissions[0]?.total || '0') || 0;
       
       // Get total commissions (credited)
       const totalCommissionsResult = await db.select({ 
-        total: sum(agentCommissions.agentCommissionAmount) 
+        total: sum(schema.agentCommissions.agentCommissionAmount) 
       })
-        .from(agentCommissions)
+        .from(schema.agentCommissions)
         .where(and(
-          eq(agentCommissions.agentId, agentId),
-          eq(agentCommissions.status, 'credited')
+          eq(schema.agentCommissions.agentId, agentId),
+          eq(schema.agentCommissions.status, 'credited')
         ));
       const totalCommissions = parseFloat(totalCommissionsResult[0]?.total || '0') || 0;
       
       // Get pending commissions
       const pendingCommissionsResult = await db.select({ 
-        total: sum(agentCommissions.agentCommissionAmount) 
+        total: sum(schema.agentCommissions.agentCommissionAmount) 
       })
-        .from(agentCommissions)
+        .from(schema.agentCommissions)
         .where(and(
-          eq(agentCommissions.agentId, agentId),
-          eq(agentCommissions.status, 'pending')
+          eq(schema.agentCommissions.agentId, agentId),
+          eq(schema.agentCommissions.status, 'pending')
         ));
       const pendingCommissions = parseFloat(pendingCommissionsResult[0]?.total || '0') || 0;
       

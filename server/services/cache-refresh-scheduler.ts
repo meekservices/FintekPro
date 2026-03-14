@@ -71,8 +71,8 @@ class CacheRefreshScheduler {
       await this.precomputePortfolioMetrics();
     });
 
-    // Cache cleanup - daily at 2 AM IST
-    cron.schedule("0 2 * * *", async () => {
+    // Cache cleanup - daily at 2:20 AM IST (staggered to avoid collision with other 2AM jobs)
+    cron.schedule("20 2 * * *", async () => {
       await this.performCacheCleanup();
     }, { timezone: "Asia/Kolkata" });
 

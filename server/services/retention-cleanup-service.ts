@@ -284,8 +284,8 @@ class RetentionCleanupService {
    * Runs daily at 2:00 AM to minimize impact on users
    */
   scheduleCleanup(): void {
-    // Run daily at 2:00 AM
-    cron.schedule('0 2 * * *', async () => {
+    // Run daily at 2:40 AM (staggered to avoid collision with other 2AM jobs)
+    cron.schedule('40 2 * * *', async () => {
       console.log('\n⏰ [CRON] Running scheduled retention cleanup...');
       try {
         await this.runCleanup();
