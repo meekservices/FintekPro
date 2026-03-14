@@ -200,15 +200,19 @@ class MFReturnsScheduler {
     
     try {
       // Step 1: Get funds that need returns calculated
+      // Exclude funds updated within the last 20 hours — this prevents new NFOs
+      // (with only 2 NAV data points, insufficient for return calculation) from
+      // being re-fetched every hourly run when they'll remain insufficient anyway.
+      const twentyHoursAgo = new Date(Date.now() - 20 * 60 * 60 * 1000);
       const fundsNeedingReturns = await db.select({
         schemeCode: mutualFunds.schemeCode,
         schemeName: mutualFunds.schemeName
       })
       .from(mutualFunds)
-      .where(or(
-        isNull(mutualFunds.returns1y),
-        isNull(mutualFunds.returns3y)
-      ))
+      .where(
+        sql`(${mutualFunds.returns1y} IS NULL OR ${mutualFunds.returns3y} IS NULL)
+            AND (${mutualFunds.updatedAt} IS NULL OR ${mutualFunds.updatedAt} < ${twentyHoursAgo})`
+      )
       .limit(batchSize);
       
       let dbCalculated = 0;
@@ -261,9 +265,22 @@ class MFReturnsScheduler {
                 .where(eq(mutualFunds.schemeCode, fund.schemeCode));
               
               apiSynced++;
+            } else {
+              // Insufficient NAV history (e.g. new NFO with only 2 data points).
+              // Stamp updatedAt so this fund is excluded from the next 20 hours
+              // of hourly runs — preventing redundant MFAPI calls every hour.
+              await db.update(mutualFunds)
+                .set({ updatedAt: new Date() })
+                .where(eq(mutualFunds.schemeCode, fund.schemeCode));
             }
           } catch (err: any) {
-            // API fetch failed, continue with next fund
+            // API fetch failed — still stamp updatedAt so we don't hammer MFAPI
+            // on every hourly cycle. The fund will be retried after the cooldown.
+            try {
+              await db.update(mutualFunds)
+                .set({ updatedAt: new Date() })
+                .where(eq(mutualFunds.schemeCode, fund.schemeCode));
+            } catch (_) {}
           }
         }
         
