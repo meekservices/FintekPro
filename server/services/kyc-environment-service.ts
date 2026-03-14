@@ -85,7 +85,6 @@ class KycEnvironmentService {
       console.log('   ⚠️ Fixed OTP enabled (sandbox mode)');
     }
     console.log(`   Active providers → Pan: ${this.flags.prodProviders.pan}, Aadhaar: ${this.flags.prodProviders.aadhaar}, CKYC: ${this.flags.prodProviders.ckyc}, AML: ${this.flags.prodProviders.aml}`);
-    console.log(`   CKYC: ${this.flags.sandboxProviders.ckyc} | AML: ${this.flags.sandboxProviders.aml} (TruthScreen creds: ${hasTruthScreenCreds ? 'found' : 'missing'})`);
   }
 
   getEnvironment(): KycEnvironment {
