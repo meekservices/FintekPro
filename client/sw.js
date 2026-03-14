@@ -2,7 +2,17 @@ const CACHE_NAME = 'fintekpro-agent-v1';
 
 self.addEventListener('install', (event) => {
   console.log('[SW] Service Worker installing...');
-  self.skipWaiting();
+  // Do NOT call skipWaiting() here — that would immediately activate the new SW,
+  // trigger clients.claim(), fire a controllerchange in every open tab, and cause
+  // an automatic page reload for all users mid-session.
+  // Instead, the new SW enters the 'waiting' state, the UpdateNotificationBanner
+  // appears, and skipWaiting is called only when the user clicks "Refresh Now".
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data === 'skipWaiting') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('activate', (event) => {

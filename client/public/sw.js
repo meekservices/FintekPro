@@ -29,12 +29,17 @@ const NEVER_CACHE_ROUTES = [
 
 self.addEventListener('install', (event) => {
   console.log(`[ServiceWorker] Installing v${VERSION}...`);
+  // Do NOT call skipWaiting() here. Doing so would immediately activate the new SW,
+  // trigger clients.claim(), fire a controllerchange event in every open tab, and
+  // cause an automatic page reload for all users mid-session on every redeploy.
+  // Instead the new SW enters the 'waiting' state, the UpdateNotificationBanner is
+  // shown, and skipWaiting is called only when the user clicks "Refresh Now"
+  // (which posts a 'skipWaiting' message handled by the message listener below).
   event.waitUntil(
     caches.open(SHELL_CACHE)
       .then((cache) => cache.addAll(SHELL_ASSETS))
       .then(() => {
-        console.log('[ServiceWorker] Shell cached, skipping wait');
-        return self.skipWaiting();
+        console.log('[ServiceWorker] Shell cached, waiting for activation signal');
       })
   );
 });
