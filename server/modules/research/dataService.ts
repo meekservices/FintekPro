@@ -330,15 +330,20 @@ async function fetchFromNSE(nseSymbol: string): Promise<Partial<FinancialData>> 
   const whl  = pi.weekHighLow ?? {};
   const price: number | null = pi.lastPrice ?? null;
   const issuedSize: number | null = sec.issuedSize ?? null;
+  const pfNse = (v: any): number | null => {
+    if (v === null || v === undefined) return null;
+    const n = typeof v === "number" ? v : parseFloat(v);
+    return isFinite(n) ? n : null;
+  };
   return {
     price,
-    previousClose: pi.previousClose ?? null,
+    previousClose: pfNse(pi.previousClose),
     marketCap: price !== null && issuedSize !== null ? price * issuedSize : null,
-    pe: meta.pdSymbolPe ?? null,
-    fiftyTwoWeekHigh: typeof whl.max === "number" ? whl.max : null,
-    fiftyTwoWeekLow:  typeof whl.min === "number" ? whl.min : null,
-    faceValue: sec.faceValue ?? null,
-    vwap: pi.vwap ?? null,
+    pe: pfNse(meta.pdSymbolPe),
+    fiftyTwoWeekHigh: pfNse(whl.max),
+    fiftyTwoWeekLow:  pfNse(whl.min),
+    faceValue: pfNse(sec.faceValue),
+    vwap: pfNse(pi.vwap),
     currency: "INR",
   };
 }

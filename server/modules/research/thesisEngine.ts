@@ -3,12 +3,12 @@ import type { PriceTarget } from "./pricingEngine";
 import { formatPercent, formatPrice } from "./financialEngine";
 
 function pct(v: number | null): string {
-  if (v === null || v === undefined) return "N/A";
+  if (v === null || v === undefined || typeof v !== "number" || !isFinite(v)) return "N/A";
   return `${(v * 100).toFixed(1)}%`;
 }
 
 function num(v: number | null, dec = 2): string {
-  if (v === null || v === undefined) return "N/A";
+  if (v === null || v === undefined || typeof v !== "number" || !isFinite(v)) return "N/A";
   return v.toFixed(dec);
 }
 

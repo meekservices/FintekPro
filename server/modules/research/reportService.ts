@@ -65,32 +65,43 @@ function ratingColour(rating: string): string {
   return ACCENT_RED;
 }
 
+const safeNum = (v: any): number | null => {
+  if (v === null || v === undefined) return null;
+  const n = typeof v === "number" ? v : parseFloat(v);
+  return isFinite(n) ? n : null;
+};
+
 function pct(v: number | null): string {
-  if (v === null || v === undefined) return "N/A";
-  return `${(v * 100).toFixed(1)}%`;
+  const n = safeNum(v);
+  if (n === null) return "N/A";
+  return `${(n * 100).toFixed(1)}%`;
 }
 
 function crFmt(v: number | null): string {
-  if (v === null || v === undefined) return "N/A";
-  if (Math.abs(v) >= 100000) return `₹${(v / 100000).toFixed(1)} L Cr`;
-  if (Math.abs(v) >= 1000)   return `₹${(v / 1000).toFixed(1)} K Cr`;
-  return `₹${v.toFixed(0)} Cr`;
+  const n = safeNum(v);
+  if (n === null) return "N/A";
+  if (Math.abs(n) >= 100000) return `₹${(n / 100000).toFixed(1)} L Cr`;
+  if (Math.abs(n) >= 1000)   return `₹${(n / 1000).toFixed(1)} K Cr`;
+  return `₹${n.toFixed(0)} Cr`;
 }
 
 function signStr(v: number | null): string {
-  if (v === null || v === undefined) return "N/A";
-  const s = (v * 100).toFixed(1);
-  return v > 0 ? `+${s}%` : `${s}%`;
+  const n = safeNum(v);
+  if (n === null) return "N/A";
+  const s = (n * 100).toFixed(1);
+  return n > 0 ? `+${s}%` : `${s}%`;
 }
 
 function signColour(v: number | null): string {
-  if (v === null) return MID_TEXT;
-  return v >= 0 ? ACCENT_GREEN : ACCENT_RED;
+  const n = safeNum(v);
+  if (n === null) return MID_TEXT;
+  return n >= 0 ? ACCENT_GREEN : ACCENT_RED;
 }
 
 function numFmt(v: number | null, dec = 2): string {
-  if (v === null || v === undefined) return "N/A";
-  return v.toFixed(dec);
+  const n = safeNum(v);
+  if (n === null) return "N/A";
+  return n.toFixed(dec);
 }
 
 function priceRs(v: number | null): string {
@@ -389,9 +400,10 @@ export async function generatePPT(data: ReportData): Promise<Buffer> {
       s5b.addShape(ppt.ShapeType.rect, { x: 0.4, y: ry2, w: 12, h: 0.48, fill: { color: bg }, line: { color: "E2E8F0", width: 0.5 } });
       s5b.addText(row.label, { x: 0.5, y: ry2 + 0.1, w: labelW, h: 0.3, fontSize: 10, color: MID_TEXT });
       row.values.forEach((v, vi) => {
-        const prev = vi > 0 ? row.values[vi - 1] : null;
-        const col = v !== null && prev !== null && prev !== 0 ? (v > prev ? ACCENT_GREEN : v < prev ? ACCENT_RED : DARK_TEXT) : DARK_TEXT;
-        const display = v === null ? "N/A" : isPercent ? `${v.toFixed(1)}%` : isEps ? v.toFixed(2) : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+        const n = safeNum(v);
+        const prev = vi > 0 ? safeNum(row.values[vi - 1]) : null;
+        const col = n !== null && prev !== null && prev !== 0 ? (n > prev ? ACCENT_GREEN : n < prev ? ACCENT_RED : DARK_TEXT) : DARK_TEXT;
+        const display = n === null ? "N/A" : isPercent ? `${n.toFixed(1)}%` : isEps ? n.toFixed(2) : n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
         s5b.addText(display, { x: 0.4 + labelW + vi * colW, y: ry2 + 0.1, w: colW, h: 0.3, fontSize: 10, bold: true, color: col, align: "right" });
       });
     });
@@ -422,7 +434,8 @@ export async function generatePPT(data: ReportData): Promise<Buffer> {
           s5b.addShape(ppt.ShapeType.rect, { x: 0.4, y: qRY, w: 12, h: 0.4, fill: { color: bg }, line: { color: "E2E8F0", width: 0.5 } });
           s5b.addText(row.label, { x: 0.5, y: qRY + 0.08, w: qLabelW, h: 0.28, fontSize: 9.5, color: MID_TEXT });
           row.values.forEach((v, vi) => {
-            const display = v === null ? "N/A" : isPercent ? `${v.toFixed(1)}%` : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+            const n = safeNum(v);
+            const display = n === null ? "N/A" : isPercent ? `${n.toFixed(1)}%` : n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
             const isLatest = vi === row.values.length - 1;
             s5b.addText(display, { x: 0.4 + qLabelW + vi * qColW, y: qRY + 0.08, w: qColW, h: 0.28, fontSize: 9.5, bold: isLatest, color: isLatest ? "7c3aed" : DARK_TEXT, align: "right" });
           });
@@ -996,9 +1009,10 @@ export async function generatePDF(data: ReportData): Promise<Buffer> {
         doc.rect(45, yH, PW, 14).fill(bg);
         doc.fillColor("#374151").fontSize(7.5).font("Helvetica").text(row.label, 50, yH + 3, { width: plLabelW2 });
         row.values.forEach((v, vi) => {
-          const prev = vi > 0 ? row.values[vi - 1] : null;
-          const col = v !== null && prev !== null && prev !== 0 ? (v > prev ? "#16a34a" : v < prev ? "#dc2626" : "#111827") : "#111827";
-          const display = v === null ? "—" : isPercent ? `${v.toFixed(1)}%` : isEps ? v.toFixed(2) : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+          const n = safeNum(v);
+          const prev = vi > 0 ? safeNum(row.values[vi - 1]) : null;
+          const col = n !== null && prev !== null && prev !== 0 ? (n > prev ? "#16a34a" : n < prev ? "#dc2626" : "#111827") : "#111827";
+          const display = n === null ? "—" : isPercent ? `${n.toFixed(1)}%` : isEps ? n.toFixed(2) : n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
           doc.fillColor(col).fontSize(8).font("Helvetica-Bold").text(display, 45 + plLabelW2 + vi * plColW2, yH + 3, { width: plColW2, align: "right" });
         });
         yH += 14;
@@ -1037,8 +1051,9 @@ export async function generatePDF(data: ReportData): Promise<Buffer> {
           doc.rect(45, yH, PW, 14).fill(bg);
           doc.fillColor("#374151").fontSize(7.5).font("Helvetica").text(row.label, 50, yH + 3, { width: qLabelW2 });
           row.values.forEach((v, vi) => {
+            const n = safeNum(v);
             const isLatest = vi === row.values.length - 1;
-            const display = v === null ? "—" : isPercent ? `${v.toFixed(1)}%` : isEps ? v.toFixed(2) : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+            const display = n === null ? "—" : isPercent ? `${n.toFixed(1)}%` : isEps ? n.toFixed(2) : n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
             doc.fillColor(isLatest ? "#7c3aed" : "#111827").fontSize(8).font(isLatest ? "Helvetica-Bold" : "Helvetica").text(display, 45 + qLabelW2 + vi * qColW2, yH + 3, { width: qColW2, align: "right" });
           });
           yH += 14;
