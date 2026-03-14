@@ -10,6 +10,7 @@ import type { AgentProfile, AgentStats, AgentPartner } from "@shared/schema";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { SubAgentDashboard } from "@/components/SubAgentDashboard";
+import { UplineView } from "@/components/UplineView";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -711,6 +712,7 @@ export default function AgentPortal() {
                     </div>
                   </CardContent>
                 </Card>
+              <UplineView />
               </>
             )}
           </TabsContent>

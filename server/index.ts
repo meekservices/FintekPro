@@ -1187,6 +1187,18 @@ server.listen({
   } else {
     console.log('⏭️ [CapitalGainsReminder] Scheduler skipped (development mode - production only)');
   }
+
+  // GAP 4 FIX: KYC Expiry Monitor — daily check, runs in all environments
+  try {
+    import('./services/kyc-expiry-monitor').then(({ kycExpiryMonitor }) => {
+      kycExpiryMonitor.start();
+      logger.service('KYC Expiry Monitor', 'Service initialized — daily ARN/EUIN expiry checks active');
+    }).catch(error => {
+      console.error('❌ Failed to initialize KYC Expiry Monitor:', error);
+    });
+  } catch (error) {
+    console.error('❌ Error importing KYC Expiry Monitor:', error);
+  }
   
   // Initialize Bond Catalog Service (production only - writes to DB)
   if (isProductionEnvironment()) {

@@ -91,9 +91,9 @@ export async function detectDepthViolations(): Promise<IntegrityIssue[]> {
         INNER JOIN depth_check dc ON p.parent_partner_id = dc.id
         WHERE dc.depth < 20
       )
-      SELECT id, company_name, depth, COALESCE(max_depth, 3) as max_depth
+      SELECT id, company_name, depth, COALESCE(max_depth, 5) as max_depth
       FROM depth_check
-      WHERE depth > COALESCE(max_depth, 3)
+      WHERE depth > COALESCE(max_depth, 5)
     `);
     const rows = (result as any).rows || result;
     if (rows) {

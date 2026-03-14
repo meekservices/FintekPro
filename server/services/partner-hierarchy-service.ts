@@ -1,6 +1,25 @@
 import { db } from "../db";
 import { partners, partnerHierarchyAgreements, partnerClientOwnership, users } from "@shared/schema";
 import { eq, and, isNull, sql, desc } from "drizzle-orm";
+import { runFullIntegrityCheck } from "./hierarchy-integrity-validator";
+
+// GAP 5 FIX: 5-level delegation chain (was hardcoded to 3)
+const LEVEL_ORDER = ['L1', 'L2', 'L3', 'L4', 'L5'] as const;
+const MAX_HIERARCHY_LEVEL = 'L5'; // Business Associate — cannot create sub-partners
+
+function getChildLevel(parentLevel: string): string | null {
+  const idx = LEVEL_ORDER.indexOf(parentLevel as any);
+  if (idx === -1 || idx >= LEVEL_ORDER.length - 1) return null;
+  return LEVEL_ORDER[idx + 1];
+}
+
+const LEVEL_TYPE_MAP: Record<string, string> = {
+  L1: 'MASTER',
+  L2: 'SUB',
+  L3: 'AGENT',
+  L4: 'FIELD_EXECUTIVE',
+  L5: 'BUSINESS_ASSOCIATE',
+};
 
 export class PartnerHierarchyService {
   private static instance: PartnerHierarchyService;
@@ -12,7 +31,7 @@ export class PartnerHierarchyService {
     return this.instance;
   }
 
-  // TICKET 2: Create partner with delegation rules
+  // GAP 5+7+3 FIX: Create partner with 5-level delegation, referredById attribution, auto integrity check
   async createPartner(data: {
     companyName: string;
     contactEmail: string;
@@ -20,34 +39,31 @@ export class PartnerHierarchyService {
     password: string;
     partnerType?: string;
     parentPartnerId?: string;
+    referredById?: string;   // GAP 7: peer referral attribution (horizontal, not hierarchical)
     creatorId: string;
     creatorLevel?: string;
-  }): Promise<{ success: boolean; partner?: any; error?: string }> {
-    // 1. If parentPartnerId is provided, validate the parent
+  }): Promise<{ success: boolean; partner?: any; integrityWarnings?: number; error?: string }> {
     if (data.parentPartnerId) {
       const parent = await db.select().from(partners).where(eq(partners.id, data.parentPartnerId)).limit(1);
       if (parent.length === 0) return { success: false, error: "Parent partner not found" };
       const parentPartner = parent[0];
-      
-      // Parent must be ACTIVE
+
       if (parentPartner.hierarchyStatus !== 'ACTIVE') return { success: false, error: "Parent partner is not active" };
-      // Parent KYC must be VERIFIED
       if (parentPartner.kycStatus !== 'VERIFIED') return { success: false, error: "Parent partner KYC not verified" };
-      
-      // Delegation rules: L1→L2, L2→L3, L3→cannot create
+
+      // GAP 5 FIX: Dynamic 5-level delegation (was hardcoded L1→L2→L3 only)
       const parentLevel = parentPartner.partnerLevel || 'L1';
-      if (parentLevel === 'L3') return { success: false, error: "L3 partners cannot create sub-partners" };
-      
-      // Determine child level and type
-      const childLevel = parentLevel === 'L1' ? 'L2' : 'L3';
-      const childType = parentLevel === 'L1' ? 'SUB' : 'AGENT';
-      
-      // Check max depth
+      const childLevel = getChildLevel(parentLevel);
+      if (!childLevel) {
+        return { success: false, error: `${parentLevel} partners cannot create sub-partners (maximum hierarchy depth reached)` };
+      }
+      const childType = LEVEL_TYPE_MAP[childLevel] || 'AGENT';
+
+      // GAP 5 FIX: Depth check uses dynamic maxDepth (default 5, not 3)
       const depth = await this.getPartnerDepth(data.parentPartnerId);
-      const maxDepth = parentPartner.maxDepth || 3;
+      const maxDepth = parentPartner.maxDepth || 5;
       if (depth >= maxDepth) return { success: false, error: `Maximum hierarchy depth (${maxDepth}) reached` };
 
-      // Check email uniqueness
       const existing = await db.select().from(partners).where(eq(partners.contactEmail, data.contactEmail)).limit(1);
       if (existing.length > 0) return { success: false, error: "Email already registered" };
 
@@ -64,14 +80,22 @@ export class PartnerHierarchyService {
         kycStatus: 'PENDING',
         approvalStatus: 'PENDING',
         createdBy: data.creatorId,
+        referredById: data.referredById || null, // GAP 7: peer referral attribution
         isActive: true,
         isVerified: false,
       }).returning();
 
-      return { success: true, partner: newPartner };
+      // GAP 3 FIX: Auto integrity check on every partner creation
+      const integrityResult = await runFullIntegrityCheck().catch(() => null);
+      const integrityWarnings = integrityResult?.summary?.total || 0;
+      if (integrityWarnings > 0) {
+        console.warn(`[HierarchyIntegrity] ${integrityWarnings} issue(s) detected after creating partner ${newPartner.id}:`, integrityResult?.issues);
+      }
+
+      return { success: true, partner: newPartner, integrityWarnings };
     }
 
-    // Root partner creation (no parent) - typically admin-only
+    // Root partner creation (no parent) — admin-only
     const existing = await db.select().from(partners).where(eq(partners.contactEmail, data.contactEmail)).limit(1);
     if (existing.length > 0) return { success: false, error: "Email already registered" };
 
@@ -88,6 +112,7 @@ export class PartnerHierarchyService {
       kycStatus: 'PENDING',
       approvalStatus: 'PENDING',
       createdBy: data.creatorId,
+      referredById: data.referredById || null,
       isActive: true,
       isVerified: false,
     }).returning();

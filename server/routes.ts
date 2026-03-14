@@ -18514,7 +18514,45 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
+  // GAP 6: Upline visibility — returns the chain from the current agent up to root
+  app.get("/api/agent/upline", requireAgent, async (req, res) => {
+    try {
+      const [agentRecord] = await db.select().from(schema.agents)
+        .where(eq(schema.agents.userId, req.user.id)).limit(1);
+
+      if (!agentRecord) return res.json({ upline: [], message: "No agent profile found" });
+
+      const chain: any[] = [];
+      let currentId = agentRecord.reportingTo;
+      const visited = new Set<string>();
+
+      while (currentId && !visited.has(currentId)) {
+        visited.add(currentId);
+        const [uplineAgent] = await db.select({
+          id: schema.agents.id,
+          fullName: schema.agents.fullName,
+          email: schema.agents.email,
+          hierarchyLevel: schema.agents.hierarchyLevel,
+          employeeId: schema.agents.employeeId,
+          arnCode: schema.agents.arnCode,
+          userId: schema.agents.userId,
+          reportingTo: schema.agents.reportingTo,
+        }).from(schema.agents).where(eq(schema.agents.id, currentId)).limit(1);
+
+        if (!uplineAgent) break;
+        chain.push(uplineAgent);
+        currentId = uplineAgent.reportingTo || null;
+      }
+
+      res.json({ upline: chain, levels: chain.length });
+    } catch (error) {
+      console.error("[Upline] Error:", error);
+      res.status(500).json({ error: "Failed to fetch upline" });
+    }
+  });
+
   // POST create new lead
+  // GAP 8: Business Associates' leads auto-assigned to upline Field Executive
   app.post("/api/agent/leads", requireAgent, async (req, res) => {
     try {
       const { name, email, phone, source, potentialValue, notes } = req.body;
@@ -18522,14 +18560,38 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       if (!name) {
         return res.status(400).json({ error: "Lead name is required" });
       }
-      
+
+      // GAP 8 FIX: If creator is a Business Associate (associate role), find their upline
+      let assignedAgentId = req.user.id;
+      let resolvedSource = source || 'manual';
+      const userRole = (req.user as any).role;
+
+      if (userRole === 'associate') {
+        try {
+          const [baRecord] = await db.select().from(schema.agents)
+            .where(eq(schema.agents.userId, req.user.id)).limit(1);
+
+          if (baRecord?.reportingTo) {
+            const [uplineAgent] = await db.select().from(schema.agents)
+              .where(eq(schema.agents.id, baRecord.reportingTo)).limit(1);
+
+            if (uplineAgent?.userId) {
+              assignedAgentId = uplineAgent.userId;
+              resolvedSource = 'associate_referral';
+            }
+          }
+        } catch (e) {
+          console.error("[LeadCreate] BA upline lookup failed:", e);
+        }
+      }
+
       const [newLead] = await db.insert(agentLeads)
         .values({
-          agentId: req.user.id,
+          agentId: assignedAgentId,
           name,
           email: email || null,
           phone: phone || null,
-          source: source || 'manual',
+          source: resolvedSource,
           potentialValue: potentialValue ? String(potentialValue) : '0',
           notes: notes || null,
           stage: 'new',
@@ -18549,7 +18611,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         score: newLead.score || 50,
         notes: newLead.notes || '',
         createdAt: newLead.createdAt?.toISOString(),
-        tags: newLead.tags || []
+        tags: newLead.tags || [],
+        assignedTo: assignedAgentId,
+        createdBy: req.user.id,
       });
     } catch (error) {
       console.error("Error creating lead:", error);

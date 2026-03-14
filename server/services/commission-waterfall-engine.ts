@@ -12,7 +12,7 @@ export class CommissionWaterfallEngine {
     return this.instance;
   }
 
-  // TICKET 5: Resolve the partner tree at transaction time and apply waterfall
+  // GAP 1 FIX: Dynamic waterfall — handles any chain depth, not just 3 levels
   async processCommission(data: {
     transactionId: string;
     orderId?: string;
@@ -20,7 +20,6 @@ export class CommissionWaterfallEngine {
     transactionAmount: number;
     sellingPartnerId: string;
   }): Promise<{ success: boolean; ledgerEntries?: any[]; error?: string }> {
-    // 1. Get the commission rule for this product type
     const [rule] = await db.select().from(partnerCommissionRules)
       .where(and(
         eq(partnerCommissionRules.productType, data.productType),
@@ -32,36 +31,52 @@ export class CommissionWaterfallEngine {
       return { success: false, error: `No commission rule found for product type: ${data.productType}` };
     }
 
-    // 2. Resolve the partner tree from the selling partner up to root
     const partnerChain = await this.resolvePartnerChain(data.sellingPartnerId);
     if (partnerChain.length === 0) {
       return { success: false, error: "Could not resolve partner chain" };
     }
 
-    // 3. Calculate commission amounts based on waterfall percentages
-    const totalCommission = data.transactionAmount; // Commission base (could be derived from transaction)
+    const totalCommission = data.transactionAmount;
     const ledgerEntries: any[] = [];
 
-    // Map partner levels to commission percentages
-    const levelPctMap: Record<string, number> = {
-      'L3': parseFloat(rule.agentPct?.toString() || '0'),       // Agent level
-      'L2': parseFloat(rule.subPartnerPct?.toString() || '0'),   // Sub-partner level
-      'L1': parseFloat(rule.masterPartnerPct?.toString() || '0'), // Master partner level
-    };
-
-    let totalAllocated = 0;
+    const agentPct = parseFloat(rule.agentPct?.toString() || '0');
+    const subPartnerPct = parseFloat(rule.subPartnerPct?.toString() || '0');
+    const masterPartnerPct = parseFloat(rule.masterPartnerPct?.toString() || '0');
     const platformPct = parseFloat(rule.platformPct?.toString() || '0');
 
-    for (const partner of partnerChain) {
-      const level = partner.partner_level || partner.partnerLevel || 'L1';
-      const pct = levelPctMap[level] || 0;
-      
+    // GAP 1 FIX: Dynamic level-to-percentage mapping based on chain position
+    // chain[0] = seller (bottom of chain), chain[last] = root master (top of chain)
+    // Intermediate levels share subPartnerPct equally
+    const chainLength = partnerChain.length;
+    const intermediateCount = Math.max(chainLength - 2, 0); // levels between seller and root
+    const intermediatePctEach = intermediateCount > 0 ? subPartnerPct / intermediateCount : 0;
+
+    let totalAllocated = 0;
+
+    for (let i = 0; i < chainLength; i++) {
+      const partner = partnerChain[i];
+      let pct: number;
+      let waterfallLevel: string;
+
+      if (i === 0) {
+        // Seller / frontline agent
+        pct = agentPct;
+        waterfallLevel = `L${chainLength}`;
+      } else if (i === chainLength - 1) {
+        // Root master partner at top of chain
+        pct = masterPartnerPct;
+        waterfallLevel = 'L1';
+      } else {
+        // Intermediate levels — split subPartnerPct equally
+        pct = intermediatePctEach;
+        waterfallLevel = `L${chainLength - i}`;
+      }
+
       if (pct <= 0) continue;
 
       const commissionAmount = (totalCommission * pct) / 100;
       totalAllocated += pct;
 
-      // Check KYC status - if not verified, mark as gated
       const kycGated = partner.kyc_status !== 'VERIFIED' && partner.kycStatus !== 'VERIFIED';
 
       const [entry] = await db.insert(partnerCommissionLedger).values({
@@ -72,29 +87,30 @@ export class CommissionWaterfallEngine {
         transactionAmount: data.transactionAmount.toString(),
         commissionAmount: commissionAmount.toFixed(2),
         commissionRuleId: rule.id,
-        waterfallLevel: level,
+        waterfallLevel,
         status: kycGated ? 'PENDING' : 'ELIGIBLE',
         kycGated,
         metadata: {
           pctApplied: pct,
           ruleId: rule.id,
-          chainPosition: partnerChain.indexOf(partner),
+          chainPosition: i,
+          chainLength,
+          dynamicAllocation: true,
         },
       }).returning();
 
       ledgerEntries.push(entry);
 
-      // Credit wallet if eligible (KYC verified)
       if (!kycGated) {
         await this.creditWallet(partner.id, commissionAmount);
       }
     }
 
-    // Any unallocated percentage (missing levels) rolls up to platform
+    // Any unallocated rolls to platform (handles missing levels gracefully)
     const unallocated = 100 - totalAllocated - platformPct;
-    if (unallocated > 0) {
-      // Platform absorbs the unallocated commission - log it
-      const platformAmount = (totalCommission * (platformPct + unallocated)) / 100;
+    const platformAmount = (totalCommission * (platformPct + Math.max(unallocated, 0))) / 100;
+
+    if (platformAmount > 0) {
       const [platformEntry] = await db.insert(partnerCommissionLedger).values({
         partnerId: 'PLATFORM',
         transactionId: data.transactionId,
@@ -106,7 +122,7 @@ export class CommissionWaterfallEngine {
         waterfallLevel: 'PLATFORM',
         status: 'ELIGIBLE',
         kycGated: false,
-        metadata: { pctApplied: platformPct + unallocated, rollupFromMissingLevels: true },
+        metadata: { pctApplied: platformPct + Math.max(unallocated, 0), rollupFromMissingLevels: unallocated > 0 },
       }).returning();
       ledgerEntries.push(platformEntry);
     }
@@ -134,9 +150,8 @@ export class CommissionWaterfallEngine {
     return rows || [];
   }
 
-  // TICKET 6: Credit wallet
+  // Credit wallet
   async creditWallet(partnerId: string, amount: number): Promise<void> {
-    // Upsert wallet
     const existing = await db.select().from(partnerWallets)
       .where(eq(partnerWallets.partnerId, partnerId)).limit(1);
 
@@ -164,7 +179,7 @@ export class CommissionWaterfallEngine {
       .where(eq(partnerWallets.partnerId, partnerId)).limit(1);
 
     if (!wallet) return { success: false, error: "Wallet not found" };
-    
+
     const currentBalance = parseFloat(wallet.balance?.toString() || '0');
     if (currentBalance < amount) return { success: false, error: "Insufficient balance" };
 
@@ -193,7 +208,7 @@ export class CommissionWaterfallEngine {
       .limit(limit);
   }
 
-  // TICKET 5: CRUD for commission rules
+  // CRUD for commission rules
   async createCommissionRule(data: {
     productType: string;
     agentPct: number;
@@ -202,7 +217,6 @@ export class CommissionWaterfallEngine {
     platformPct: number;
     createdBy?: string;
   }): Promise<{ success: boolean; rule?: any; error?: string }> {
-    // Validate percentages sum to 100
     const total = data.agentPct + data.subPartnerPct + data.masterPartnerPct + data.platformPct;
     if (Math.abs(total - 100) > 0.01) {
       return { success: false, error: `Commission percentages must sum to 100%. Current sum: ${total}%` };
