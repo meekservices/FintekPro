@@ -570,7 +570,7 @@ export default function PartnerTeamManagement() {
           <Users className="h-6 w-6 text-primary" /> My Agent Team
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage your sub-agents, invite new agents, configure commissions, and assign SM/RM.
+          Manage your field executives, invite new agents, configure commissions, and assign SM/RM.
           As a partner, you earn <strong>both agent commissions</strong> and <strong>team override income</strong>.
         </p>
       </div>

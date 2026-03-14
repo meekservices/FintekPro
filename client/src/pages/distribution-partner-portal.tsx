@@ -346,7 +346,7 @@ export default function DistributionPartnerPortal() {
                     <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg text-center">
                       <UserCheck className="h-8 w-8 text-green-600 mx-auto mb-2" />
                       <p className="text-2xl font-bold">0</p>
-                      <p className="text-sm text-muted-foreground">Sub-Agents</p>
+                      <p className="text-sm text-muted-foreground">Field Executives</p>
                     </div>
                     <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg text-center">
                       <Briefcase className="h-8 w-8 text-purple-600 mx-auto mb-2" />
@@ -370,7 +370,7 @@ export default function DistributionPartnerPortal() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <CardTitle>Agent Network Management</CardTitle>
-                    <CardDescription>Manage your agents, sub-agents, and associates</CardDescription>
+                    <CardDescription>Manage your agents, field executives, and associates</CardDescription>
                   </div>
                   <div className="flex gap-2">
                     <div className="relative">
@@ -423,7 +423,7 @@ export default function DistributionPartnerPortal() {
                               'bg-muted text-foreground'
                             }>
                               {agent.agentLevel === 'master' ? 'Agent' : 
-                               agent.agentLevel === 'sub_agent' ? 'Sub-Agent' : 'Associate'}
+                               agent.agentLevel === 'sub_agent' ? 'Field Executive' : 'Associate'}
                             </Badge>
                           </TableCell>
                           <TableCell>{agent.euinNumber || agent.arnCode || '-'}</TableCell>

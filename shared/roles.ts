@@ -49,8 +49,8 @@ export type RoleId =
   | 'partner'           // Partner (Company/Individual with ARN)
   | 'partner_ops'       // Partner Ops Support
   | 'agent'             // Agent (reports to Partner)
-  | 'sub_agent'         // Sub-Agent (reports to Agent)
-  | 'associate'         // Associate (reports to Sub-Agent)
+  | 'sub_agent'         // Field Executive (reports to Agent)
+  | 'associate'         // Associate (reports to Field Executive)
   
   // Client Types
   | 'client'            // Regular retail client
@@ -463,11 +463,11 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     requiresCompliance: true,
   },
 
-  // Level 6: Sub-Agents
+  // Level 6: Field Executives
   sub_agent: {
     id: 'sub_agent',
-    name: 'Sub-Agent',
-    description: 'Sub-agent under an agent',
+    name: 'Field Executive',
+    description: 'Field Executive under an agent',
     parentRoles: ['agent'],
     portal: 'agent',
     level: 6,

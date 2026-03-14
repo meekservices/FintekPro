@@ -154,9 +154,12 @@ export default function AdminAppointmentsDashboard() {
       support_staff: "bg-muted text-foreground",
       ca: "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200",
     };
+    const roleLabels: Record<string, string> = {
+      sub_agent: "FIELD EXECUTIVE",
+    };
     return (
       <Badge className={roleColors[role] || "bg-muted text-foreground"}>
-        {role.replace(/_/g, " ").toUpperCase()}
+        {roleLabels[role] || role.replace(/_/g, " ").toUpperCase()}
       </Badge>
     );
   };
