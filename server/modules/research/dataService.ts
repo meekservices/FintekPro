@@ -429,6 +429,9 @@ function extractFullTable(
       const vals = allCells.slice(-maxCols);
       // Pad front with nulls if fewer than expected
       while (vals.length < trimmedHeaders.length) vals.unshift(null);
+      // Trim oldest entries if tbody has more cells than thead headers
+      // (Screener.in sometimes adds a trailing TTM/interim column not reflected in thead)
+      while (vals.length > trimmedHeaders.length) vals.shift();
 
       resultRows.push({ label: rawLabel, values: vals });
       break;

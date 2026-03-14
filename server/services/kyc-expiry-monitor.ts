@@ -85,8 +85,12 @@ export class KycExpiryMonitor {
         alerts.push(alert);
         await this.handleAlert(alert);
       }
-    } catch (e) {
-      console.error("[KycExpiryMonitor] Agent check error:", e);
+    } catch (e: any) {
+      if (e?.code === '42703') {
+        console.warn("[KycExpiryMonitor] Agent table missing arn_expiry_date column — skipping (run migration to enable)");
+      } else {
+        console.error("[KycExpiryMonitor] Agent check error:", e);
+      }
     }
 
     // Check partners table
@@ -115,8 +119,12 @@ export class KycExpiryMonitor {
         alerts.push(alert);
         await this.handleAlert(alert);
       }
-    } catch (e) {
-      console.error("[KycExpiryMonitor] Partner check error:", e);
+    } catch (e: any) {
+      if (e?.code === '42703') {
+        console.warn("[KycExpiryMonitor] Partner table missing arn_expiry_date column — skipping (run migration to enable)");
+      } else {
+        console.error("[KycExpiryMonitor] Partner check error:", e);
+      }
     }
 
     if (alerts.length > 0) {

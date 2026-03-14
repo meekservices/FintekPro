@@ -610,6 +610,14 @@ export default function ResearchNoteGenerator() {
                   <CardTitle className="text-sm flex items-center gap-2"><TableIcon className="h-4 w-4 text-blue-600" /> Multi-Year Profit & Loss (₹ Cr)</CardTitle>
                 </CardHeader>
                 <CardContent>
+                  {(() => {
+                    const annualIndices = d.plHistory!.headers
+                      .map((h, i) => ({ h, i }))
+                      .filter(({ h }) => !h.toUpperCase().includes("TTM"))
+                      .map(({ i }) => i);
+                    const cagrYrs = annualIndices.length - 1;
+                    const showCagrCol = (d.salesCagr5Y !== null || d.salesCagr3Y !== null) && cagrYrs >= 2;
+                    return (
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
@@ -618,8 +626,8 @@ export default function ResearchNoteGenerator() {
                           {d.plHistory.headers.map(h => (
                             <th key={h} className="text-right py-2 px-2 font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
                           ))}
-                          {(d.salesCagr5Y !== null || d.salesCagr3Y !== null) && (
-                            <th className="text-right py-2 px-2 font-semibold text-blue-700 dark:text-blue-400 whitespace-nowrap">5Y CAGR</th>
+                          {showCagrCol && (
+                            <th className="text-right py-2 px-2 font-semibold text-blue-700 dark:text-blue-400 whitespace-nowrap">{cagrYrs}Y CAGR</th>
                           )}
                         </tr>
                       </thead>
@@ -627,10 +635,6 @@ export default function ResearchNoteGenerator() {
                         {d.plHistory.rows.map((row, ri) => {
                           const isPercent = row.label.toLowerCase().includes("opm") || row.label.toLowerCase().includes("%");
                           const isEps = row.label.toLowerCase().includes("eps");
-                          const annualIndices = d.plHistory!.headers
-                            .map((h, i) => ({ h, i }))
-                            .filter(({ h }) => !h.toUpperCase().includes("TTM"))
-                            .map(({ i }) => i);
                           const computedCagr = (() => {
                             if (isPercent) return null;
                             if (annualIndices.length < 2) return null;
@@ -638,9 +642,8 @@ export default function ResearchNoteGenerator() {
                             const endIdx = annualIndices[annualIndices.length - 1];
                             const sv = row.values[startIdx];
                             const ev = row.values[endIdx];
-                            const yrs = annualIndices.length - 1;
                             if (sv === null || ev === null || sv <= 0) return null;
-                            return Math.pow(ev / sv, 1 / yrs) - 1;
+                            return Math.pow(ev / sv, 1 / cagrYrs) - 1;
                           })();
                           return (
                             <tr key={row.label} className={`border-b last:border-0 ${ri % 2 === 0 ? "" : "bg-muted/30"}`}>
@@ -651,7 +654,7 @@ export default function ResearchNoteGenerator() {
                                 const display = v === null ? "—" : isPercent ? `${v.toFixed(1)}%` : isEps ? v.toFixed(2) : v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
                                 return <td key={vi} className={`text-right py-1.5 px-2 ${trend}`}>{display}</td>;
                               })}
-                              {(d.salesCagr5Y !== null || d.salesCagr3Y !== null) && (
+                              {showCagrCol && (
                                 <td className="text-right py-1.5 px-2 font-semibold">
                                   {computedCagr !== null ? (
                                     <span className={computedCagr >= 0 ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}>
@@ -666,6 +669,8 @@ export default function ResearchNoteGenerator() {
                       </tbody>
                     </table>
                   </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             )}
