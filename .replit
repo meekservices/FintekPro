@@ -9,7 +9,7 @@ packages = ["atk", "chromium", "gdk-pixbuf", "glib", "glibcLocales", "gtk3", "li
 [deployment]
 deploymentTarget = "vm"
 build = ["npm", "run", "build"]
-run = ["node", "dist/index.js"]
+run = ["npm", "run", "start"]
 
 [env]
 PORT = "5000"
