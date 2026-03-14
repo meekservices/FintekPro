@@ -7,7 +7,6 @@ import { eq, and, sql, gte, desc, lt, count } from 'drizzle-orm';
 import { ZohoApiClient } from '../api-client';
 import { ZohoWebhookProcessor } from './webhook-processor';
 
-const CONNECTION_ID = '1762VW9pAGQpLby6IdcmI';
 const DATA_CENTER = 'in';
 
 const SAFETY_WINDOW_MS = 5 * 60 * 1000;
@@ -123,10 +122,25 @@ export class ZohoSyncOrchestrator {
   private crmClient: ZohoApiClient;
   private webhookProcessor: ZohoWebhookProcessor;
 
-  constructor(connectionId: string = CONNECTION_ID) {
+  constructor(connectionId: string) {
     this.connectionId = connectionId;
     this.crmClient = new ZohoApiClient(connectionId, 'CRM', DATA_CENTER);
     this.webhookProcessor = new ZohoWebhookProcessor(connectionId);
+  }
+
+  static async create(): Promise<ZohoSyncOrchestrator | null> {
+    const [connection] = await db
+      .select({ id: zohoConnections.id })
+      .from(zohoConnections)
+      .where(and(eq(zohoConnections.status, 'active')))
+      .limit(1);
+
+    if (!connection) {
+      console.warn('[ZohoSyncOrchestrator] No active Zoho connection found in DB — skipping sync');
+      return null;
+    }
+
+    return new ZohoSyncOrchestrator(connection.id);
   }
 
   private acquireLock(holder: string): boolean {

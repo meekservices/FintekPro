@@ -6,7 +6,6 @@ import {
 import { eq, and, sql, inArray } from 'drizzle-orm';
 import { ZohoApiClient } from '../api-client';
 
-const CONNECTION_ID = '1762VW9pAGQpLby6IdcmI';
 const DATA_CENTER = 'in';
 
 function isSyncEnabled(): boolean {
@@ -52,8 +51,24 @@ interface ProcessingResult {
 export class ZohoWebhookProcessor {
   private connectionId: string;
 
-  constructor(connectionId: string = CONNECTION_ID) {
+  constructor(connectionId: string) {
     this.connectionId = connectionId;
+  }
+
+  static async create(): Promise<ZohoWebhookProcessor | null> {
+    const { zohoConnections } = await import('@shared/schema');
+    const [connection] = await db
+      .select({ id: zohoConnections.id })
+      .from(zohoConnections)
+      .where(eq(zohoConnections.status, 'active'))
+      .limit(1);
+
+    if (!connection) {
+      console.warn('[ZohoWebhookProcessor] No active Zoho connection found in DB — skipping');
+      return null;
+    }
+
+    return new ZohoWebhookProcessor(connection.id);
   }
 
   async processPendingEvents(limit: number = 50): Promise<{

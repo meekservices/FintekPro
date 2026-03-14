@@ -22,7 +22,8 @@ export function startZohoSyncScheduler(): void {
     console.log('[ZohoSyncScheduler] Running scheduled incremental sync...');
     try {
       const { ZohoSyncOrchestrator } = await import('./services/sync-orchestrator');
-      const orchestrator = new ZohoSyncOrchestrator();
+      const orchestrator = await ZohoSyncOrchestrator.create();
+      if (!orchestrator) return;
       const report = await orchestrator.runIncrementalSync();
       console.log(`[ZohoSyncScheduler] Incremental sync done: ${report.summary.totalProcessed} processed, ${report.summary.totalUpdated} updated, ${report.summary.totalConflicts} conflicts, ${report.summary.totalErrors} errors`);
     } catch (error: any) {
@@ -33,7 +34,8 @@ export function startZohoSyncScheduler(): void {
   webhookTask = cron.schedule('*/2 * * * *', async () => {
     try {
       const { ZohoWebhookProcessor } = await import('./services/webhook-processor');
-      const processor = new ZohoWebhookProcessor();
+      const processor = await ZohoWebhookProcessor.create();
+      if (!processor) return;
       const result = await processor.processPendingEvents(50);
       if (result.processed > 0) {
         console.log(`[ZohoSyncScheduler] Webhook processing: ${result.succeeded} ok, ${result.failed} failed, ${result.deadLettered} dead-lettered`);
@@ -47,7 +49,8 @@ export function startZohoSyncScheduler(): void {
     console.log('[ZohoSyncScheduler] Running daily reconciliation...');
     try {
       const { ZohoSyncOrchestrator } = await import('./services/sync-orchestrator');
-      const orchestrator = new ZohoSyncOrchestrator();
+      const orchestrator = await ZohoSyncOrchestrator.create();
+      if (!orchestrator) return;
       const report = await orchestrator.runReconciliation();
 
       const totalConflicts = report.modules.reduce((s, m) => s + m.conflictCount, 0);

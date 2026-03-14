@@ -1608,7 +1608,10 @@ router.post('/admin/sync/full', async (req, res) => {
     }
 
     const { ZohoSyncOrchestrator } = await import('./services/sync-orchestrator');
-    const orchestrator = new ZohoSyncOrchestrator();
+    const orchestrator = await ZohoSyncOrchestrator.create();
+    if (!orchestrator) {
+      return res.status(503).json({ message: 'No active Zoho connection configured' });
+    }
     const report = await orchestrator.runFullSync();
 
     res.json({
@@ -1638,7 +1641,10 @@ router.post('/admin/sync/incremental', async (req, res) => {
     }
 
     const { ZohoSyncOrchestrator } = await import('./services/sync-orchestrator');
-    const orchestrator = new ZohoSyncOrchestrator();
+    const orchestrator = await ZohoSyncOrchestrator.create();
+    if (!orchestrator) {
+      return res.status(503).json({ message: 'No active Zoho connection configured' });
+    }
     const report = await orchestrator.runIncrementalSync();
 
     res.json({
@@ -1668,7 +1674,10 @@ router.post('/admin/sync/webhooks', async (req, res) => {
     }
 
     const { ZohoWebhookProcessor } = await import('./services/webhook-processor');
-    const processor = new ZohoWebhookProcessor();
+    const processor = await ZohoWebhookProcessor.create();
+    if (!processor) {
+      return res.status(503).json({ message: 'No active Zoho connection configured' });
+    }
     const limit = parseInt(req.body.limit || '50');
     const result = await processor.processPendingEvents(limit);
 
@@ -1691,7 +1700,10 @@ router.post('/admin/sync/webhooks', async (req, res) => {
 router.get('/admin/sync/health', async (req, res) => {
   try {
     const { ZohoSyncOrchestrator } = await import('./services/sync-orchestrator');
-    const orchestrator = new ZohoSyncOrchestrator();
+    const orchestrator = await ZohoSyncOrchestrator.create();
+    if (!orchestrator) {
+      return res.json({ environment: process.env.NODE_ENV, syncEnabled: false, health: null, message: 'No active Zoho connection configured' });
+    }
     const health = await orchestrator.getSyncHealth();
 
     res.json({
@@ -1708,7 +1720,10 @@ router.get('/admin/sync/health', async (req, res) => {
 router.get('/admin/sync/webhook-stats', async (req, res) => {
   try {
     const { ZohoWebhookProcessor } = await import('./services/webhook-processor');
-    const processor = new ZohoWebhookProcessor();
+    const processor = await ZohoWebhookProcessor.create();
+    if (!processor) {
+      return res.json({ environment: process.env.NODE_ENV, stats: null, message: 'No active Zoho connection configured' });
+    }
     const stats = await processor.getProcessingStats();
 
     res.json({
@@ -1724,7 +1739,10 @@ router.get('/admin/sync/webhook-stats', async (req, res) => {
 router.get('/admin/sync/reconciliation', async (req, res) => {
   try {
     const { ZohoSyncOrchestrator } = await import('./services/sync-orchestrator');
-    const orchestrator = new ZohoSyncOrchestrator();
+    const orchestrator = await ZohoSyncOrchestrator.create();
+    if (!orchestrator) {
+      return res.status(503).json({ message: 'No active Zoho connection configured' });
+    }
     const report = await orchestrator.runReconciliation();
 
     res.json({
@@ -1740,7 +1758,10 @@ router.get('/admin/sync/reconciliation', async (req, res) => {
 router.get('/admin/sync/dead-letter', async (req, res) => {
   try {
     const { ZohoWebhookProcessor } = await import('./services/webhook-processor');
-    const processor = new ZohoWebhookProcessor();
+    const processor = await ZohoWebhookProcessor.create();
+    if (!processor) {
+      return res.json({ environment: process.env.NODE_ENV, count: 0, events: [], message: 'No active Zoho connection configured' });
+    }
     const events = await processor.getDeadLetterEvents(20);
 
     res.json({
@@ -1757,7 +1778,10 @@ router.get('/admin/sync/dead-letter', async (req, res) => {
 router.post('/admin/sync/dead-letter/:eventId/retry', async (req, res) => {
   try {
     const { ZohoWebhookProcessor } = await import('./services/webhook-processor');
-    const processor = new ZohoWebhookProcessor();
+    const processor = await ZohoWebhookProcessor.create();
+    if (!processor) {
+      return res.status(503).json({ message: 'No active Zoho connection configured' });
+    }
     const success = await processor.retryDeadLetterEvent(req.params.eventId);
 
     if (success) {
