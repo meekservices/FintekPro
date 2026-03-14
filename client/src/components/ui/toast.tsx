@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useState, useEffect } from "react"
 import * as ToastPrimitives from "@radix-ui/react-toast"
 import { createPortal } from "react-dom"
 import { cva, type VariantProps } from "class-variance-authority"
@@ -12,9 +13,9 @@ const ToastViewport = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Viewport>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Viewport>
 >(({ className, ...props }, ref) => {
-  const [mounted, setMounted] = React.useState(false)
+  const [mounted, setMounted] = useState(false)
   
-  React.useEffect(() => {
+  useEffect(() => {
     setMounted(true)
   }, [])
   
