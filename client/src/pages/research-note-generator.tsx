@@ -802,24 +802,33 @@ export default function ResearchNoteGenerator() {
             <div className="grid md:grid-cols-2 gap-4">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2"><DollarSign className="h-4 w-4 text-blue-500" /> Financial Snapshot</CardTitle>
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-blue-500" /> Financial Snapshot
+                    {d.isUnlisted && <span className="ml-auto text-xs font-normal text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">MCA-Derived</span>}
+                  </CardTitle>
+                  {d.isUnlisted && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      EPS, Book Value and P/B are computed from annual MCA filings.
+                      {f.pe !== null ? " Implied P/E uses admin-published price." : " Implied P/E and P/B require an admin-published price."}
+                    </p>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-2">
-                    <MetricCard label="Current Price" value={fmt(f.price, cp)} highlight />
-                    <MetricCard label="Market Cap" value={fmtCap(f.marketCap, f.currency)} />
-                    <MetricCard label="P/E Ratio" value={fmt(f.pe)} />
-                    <MetricCard label="EPS" value={fmt(f.eps, cp)} />
+                    <MetricCard label={d.isUnlisted ? "Admin Price" : "Current Price"} value={fmt(f.price, cp)} highlight />
+                    <MetricCard label={d.isUnlisted ? "Implied Mkt Cap" : "Market Cap"} value={fmtCap(f.marketCap, f.currency)} />
+                    <MetricCard label={d.isUnlisted ? "Implied P/E" : "P/E Ratio"} value={fmt(f.pe)} />
+                    <MetricCard label="EPS (Annual)" value={fmt(f.eps, cp)} />
                     <MetricCard label="ROE" value={fmtPct(f.roe)} />
                     <MetricCard label="ROCE" value={fmtPct(f.roce)} />
-                    <MetricCard label="P/B Ratio" value={f.pbRatio !== null ? fmt(f.pbRatio, "", "x") : "N/A"} />
-                    <MetricCard label="Book Value" value={fmt(f.bookValue, cp)} />
+                    <MetricCard label={d.isUnlisted ? "Implied P/B" : "P/B Ratio"} value={f.pbRatio !== null ? fmt(f.pbRatio, "", "x") : "N/A"} />
+                    <MetricCard label="Book Value/Share" value={fmt(f.bookValue, cp)} />
                     <MetricCard label="Debt / Equity" value={fmt(f.debtToEquity)} />
-                    <MetricCard label="Dividend Yield" value={fmtPct(f.dividendYield)} />
+                    {!d.isUnlisted && <MetricCard label="Dividend Yield" value={fmtPct(f.dividendYield)} />}
                     <MetricCard label="Revenue Growth" value={fmtPct(f.revenueGrowth)} />
                     <MetricCard label="Earnings Growth" value={fmtPct(f.earningsGrowth)} />
                     <MetricCard label="Face Value" value={fmt(f.faceValue, cp)} />
-                    <MetricCard label="VWAP" value={fmt(f.vwap, cp)} />
+                    {!d.isUnlisted && <MetricCard label="VWAP" value={fmt(f.vwap, cp)} />}
                   </div>
                   {(f.returns1M !== null || f.returns1Y !== null) && (
                     <div className="mt-3 pt-3 border-t grid grid-cols-3 gap-2 text-center">
@@ -836,25 +845,48 @@ export default function ResearchNoteGenerator() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2"><Target className="h-4 w-4 text-purple-500" /> Technical Levels</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-2">
-                    <MetricCard label="Support" value={fmt(d.levels.support, cp)} />
-                    <MetricCard label="Resistance" value={fmt(d.levels.resistance, cp)} />
-                    <MetricCard label="Stop Loss" value={fmt(d.levels.stopLoss, cp)} />
-                    <MetricCard label="Target 1" value={fmt(d.levels.target1, cp)} highlight />
-                    <MetricCard label="Target 2" value={fmt(d.levels.target2, cp)} highlight />
-                    <MetricCard label="Price Target" value={d.priceTarget?.blended ? `${priceRs(d.priceTarget.blended)} (Est.)` : fmt(f.targetMeanPrice, cp)} highlight={!!d.priceTarget?.blended} />
-                  </div>
-                  <div className="rounded-lg bg-muted/50 p-3 text-xs space-y-1">
-                    <p><span className="font-medium">52W High:</span> {fmt(f.fiftyTwoWeekHigh, cp)} · <span className="font-medium">Low:</span> {fmt(f.fiftyTwoWeekLow, cp)}</p>
-                    <p className="text-muted-foreground">{d.weekRange52Position}</p>
-                  </div>
-                </CardContent>
-              </Card>
+              {d.isUnlisted ? (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2"><Target className="h-4 w-4 text-purple-500" /> Intrinsic Value Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <MetricCard label="Blended Target" value={d.priceTarget?.blended ? `${priceRs(d.priceTarget.blended)}` : "N/A"} highlight={!!d.priceTarget?.blended} />
+                      <MetricCard label="Upside" value={d.priceTarget?.upside !== null && d.priceTarget?.upside !== undefined ? `${d.priceTarget.upside > 0 ? "+" : ""}${d.priceTarget.upside.toFixed(1)}%` : "N/A"} highlight={!!d.priceTarget?.upside} />
+                      <MetricCard label="Bear Case" value={d.priceTarget?.bear ? priceRs(d.priceTarget.bear) : "N/A"} />
+                      <MetricCard label="Bull Case" value={d.priceTarget?.bull ? priceRs(d.priceTarget.bull) : "N/A"} />
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-3 text-xs space-y-1.5">
+                      <p className="font-medium text-foreground">Valuation Method</p>
+                      <p className="text-muted-foreground">{d.valuationSummary}</p>
+                    </div>
+                    <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3 text-xs text-amber-800 dark:text-amber-200">
+                      Beta and 52-week range are not available for unlisted securities. Price targets are intrinsic value estimates, not exchange-discovered prices.
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2"><Target className="h-4 w-4 text-purple-500" /> Technical Levels</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-2">
+                      <MetricCard label="Support" value={fmt(d.levels.support, cp)} />
+                      <MetricCard label="Resistance" value={fmt(d.levels.resistance, cp)} />
+                      <MetricCard label="Stop Loss" value={fmt(d.levels.stopLoss, cp)} />
+                      <MetricCard label="Target 1" value={fmt(d.levels.target1, cp)} highlight />
+                      <MetricCard label="Target 2" value={fmt(d.levels.target2, cp)} highlight />
+                      <MetricCard label="Price Target" value={d.priceTarget?.blended ? `${priceRs(d.priceTarget.blended)} (Est.)` : fmt(f.targetMeanPrice, cp)} highlight={!!d.priceTarget?.blended} />
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-3 text-xs space-y-1">
+                      <p><span className="font-medium">52W High:</span> {fmt(f.fiftyTwoWeekHigh, cp)} · <span className="font-medium">Low:</span> {fmt(f.fiftyTwoWeekLow, cp)}</p>
+                      <p className="text-muted-foreground">{d.weekRange52Position}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Company Description */}

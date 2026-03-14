@@ -532,6 +532,43 @@ async function buildUnlistedReportData(cin: string): Promise<any> {
   // ── 9. Build response (compatible with listed PreviewData + unlisted extras) ──
   const { ratios, valuation, thesis, risks, ratingScore, ratingLabel, fhs } = analytics;
 
+  // ── 9a. Compute price-derived metrics from MCA fundamentals ─────────────────
+  // Raw financial statement values are stored/returned in absolute rupees.
+  // totalShares is the actual share count (not in lakhs/crores).
+  const latestStmt = sortedStmts[0] ?? null;
+
+  // EPS = PAT (₹) / total shares  → ₹ per share
+  const computedEps: number | null = (() => {
+    if (!latestStmt?.pat || !totalShares || totalShares <= 0) return null;
+    const v = latestStmt.pat / totalShares;
+    return isFinite(v) && v > 0 ? parseFloat(v.toFixed(2)) : null;
+  })();
+
+  // Book Value per share = Networth (₹) / total shares  → ₹ per share
+  const computedBookValue: number | null = (() => {
+    if (!latestStmt?.networth || !totalShares || totalShares <= 0) return null;
+    const v = latestStmt.networth / totalShares;
+    return isFinite(v) && v > 0 ? parseFloat(v.toFixed(2)) : null;
+  })();
+
+  // Implied PE = transaction price / EPS  (only meaningful when admin price exists)
+  const computedPE: number | null = (() => {
+    if (!transactionPrice || !computedEps || computedEps <= 0) return null;
+    const v = transactionPrice / computedEps;
+    return isFinite(v) && v > 0 ? parseFloat(v.toFixed(1)) : null;
+  })();
+
+  // Price-to-Book = transaction price / book value per share
+  const computedPB: number | null = (() => {
+    if (!transactionPrice || !computedBookValue || computedBookValue <= 0) return null;
+    const v = transactionPrice / computedBookValue;
+    return isFinite(v) && v > 0 ? parseFloat(v.toFixed(2)) : null;
+  })();
+
+  // Implied Market Cap = total shares × transaction price
+  const computedMarketCap: number | null =
+    totalShares && transactionPrice ? totalShares * transactionPrice : null;
+
   return {
     // Core identity
     symbol: compCin || companyName,
@@ -546,17 +583,17 @@ async function buildUnlistedReportData(cin: string): Promise<any> {
     listingStage: dbCompany?.listing_stage || null,
     companyDescription: description,
 
-    // Financials stub (null for unlisted — no live market data)
+    // Financials — price-based metrics computed from MCA fundamentals where possible
     financials: {
       price: transactionPrice,
       previousClose: null,
-      marketCap: totalShares && transactionPrice ? totalShares * transactionPrice : null,
-      pe: null,
-      eps: null,
+      marketCap: computedMarketCap,
+      pe: computedPE,
+      eps: computedEps,
       roe: ratios.roe,
       roce: ratios.roce,
-      pbRatio: null,
-      bookValue: null,
+      pbRatio: computedPB,
+      bookValue: computedBookValue,
       faceValue: dbCompany?.face_value ? parseFloat(dbCompany.face_value) : null,
       vwap: null,
       debtToEquity: ratios.debtToEquity,
