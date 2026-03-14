@@ -99,11 +99,89 @@ export interface FundamentalsSource {
 // ─── Caches ───────────────────────────────────────────────────────────────────
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
-const DB_FRESHNESS_HOURS = 6;   // use DB if data is < 6 hours old, else re-scrape
-const HIST_CACHE_TTL_MS = 12 * 60 * 60 * 1000;  // 12 hours — historical tables change infrequently
+
+// ─── Filing-driven cache strategy (Screener.in approach) ─────────────────────
+//
+//  Screener.in does not use a fixed TTL. Instead, they invalidate data only
+//  when a company actually files new results with BSE/NSE. We replicate this by:
+//
+//   1. Storing the latest quarter label from quarterlyHistory (e.g. "Dec 2025")
+//      alongside each cached record.
+//   2. Computing the "expected latest filed quarter" from today's date using
+//      SEBI LODR deadlines (45 days for quarterly, 60 days for annual).
+//   3. Cache is VALID as long as cachedQuarter >= expectedQuarter.
+//      No time limit is needed when a company has filed the expected quarter.
+//
+//  SEBI LODR filing deadlines (mandatory):
+//   Q3 (Oct-Dec): Feb 14  → expect "Dec YYYY-1" after Feb 14
+//   Q4+Annual (Jan-Mar): May 30 → expect "Mar YYYY" after May 30
+//   Q1 (Apr-Jun): Aug 14  → expect "Jun YYYY" after Aug 14
+//   Q2 (Jul-Sep): Nov 14  → expect "Sep YYYY" after Nov 14
+//
+//  DB freshness (when to re-scrape Screener.in for metric updates):
+//   During active filing window (within 45 days of quarter end): 6 hours
+//   Outside filing window (data frozen): 48 hours
+
+const QUARTER_MONTHS: Record<string, number> = {
+  Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
+  Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,
+};
+
+/** Convert a Screener.in quarter label (e.g. "Dec 2025") to a comparable score. */
+function qtrScore(label: string): number | null {
+  const parts = label.trim().split(/\s+/);
+  if (parts.length !== 2) return null;
+  const m = QUARTER_MONTHS[parts[0]];
+  const y = parseInt(parts[1], 10);
+  if (!m || isNaN(y)) return null;
+  return y * 100 + m;
+}
+
+/**
+ * Returns the quarter-score we expect to be filed as of `now`.
+ * Based on SEBI LODR mandatory deadlines.
+ *
+ * Timeline (using 2026 as example year):
+ *   Jan 1 – Feb 13   → expect Sep 2025 (Q2, deadline was Nov 14)
+ *   Feb 14 – May 29  → expect Dec 2025 (Q3, deadline Feb 14)
+ *   May 30 – Aug 13  → expect Mar 2026 (Q4+Annual, deadline May 30)
+ *   Aug 14 – Nov 13  → expect Jun 2026 (Q1, deadline Aug 14)
+ *   Nov 14 – Dec 31  → expect Sep 2026 (Q2, deadline Nov 14)
+ */
+function expectedQtrScore(now: Date = new Date()): number {
+  const m = now.getMonth() + 1;
+  const d = now.getDate();
+  const y = now.getFullYear();
+
+  // Before Feb 14: Q3 not yet due; last filed = Q2 Sep of previous year
+  if (m === 1 || (m === 2 && d < 14)) return (y - 1) * 100 + 9;
+  // Feb 14 – May 29: Q3 filed; expect Dec of previous year
+  if (m < 5 || (m === 5 && d < 30)) return (y - 1) * 100 + 12;
+  // May 30 – Aug 13: Q4+Annual filed; expect Mar of current year
+  if (m < 8 || (m === 8 && d < 14)) return y * 100 + 3;
+  // Aug 14 – Nov 13: Q1 filed; expect Jun of current year
+  if (m < 11 || (m === 11 && d < 14)) return y * 100 + 6;
+  // Nov 14 onwards: Q2 filed; expect Sep of current year
+  return y * 100 + 9;
+}
+
+/** Describes the current filing window — used only for DB re-scrape frequency. */
+function dbFreshnessHours(now: Date = new Date()): number {
+  const m = now.getMonth() + 1;
+  const d = now.getDate();
+  // Active filing windows: Jan–Feb 14, May–Jun, Jul–Aug 14, Oct–Nov 14
+  const inWindow =
+    (m <= 2) ||                           // Q3 season: Jan–Feb
+    (m >= 4 && m <= 6) ||                // Q4+Annual: Apr–Jun
+    (m === 7 || m === 8) ||             // Q1 season: Jul–Aug
+    (m === 10 || (m === 11 && d < 14)); // Q2 season: Oct–Nov 14
+  return inWindow ? 6 : 48;
+}
 
 const cache = new Map<string, { data: FinancialData; expiresAt: number }>();
 
+// HistoricalSlice includes the filed quarter label so cache validity can be
+// checked against SEBI deadline expectations without using a fixed TTL.
 interface HistoricalSlice {
   plHistory: HistoricalTable | null;
   bsHistory: HistoricalTable | null;
@@ -117,18 +195,71 @@ interface HistoricalSlice {
   profitCagr5Y: number | null;
   pros: string[];
   cons: string[];
+  /** Latest quarterly result label present in this slice, e.g. "Dec 2025". */
+  latestQtr: string | null;
 }
 
+// histCache: no TTL-based expiry; validity is determined by filing-driven check.
+// Safety cap of 90 days prevents indefinite retention if quarter labels can't be parsed.
+const HIST_SAFETY_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const histCache = new Map<string, { data: HistoricalSlice; expiresAt: number }>();
+
+/**
+ * Extract the latest quarter label from a quarterly history table.
+ * Headers are ordered oldest → newest (e.g. ["Dec 2024","Mar 2025","Dec 2025"]).
+ * Returns the last header that looks like a valid quarter label.
+ */
+function extractLatestQtr(qt: HistoricalTable | null): string | null {
+  if (!qt?.headers?.length) return null;
+  // Walk backwards to find the first valid quarter label
+  for (let i = qt.headers.length - 1; i >= 0; i--) {
+    const h = qt.headers[i];
+    if (qtrScore(h) !== null) return h;
+  }
+  return null;
+}
+
+/**
+ * Filing-driven cache validity check (Screener.in strategy).
+ *
+ * Cache is VALID when the data's latestQtr score >= what SEBI deadlines say
+ * should be filed by now.  No TTL needed for stable periods — data is frozen
+ * until the next results are filed.
+ *
+ * Falls back to TTL-based check (90-day safety cap) if latestQtr is unavailable.
+ */
+function isHistCacheValid(entry: { data: HistoricalSlice; expiresAt: number }): boolean {
+  // Safety TTL always applies
+  if (entry.expiresAt <= Date.now()) return false;
+
+  const { latestQtr } = entry.data;
+  if (!latestQtr) return false;   // no quarter label → can't validate filing status
+
+  const cached   = qtrScore(latestQtr);
+  const expected = expectedQtrScore();
+  if (cached === null) return false;
+
+  // Valid as long as we have at least the expected quarter
+  return cached >= expected;
+}
 
 function getHistCached(symbol: string): HistoricalSlice | null {
   const entry = histCache.get(symbol);
-  if (entry && entry.expiresAt > Date.now()) return entry.data;
+  if (!entry) return null;
+  if (isHistCacheValid(entry)) return entry.data;
+  histCache.delete(symbol);  // stale — remove so next request re-fetches
   return null;
 }
 
 function setHistCache(symbol: string, data: HistoricalSlice): void {
-  histCache.set(symbol, { data, expiresAt: Date.now() + HIST_CACHE_TTL_MS });
+  histCache.set(symbol, { data, expiresAt: Date.now() + HIST_SAFETY_TTL_MS });
+  const exp = expectedQtrScore();
+  const cached = data.latestQtr ? (qtrScore(data.latestQtr) ?? "?") : "unknown";
+  const valid = data.latestQtr && typeof cached === "number" && cached >= exp;
+  console.log(
+    `[ResearchNote] histCache SET for ${symbol} | latestQtr="${data.latestQtr ?? "none"}" | ` +
+    `expected≥${exp} | filing-valid=${valid} | safety-cap=90d`
+  );
 }
 
 function screenerToHistSlice(s: ScreenerData): HistoricalSlice {
@@ -145,6 +276,7 @@ function screenerToHistSlice(s: ScreenerData): HistoricalSlice {
     profitCagr5Y: s.profitCagr5Y,
     pros: s.pros ?? [],
     cons: s.cons ?? [],
+    latestQtr: extractLatestQtr(s.quarterlyHistory),
   };
 }
 
@@ -730,7 +862,7 @@ function isDbFresh(dbData: DBData): boolean {
   if (dbData.roe === null && dbData.roce === null) return false; // no useful fundamentals stored
   if (dbData.revenue === null) return false;                     // re-scrape if new fields missing
   const ageMs = Date.now() - dbData.lastUpdated.getTime();
-  return ageMs < DB_FRESHNESS_HOURS * 60 * 60 * 1000;
+  return ageMs < dbFreshnessHours() * 60 * 60 * 1000;
 }
 
 // ─── DB write-back (persist Screener.in results) ──────────────────────────────
