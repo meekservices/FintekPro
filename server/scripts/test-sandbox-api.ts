@@ -173,8 +173,6 @@ async function runAllTests(): Promise<void> {
   console.log('============================================================');
   console.log('FintekPro Sandbox.co.in API Comprehensive Test Suite');
   console.log('============================================================');
-  console.log(`API Key configured: ${SANDBOX_API_KEY ? 'YES' : 'NO'}`);
-  console.log(`API Secret configured: ${SANDBOX_API_SECRET ? 'YES' : 'NO'}`);
   console.log(`Timestamp: ${new Date().toISOString()}`);
 
   // 1. Authentication
