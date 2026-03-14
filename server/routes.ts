@@ -20476,7 +20476,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           name: 'Twilio',
           description: 'SMS OTP delivery',
           category: 'communication',
-          envVars: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER'],
+          envVars: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_***', 'TWILIO_PHONE_NUMBER'],
           environmentVar: null,
           status: process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN ? 'configured' : 'missing',
           environment: 'production',
@@ -20524,7 +20524,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           name: 'Twilio WhatsApp',
           description: 'WhatsApp Business API',
           category: 'marketing',
-          envVars: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_WHATSAPP_NUMBER'],
+          envVars: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_***', 'TWILIO_WHATSAPP_NUMBER'],
           environmentVar: null,
           status: process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN ? 'configured' : 'missing',
           environment: 'production',
@@ -20695,24 +20695,24 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             result = { success: false, message: 'Missing Twilio credentials' };
           } else {
             try {
-              const credentials = Buffer.from(
-                `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
-              ).toString('base64');
-              
-              const response = await fetch(
-                `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}.json`,
-                {
-                  headers: { 'Authorization': `Basic ${credentials}` }
-                }
+              const twilioSdk = require('twilio');
+              const twilioClient = twilioSdk(
+                process.env.TWILIO_ACCOUNT_SID,
+                process.env.TWILIO_AUTH_TOKEN
               );
-              
+              await twilioClient.api.accounts(process.env.TWILIO_ACCOUNT_SID).fetch();
               result = {
-                success: response.ok,
-                message: response.ok ? 'Credentials valid' : 'Invalid credentials',
+                success: true,
+                message: 'Credentials valid',
                 latency: Date.now() - startTime
               };
             } catch (e: any) {
-              result = { success: false, message: e.message };
+              const isAuthError = e?.status === 401 || e?.code === 20003;
+              result = {
+                success: false,
+                message: isAuthError ? 'Invalid credentials' : e.message,
+                latency: Date.now() - startTime
+              };
             }
           }
           break;
