@@ -94,12 +94,18 @@ def _parse_market_cap(raw: str) -> Optional[float]:
 
 # ─── Strategy 1: Headless Chromium ───────────────────────────────────────────
 
+_SAFE_TICKER = re.compile(r"^[A-Z0-9.\-&]{1,30}$")
+
+
 def _chromium_dump_dom(symbol: str, exchange: str) -> Optional[str]:
     """
     Run Chromium in headless mode to fully render the Google Finance page
     and return the DOM as a string.
     """
     if not _CHROMIUM:
+        return None
+    if not _SAFE_TICKER.match(symbol.upper()) or not _SAFE_TICKER.match(exchange.upper()):
+        logger.warning("[GoogleFinance] Rejected unsafe symbol/exchange: %r / %r", symbol, exchange)
         return None
     url = f"https://www.google.com/finance/quote/{symbol}:{exchange}"
     try:
