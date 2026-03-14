@@ -100,8 +100,57 @@ export interface FundamentalsSource {
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const DB_FRESHNESS_HOURS = 6;   // use DB if data is < 6 hours old, else re-scrape
+const HIST_CACHE_TTL_MS = 12 * 60 * 60 * 1000;  // 12 hours — historical tables change infrequently
 
 const cache = new Map<string, { data: FinancialData; expiresAt: number }>();
+
+interface HistoricalSlice {
+  plHistory: HistoricalTable | null;
+  bsHistory: HistoricalTable | null;
+  cfHistory: HistoricalTable | null;
+  ratiosHistory: HistoricalTable | null;
+  quarterlyHistory: HistoricalTable | null;
+  companyDescription: string | null;
+  salesCagr3Y: number | null;
+  salesCagr5Y: number | null;
+  profitCagr3Y: number | null;
+  profitCagr5Y: number | null;
+  pros: string[];
+  cons: string[];
+}
+
+const histCache = new Map<string, { data: HistoricalSlice; expiresAt: number }>();
+
+function getHistCached(symbol: string): HistoricalSlice | null {
+  const entry = histCache.get(symbol);
+  if (entry && entry.expiresAt > Date.now()) return entry.data;
+  return null;
+}
+
+function setHistCache(symbol: string, data: HistoricalSlice): void {
+  histCache.set(symbol, { data, expiresAt: Date.now() + HIST_CACHE_TTL_MS });
+}
+
+function screenerToHistSlice(s: ScreenerData): HistoricalSlice {
+  return {
+    plHistory: s.plHistory,
+    bsHistory: s.bsHistory,
+    cfHistory: s.cfHistory,
+    ratiosHistory: s.ratiosHistory,
+    quarterlyHistory: s.quarterlyHistory,
+    companyDescription: s.companyDescription,
+    salesCagr3Y: s.salesCagr3Y,
+    salesCagr5Y: s.salesCagr5Y,
+    profitCagr3Y: s.profitCagr3Y,
+    profitCagr5Y: s.profitCagr5Y,
+    pros: s.pros ?? [],
+    cons: s.cons ?? [],
+  };
+}
+
+function applyHistSlice(s: ScreenerData, hist: HistoricalSlice): ScreenerData {
+  return { ...s, ...hist };
+}
 
 // ─── NSE India ────────────────────────────────────────────────────────────────
 
@@ -865,13 +914,17 @@ async function fetchPythonReturns(nseSymbol: string): Promise<{ returns1M: numbe
  * Returns both the financial data and metadata about which source was used.
  */
 export async function getFinancialData(symbol: string): Promise<FinancialData & { _fundamentalsSource: FundamentalsSource }> {
+  const nseSymbol = toNseSymbol(symbol);
   const cached = cache.get(symbol);
   if (cached && cached.expiresAt > Date.now()) {
-    console.log(`[ResearchNote] Cache HIT for ${symbol}`);
-    return { ...(cached.data as any) };
+    // Overlay any fresh historical tables from histCache (tables are not stored in the 15-min result cache)
+    const cachedHist = getHistCached(nseSymbol);
+    const existingScreener = (cached.data as any)._screenerData ?? {};
+    const mergedScreener = cachedHist ? { ...existingScreener, ...cachedHist } : existingScreener;
+    const tableCount = cachedHist ? [cachedHist.plHistory, cachedHist.bsHistory, cachedHist.cfHistory, cachedHist.quarterlyHistory].filter(Boolean).length : 0;
+    console.log(`[ResearchNote] Cache HIT for ${symbol}${cachedHist ? ` + histCache (${tableCount}/4 tables)` : ""}`);
+    return { ...(cached.data as any), _screenerData: mergedScreener };
   }
-
-  const nseSymbol = toNseSymbol(symbol);
 
   // Step 1: Always fetch live price from NSE (fast, lightweight, has own 5-min cookie cache)
   // Step 2: Always read DB fundamentals (fast DB query — always do this)
@@ -899,8 +952,8 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
   let fundamentalsSource: FundamentalsSource;
 
   if (isDbFresh(dbData)) {
-    // DB is fresh — use it directly, skip Screener.in scrape
-    screener = {
+    // DB is fresh — use metrics from DB; still serve historical tables from histCache or Screener.in
+    const dbScreener: ScreenerData = {
       roe: dbData.roe,
       roce: dbData.roce,
       dividendYield: dbData.dividendYield,
@@ -915,7 +968,6 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
       operatingCashFlow: dbData.operatingCashFlow,
       freeCashFlow: dbData.freeCashFlow,
       operatingMargin: dbData.operatingMargin,
-      // Historical tables not stored in DB — always null when served from cache
       plHistory: null, bsHistory: null, cfHistory: null, ratiosHistory: null, quarterlyHistory: null,
       companyDescription: null, salesCagr3Y: null, salesCagr5Y: null, profitCagr3Y: null, profitCagr5Y: null,
       pros: [], cons: [],
@@ -928,7 +980,35 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
       scrapedAt: dbData.lastUpdated?.toISOString() ?? null,
       ageHours,
     };
-    console.log(`[ResearchNote] DB HIT (fresh) for ${nseSymbol} — fundamentals age: ${ageHours}h, skipping Screener.in`);
+
+    // Check 12-hour historical cache for table data (plHistory, bsHistory, cfHistory etc.)
+    const cachedHist = getHistCached(nseSymbol);
+    if (cachedHist) {
+      screener = applyHistSlice(dbScreener, cachedHist);
+      const tableCount = [cachedHist.plHistory, cachedHist.bsHistory, cachedHist.cfHistory, cachedHist.quarterlyHistory].filter(Boolean).length;
+      console.log(`[ResearchNote] DB HIT (fresh, ${ageHours}h) + histCache HIT for ${nseSymbol} (${tableCount}/4 tables)`);
+    } else {
+      // histCache miss — fetch Screener.in tables now, then cache them
+      console.log(`[ResearchNote] DB HIT (fresh, ${ageHours}h) + histCache MISS for ${nseSymbol} — fetching Screener.in tables`);
+      const screenerResult = await fetchFromScreener(nseSymbol);
+      if (screenerResult.plHistory !== null) {
+        screener = applyHistSlice(dbScreener, screenerToHistSlice(screenerResult));
+        setHistCache(nseSymbol, screenerToHistSlice(screenerResult));
+        const tableCount = [screenerResult.plHistory, screenerResult.bsHistory, screenerResult.cfHistory, screenerResult.quarterlyHistory].filter(Boolean).length;
+        console.log(`[ResearchNote] Screener.in tables fetched for ${nseSymbol}: ${tableCount}/4 tables cached`);
+      } else {
+        // Screener.in table fetch failed — try Python, then cache whatever we get
+        const pyData = await fetchFundamentalsFromPython(nseSymbol);
+        if (pyData?.plHistory) {
+          screener = applyHistSlice(dbScreener, screenerToHistSlice(mergeScreenerWithPython(screenerResult, pyData)));
+          setHistCache(nseSymbol, screenerToHistSlice(screener));
+          console.log(`[ResearchNote] Python fallback tables for ${nseSymbol}: cached`);
+        } else {
+          screener = dbScreener;
+          console.log(`[ResearchNote] No historical tables available for ${nseSymbol} — serving metrics only`);
+        }
+      }
+    }
   } else {
     // DB is stale or empty — fetch from Screener.in
     const staleReason = !dbData.lastUpdated ? "no DB record" : `stale (${Math.round((Date.now() - dbData.lastUpdated.getTime()) / 3600000)}h old)`;
@@ -945,6 +1025,7 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
         screener = screenerResult;
         fundamentalsSource = { source: "SCREENER_LIVE", scrapedAt: new Date().toISOString(), ageHours: 0 };
       }
+      if (screener.plHistory) setHistCache(nseSymbol, screenerToHistSlice(screener));
       writeScreenerToDB(nseSymbol, screener).catch(() => {});
     } else if (screenerResult.plHistory === null) {
       // Tier 2: Screener returned point-in-time ratios but history tables are missing
@@ -958,11 +1039,13 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
       } else {
         screener = screenerResult;
       }
+      if (screener.plHistory) setHistCache(nseSymbol, screenerToHistSlice(screener));
       fundamentalsSource = { source: "SCREENER_LIVE", scrapedAt: new Date().toISOString(), ageHours: 0 };
       writeScreenerToDB(nseSymbol, screener).catch(() => {});
     } else {
       // Tier 3: Screener returned full data including history tables — use directly
       screener = screenerResult;
+      setHistCache(nseSymbol, screenerToHistSlice(screener));
       writeScreenerToDB(nseSymbol, screener).catch(() => {});
       fundamentalsSource = { source: "SCREENER_LIVE", scrapedAt: new Date().toISOString(), ageHours: 0 };
     }
