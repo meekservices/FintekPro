@@ -157,8 +157,27 @@ FintekPro's institutional market data backbone sits below the pricing engine and
   - `aiCommentaryService.ts` — Gemini AI 3-sentence sector narrative; 60-min cache; sector fallbacks
   - `reportService.ts` — PPT (10 slides), PDF (3 pages), One-Pager generation
   - `recommendationEngine.ts`, `technicalEngine.ts`, `valuationEngine.ts` — existing engines
-- `server/routes/research-note-routes.ts` — routes; `buildReportData()` fires all enrichment in parallel
-- `client/src/pages/research-note-generator.tsx` — full frontend UI with peers, shareholding, thesis, AI commentary
+  - `unlistedAnalyticsEngine.ts` — ratio engine + EV/EBITDA + DCF + Revenue Multiple for unlisted companies
+- `server/services/credhive-service.ts` — Credhive API client (placeholder key: set `CREDHIVE_API_KEY` and optionally `CREDHIVE_BASE_URL`); gracefully unavailable when key is absent
+- `server/routes/research-note-routes.ts` — routes; unified `/search` covers listed+unlisted; `buildReportData()` for listed; `buildUnlistedReportData()` for unlisted
+- `client/src/pages/research-note-generator.tsx` — full frontend UI; handles `type: "listed" | "unlisted"` in search results; unlisted companies show amber badge, valuation models (EV/EBITDA / DCF / Revenue Multiple), FHS, directors, compliance signals
+
+### Unified Search
+- `GET /api/research-note/search?q=` — queries both `listed_stocks` and `unlisted_companies` tables; returns `type: "listed" | "unlisted"` field; deduped by company name; max 15 results
+- Supports search by: company name, NSE symbol, ISIN, CIN (for both listed and unlisted)
+
+### Unlisted Research Pipeline
+- `POST /api/research-note/preview-unlisted { cin }` — looks up by CIN or ID; fetches DB financials; calls Credhive if key is set; runs analytics engine
+- `POST /api/research-note/generate/pdf-unlisted { cin }` — generates PDF research note
+- `POST /api/research-note/generate/ppt-unlisted { cin }` — generates PPT presentation
+- Analytics: EV/EBITDA (sector multiples), DCF (15% WACC, 4% terminal growth), Revenue Multiple; blended bear/base/bull valuation range
+- Financial Health Score (FHS) 0–100: ROE 35% + Revenue Growth 30% + Leverage 35%
+
+### Credhive Integration
+- Service file: `server/services/credhive-service.ts`
+- Set `CREDHIVE_API_KEY` env var to activate (placeholder = no API calls made, pipeline uses DB-only data)
+- Endpoints: `/company/search`, `/company/{cin}`, `/company/{cin}/financials`, `/company/{cin}/directors`, `/company/{cin}/compliance`
+- Auto-fallback: if Credhive unavailable, uses `company_financials` table data; response always includes `dataSource: "credhive" | "db_cache" | "unavailable"`
 
 ### PPT Fix
 - ESM/CJS fix: `const PptxCtor = (PptxGenJS as any).default ?? PptxGenJS; const ppt = new PptxCtor();`

@@ -106,6 +106,35 @@ interface DataQuality {
   sectorAvg: { source: string; stockCount: number };
 }
 
+interface UnlistedExtras {
+  fhs: number;
+  totalShares: number | null;
+  transactionPrice: number | null;
+  valuationRange: {
+    low: number | null;
+    mid: number | null;
+    high: number | null;
+    upside: number | null;
+    method: string;
+    evEbitda: { ebitda: number; sectorMultiple: number; perShareValue: number | null } | null;
+    dcf: { projectedGrowthRate: number; wacc: number; perShareValue: number | null } | null;
+    revenueMultiple: { revenue: number; sectorMultiple: number; perShareValue: number | null } | null;
+  };
+  directors: { din: string; name: string; designation: string; is_active: boolean }[];
+  compliance: {
+    overall_risk: string;
+    signals: { type: string; description: string; severity: string }[];
+    charges_count?: number;
+  } | null;
+  ratios: {
+    roe: number | null; roce: number | null; debtToEquity: number | null;
+    operatingMargin: number | null; netMargin: number | null; ebitdaMargin: number | null;
+    revenueGrowth: number | null; patGrowth: number | null; revenueCagr3Y: number | null;
+  };
+  dataSource: string;
+  credhiveAvailable: boolean;
+}
+
 interface PreviewData {
   symbol: string;
   companyName: string;
@@ -139,15 +168,25 @@ interface PreviewData {
   profitCagr3Y: number | null;
   profitCagr5Y: number | null;
   keyPoints?: { pros: string[]; cons: string[] };
+  // Unlisted-specific
+  isUnlisted?: boolean;
+  cin?: string;
+  incorporationDate?: string | null;
+  listingStage?: string | null;
+  unlistedExtras?: UnlistedExtras;
 }
 
 interface CompanySearchResult {
   symbol: string;
-  isin: string;
+  isin: string | null;
   company_name: string;
   sector: string | null;
   nse_code: string | null;
   bse_code: string | null;
+  type?: "listed" | "unlisted";
+  cin?: string | null;
+  unlisted_id?: string | null;
+  listing_stage?: string | null;
 }
 
 function fmt(val: number | null, prefix = "", suffix = "", decimals = 2): string {
@@ -252,10 +291,15 @@ export default function ResearchNoteGenerator() {
     staleTime: 30000,
   });
 
+  const isUnlistedSelected = selectedCompany?.type === "unlisted";
   const symbolToAnalyse = selectedCompany ? selectedCompany.symbol : searchText.trim();
+  const cinToAnalyse    = selectedCompany?.cin || (isUnlistedSelected ? symbolToAnalyse : null);
 
   const previewMutation = useMutation({
-    mutationFn: async (symbol: string) => {
+    mutationFn: async ({ symbol, cin, isUnlisted }: { symbol: string; cin?: string | null; isUnlisted?: boolean }) => {
+      if (isUnlisted && cin) {
+        return await apiRequest("/api/research-note/preview-unlisted", "POST", { body: { cin } });
+      }
       return await apiRequest("/api/research-note/preview", "POST", { body: { symbol } });
     },
     onSuccess: (data: PreviewData) => { setPreviewData(data); },
@@ -273,10 +317,21 @@ export default function ResearchNoteGenerator() {
 
   const downloadMutation = useMutation({
     mutationFn: async ({ type }: { type: "ppt" | "pdf" | "onepager" }) => {
-      const res = await fetch(`/api/research-note/generate/${type}`, {
+      const isUnlisted = isUnlistedSelected || previewData?.isUnlisted;
+      const cin = cinToAnalyse || previewData?.cin;
+      let endpoint: string;
+      let body: object;
+      if (isUnlisted && cin && type !== "onepager") {
+        endpoint = `/api/research-note/generate/${type}-unlisted`;
+        body = { cin };
+      } else {
+        endpoint = `/api/research-note/generate/${type}`;
+        body = { symbol: symbolToAnalyse };
+      }
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol: symbolToAnalyse }),
+        body: JSON.stringify(body),
         credentials: "include",
       });
       if (!res.ok) {
@@ -303,7 +358,10 @@ export default function ResearchNoteGenerator() {
     setPreviewData(null);
   };
   const handleClear = () => { setSelectedCompany(null); setSearchText(""); setPreviewData(null); setShowDropdown(false); inputRef.current?.focus(); };
-  const handlePreview = () => { if (!symbolToAnalyse) return; previewMutation.mutate(symbolToAnalyse); };
+  const handlePreview = () => {
+    if (!symbolToAnalyse) return;
+    previewMutation.mutate({ symbol: symbolToAnalyse, cin: cinToAnalyse, isUnlisted: isUnlistedSelected });
+  };
   const handleDownload = (type: "ppt" | "pdf" | "onepager") => { if (!symbolToAnalyse) return; downloadMutation.mutate({ type }); };
 
   const d = previewData;
@@ -319,7 +377,7 @@ export default function ResearchNoteGenerator() {
               <FileText className="h-6 w-6 text-blue-600" />
               Research Note Generator
             </h1>
-            <p className="text-muted-foreground mt-1">Generate institutional-grade equity research reports for any listed company</p>
+            <p className="text-muted-foreground mt-1">Generate institutional-grade equity research reports for listed and unlisted companies</p>
           </div>
           <div className="text-right text-xs text-muted-foreground hidden md:block">
             <p className="font-medium text-foreground">FintekPro Research</p>
@@ -331,7 +389,7 @@ export default function ResearchNoteGenerator() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Company Search</CardTitle>
-            <CardDescription>Search from FintekPro database by company name, NSE symbol, or ISIN</CardDescription>
+            <CardDescription>Search listed companies (NSE/BSE) or unlisted companies by name, symbol, ISIN, or CIN</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-2 items-start">
@@ -340,7 +398,7 @@ export default function ResearchNoteGenerator() {
                 <Input
                   ref={inputRef}
                   className="pl-9 pr-8"
-                  placeholder="Type company name, symbol (RELIANCE, TCS) or ISIN..."
+                  placeholder="Company name, NSE symbol, ISIN, or CIN (for unlisted)..."
                   value={searchText}
                   onChange={(e) => { setSearchText(e.target.value); setSelectedCompany(null); setShowDropdown(true); }}
                   onFocus={() => { if (searchText.length >= 2) setShowDropdown(true); }}
@@ -357,17 +415,29 @@ export default function ResearchNoteGenerator() {
                       <div className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching...</div>
                     ) : searchResults.length === 0 ? (
                       <div className="px-3 py-3 text-sm text-muted-foreground">No companies found.</div>
-                    ) : searchResults.map((c) => (
-                      <button key={c.isin} className="w-full text-left px-3 py-2.5 hover:bg-muted transition-colors border-b border-border/50 last:border-0" onMouseDown={(e) => { e.preventDefault(); handleSelect(c); }}>
+                    ) : searchResults.map((c, idx) => (
+                      <button key={c.cin || c.isin || idx} className="w-full text-left px-3 py-2.5 hover:bg-muted transition-colors border-b border-border/50 last:border-0" onMouseDown={(e) => { e.preventDefault(); handleSelect(c); }}>
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">{c.company_name}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-sm font-medium text-foreground truncate">{c.company_name}</p>
+                              {c.type === "unlisted" && (
+                                <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-300 dark:border-amber-700 uppercase tracking-wide">Unlisted</span>
+                              )}
+                            </div>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">{c.symbol}</span>
+                              {c.type === "unlisted" ? (
+                                <span className="font-mono text-amber-600 dark:text-amber-400">{c.cin || "No CIN"}</span>
+                              ) : (
+                                <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">{c.symbol}</span>
+                              )}
                               {c.sector && <span className="ml-2">· {c.sector}</span>}
+                              {c.listing_stage && <span className="ml-2 capitalize">· {c.listing_stage.replace(/_/g, ' ')}</span>}
                             </p>
                           </div>
-                          <p className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">{c.isin}</p>
+                          {c.type !== "unlisted" && c.isin && (
+                            <p className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">{c.isin}</p>
+                          )}
                         </div>
                       </button>
                     ))}
@@ -381,13 +451,20 @@ export default function ResearchNoteGenerator() {
             </div>
 
             {selectedCompany && (
-              <div className="mt-3 flex items-center gap-3 px-3 py-2 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <Building2 className="h-4 w-4 text-blue-600 shrink-0" />
+              <div className={`mt-3 flex items-center gap-3 px-3 py-2 rounded-lg border ${isUnlistedSelected ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800" : "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800"}`}>
+                <Building2 className={`h-4 w-4 shrink-0 ${isUnlistedSelected ? "text-amber-600" : "text-blue-600"}`} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200 truncate">{selectedCompany.company_name}</p>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 font-mono mt-0.5">ISIN: {selectedCompany.isin} · NSE: {selectedCompany.symbol}</p>
+                  <p className={`text-sm font-medium truncate ${isUnlistedSelected ? "text-amber-800 dark:text-amber-200" : "text-blue-800 dark:text-blue-200"}`}>{selectedCompany.company_name}</p>
+                  <p className={`text-xs font-mono mt-0.5 ${isUnlistedSelected ? "text-amber-600 dark:text-amber-400" : "text-blue-600 dark:text-blue-400"}`}>
+                    {isUnlistedSelected
+                      ? `CIN: ${selectedCompany.cin || "N/A"} · Unlisted${selectedCompany.listing_stage ? ` · ${selectedCompany.listing_stage.replace(/_/g, ' ')}` : ""}`
+                      : `ISIN: ${selectedCompany.isin || "N/A"} · NSE: ${selectedCompany.symbol}`
+                    }
+                  </p>
                 </div>
-                <Badge variant="outline" className="text-blue-700 border-blue-300 text-[10px] shrink-0">Selected</Badge>
+                <Badge variant="outline" className={`text-[10px] shrink-0 ${isUnlistedSelected ? "text-amber-700 border-amber-300" : "text-blue-700 border-blue-300"}`}>
+                  {isUnlistedSelected ? "Unlisted" : "Listed"}
+                </Badge>
               </div>
             )}
 
@@ -416,16 +493,38 @@ export default function ResearchNoteGenerator() {
 
         {d && f && (
           <>
+            {/* Unlisted company notice banner */}
+            {d.isUnlisted && (
+              <Card className="border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20">
+                <CardContent className="py-3 flex items-start gap-3">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-sm text-amber-800 dark:text-amber-200">
+                    <span className="font-semibold">Unlisted Equity Research Note</span>
+                    {" — "}This report is generated using MCA-filed financials
+                    {d.unlistedExtras?.dataSource === "credhive" ? " enriched via Credhive" : " from our database"}.
+                    {" "}Unlisted securities are highly illiquid. Valuations are indicative and not a solicitation. Past performance and projected returns do not guarantee future results.
+                    {d.cin && <span className="ml-2 font-mono text-xs">CIN: {d.cin}</span>}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Header card */}
             <Card>
               <CardContent className="pt-5">
                 <div className="flex flex-wrap items-start gap-4 justify-between">
                   <div>
-                    <h2 className="text-xl font-bold">{d.companyName}</h2>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-xl font-bold">{d.companyName}</h2>
+                      {d.isUnlisted && (
+                        <span className="text-[10px] font-bold px-2 py-1 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-300 dark:border-amber-700 uppercase tracking-wide">Unlisted</span>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground">
-                      {d.symbol.replace(".NS","").replace(".BO","")} · {d.exchange}
+                      {d.isUnlisted ? `${d.cin || "N/A"} · UNLISTED` : `${d.symbol.replace(".NS","").replace(".BO","")} · ${d.exchange}`}
                       {d.sector && <span> · {d.sector}</span>}
                       {d.industry && d.industry !== d.sector && <span> · {d.industry}</span>}
+                      {d.listingStage && <span className="ml-1 capitalize"> · {d.listingStage.replace(/_/g," ")}</span>}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Generated: {d.generatedAt}</p>
                   </div>
@@ -500,6 +599,203 @@ export default function ResearchNoteGenerator() {
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {/* ── Unlisted Valuation Models ─────────────────────────────────── */}
+            {d.isUnlisted && d.unlistedExtras && (
+              <>
+                {/* Valuation Range */}
+                <Card className="border-amber-200 dark:border-amber-800">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-amber-600" /> Valuation Models
+                      <span className="ml-auto text-xs font-normal text-muted-foreground">{d.unlistedExtras.valuationRange.method}</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Blended range */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 p-3 text-center">
+                        <p className="text-xs text-red-600 font-medium">Bear (–20%)</p>
+                        <p className="text-lg font-bold text-red-700 dark:text-red-300">{d.unlistedExtras.valuationRange.low ? `₹${Math.round(d.unlistedExtras.valuationRange.low).toLocaleString("en-IN")}` : "N/A"}</p>
+                      </div>
+                      <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-400 p-3 text-center">
+                        <p className="text-xs text-amber-700 font-medium">Blended Intrinsic</p>
+                        <p className="text-xl font-bold text-amber-800 dark:text-amber-200">{d.unlistedExtras.valuationRange.mid ? `₹${Math.round(d.unlistedExtras.valuationRange.mid).toLocaleString("en-IN")}` : "N/A"}</p>
+                        {d.unlistedExtras.valuationRange.upside !== null && (
+                          <p className={`text-xs font-medium mt-1 ${d.unlistedExtras.valuationRange.upside >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {d.unlistedExtras.valuationRange.upside >= 0 ? "▲" : "▼"} {(Math.abs(d.unlistedExtras.valuationRange.upside) * 100).toFixed(0)}% vs transaction price
+                          </p>
+                        )}
+                      </div>
+                      <div className="rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 p-3 text-center">
+                        <p className="text-xs text-green-600 font-medium">Bull (+20%)</p>
+                        <p className="text-lg font-bold text-green-700 dark:text-green-300">{d.unlistedExtras.valuationRange.high ? `₹${Math.round(d.unlistedExtras.valuationRange.high).toLocaleString("en-IN")}` : "N/A"}</p>
+                      </div>
+                    </div>
+
+                    {/* Model breakdown */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t">
+                      {/* EV/EBITDA */}
+                      <div className="rounded-lg border p-3 space-y-1">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">EV / EBITDA</p>
+                        {d.unlistedExtras.valuationRange.evEbitda ? (
+                          <>
+                            <p className="text-sm">EBITDA: <strong>₹{(d.unlistedExtras.valuationRange.evEbitda.ebitda / 1e7).toFixed(1)} Cr</strong></p>
+                            <p className="text-sm">Multiple: <strong>{d.unlistedExtras.valuationRange.evEbitda.sectorMultiple}×</strong></p>
+                            <p className="text-base font-bold text-amber-700 dark:text-amber-300">
+                              {d.unlistedExtras.valuationRange.evEbitda.perShareValue ? `₹${Math.round(d.unlistedExtras.valuationRange.evEbitda.perShareValue).toLocaleString("en-IN")}/sh` : "Insufficient data"}
+                            </p>
+                          </>
+                        ) : <p className="text-sm text-muted-foreground">Insufficient EBITDA data</p>}
+                      </div>
+                      {/* DCF */}
+                      <div className="rounded-lg border p-3 space-y-1">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">DCF (5-Year)</p>
+                        {d.unlistedExtras.valuationRange.dcf ? (
+                          <>
+                            <p className="text-sm">Growth: <strong>{(d.unlistedExtras.valuationRange.dcf.projectedGrowthRate * 100).toFixed(1)}%</strong></p>
+                            <p className="text-sm">WACC: <strong>{(d.unlistedExtras.valuationRange.dcf.wacc * 100).toFixed(0)}%</strong></p>
+                            <p className="text-base font-bold text-amber-700 dark:text-amber-300">
+                              {d.unlistedExtras.valuationRange.dcf.perShareValue ? `₹${Math.round(d.unlistedExtras.valuationRange.dcf.perShareValue).toLocaleString("en-IN")}/sh` : "Insufficient data"}
+                            </p>
+                          </>
+                        ) : <p className="text-sm text-muted-foreground">Insufficient FCF data</p>}
+                      </div>
+                      {/* Revenue Multiple */}
+                      <div className="rounded-lg border p-3 space-y-1">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Revenue Multiple</p>
+                        {d.unlistedExtras.valuationRange.revenueMultiple ? (
+                          <>
+                            <p className="text-sm">Revenue: <strong>₹{(d.unlistedExtras.valuationRange.revenueMultiple.revenue / 1e7).toFixed(1)} Cr</strong></p>
+                            <p className="text-sm">Multiple: <strong>{d.unlistedExtras.valuationRange.revenueMultiple.sectorMultiple}×</strong></p>
+                            <p className="text-base font-bold text-amber-700 dark:text-amber-300">
+                              {d.unlistedExtras.valuationRange.revenueMultiple.perShareValue ? `₹${Math.round(d.unlistedExtras.valuationRange.revenueMultiple.perShareValue).toLocaleString("en-IN")}/sh` : "Insufficient data"}
+                            </p>
+                          </>
+                        ) : <p className="text-sm text-muted-foreground">Insufficient revenue data</p>}
+                      </div>
+                    </div>
+
+                    {/* Transaction price */}
+                    {d.unlistedExtras.transactionPrice && (
+                      <div className="flex items-center gap-2 pt-2 border-t text-sm">
+                        <span className="text-muted-foreground">Last Transaction Price:</span>
+                        <span className="font-bold">₹{d.unlistedExtras.transactionPrice.toLocaleString("en-IN")}/share</span>
+                        {d.unlistedExtras.totalShares && (
+                          <span className="text-muted-foreground ml-2">· {(d.unlistedExtras.totalShares / 1e7).toFixed(2)} Cr shares</span>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* FHS + Key Ratios for Unlisted */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Activity className="h-4 w-4 text-purple-500" /> Financial Health Score
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="mb-4">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-muted-foreground">FHS</span>
+                          <span className="font-bold">{d.unlistedExtras.fhs}/100</span>
+                        </div>
+                        <div className="h-3 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${d.unlistedExtras.fhs >= 65 ? "bg-green-500" : d.unlistedExtras.fhs >= 40 ? "bg-amber-500" : "bg-red-500"}`}
+                            style={{ width: `${d.unlistedExtras.fhs}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">Composite score: ROE (35%) · Revenue Growth (30%) · Leverage (35%)</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <MetricCard label="ROE" value={d.unlistedExtras.ratios.roe !== null ? `${(d.unlistedExtras.ratios.roe * 100).toFixed(1)}%` : "N/A"} />
+                        <MetricCard label="ROCE" value={d.unlistedExtras.ratios.roce !== null ? `${(d.unlistedExtras.ratios.roce * 100).toFixed(1)}%` : "N/A"} />
+                        <MetricCard label="D/E Ratio" value={d.unlistedExtras.ratios.debtToEquity !== null ? `${d.unlistedExtras.ratios.debtToEquity.toFixed(2)}x` : "N/A"} />
+                        <MetricCard label="EBITDA Margin" value={d.unlistedExtras.ratios.ebitdaMargin !== null ? `${(d.unlistedExtras.ratios.ebitdaMargin * 100).toFixed(1)}%` : "N/A"} />
+                        <MetricCard label="Net Margin" value={d.unlistedExtras.ratios.netMargin !== null ? `${(d.unlistedExtras.ratios.netMargin * 100).toFixed(1)}%` : "N/A"} />
+                        <MetricCard label="Revenue Growth" value={d.unlistedExtras.ratios.revenueGrowth !== null ? `${(d.unlistedExtras.ratios.revenueGrowth * 100).toFixed(1)}%` : "N/A"} />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Directors */}
+                  {d.unlistedExtras.directors.length > 0 && (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Users className="h-4 w-4 text-blue-500" /> Key Directors ({d.unlistedExtras.directors.length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {d.unlistedExtras.directors.slice(0, 6).map((dir, i) => (
+                            <div key={i} className="flex items-start justify-between gap-2 py-1 border-b border-border/50 last:border-0">
+                              <div>
+                                <p className="text-sm font-medium">{dir.name}</p>
+                                <p className="text-xs text-muted-foreground">{dir.designation}</p>
+                              </div>
+                              {dir.is_active && (
+                                <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 shrink-0">Active</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+
+                {/* Compliance Signals */}
+                {d.unlistedExtras.compliance && (
+                  <Card className={`border-${d.unlistedExtras.compliance.overall_risk === "high" || d.unlistedExtras.compliance.overall_risk === "critical" ? "red" : "slate"}-200 dark:border-${d.unlistedExtras.compliance.overall_risk === "high" || d.unlistedExtras.compliance.overall_risk === "critical" ? "red" : "slate"}-800`}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <ShieldAlert className="h-4 w-4 text-orange-500" /> Compliance & Risk Signals
+                        <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded capitalize ${
+                          d.unlistedExtras.compliance.overall_risk === "low" ? "bg-green-100 text-green-700"
+                          : d.unlistedExtras.compliance.overall_risk === "medium" ? "bg-amber-100 text-amber-700"
+                          : "bg-red-100 text-red-700"
+                        }`}>
+                          {d.unlistedExtras.compliance.overall_risk} risk
+                        </span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {d.unlistedExtras.compliance.signals.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No significant compliance signals detected.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {d.unlistedExtras.compliance.signals.slice(0, 5).map((sig, i) => (
+                            <div key={i} className={`flex items-start gap-2 p-2 rounded border text-sm ${
+                              sig.severity === "critical" ? "bg-red-50 dark:bg-red-950/20 border-red-200"
+                              : sig.severity === "high" ? "bg-orange-50 dark:bg-orange-950/20 border-orange-200"
+                              : "bg-slate-50 dark:bg-slate-900/40 border-slate-200"
+                            }`}>
+                              <AlertTriangle className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${
+                                sig.severity === "critical" ? "text-red-600"
+                                : sig.severity === "high" ? "text-orange-600"
+                                : "text-slate-500"
+                              }`} />
+                              <div>
+                                <span className="font-medium capitalize">{sig.type.replace(/_/g, " ")}: </span>
+                                {sig.description}
+                              </div>
+                            </div>
+                          ))}
+                          {d.unlistedExtras.compliance.charges_count !== undefined && d.unlistedExtras.compliance.charges_count > 0 && (
+                            <p className="text-xs text-muted-foreground pt-1">{d.unlistedExtras.compliance.charges_count} charges registered with ROC</p>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </>
             )}
 
             {/* Financial Snapshot + Technical */}
