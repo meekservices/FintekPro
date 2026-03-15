@@ -40,7 +40,7 @@ class KycEncryptionService {
       const [ivHex, authTagHex, encrypted] = encryptedData.split(':');
       const iv = Buffer.from(ivHex, 'hex');
       const authTag = Buffer.from(authTagHex, 'hex');
-      const decipher = crypto.createDecipheriv(ALGORITHM, this.key, iv);
+      const decipher = crypto.createDecipheriv(ALGORITHM, this.key, iv, { authTagLength: AUTH_TAG_LENGTH });
       decipher.setAuthTag(authTag);
       let decrypted = decipher.update(encrypted, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
