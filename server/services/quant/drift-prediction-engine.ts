@@ -217,7 +217,9 @@ class DriftPredictionEngine {
           errorMessage: error.message,
           fallbackUsed: true,
         });
-      } catch (_) {}
+      } catch (reportErr: any) {
+        console.warn('[DriftPred] Failed to record error status:', reportErr?.message);
+      }
 
       console.error('[DriftPred] Prediction failed:', error.message);
       throw error;

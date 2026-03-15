@@ -9,8 +9,19 @@ import { db } from '../db';
 import { zohoConnections, zohoEntityMappings, zohoSyncLogs, zohoWebhookEvents } from '@shared/schema';
 import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
 import { zohoRateLimiter } from './rate-limiter';
+import { requireAdmin } from '../middleware/auth';
 
 const router = Router();
+
+// Require admin auth for all Zoho routes except:
+//  /callback  — OAuth redirect from Zoho (no session available at that point)
+//  /webhooks/* — Protected by HMAC signature validation instead
+router.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.path === '/callback' || req.path.startsWith('/webhooks/')) {
+    return next();
+  }
+  return requireAdmin(req as any, res, next);
+});
 
 /**
  * Helper function to get connection details including ZSOID

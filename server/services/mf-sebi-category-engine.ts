@@ -376,7 +376,9 @@ class SEBICategoryEngine {
           UPDATE mutual_funds SET compliance_status = 'REQUIRES_REVIEW'
           WHERE scheme_code = ${schemeCode} AND compliance_status = 'PENDING'
         `);
-      } catch (_) {}
+      } catch (statusErr: any) {
+        console.warn('[SEBICategoryEngine] Failed to update compliance status:', statusErr?.message);
+      }
     }
 
     return { valid: issues.length === 0, scheme: fund, rule, issues, isLifecycle };

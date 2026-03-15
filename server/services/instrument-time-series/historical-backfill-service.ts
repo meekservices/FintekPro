@@ -244,7 +244,9 @@ async function processBackfillRetryQueue(
               ON CONFLICT (instrument_id, price_date) DO NOTHING
             `);
             insertedCount++;
-          } catch (e) {}
+          } catch (e: any) {
+            console.warn('[HistoricalBackfill] Individual row insert failed:', e?.message);
+          }
         }
 
         const sortedDates = prices.map(p => p.date).sort();

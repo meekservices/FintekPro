@@ -132,7 +132,9 @@ class MfBenchmarkMappingService {
           for (const item of batch) {
             try {
               await db.insert(mfBenchmarkMap).values(item).onConflictDoNothing();
-            } catch (e) {}
+            } catch (itemErr: any) {
+              console.warn('[MfBenchmarkMapping] Individual insert failed:', itemErr?.message);
+            }
           }
         }
       }

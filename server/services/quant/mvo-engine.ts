@@ -675,7 +675,9 @@ class MVOEngine {
           errorMessage: error.message,
           fallbackUsed: true,
         });
-      } catch (_) {}
+      } catch (reportErr: any) {
+        console.warn('[MVO] Failed to record error status:', reportErr?.message);
+      }
 
       console.error('[MVO] Transition optimization failed:', error.message);
       throw error;

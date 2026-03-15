@@ -254,7 +254,9 @@ class BlackLittermanEngine {
           errorMessage: error.message,
           fallbackUsed: true,
         });
-      } catch (_) {}
+      } catch (reportErr: any) {
+        console.warn('[BL] Failed to record error status:', reportErr?.message);
+      }
 
       console.error('[BL] Tactical overlay failed:', error.message);
       throw error;

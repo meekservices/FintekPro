@@ -739,7 +739,9 @@ class StockFinancialEnrichmentService {
                   financials = this.mergeFinancials(financials, finnhubData);
                   await new Promise(resolve => setTimeout(resolve, 300));
                 }
-              } catch (e) {}
+              } catch (enrichErr: any) {
+                console.warn('[StockEnrichment] Finnhub enrichment failed:', enrichErr?.message);
+              }
             }
 
             if (!financials.peRatio) {

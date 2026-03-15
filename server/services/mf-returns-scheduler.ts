@@ -280,7 +280,9 @@ class MFReturnsScheduler {
               await db.update(mutualFunds)
                 .set({ updatedAt: new Date() })
                 .where(eq(mutualFunds.schemeCode, fund.schemeCode));
-            } catch (_) {}
+            } catch (tsErr: any) {
+              console.warn('[MFReturnsScheduler] Failed to update timestamp:', tsErr?.message);
+            }
           }
         }
         

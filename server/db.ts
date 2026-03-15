@@ -26,10 +26,13 @@ if (isProduction) {
   console.log('🔗 [DB] Production: connected to Neon database (PRODUCTION_DATABASE_URL)');
 }
 
+// Autoscale: keep per-instance pool small so N concurrent instances stay within
+// Neon's connection limit. At max=5, up to 20 autoscale instances = 100 connections.
+// In dev, 5 is sufficient since only one process runs locally.
 const POOL_CONFIG = {
   connectionString: selectedDbUrl,
-  max: isProduction ? 20 : 10,
-  min: isProduction ? 2 : 0,
+  max: 5,
+  min: isProduction ? 1 : 0,
   idleTimeoutMillis: isProduction ? 60000 : 30000,
   connectionTimeoutMillis: 15000,
   allowExitOnIdle: false,

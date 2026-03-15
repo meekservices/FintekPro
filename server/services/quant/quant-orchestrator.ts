@@ -506,7 +506,9 @@ class QuantOrchestrator {
         errorMessage,
         fallbackUsed: true,
       });
-    } catch (_) {}
+    } catch (reportErr: any) {
+      console.warn('[QuantOrchestrator] Failed to record fallback status:', reportErr?.message);
+    }
   }
 }
 

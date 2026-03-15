@@ -187,7 +187,9 @@ router.post('/api/ai/generate-rebalance-proposal', requireAuth, async (req: Requ
     try {
       const [profile] = await db.select().from(clientRiskProfiles).where(eq(clientRiskProfiles.userId, userId)).limit(1);
       riskProfile = profile;
-    } catch (e) {}
+    } catch (e: any) {
+      console.warn('[AI Rebalancing] Failed to load risk profile:', e?.message);
+    }
 
     const recommendations = await generateRebalanceRecommendations(holdings, riskProfile);
 
@@ -306,7 +308,9 @@ router.post('/api/ai/generate-goal-proposal', requireAuth, async (req: Request, 
     try {
       const [profile] = await db.select().from(clientRiskProfiles).where(eq(clientRiskProfiles.userId, userId)).limit(1);
       riskProfile = profile;
-    } catch (e) {}
+    } catch (e: any) {
+      console.warn('[AI Rebalancing] Failed to load risk profile:', e?.message);
+    }
 
     const proposalId = nanoid();
     const totalGoalAmount = goals.reduce((sum, g) => sum + g.targetAmount, 0);
@@ -445,7 +449,9 @@ router.post('/api/ai/generate-retirement-proposal', requireAuth, async (req: Req
     try {
       const [profile] = await db.select().from(clientRiskProfiles).where(eq(clientRiskProfiles.userId, userId)).limit(1);
       riskProfile = profile;
-    } catch (e) {}
+    } catch (e: any) {
+      console.warn('[AI Rebalancing] Failed to load risk profile:', e?.message);
+    }
 
     const proposalId = nanoid();
 

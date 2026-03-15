@@ -763,7 +763,9 @@ class FinancialDataRepository {
         await this.saveToDatabase(data);
         success++;
         pythonSaved.add(sym);
-      } catch (_) {}
+      } catch (saveErr: any) {
+        console.warn(`[FinancialDataRepository] Failed to save DB record for ${sym}:`, saveErr?.message);
+      }
     }
     let remaining0 = symbols.filter(s => !pythonSaved.has(s));
     if (remaining0.length === 0) {
@@ -800,7 +802,9 @@ class FinancialDataRepository {
               failed = Math.max(0, failed - 1);
               polygonSaved.add(sym);
             }
-          } catch (_) {}
+          } catch (polyErr: any) {
+            console.warn(`[FinancialDataRepository] Polygon fetch failed for symbol:`, polyErr?.message);
+          }
           await new Promise(r => setTimeout(r, 300));
         }
         remaining = remaining.filter(s => !polygonSaved.has(s));
@@ -828,7 +832,9 @@ class FinancialDataRepository {
               failed = Math.max(0, failed - 1);
               polygonSaved.add(sym);
             }
-          } catch (_) {}
+          } catch (polyErr: any) {
+            console.warn(`[FinancialDataRepository] Polygon fetch failed for symbol:`, polyErr?.message);
+          }
           await new Promise(r => setTimeout(r, 300));
         }
         remaining = remaining.filter(s => !polygonSaved.has(s));
@@ -857,7 +863,9 @@ class FinancialDataRepository {
         await this.saveToDatabase(data);
         success++;
         pythonSaved.add(sym);
-      } catch (_) {}
+      } catch (saveErr: any) {
+        console.warn(`[FinancialDataRepository] Failed to save DB record for ${sym} (second pass):`, saveErr?.message);
+      }
     }
     let remaining0 = symbols.filter(s => !pythonSaved.has(s));
     if (remaining0.length === 0) {
