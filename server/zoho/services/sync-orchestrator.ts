@@ -245,17 +245,36 @@ export class ZohoSyncOrchestrator {
       const webhookResult = await this.webhookProcessor.processPendingEvents(50);
 
       const moduleResults: SyncResult[] = [];
+      let connectionInvalidated = false;
 
       for (const config of SYNC_MODULES) {
         if (!config.enabled) continue;
         if (config.direction === 'to_zoho') continue;
+        if (connectionInvalidated) {
+          moduleResults.push(this.errorResult(config, 'Connection invalidated'));
+          continue;
+        }
 
         try {
           const result = await this.syncModuleIncremental(config);
           moduleResults.push(result);
         } catch (error: any) {
-          console.error(`[SyncOrchestrator] Incremental ${config.zohoModule} failed:`, error.message);
-          moduleResults.push(this.errorResult(config, error.message));
+          const isConnectionGone = error.message === 'Connection not found' || error.message?.includes('Connection not found');
+          if (isConnectionGone) {
+            connectionInvalidated = true;
+            console.warn(`[SyncOrchestrator] Connection ${this.connectionId} OAuth token invalid — marking inactive to stop retry loops`);
+            try {
+              await db.update(zohoConnections)
+                .set({ status: 'inactive', updatedAt: new Date() })
+                .where(eq(zohoConnections.id, this.connectionId));
+            } catch (dbErr: any) {
+              console.warn('[SyncOrchestrator] Could not mark connection inactive:', dbErr.message);
+            }
+            moduleResults.push(this.errorResult(config, error.message));
+          } else {
+            console.error(`[SyncOrchestrator] Incremental ${config.zohoModule} failed:`, error.message);
+            moduleResults.push(this.errorResult(config, error.message));
+          }
         }
       }
 

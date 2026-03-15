@@ -87,7 +87,8 @@ class HistoricalNavRefreshJob {
         }
         // Yield event loop then rate-limit delay
         await new Promise(resolve => setImmediate(resolve));
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setImmediate(resolve));
+        await new Promise(resolve => setTimeout(resolve, 1200));
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         if (warmupConsecutiveFailures === 0) {
@@ -168,11 +169,12 @@ class HistoricalNavRefreshJob {
           consecutiveFailures++;
         }
 
-        // Yield the event loop so node-cron and other timers can fire between schemes
+        // Yield the event loop twice so node-cron setTimeout callbacks can fire between schemes
         await new Promise(resolve => setImmediate(resolve));
-        // Rate limit — 500ms between requests (skip if circuit about to trip)
+        await new Promise(resolve => setImmediate(resolve));
+        // Rate limit — 1200ms between requests gives scheduled crons a clear window to fire
         if (consecutiveFailures < CIRCUIT_BREAKER_THRESHOLD) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 1200));
         }
       }
       

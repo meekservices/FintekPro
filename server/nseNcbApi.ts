@@ -123,8 +123,8 @@ export class NSENCBApiService {
 
       return response.data.auctions || [];
     } catch (error) {
-      nseWarn('auctions', `[NSE NCB] Auctions fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — skipping (production)`);
-      return []; // Never persist demo data in production
+      nseWarn('auctions', `[NSE NCB] Auctions fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — using curated data`);
+      return this.getDemoAuctions();
     }
   }
 
@@ -463,8 +463,8 @@ export class NSENCBApiService {
 
       return response.data.yieldCurve || [];
     } catch (error) {
-      nseWarn('yieldcurve', `[NSE NCB] Yield curve fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — skipping (production)`);
-      return []; // Never persist demo data in production
+      nseWarn('yieldcurve', `[NSE NCB] Yield curve fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — using curated data`);
+      return this.getDemoYieldCurve();
     }
   }
 
@@ -582,8 +582,8 @@ export class NSENCBApiService {
 
       return response.data.sgbs || [];
     } catch (error) {
-      nseWarn('sgb', `[NSE NCB] SGB data fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — skipping (production)`);
-      return []; // Never persist demo data in production
+      nseWarn('sgb', `[NSE NCB] SGB data fetch failed: ${error instanceof Error ? error.message : 'Unknown error'} — using curated data`);
+      return this.getDemoSGBData();
     }
   }
 

@@ -269,7 +269,7 @@ export class ZohoApiClient {
     } catch (logError: any) {
       const msg = String(logError?.message || '');
       if (msg.includes('foreign key constraint')) {
-        console.error(`[Zoho API] Error (connection ${this.connectionId} not in DB): ${this.service} - ${error.message}`);
+        console.warn(`[Zoho API] Skipping error log (connection ${this.connectionId} FK missing): ${this.service} - ${error.message}`);
       } else {
         console.error('Failed to log Zoho API error:', logError);
       }
