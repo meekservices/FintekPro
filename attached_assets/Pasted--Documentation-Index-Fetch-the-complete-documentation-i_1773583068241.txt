@@ -1,0 +1,216 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.replit.com/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Fix a published app using a shared database
+
+> Step-by-step instructions for updating a published app that still uses a database originally created for another app.
+
+Some older published apps may still be connected to a development database that was originally created for a different app.
+
+This can happen with older apps that were forked or remixed on Replit. Under the legacy Neon setup, a fork could keep using the original app's database connection. As part of Replit's move to fully isolate development and production databases, older shared development databases are being removed and published apps need to move to their own production databases.
+
+Use this guide if your published app is showing database connection errors, or if `DATABASE_URL` in Secrets panel still points to `neon.tech`.
+
+<Warning>
+  The older shared database will be shut down on **April 10**. Update your
+  published app before then to avoid downtime or permanent data loss.
+</Warning>
+
+## Before you start
+
+Your published app needs its own **production database**. The development database shown in the **Database** panel should not be used directly by published apps.
+
+<Frame>
+  <img src="https://mintcdn.com/replit/H6PTzEDJVUtYAyiB/images/databases/shared-database-migration/dev-database.png?fit=max&auto=format&n=H6PTzEDJVUtYAyiB&q=85&s=15160429e896e92a599e328a7f76d0eb" alt="Database panel showing Development database" width="955" height="767" data-path="images/databases/shared-database-migration/dev-database.png" />
+</Frame>
+
+To fix this, first figure out which situation you are in:
+
+* **Case 1:** The data you want is already present in the database shown in the **Database** panel for your app.
+* **Case 2:** The **Database** panel does not show the data you need, because your published app is still using the older shared development database.
+
+## How to tell if your published app is using a shared database?
+
+Your published app is affected if any of the following are true:
+
+* Your published app shows database connection errors after the database upgrade
+* Your app was remixed from another app that had a database **before January 9, 2026**
+
+## How to check if your published app is using the shared database from the source app?
+
+### Step 1: Open the Database panel in the source app
+
+<Frame>
+  <img src="https://mintcdn.com/replit/LrPHebhkEtjoxAa5/images/databases/shared-database-migration/secret-pane-showing-secrets.png?fit=max&auto=format&n=LrPHebhkEtjoxAa5&q=85&s=4989ebfbb1cbe88ed696c9f46b306504" alt="Secret panel showing DATABASE_URL" width="792" height="418" data-path="images/databases/shared-database-migration/secret-pane-showing-secrets.png" />
+</Frame>
+
+Get the value from `NEON_DATABASE_URL` or from `DATABASE_URL` if `NEON_DATABASE_URL` does not exist.
+
+<Info>
+  Not every affected app will have `NEON_DATABASE_URL`. If it is missing, that
+  usually means you should use the current `DATABASE_URL` from the published
+  app's Secrets if it still points to `neon.tech`.
+</Info>
+
+### Step 2: Open the Publish panel in the published app
+
+<Frame>
+  <img src="https://mintcdn.com/replit/LrPHebhkEtjoxAa5/images/databases/shared-database-migration/production-app-secrets.png?fit=max&auto=format&n=LrPHebhkEtjoxAa5&q=85&s=e640bd643913a6e91cf2c1121cb0b466" alt="Published app secrets showing DATABASE_URL" width="1385" height="1225" data-path="images/databases/shared-database-migration/production-app-secrets.png" />
+</Frame>
+
+To check the database URL for your published app:
+
+1. Open your app in Replit
+2. Open **Publishing** panel
+3. Open **Adjust Settings**
+4. Open **Secrets**
+5. Look for `DATABASE_URL`
+
+### Step 3: Compare the database url from the source app in Step 1 and the remix app in Step 2
+
+If they are the same, your published app is using a shared Neon development database from the source app.
+
+## How to copy data from source app to the published app?
+
+After confirming that your published app is using the shared development database from the source app, the next step is to transfer the necessary data to the published app. There are two scenarios to consider:
+
+* Case 1: The Database panel in the published app already contains the required data.
+* Case 2: The Database panel in the published app does not contain the required data.
+
+### Case 1: The Database panel already shows the data you need
+
+This is the easiest path if the data you need is already visible in the **Database** panel for your app.
+
+#### Step 1: Confirm the data is present
+
+<Frame>
+  <img src="https://mintcdn.com/replit/LrPHebhkEtjoxAa5/images/databases/shared-database-migration/my-data.png?fit=max&auto=format&n=LrPHebhkEtjoxAa5&q=85&s=18be81996751767ffdf44edc2b3b5fd8" alt="Database l showing my data rows" width="865" height="454" data-path="images/databases/shared-database-migration/my-data.png" />
+</Frame>
+
+Open the **Database** panel in the published app and make sure the tables and data you need are there.
+
+If you don't see the data you need in the Database panel, pause here. You'll want to follow the steps in [Case 2](#case-2-the-database-panel-does-not-show-the-data-you-need) to migrate your data properly.
+
+#### Step 2: Publish or republish with a production database
+
+1. Open your app in the Workspace
+2. Select **Publish** or **Republish**
+3. Turn on **Create production database**
+4. Turn on **Set up your production database with your current development data**
+5. Complete the publish flow
+
+Publishing creates a new version of your published app and automatically sets its `DATABASE_URL` to the new production database. You do not need to update that secret manually during this flow.
+
+<Frame>
+  <img src="https://mintcdn.com/replit/LrPHebhkEtjoxAa5/images/databases/shared-database-migration/production-database-settings.png?fit=max&auto=format&n=LrPHebhkEtjoxAa5&q=85&s=a5ca44635f062423aaa9c8d8b73753e3" alt="Publish settings showing Create production database options" width="1406" height="1207" data-path="images/databases/shared-database-migration/production-database-settings.png" />
+</Frame>
+
+<Warning>
+  Copying to production overwrites any existing production data. See [Production
+  Databases](/cloud-services/storage-and-databases/production-databases) for
+  more details about restoring or managing your production database.
+</Warning>
+
+#### Step 3: Verify the published app
+
+Open your published app and confirm that your data is accessible and the app works correctly.
+
+### Case 2: The Database panel in the published app does not show the data you need
+
+Follow these steps to export the data if you do not see the needed data in your published app's **Database** panel.
+
+If your published app is still connected to a database from another app, you’ll see an "external database detected" warning in the Database panel.
+
+<Frame>
+  <img src="https://mintcdn.com/replit/LrPHebhkEtjoxAa5/images/databases/shared-database-migration/external-database-detected.png?fit=max&auto=format&n=LrPHebhkEtjoxAa5&q=85&s=e2599ba01a24923656e49ae221966485" alt="Database panel showing external database detected" width="1403" height="1208" data-path="images/databases/shared-database-migration/external-database-detected.png" />
+</Frame>
+
+<Warning>
+  If people are still using your app and saving new data, plan a short
+  maintenance window before exporting data.
+</Warning>
+
+#### Step 1: Export the data from the old database
+
+<Frame>
+  <img src="https://mintcdn.com/replit/LrPHebhkEtjoxAa5/images/databases/shared-database-migration/pg-dump-example.png?fit=max&auto=format&n=LrPHebhkEtjoxAa5&q=85&s=aa1e5bf72df4cbb5c8162ed6cf85f594" alt="pg_dump example" width="1252" height="450" data-path="images/databases/shared-database-migration/pg-dump-example.png" />
+</Frame>
+
+Open the **Shell** in your Workspace and run:
+
+```bash  theme={null}
+pg_dump -Fc "database_url" --no-owner --no-privileges -f backup.dump
+```
+
+`database_url` is the database URL obtained from [Step 1: Open the Database panel in the source app](#step-1-open-the-database-panel-in-the-source-app).
+
+### Step 2: Remove the old `DATABASE_URL` from your app's Secrets
+
+<Frame>
+  <img src="https://mintcdn.com/replit/LrPHebhkEtjoxAa5/images/databases/shared-database-migration/secret-pane.png?fit=max&auto=format&n=LrPHebhkEtjoxAa5&q=85&s=255b88017d8b880a4e383c7c33a0b300" alt="secret pane example" width="1410" height="1184" data-path="images/databases/shared-database-migration/secret-pane.png" />
+</Frame>
+
+1. Open the **Secrets** tool in the Workspace
+2. Find the old `DATABASE_URL`
+3. Delete it
+4. Refresh the page or reopen the **Database** panel
+
+After this, your app should stop pointing at the old shared database and use its current development database again.
+
+### Step 3: Import the data into your app's current development database
+
+<Frame>
+  <img src="https://mintcdn.com/replit/LrPHebhkEtjoxAa5/images/databases/shared-database-migration/pg-restore-example.png?fit=max&auto=format&n=LrPHebhkEtjoxAa5&q=85&s=a0c3faacffc9dabb3c5b1c5443467e76" alt="pg_restore example" width="802" height="426" data-path="images/databases/shared-database-migration/pg-restore-example.png" />
+</Frame>
+
+Once the old `DATABASE_URL` secret is removed, your app's current development database should be available again as `$DATABASE_URL` in the Workspace.
+
+Return to the **Shell** in the Workspace and run:
+
+```bash  theme={null}
+pg_restore --clean --if-exists --single-transaction --no-owner --no-privileges --exit-on-error -d "$DATABASE_URL" backup.dump
+```
+
+This loads the exported data into your app's current development database.
+
+### Step 5: Follow Case 1 to publish or republish with a production database
+
+Once the **Database** panel shows the correct data, follow [Case 1](#case-1-the-database-panel-already-shows-the-data-you-need) to publish or republish with **Create production database** and copy that data into production.
+
+### Step 6: Verify the published app
+
+<Frame>
+  <img src="https://mintcdn.com/replit/LrPHebhkEtjoxAa5/images/databases/shared-database-migration/successful-export.png?fit=max&auto=format&n=LrPHebhkEtjoxAa5&q=85&s=f1f982d43072c613f04661a9879da43f" alt="successful export" width="965" height="554" data-path="images/databases/shared-database-migration/successful-export.png" />
+</Frame>
+
+Open your published app and confirm that your data is accessible and the app works correctly.
+
+## Troubleshooting
+
+### The import fails because tables already exist
+
+The `pg_restore --clean --if-exists` command above drops and recreates matching objects from the dump before restoring them.
+
+### The import fails with role or policy errors
+
+If your database uses custom PostgreSQL roles or role-based policies, the import may fail because those roles do not exist in the new database yet.
+
+Replit's automatic Helium migration attempts to recreate role stubs before restoring, but the manual process above does not. If you run into role-related errors during `pg_restore`, [contact support](https://replit.com/support) for help.
+
+### I already fixed the app
+
+If your published app already has its own production database and is working correctly, you do not need to do anything else.
+
+## Need more help?
+
+If you are unsure which case applies to your app, or if you run into problems during the migration, [contact support](https://replit.com/support).
+
+## Related docs
+
+* [Database upgrade](/cloud-services/storage-and-databases/database-upgrade)
+* [Production databases](/cloud-services/storage-and-databases/production-databases)
+* [Database](/cloud-services/storage-and-databases/sql-database)
+
+
+Built with [Mintlify](https://mintlify.com).

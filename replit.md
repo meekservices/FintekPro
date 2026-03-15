@@ -7,7 +7,16 @@
 - **SW Update Flow**: ✅ `client/public/sw.js` install handler does NOT call `self.skipWaiting()`. Calling it there would immediately activate the new SW → trigger `clients.claim()` → fire `controllerchange` in all open tabs → automatic `window.location.reload()` mid-session. Instead the new SW waits, `UpdateNotificationBanner` appears, and `skipWaiting` is only called via the `message` event when the user clicks "Refresh Now".
 - **Lazy Loading Recovery**: ✅ `lazyWithRetry` properly awaits SW cache deletion before reload. App.tsx clears all `chunk-reload-*` and `preload-err-reload` session guards on mount.
 - **Deployment config** (`.replit`): `build = ["npm", "run", "build"]`, `run = ["npm", "run", "start"]` (→ `NODE_ENV=production node dist/index.js`), port 5000→80.
-- **Python sidecar**: starts on port 8001 from `server/index.ts` startup (non-blocking, spawned with `uvicorn`).
+- **Deployment target**: `autoscale` — handles traffic spikes, auto-restarts on crash, zero-downtime redeploys. Sessions are DB-backed (connect-pg-simple) so autoscale is fully compatible.
+- **Python sidecar**: In development, starts automatically on port 8001. In production (`NODE_ENV=production`), the local sidecar is skipped — containers are ephemeral. To enable full quant analytics in production, deploy the Python service separately (see below) and set `PYTHON_SERVICE_URL` in production secrets. Without it, all `/api/python/*` routes return a structured 503 (`degraded: true`) and the rest of the app works normally.
+
+### Deploying the Python Analytics Service (for production quant analytics)
+1. Create a new Replit project and copy the `services/python/` directory into it.
+2. Set the run command to: `python3 -m uvicorn main:app --host 0.0.0.0 --port 8001`
+3. Set the deployment target to `vm` (it must always be running).
+4. Publish that project and copy its public URL (e.g. `https://fintekpro-python.username.replit.app`).
+5. In the main FintekPro project's production secrets, set `PYTHON_SERVICE_URL` to that URL.
+6. Republish the main project — it will automatically connect to the external Python service.
 
 ## Performance Optimizations (March 2026)
 

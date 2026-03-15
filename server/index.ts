@@ -571,6 +571,17 @@ export function killPythonSidecar() {
 }
 
 function startPythonSidecar() {
+  // Autoscale containers are ephemeral — never spawn a local process there.
+  // In production, point PYTHON_SERVICE_URL at a separately deployed always-on VM.
+  if (process.env.NODE_ENV === 'production') {
+    if (process.env.PYTHON_SERVICE_URL) {
+      console.log(`ℹ️  [Python] Production mode — using external service at ${process.env.PYTHON_SERVICE_URL}`);
+    } else {
+      console.log('ℹ️  [Python] Production mode — quant analytics in degraded mode (set PYTHON_SERVICE_URL to enable full analytics)');
+    }
+    return;
+  }
+
   if (process.env.PYTHON_SERVICE_URL && !process.env.PYTHON_SERVICE_URL.includes('localhost')) {
     console.log(`ℹ️  [Python] External PYTHON_SERVICE_URL detected (${process.env.PYTHON_SERVICE_URL}) — skipping local sidecar`);
     return;
