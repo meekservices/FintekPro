@@ -322,6 +322,17 @@ FintekPro employs a subdomain-based portal architecture for Admin, Partner, Agen
 ### Database Services
 - Neon Database (PostgreSQL)
 
+## drizzle-kit Schema Diff Configuration
+
+**Critical design notes — do not break this:**
+
+- `drizzle.config.ts` uses `schema: "./shared/schema-stub.ts"` (NOT `shared/schema.ts`)
+- `shared/schema-stub.ts` is **fully self-contained** — it does NOT import from `./schema`. Importing schema.ts would cause drizzle-kit to evaluate all 33,000 lines and discover ~700 tables, generating catastrophic DROP statements.
+- `drizzle.config.ts` has `tablesFilter` set to exactly the 6 tables managed by drizzle-kit. This prevents "Pulling schema from database…" from hanging (without it, the full production DB with hundreds of tables causes an infinite introspection loop → "SERVER unexpectedly disconnected").
+- `schema-stub.ts` declares all 38 enum types that exist in the production DB as `pgEnum()`. This prevents drizzle-kit from generating `CREATE TYPE` for enums it doesn't recognize vs. ones that already exist.
+- **drizzle-kit check** always passes cleanly. **drizzle-kit push** completes in ~4s but may print a PostgreSQL warning about sequences — this is safe to ignore (exit code 0, no DB changes applied). The sequence issue arises because drizzle-kit queries all sequences in the `public` schema (not filtered by tablesFilter) — it is a known drizzle-kit design limitation.
+- If adding a new table to the 6 managed tables, add it to: (1) `schema-stub.ts` inline definition, (2) `tablesFilter` array in `drizzle.config.ts`.
+
 ### UI/UX Libraries
 - Radix UI
 - Tailwind CSS
