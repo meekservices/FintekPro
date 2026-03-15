@@ -2152,7 +2152,7 @@ export const partners = pgTable("partners", {
   kycStatus: varchar("kyc_status").default("PENDING"),
   approvalStatus: varchar("approval_status").default("PENDING"),
   agreementId: varchar("agreement_id"),
-  maxDepth: integer("max_depth").default(5),
+  maxDepth: integer("max_depth").default(7),
   createdBy: varchar("created_by"),
   referredById: varchar("referred_by_id"),
 
