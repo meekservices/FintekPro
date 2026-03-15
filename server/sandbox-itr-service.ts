@@ -374,7 +374,7 @@ class SandboxITRService {
   getERITestCredentials(): { userId: string; passwordHint: string } {
     return {
       userId: SANDBOX_ERI_TEST_CREDENTIALS.user_id,
-      passwordHint: 'ERIP000325@abc (Sandbox test)',
+      passwordHint: `${SANDBOX_ERI_TEST_CREDENTIALS.password} (Sandbox test)`,
     };
   }
 
