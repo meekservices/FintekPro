@@ -669,14 +669,7 @@ export function setupAuth(app: Express) {
   // This endpoint validates credentials and sends OTP for second-layer authentication
   app.post("/api/login", async (req, res, next) => {
     try {
-      console.log("🔐 LOGIN REQUEST RECEIVED");
-      console.log("📧 Request headers:", JSON.stringify(req.headers, null, 2));
-      console.log("🍪 Request cookies:", req.cookies || req.headers.cookie);
-      console.log("🌐 Request origin:", req.get('origin'));
-      console.log("📝 Session ID:", req.sessionID);
-      
       const { identifier, password } = req.body;
-      console.log("🔑 Login attempt for identifier:", identifier);
 
       if (!identifier || !password) {
         console.log("❌ Missing identifier or password");
@@ -828,13 +821,7 @@ export function setupAuth(app: Express) {
   // Verify OTP and complete login - mandatory second-layer authentication
   app.post("/api/login/verify-otp", async (req, res) => {
     try {
-      console.log("🔓 VERIFY OTP REQUEST RECEIVED");
-      console.log("📧 Request headers:", JSON.stringify(req.headers, null, 2));
-      console.log("🍪 Request cookies:", req.cookies || req.headers.cookie);
-      console.log("📝 Session ID:", req.sessionID);
-      
       const { identifier, otp } = req.body;
-      console.log("🔑 OTP verification for identifier:", identifier);
 
       if (!identifier || !otp) {
         console.log("❌ Missing identifier or OTP");
@@ -920,12 +907,6 @@ export function setupAuth(app: Express) {
             console.error("❌ Session save error:", saveErr);
             return apiResponse.serverError(res, "Session save failed");
           }
-          
-          // Log session details for debugging
-          console.log("✅ Session created and saved for user:", updatedUser.email || updatedUser.mobile);
-          console.log("📝 Session ID:", req.sessionID);
-          console.log("🔑 User roles:", updatedUser.roles);
-          console.log("🍪 Session cookie:", req.session.cookie);
           
           return apiResponse.success(res, {
             id: updatedUser.id,

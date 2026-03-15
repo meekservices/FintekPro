@@ -2,6 +2,8 @@
 
 ## Publish Readiness (March 2026)
 - **Build**: ✅ Zero TypeScript errors, zero build warnings. `dist/index.js` (14 MB) + `dist/public/` frontend assets.
+- **Auth debug logging**: ✅ Removed sensitive cookie/header/session-ID console.logs from `/api/login` and `/api/login/verify-otp` handlers. No credentials leak to stdout in production.
+- **KYC expiry migration**: ✅ Boot-time `ALTER TABLE agents/partners ADD COLUMN IF NOT EXISTS arn_expiry_date TIMESTAMPTZ` — KYC expiry monitor now runs without skipping.
 - **Security**: ✅ `/api/test-amfi`, `/api/test/twilio-{sms,whatsapp,verify,voice}` gated by `isProductionEnvironment()` (dev-only endpoints hidden in prod). Error testing routes already gated by `NODE_ENV === 'development'` in `server/index.ts`.
 - **SW Cache Busting**: ✅ SW URL is `?v=${APP_VERSION}&b=dev` in dev (stable, no banner spam) and `?v=${APP_VERSION}&b=${APP_VERSION}` in production (stable per version, banner only fires when APP_VERSION is bumped or sw.js content changes). NOTE: BUILD_TIMESTAMP = new Date() runs at runtime in the browser, NOT at build time — never use it in the SW URL.
 - **SW Update Flow**: ✅ `client/public/sw.js` install handler does NOT call `self.skipWaiting()`. Calling it there would immediately activate the new SW → trigger `clients.claim()` → fire `controllerchange` in all open tabs → automatic `window.location.reload()` mid-session. Instead the new SW waits, `UpdateNotificationBanner` appears, and `skipWaiting` is only called via the `message` event when the user clicks "Refresh Now".

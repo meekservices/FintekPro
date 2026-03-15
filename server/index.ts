@@ -1051,6 +1051,19 @@ server.listen({
     console.error('[Migration] capital_gains_tax_reminders error:', e?.message);
   }
 
+  // Migrate agents + partners: add arn_expiry_date if missing (KYC Expiry Monitor depends on this)
+  try {
+    const { db: mainDb } = await import('./db');
+    const { sql: migSql } = await import('drizzle-orm');
+    await mainDb.execute(migSql`
+      ALTER TABLE agents ADD COLUMN IF NOT EXISTS arn_expiry_date TIMESTAMPTZ;
+      ALTER TABLE partners ADD COLUMN IF NOT EXISTS arn_expiry_date TIMESTAMPTZ
+    `);
+    console.log('✅ [Migration] agents/partners arn_expiry_date columns verified/added');
+  } catch (e: any) {
+    console.error('[Migration] agents/partners arn_expiry_date error:', e?.message);
+  }
+
   // Register additional routes from routes.ts (but don't create a new server - we already have one)
   await registerRoutes(app, server);
 
