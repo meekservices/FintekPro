@@ -18,6 +18,27 @@
 5. In the main FintekPro project's production secrets, set `PYTHON_SERVICE_URL` to that URL.
 6. Republish the main project — it will automatically connect to the external Python service.
 
+## Autoscale Architecture Hardening (March 2026 — 8 Fixes)
+
+All 8 architectural improvements for production autoscale stability completed:
+
+| # | Fix | File(s) | Status |
+|---|-----|---------|--------|
+| 1 | Extract megafile (routes.ts 29,720→20,928 lines) | `server/routes/bond-trading-orders.ts`, `reports-inline.ts`, `mf-monthwise.ts`, `agent-capital-gains.ts` | ✅ |
+| 2 | fetchWithTimeout on all outbound HTTP (8 service files) | `server/utils/fetch-with-timeout.ts` | ✅ |
+| 3 | 52 empty catch blocks → proper `console.warn` logging | Multiple services | ✅ |
+| 4 | DB pool 20→5 per instance (safe for 10 autoscale replicas) | `server/db.ts` | ✅ |
+| 5 | OTP throttle state — dead code, never imported (skipped) | N/A | ✅ |
+| 6 | Zoho routes auth-guarded with `requireAdmin` | `server/zoho/routes.ts` | ✅ |
+| 7 | Global rate limiting: 5000/15min API, 5/15min auth | `server/index.ts` | ✅ |
+| 8 | SEBI audit flush 5s→2s + SIGTERM hook; payment retry optimistic DB lock | `sebi-audit-service.ts`, `payment-webhook-retry-service.ts` | ✅ |
+
+### routes.ts Extraction Pattern
+Extracted files live in `server/routes/` and export `registerXxxRoutes(app: Express): void`. They import:
+- Auth: `import { requireAuth, requireAdmin, requireAgent } from '../middleware/roleMiddleware'`
+- Dynamic imports adjusted: `"./services/"` → `"../services/"`
+- `isProductionEnvironment` from `'../utils/enrichment-guard'` where needed
+
 ## Performance Optimizations (March 2026)
 
 ### Frontend Bundle Splitting (vite.config.ts)
