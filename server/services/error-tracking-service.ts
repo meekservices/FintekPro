@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { emailService } from "../email-service";
 import { errorSpikeDetectionService } from "./error-spike-detection-service";
 import { aiService } from "./ai-service";
+import { fetchWithTimeout } from "../utils/fetch-with-timeout";
 
 // Replit deployment context for error tracking
 interface ReplitDeploymentContext {
@@ -629,13 +630,14 @@ Respond in JSON:
         }
       };
       
-      const response = await fetch(webhookUrl, {
+      const response = await fetchWithTimeout(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-FintekPro-Event': 'critical_error'
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        timeoutMs: 10_000,
       });
       
       if (response.ok) {

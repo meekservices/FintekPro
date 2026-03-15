@@ -11,6 +11,7 @@
 
 import { EventEmitter } from 'events';
 import { nanoid } from 'nanoid';
+import { fetchWithTimeout } from '../utils/fetch-with-timeout';
 
 // Job types for government scheme data fetching
 type JobType = 
@@ -288,7 +289,7 @@ class BackgroundJobQueue extends EventEmitter {
     if (!job.webhookUrl) return;
 
     try {
-      const response = await fetch(job.webhookUrl, {
+      const response = await fetchWithTimeout(job.webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -302,7 +303,8 @@ class BackgroundJobQueue extends EventEmitter {
           result: job.result,
           error: job.error,
           completedAt: job.completedAt
-        })
+        }),
+        timeoutMs: 10_000,
       });
 
       if (!response.ok) {

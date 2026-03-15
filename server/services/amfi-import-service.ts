@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { mutualFunds, mutualFundAmcs } from '@shared/schema';
 import { eq, sql } from 'drizzle-orm';
+import { fetchWithTimeout } from '../utils/fetch-with-timeout';
 
 const AMFI_NAV_URL = 'https://www.amfiindia.com/spages/NAVAll.txt';
 
@@ -293,7 +294,7 @@ export async function importAmfiData(): Promise<ImportResult> {
     importProgress.startedAt = new Date();
     
     console.log('[AMFI Import] Fetching NAV data from AMFI...');
-    const response = await fetch(AMFI_NAV_URL);
+    const response = await fetchWithTimeout(AMFI_NAV_URL, { timeoutMs: 60_000 });
     
     if (!response.ok) {
       throw new Error(`Failed to fetch AMFI data: ${response.status} ${response.statusText}`);

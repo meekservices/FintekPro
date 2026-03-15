@@ -20,7 +20,7 @@ interface UserWithRole {
 /**
  * Normalize user roles from various formats
  */
-function getUserRoles(user: UserWithRole | undefined): RoleId[] {
+function getUserRoles(user: UserWithRole | Record<string, any> | undefined): RoleId[] {
   if (!user) return [];
   
   // Support both old single role field and new roles array

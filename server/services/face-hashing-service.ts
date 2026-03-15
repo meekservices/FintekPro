@@ -16,6 +16,7 @@
  */
 
 import crypto from 'crypto';
+import { fetchWithTimeout } from '../utils/fetch-with-timeout';
 
 interface HashResult {
   success: boolean;
@@ -90,7 +91,7 @@ class FaceHashingService {
       }
 
       // Download image
-      const response = await fetch(imageUrl);
+      const response = await fetchWithTimeout(imageUrl, { timeoutMs: 15_000 });
       
       if (!response.ok) {
         return {

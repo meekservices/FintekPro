@@ -393,6 +393,8 @@ class FinancialDataRepository {
         return { success: false, error: 'Rate limited or no market data' };
       }
 
+      // Cast to any for extended yahoo-finance fields absent from the narrow union type
+      const q = quote as any;
       const data: InstrumentData = {
         instrumentType: 'global_stock',
         symbol: symbol.replace('.NS', '').replace('.BO', ''),
@@ -410,8 +412,8 @@ class FinancialDataRepository {
         volume: quote.regularMarketVolume,
         marketCap: quote.marketCap,
         peRatio: quote.trailingPE,
-        dividendYield: quote.dividendYield ? quote.dividendYield * 100 : undefined,
-        sector: quote.sector,
+        dividendYield: q.dividendYield ? q.dividendYield * 100 : undefined,
+        sector: q.sector,
         dataSource: 'yahoo',
         confidenceScore: 90,
       };
@@ -448,6 +450,8 @@ class FinancialDataRepository {
         return { success: false, error: 'Rate limited or no market data' };
       }
 
+      // Cast to any for extended yahoo-finance ETF fields absent from the narrow union type
+      const q = quote as any;
       const data: InstrumentData = {
         instrumentType: 'etf',
         symbol: symbol,
@@ -455,17 +459,17 @@ class FinancialDataRepository {
         exchange: quote.exchange || 'UNKNOWN',
         currency: quote.currency || 'USD',
         currentPrice: quote.regularMarketPrice,
-        nav: quote.navPrice,
+        nav: q.navPrice,
         previousClose: quote.regularMarketPreviousClose,
         dayChange: quote.regularMarketChange,
         dayChangePercent: quote.regularMarketChangePercent,
         dayHigh: quote.regularMarketDayHigh,
         dayLow: quote.regularMarketDayLow,
         volume: quote.regularMarketVolume,
-        dividendYield: quote.yield ? quote.yield * 100 : undefined,
-        expenseRatio: quote.annualReportExpenseRatio,
-        aum: quote.totalAssets,
-        category: quote.category,
+        dividendYield: q.yield ? q.yield * 100 : undefined,
+        expenseRatio: q.annualReportExpenseRatio,
+        aum: q.totalAssets,
+        category: q.category,
         dataSource: 'yahoo',
         confidenceScore: 90,
       };

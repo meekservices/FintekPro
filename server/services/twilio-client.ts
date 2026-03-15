@@ -1,4 +1,5 @@
 import twilio from 'twilio';
+import { fetchWithTimeout } from '../utils/fetch-with-timeout';
 
 let connectionSettings: any;
 let cachedClient: any = null;
@@ -16,15 +17,16 @@ async function getCredentials() {
     throw new Error('X_REPLIT_TOKEN not found for repl/depl');
   }
 
-  connectionSettings = await fetch(
+  connectionSettings = await fetchWithTimeout(
     'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=twilio',
     {
       headers: {
         'Accept': 'application/json',
         'X_REPLIT_TOKEN': xReplitToken
-      }
+      },
+      timeoutMs: 10_000,
     }
-  ).then(res => res.json()).then(data => data.items?.[0]);
+  ).then(res => res.json()).then((data: any) => data.items?.[0]);
 
   if (!connectionSettings || !connectionSettings.settings.account_sid) {
     throw new Error('Twilio not connected');

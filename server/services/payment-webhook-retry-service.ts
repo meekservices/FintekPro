@@ -216,6 +216,27 @@ class PaymentWebhookRetryService {
       console.log(`[WebhookRetry] Processing ${ordersToRetry.length} webhooks due for retry`);
 
       for (const order of ordersToRetry) {
+        // Optimistic lock: atomically claim this order by flipping status pending_retry → retrying.
+        // In autoscale, multiple instances scan the same DB rows; only the instance that wins
+        // this UPDATE will proceed — the others will see rowCount=0 and skip.
+        const claimed = await db
+          .update(unifiedOrders)
+          .set({
+            metadata: sql`jsonb_set(${unifiedOrders.metadata}, '{lastWebhookStatus}', '"retrying"')`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(unifiedOrders.id, order.id),
+              sql`${unifiedOrders.metadata}->>'lastWebhookStatus' = 'pending_retry'`
+            )
+          );
+
+        if (!claimed.rowCount || claimed.rowCount === 0) {
+          console.log(`[WebhookRetry] Order ${order.id} already claimed by another instance, skipping`);
+          continue;
+        }
+
         const metadata = (order.metadata || {}) as Record<string, any>;
         const webhookRetries = metadata.webhookRetries || [];
         const latestRetry = webhookRetries[webhookRetries.length - 1];
@@ -230,7 +251,7 @@ class PaymentWebhookRetryService {
             retryCount: latestRetry.retryCount || 0,
             maxRetries: MAX_RETRIES,
             nextRetryAt: new Date(latestRetry.nextRetryAt),
-            status: 'pending_retry',
+            status: 'retrying',
             createdAt: new Date(latestRetry.createdAt),
             lastAttemptAt: new Date()
           };

@@ -29,8 +29,17 @@ export class SEBIAuditService {
   private flushInterval: NodeJS.Timeout | null = null;
 
   private constructor() {
-    // Start periodic flush
-    this.flushInterval = setInterval(() => this.flushPendingLogs(), 5000);
+    // Flush every 2 s — reduces max data loss window from 5 s to 2 s on autoscale instance kill
+    this.flushInterval = setInterval(() => this.flushPendingLogs(), 2000);
+
+    // Graceful shutdown: flush before the process exits so in-flight logs aren't lost
+    const gracefulFlush = () => {
+      this.flushPendingLogs().catch((err) =>
+        console.error("[SEBIAuditService] Graceful flush failed:", err)
+      );
+    };
+    process.once("SIGTERM", gracefulFlush);
+    process.once("SIGINT", gracefulFlush);
   }
 
   static getInstance(): SEBIAuditService {

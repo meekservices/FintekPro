@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { fetchWithTimeout } from "../utils/fetch-with-timeout";
 
 export interface BseMldListing {
   isin: string;
@@ -28,7 +29,7 @@ const BSE_CORP_DEBT_API = "https://api.bseindia.com/BseIndiaAPI/api/DebsSecuriti
 async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3): Promise<Response> {
   for (let i = 0; i < retries; i++) {
     try {
-      const response = await fetch(url, {
+      const response = await fetchWithTimeout(url, {
         ...options,
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -37,6 +38,7 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 
           "Referer": "https://www.bseindia.com/",
           ...options.headers,
         },
+        timeoutMs: 20_000,
       });
       if (response.ok) return response;
     } catch (error) {

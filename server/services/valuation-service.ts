@@ -11,6 +11,7 @@
 
 import { storage } from '../storage';
 import type { UnlistedCompany } from '@shared/schema';
+import { fetchWithTimeout } from '../utils/fetch-with-timeout';
 
 export interface FundingRound {
   roundType: string; // seed, series_a, series_b, etc.
@@ -155,13 +156,14 @@ class ValuationService {
     
     try {
       // Search for organization
-      const searchResponse = await fetch(
+      const searchResponse = await fetchWithTimeout(
         `${this.crunchbaseBaseUrl}/autocompletes?query=${encodeURIComponent(companyName)}&collection_ids=organizations&limit=3`,
         {
           headers: {
             'X-cb-user-key': this.crunchbaseApiKey,
             'Content-Type': 'application/json',
           },
+          timeoutMs: 15_000,
         }
       );
       
@@ -184,13 +186,14 @@ class ValuationService {
       }
       
       // Fetch organization details
-      const orgResponse = await fetch(
+      const orgResponse = await fetchWithTimeout(
         `${this.crunchbaseBaseUrl}/entities/organizations/${orgPermalink}?field_ids=short_description,funding_rounds,funding_total,last_funding_at,last_funding_type,num_funding_rounds,equity_funding_total`,
         {
           headers: {
             'X-cb-user-key': this.crunchbaseApiKey,
             'Content-Type': 'application/json',
           },
+          timeoutMs: 15_000,
         }
       );
       

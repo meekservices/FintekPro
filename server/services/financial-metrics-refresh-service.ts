@@ -2,6 +2,7 @@ import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { financialMetricsCalculator } from './financial-metrics-calculator';
+import { fetchWithTimeout } from '../utils/fetch-with-timeout';
 
 interface Probe42FinancialData {
   revenue?: number;
@@ -146,8 +147,9 @@ export class FinancialMetricsRefreshService {
     if (!apiKey) return null;
 
     try {
-      const response = await fetch(
-        `${this.finnhubBaseUrl}/stock/metric?symbol=${symbol}.NS&metric=all&token=${apiKey}`
+      const response = await fetchWithTimeout(
+        `${this.finnhubBaseUrl}/stock/metric?symbol=${symbol}.NS&metric=all&token=${apiKey}`,
+        { timeoutMs: 15_000 }
       );
 
       if (!response.ok) return null;
