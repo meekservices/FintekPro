@@ -6,12 +6,16 @@ import { defineConfig } from "drizzle-kit";
 //
 // By limiting introspection to this private schema, drizzle-kit never sees the
 // 755 tables / 85 sequences in the "public" schema, so it never generates DROP
-// SEQUENCE or DROP TABLE statements.  This eliminates the "SERVER unexpectedly
-// disconnected" error in the Replit DB diff panel.
+// SEQUENCE or DROP TABLE statements.
 //
-// NEVER use PRODUCTION_DATABASE_URL here.  The production Neon DB stores live
-// user data and has a different schema layout — pointing drizzle-kit at it
-// would produce destructive ALTER TABLE statements against real data.
+// SSL is explicitly disabled: Helium runs locally on Replit infrastructure and
+// does NOT support SSL connections (unlike the legacy Neon database which
+// required SSL). Without ssl:false, the pg driver may attempt an SSL handshake
+// which causes "the socket disconnecting unexpectedly" — the root cause of the
+// "SERVER unexpectedly disconnected" error in the Replit DB diff panel.
+//
+// NEVER use PRODUCTION_DATABASE_URL here. The production database stores live
+// user data and has a different schema layout.
 
 const baseUrl =
   process.env.DATABASE_URL ||
@@ -35,6 +39,7 @@ export default defineConfig({
   dialect: "postgresql",
   dbCredentials: {
     url: dbUrl,
+    ssl: false,
   },
   // Restrict drizzle-kit to the isolated "drizzle_kit_managed" schema only.
   // This schema is completely separate from "public" and contains only the
