@@ -1,5 +1,5 @@
 import {
-  pgTable, pgEnum, serial, uuid, varchar, text, boolean, integer,
+  pgSchema, serial, uuid, varchar, text, boolean, integer,
   timestamp, date, decimal, numeric, jsonb,
   index, uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -10,146 +10,20 @@ import {
 // evaluate all table definitions in that file and try to manage thousands of
 // tables it doesn't own — generating destructive DROP statements.
 //
+// All tables here live in the "drizzle_kit_managed" schema (not "public").
+// drizzle.config.ts uses schemaFilter: ["drizzle_kit_managed"] so drizzle-kit
+// ONLY introspects that isolated schema — it never sees the 755 tables or 85
+// sequences in the public schema, eliminating all DROP SEQUENCE / DROP TABLE
+// errors and the resulting "SERVER unexpectedly disconnected" in the Replit
+// DB diff panel.
+//
 // Rule: every object declared here must mirror what is already in the DB.
-//       drizzle-kit push will only manage the tables and enum types listed
-//       below and leave every other DB object untouched.
+//       drizzle-kit push will only manage tables listed below.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ─── Enum types ──────────────────────────────────────────────────────────────
-// Declared so drizzle-kit recognises them and does not generate DROP TYPE.
-// Values are sourced from pg_enum in the production DB.
+export const dkManaged = pgSchema("drizzle_kit_managed");
 
-export const aiVerificationStatus = pgEnum("ai_verification_status", [
-  "pending","ca_uploaded","esign_pending","esign_completed","submitted","approved","rejected","expired",
-]);
-export const aiWorkflowStep = pgEnum("ai_workflow_step", [
-  "ca_upload","esign","bse_submission","completed",
-]);
-export const apiHealthStatus = pgEnum("api_health_status", [
-  "healthy","degraded","down","unknown",
-]);
-export const auditActionType = pgEnum("audit_action_type", [
-  "create","read","update","delete","execute","approve","reject",
-]);
-export const bankConnectorType = pgEnum("bank_connector_type", [
-  "api","sftp","portal","email","webhook",
-]);
-export const bankIntegrationType = pgEnum("bank_integration_type", [
-  "api","sftp","portal","email","webhook",
-]);
-export const bankInteractionEventType = pgEnum("bank_interaction_event_type", [
-  "RECEIVED","QUERY","APPROVED","DISBURSED",
-]);
-export const bankInteractionReporter = pgEnum("bank_interaction_reporter", [
-  "AGENT","WEBHOOK","ADMIN",
-]);
-export const clientMode = pgEnum("client_mode", [
-  "new","existing",
-]);
-export const commissionPlanStatus = pgEnum("commission_plan_status", [
-  "draft","active","frozen","archived",
-]);
-export const devApprovalStatus = pgEnum("dev_approval_status", [
-  "OBTAINED","APPLIED","PENDING","NOT_REQUIRED","REJECTED",
-]);
-export const documentUploader = pgEnum("document_uploader", [
-  "agent","client","system",
-]);
-export const dsaLoanStatus = pgEnum("dsa_loan_status", [
-  "draft","submitted","eligibility_check","routed","pending_with_banks","in_review",
-  "conditionally_approved","documents_pending","approved","rejected","withdrawn",
-  "disbursement_pending","disbursed","cancelled",
-]);
-export const encumbranceStatus = pgEnum("encumbrance_status", [
-  "CLEAR","ENCUMBERED","PARTIALLY_CLEAR","UNDER_VERIFICATION",
-]);
-export const errorSeverity = pgEnum("error_severity", [
-  "critical","high","medium","low","info",
-]);
-export const errorSource = pgEnum("error_source", [
-  "frontend","backend","service","external_api",
-]);
-export const kycStatus = pgEnum("kyc_status", [
-  "pending","in_progress","completed","cancelled",
-]);
-export const kycTier = pgEnum("kyc_tier", [
-  "tier_1","tier_2","tier_3",
-]);
-export const leadProcessingMode = pgEnum("lead_processing_mode", [
-  "PLATFORM","EXTERNAL_FINANCIER",
-]);
-export const leadStatus = pgEnum("lead_status", [
-  "REGISTERED","LOGGED_IN","APPROVED","DISBURSED",
-]);
-export const lenderCategory = pgEnum("lender_category", [
-  "PSU_BANK","PRIVATE_BANK","HFC","NBFC","AIF_PLATFORM",
-]);
-export const loanSubType = pgEnum("loan_sub_type", [
-  "BUILDER_FUNDING","PROJECT_FUNDING","CONSTRUCTION_FINANCE","LRD","LAND_FINANCE",
-  "INVENTORY_FINANCE","MEZZANINE","BRIDGE",
-]);
-export const loanVertical = pgEnum("loan_vertical", [
-  "RETAIL","MSME","DEVELOPER",
-]);
-export const masterDsaClaimStatus = pgEnum("master_dsa_claim_status", [
-  "DRAFT","SUBMITTED","ACKNOWLEDGED","PAID","PARTIALLY_PAID","DISPUTED","REJECTED",
-]);
-export const originationMode = pgEnum("origination_mode", [
-  "SELF_SERVICE","AGENT_ASSISTED",
-]);
-export const passthroughRule = pgEnum("passthrough_rule", [
-  "stop","roll_up",
-]);
-export const payoutClaimStatus = pgEnum("payout_claim_status", [
-  "PENDING_VERIFICATION","CONFIRMED_BY_FINANCIER","APPROVED","ON_HOLD_PDD","REJECTED","CLAWED_BACK",
-]);
-export const payoutMode = pgEnum("payout_mode", [
-  "upfront","trail","revenue_share","performance",
-]);
-export const pddStatus = pgEnum("pdd_status", [
-  "NOT_APPLICABLE","PENDING","CLEARED","EXCEPTION_ALLOWED",
-]);
-export const pickCategory = pgEnum("pick_category", [
-  "listed_stocks","mutual_funds","bonds","unlisted","global_stocks","etfs","reits_invits",
-  "fixed_deposits","sgb","derivatives",
-]);
-export const pickStatus = pgEnum("pick_status", [
-  "live","target_hit","stoploss_hit","expired",
-]);
-export const projectStage = pgEnum("project_stage", [
-  "LAND_ACQUISITION","APPROVALS","CONSTRUCTION_EARLY","CONSTRUCTION_MID","CONSTRUCTION_ADVANCED",
-  "NEAR_COMPLETION","COMPLETED","POSSESSION",
-]);
-export const proposalVerdictValue = pgEnum("proposal_verdict_value", [
-  "BUY","HOLD","SELL",
-]);
-export const routingIntent = pgEnum("routing_intent", [
-  "MARKETPLACE","SPECIFIC_BANKS",
-]);
-export const routingMode = pgEnum("routing_mode", [
-  "auto","manual",
-]);
-export const routingStrategy = pgEnum("routing_strategy", [
-  "parallel","waterfall","priority_first",
-]);
-export const sipSourceType = pgEnum("sip_source_type", [
-  "rebalancing","fresh","hybrid",
-]);
-export const titleStatus = pgEnum("title_status", [
-  "CLEAR","DISPUTED","UNDER_LITIGATION","UNDER_VERIFICATION",
-]);
-export const tranchStatus = pgEnum("tranch_status", [
-  "PENDING","RELEASED","ON_HOLD","CANCELLED",
-]);
-export const workflowOwner = pgEnum("workflow_owner", [
-  "SYSTEM","AGENT",
-]);
-
-// ─── Tables ───────────────────────────────────────────────────────────────────
-// Inline definitions — identical to the corresponding definitions in schema.ts.
-// Do NOT replace these with re-exports from schema.ts (see header comment).
-
-export const agentNotifications = pgTable("agent_notifications", {
+export const agentNotifications = dkManaged.table("agent_notifications", {
   id: uuid("id").primaryKey().defaultRandom(),
   agentId: varchar("agent_id", { length: 100 }).notNull(),
   title: text("title").notNull(),
@@ -163,7 +37,7 @@ export const agentNotifications = pgTable("agent_notifications", {
   index("idx_agent_notifications_created").on(table.createdAt),
 ]);
 
-export const corporateActions = pgTable("corporate_actions", {
+export const corporateActions = dkManaged.table("corporate_actions", {
   id: serial("id").primaryKey(),
   isin: varchar("isin", { length: 20 }).notNull(),
   symbol: varchar("symbol", { length: 50 }),
@@ -189,7 +63,7 @@ export const corporateActions = pgTable("corporate_actions", {
   uniqueIndex("idx_corp_actions_isin_ex_type").on(table.isin, table.exDate, table.actionType),
 ]);
 
-export const priceAdjustments = pgTable("price_adjustments", {
+export const priceAdjustments = dkManaged.table("price_adjustments", {
   id: serial("id").primaryKey(),
   corporateActionId: integer("corporate_action_id").notNull(),
   isin: varchar("isin", { length: 20 }).notNull(),
@@ -204,7 +78,7 @@ export const priceAdjustments = pgTable("price_adjustments", {
   index("idx_price_adj_date").on(table.priceDate),
 ]);
 
-export const symbolMapping = pgTable("symbol_mapping", {
+export const symbolMapping = dkManaged.table("symbol_mapping", {
   id: serial("id").primaryKey(),
   isin: varchar("isin", { length: 20 }).notNull(),
   provider: varchar("provider", { length: 50 }).notNull(),
@@ -221,7 +95,7 @@ export const symbolMapping = pgTable("symbol_mapping", {
   uniqueIndex("idx_symbol_mapping_isin_provider").on(table.isin, table.provider),
 ]);
 
-export const creditRatings = pgTable("credit_ratings", {
+export const creditRatings = dkManaged.table("credit_ratings", {
   id: serial("id").primaryKey(),
   isin: varchar("isin", { length: 20 }).notNull(),
   instrumentName: text("instrument_name"),
@@ -242,10 +116,7 @@ export const creditRatings = pgTable("credit_ratings", {
   index("idx_credit_ratings_current").on(table.isCurrent),
 ]);
 
-// instrument_returns is created at runtime by the Golden Pricing Engine via raw SQL
-// (server/db-migrations/golden-pricing-migration.ts). This stub definition mirrors
-// that raw SQL exactly so drizzle-kit treats the table as known and does not drop it.
-export const instrumentReturns = pgTable("instrument_returns", {
+export const instrumentReturns = dkManaged.table("instrument_returns", {
   id: serial("id").primaryKey(),
   isin: varchar("isin", { length: 20 }).notNull(),
   symbol: varchar("symbol", { length: 50 }),

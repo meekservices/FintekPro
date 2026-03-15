@@ -233,12 +233,13 @@ Never build duplicate engines — always upgrade existing ones in place. No para
   3. Apply it with: `psql "$PRODUCTION_DATABASE_URL" -c "YOUR SQL HERE"`
   4. Verify with: `psql "$PRODUCTION_DATABASE_URL" -c "\d table_name"`
 - Drizzle-kit and the Replit database diff panel are informational only — never act on their push suggestions.
-- **NEVER re-add `postgresql-16` to Replit modules AND never re-install `drizzle-kit` as a project dependency** — these are the two root causes of "Failed to check for database diff: SERVER unexpectedly disconnected".
-  - `postgresql-16` in modules + `drizzle-kit` installed → Replit's DB diff panel runs `drizzle-kit studio` or `drizzle-kit push` automatically. The heliumdb (Replit-managed DB via `javascript_database` integration) has 755 tables + 85 sequences. drizzle-kit generates DROP SEQUENCE for 80 sequences not in schema-stub.ts → every run produces an `error:` output → Replit interprets this as "SERVER unexpectedly disconnected".
-  - **Fix applied**: removed `postgresql-16` module AND uninstalled `drizzle-kit` package. With no binary, the diff panel cannot start → error gone.
+- **NEVER re-add `postgresql-16` to Replit modules** — this was the original trigger. The `javascript_database:1.0.0` integration also has its own bundled drizzle-kit that reads the project's `drizzle.config.ts` regardless.
+- **Root cause of "SERVER unexpectedly disconnected" — fully fixed**: heliumdb has 755 tables + 85 sequences in the `public` schema. When drizzle-kit introspected `public`, it generated DROP SEQUENCE for 80 sequences not in schema-stub → `error:` in output → Replit's panel crashed.
+  - **Fix**: drizzle.config.ts now uses `schemaFilter: ["drizzle_kit_managed"]` — an isolated schema created specifically for drizzle-kit. It only contains the 6 stub tables and their 5 sequences. drizzle-kit NEVER sees the `public` schema → zero DROP statements → zero errors. Second run confirmed `[i] No changes detected` in ~3s.
+  - `drizzle-kit@0.31.0` is installed as a devDependency so `drizzle.config.ts`'s `import { defineConfig } from "drizzle-kit"` resolves correctly.
   - The app connects to Neon via `PRODUCTION_DATABASE_URL` exclusively (see `server/db.ts` — DATABASE_URL/heliumdb is never used by the app at runtime).
-- **To run drizzle-kit when needed**: use `npx drizzle-kit@0.31.0 push` (downloads and runs without reinstalling). `drizzle-orm` (the ORM runtime) is still installed and works normally.
-- **`drizzle.config.ts` targets `DATABASE_URL` (heliumdb, local)** — NOT `PRODUCTION_DATABASE_URL`. heliumdb has the 6 stub tables already synced. Using PRODUCTION_DATABASE_URL here would be dangerous: agent_notifications.id is uuid in schema-stub but serial in the live Neon DB → ALTER TABLE would be generated against production.
+- **`drizzle.config.ts` uses `schemaFilter: ["drizzle_kit_managed"]`** — NOT tablesFilter on the public schema. NEVER change this to PRODUCTION_DATABASE_URL or remove the schemaFilter.
+- **`shared/schema-stub.ts`** uses `pgSchema("drizzle_kit_managed")` — tables are in the isolated schema, not `public`. Do NOT add enum declarations (not needed since drizzle-kit doesn't scan `public`).
 
 ## System Architecture
 
