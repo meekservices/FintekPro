@@ -660,7 +660,6 @@ class StockFinancialEnrichmentService {
         averageVolume: listedStocks.averageVolume,
         returns1M: listedStocks.returns1M,
         returns1Y: listedStocks.returns1Y,
-        region: listedStocks.region,
       })
       .from(listedStocks)
       .where(
@@ -823,9 +822,6 @@ class StockFinancialEnrichmentService {
               }
               if (stock.broadSector === null && financials.broadSector != null) {
                 updates.broadSector = financials.broadSector;
-              }
-              if (stock.region === null && financials.region != null) {
-                updates.region = financials.region;
               }
 
               for (const key of Object.keys(updates)) {
