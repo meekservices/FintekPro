@@ -252,14 +252,31 @@ class NseIndiaProvider {
       const stockQuotes: Stock[] = [];
 
       if (data?.NIFTY?.data) {
+        const parseNum = (v: any): number => parseFloat(String(v ?? '').replace(/,/g, '')) || 0;
         for (const item of data.NIFTY.data.slice(0, 15)) {
+          const price = parseNum(item.ltp);
+          const changePct = parseNum(item.perChange) || parseNum(item.pChange);
+          let change = parseNum(item.netPrice) || parseNum(item.change);
+          let prevClose = parseNum(item.previousClose);
+          if (prevClose === 0 && price > 0 && change !== 0) {
+            prevClose = price - change;
+          }
+          if (change === 0 && price > 0 && changePct !== 0) {
+            change = price * changePct / (100 + changePct);
+          }
+          if (prevClose === 0 && price > 0 && change !== 0) {
+            prevClose = price - change;
+          }
+          if (change === 0 || prevClose === 0) {
+            console.warn(`⚠️ [NseIndiaProvider] ${item.symbol}: change=${change} prevClose=${prevClose} (raw: netPrice=${item.netPrice} change=${item.change} previousClose=${item.previousClose} ltp=${item.ltp} perChange=${item.perChange})`);
+          }
           stockQuotes.push({
             symbol: item.symbol || '',
             name: item.symbol || '',
-            price: parseFloat(item.ltp) || 0,
-            change: parseFloat(item.netPrice) || 0,
-            changePercent: parseFloat(item.perChange) || 0,
-            previousClose: parseFloat(item.previousClose) || (parseFloat(item.ltp) - parseFloat(item.netPrice)) || 0,
+            price,
+            change: Math.round(change * 100) / 100,
+            changePercent: Math.round(changePct * 100) / 100,
+            previousClose: Math.round(prevClose * 100) / 100,
           });
         }
       }
