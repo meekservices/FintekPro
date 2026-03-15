@@ -368,7 +368,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   }
 
   app.get("/sitemap.xml", (req, res) => {
-    const baseUrl = req.protocol + '://' + req.get('host');
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
+    const baseUrl = isProduction ? 'https://fintekpro.in' : (req.protocol + '://' + req.get('host'));
     const today = new Date().toISOString().split('T')[0];
     const publicRoutes = [
       { loc: '/', priority: '1.0', changefreq: 'daily' },
