@@ -33,7 +33,7 @@ export class PartnerHierarchyService {
     return this.instance;
   }
 
-  // GAP 5+7+3 FIX: Create partner with 5-level delegation, referredById attribution, auto integrity check
+  // GAP 5+7+3 FIX: Create partner with 7-level delegation, referredById attribution, auto integrity check
   async createPartner(data: {
     companyName: string;
     contactEmail: string;
@@ -53,7 +53,7 @@ export class PartnerHierarchyService {
       if (parentPartner.hierarchyStatus !== 'ACTIVE') return { success: false, error: "Parent partner is not active" };
       if (parentPartner.kycStatus !== 'VERIFIED') return { success: false, error: "Parent partner KYC not verified" };
 
-      // GAP 5 FIX: Dynamic 5-level delegation (was hardcoded L1→L2→L3 only)
+      // GAP 5 FIX: Dynamic 7-level delegation (was hardcoded L1→L2→L3 only)
       const parentLevel = parentPartner.partnerLevel || 'L1';
       const childLevel = getChildLevel(parentLevel);
       if (!childLevel) {
