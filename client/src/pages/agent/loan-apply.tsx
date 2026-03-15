@@ -225,7 +225,7 @@ const bankStatusColors: Record<string, string> = {
   query_raised: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200",
 };
 
-const AGENT_ROLES = ["agent", "sub_agent", "master_agent", "associate"];
+const AGENT_ROLES = ["agent", "sub_agent", "master_agent", "associate", "district_associate", "field_associate"];
 
 export default function AgentLoanApplyPage() {
   const { toast } = useToast();

@@ -95,6 +95,8 @@ const COMMISSION_ROLES = [
   { id: 'agent', name: 'Agent', level: 3 },
   { id: 'sub_agent', name: 'Sub-Agent', level: 4 },
   { id: 'associate', name: 'Associate', level: 5 },
+  { id: 'district_associate', name: 'District Associate', level: 6 },
+  { id: 'field_associate', name: 'Field Associate', level: 7 },
 ];
 
 export default function CommissionMaster() {

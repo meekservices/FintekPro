@@ -18,6 +18,8 @@ const LEVEL_LABELS: Record<number, string> = {
   3: "Agent",
   4: "Field Executive",
   5: "Business Associate",
+  6: "District Associate",
+  7: "Field Associate",
 };
 
 export function UplineView() {

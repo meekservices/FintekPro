@@ -423,7 +423,9 @@ export default function DistributionPartnerPortal() {
                               'bg-muted text-foreground'
                             }>
                               {agent.agentLevel === 'master' ? 'Agent' : 
-                               agent.agentLevel === 'sub_agent' ? 'Field Executive' : 'Business Associate'}
+                               agent.agentLevel === 'sub_agent' ? 'Field Executive' :
+                               agent.agentLevel === 'district_associate' ? 'District Associate' :
+                               agent.agentLevel === 'field_associate' ? 'Field Associate' : 'Business Associate'}
                             </Badge>
                           </TableCell>
                           <TableCell>{agent.euinNumber || agent.arnCode || '-'}</TableCell>

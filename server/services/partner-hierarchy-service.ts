@@ -3,9 +3,9 @@ import { partners, partnerHierarchyAgreements, partnerClientOwnership, users } f
 import { eq, and, isNull, sql, desc } from "drizzle-orm";
 import { runFullIntegrityCheck } from "./hierarchy-integrity-validator";
 
-// GAP 5 FIX: 5-level delegation chain (was hardcoded to 3)
-const LEVEL_ORDER = ['L1', 'L2', 'L3', 'L4', 'L5'] as const;
-const MAX_HIERARCHY_LEVEL = 'L5'; // Business Associate — cannot create sub-partners
+// GAP 5 FIX: 7-level delegation chain (was hardcoded to 3, then extended to 5, now 7)
+const LEVEL_ORDER = ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7'] as const;
+const MAX_HIERARCHY_LEVEL = 'L7'; // Field Associate — cannot create sub-partners
 
 function getChildLevel(parentLevel: string): string | null {
   const idx = LEVEL_ORDER.indexOf(parentLevel as any);
@@ -19,6 +19,8 @@ const LEVEL_TYPE_MAP: Record<string, string> = {
   L3: 'AGENT',
   L4: 'FIELD_EXECUTIVE',
   L5: 'BUSINESS_ASSOCIATE',
+  L6: 'DISTRICT_ASSOCIATE',
+  L7: 'FIELD_ASSOCIATE',
 };
 
 export class PartnerHierarchyService {
@@ -59,9 +61,9 @@ export class PartnerHierarchyService {
       }
       const childType = LEVEL_TYPE_MAP[childLevel] || 'AGENT';
 
-      // GAP 5 FIX: Depth check uses dynamic maxDepth (default 5, not 3)
+      // GAP 5 FIX: Depth check uses dynamic maxDepth (default 7, not 3)
       const depth = await this.getPartnerDepth(data.parentPartnerId);
-      const maxDepth = parentPartner.maxDepth || 5;
+      const maxDepth = parentPartner.maxDepth || 7;
       if (depth >= maxDepth) return { success: false, error: `Maximum hierarchy depth (${maxDepth}) reached` };
 
       const existing = await db.select().from(partners).where(eq(partners.contactEmail, data.contactEmail)).limit(1);

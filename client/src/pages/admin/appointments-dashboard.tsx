@@ -157,6 +157,8 @@ export default function AdminAppointmentsDashboard() {
     const roleLabels: Record<string, string> = {
       sub_agent: "FIELD EXECUTIVE",
       associate: "BUSINESS ASSOCIATE",
+      district_associate: "DISTRICT ASSOCIATE",
+      field_associate: "FIELD ASSOCIATE",
     };
     return (
       <Badge className={roleColors[role] || "bg-muted text-foreground"}>
