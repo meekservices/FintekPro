@@ -27,14 +27,14 @@
   "screenshots": [
     {
       "src": "/icon-512.png",
-      "sizes": "512x512",
+      "sizes": "390x844",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "FintekPro - Your Financial Dashboard"
     },
     {
       "src": "/icon-512.png",
-      "sizes": "512x512",
+      "sizes": "844x390",
       "type": "image/png",
       "form_factor": "wide",
       "label": "FintekPro - Portfolio & Market Insights"
