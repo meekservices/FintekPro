@@ -735,11 +735,11 @@ export function registerKycV2ExtensionRoutes(app: Express) {
       const limit = Math.min(parseInt(req.query.limit as string || '100'), 200);
       const outcome = (req.query.outcome as string) || null;
 
-      const whereClause = outcome
-        ? `WHERE kvs.session_outcome = '${outcome.replace(/'/g, "''")}'`
-        : '';
+      const outcomeCondition = outcome
+        ? drizzleSql`WHERE kvs.session_outcome = ${outcome}`
+        : drizzleSql``;
 
-      const rows = await db.execute(drizzleSql.raw(`
+      const rows = await db.execute(drizzleSql`
         SELECT
           kvs.id AS "sessionId",
           kvs.user_id AS "userId",
@@ -758,10 +758,10 @@ export function registerKycV2ExtensionRoutes(app: Express) {
           u.kyc_status AS "kycStatus"
         FROM kyc_verification_sessions kvs
         LEFT JOIN users u ON u.id = kvs.user_id
-        ${whereClause}
+        ${outcomeCondition}
         ORDER BY kvs.started_at DESC
         LIMIT ${limit}
-      `));
+      `);
 
       const sessions = rows.rows ?? rows;
       res.json({ success: true, sessions, total: (sessions as any[]).length });
