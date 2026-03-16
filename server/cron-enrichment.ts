@@ -29,12 +29,25 @@ import type { StaggerFn } from './cron/utils';
 
 const STAGGER = 120_000; // 2 min between each staggered service start
 
+// ── Offloading guard ──────────────────────────────────────────────────────────
+// When ENRICHMENT_WORKER_URL is set in the environment (i.e. a dedicated
+// enrichment-worker Replit project is deployed), the main app skips every
+// enrichment job — both the scheduled initializeCronJobs() calls and the
+// module-level crons below — to avoid double-firing against the shared DB.
+const ENRICHMENT_OFFLOADED = !!process.env.ENRICHMENT_WORKER_URL;
+
 /**
  * Initialize all enrichment crons.
  * @param staggeredStart  - shared stagger helper from coordinator
  * @param delay           - current delay offset (ms); returned incremented
  */
 export function initializeEnrichmentCrons(staggeredStart: StaggerFn, delay: number): number {
+  if (ENRICHMENT_OFFLOADED) {
+    console.log('⏭️ [Enrichment] All crons SKIPPED — offloaded to dedicated enrichment worker');
+    console.log(`   Worker URL: ${process.env.ENRICHMENT_WORKER_URL}`);
+    return delay;
+  }
+
   if (!isProductionEnvironment()) {
     console.log('⏭️ [Enrichment] All MF/NAV/Benchmark enrichment schedulers SKIPPED (development mode)');
     console.log('   ℹ️ These will only run on production server between 8 PM - 8 AM IST');
@@ -279,7 +292,8 @@ export function initializeEnrichmentCrons(staggeredStart: StaggerFn, delay: numb
 
 // ── Fixed Income Status — runs at module load (production only) ─────────────
 // Daily at 6:05 AM IST (12:35 AM UTC)
-if (isProductionEnvironment()) {
+// Skipped when ENRICHMENT_WORKER_URL is set — the dedicated worker runs this.
+if (isProductionEnvironment() && !ENRICHMENT_OFFLOADED) {
   cron.schedule('35 0 * * *', async () => {
     console.log('[CRON] Starting Fixed Income status refresh...');
     try {
@@ -304,7 +318,8 @@ if (isProductionEnvironment()) {
 // ── Startup stock enrichment (production only) ───────────────────────────────
 // Delayed 5 min after boot so staggered production jobs settle first.
 // Skipped in development — production DB already has enriched data.
-if (isProductionEnvironment()) {
+// Skipped when ENRICHMENT_WORKER_URL is set — the dedicated worker runs this.
+if (isProductionEnvironment() && !ENRICHMENT_OFFLOADED) {
   setTimeout(async () => {
     try {
       const { db: dbConn } = await import('./db');

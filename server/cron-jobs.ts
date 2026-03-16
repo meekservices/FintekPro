@@ -59,6 +59,10 @@ export function initializeCronJobs(): void {
   let delay = 60_000; // first domain starts 1 min after boot
 
   // ── Enrichment domain (heaviest — MF/NAV/benchmark/stock, all production) ─
+  // If ENRICHMENT_WORKER_URL is set, initializeEnrichmentCrons() returns early
+  // and all enrichment crons (including module-level Fixed Income + startup
+  // enrichment) are silently skipped — the dedicated enrichment-worker project
+  // handles them instead. See workers/enrichment-worker.ts for deploy steps.
   delay = initializeEnrichmentCrons(staggeredStart, delay);
 
   // ── Unlisted marketplace domain ────────────────────────────────────────────

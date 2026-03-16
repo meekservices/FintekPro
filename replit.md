@@ -61,6 +61,58 @@ The original monolithic `server/cron-jobs.ts` (1,138 lines, 27+ jobs) was split 
 - `cron-unlisted.ts` — GIFT City maintenance moved from `30 20 * * *` → `50 20 * * *` (was colliding with MCA enrichment sweep)
 - `symbol-mapping-service.ts` — seeding skipped if >100 rows exist (was running 17,000 individual DB upserts on every restart)
 
+## Option B — Separate Replit Worker Projects (March 2026)
+
+Enrichment Worker is implemented and ready to deploy as a fully independent Replit project.
+
+### Architecture
+
+```
+User browser
+     │
+     ▼
+Main app (fintekpro)             ← KYC, MF, portfolio, auth, loans, CA
+     │
+     └── shares Neon DB ─────────────────────────────────────┐
+                                                              │
+Enrichment Worker (fintekpro-enrichment-worker)              │
+     • All market-data cron jobs                             ├── PRODUCTION_DATABASE_URL
+     • GET /health + GET /api/enrichment/status              │
+     • Deployed as always-on VM                              │
+     • Never touches user-facing routes                      │
+                                                             │
+(Future) Loan Worker / CA Worker                             │
+     • Loan orchestration + commission crons                 ┘
+```
+
+### Enrichment Worker deploy steps
+
+1. Fork the full codebase into a new Replit project
+2. Set run command: `NODE_ENV=production tsx workers/enrichment-worker.ts`
+3. Set deployment target to **autoscale / always-on VM** in `.replit`
+4. Set secrets in the new project: `PRODUCTION_DATABASE_URL` (same Neon DB), `FINNHUB_API_KEY`, optionally `FMP_API_KEY`, `ALPHA_VANTAGE_API_KEY`
+5. Deploy the new project → copy its public URL (e.g. `https://fintekpro-enrichment.yourname.replit.app`)
+6. In the **main app's** production secrets: `ENRICHMENT_WORKER_URL = <worker-url>`
+7. Redeploy the main app — it will log `⏭️ [Enrichment] All crons SKIPPED — offloaded to dedicated enrichment worker`
+
+### Key files
+
+| File | Purpose |
+|---|---|
+| `workers/enrichment-worker.ts` | Standalone entry point — runs enrichment crons, exposes `/health` and `/api/enrichment/status` |
+| `server/cron-enrichment.ts` | Contains `ENRICHMENT_OFFLOADED` guard — all crons (including module-level) skip when `ENRICHMENT_WORKER_URL` is set |
+| `server/cron-jobs.ts` | Coordinator — notes the offloading behaviour in comment above `initializeEnrichmentCrons()` call |
+
+### Backward compatibility
+
+If `ENRICHMENT_WORKER_URL` is **not** set, the main app runs all enrichment crons exactly as before. No change to existing behaviour.
+
+### Next candidates for Option B
+
+When ready, the same pattern can be applied to:
+- **Loan worker** — entry in `workers/loan-worker.ts`, sources from `server/loan-marketplace/`, `server/routes/loans/`, `server/dsa-loan-service.ts`. Env guard: `LOAN_WORKER_URL`.
+- **CA worker** — entry in `workers/ca-worker.ts`, sources from `server/ca-routes.ts`, `server/ca-assignment-service.ts`. Env guard: `CA_WORKER_URL`.
+
 ## Performance Optimizations (March 2026)
 
 ### Frontend Bundle Splitting (vite.config.ts)
