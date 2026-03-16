@@ -1279,7 +1279,7 @@ router.get("/api/agent/clients", requireAuth, async (req, res) => {
   try {
     const { users, prospectClients } = await import("@shared/schema");
     const { db } = await import("./db");
-    const { sql, eq } = await import("drizzle-orm");
+    const { sql, eq, and } = await import("drizzle-orm");
     
     const agentUser = await storage.getUser((req as any).user?.id);
     if (!agentUser) {
@@ -1299,7 +1299,10 @@ router.get("/api/agent/clients", requireAuth, async (req, res) => {
       })
       .from(users)
       .where(
-        sql`${users.agentId} = ${agentUser.id} AND 'client' = ANY(${users.roles})`
+        and(
+          eq(users.agentId, agentUser.id),
+          sql`'client' = ANY(${users.roles})`
+        )
       )
       .limit(100);
     
