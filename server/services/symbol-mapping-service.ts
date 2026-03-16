@@ -11,8 +11,17 @@ export class SymbolMappingService {
    * - For each mutual_fund with isin: INSERT AMFI entry (provider='AMFI', provider_symbol=scheme_code)
    */
   async seedSymbolMapping() {
-    console.log("🌱 Starting Symbol Mapping seeding...");
     try {
+      // Skip seeding if the table already has a healthy number of rows.
+      // Re-seeding thousands of rows on every restart is expensive and unnecessary
+      // once the initial seed is complete. Only run when table is empty or near-empty.
+      const countResult = await db.execute(sql`SELECT COUNT(*)::int AS cnt FROM symbol_mapping`);
+      const existingCount: number = (countResult as any).rows?.[0]?.cnt ?? (countResult as any)[0]?.cnt ?? 0;
+      if (existingCount > 100) {
+        console.log(`🌱 Symbol Mapping already seeded (${existingCount} rows) — skipping`);
+        return;
+      }
+      console.log("🌱 Starting Symbol Mapping seeding...");
       // 1. Seed from listed_stocks
       const stocks = await db.select().from(listedStocks).where(sql`isin IS NOT NULL`);
       console.log(`Found ${stocks.length} stocks to map`);
