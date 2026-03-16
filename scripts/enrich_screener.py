@@ -280,18 +280,31 @@ def get_symbols(conn, resume=False, limit=None):
     """Fetch symbols to enrich from screener_financials."""
     with conn.cursor() as cur:
         if resume:
-            cur.execute("""
-                SELECT DISTINCT symbol FROM screener_financials
-                WHERE roe IS NULL
-                ORDER BY symbol
-                %s
-            """ % (f"LIMIT {limit}" if limit else ""))
+            if limit is not None:
+                cur.execute("""
+                    SELECT DISTINCT symbol FROM screener_financials
+                    WHERE roe IS NULL
+                    ORDER BY symbol
+                    LIMIT %s
+                """, (limit,))
+            else:
+                cur.execute("""
+                    SELECT DISTINCT symbol FROM screener_financials
+                    WHERE roe IS NULL
+                    ORDER BY symbol
+                """)
         else:
-            cur.execute("""
-                SELECT DISTINCT symbol FROM screener_financials
-                ORDER BY symbol
-                %s
-            """ % (f"LIMIT {limit}" if limit else ""))
+            if limit is not None:
+                cur.execute("""
+                    SELECT DISTINCT symbol FROM screener_financials
+                    ORDER BY symbol
+                    LIMIT %s
+                """, (limit,))
+            else:
+                cur.execute("""
+                    SELECT DISTINCT symbol FROM screener_financials
+                    ORDER BY symbol
+                """)
         return [row[0] for row in cur.fetchall()]
 
 def update_symbol(conn, symbol: str, data: dict, beta: float | None):
