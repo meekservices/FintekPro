@@ -44,7 +44,8 @@ export async function proxyToPython(req: Request, res: Response, path: string): 
   const baseUrl = getBaseUrl();
   if (!baseUrl) {
     res.status(503).json({
-      error: 'Python Analytics Service not configured',
+      error: 'Quant analytics service unavailable',
+      degraded: true,
       detail: 'Set PYTHON_SERVICE_URL environment variable to enable the Python micro-service.',
       hint: 'Run services/python/ locally or deploy it and set PYTHON_SERVICE_URL to its URL.',
     });
