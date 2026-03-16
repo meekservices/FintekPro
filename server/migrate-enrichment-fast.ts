@@ -78,11 +78,12 @@ async function main() {
       return;
     }
 
-    const prodIds = await prodDb.execute(sql.raw(`SELECT ${config.id} FROM ${TABLE_NAME}`));
+    const colIdentifiers = config.columns.map(c => sql.identifier(c));
+    const prodIds = await prodDb.execute(sql`SELECT ${sql.identifier(config.id)} FROM ${sql.identifier(TABLE_NAME)}`);
     const existing = new Set((prodIds.rows as any[]).map(r => r[config.id]));
 
     const colList = config.columns.join(', ');
-    const allRows = await devDb.execute(sql.raw(`SELECT ${colList} FROM ${TABLE_NAME} ORDER BY ${config.id}`));
+    const allRows = await devDb.execute(sql`SELECT ${sql.join(colIdentifiers, sql.raw(', '))} FROM ${sql.identifier(TABLE_NAME)} ORDER BY ${sql.identifier(config.id)}`);
     const newRows = (allRows.rows as any[]).filter(r => !existing.has(r[config.id]));
     console.log(`📤 ${newRows.length} new rows to migrate`);
 
@@ -96,17 +97,13 @@ async function main() {
       ).join(',\n');
 
       try {
-        await prodDb.execute(sql.raw(
-          `INSERT INTO ${TABLE_NAME} (${colList}) VALUES ${valuesList} ON CONFLICT (${config.id}) DO NOTHING`
-        ));
+        await prodDb.execute(sql`INSERT INTO ${sql.identifier(TABLE_NAME)} (${sql.join(colIdentifiers, sql.raw(', '))}) VALUES ${sql.raw(valuesList)} ON CONFLICT (${sql.identifier(config.id)}) DO NOTHING`);
         migrated += batch.length;
       } catch (err: any) {
         for (const row of batch) {
           try {
             const vals = config.columns.map(col => escapeVal(row[col])).join(', ');
-            await prodDb.execute(sql.raw(
-              `INSERT INTO ${TABLE_NAME} (${colList}) VALUES (${vals}) ON CONFLICT (${config.id}) DO NOTHING`
-            ));
+            await prodDb.execute(sql`INSERT INTO ${sql.identifier(TABLE_NAME)} (${sql.join(colIdentifiers, sql.raw(', '))}) VALUES (${sql.raw(vals)}) ON CONFLICT (${sql.identifier(config.id)}) DO NOTHING`);
             migrated++;
           } catch {
             errors++;
@@ -119,7 +116,7 @@ async function main() {
       }
     }
 
-    const finalRes = await prodDb.execute(sql.raw(`SELECT COUNT(*) as cnt FROM ${TABLE_NAME}`));
+    const finalRes = await prodDb.execute(sql`SELECT COUNT(*) as cnt FROM ${sql.identifier(TABLE_NAME)}`);
     console.log(`✅ Done! Prod now: ${(finalRes.rows[0] as any).cnt} (migrated: ${migrated}, errors: ${errors})`);
   } finally {
     await devPool.end();
