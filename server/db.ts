@@ -6,11 +6,15 @@ import * as schema from "@shared/schema";
 neonConfig.webSocketConstructor = ws;
 neonConfig.pipelineConnect = false;
 
-const selectedDbUrl = process.env.PRODUCTION_DATABASE_URL;
+// Accept either secret name — NEON_DATABASE_URL is Replit's auto-provisioned
+// name for the same Neon connection string.
+const selectedDbUrl =
+  process.env.PRODUCTION_DATABASE_URL ||
+  process.env.NEON_DATABASE_URL;
 
 if (!selectedDbUrl) {
   throw new Error(
-    "PRODUCTION_DATABASE_URL is not set. Add it to your environment secrets.",
+    "No database URL found. Set PRODUCTION_DATABASE_URL or NEON_DATABASE_URL in your environment secrets.",
   );
 }
 
@@ -18,12 +22,16 @@ const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT
 
 export const isUsingProductionDb = true;
 
+const dbUrlSource = process.env.PRODUCTION_DATABASE_URL
+  ? 'PRODUCTION_DATABASE_URL'
+  : 'NEON_DATABASE_URL';
+
 if (!isProduction) {
-  console.log('🔗 [DB] Development using PRODUCTION database (shared read service, no mock data writes)');
+  console.log(`🔗 [DB] Development using PRODUCTION database via ${dbUrlSource}`);
 }
 
 if (isProduction) {
-  console.log('🔗 [DB] Production: connected to Neon database (PRODUCTION_DATABASE_URL)');
+  console.log(`🔗 [DB] Production: connected to Neon database via ${dbUrlSource}`);
 }
 
 // Autoscale: keep per-instance pool small so N concurrent instances stay within
