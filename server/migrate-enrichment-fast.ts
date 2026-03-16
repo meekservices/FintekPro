@@ -67,8 +67,8 @@ async function main() {
   const prodDb = drizzle(prodPool);
 
   try {
-    const devRes = await devDb.execute(sql.raw(`SELECT COUNT(*) as cnt FROM ${TABLE_NAME}`));
-    const prodRes = await prodDb.execute(sql.raw(`SELECT COUNT(*) as cnt FROM ${TABLE_NAME}`));
+    const devRes = await devDb.execute(sql`SELECT COUNT(*) as cnt FROM ${sql.identifier(TABLE_NAME)}`);
+    const prodRes = await prodDb.execute(sql`SELECT COUNT(*) as cnt FROM ${sql.identifier(TABLE_NAME)}`);
     const devCount = parseInt(String((devRes.rows[0] as any).cnt));
     const prodCount = parseInt(String((prodRes.rows[0] as any).cnt));
     console.log(`📋 ${TABLE_NAME}: Dev=${devCount}, Prod=${prodCount}`);
