@@ -1,7 +1,8 @@
 import os
 from fastapi import HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
+import jwt
+from jwt.exceptions import PyJWTError as JWTError
 from typing import Optional
 
 SECRET = os.getenv("SESSION_SECRET", "")
