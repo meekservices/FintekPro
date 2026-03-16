@@ -91,9 +91,12 @@ Enrichment Worker (fintekpro-enrichment-worker)              │
 2. Set run command: `NODE_ENV=production tsx workers/enrichment-worker.ts`
 3. Set deployment target to **autoscale / always-on VM** in `.replit`
 4. Set secrets in the new project: `PRODUCTION_DATABASE_URL` (same Neon DB), `FINNHUB_API_KEY`, optionally `FMP_API_KEY`, `ALPHA_VANTAGE_API_KEY`
-5. Deploy the new project → copy its public URL (e.g. `https://fintekpro-enrichment.yourname.replit.app`)
-6. In the **main app's** production secrets: `ENRICHMENT_WORKER_URL = <worker-url>`
+5. Deploy the new project → copy its public URL
+6. In the **main app's** production env: `ENRICHMENT_WORKER_URL = <worker-url>`
 7. Redeploy the main app — it will log `⏭️ [Enrichment] All crons SKIPPED — offloaded to dedicated enrichment worker`
+
+**Current deployment:** Enrichment Worker is live at `https://enrich.fintekpro.com` (custom domain, verified).
+`ENRICHMENT_WORKER_URL` is set to `https://enrich.fintekpro.com` in the main app's production environment.
 
 ### Key files
 
