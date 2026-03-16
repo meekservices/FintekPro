@@ -776,16 +776,15 @@ export function registerKycV2ExtensionRoutes(app: Express) {
       const { userId } = req.body;
 
       if (userId) {
-        const safeId = userId.replace(/'/g, "''");
-        await db.execute(drizzleSql.raw(`
+        await db.execute(drizzleSql`
           UPDATE kyc_verification_sessions
           SET session_outcome = 'reset_by_admin', is_active = false
-          WHERE user_id = '${safeId}'
-        `));
-        await db.execute(drizzleSql.raw(`
+          WHERE user_id = ${userId}
+        `);
+        await db.execute(drizzleSql`
           UPDATE users SET kyc_status = NULL, ckyc_status = NULL
-          WHERE id = '${safeId}'
-        `));
+          WHERE id = ${userId}
+        `);
         return res.json({ success: true, message: `KYC reset for user ${userId}` });
       }
 
