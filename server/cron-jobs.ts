@@ -237,13 +237,16 @@ export function initializeCronJobs(): void {
     console.log('   ℹ️ These will only run on production server between 8 PM - 8 AM IST');
   }
 
-  // ── Startup stock enrichment (ALL environments) ──────────────────────────────
+  // ── Startup stock enrichment (production only) ───────────────────────────────
   // Runs once at server start to fill listed_stocks with Screener.in fundamentals.
-  // Production: top 20 stocks only (VM memory constraint), delayed 5 min to let
-  //   staggered production jobs (REIT/MF/AIF/PMS etc.) settle first.
-  // Development: top 20 stocks, delayed 90s (no competing staggered jobs).
-  const startupEnrichLimit = isProductionEnvironment() ? 20 : 20;
-  const startupEnrichDelay = isProductionEnvironment() ? 300000 : 90000; // 5 min prod, 90s dev
+  // Top 20 stale stocks only; delayed 5 min so staggered production jobs settle first.
+  // Skipped in development — the shared production DB already has enriched data,
+  // and firing Screener.in HTTP calls 90s after every dev restart is unnecessary noise.
+  if (!isProductionEnvironment()) {
+    console.log('⏭️ [StartupEnrich] Stock enrichment skipped (development mode - production only)');
+  } else {
+  const startupEnrichLimit = 20;
+  const startupEnrichDelay = 300000; // 5 min — let staggered production jobs settle first
   setTimeout(async () => {
     try {
       const { db: dbConn } = await import('./db');
@@ -316,7 +319,8 @@ export function initializeCronJobs(): void {
       console.warn('[Startup] Stock enrichment startup pass failed:', e?.message?.slice(0, 80));
     }
   }, startupEnrichDelay);
-  
+  } // end production-only startup enrichment block
+
   // Probe42 Sync Job - Run every 6 hours (production only - writes to DB)
   // Staggered to 05:xx to avoid collision with Stale Order Cleanup at 00:xx
   if (isProductionEnvironment()) {
@@ -938,8 +942,9 @@ export function initializeCronJobs(): void {
     });
     console.log('📊 [DailyReconciliation] Daily reconciliation scheduled (1:00 AM IST)');
     
-    // GIFT City Product Maintenance - Run daily at 2:00 AM IST (8:30 PM UTC previous day)
-    cron.schedule('30 20 * * *', async () => {
+    // GIFT City Product Maintenance - Run daily at 2:20 AM IST (8:50 PM UTC previous day)
+    // Staggered 20 min after MCA Enrichment Sweep which runs at 2:00 AM IST ('30 20 * * *')
+    cron.schedule('50 20 * * *', async () => {
       console.log('[CRON] Starting GIFT City product maintenance...');
       try {
         const result = await giftCityMaintenanceService.runMaintenance();
@@ -954,7 +959,7 @@ export function initializeCronJobs(): void {
         console.error('[CRON] GIFT City maintenance job failed:', error.message);
       }
     });
-    console.log('🏙️ [GiftCityMaintenance] Daily maintenance scheduled (2:00 AM IST)');
+    console.log('🏙️ [GiftCityMaintenance] Daily maintenance scheduled (2:20 AM IST)');
   } else {
     console.log('⏭️ [CompanyRefresh/Reconciliation/GIFTCity] Skipped (development mode - production only)');
   }
