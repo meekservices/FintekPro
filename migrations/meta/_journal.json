@@ -1,20 +1,5 @@
 {
   "version": "7",
   "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1769010805190,
-      "tag": "0000_wonderful_cammi",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1772168684336,
-      "tag": "0001_fix_mf_metrics_separation",
-      "breakpoints": true
-    }
-  ]
+  "entries": []
 }
