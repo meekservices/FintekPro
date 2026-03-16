@@ -127,21 +127,18 @@ async function migrateHistoricalNav(devDb: any, prodDb: any): Promise<MigrationR
   for (let si = 0; si < missingSchemes.length; si++) {
     const scheme = missingSchemes[si];
     try {
-      const rows = await devDb.execute(sql.raw(
-        `SELECT id, scheme_code, nav_date, nav_value, created_at FROM ${tableName} WHERE scheme_code = '${String(scheme).replace(/'/g, "''")}'`
-      ));
+      const rows = await devDb.execute(
+        sql`SELECT id, scheme_code, nav_date, nav_value, created_at FROM ${sql.raw(tableName)} WHERE scheme_code = ${scheme}`
+      );
 
       for (const row of rows.rows as any[]) {
         try {
           const navDate = row.nav_date instanceof Date ? row.nav_date.toISOString().split('T')[0] : row.nav_date;
-          const createdAt = row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at;
-          const navVal = row.nav_value === null ? 'NULL' : String(row.nav_value);
-          const id = String(row.id).replace(/'/g, "''");
-          const sc = String(row.scheme_code).replace(/'/g, "''");
+          const createdAt = row.created_at instanceof Date ? row.created_at.toISOString() : (row.created_at ?? null);
 
-          await prodDb.execute(sql.raw(
-            `INSERT INTO ${tableName} (id, scheme_code, nav_date, nav_value, created_at) VALUES ('${id}', '${sc}', '${navDate}', ${navVal}, ${createdAt ? `'${createdAt}'` : 'NOW()'}) ON CONFLICT (id) DO NOTHING`
-          ));
+          await prodDb.execute(
+            sql`INSERT INTO ${sql.raw(tableName)} (id, scheme_code, nav_date, nav_value, created_at) VALUES (${row.id}, ${row.scheme_code}, ${navDate}, ${row.nav_value}, ${createdAt ?? sql`NOW()`}) ON CONFLICT (id) DO NOTHING`
+          );
           migrated++;
         } catch {
           errors++;
@@ -161,13 +158,12 @@ async function migrateHistoricalNav(devDb: any, prodDb: any): Promise<MigrationR
   let gapRows = 0;
   for (const scheme of schemesWithGaps) {
     try {
-      const sc = String(scheme).replace(/'/g, "''");
-      const devDates = await devDb.execute(sql.raw(
-        `SELECT COUNT(*) as cnt FROM ${tableName} WHERE scheme_code = '${sc}'`
-      ));
-      const prodDates = await prodDb.execute(sql.raw(
-        `SELECT COUNT(*) as cnt FROM ${tableName} WHERE scheme_code = '${sc}'`
-      ));
+      const devDates = await devDb.execute(
+        sql`SELECT COUNT(*) as cnt FROM ${sql.raw(tableName)} WHERE scheme_code = ${scheme}`
+      );
+      const prodDates = await prodDb.execute(
+        sql`SELECT COUNT(*) as cnt FROM ${sql.raw(tableName)} WHERE scheme_code = ${scheme}`
+      );
       const devN = parseInt(String((devDates.rows[0] as any)?.cnt || '0'));
       const prodN = parseInt(String((prodDates.rows[0] as any)?.cnt || '0'));
       if (devN > prodN) {
