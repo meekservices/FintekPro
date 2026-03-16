@@ -72,9 +72,9 @@ async function migrateTable(
           return `'${escaped}'`;
         }).join(', ');
 
-        await prodDb.execute(sql.raw(
-          `INSERT INTO ${tableName} (${colList}) VALUES (${values}) ON CONFLICT (${idColumn}) DO NOTHING`
-        ));
+        await prodDb.execute(
+          sql`INSERT INTO ${sql.identifier(tableName)} (${sql.raw(colList)}) VALUES (${sql.raw(values)}) ON CONFLICT (${sql.identifier(idColumn)}) DO NOTHING`
+        );
         migrated++;
       } catch (err: any) {
         errors++;
