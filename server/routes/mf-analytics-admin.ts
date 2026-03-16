@@ -10,7 +10,8 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { callPython } from '../clients/python-client';
-import { pool } from '../db';
+import { db } from '../db';
+import { sql } from 'drizzle-orm';
 
 const router = Router();
 
@@ -33,7 +34,7 @@ router.get('/api/admin/mf-analytics/coverage', requireAuth, async (req: Request,
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
-    const result = await pool.query(`
+    const result = await db.execute(sql`
       SELECT
         (SELECT COUNT(*) FROM mutual_fund_metrics) AS mfm_total,
         (SELECT ROUND(100.0 * COUNT(return_1y) / NULLIF(COUNT(*),0), 1) FROM mutual_fund_metrics) AS pct_1y,
