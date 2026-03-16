@@ -41,6 +41,26 @@ Extracted files live in `server/routes/` and export `registerXxxRoutes(app: Expr
 - Dynamic imports adjusted: `"./services/"` → `"../services/"`
 - `isProductionEnvironment` from `'../utils/enrichment-guard'` where needed
 
+## Cron Job Reorganisation (March 2026)
+
+The original monolithic `server/cron-jobs.ts` (1,138 lines, 27+ jobs) was split into domain files. The coordinator is now 79 lines.
+
+| File | Domain | Jobs |
+|---|---|---|
+| `server/cron-enrichment.ts` | Market data & pricing | REIT, MF/AIF/PMS/Commodity NAV syncs, benchmarks, stock enrichment, corporate actions, Golden Pricing, Fixed Income status |
+| `server/cron-unlisted.ts` | Unlisted marketplace & company intelligence | Probe42 sync, expiry warnings, price suggestions, MoneyControl, MCA enrichment, valuation governance |
+| `server/cron-order-ops.ts` | Unified order operations | Stale payment cleanup, processing timeout, KYC upgrade reminders |
+| `server/cron-compliance.ts` | Compliance & audit | CKYC SLA, audit integrity, daily reconciliation, GIFT City maintenance, error digest |
+| `server/cron-jobs.ts` | Coordinator only | Imports + calls each domain; documents full schedule |
+| `server/cron/utils.ts` | Shared utility | `staggeredStart` helper |
+
+**Rules when adding a cron job:** Find the correct domain file and add it there. Never add inline crons to `cron-jobs.ts`.
+
+**Scheduling fixes applied:**
+- `cron-enrichment.ts` — Fixed Income status + startup stock enrichment are **production-only** (previously fired in dev too)
+- `cron-unlisted.ts` — GIFT City maintenance moved from `30 20 * * *` → `50 20 * * *` (was colliding with MCA enrichment sweep)
+- `symbol-mapping-service.ts` — seeding skipped if >100 rows exist (was running 17,000 individual DB upserts on every restart)
+
 ## Performance Optimizations (March 2026)
 
 ### Frontend Bundle Splitting (vite.config.ts)
