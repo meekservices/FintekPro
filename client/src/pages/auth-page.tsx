@@ -20,7 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSubdomain } from "@/hooks/useSubdomain";
 import { SessionConflictDialog } from "@/components/SessionConflictDialog";
 import { useSession } from "@/contexts/session-context";
-import { Loader2, Eye, EyeOff, Shield, TrendingUp, BarChart3, MessageSquare, CheckCircle2, Mail, Smartphone, User, Info, Clock, RefreshCw, AlertCircle, Phone, LogIn, Users } from "lucide-react";
+import { Loader2, Eye, EyeOff, Shield, TrendingUp, BarChart3, MessageSquare, CheckCircle2, Mail, Smartphone, User, Info, Clock, RefreshCw, AlertCircle, Phone, LogIn, Users, Lock } from "lucide-react";
 import { usePortalMeta } from "@/components/portal/PortalLogo";
 import { PORTAL_BRAND_CONFIG, resolvePortalType } from "@shared/portal";
 import mainLogoImg from "@assets/fintekpro_main_1772539048013.png";
@@ -169,6 +169,10 @@ export default function AuthPage() {
   const [sessionConflictOpen, setSessionConflictOpen] = useState(false);
   const [sessionCount, setSessionCount] = useState(0);
   const [pendingLoginData, setPendingLoginData] = useState<LoginFormData | null>(null);
+
+  // Agent portal OTP Login (passwordless) states
+  const [loginMethod, setLoginMethod] = useState<'password' | 'otp'>('password');
+  const [otpLoginEmail, setOtpLoginEmail] = useState('');
 
   // OTP Timer Countdown (Login)
   useEffect(() => {
@@ -636,6 +640,32 @@ export default function AuthPage() {
     },
   });
 
+  // Passwordless OTP request (agent portal OTP Login tab)
+  const requestOtpMutation = useMutation({
+    mutationFn: async (identifier: string) => {
+      const response = await apiRequest("/api/login/request-otp", {
+        method: "POST",
+        body: JSON.stringify({ identifier }),
+      });
+      return response;
+    },
+    onSuccess: (data: any) => {
+      const sentTo = data?.otpSentTo || "your registered mobile";
+      const resolvedIdentifier = data?.identifier || otpLoginEmail;
+      setLoginIdentifier(resolvedIdentifier);
+      setOtpChannel(sentTo);
+      setOtpTimer(300);
+      setCanResendOtp(false);
+      otpForm.setValue("identifier", resolvedIdentifier);
+      setOtpDialogOpen(true);
+      setLoginStep("otp");
+      toast({ title: "OTP Sent", description: `Verification code sent to ${sentTo}` });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   // Redirect if already authenticated
   useEffect(() => {
     if (!isAuthLoading && user) {
@@ -706,6 +736,307 @@ export default function AuthPage() {
     chart: BarChart3,
     message: MessageSquare,
   };
+
+  // ── Agent Portal: dedicated full-page layout ──────────────────────────────
+  if (portalType === 'agent') {
+    const agentForgotPasswordDialog = (
+      <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+        <DialogTrigger asChild>
+          <button type="button" className="text-sm text-blue-600 hover:underline">
+            Forgot password?
+          </button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{resetPasswordStep === "request" ? "Reset Password" : "Enter OTP & New Password"}</DialogTitle>
+            <DialogDescription>
+              {resetPasswordStep === "request"
+                ? "Enter your email or mobile number to receive a password reset OTP"
+                : "Enter the OTP sent to your email/mobile and your new password"}
+            </DialogDescription>
+          </DialogHeader>
+          {resetPasswordStep === "request" ? (
+            <form onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-4">
+              <div>
+                <Label htmlFor="agent-forgot-id">Email or Mobile Number</Label>
+                <Input id="agent-forgot-id" {...forgotPasswordForm.register("identifier")} placeholder="user@example.com or 9876543210" />
+                {forgotPasswordForm.formState.errors.identifier && (
+                  <p className="text-sm text-red-600 mt-1">{forgotPasswordForm.formState.errors.identifier.message}</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setForgotPasswordOpen(false)}>Cancel</Button>
+                <Button type="submit" className="flex-1" disabled={forgotPasswordMutation.isPending}>
+                  {forgotPasswordMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Send OTP
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={resetPasswordForm.handleSubmit(onResetPasswordSubmit)} className="space-y-4">
+              <div>
+                <Label>OTP Code</Label>
+                <Input {...resetPasswordForm.register("otp")} placeholder="6-digit OTP" maxLength={6} />
+                {resetPasswordForm.formState.errors.otp && <p className="text-sm text-red-600 mt-1">{resetPasswordForm.formState.errors.otp.message}</p>}
+              </div>
+              <div>
+                <Label>New Password</Label>
+                <Input {...resetPasswordForm.register("newPassword")} type="password" placeholder="New password" />
+                {resetPasswordForm.formState.errors.newPassword && <p className="text-sm text-red-600 mt-1">{resetPasswordForm.formState.errors.newPassword.message}</p>}
+              </div>
+              <div>
+                <Label>Confirm Password</Label>
+                <Input {...resetPasswordForm.register("confirmPassword")} type="password" placeholder="Confirm password" />
+                {resetPasswordForm.formState.errors.confirmPassword && <p className="text-sm text-red-600 mt-1">{resetPasswordForm.formState.errors.confirmPassword.message}</p>}
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setResetPasswordStep("request")}>Back</Button>
+                <Button type="submit" className="flex-1" disabled={resetPasswordMutation.isPending}>
+                  {resetPasswordMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Reset Password
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+    );
+
+    return (
+      <div className="min-h-screen flex flex-col lg:flex-row">
+        {/* ── Left Panel – dark navy with network pattern ── */}
+        <div className="lg:w-1/2 flex flex-col justify-between p-10 lg:p-16 relative overflow-hidden min-h-[260px] lg:min-h-screen" style={{ background: '#0d1b2e' }}>
+          {/* Network / constellation SVG background */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+            <g stroke="#3b82f6" strokeOpacity="0.12" strokeWidth="1">
+              <line x1="60" y1="90" x2="190" y2="170" /><line x1="190" y1="170" x2="330" y2="75" />
+              <line x1="330" y1="75" x2="490" y2="130" /><line x1="490" y1="130" x2="610" y2="55" />
+              <line x1="610" y1="55" x2="720" y2="145" /><line x1="60" y1="90" x2="110" y2="260" />
+              <line x1="110" y1="260" x2="210" y2="305" /><line x1="210" y1="305" x2="310" y2="255" />
+              <line x1="310" y1="255" x2="330" y2="75" /><line x1="410" y1="195" x2="460" y2="355" />
+              <line x1="460" y1="355" x2="560" y2="285" /><line x1="560" y1="285" x2="660" y2="225" />
+              <line x1="660" y1="225" x2="720" y2="145" /><line x1="110" y1="260" x2="185" y2="455" />
+              <line x1="185" y1="455" x2="285" y2="385" /><line x1="285" y1="385" x2="385" y2="455" />
+              <line x1="490" y1="505" x2="585" y2="425" /><line x1="585" y1="425" x2="685" y2="385" />
+              <line x1="685" y1="385" x2="760" y2="305" /><line x1="125" y1="555" x2="225" y2="525" />
+              <line x1="225" y1="525" x2="325" y2="560" /><line x1="325" y1="560" x2="490" y2="505" />
+            </g>
+            <g fill="#60a5fa" fillOpacity="0.35">
+              <circle cx="60" cy="90" r="3" /><circle cx="190" cy="170" r="2.5" /><circle cx="330" cy="75" r="3" />
+              <circle cx="490" cy="130" r="2" /><circle cx="610" cy="55" r="3" /><circle cx="720" cy="145" r="2.5" />
+              <circle cx="110" cy="260" r="2" /><circle cx="210" cy="305" r="3" /><circle cx="310" cy="255" r="2" />
+              <circle cx="410" cy="195" r="2.5" /><circle cx="460" cy="355" r="3" /><circle cx="560" cy="285" r="2" />
+              <circle cx="660" cy="225" r="2.5" /><circle cx="185" cy="455" r="2" /><circle cx="285" cy="385" r="3" />
+              <circle cx="385" cy="455" r="2" /><circle cx="490" cy="505" r="2.5" /><circle cx="585" cy="425" r="2" />
+              <circle cx="685" cy="385" r="3" /><circle cx="760" cy="305" r="2" /><circle cx="125" cy="555" r="2.5" />
+              <circle cx="225" cy="525" r="2" /><circle cx="325" cy="560" r="3" />
+            </g>
+          </svg>
+
+          {/* Logo */}
+          <div className="relative z-10 flex items-center gap-3">
+            <img src={agentLogoImg} alt="FintekPro" className="h-9 object-contain" />
+            <span className="text-white text-lg font-semibold tracking-wide">FintekPro</span>
+          </div>
+
+          {/* Hero content */}
+          <div className="relative z-10 mt-auto pt-12">
+            <h1 className="text-3xl lg:text-4xl font-bold text-white leading-tight mb-4">
+              Empower your<br />advisory business.
+            </h1>
+            <p className="text-blue-200/65 text-sm lg:text-base mb-10 leading-relaxed max-w-sm">
+              The complete toolkit for SEBI-registered distributors and advisors.
+              Manage clients, execute trades, and grow your AUM efficiently.
+            </p>
+            {/* Stats */}
+            <div className="flex gap-10">
+              <div>
+                <div className="text-white text-2xl font-bold">₹5k+ Cr</div>
+                <div className="text-blue-300/55 text-xs uppercase tracking-widest mt-0.5">AUM Managed</div>
+              </div>
+              <div>
+                <div className="text-white text-2xl font-bold">10k+</div>
+                <div className="text-blue-300/55 text-xs uppercase tracking-widest mt-0.5">Active Agents</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Right Panel – white login form ── */}
+        <div className="lg:w-1/2 bg-white flex flex-col items-center justify-center p-8 relative min-h-[500px]">
+          {/* SSL badge */}
+          <div className="absolute top-4 right-5 flex items-center gap-1.5 text-xs text-green-600 font-medium">
+            <Shield className="h-3.5 w-3.5" />
+            Secure SSL Connection
+          </div>
+
+          <div className="w-full max-w-sm">
+            <h2 className="text-2xl font-bold text-gray-900 mb-1 text-center">Agent Portal</h2>
+            <p className="text-sm text-gray-500 mb-7 text-center">Sign in to manage your practice</p>
+
+            {/* Method toggle */}
+            <div className="bg-gray-100 rounded-lg p-1 flex mb-6 gap-1">
+              <button
+                type="button"
+                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${loginMethod === 'password' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setLoginMethod('password')}
+              >
+                Password
+              </button>
+              <button
+                type="button"
+                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${loginMethod === 'otp' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setLoginMethod('otp')}
+              >
+                OTP Login
+              </button>
+            </div>
+
+            {/* Password login form */}
+            {loginMethod === 'password' && (
+              <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+                <div>
+                  <Label htmlFor="agent-pw-id" className="text-gray-700 text-sm font-medium">Email Address</Label>
+                  <div className="relative mt-1">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="agent-pw-id"
+                      {...loginForm.register("identifier")}
+                      placeholder="agent@fintekpro.in"
+                      className="pl-9"
+                      autoFocus
+                    />
+                  </div>
+                  {loginForm.formState.errors.identifier && (
+                    <p className="text-sm text-red-600 mt-1">{loginForm.formState.errors.identifier.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label htmlFor="agent-pw-pass" className="text-gray-700 text-sm font-medium">Password</Label>
+                    {agentForgotPasswordDialog}
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="agent-pw-pass"
+                      {...loginForm.register("password")}
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      className="pl-9 pr-10"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {loginForm.formState.errors.password && (
+                    <p className="text-sm text-red-600 mt-1">{loginForm.formState.errors.password.message}</p>
+                  )}
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                  disabled={loginMutation.isPending || sessionCheckMutation.isPending}
+                >
+                  {(loginMutation.isPending || sessionCheckMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Sign In
+                </Button>
+              </form>
+            )}
+
+            {/* OTP Login (passwordless) form */}
+            {loginMethod === 'otp' && (
+              <form onSubmit={(e) => { e.preventDefault(); if (otpLoginEmail.trim()) requestOtpMutation.mutate(otpLoginEmail.trim()); }} className="space-y-4">
+                <div>
+                  <Label htmlFor="agent-otp-id" className="text-gray-700 text-sm font-medium">Mobile or Email</Label>
+                  <div className="relative mt-1">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="agent-otp-id"
+                      value={otpLoginEmail}
+                      onChange={(e) => setOtpLoginEmail(e.target.value)}
+                      placeholder="9876543210 or agent@email.com"
+                      className="pl-9"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                  disabled={requestOtpMutation.isPending || !otpLoginEmail.trim()}
+                >
+                  {requestOtpMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Send OTP
+                </Button>
+              </form>
+            )}
+
+            <p className="text-center text-sm text-gray-400 mt-7">
+              Need an agent account?{" "}
+              <a href="https://partner.fintekpro.com" className="text-blue-600 font-medium hover:underline">
+                Apply to partner
+              </a>
+            </p>
+          </div>
+        </div>
+
+        {/* Shared dialogs */}
+        <Dialog open={otpDialogOpen} onOpenChange={setOtpDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-blue-600" />
+                Enter Verification Code
+              </DialogTitle>
+              <DialogDescription>We've sent a 6-digit code to <strong>{otpChannel}</strong></DialogDescription>
+            </DialogHeader>
+            <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-4">
+              <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2 text-blue-700">
+                  <Clock className="h-4 w-4" />
+                  {otpTimer > 0 ? `Code expires in ${formatTime(otpTimer)}` : "Code expired"}
+                </div>
+                {canResendOtp && (
+                  <Button type="button" variant="ghost" size="sm" onClick={handleResendOtp} disabled={otpSending} className="text-blue-600 h-auto p-0 hover:bg-transparent">
+                    {otpSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><RefreshCw className="h-3 w-3 mr-1" />Resend</>}
+                  </Button>
+                )}
+              </div>
+              <div>
+                <Label>6-Digit Code</Label>
+                <Input {...otpForm.register("otp")} placeholder="000000" maxLength={6} autoFocus className="text-center text-2xl tracking-widest font-mono mt-1" />
+                {otpForm.formState.errors.otp && <p className="text-sm text-red-600 mt-1">{otpForm.formState.errors.otp.message}</p>}
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => { setOtpDialogOpen(false); otpForm.reset(); setLoginStep("credentials"); }}>Cancel</Button>
+                <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700" disabled={otpVerificationMutation.isPending}>
+                  {otpVerificationMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Verify Code
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        <SessionConflictDialog
+          open={sessionConflictOpen}
+          sessionCount={sessionCount}
+          onContinue={handleContinueSession}
+          onForceLogout={handleForceLogout}
+          isLoading={forceLogoutMutation.isPending}
+        />
+      </div>
+    );
+  }
+  // ── End Agent Portal layout ───────────────────────────────────────────────
 
   return (
     <div className="min-h-screen" style={{ background: `linear-gradient(135deg, ${portalColor}08 0%, ${portalColor}15 100%)` }}>

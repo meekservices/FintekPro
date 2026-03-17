@@ -818,6 +818,58 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Request OTP for passwordless login (agent portal OTP Login tab)
+  app.post("/api/login/request-otp", async (req, res) => {
+    try {
+      const { identifier } = req.body;
+      if (!identifier) {
+        return apiResponse.badRequest(res, "Identifier is required");
+      }
+
+      let user;
+      if (identifier.includes("@")) {
+        user = await storage.getUserByEmail(identifier.trim());
+      } else {
+        user = await storage.getUserByMobile(identifier.trim());
+      }
+
+      if (!user) {
+        return apiResponse.notFound(res, "No account found with this email or mobile number");
+      }
+
+      if (!user.isActive) {
+        return apiResponse.badRequest(res, "Account is not active. Please contact support.");
+      }
+
+      const otp = generateOtp();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+      const otpTarget = user.mobile || user.email;
+      const otpType = user.mobile ? "mobile" : "email";
+
+      await storage.createOtpVerification({
+        identifier: otpTarget,
+        otp,
+        type: otpType,
+        expiresAt,
+        verified: false,
+      });
+
+      console.log(`[OTP Login] OTP for ${otpTarget} (${otpType}): ${otp}`);
+
+      const maskedTarget = otpType === "mobile"
+        ? `mobile ending in ${otpTarget.slice(-4)}`
+        : user.email;
+
+      return apiResponse.success(res, {
+        otpSentTo: maskedTarget,
+        identifier: otpTarget,
+      }, "OTP sent successfully");
+    } catch (error) {
+      console.error("OTP login request error:", error);
+      return apiResponse.serverError(res, "Failed to send OTP");
+    }
+  });
+
   // Verify OTP and complete login - mandatory second-layer authentication
   app.post("/api/login/verify-otp", async (req, res) => {
     try {
