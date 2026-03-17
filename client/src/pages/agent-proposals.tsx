@@ -90,13 +90,13 @@ interface ProposalItem {
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
-  pending_review: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
-  shared: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-  client_viewed: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300",
-  approved: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-  rejected: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
-  executed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
-  expired: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
+  pending_review: "bg-status-warning text-status-warning-fg",
+  shared: "bg-status-info text-status-info-fg",
+  client_viewed: "bg-status-viewed text-status-viewed-fg",
+  approved: "bg-status-success text-status-success-fg",
+  rejected: "bg-destructive/15 text-destructive",
+  executed: "bg-status-executed text-status-executed-fg",
+  expired: "bg-status-expired text-status-expired-fg",
 };
 
 const WORKFLOW_STEPS = [

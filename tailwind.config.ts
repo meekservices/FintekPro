@@ -61,6 +61,20 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        status: {
+          warning: "hsl(var(--status-warning))",
+          "warning-fg": "hsl(var(--status-warning-fg))",
+          info: "hsl(var(--status-info))",
+          "info-fg": "hsl(var(--status-info-fg))",
+          viewed: "hsl(var(--status-viewed))",
+          "viewed-fg": "hsl(var(--status-viewed-fg))",
+          success: "hsl(var(--status-success))",
+          "success-fg": "hsl(var(--status-success-fg))",
+          executed: "hsl(var(--status-executed))",
+          "executed-fg": "hsl(var(--status-executed-fg))",
+          expired: "hsl(var(--status-expired))",
+          "expired-fg": "hsl(var(--status-expired-fg))",
+        },
         // Finance-specific colors from design reference
         "finance-blue": "hsl(214, 84%, 56%)", // #1e40af equivalent
         "finance-green": "hsl(150, 80%, 40%)", // #10b981 equivalent

@@ -40,6 +40,18 @@
   --font-serif: 'Georgia', serif;
   --font-mono: 'Fira Code', 'Consolas', 'Monaco', monospace;
   --radius: 0.5rem;
+  --status-warning: 48 96% 89%;
+  --status-warning-fg: 32 81% 29%;
+  --status-info: 214 100% 93%;
+  --status-info-fg: 214 72% 35%;
+  --status-viewed: 238 100% 93%;
+  --status-viewed-fg: 238 55% 40%;
+  --status-success: 142 76% 90%;
+  --status-success-fg: 142 60% 28%;
+  --status-executed: 152 76% 90%;
+  --status-executed-fg: 152 60% 30%;
+  --status-expired: 33 100% 92%;
+  --status-expired-fg: 21 70% 40%;
 }
 
 .dark {
@@ -75,6 +87,18 @@
   --sidebar-accent-foreground: 214 84% 60%;
   --sidebar-border: 217 33% 28%;
   --sidebar-ring: 214 84% 56%;
+  --status-warning: 32 81% 20%;
+  --status-warning-fg: 48 96% 77%;
+  --status-info: 214 84% 22%;
+  --status-info-fg: 214 100% 80%;
+  --status-viewed: 238 55% 22%;
+  --status-viewed-fg: 238 100% 85%;
+  --status-success: 142 60% 18%;
+  --status-success-fg: 142 76% 72%;
+  --status-executed: 152 60% 18%;
+  --status-executed-fg: 152 76% 72%;
+  --status-expired: 21 70% 18%;
+  --status-expired-fg: 33 100% 77%;
 }
 
 @layer base {
