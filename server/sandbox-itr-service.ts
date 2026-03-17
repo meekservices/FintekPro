@@ -282,8 +282,8 @@ export interface Form26ASOCRResponse {
 }
 
 const SANDBOX_ERI_TEST_CREDENTIALS = {
-  user_id: 'ERIP000325',
-  password: 'ERIP000325@abc',
+  user_id: process.env.SANDBOX_ERI_USER_ID || '',
+  password: process.env.SANDBOX_ERI_PASSWORD || '',
 };
 
 const SANDBOX_ITR_TEST_PANS: Record<string, { pan: string; description: string; itrForm: string }> = {
