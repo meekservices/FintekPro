@@ -24,10 +24,10 @@ async function migrateTable(
 ): Promise<MigrationResult> {
   console.log(`\n📋 Migrating: ${tableName}`);
 
-  const devCountRes = await devDb.execute(sql.raw(`SELECT COUNT(*) as cnt FROM ${tableName}`));
+  const devCountRes = await devDb.execute(sql`SELECT COUNT(*) as cnt FROM ${sql.identifier(tableName)}`);
   const devCount = parseInt(String((devCountRes.rows[0] as any)?.cnt || '0'));
 
-  const prodCountRes = await prodDb.execute(sql.raw(`SELECT COUNT(*) as cnt FROM ${tableName}`));
+  const prodCountRes = await prodDb.execute(sql`SELECT COUNT(*) as cnt FROM ${sql.identifier(tableName)}`);
   const prodCountBefore = parseInt(String((prodCountRes.rows[0] as any)?.cnt || '0'));
 
   console.log(`   Dev: ${devCount} | Prod: ${prodCountBefore}`);
@@ -37,11 +37,11 @@ async function migrateTable(
     return { table: tableName, devCount, prodCountBefore, migrated: 0, errors: 0, prodCountAfter: prodCountBefore };
   }
 
-  const prodIdsRes = await prodDb.execute(sql.raw(`SELECT ${idColumn} FROM ${tableName}`));
+  const prodIdsRes = await prodDb.execute(sql`SELECT ${sql.identifier(idColumn)} FROM ${sql.identifier(tableName)}`);
   const existingIds = new Set((prodIdsRes.rows as any[]).map(r => r[idColumn]));
 
   const colList = columns.join(', ');
-  const allRows = await devDb.execute(sql.raw(`SELECT ${colList} FROM ${tableName} ORDER BY ${idColumn}`));
+  const allRows = await devDb.execute(sql`SELECT ${sql.raw(colList)} FROM ${sql.identifier(tableName)} ORDER BY ${sql.identifier(idColumn)}`);
   const newRows = (allRows.rows as any[]).filter(r => !existingIds.has(r[idColumn]));
 
   console.log(`   New rows to migrate: ${newRows.length}`);
@@ -91,7 +91,7 @@ async function migrateTable(
     }
   }
 
-  const prodCountAfterRes = await prodDb.execute(sql.raw(`SELECT COUNT(*) as cnt FROM ${tableName}`));
+  const prodCountAfterRes = await prodDb.execute(sql`SELECT COUNT(*) as cnt FROM ${sql.identifier(tableName)}`);
   const prodCountAfter = parseInt(String((prodCountAfterRes.rows[0] as any)?.cnt || '0'));
 
   console.log(`   ✅ Done: ${migrated} migrated, ${errors} errors. Prod now: ${prodCountAfter}`);
@@ -102,18 +102,14 @@ async function migrateHistoricalNav(devDb: any, prodDb: any): Promise<MigrationR
   const tableName = 'historical_nav_data';
   console.log(`\n📋 Migrating: ${tableName} (large table - by scheme)`);
 
-  const devCountRes = await devDb.execute(sql.raw(`SELECT COUNT(*) as cnt FROM ${tableName}`));
+  const devCountRes = await devDb.execute(sql`SELECT COUNT(*) as cnt FROM ${sql.identifier(tableName)}`);
   const devCount = parseInt(String((devCountRes.rows[0] as any)?.cnt || '0'));
-  const prodCountRes = await prodDb.execute(sql.raw(`SELECT COUNT(*) as cnt FROM ${tableName}`));
+  const prodCountRes = await prodDb.execute(sql`SELECT COUNT(*) as cnt FROM ${sql.identifier(tableName)}`);
   const prodCountBefore = parseInt(String((prodCountRes.rows[0] as any)?.cnt || '0'));
   console.log(`   Dev: ${devCount} | Prod: ${prodCountBefore} | Gap: ${devCount - prodCountBefore}`);
 
-  const devSchemes = await devDb.execute(sql.raw(
-    `SELECT DISTINCT scheme_code FROM ${tableName}`
-  ));
-  const prodSchemes = await prodDb.execute(sql.raw(
-    `SELECT DISTINCT scheme_code FROM ${tableName}`
-  ));
+  const devSchemes = await devDb.execute(sql`SELECT DISTINCT scheme_code FROM ${sql.identifier(tableName)}`);
+  const prodSchemes = await prodDb.execute(sql`SELECT DISTINCT scheme_code FROM ${sql.identifier(tableName)}`);
 
   const devSchemeSet = new Set((devSchemes.rows as any[]).map(r => r.scheme_code));
   const prodSchemeSet = new Set((prodSchemes.rows as any[]).map(r => r.scheme_code));
@@ -175,7 +171,7 @@ async function migrateHistoricalNav(devDb: any, prodDb: any): Promise<MigrationR
     console.log(`   ℹ️ Also found ${gapRows} missing date rows in existing schemes (sampling 20 schemes)`);
   }
 
-  const prodCountAfterRes = await prodDb.execute(sql.raw(`SELECT COUNT(*) as cnt FROM ${tableName}`));
+  const prodCountAfterRes = await prodDb.execute(sql`SELECT COUNT(*) as cnt FROM ${sql.identifier(tableName)}`);
   const prodCountAfter = parseInt(String((prodCountAfterRes.rows[0] as any)?.cnt || '0'));
   console.log(`   ✅ Done: ${migrated} migrated, ${errors} errors. Prod now: ${prodCountAfter}`);
 
