@@ -90,6 +90,7 @@ SANDBOX_API_SECRET = "secret_live_4b03a4b49a284fdea5cf7647b37654d8"
 CASHFREE_APP_ID = "10993780341f71b3955bdccde068739901"
 CASHFREE_SECRET_KEY = "cfsk_ma_prod_cafd5d91cf52e6c9ba85707239d26416_d40e35be"
 ENRICHMENT_WORKER_URL = "https://enrich.fintekpro.com"
+PYTHON_SERVICE_URL = "https://python.fintekpro.com"
 
 [userenv.development]
 KYC_ENVIRONMENT = "sandbox"
