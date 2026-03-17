@@ -1553,22 +1553,27 @@ router.patch("/api/agent/prospect-proposals/:id", async (req: Request, res: Resp
     }
 
     const updateData: any = { updatedAt: new Date() };
-    const allowedFields = [
-      'prospectName', 'prospectEmail', 'prospectMobile', 'prospectPan',
-      'proposalTitle', 'executiveSummary', 'currentAnalysis',
-      'recommendations', 'totalInvestmentAmount', 'projectedReturns',
-      'projectedValue', 'targetAllocation', 'samplePortfolio', 'investmentGoals'
-    ];
+    const {
+      prospectName, prospectEmail, prospectMobile, prospectPan,
+      proposalTitle, executiveSummary, currentAnalysis,
+      recommendations, totalInvestmentAmount, projectedReturns,
+      projectedValue, targetAllocation, samplePortfolio, investmentGoals,
+    } = req.body;
 
-    for (const field of allowedFields) {
-      if (req.body[field] !== undefined) {
-        if (['totalInvestmentAmount', 'projectedReturns', 'projectedValue'].includes(field)) {
-          updateData[field] = req.body[field]?.toString();
-        } else {
-          updateData[field] = req.body[field];
-        }
-      }
-    }
+    if (prospectName !== undefined)        updateData.prospectName        = prospectName;
+    if (prospectEmail !== undefined)       updateData.prospectEmail       = prospectEmail;
+    if (prospectMobile !== undefined)      updateData.prospectMobile      = prospectMobile;
+    if (prospectPan !== undefined)         updateData.prospectPan         = prospectPan;
+    if (proposalTitle !== undefined)       updateData.proposalTitle       = proposalTitle;
+    if (executiveSummary !== undefined)    updateData.executiveSummary    = executiveSummary;
+    if (currentAnalysis !== undefined)     updateData.currentAnalysis     = currentAnalysis;
+    if (recommendations !== undefined)    updateData.recommendations     = recommendations;
+    if (totalInvestmentAmount !== undefined) updateData.totalInvestmentAmount = totalInvestmentAmount?.toString();
+    if (projectedReturns !== undefined)   updateData.projectedReturns    = projectedReturns?.toString();
+    if (projectedValue !== undefined)     updateData.projectedValue      = projectedValue?.toString();
+    if (targetAllocation !== undefined)   updateData.targetAllocation    = targetAllocation;
+    if (samplePortfolio !== undefined)    updateData.samplePortfolio     = samplePortfolio;
+    if (investmentGoals !== undefined)    updateData.investmentGoals     = investmentGoals;
 
     const [updated] = await db.update(prospectProposals)
       .set(updateData)

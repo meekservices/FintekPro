@@ -109,6 +109,8 @@ def _chromium_dump_dom(symbol: str, exchange: str) -> Optional[str]:
         return None
     url = f"https://www.google.com/finance/quote/{symbol}:{exchange}"
     try:
+        # shell=False (explicit) + args-list form: no shell injection possible.
+        # symbol and exchange are pre-validated against _SAFE_TICKER above.
         result = subprocess.run(
             [
                 _CHROMIUM,
@@ -124,6 +126,7 @@ def _chromium_dump_dom(symbol: str, exchange: str) -> Optional[str]:
             capture_output=True,
             text=True,
             timeout=_CHROMIUM_TIMEOUT,
+            shell=False,
         )
         html = result.stdout
         if len(html) < 10000:

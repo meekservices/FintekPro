@@ -154,14 +154,20 @@ export function registerDLMRoutes(app: Express) {
   app.patch("/api/dlm/documents/:documentId", requireAdmin, async (req: any, res: Response) => {
     try {
       const { documentId } = req.params;
-      const allowedFields = ["title", "description", "effectiveDate", "expiryDate", "tags", "metadata", "assignedToUserId", "assignedToRole"];
-      
+      const {
+        title, description, effectiveDate, expiryDate,
+        tags, metadata, assignedToUserId, assignedToRole,
+      } = req.body;
+
       const updates: any = {};
-      for (const field of allowedFields) {
-        if (req.body[field] !== undefined) {
-          updates[field] = req.body[field];
-        }
-      }
+      if (title !== undefined)            updates.title            = title;
+      if (description !== undefined)      updates.description      = description;
+      if (effectiveDate !== undefined)    updates.effectiveDate    = effectiveDate;
+      if (expiryDate !== undefined)       updates.expiryDate       = expiryDate;
+      if (tags !== undefined)             updates.tags             = tags;
+      if (metadata !== undefined)         updates.metadata         = metadata;
+      if (assignedToUserId !== undefined) updates.assignedToUserId = assignedToUserId;
+      if (assignedToRole !== undefined)   updates.assignedToRole   = assignedToRole;
       updates.updatedAt = new Date();
 
       const [updated] = await db.update(schema.documents)
