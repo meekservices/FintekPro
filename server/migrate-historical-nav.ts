@@ -1,16 +1,10 @@
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import { sql } from "drizzle-orm";
+import { historicalNavData } from "@shared/schema";
 import ws from "ws";
 
 neonConfig.webSocketConstructor = ws;
-
-function escapeStr(val: any): string {
-  if (val === null || val === undefined) return 'NULL';
-  if (typeof val === 'number') return String(val);
-  if (val instanceof Date) return `'${val.toISOString()}'`;
-  return `'${String(val).replace(/'/g, "''")}'`;
-}
 
 async function main() {
   const devPool = new Pool({ connectionString: process.env.DATABASE_URL, max: 3 });
@@ -44,14 +38,25 @@ async function main() {
       
       for (let i = 0; i < data.length; i += BATCH_INSERT) {
         const batch = data.slice(i, i + BATCH_INSERT);
-        const valuesList = batch.map(r =>
-          `(${escapeStr(r.id)},${escapeStr(r.identifier)},${escapeStr(r.identifier_type)},${escapeStr(r.date)},${escapeStr(r.nav)},${escapeStr(r.open)},${escapeStr(r.high)},${escapeStr(r.low)},${escapeStr(r.close)},${escapeStr(r.volume)},${escapeStr(r.source)},${escapeStr(r.fetched_at)},${escapeStr(r.created_at)})`
-        ).join(',');
         
         try {
-          await prodDb.execute(sql.raw(
-            `INSERT INTO historical_nav_data (id,identifier,identifier_type,date,nav,open,high,low,close,volume,source,fetched_at,created_at) VALUES ${valuesList} ON CONFLICT (id) DO NOTHING`
-          ));
+          await prodDb.insert(historicalNavData).values(
+            batch.map((r: any) => ({
+              id: r.id,
+              identifier: r.identifier,
+              identifierType: r.identifier_type,
+              date: r.date,
+              nav: r.nav,
+              open: r.open ?? null,
+              high: r.high ?? null,
+              low: r.low ?? null,
+              close: r.close ?? null,
+              volume: r.volume ?? null,
+              source: r.source,
+              fetchedAt: r.fetched_at ? new Date(r.fetched_at) : new Date(),
+              createdAt: r.created_at ? new Date(r.created_at) : new Date(),
+            }))
+          ).onConflictDoNothing();
           totalMigrated += batch.length;
         } catch {
           totalErrors += batch.length;
