@@ -19,21 +19,28 @@ router.get('/quant-policy', async (req, res) => {
 router.patch('/quant-policy/:riskProfile', async (req, res) => {
   try {
     const { riskProfile } = req.params;
-    const updates = req.body;
+    const {
+      useMvo, useBlackLitterman, useAiDriftPrediction,
+      riskAversion, tau, tacticalBudget, driftProbabilityTrigger,
+      maxAssetWeight, minAssetWeight, covarianceLookbackDays,
+      ewmaSpan, shrinkageIntensity, solverMaxIterations, solverTolerance,
+    } = req.body;
 
-    const allowedFields = [
-      'useMvo', 'useBlackLitterman', 'useAiDriftPrediction',
-      'riskAversion', 'tau', 'tacticalBudget', 'driftProbabilityTrigger',
-      'maxAssetWeight', 'minAssetWeight', 'covarianceLookbackDays',
-      'ewmaSpan', 'shrinkageIntensity', 'solverMaxIterations', 'solverTolerance',
-    ];
-
-    const dbUpdates: any = {};
-    for (const field of allowedFields) {
-      if (updates[field] !== undefined) {
-        dbUpdates[field] = updates[field];
-      }
-    }
+    const dbUpdates: Record<string, unknown> = {};
+    if (useMvo !== undefined)                 dbUpdates.useMvo = useMvo;
+    if (useBlackLitterman !== undefined)      dbUpdates.useBlackLitterman = useBlackLitterman;
+    if (useAiDriftPrediction !== undefined)   dbUpdates.useAiDriftPrediction = useAiDriftPrediction;
+    if (riskAversion !== undefined)           dbUpdates.riskAversion = riskAversion;
+    if (tau !== undefined)                    dbUpdates.tau = tau;
+    if (tacticalBudget !== undefined)         dbUpdates.tacticalBudget = tacticalBudget;
+    if (driftProbabilityTrigger !== undefined) dbUpdates.driftProbabilityTrigger = driftProbabilityTrigger;
+    if (maxAssetWeight !== undefined)         dbUpdates.maxAssetWeight = maxAssetWeight;
+    if (minAssetWeight !== undefined)         dbUpdates.minAssetWeight = minAssetWeight;
+    if (covarianceLookbackDays !== undefined) dbUpdates.covarianceLookbackDays = covarianceLookbackDays;
+    if (ewmaSpan !== undefined)               dbUpdates.ewmaSpan = ewmaSpan;
+    if (shrinkageIntensity !== undefined)     dbUpdates.shrinkageIntensity = shrinkageIntensity;
+    if (solverMaxIterations !== undefined)    dbUpdates.solverMaxIterations = solverMaxIterations;
+    if (solverTolerance !== undefined)        dbUpdates.solverTolerance = solverTolerance;
 
     if (Object.keys(dbUpdates).length === 0) {
       return res.status(400).json({ error: 'No valid fields to update' });
