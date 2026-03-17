@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { useSubdomain } from "@/hooks/useSubdomain";
 import mainLogoImg from "@assets/fintekpro_main_1772539048013.png";
 import agentLogoImg from "@assets/fintekpro_agent_1772539048012.png";
 import partnerLogoImg from "@assets/fintekpro_partners_1772539048013.png";
@@ -37,6 +38,22 @@ export function usePortalMeta() {
   });
 }
 
+const LOGO_MAP: Record<string, string> = {
+  main: mainLogoImg,
+  agent: agentLogoImg,
+  partner: partnerLogoImg,
+  admin: adminLogoImg,
+};
+
+function resolveLogoSrc(apiPortalType: string, frontendSubdomain: string): string {
+  // Frontend subdomain detection is reliable across all environments
+  // (Replit dev, Replit deployment, and custom domains like agent.fintekpro.com).
+  // Prefer it over the API value which can return "main" when the server
+  // cannot detect a subdomain (e.g. on *.replit.app domains).
+  const frontendType = frontendSubdomain || apiPortalType || "main";
+  return LOGO_MAP[frontendType] ?? LOGO_MAP["main"];
+}
+
 interface PortalLogoProps {
   className?: string;
   size?: "sm" | "md" | "lg" | "xl";
@@ -46,6 +63,7 @@ interface PortalLogoProps {
 
 export function PortalLogo({ className, size = "md", showTagline = false, iconOnly = false }: PortalLogoProps) {
   const { data: meta } = usePortalMeta();
+  const { subdomain } = useSubdomain();
   const config = meta || FALLBACK_META;
 
   const sizeMap = {
@@ -56,100 +74,56 @@ export function PortalLogo({ className, size = "md", showTagline = false, iconOn
   };
 
   const s = sizeMap[size];
-
-  const customLogoMap: Record<string, string> = {
-    main: mainLogoImg,
-    agent: agentLogoImg,
-    partner: partnerLogoImg,
-    admin: adminLogoImg,
-  };
-  const customLogo = customLogoMap[config.portal_type];
+  const customLogo = resolveLogoSrc(config.portal_type, subdomain);
 
   if (iconOnly) {
-    if (customLogo) {
-      return (
-        <img
-          src={customLogo}
-          alt={config.label}
-          className={cn("object-contain rounded-lg", s.icon, className)}
-        />
-      );
-    }
     return (
-      <div
-        className={cn("rounded-lg flex items-center justify-center font-bold text-white", s.icon, className)}
-        style={{ background: `linear-gradient(135deg, ${config.primary_color}, ${config.accent_color})` }}
-      >
-        <span className={size === "sm" ? "text-xs" : size === "md" ? "text-sm" : "text-base"}>FP</span>
-      </div>
+      <img
+        src={customLogo}
+        alt={config.label}
+        className={cn("object-contain rounded-lg", s.icon, className)}
+      />
     );
   }
 
-  if (customLogo) {
-    const imgSizeMap = {
-      sm: "h-8",
-      md: "h-10",
-      lg: "h-14",
-      xl: "h-24",
-    };
-    return (
-      <div className={cn("flex items-center gap-2", className)}>
-        <img
-          src={customLogo}
-          alt={config.label}
-          className={cn("object-contain shrink-0", imgSizeMap[size])}
-        />
-        {showTagline && (
-          <div className="flex flex-col min-w-0">
-            <span className={cn("text-muted-foreground leading-tight truncate", s.tagline)}>
-              {config.tagline}
-            </span>
-          </div>
-        )}
-      </div>
-    );
-  }
+  const imgSizeMap = {
+    sm: "h-8",
+    md: "h-10",
+    lg: "h-14",
+    xl: "h-24",
+  };
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
-      <div
-        className={cn("rounded-lg flex items-center justify-center font-bold text-white shrink-0", s.icon)}
-        style={{ background: `linear-gradient(135deg, ${config.primary_color}, ${config.accent_color})` }}
-      >
-        <span className={size === "sm" ? "text-xs" : size === "md" ? "text-sm" : "text-base"}>FP</span>
-      </div>
-      <div className="flex flex-col min-w-0">
-        <span className={cn("font-bold leading-tight truncate", s.text)} style={{ color: config.primary_color }}>
-          {config.label}
-        </span>
-        {showTagline && (
+      <img
+        src={customLogo}
+        alt={config.label}
+        className={cn("object-contain shrink-0", imgSizeMap[size])}
+      />
+      {showTagline && (
+        <div className="flex flex-col min-w-0">
           <span className={cn("text-muted-foreground leading-tight truncate", s.tagline)}>
             {config.tagline}
           </span>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export function PortalSvgLogo({ className, size = "md" }: { className?: string; size?: "sm" | "md" | "lg" }) {
   const { data: meta } = usePortalMeta();
+  const { subdomain } = useSubdomain();
   const config = meta || FALLBACK_META;
 
   const sizeMap = { sm: { w: 140, h: 32 }, md: { w: 200, h: 46 }, lg: { w: 280, h: 64 } };
   const s = sizeMap[size];
 
-  const customLogoMap: Record<string, string> = {
-    main: mainLogoImg,
-    agent: agentLogoImg,
-    partner: partnerLogoImg,
-    admin: adminLogoImg,
-  };
-  const customLogo = customLogoMap[config.portal_type];
+  const customLogo = resolveLogoSrc(config.portal_type, subdomain);
 
   return (
     <img
-      src={customLogo || config.logo_path}
+      src={customLogo}
       alt={config.label}
       width={s.w}
       height={s.h}
