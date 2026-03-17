@@ -164,13 +164,15 @@ class TokenizationService {
         // Token format: TKN{random}PAN
         return `TKN${randomId.substring(0, 6).toUpperCase()}PAN`;
         
-      case 'aadhaar':
+      case 'aadhaar': {
         // Aadhaar format: 12 digits
         // Token format: TKN{random_12_digits}
-        const randomDigits = Array.from({ length: 12 }, () => 
-          Math.floor(Math.random() * 10)
+        // Use crypto.randomInt (CSPRNG) — Math.random() is predictable and unsafe for PII tokens
+        const randomDigits = Array.from({ length: 12 }, () =>
+          crypto.randomInt(0, 10)
         ).join('');
         return `TKN${randomDigits}`;
+      }
         
       case 'ckyc_kin':
         // CKYC KIN format: Varies, typically alphanumeric
