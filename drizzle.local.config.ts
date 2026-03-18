@@ -16,6 +16,12 @@ import { defineConfig } from "drizzle-kit";
 //
 // NEVER use PRODUCTION_DATABASE_URL here. The production database stores live
 // user data and has a different schema layout.
+//
+// NOTE: This file is intentionally named drizzle.local.config.ts (not
+// drizzle.config.ts) to prevent Replit's deployment platform from
+// auto-detecting it and running migrations during deployment. Use:
+//   npx drizzle-kit push --config=drizzle.local.config.ts
+// to push schema changes manually.
 
 const baseUrl =
   process.env.DATABASE_URL ||
