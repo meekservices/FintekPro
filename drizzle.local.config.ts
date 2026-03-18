@@ -40,7 +40,7 @@ if (!dbUrl.includes("statement_timeout") && !dbUrl.includes("options=")) {
 }
 
 export default defineConfig({
-  out: "./migrations",
+  out: "./drizzle-migrations",
   schema: "./shared/schema-stub.ts",
   dialect: "postgresql",
   dbCredentials: {
