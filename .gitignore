@@ -5,6 +5,15 @@ server/public
 vite.config.ts.*
 *.tar.gz
 
+# Environment files - NEVER commit secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+
 # WhatsApp session files - contain sensitive data
 whatsapp-session/
 .wwebjs_auth/
@@ -18,3 +27,54 @@ Local Storage/
 IndexedDB/
 Service Worker/
 Cache/
+
+# Replit-specific internals
+.replit
+.config/
+.cache/
+.upm/
+.local/
+.pythonlibs/
+.agents/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+main.py
+pyproject.toml
+
+# Large data exports - not for version control
+bond-catalog-export.json
+
+# Replit-specific utility scripts
+copy-bonds-to-prod.ts
+sync-bonds-to-prod.ts
+sync-to-production.ts
+export-bonds.sql
+
+# Test result files, audit reports, and internal documentation (broad patterns)
+*_REPORT.md
+*_RESULTS.md
+*_AUDIT*.md
+*_CHECKLIST.md
+*_ANALYSIS.md
+*_SUMMARY.md
+*_UPDATE.md
+*_SETUP.md
+*_READINESS.md
+*_INSTRUCTIONS.md
+QUICK_PUBLISH_GUIDE.md
+ENV_VARIABLES.md
+test-*.txt
+test-*.sh
+
+# Temp files
+temp_*.txt
+
+# Attached assets (images, PDFs, etc. uploaded during development)
+attached_assets/
+
+# Drizzle local config (Replit-specific)
+drizzle.local.config.ts
