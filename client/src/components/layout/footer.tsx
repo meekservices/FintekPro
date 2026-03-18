@@ -352,7 +352,7 @@ export function Footer() {
           </div>
           <div className="text-center text-muted-foreground text-sm">
             <p data-testid="footer-copyright">
-              &copy; 2026 FintekPro Financial Services Pvt. Ltd. All rights reserved. | SEBI Registered Investment Advisor | AMFI Registered Mutual Fund Distributor
+              &copy; 2026 FintekPro Financial Services LLP All rights reserved. | SEBI Registered Investment Advisor | AMFI Registered Mutual Fund Distributor
             </p>
             <p className="text-xs text-muted-foreground mt-2">
               Investments are subject to market risks. Read all related documents carefully before investing.
