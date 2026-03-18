@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, companyRatios, companyFinancials, globalInstruments, instrumentMaster, sgbPrimaryIssues, stockFinancialMetrics, reits, invits, pickWatchlist, userNotifications, goldenPrices } from "@shared/schema";
-import { eq, and, desc, gte, sql, ilike, or, asc } from "drizzle-orm";
+import { eq, and, desc, gte, sql, ilike, or, asc, inArray } from "drizzle-orm";
 import { callPython } from "../clients/python-client";
 import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 import { FinancialMetricsCalculator } from "./financial-metrics-calculator";
@@ -1005,7 +1005,7 @@ class PickOfTheDayService {
       const ratiosRows = await db
         .select()
         .from(companyRatios)
-        .where(sql`${companyRatios.companyId} = ANY(ARRAY[${sql.raw(companyIds.map(id => `'${id}'`).join(','))}]::varchar[])`)
+        .where(inArray(companyRatios.companyId, companyIds))
         .orderBy(desc(companyRatios.financialYear));
 
       // Build a ratios map (latest FY per company)
@@ -1020,7 +1020,7 @@ class PickOfTheDayService {
       const financialsRows = await db
         .select()
         .from(companyFinancials)
-        .where(sql`${companyFinancials.companyId} = ANY(ARRAY[${sql.raw(companyIds.map(id => `'${id}'`).join(','))}]::varchar[])`)
+        .where(inArray(companyFinancials.companyId, companyIds))
         .orderBy(desc(companyFinancials.financialYear));
 
       const financialsMap = new Map<string, typeof financialsRows[0]>();

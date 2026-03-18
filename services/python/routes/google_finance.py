@@ -16,6 +16,7 @@ Provides:
 
 import json
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -40,11 +41,13 @@ _SESSION.headers.update({
 _CHROMIUM_TIMEOUT = 20
 _JSONP_TIMEOUT = 6
 
+_ALLOWED_CHROMIUM_NAMES = frozenset({"chromium", "chromium-browser", "google-chrome"})
+
 
 # ─── Chromium path resolution ─────────────────────────────────────────────────
 
 def _chromium_binary() -> Optional[str]:
-    for name in ("chromium", "chromium-browser", "google-chrome"):
+    for name in _ALLOWED_CHROMIUM_NAMES:
         path = shutil.which(name)
         if path:
             return path
@@ -103,6 +106,9 @@ def _chromium_dump_dom(symbol: str, exchange: str) -> Optional[str]:
     and return the DOM as a string.
     """
     if not _CHROMIUM:
+        return None
+    if os.path.basename(_CHROMIUM) not in _ALLOWED_CHROMIUM_NAMES:
+        logger.error("[GoogleFinance] Unexpected chromium binary: %r", _CHROMIUM)
         return None
     if not _SAFE_TICKER.match(symbol.upper()) or not _SAFE_TICKER.match(exchange.upper()):
         logger.warning("[GoogleFinance] Rejected unsafe symbol/exchange: %r / %r", symbol, exchange)

@@ -18,6 +18,7 @@ import {
   agentPartnerMappings,
   prospectClients,
   prospectLeads,
+  treasuryMandates,
   insertAdvisorySessionSchema,
   insertSuitabilityCheckSchema,
   insertProposalNoteSchema,
@@ -1530,26 +1531,24 @@ export function registerAgentAdvisoryRoutes(app: Express) {
         return res.status(404).json({ error: "Mandate not found or not accessible" });
       }
 
-      const updates: string[] = [];
-      if (totalCashAvailable !== undefined) updates.push(`total_cash_available = ${totalCashAvailable}`);
-      if (maxCreditRisk !== undefined) updates.push(`max_credit_risk = '${maxCreditRisk}'`);
-      if (maxDurationDays !== undefined) updates.push(`max_duration_days = ${maxDurationDays}`);
-      if (maxSingleCounterparty !== undefined) updates.push(`max_single_counterparty = ${maxSingleCounterparty}`);
-      if (capitalProtection !== undefined) updates.push(`capital_protection = ${capitalProtection}`);
-      if (liquidityManagement !== undefined) updates.push(`liquidity_management = ${liquidityManagement}`);
-      if (yieldEnhancement !== undefined) updates.push(`yield_enhancement = ${yieldEnhancement}`);
-      if (liabilityMatching !== undefined) updates.push(`liability_matching = ${liabilityMatching}`);
-      if (makerCheckerEnabled !== undefined) updates.push(`maker_checker_enabled = ${makerCheckerEnabled}`);
+      const updateFields: Record<string, unknown> = {};
+      if (totalCashAvailable !== undefined) updateFields.totalCashAvailable = String(totalCashAvailable);
+      if (maxCreditRisk !== undefined) updateFields.maxCreditRisk = String(maxCreditRisk);
+      if (maxDurationDays !== undefined) updateFields.maxDurationDays = Number(maxDurationDays);
+      if (maxSingleCounterparty !== undefined) updateFields.maxSingleCounterparty = String(maxSingleCounterparty);
+      if (capitalProtection !== undefined) updateFields.capitalProtection = Boolean(capitalProtection);
+      if (liquidityManagement !== undefined) updateFields.liquidityManagement = Boolean(liquidityManagement);
+      if (yieldEnhancement !== undefined) updateFields.yieldEnhancement = Boolean(yieldEnhancement);
+      if (liabilityMatching !== undefined) updateFields.liabilityMatching = Boolean(liabilityMatching);
+      if (makerCheckerEnabled !== undefined) updateFields.makerCheckerEnabled = Boolean(makerCheckerEnabled);
 
-      if (updates.length === 0) {
+      if (Object.keys(updateFields).length === 0) {
         return res.status(400).json({ error: "No fields to update" });
       }
 
-      await db.execute(sql`
-        UPDATE treasury_mandates 
-        SET ${sql.raw(updates.join(', '))}, updated_at = NOW()
-        WHERE id = ${mandateId}
-      `);
+      await db.update(treasuryMandates)
+        .set({ ...updateFields, updatedAt: new Date() })
+        .where(eq(treasuryMandates.id, mandateId));
 
       await logAgentAction({
         agentId,

@@ -2217,7 +2217,7 @@ export class DatabaseStorage implements IStorage {
         firstName: schema.users.firstName,
         lastName: schema.users.lastName,
         email: schema.users.email
-      }).from(schema.users).where(sql`${schema.users.id} = ANY(ARRAY[${sql.raw(allUserIds.map(id => `'${id}'`).join(','))}])`) : [];
+      }).from(schema.users).where(inArray(schema.users.id, allUserIds)) : [];
       
       const userMap = new Map(users.map(u => [u.id, u]));
       

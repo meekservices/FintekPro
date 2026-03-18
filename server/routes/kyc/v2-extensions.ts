@@ -788,14 +788,14 @@ export function registerKycV2ExtensionRoutes(app: Express) {
         return res.json({ success: true, message: `KYC reset for user ${userId}` });
       }
 
-      await db.execute(drizzleSql.raw(`
+      await db.execute(drizzleSql`
         UPDATE kyc_verification_sessions
         SET session_outcome = 'reset_by_admin', is_active = false
-      `));
-      await db.execute(drizzleSql.raw(`
+      `);
+      await db.execute(drizzleSql`
         UPDATE users SET kyc_status = NULL, ckyc_status = NULL
         WHERE role NOT IN ('admin', 'superadmin')
-      `));
+      `);
 
       res.json({ success: true, message: 'KYC reset for all non-admin users' });
     } catch (error) {
