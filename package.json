@@ -91,7 +91,7 @@
     "express-rate-limit": "^8.3.1",
     "express-session": "^1.18.1",
     "express-validator": "^7.2.1",
-    "fast-xml-parser": "^5.5.5",
+    "fast-xml-parser": "^5.5.6",
     "financial": "^0.2.4",
     "finnhub": "^2.0.7",
     "form-data": "^4.0.4",
@@ -189,6 +189,9 @@
     "taxcloudjs": {
       "node-fetch": "^2.7.0"
     },
-    "follow-redirects": "^1.15.0"
+    "follow-redirects": "^1.15.0",
+    "@aws-sdk/xml-builder": {
+      "fast-xml-parser": "^5.5.6"
+    }
   }
 }
