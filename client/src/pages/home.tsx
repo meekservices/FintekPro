@@ -661,8 +661,7 @@ export default function Home() {
               </div>
               <div className="text-center">
                 <Globe className="w-8 h-8 text-yellow-400 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold mb-2">Global Presence</h3>
-                <p className="text-blue-200">Available in 15+ countries</p>
+                <h3 className="text-lg font-semibold mb-2">Servicing at 15+ countries</h3>
               </div>
             </div>
           </div>
