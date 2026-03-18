@@ -1,6 +1,6 @@
 import {
-  pgSchema, serial, uuid, varchar, text, boolean, integer,
-  timestamp, date, decimal, numeric, jsonb,
+  pgSchema, serial, varchar, text, boolean, integer,
+  timestamp, date, decimal, jsonb,
   index, uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -24,11 +24,11 @@ import {
 export const dkManaged = pgSchema("drizzle_kit_managed");
 
 export const agentNotifications = dkManaged.table("agent_notifications", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  agentId: varchar("agent_id", { length: 100 }).notNull(),
+  id: serial("id").primaryKey(),
+  agentId: text("agent_id").notNull(),
   title: text("title").notNull(),
   body: text("body").notNull(),
-  type: varchar("type", { length: 30 }).notNull().default("prospect"),
+  type: text("type").notNull().default("info"),
   link: text("link"),
   readAt: timestamp("read_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
