@@ -1,23 +1,23 @@
 import { defineConfig } from "drizzle-kit";
 
-// This file is read by Replit's deployment pipeline for the database diff check.
+// Environment detection:
+//   Cloud Run (deployment) → PRODUCTION_DATABASE_URL is set by Replit
+//   Replit workspace (dev) → only DATABASE_URL is set (Helium local DB)
 //
-// It targets DATABASE_URL (Replit-managed heliumdb) with ssl:false.
-// ssl:false is REQUIRED: Helium runs locally on Replit infrastructure and does
-// NOT support SSL. Without it the pg driver attempts an SSL handshake which
-// causes "the socket disconnecting unexpectedly" — the root cause of the
-// "SERVER unexpectedly disconnected" error in the Replit DB diff panel.
+// SSL rules:
+//   Production (Neon/Cloud SQL) requires SSL → ssl: { rejectUnauthorized: false }
+//   Helium (local) does NOT support SSL → ssl: false
+//   Mixing these up causes "SERVER unexpectedly disconnected" or Cloud Run migration failures.
 //
-// schemaFilter restricts drizzle-kit to the isolated "drizzle_kit_managed"
-// schema which contains only the 6 tables in schema-stub.ts.
-// This ensures drizzle-kit never sees the 755 tables in "public" and never
-// generates destructive DROP statements.
-//
-// NEVER use PRODUCTION_DATABASE_URL here.
+// schemaFilter restricts drizzle-kit to the isolated "drizzle_kit_managed" schema
+// (6 tables in schema-stub.ts). It never introspects the 755 tables in "public"
+// so no destructive DROP TABLE / DROP SEQUENCE statements are ever generated.
 
-const baseUrl =
-  process.env.DATABASE_URL ||
-  "postgresql://localhost:5432/placeholder";
+const isProd = !!process.env.PRODUCTION_DATABASE_URL;
+
+const baseUrl = isProd
+  ? process.env.PRODUCTION_DATABASE_URL!
+  : (process.env.DATABASE_URL || "postgresql://localhost:5432/placeholder");
 
 function appendParam(url: string, key: string, value: string): string {
   return url.includes("?") ? `${url}&${key}=${value}` : `${url}?${key}=${value}`;
@@ -37,7 +37,7 @@ export default defineConfig({
   dialect: "postgresql",
   dbCredentials: {
     url: dbUrl,
-    ssl: false,
+    ssl: isProd ? { rejectUnauthorized: false } : false,
   },
   schemaFilter: ["drizzle_kit_managed"],
 });
