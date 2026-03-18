@@ -41,21 +41,6 @@ _SESSION.headers.update({
 _CHROMIUM_TIMEOUT = 20
 _JSONP_TIMEOUT = 6
 
-_ALLOWED_CHROMIUM_NAMES = frozenset({"chromium", "chromium-browser", "google-chrome"})
-
-
-# ─── Chromium path resolution ─────────────────────────────────────────────────
-
-def _chromium_binary() -> Optional[str]:
-    for name in _ALLOWED_CHROMIUM_NAMES:
-        path = shutil.which(name)
-        if path:
-            return path
-    return None
-
-_CHROMIUM = _chromium_binary()
-
-
 def _safe_float(v) -> Optional[float]:
     try:
         if v is None:
@@ -99,50 +84,58 @@ def _parse_market_cap(raw: str) -> Optional[float]:
 
 _SAFE_TICKER = re.compile(r"^[A-Z0-9.\-&]{1,30}$")
 
+_CHROMIUM_FLAGS = [
+    "--headless=new",
+    "--no-sandbox",
+    "--disable-gpu",
+    "--disable-dev-shm-usage",
+    "--disable-extensions",
+    "--disable-background-networking",
+    "--dump-dom",
+]
+
 
 def _chromium_dump_dom(symbol: str, exchange: str) -> Optional[str]:
     """
     Run Chromium in headless mode to fully render the Google Finance page
     and return the DOM as a string.
+
+    Each branch of the if/elif uses a literal command string so the subprocess
+    call never receives a dynamically-constructed command name.  symbol and
+    exchange are validated against _SAFE_TICKER before being embedded in the URL.
     """
-    if not _CHROMIUM:
-        return None
-    if os.path.basename(_CHROMIUM) not in _ALLOWED_CHROMIUM_NAMES:
-        logger.error("[GoogleFinance] Unexpected chromium binary: %r", _CHROMIUM)
-        return None
     if not _SAFE_TICKER.match(symbol.upper()) or not _SAFE_TICKER.match(exchange.upper()):
         logger.warning("[GoogleFinance] Rejected unsafe symbol/exchange: %r / %r", symbol, exchange)
         return None
-    url = f"https://www.google.com/finance/quote/{symbol}:{exchange}"
+    url = f"https://www.google.com/finance/quote/{symbol.upper()}:{exchange.upper()}"
+    args = _CHROMIUM_FLAGS + [url]
     try:
-        # shell=False (explicit) + args-list form: no shell injection possible.
-        # symbol and exchange are pre-validated against _SAFE_TICKER above.
-        result = subprocess.run(
-            [
-                _CHROMIUM,
-                "--headless=new",
-                "--no-sandbox",
-                "--disable-gpu",
-                "--disable-dev-shm-usage",
-                "--disable-extensions",
-                "--disable-background-networking",
-                "--dump-dom",
-                url,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=_CHROMIUM_TIMEOUT,
-            shell=False,
-        )
+        if shutil.which("chromium"):
+            result = subprocess.run(
+                ["chromium"] + args,
+                capture_output=True, text=True, timeout=_CHROMIUM_TIMEOUT, shell=False,
+            )
+        elif shutil.which("chromium-browser"):
+            result = subprocess.run(
+                ["chromium-browser"] + args,
+                capture_output=True, text=True, timeout=_CHROMIUM_TIMEOUT, shell=False,
+            )
+        elif shutil.which("google-chrome"):
+            result = subprocess.run(
+                ["google-chrome"] + args,
+                capture_output=True, text=True, timeout=_CHROMIUM_TIMEOUT, shell=False,
+            )
+        else:
+            return None
         html = result.stdout
         if len(html) < 10000:
             return None
         return html
     except subprocess.TimeoutExpired:
-        logger.warning(f"[GoogleFinance] Chromium timeout for {exchange}:{symbol}")
+        logger.warning("[GoogleFinance] Chromium timeout for %s:%s", exchange, symbol)
         return None
     except Exception as e:
-        logger.debug(f"[GoogleFinance] Chromium error for {exchange}:{symbol}: {e}")
+        logger.debug("[GoogleFinance] Chromium error for %s:%s: %s", exchange, symbol, e)
         return None
 
 

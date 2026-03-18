@@ -1,6 +1,18 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { sql } from 'drizzle-orm';
+import { sql, eq, desc } from 'drizzle-orm';
+import {
+  screenerGrowthMetrics,
+  screenerKeyMetrics,
+  screenerDcfValuations,
+  screenerCompanyRatings,
+  screenerAnalystTargets,
+  screenerAnalystGrades,
+  screenerInstitutionalHolders,
+  screenerInsiderTrades,
+  screenerStockNews,
+  screenerTechnicalIndicators,
+} from '@shared/schema';
 import { queryScreener, getStockDetail, getScreenerStats, getScreenerDistribution, type ScreenerFilters } from '../services/screener/screener-query-engine';
 import { enrichStockProfiles, enrichFinancialRatios, enrichPriceHistory, seedScreenerFromFmp, seedFromListedStocks, seedUnlistedToScreener, isProductionEnrichmentAllowed, runDailyEnrichmentBatch, getEnrichmentProgress } from '../services/screener/enrichment-service';
 import { recalculateAllMetrics } from '../services/screener/derived-metrics-engine';
@@ -247,71 +259,81 @@ router.post('/api/screener/admin/enrich/tier/:tierNumber', async (req, res) => {
 
 router.get('/api/screener/stocks/:symbol/growth', async (req, res) => {
   try {
-    const result = await db.execute(sql`SELECT * FROM screener_growth_metrics WHERE symbol = ${req.params.symbol} ORDER BY date DESC LIMIT 5`);
-    res.json({ data: (result as any).rows || result });
+    const symbol = req.params.symbol;
+    const rows = await db.select().from(screenerGrowthMetrics).where(eq(screenerGrowthMetrics.symbol, symbol)).orderBy(desc(screenerGrowthMetrics.date)).limit(5);
+    res.json({ data: rows });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 router.get('/api/screener/stocks/:symbol/key-metrics', async (req, res) => {
   try {
-    const result = await db.execute(sql`SELECT * FROM screener_key_metrics WHERE symbol = ${req.params.symbol} ORDER BY date DESC LIMIT 5`);
-    res.json({ data: (result as any).rows || result });
+    const symbol = req.params.symbol;
+    const rows = await db.select().from(screenerKeyMetrics).where(eq(screenerKeyMetrics.symbol, symbol)).orderBy(desc(screenerKeyMetrics.date)).limit(5);
+    res.json({ data: rows });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 router.get('/api/screener/stocks/:symbol/dcf', async (req, res) => {
   try {
-    const result = await db.execute(sql`SELECT * FROM screener_dcf_valuations WHERE symbol = ${req.params.symbol} ORDER BY date DESC LIMIT 1`);
-    res.json({ data: (result as any).rows || result });
+    const symbol = req.params.symbol;
+    const rows = await db.select().from(screenerDcfValuations).where(eq(screenerDcfValuations.symbol, symbol)).orderBy(desc(screenerDcfValuations.date)).limit(1);
+    res.json({ data: rows });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 router.get('/api/screener/stocks/:symbol/rating', async (req, res) => {
   try {
-    const result = await db.execute(sql`SELECT * FROM screener_company_ratings WHERE symbol = ${req.params.symbol} ORDER BY date DESC LIMIT 1`);
-    res.json({ data: (result as any).rows || result });
+    const symbol = req.params.symbol;
+    const rows = await db.select().from(screenerCompanyRatings).where(eq(screenerCompanyRatings.symbol, symbol)).orderBy(desc(screenerCompanyRatings.date)).limit(1);
+    res.json({ data: rows });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 router.get('/api/screener/stocks/:symbol/analyst-targets', async (req, res) => {
   try {
-    const result = await db.execute(sql`SELECT * FROM screener_analyst_targets WHERE symbol = ${req.params.symbol} ORDER BY published_date DESC LIMIT 10`);
-    res.json({ data: (result as any).rows || result });
+    const symbol = req.params.symbol;
+    const rows = await db.select().from(screenerAnalystTargets).where(eq(screenerAnalystTargets.symbol, symbol)).orderBy(desc(screenerAnalystTargets.publishedDate)).limit(10);
+    res.json({ data: rows });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 router.get('/api/screener/stocks/:symbol/analyst-grades', async (req, res) => {
   try {
-    const result = await db.execute(sql`SELECT * FROM screener_analyst_grades WHERE symbol = ${req.params.symbol} ORDER BY published_date DESC LIMIT 10`);
-    res.json({ data: (result as any).rows || result });
+    const symbol = req.params.symbol;
+    const rows = await db.select().from(screenerAnalystGrades).where(eq(screenerAnalystGrades.symbol, symbol)).orderBy(desc(screenerAnalystGrades.publishedDate)).limit(10);
+    res.json({ data: rows });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 router.get('/api/screener/stocks/:symbol/institutional-holders', async (req, res) => {
   try {
-    const result = await db.execute(sql`SELECT * FROM screener_institutional_holders WHERE symbol = ${req.params.symbol} ORDER BY date_reported DESC LIMIT 20`);
-    res.json({ data: (result as any).rows || result });
+    const symbol = req.params.symbol;
+    const rows = await db.select().from(screenerInstitutionalHolders).where(eq(screenerInstitutionalHolders.symbol, symbol)).orderBy(desc(screenerInstitutionalHolders.dateReported)).limit(20);
+    res.json({ data: rows });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 router.get('/api/screener/stocks/:symbol/insider-trades', async (req, res) => {
   try {
-    const result = await db.execute(sql`SELECT * FROM screener_insider_trades WHERE symbol = ${req.params.symbol} ORDER BY transaction_date DESC LIMIT 20`);
-    res.json({ data: (result as any).rows || result });
+    const symbol = req.params.symbol;
+    const rows = await db.select().from(screenerInsiderTrades).where(eq(screenerInsiderTrades.symbol, symbol)).orderBy(desc(screenerInsiderTrades.transactionDate)).limit(20);
+    res.json({ data: rows });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 router.get('/api/screener/stocks/:symbol/news', async (req, res) => {
   try {
-    const result = await db.execute(sql`SELECT * FROM screener_stock_news WHERE symbol = ${req.params.symbol} ORDER BY published_date DESC LIMIT 10`);
-    res.json({ data: (result as any).rows || result });
+    const symbol = req.params.symbol;
+    const rows = await db.select().from(screenerStockNews).where(eq(screenerStockNews.symbol, symbol)).orderBy(desc(screenerStockNews.publishedDate)).limit(10);
+    res.json({ data: rows });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 router.get('/api/screener/stocks/:symbol/technicals', async (req, res) => {
   try {
-    const result = await db.execute(sql`SELECT * FROM screener_technical_indicators WHERE symbol = ${req.params.symbol} ORDER BY date DESC LIMIT 1`);
-    res.json({ data: (result as any).rows || result });
+    const symbol = req.params.symbol;
+    const rows = await db.select().from(screenerTechnicalIndicators).where(eq(screenerTechnicalIndicators.symbol, symbol)).orderBy(desc(screenerTechnicalIndicators.date)).limit(1);
+    res.json({ data: rows });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 

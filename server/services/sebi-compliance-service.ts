@@ -28,6 +28,8 @@ import {
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
+const ARCHIVE_CIPHER_SPEC = 'AES-256-GCM-DEFAULT';
+
 // ==================== TYPES ====================
 
 export interface SEBIComplianceStatus {
@@ -877,7 +879,7 @@ class SEBIComplianceService {
         orderData,
         checksum,
         retentionExpiry: retentionExpiry.toISOString(),
-        encryptionKeyId: 'AES-256-GCM-DEFAULT',
+        encryptionKeyId: ARCHIVE_CIPHER_SPEC,
         storageLocation: 'gcp-encrypted-archive'
       }),
       performedBy: 'system',
@@ -894,7 +896,7 @@ class SEBIComplianceService {
       archivedAt: new Date(),
       retentionExpiry,
       storageLocation: 'gcp-encrypted-archive',
-      encryptionKeyId: 'AES-256-GCM-DEFAULT',
+      encryptionKeyId: ARCHIVE_CIPHER_SPEC,
       checksum
     };
   }
