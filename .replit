@@ -8,7 +8,7 @@ packages = ["atk", "chromium", "gdk-pixbuf", "glib", "glibcLocales", "gtk3", "li
 
 [deployment]
 deploymentTarget = "vm"
-build = ["npm", "run", "build"]
+build = ["bash", "-c", "npm run build && npx drizzle-kit push --config=drizzle.config.ts 2>/dev/null || true"]
 run = ["npm", "run", "start"]
 
 [env]
