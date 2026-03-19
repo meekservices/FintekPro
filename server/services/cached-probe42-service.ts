@@ -1,7 +1,7 @@
 /**
- * Cached Probe42 Service
+ * Cached Credhive Service (formerly Cached Probe42 Service)
  * 
- * Wraps the Probe42 service with cache-first pattern to reduce API costs.
+ * Wraps the Credhive service with cache-first pattern to reduce API costs.
  * 
  * Cache Strategy:
  * - Company Master Data (CIN, PAN, directors): Permanent (never expires)
@@ -41,12 +41,12 @@ export class CachedProbe42Service {
         dateOfIncorporation: apiResult.incorporation_date ? new Date(apiResult.incorporation_date) : undefined,
         paidUpCapital: apiResult.paid_up_capital,
         directors: apiResult.directors,
-        dataSource: 'probe42',
+        dataSource: 'credhive',
         sourceReferenceId: apiResult.company_id,
       });
       
       // Track API usage
-      await dataCacheService.trackApiUsage('probe42-details', 'company_details', false, cin);
+      await dataCacheService.trackApiUsage('credhive-details', 'company_details', false, cin);
     }
     
     return apiResult;
@@ -93,12 +93,12 @@ export class CachedProbe42Service {
         investingCashFlow: financial.investing_cash_flow,
         financingCashFlow: financial.financing_cash_flow,
         freeCashFlow: financial.free_cash_flow,
-        dataSource: 'probe42',
+        dataSource: 'credhive',
       });
     }
     
     // Track API usage
-    await dataCacheService.trackApiUsage('probe42-financials', 'company_financials', false, cin);
+    await dataCacheService.trackApiUsage('credhive-financials', 'company_financials', false, cin);
     
     return apiResult;
   }
@@ -122,7 +122,7 @@ export class CachedProbe42Service {
     const apiResult = await probe42Service.getCompanyRatios(cin, years);
     
     // Track API usage
-    await dataCacheService.trackApiUsage('probe42-ratios', 'company_ratios', false, cin);
+    await dataCacheService.trackApiUsage('credhive-ratios', 'company_ratios', false, cin);
     
     return apiResult;
   }

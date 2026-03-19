@@ -797,7 +797,7 @@ server.listen({
   // ── KYC, marketing, user management: import all in parallel ─────────────────
   const [
     kycVaultMod, marketingMod, adminProspectsMod, twilioWebhookMod,
-    probe42AnalyticsMod, userMgmtMod, stakeholderMod, autoPopMod,
+    credhiveAnalyticsMod, userMgmtMod, stakeholderMod, autoPopMod,
   ] = await Promise.all([
     import('./kyc-vault-routes'),
     import('./marketing-routes'),
@@ -814,7 +814,7 @@ server.listen({
   marketingMod.registerMarketingRoutes(app);
   adminProspectsMod.registerAdminProspectRoutes(app);
   app.use('/api/twilio', twilioWebhookMod.createTwilioWebhookRouter());
-  app.use('/api/admin/analytics', probe42AnalyticsMod.default);
+  app.use('/api/admin/analytics', credhiveAnalyticsMod.default);
   userMgmtMod.registerUserManagementRoutes(app);
   stakeholderMod.registerStakeholderRoutes(app);
   app.use('/api/auto-population', autoPopMod.autoPopulationRouter);

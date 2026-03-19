@@ -37,9 +37,9 @@ const getDataSourceLabel = (source: string | null | undefined) => {
       description: 'Official government filings'
     },
     probe42: { 
-      label: 'Probe42', 
-      color: 'text-muted-foreground',
-      description: 'Legacy data source'
+      label: 'Credhive', 
+      color: 'text-blue-500',
+      description: 'Unlisted company intelligence'
     },
     moneycontrol: { 
       label: 'MoneyControl', 

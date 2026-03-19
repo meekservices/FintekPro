@@ -496,7 +496,7 @@ export default function AdminProspectDashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>B2B Leads</CardTitle>
-                  <CardDescription>Company leads from Probe42, Zoho CRM, and manual entry</CardDescription>
+                  <CardDescription>Company leads from Credhive, Zoho CRM, and manual entry</CardDescription>
                 </div>
                 <div className="flex gap-2">
                   {selectedLeads.length > 0 && (

@@ -282,7 +282,7 @@ export default function UnlistedPreviewPage() {
     enabled: !!id && !!company,
   });
 
-  // Auto-enrich missing metadata (sector, industry, name) from MCA/Probe42
+  // Auto-enrich missing metadata (sector, industry, name) from MCA/Credhive
   useEffect(() => {
     const autoEnrichCompany = async () => {
       if (!company || !id || hasAttemptedEnrichRef.current) return;
@@ -315,7 +315,7 @@ export default function UnlistedPreviewPage() {
           // No data found from external sources
           toast({
             title: 'No Enrichment Data Available',
-            description: 'Could not find sector/industry from MCA or Probe42. Consider updating manually.',
+            description: 'Could not find sector/industry from MCA or Credhive. Consider updating manually.',
             variant: 'destructive',
           });
         }
@@ -769,7 +769,7 @@ export default function UnlistedPreviewPage() {
             Auto-Enriching Company Data
           </AlertTitle>
           <AlertDescription className="text-xs text-blue-600 dark:text-blue-400">
-            Fetching missing sector and industry information from MCA/Probe42...
+            Fetching missing sector and industry information from MCA/Credhive...
           </AlertDescription>
         </Alert>
       )}

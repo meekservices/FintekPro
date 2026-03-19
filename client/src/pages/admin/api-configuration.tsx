@@ -290,7 +290,7 @@ export default function APIConfiguration() {
       gemini: ['AI Chat Assistant', 'Expense Categorization', 'Financial Insights', 'Document Analysis'],
       twilio: ['SMS OTP', 'Bulk SMS', 'WhatsApp Business API', 'Two-Factor Authentication', 'Notification Delivery'],
       email: ['Email OTP', 'Transaction Alerts', 'Marketing Emails', 'Report Delivery'],
-      probe42: ['Company Search', 'Financial Data', 'Director Information', 'Compliance Check'],
+      credhive: ['Company Search', 'Financial Data', 'Director Information', 'Compliance Check'],
       zoho: ['Email Campaigns', 'Lead Nurturing', 'Automation Workflows', 'Analytics'],
       alphavantage: ['Stock Prices', 'Historical Data', 'Technical Indicators', 'Forex Rates'],
       openai: ['GPT-4 Chat', 'Text Generation', 'Code Assistance', 'Analysis']
@@ -306,7 +306,7 @@ export default function APIConfiguration() {
       gemini: ['Power AI chat assistant', 'Auto-categorize expenses', 'Generate financial insights'],
       twilio: ['Send OTP for authentication', 'Send WhatsApp notifications', 'Customer support via WhatsApp', 'Deliver transaction notifications', 'Enable 2FA for security'],
       email: ['Send verification emails', 'Deliver statements and reports', 'Password reset flows'],
-      probe42: ['Verify company existence', 'Fetch financial statements', 'Director due diligence'],
+      credhive: ['Verify company existence', 'Fetch financial statements', 'Director due diligence'],
       zoho: ['Run email marketing campaigns', 'Nurture leads automatically', 'Track campaign performance'],
       alphavantage: ['Display real-time stock prices', 'Show historical charts', 'Calculate technical indicators'],
       openai: ['Advanced AI conversations', 'Code generation help', 'Document summarization']

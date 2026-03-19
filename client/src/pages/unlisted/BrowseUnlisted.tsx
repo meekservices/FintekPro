@@ -187,7 +187,7 @@ export default function BrowseUnlisted() {
                       <div className="flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-green-500" />
                         <span className="text-xs text-muted-foreground">
-                          Data synced from Probe42
+                          Data synced from Credhive
                         </span>
                       </div>
                     )}

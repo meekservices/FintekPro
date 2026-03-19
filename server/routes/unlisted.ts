@@ -3,7 +3,7 @@
  * 
  * Handles all routes related to unlisted share trading marketplace including:
  * - Company management
- * - Probe42 integration for financial data
+ * - Credhive integration for financial data
  * - Buy/Sell listings and deal matching
  * - Financials and ratios tracking
  */
@@ -14,7 +14,9 @@ import { db } from '../db';
 import { apiResponse } from '../utils/responses';
 import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
-import { probe42Service, enrichUnlistedCompanyWithMCAData } from '../services/probe42-service';
+import { credhiveService } from '../services/credhive-service';
+import { credhiveAdapter } from '../services/vendor-adapters/credhive.adapter';
+import { enrichUnlistedCompanyWithMCAData } from '../services/probe42-service';
 import { PriceSuggestionService } from '../services/price-suggestion';
 import { priceAggregationService } from '../services/price-aggregation';
 import { moneyControlReconciliation } from '../services/moneycontrol-reconciliation';
@@ -256,107 +258,105 @@ router.delete('/companies/:id', async (req: Request, res: Response) => {
 });
 
 // ===================================================================
-// PROBE42 INTEGRATION ROUTES
+// CREDHIVE INTEGRATION ROUTES
 // ===================================================================
 
 /**
- * GET /api/unlisted/probe42/status
- * Check Probe42 API health and configuration status
+ * GET /api/unlisted/credhive/status
+ * Check Credhive API health and configuration status
  */
-router.get('/probe42/status', requireAuth, async (req: Request, res: Response) => {
+router.get('/credhive/status', requireAuth, async (req: Request, res: Response) => {
   try {
-    // Admin-only operation
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
     }
-    
-    const currentStatus = probe42Service.getStatus();
-    const healthCheck = await probe42Service.healthCheck();
-    
+    const available = credhiveService.isAvailable();
+    let healthy = false;
+    let healthMessage = 'API key not configured';
+    if (available) {
+      try {
+        const test = await credhiveService.searchCompanies('test');
+        healthy = test.success;
+        healthMessage = test.success ? 'Healthy' : (test.error || 'API returned error');
+      } catch (e: any) {
+        healthMessage = e.message;
+      }
+    }
     return apiResponse.success(res, {
-      ...currentStatus,
-      healthCheck,
+      provider: 'credhive',
+      configured: available,
+      healthy,
+      healthMessage,
     });
   } catch (error: any) {
-    console.error('Error checking Probe42 status:', error);
-    return apiResponse.serverError(res, 'Failed to check Probe42 status');
+    console.error('Error checking Credhive status:', error);
+    return apiResponse.serverError(res, 'Failed to check Credhive status');
   }
 });
 
 /**
- * GET /api/unlisted/probe42/search
- * Search for companies on Probe42
+ * GET /api/unlisted/credhive/search
+ * Search for companies via Credhive
  */
-router.get('/probe42/search', requireAuth, async (req: Request, res: Response) => {
+router.get('/credhive/search', requireAuth, async (req: Request, res: Response) => {
   try {
-    // Admin-only operation
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
     }
-    
     const { q } = req.query;
-    
     if (!q || typeof q !== 'string') {
       return apiResponse.badRequest(res, 'Query parameter "q" is required');
     }
-    
     if (q.length < 3) {
       return apiResponse.badRequest(res, 'Query must be at least 3 characters long');
     }
-    
-    const results = await probe42Service.searchCompanyByNameOrCIN(q);
-    return apiResponse.success(res, results);
+    const results = await credhiveService.searchCompanies(q);
+    return apiResponse.success(res, results.data ?? []);
   } catch (error: any) {
-    console.error('Error searching Probe42:', error);
+    console.error('Error searching Credhive:', error);
     return apiResponse.serverError(res, error.message || 'Failed to search companies');
   }
 });
 
 /**
- * POST /api/unlisted/probe42/sync/:companyId
- * Sync company data from Probe42 (Admin only - no investor KYC required)
+ * POST /api/unlisted/credhive/sync/:companyId
+ * Sync company data from Credhive (Admin only)
  */
-router.post('/probe42/sync/:companyId', requireAuth, async (req: Request, res: Response) => {
+router.post('/credhive/sync/:companyId', requireAuth, async (req: Request, res: Response) => {
   try {
-    // Admin-only operation
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
     }
     
     const { companyId } = req.params;
-    
-    // Get company
     const company = await storage.getUnlistedCompanyById(companyId);
     if (!company) {
       return apiResponse.notFound(res, 'Company not found');
     }
     
-    // Use CIN as the Probe42 identifier (Probe42 API uses CIN for entity lookup)
-    // Fall back to probe42CompanyId if CIN is not available
-    const probe42Identifier = company.cin || company.probe42CompanyId;
-    if (!probe42Identifier) {
-      return apiResponse.badRequest(res, 'Company does not have a CIN or Probe42 ID for syncing');
+    const cin = company.cin;
+    if (!cin) {
+      return apiResponse.badRequest(res, 'Company does not have a CIN — required for Credhive sync');
     }
     
-    // Fetch company details from Probe42 using CIN
-    const probe42Details = await probe42Service.getCompanyDetails(probe42Identifier);
-    if (!probe42Details) {
-      return apiResponse.notFound(res, 'Company not found on Probe42');
+    // Fetch company profile from Credhive
+    const profileResp = await credhiveService.getCompanyProfile(cin);
+    if (!profileResp.success || !profileResp.data) {
+      return apiResponse.notFound(res, 'Company not found on Credhive');
     }
+    const credhiveDetails = profileResp.data;
     
-    // Update probe42CompanyId to CIN if it was a mock ID
-    if (company.probe42CompanyId !== probe42Identifier) {
-      await storage.updateUnlistedCompany(companyId, { probe42CompanyId: probe42Identifier });
-    }
+    // Fetch financials and directors
+    const financialsResp = await credhiveService.getFinancials(cin);
+    const financialsData = financialsResp.data ?? [];
     
-    // Fetch financials (last 3 years)
-    const financialsData = await probe42Service.getCompanyFinancials(probe42Identifier, 3);
-    const ratiosData = await probe42Service.getCompanyRatios(probe42Identifier, 3);
+    // Compute basic ratios from financials using the adapter
+    const ratiosData = await credhiveAdapter.fetchRatios(cin, 5);
     
-    // Auto-populate ISIN from NSDL if not available from Probe42
+    // Auto-populate ISIN from Credhive if available
     let isinResult: { isin: string | null; source: string; matchScore: number } = { 
-      isin: probe42Details.isin || company.isin || null, 
-      source: probe42Details.isin ? 'probe42' : (company.isin ? 'existing' : 'none'),
+      isin: credhiveDetails.isin || company.isin || null, 
+      source: credhiveDetails.isin ? 'credhive' : (company.isin ? 'existing' : 'none'),
       matchScore: 100 
     };
     
@@ -439,9 +439,29 @@ router.post('/probe42/sync/:companyId', requireAuth, async (req: Request, res: R
     let financialsCount = 0;
     let financialsUpdated = 0;
     for (const finData of financialsData) {
-      const dbFinancials = probe42Service.convertFinancialsToDbFormat(companyId, finData);
-      
-      // Check if already exists - update if so, create if not
+      const dbFinancials = {
+        companyId,
+        financialYear: finData.financial_year,
+        revenue: finData.revenue?.toString() ?? null,
+        ebitda: finData.ebitda?.toString() ?? null,
+        ebit: finData.ebit?.toString() ?? null,
+        pbt: finData.pbt?.toString() ?? null,
+        pat: finData.pat?.toString() ?? null,
+        netProfit: finData.net_profit?.toString() ?? null,
+        totalAssets: finData.total_assets?.toString() ?? null,
+        totalLiabilities: finData.total_liabilities?.toString() ?? null,
+        networth: finData.networth?.toString() ?? null,
+        shareCapital: finData.share_capital?.toString() ?? null,
+        reserves: finData.reserves?.toString() ?? null,
+        totalDebt: finData.total_debt?.toString() ?? null,
+        longTermDebt: finData.long_term_debt?.toString() ?? null,
+        shortTermDebt: finData.short_term_debt?.toString() ?? null,
+        operatingCashFlow: finData.operating_cash_flow?.toString() ?? null,
+        investingCashFlow: finData.investing_cash_flow?.toString() ?? null,
+        financingCashFlow: finData.financing_cash_flow?.toString() ?? null,
+        freeCashFlow: finData.free_cash_flow?.toString() ?? null,
+        dataSource: 'credhive',
+      };
       const existing = await storage.getCompanyFinancialsByYear(companyId, finData.financial_year);
       if (existing) {
         await storage.updateCompanyFinancials(existing.id, dbFinancials);
@@ -452,14 +472,25 @@ router.post('/probe42/sync/:companyId', requireAuth, async (req: Request, res: R
       }
     }
     
-    // Save ratios with upsert logic
+    // Save computed ratios with upsert logic
     let ratiosCount = 0;
     let ratiosUpdated = 0;
     for (const ratioData of ratiosData) {
-      const dbRatios = probe42Service.convertRatiosToDbFormat(companyId, ratioData);
-      
-      // Check if already exists
-      const existing = await storage.getCompanyRatiosByYear(companyId, ratioData.financial_year);
+      const dbRatios = {
+        companyId,
+        financialYear: ratioData.financialYear,
+        roe: ratioData.roe?.toString() ?? null,
+        roce: ratioData.roce?.toString() ?? null,
+        debtEquity: ratioData.debtEquity?.toString() ?? null,
+        currentRatio: ratioData.currentRatio?.toString() ?? null,
+        revenueGrowth: ratioData.revenueGrowth?.toString() ?? null,
+        profitGrowth: ratioData.profitGrowth?.toString() ?? null,
+        marginEbitda: ratioData.marginEbitda?.toString() ?? null,
+        marginPat: ratioData.marginPat?.toString() ?? null,
+        peRatio: ratioData.peRatio?.toString() ?? null,
+        dataSource: 'credhive',
+      };
+      const existing = await storage.getCompanyRatiosByYear(companyId, ratioData.financialYear);
       if (existing) {
         await storage.updateCompanyRatios(existing.id, dbRatios);
         ratiosUpdated++;
@@ -469,28 +500,28 @@ router.post('/probe42/sync/:companyId', requireAuth, async (req: Request, res: R
       }
     }
     
-    // Update company metadata with full overview data (including auto-populated ISIN)
+    // Update company metadata with Credhive profile data
     await storage.updateUnlistedCompany(companyId, {
       lastSyncedAt: new Date(),
-      sector: probe42Details.sector || company.sector,
-      industry: probe42Details.industry || company.industry,
-      rocState: probe42Details.roc_state || company.rocState,
-      incorporationDate: probe42Details.incorporation_date || company.incorporationDate,
-      paidUpCapital: probe42Details.paid_up_capital?.toString() || company.paidUpCapital,
-      authorizedCapital: probe42Details.authorized_capital?.toString() || company.authorizedCapital,
-      faceValue: probe42Details.face_value?.toString() || company.faceValue,
-      totalShares: probe42Details.total_shares || company.totalShares,
-      website: probe42Details.website || company.website,
-      description: probe42Details.description || company.description,
+      sector: credhiveDetails.sector || company.sector,
+      industry: credhiveDetails.industry || company.industry,
+      rocState: credhiveDetails.roc_state || company.rocState,
+      incorporationDate: credhiveDetails.date_of_incorporation || company.incorporationDate,
+      paidUpCapital: credhiveDetails.paid_up_capital?.toString() || company.paidUpCapital,
+      authorizedCapital: credhiveDetails.authorized_capital?.toString() || company.authorizedCapital,
+      faceValue: credhiveDetails.face_value?.toString() || company.faceValue,
+      totalShares: credhiveDetails.total_shares || company.totalShares,
+      website: credhiveDetails.website || company.website,
+      description: credhiveDetails.description || company.description,
       isin: isinResult.isin || company.isin,
     });
     
-    // Create sync log
+    // Create sync log (reuses existing Probe42SyncLog table)
     const totalNew = financialsCount + ratiosCount;
     const totalUpdated = financialsUpdated + ratiosUpdated;
     await storage.createProbe42SyncLog({
       companyId,
-      probe42CompanyId: company.probe42CompanyId,
+      probe42CompanyId: cin,
       syncType: 'full',
       lastSyncAt: new Date(),
       status: 'success',
@@ -498,7 +529,6 @@ router.post('/probe42/sync/:companyId', requireAuth, async (req: Request, res: R
       recordsFailed: 0,
     });
     
-    // Determine if ISIN was auto-populated from external source
     const isAutoPopulated = isinResult.source === 'moneycontrol' || isinResult.source === 'nsdl';
     const sourceLabel = isinResult.source === 'moneycontrol' ? 'MoneyControl' : 
                         isinResult.source === 'nsdl' ? 'NSDL' : null;
@@ -517,15 +547,14 @@ router.post('/probe42/sync/:companyId', requireAuth, async (req: Request, res: R
       message: `Synced ${totalNew} new records, updated ${totalUpdated} existing records${isAutoPopulated && isinResult.isin ? `. ISIN auto-populated from ${sourceLabel} (${Math.round(isinResult.matchScore)}% match)` : ''}`,
     });
   } catch (error: any) {
-    console.error('Error syncing from Probe42:', error);
+    console.error('Error syncing from Credhive:', error);
     
-    // Log failed sync
     const { companyId } = req.params;
     const company = await storage.getUnlistedCompanyById(companyId);
-    if (company && company.probe42CompanyId) {
+    if (company?.cin) {
       await storage.createProbe42SyncLog({
         companyId,
-        probe42CompanyId: company.probe42CompanyId,
+        probe42CompanyId: company.cin,
         syncType: 'full',
         lastSyncAt: new Date(),
         status: 'failed',
@@ -540,98 +569,52 @@ router.post('/probe42/sync/:companyId', requireAuth, async (req: Request, res: R
 });
 
 /**
- * POST /api/unlisted/probe42/sync-all
- * Bulk sync all companies with Probe42 (admin only)
+ * POST /api/unlisted/credhive/sync-all
+ * Bulk sync all companies with Credhive (admin only)
  */
-router.post('/probe42/sync-all', requireAuth, async (req: Request, res: Response) => {
+router.post('/credhive/sync-all', requireAuth, async (req: Request, res: Response) => {
   try {
-    // Admin-only operation
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
     }
     
     const { onlyUnsynced } = req.body;
-    
-    // Get all companies (or only unsynced ones)
     const allCompanies = await storage.getAllUnlistedCompanies({});
-    const companies = onlyUnsynced 
-      ? allCompanies.filter(c => !c.lastSyncedAt)
-      : allCompanies;
+    const companies = onlyUnsynced
+      ? allCompanies.filter(c => !c.lastSyncedAt && !!c.cin)
+      : allCompanies.filter(c => !!c.cin);
     
     if (companies.length === 0) {
-      return apiResponse.success(res, {
-        success: true,
-        message: 'No companies to sync',
-        results: []
-      });
+      return apiResponse.success(res, { success: true, message: 'No companies with CIN to sync', results: [] });
     }
     
-    console.log(`[Bulk Sync] Starting sync for ${companies.length} companies...`);
+    console.log(`[Bulk Sync] Starting Credhive sync for ${companies.length} companies...`);
     
     const results: Array<{
       companyId: string;
       companyName: string;
       success: boolean;
-      probe42Linked: boolean;
+      credhiveLinked: boolean;
       message: string;
     }> = [];
     
     for (const company of companies) {
       try {
-        console.log(`[Bulk Sync] Processing: ${company.name}`);
+        console.log(`[Bulk Sync] Processing: ${company.name} (${company.cin})`);
         
-        // If company doesn't have probe42CompanyId, try to find and link it
-        let probe42Id = company.probe42CompanyId;
-        
-        if (!probe42Id) {
-          // Search Probe42 by company name or CIN
-          const searchResults = await probe42Service.searchCompanyByNameOrCIN(company.cin || company.name);
-          
-          if (searchResults.length > 0) {
-            // Take the best match
-            const bestMatch = searchResults[0];
-            probe42Id = bestMatch.company_id;
-            
-            // Link the company to Probe42
-            await storage.updateUnlistedCompany(company.id, {
-              probe42CompanyId: probe42Id,
-              cin: bestMatch.cin || company.cin,
-            });
-            
-            console.log(`[Bulk Sync] Linked ${company.name} to Probe42 ID: ${probe42Id}`);
-          } else {
-            console.log(`[Bulk Sync] No Probe42 match for ${company.name}`);
-            results.push({
-              companyId: company.id,
-              companyName: company.name,
-              success: false,
-              probe42Linked: false,
-              message: 'No match found on Probe42'
-            });
-            continue;
-          }
-        }
-        
-        // Now sync the company data
-        const probe42Details = await probe42Service.getCompanyDetails(probe42Id);
-        if (!probe42Details) {
-          results.push({
-            companyId: company.id,
-            companyName: company.name,
-            success: false,
-            probe42Linked: !!company.probe42CompanyId,
-            message: 'Failed to fetch details from Probe42'
-          });
+        const profileResp = await credhiveService.getCompanyProfile(company.cin!);
+        if (!profileResp.success || !profileResp.data) {
+          results.push({ companyId: company.id, companyName: company.name, success: false, credhiveLinked: false, message: 'Not found on Credhive' });
           continue;
         }
+        const credhiveDetails = profileResp.data;
         
-        // Fetch financials and ratios
-        const financialsData = await probe42Service.getCompanyFinancials(probe42Id, 3);
-        const ratiosData = await probe42Service.getCompanyRatios(probe42Id, 3);
+        const financialsResp = await credhiveService.getFinancials(company.cin!);
+        const financialsData = financialsResp.data ?? [];
+        const ratiosData = await credhiveAdapter.fetchRatios(company.cin!, 5);
         
-        // Auto-populate ISIN if not available
-        let isin = probe42Details.isin || company.isin;
-        
+        // Auto-populate ISIN
+        let isin = credhiveDetails.isin || company.isin;
         if (!isin) {
           try {
             const { moneyControlScraper } = await import('../services/moneycontrol-scraper');
@@ -639,91 +622,60 @@ router.post('/probe42/sync-all', requireAuth, async (req: Request, res: Response
             if (mcResult.isin && mcResult.matchScore >= 60) {
               isin = mcResult.isin;
               console.log(`[Bulk Sync] Auto-populated ISIN ${isin} from MoneyControl for ${company.name}`);
-              
-              // Save price if available
               if (mcResult.price) {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
-                await storage.upsertPriceHistory({
-                  companyId: company.id,
-                  date: today,
-                  price: mcResult.price.toString(),
-                  sourceType: 'MONEYCONTROL',
-                  notes: `Auto-imported during bulk sync`,
-                });
+                await storage.upsertPriceHistory({ companyId: company.id, date: today, price: mcResult.price.toString(), sourceType: 'MONEYCONTROL', notes: 'Auto-imported during bulk sync' });
               }
             }
           } catch (e) {
-            console.warn(`[Bulk Sync] Failed to fetch ISIN from MoneyControl for ${company.name}`);
+            console.warn(`[Bulk Sync] MoneyControl ISIN lookup failed for ${company.name}`);
           }
         }
         
         // Save financials
         for (const finData of financialsData) {
-          const dbFinancials = probe42Service.convertFinancialsToDbFormat(company.id, finData);
+          const dbFin = { companyId: company.id, financialYear: finData.financial_year, revenue: finData.revenue?.toString() ?? null, ebitda: finData.ebitda?.toString() ?? null, ebit: finData.ebit?.toString() ?? null, pbt: finData.pbt?.toString() ?? null, pat: finData.pat?.toString() ?? null, netProfit: finData.net_profit?.toString() ?? null, totalAssets: finData.total_assets?.toString() ?? null, totalLiabilities: finData.total_liabilities?.toString() ?? null, networth: finData.networth?.toString() ?? null, totalDebt: finData.total_debt?.toString() ?? null, operatingCashFlow: finData.operating_cash_flow?.toString() ?? null, dataSource: 'credhive' };
           const existing = await storage.getCompanyFinancialsByYear(company.id, finData.financial_year);
-          if (existing) {
-            await storage.updateCompanyFinancials(existing.id, dbFinancials);
-          } else {
-            await storage.createCompanyFinancials(dbFinancials);
-          }
+          existing ? await storage.updateCompanyFinancials(existing.id, dbFin) : await storage.createCompanyFinancials(dbFin);
         }
         
         // Save ratios
         for (const ratioData of ratiosData) {
-          const dbRatios = probe42Service.convertRatiosToDbFormat(company.id, ratioData);
-          const existing = await storage.getCompanyRatiosByYear(company.id, ratioData.financial_year);
-          if (existing) {
-            await storage.updateCompanyRatios(existing.id, dbRatios);
-          } else {
-            await storage.createCompanyRatios(dbRatios);
-          }
+          const dbRatio = { companyId: company.id, financialYear: ratioData.financialYear, roe: ratioData.roe?.toString() ?? null, roce: ratioData.roce?.toString() ?? null, debtEquity: ratioData.debtEquity?.toString() ?? null, marginEbitda: ratioData.marginEbitda?.toString() ?? null, marginPat: ratioData.marginPat?.toString() ?? null, revenueGrowth: ratioData.revenueGrowth?.toString() ?? null, profitGrowth: ratioData.profitGrowth?.toString() ?? null, dataSource: 'credhive' };
+          const existing = await storage.getCompanyRatiosByYear(company.id, ratioData.financialYear);
+          existing ? await storage.updateCompanyRatios(existing.id, dbRatio) : await storage.createCompanyRatios(dbRatio);
         }
         
-        // Update company metadata
+        // Update metadata
         await storage.updateUnlistedCompany(company.id, {
           lastSyncedAt: new Date(),
-          sector: probe42Details.sector || company.sector,
-          industry: probe42Details.industry || company.industry,
-          rocState: probe42Details.roc_state || company.rocState,
-          incorporationDate: probe42Details.incorporation_date || company.incorporationDate,
-          paidUpCapital: probe42Details.paid_up_capital?.toString() || company.paidUpCapital,
-          authorizedCapital: probe42Details.authorized_capital?.toString() || company.authorizedCapital,
-          faceValue: probe42Details.face_value?.toString() || company.faceValue,
-          totalShares: probe42Details.total_shares || company.totalShares,
-          website: probe42Details.website || company.website,
-          description: probe42Details.description || company.description,
+          sector: credhiveDetails.sector || company.sector,
+          industry: credhiveDetails.industry || company.industry,
+          rocState: credhiveDetails.roc_state || company.rocState,
+          incorporationDate: credhiveDetails.date_of_incorporation || company.incorporationDate,
+          paidUpCapital: credhiveDetails.paid_up_capital?.toString() || company.paidUpCapital,
+          authorizedCapital: credhiveDetails.authorized_capital?.toString() || company.authorizedCapital,
+          faceValue: credhiveDetails.face_value?.toString() || company.faceValue,
+          totalShares: credhiveDetails.total_shares || company.totalShares,
+          website: credhiveDetails.website || company.website,
+          description: credhiveDetails.description || company.description,
           isin: isin || company.isin,
         });
         
-        results.push({
-          companyId: company.id,
-          companyName: company.name,
-          success: true,
-          probe42Linked: true,
-          message: `Synced ${financialsData.length} financials, ${ratiosData.length} ratios`
-        });
-        
+        results.push({ companyId: company.id, companyName: company.name, success: true, credhiveLinked: true, message: `Synced ${financialsData.length} financials, ${ratiosData.length} ratios` });
         console.log(`[Bulk Sync] Successfully synced ${company.name}`);
         
       } catch (companyError: any) {
         console.error(`[Bulk Sync] Error syncing ${company.name}:`, companyError.message);
-        results.push({
-          companyId: company.id,
-          companyName: company.name,
-          success: false,
-          probe42Linked: !!company.probe42CompanyId,
-          message: companyError.message || 'Sync failed'
-        });
+        results.push({ companyId: company.id, companyName: company.name, success: false, credhiveLinked: false, message: companyError.message || 'Sync failed' });
       }
       
-      // Small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
     
     const successCount = results.filter(r => r.success).length;
     const failedCount = results.filter(r => !r.success).length;
-    
     console.log(`[Bulk Sync] Completed: ${successCount} success, ${failedCount} failed`);
     
     return apiResponse.success(res, {
@@ -734,9 +686,8 @@ router.post('/probe42/sync-all', requireAuth, async (req: Request, res: Response
       failedCount,
       results
     });
-    
   } catch (error: any) {
-    console.error('Error in bulk sync:', error);
+    console.error('Error in bulk Credhive sync:', error);
     return apiResponse.serverError(res, error.message || 'Bulk sync failed');
   }
 });
@@ -6366,7 +6317,7 @@ interface SourceStatus {
 /**
  * GET /api/unlisted/admin/unified-search
  * Search companies across multiple data sources (Admin only)
- * Priority: FintekPro (internal) → MoneyControl → MCA → Probe42 (legacy)
+ * Priority: FintekPro (internal) → MoneyControl → MCA → Credhive
  */
 router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Response) => {
   try {
@@ -6388,11 +6339,11 @@ router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Resp
     const sourceStatuses: Record<string, SourceStatus> = {
       moneycontrol: { searched: false, resultCount: 0 },
       mca: { searched: false, resultCount: 0 },
-      probe42: { searched: false, resultCount: 0 }
+      credhive: { searched: false, resultCount: 0 }
     };
 
     // Search all sources in parallel with detailed error tracking
-    const [moneyControlResults, mcaResults, probe42Results] = await Promise.allSettled([
+    const [moneyControlResults, mcaResults, credhiveResults] = await Promise.allSettled([
       // MoneyControl (price data)
       (async () => {
         sourceStatuses.moneycontrol.searched = true;
@@ -6446,22 +6397,27 @@ router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Resp
         }
         return [];
       })(),
-      // Probe42 (legacy, will be deprecated)
+      // Credhive (unlisted company intelligence)
       (async () => {
         if (query.length < 3) {
-          sourceStatuses.probe42.searched = false;
+          sourceStatuses.credhive.searched = false;
           return [];
         }
         
-        sourceStatuses.probe42.searched = true;
-        const probe42Result = await probe42Service.searchCompanyByNameOrCINWithDetails(query);
+        sourceStatuses.credhive.searched = true;
+        const credhiveResult = await credhiveService.searchCompanies(query);
         
-        if (probe42Result.success && probe42Result.data) {
-          sourceStatuses.probe42.resultCount = probe42Result.data.length;
-          sourceStatuses.probe42.usedMockData = probe42Result.usedMockData;
-          return probe42Result.data;
-        } else if (probe42Result.error) {
-          sourceStatuses.probe42.error = probe42Result.error;
+        if (credhiveResult.success && credhiveResult.data) {
+          sourceStatuses.credhive.resultCount = credhiveResult.data.length;
+          return credhiveResult.data.map((c: any) => ({
+            company_id: c.cin,
+            name: c.company_name,
+            cin: c.cin,
+            status: c.status,
+            incorporation_date: c.date_of_incorporation,
+          }));
+        } else if (credhiveResult.error) {
+          sourceStatuses.credhive.error = { code: 503, message: credhiveResult.error, troubleshooting: 'Credhive API unavailable', isRetryable: true };
           return [];
         }
         return [];
@@ -6521,9 +6477,9 @@ router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Resp
       }
     }
 
-    // Process Probe42 results (legacy, lower priority)
-    if (probe42Results.status === 'fulfilled') {
-      for (const company of probe42Results.value) {
+    // Process Credhive results
+    if (credhiveResults.status === 'fulfilled') {
+      for (const company of credhiveResults.value) {
         if (company.cin && seenCins.has(company.cin)) continue;
         if (company.cin) seenCins.add(company.cin);
         
@@ -6531,16 +6487,15 @@ router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Resp
         const existing = existingCompanies.find((c: UnlistedCompany) => c.cin === company.cin);
 
         results.push({
-          id: `p42_${company.company_id}`,
+          id: `ch_${company.cin}`,
           name: company.name,
           cin: company.cin,
-          pan: company.pan,
           status: company.status,
           incorporationDate: company.incorporation_date,
-          source: 'probe42',
+          source: 'credhive',
           isInFintekPro,
           fintekProId: existing?.id || undefined,
-          dataQuality: 60,
+          dataQuality: 75,
           rawData: company,
         });
       }
@@ -6564,7 +6519,7 @@ router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Resp
       sources: {
         moneycontrol: sourceStatuses.moneycontrol.resultCount,
         mca: sourceStatuses.mca.resultCount,
-        probe42: sourceStatuses.probe42.resultCount,
+        credhive: sourceStatuses.credhive.resultCount,
       },
       sourceStatuses
     });

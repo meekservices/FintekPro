@@ -57,6 +57,7 @@ interface ProspectLead {
   leadScore: number;
   status: string;
   annualRevenue: string;
+  credhiveScore: number;
   probe42Score: number;
   createdAt: string;
 }
@@ -228,7 +229,7 @@ export default function MarketingDashboard() {
                 <CardTitle className="text-base">Lead Prospecting</CardTitle>
               </div>
               <CardDescription>
-                Search 2.8M Indian companies with Probe42 data
+                Search 2.8M Indian companies with Credhive data
               </CardDescription>
             </CardHeader>
           </Card>
@@ -305,7 +306,7 @@ export default function MarketingDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Recent Prospect Leads</CardTitle>
-              <CardDescription>Latest B2B leads from Probe42</CardDescription>
+              <CardDescription>Latest B2B leads from Credhive</CardDescription>
             </CardHeader>
             <CardContent>
               {!activity?.recentLeads || activity.recentLeads.length === 0 ? (
@@ -340,7 +341,7 @@ export default function MarketingDashboard() {
                             {lead.companyName}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            Score: {lead.leadScore}/100 • Probe42: {lead.probe42Score}/5
+                            Score: {lead.leadScore}/100 • Credhive: {(lead.credhiveScore || lead.probe42Score) ?? 'N/A'}/5
                           </p>
                         </div>
                       </div>

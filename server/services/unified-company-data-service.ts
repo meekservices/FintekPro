@@ -12,7 +12,7 @@
 
 import { storage } from '../storage';
 import { mcaService, type MCACompanyMasterData } from './mca-service';
-import { probe42Service, type Probe42CompanyDetails } from './probe42-service';
+import { credhiveService } from './credhive-service';
 import type { 
   CompanyFinancials, 
   CompanyRatios, 
@@ -21,7 +21,11 @@ import type {
   InsertCompanyRatios 
 } from '@shared/schema';
 
-export type DataSource = 'fintekpro' | 'mca' | 'moneycontrol' | 'probe42';
+export type DataSource = 'fintekpro' | 'mca' | 'moneycontrol' | 'credhive';
+
+interface CredhiveDirectorData {
+  directors?: Array<{ name: string; din?: string; designation?: string }>;
+}
 
 export interface SourcedData<T> {
   data: T;
@@ -201,7 +205,7 @@ class UnifiedCompanyDataService {
     
     const results: DataFetchResult[] = [];
     let mcaData: MCACompanyMasterData | null = null;
-    let probe42Details: Probe42CompanyDetails | null = null;
+    let probe42Details: CredhiveDirectorData | null = null;
     let ownFinancials: CompanyFinancials[] = [];
     let ownRatios: CompanyRatios[] = [];
 
@@ -257,26 +261,22 @@ class UnifiedCompanyDataService {
       }
     }
 
-    // Step 3: Try Probe42 for additional data (especially directors)
-    // Always attempt fetch - Probe42 service has built-in mock data fallback when API isn't configured
-    if (company?.probe42CompanyId) {
+    // Step 3: Try Credhive for additional data (especially directors)
+    if (company?.cin && credhiveService.isAvailable()) {
       try {
-        probe42Details = await probe42Service.getCompanyDetails(company.probe42CompanyId);
-        if (probe42Details) {
-          results.push({
-            success: true,
-            source: 'probe42',
-            data: probe42Details,
-          });
-          console.log(`[UnifiedData] Got Probe42 details with ${probe42Details.directors?.length || 0} directors`);
+        const dirResp = await credhiveService.getDirectors(company.cin);
+        if (dirResp.success && dirResp.data && dirResp.data.length > 0) {
+          probe42Details = {
+            directors: dirResp.data
+              .filter(d => d.is_active)
+              .map(d => ({ name: d.name, din: d.din, designation: d.designation }))
+          };
+          results.push({ success: true, source: 'credhive', data: probe42Details });
+          console.log(`[UnifiedData] Got Credhive directors: ${probe42Details.directors?.length || 0}`);
         }
       } catch (error: any) {
-        console.log(`[UnifiedData] Probe42 fetch failed: ${error.message}`);
-        results.push({
-          success: false,
-          source: 'probe42',
-          error: error.message,
-        });
+        console.log(`[UnifiedData] Credhive fetch failed: ${error.message}`);
+        results.push({ success: false, source: 'credhive', error: error.message });
       }
     }
 
@@ -286,7 +286,7 @@ class UnifiedCompanyDataService {
     
     if (company) sourcesAttempted.push('fintekpro');
     if (includeMCA && cin && !fintekproHasUsableData) sourcesAttempted.push('mca');
-    if (company?.probe42CompanyId) sourcesAttempted.push('probe42');
+    if (company?.cin && credhiveService.isAvailable()) sourcesAttempted.push('credhive');
 
     results.forEach(r => {
       if (r.success) {
@@ -361,7 +361,7 @@ class UnifiedCompanyDataService {
   private aggregateData(
     company: UnlistedCompany | undefined,
     mcaData: MCACompanyMasterData | null,
-    probe42Details: Probe42CompanyDetails | null,
+    probe42Details: CredhiveDirectorData | null,
     ownFinancials: CompanyFinancials[],
     ownRatios: CompanyRatios[],
     fetchResults: DataFetchResult[],
@@ -576,9 +576,9 @@ class UnifiedCompanyDataService {
   private buildDirectorsData(
     company: UnlistedCompany | undefined,
     mcaData: MCACompanyMasterData | null,
-    probe42Details: Probe42CompanyDetails | null
+    probe42Details: CredhiveDirectorData | null
   ): UnifiedCompanyData['directors'] {
-    // Priority: MCA (official) → Probe42 → FintekPro (enriched)
+    // Priority: MCA (official) → Credhive → FintekPro (enriched)
     if (mcaData?.directors && mcaData.directors.length > 0) {
       return {
         list: mcaData.directors.map(d => ({
@@ -590,7 +590,7 @@ class UnifiedCompanyDataService {
       };
     }
 
-    // Fallback to Probe42 directors
+    // Fallback to Credhive directors
     if (probe42Details?.directors && probe42Details.directors.length > 0) {
       return {
         list: probe42Details.directors.map(d => ({
@@ -598,7 +598,7 @@ class UnifiedCompanyDataService {
           din: d.din || '',
           designation: d.designation || '',
         })),
-        source: 'probe42',
+        source: 'credhive',
       };
     }
 

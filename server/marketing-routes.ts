@@ -412,19 +412,19 @@ export function registerMarketingRoutes(app: any) {
   });
 
   // ============================================================================
-  // PROSPECT LEADS - Probe42 Integration
+  // PROSPECT LEADS - Credhive Integration
   // ============================================================================
 
   /**
-   * Search companies via Probe42 v2 with enrichment and financial filtering
-   * Uses searchAndEnrich for full v2 capabilities including financial gating
+   * Search companies via Credhive with enrichment and financial filtering
+   * Uses searchAndEnrich for full capabilities including financial gating
    */
   app.post('/api/admin/marketing/leads/search', requireAdmin, async (req: any, res: Response) => {
     try {
       const probe42 = getProbe42Service();
-      const { minRevenue, minProfit, probe42Score, minEbitda, riskLevel } = req.body;
+      const { minRevenue, minProfit, credhiveScore, probe42Score, minEbitda, riskLevel } = req.body;
       
-      const hasFinancialFilters = minRevenue || minProfit || probe42Score || minEbitda || riskLevel;
+      const hasFinancialFilters = minRevenue || minProfit || credhiveScore || probe42Score || minEbitda || riskLevel;
       
       let result;
       if (hasFinancialFilters) {
@@ -482,7 +482,7 @@ export function registerMarketingRoutes(app: any) {
           available: false,
           usingFallback: true,
           error: result.error,
-          fallbackMessage: 'Showing results from local database. Probe42 API is unavailable.'
+          fallbackMessage: 'Showing results from local database. Credhive API is unavailable.'
         });
       }
 
@@ -501,14 +501,14 @@ export function registerMarketingRoutes(app: any) {
         companies: [], 
         count: 0, 
         available: false,
-        error: 'Failed to connect to Probe42 API',
-        fallbackMessage: 'Probe42 API is currently unavailable. You can still create B2B leads manually in the Prospect Dashboard or import from Zoho CRM.'
+        error: 'Failed to connect to Credhive API',
+        fallbackMessage: 'Credhive API is currently unavailable. You can still create B2B leads manually in the Prospect Dashboard or import from Zoho CRM.'
       });
     }
   });
 
   /**
-   * Search directors by name via Probe42 v2 Director Network API
+   * Search directors by name via Credhive Director Network API
    * Returns directors with their associated companies including financial data
    */
   app.post('/api/admin/marketing/leads/director-search', requireAdmin, async (req: any, res: Response) => {

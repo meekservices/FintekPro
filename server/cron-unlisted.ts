@@ -1,10 +1,10 @@
 /**
  * Unlisted Marketplace & Company Intelligence Cron Domain
  *
- * Probe42 sync · Unlisted listing / buy-request expiry & cleanup
+ * Credhive sync · Unlisted listing / buy-request expiry & cleanup
  * Price suggestions · MoneyControl scrape · Bond calendar
  * MF NAV pre-warm · Monthly MF returns
- * Probe42 prospecting alerts · Lead scoring
+ * Credhive prospecting alerts · Lead scoring
  * Company data refresh · Proactive cache warming
  * MCA enrichment sweep · Valuation governance
  */
@@ -12,7 +12,8 @@
 import cron from 'node-cron';
 import { storage } from './storage';
 import { DealMatcherService } from './services/deal-matcher';
-import { probe42Service } from './services/probe42-service';
+import { credhiveService } from './services/credhive-service';
+import { unlistedFinancialEnrichmentService } from './services/unlisted-financial-enrichment-service';
 import { getProbe42AnalyticsService } from './services/probe42-analytics-service';
 import { companyDataRefreshScheduler } from './services/company-data-refresh-scheduler';
 import { proactiveCacheWarmingService } from './services/proactive-cache-warming-service';
@@ -23,37 +24,37 @@ import { isProductionEnvironment } from './utils/enrichment-guard';
 
 export function initializeUnlistedCrons(): void {
   if (!isProductionEnvironment()) {
-    console.log('⏭️ [Probe42 Sync] Skipped (development mode - production only)');
+    console.log('⏭️ [Credhive Sync] Skipped (development mode - production only)');
     console.log('⏭️ [OrderCleanup] Skipped (development mode - production only)');
     console.log('⏭️ [ExpiryWarning] Skipped (development mode - production only)');
     console.log('⏭️ [Price/MoneyControl/BondCalendar] Skipped (development mode - production only)');
     console.log('⏭️ [MF Cron Jobs] Monthly Returns, NAV Pre-warm SKIPPED (development mode)');
-    console.log('⏭️ [Probe42 Alerts/Lead Scoring] Skipped (development mode - production only)');
+    console.log('⏭️ [Credhive Alerts/Lead Scoring] Skipped (development mode - production only)');
     console.log('⏭️ [CompanyRefresh] Skipped (development mode - production only)');
     console.log('⏭️ [CacheWarming] Skipped (development mode - production only)');
     return;
   }
 
-  // ── Probe42 unlisted company sync — every 6 hours ──────────────────────────
+  // ── Credhive unlisted company sync — every 6 hours ─────────────────────────
   cron.schedule('5 */6 * * *', async () => {
-    console.log('[CRON] Starting Probe42 sync job...');
+    console.log('[CRON] Starting Credhive sync job...');
     try {
       const companies = await storage.getAllUnlistedCompanies({});
       let synced = 0;
       let failed = 0;
       for (const company of companies) {
-        if (!company.probe42CompanyId) continue;
+        if (!company.cin) continue;
         try {
-          await probe42Service.syncCompanyFromProbe42(company.id);
+          await unlistedFinancialEnrichmentService.enrichCompany(company.id);
           synced++;
         } catch (error: any) {
           console.error(`Failed to sync company ${company.id}:`, error);
           failed++;
         }
       }
-      console.log(`[CRON] Probe42 sync: ${synced} succeeded, ${failed} failed`);
+      console.log(`[CRON] Credhive sync: ${synced} succeeded, ${failed} failed`);
     } catch (error: any) {
-      console.error('[CRON] Probe42 sync job failed:', error);
+      console.error('[CRON] Credhive sync job failed:', error);
     }
   });
 
@@ -237,9 +238,9 @@ export function initializeUnlistedCrons(): void {
     }
   });
 
-  // ── Probe42 prospecting alerts — daily at 8 AM IST (2:30 AM UTC) ──────────
+  // ── Credhive prospecting alerts — daily at 8 AM IST (2:30 AM UTC) ──────────
   cron.schedule('30 2 * * *', async () => {
-    console.log('[CRON] Starting Probe42 prospecting alerts check...');
+    console.log('[CRON] Starting Credhive prospecting alerts check...');
     try {
       const analyticsService = getProbe42AnalyticsService();
       const alerts = await analyticsService.checkProspectingThresholds({
@@ -305,7 +306,7 @@ if (isProductionEnvironment()) {
     console.log('[CRON][UnlistedEnrichment] Starting daily MCA enrichment sweep...');
     try {
       const { sql } = await import('drizzle-orm');
-      const { enrichUnlistedCompanyWithMCAData } = await import('./services/probe42-service');
+      const { enrichUnlistedCompanyWithMCAData } = await import('./services/probe42-service'); // MCA function — kept as-is
 
       const staleRows = await db.execute(sql`
         SELECT id, name, cin FROM unlisted_companies

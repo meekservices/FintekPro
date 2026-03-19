@@ -1,15 +1,17 @@
 /**
- * Probe42 API Service (v2)
- * 
- * Corporate data intelligence platform for India providing:
- * - Company verification and financial data
- * - Director information and authorized signatories
- * - Credit assessment and risk scoring
- * - Lead prospecting with financial filters
- * - KYC, GST, EPFO, Credit Ratings, Legal History
- * 
- * API Documentation: https://apiportal.probe42.in/v2/
- * Base URL: https://api.probe42.in/probe_data_api/
+ * @deprecated Probe42 API Service (v2) — DEPRECATED
+ *
+ * This service has been superseded by Credhive (server/services/credhive-service.ts).
+ * All new unlisted company intelligence flows use Credhive via:
+ *   - server/services/vendor-adapters/credhive.adapter.ts
+ *   - server/services/unified-company-data-service.ts
+ *
+ * This file is retained for backward compatibility only. The Probe42 routes
+ * (/api/unlisted/probe42/*) remain for legacy clients but internally delegate
+ * to Credhive. DB columns (probe42CompanyId, probe42_score, etc.) are unchanged.
+ *
+ * Original Probe42 API Documentation: https://apiportal.probe42.in/v2/
+ * Original Base URL: https://api.probe42.in/probe_data_api/
  */
 
 import axios, { AxiosInstance } from 'axios';

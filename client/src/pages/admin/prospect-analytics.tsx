@@ -170,7 +170,7 @@ export default function ProspectAnalytics() {
             Prospect Analytics
           </h1>
           <p className="text-muted-foreground">
-            Advanced client scouting with Probe42 intelligence
+            Advanced client scouting with Credhive intelligence
           </p>
         </div>
         <Button 

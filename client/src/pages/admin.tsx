@@ -524,7 +524,7 @@ function UnlistedMarketplaceTab() {
             Quick Links
           </h4>
           <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-            <li>• Companies: Add/edit unlisted companies with Probe42 integration</li>
+            <li>• Companies: Add/edit unlisted companies with Credhive integration</li>
             <li>• Negotiations: View sell listings, buy requests, and facilitate deals</li>
             <li>• Marketplace: Preview the public marketplace view</li>
             <li>• Seed Sample Data: Add NSE, Tata Technologies, and other pre-IPO companies for testing</li>

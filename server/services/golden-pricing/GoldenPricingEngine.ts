@@ -11,7 +11,7 @@
  * Asset-class specialisations:
  *   Mutual Funds  → AMFI_NAV
  *   Bonds         → YIELD_CURVE / DCF model
- *   Unlisted      → PROBE42 → liquidity-discount model
+ *   Unlisted      → CREDHIVE → liquidity-discount model
  *   Derivatives   → BLACK_SCHOLES
  */
 
@@ -71,7 +71,7 @@ const SOURCE_CONFIDENCE: Record<string, number> = {
   AMFI_NAV: 97,
   FMP: 85,
   ALPHAVANTAGE: 80,
-  PROBE42: 75,
+  CREDHIVE: 75,
   YIELD_CURVE: 80,
   LAST_TRADE: 70,
   MODEL_PRICE: 60,
@@ -212,27 +212,28 @@ async function fetchBondPrice(job: PricingJob): Promise<RawPrice | null> {
   }
 }
 
-// ── Unlisted: Probe42 → liquidity discount ────────────────────────────────────
+// ── Unlisted: Credhive → liquidity discount ───────────────────────────────────
 
 async function fetchUnlistedPrice(isin: string, job: PricingJob): Promise<RawPrice | null> {
   try {
-    const apiKey = process.env.PROBE42_API_KEY;
+    const apiKey = process.env.CREDHIVE_API_KEY;
+    const baseUrl = process.env.CREDHIVE_BASE_URL || 'https://api.credhive.in/v1';
     if (apiKey) {
-      const resp = await fetch(`https://api.probe42.in/probe_data_api/v1/company?isin=${isin}`, {
-        headers: { "x-api-key": apiKey },
+      const resp = await fetch(`${baseUrl}/company/search?isin=${isin}`, {
+        headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
         signal: AbortSignal.timeout(8000),
       });
       if (resp.ok) {
         const data = await resp.json() as any;
         const val = data?.last_funding_valuation ?? data?.estimated_valuation;
-        const shares = data?.shares_outstanding;
+        const shares = data?.total_shares ?? data?.shares_outstanding;
         if (val && shares && shares > 0) {
           const rawPrice = val / shares;
           const liquidityDiscount = 0.30;
           return {
             price: Math.round(rawPrice * (1 - liquidityDiscount) * 100) / 100,
-            source: "PROBE42",
-            confidence: SOURCE_CONFIDENCE.PROBE42,
+            source: "CREDHIVE",
+            confidence: SOURCE_CONFIDENCE.CREDHIVE,
           };
         }
       }

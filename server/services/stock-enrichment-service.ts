@@ -1,7 +1,7 @@
 /**
  * Stock Enrichment Service
  * Auto-fills missing data in listed_stocks using existing FintekPro APIs:
- * - Probe42: CIN, PAN, financials, ratios
+ * - Credhive: CIN, PAN, financials, ratios
  * - NSE/BSE APIs: Price, PE, market cap
  * - Finnhub: Fallback for missing data
  */
@@ -163,14 +163,14 @@ class StockEnrichmentService {
               fieldsEnriched.push('companyPan');
             }
             
-            primarySource = 'probe42';
+            primarySource = 'credhive';
           }
         } catch (error) {
-          console.log(`[StockEnrichment] Probe42 failed for ${stock.symbol}:`, error);
+          console.log(`[StockEnrichment] Credhive failed for ${stock.symbol}:`, error);
         }
       }
 
-      // Priority 1: Probe42 for ROE/ROCE
+      // Priority 1: Credhive for ROE/ROCE
       if (!stock.roe || !stock.roce) {
         try {
           if (stock.cin) {
@@ -186,11 +186,11 @@ class StockEnrichmentService {
                 fieldsEnriched.push('roce');
               }
               
-              primarySource = 'probe42';
+              primarySource = 'credhive';
             }
           }
         } catch (error) {
-          console.log(`[StockEnrichment] Probe42 financials failed for ${stock.symbol}:`, error);
+          console.log(`[StockEnrichment] Credhive financials failed for ${stock.symbol}:`, error);
         }
       }
 

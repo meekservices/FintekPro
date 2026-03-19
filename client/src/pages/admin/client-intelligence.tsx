@@ -20,6 +20,7 @@ interface ClientIntelligence {
   annualRevenue?: string;
   netProfit?: string;
   investableSurplus?: string;
+  credhiveScore?: number;
   probe42Score?: number;
   riskCategory: string;
   investmentPotential: string;
@@ -101,7 +102,7 @@ export default function ClientIntelligence() {
     low: intelligenceData?.filter(i => i.investmentPotential === 'low').length || 0,
     synced: intelligenceData?.filter(i => i.synced).length || 0,
     avgScore: intelligenceData && intelligenceData.length > 0
-      ? (intelligenceData.reduce((sum, i) => sum + (i.probe42Score || 0), 0) / intelligenceData.length).toFixed(1)
+      ? (intelligenceData.reduce((sum, i) => sum + (i.credhiveScore || i.probe42Score || 0), 0) / intelligenceData.length).toFixed(1)
       : '0',
   };
 
@@ -112,7 +113,7 @@ export default function ClientIntelligence() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Client Intelligence</h1>
           <p className="text-muted-foreground">
-            Financial health analysis of verified clients from Probe42
+            Financial health analysis of verified clients from Credhive
           </p>
         </div>
         <Button
@@ -136,7 +137,7 @@ export default function ClientIntelligence() {
               {stats.total}
             </div>
             <p className="text-xs text-muted-foreground">
-              {stats.synced} synced with Probe42
+              {stats.synced} synced with Credhive
             </p>
           </CardContent>
         </Card>
@@ -171,7 +172,7 @@ export default function ClientIntelligence() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Avg Probe42 Score</CardTitle>
+            <CardTitle className="text-sm font-medium">Avg Credhive Score</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-avg-probe42-score">
@@ -203,7 +204,7 @@ export default function ClientIntelligence() {
         <CardHeader>
           <CardTitle>Client Portfolio Intelligence</CardTitle>
           <CardDescription>
-            Financial data enriched from Probe42 API
+            Financial data enriched from Credhive API
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -247,9 +248,9 @@ export default function ClientIntelligence() {
                               intel.investmentPotential === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
                               'bg-muted'
                             }`}>
-                              {intel.probe42Score && intel.probe42Score >= 4 ? (
+                              {(intel.credhiveScore || intel.probe42Score || 0) >= 4 ? (
                                 <TrendingUp className="h-5 w-5 text-green-600" />
-                              ) : intel.probe42Score && intel.probe42Score <= 2 ? (
+                              ) : (intel.credhiveScore || intel.probe42Score || 0) <= 2 && (intel.credhiveScore || intel.probe42Score) ? (
                                 <TrendingDown className="h-5 w-5 text-red-600" />
                               ) : (
                                 <Shield className="h-5 w-5 text-yellow-600" />
@@ -272,9 +273,9 @@ export default function ClientIntelligence() {
 
                           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                             <div>
-                              <p className="text-xs text-muted-foreground">Probe42 Score</p>
+                              <p className="text-xs text-muted-foreground">Credhive Score</p>
                               <p className="font-semibold">
-                                {intel.probe42Score ? `${intel.probe42Score}/5` : 'N/A'}
+                                {(intel.credhiveScore || intel.probe42Score) ? `${intel.credhiveScore || intel.probe42Score}/5` : 'N/A'}
                               </p>
                             </div>
                             <div>
@@ -314,7 +315,7 @@ export default function ClientIntelligence() {
                           {!intel.synced && (
                             <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
                               <AlertCircle className="h-4 w-4" />
-                              <span>Not synced with Probe42 yet</span>
+                              <span>Not synced with Credhive yet</span>
                             </div>
                           )}
                         </div>

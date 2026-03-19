@@ -2,7 +2,7 @@
  * Data Enrichment Orchestrator Service
  * Handles multi-source financial data enrichment with:
  * - Priority-based source selection for Indian market:
- *   Probe42 (0.98) → MCA (0.95) → NSE/BSE (0.90) → Finnhub (0.75) → Google Finance (0.70) → Yahoo (0.65)
+ *   Credhive (0.98) → MCA (0.95) → NSE/BSE (0.90) → Finnhub (0.75) → Google Finance (0.70) → Yahoo (0.65)
  * - Metric-level source merging
  * - SEBI-compliant audit logging
  * - AI guardrails for data usage
@@ -18,7 +18,7 @@ import { nsdlISINService } from './nsdl-isin-service';
 import { ExternalServiceError } from '../utils/errors';
 import { nseIndiaProviderInstance, bseIndiaProviderInstance } from './market-movers-cache';
 
-export type DataSource = 'nse' | 'bse' | 'nse_bse' | 'probe42' | 'finnhub' | 'yahoo' | 'google_finance' | 'manual' | 'mca';
+export type DataSource = 'nse' | 'bse' | 'nse_bse' | 'credhive' | 'finnhub' | 'yahoo' | 'google_finance' | 'manual' | 'mca';
 
 export interface MetricValue {
   value: number | string | null;
@@ -89,8 +89,8 @@ export interface EnrichmentConfig {
 
 const DEFAULT_CONFIG: EnrichmentConfig = {
   // Indian market priority: MCA Intelligence → NSE → BSE → Finnhub → Google Finance → Yahoo
-  // Note: Probe42 /kyc endpoint disabled (requires higher subscription tier)
-  sourcePriority: ['mca', 'nse', 'bse', 'nse_bse', 'finnhub', 'google_finance', 'yahoo', 'probe42'],
+  // Note: Credhive used for unlisted company intelligence
+  sourcePriority: ['mca', 'nse', 'bse', 'nse_bse', 'finnhub', 'google_finance', 'yahoo', 'credhive'],
   minConfidenceThreshold: 0.6,
   allowMixedSources: true,
   aiAllowed: true,
@@ -115,9 +115,9 @@ class DataEnrichmentService {
   }
 
   getSourceConfidence(source: DataSource): number {
-    // Indian market confidence scores - Probe42 is primary source for unlisted companies
+    // Indian market confidence scores - Credhive is primary source for unlisted companies
     const confidenceMap: Record<DataSource, number> = {
-      probe42: 0.98,          // Primary source for Indian unlisted companies
+      credhive: 0.98,         // Primary source for Indian unlisted companies
       mca: 0.95,              // Ministry of Corporate Affairs - official government source
       nse: 0.92,              // NSE exchange filings (primary for listed stocks)
       bse: 0.90,              // BSE exchange filings (good for SME and unlisted tracking)
@@ -1003,7 +1003,7 @@ class DataEnrichmentService {
         id: crypto.randomUUID(),
         timestamp: now,
         action: 'block',
-        source: 'probe42',
+        source: 'credhive',
         reason: confidence.enrichmentBlockReason,
       });
 
@@ -1148,8 +1148,8 @@ class DataEnrichmentService {
     // ============================================================
     // INDIAN MARKET FALLBACK CHAIN
     // Priority: MCA Intelligence → NSE/BSE → Finnhub → Yahoo
-    // Note: Probe42 /kyc endpoint disabled (requires higher subscription tier)
-    // Probe42 /base-details still used for company identification
+    // Note: Credhive used for unlisted company intelligence (directors, profile, financials)
+    // Identity confidence computed via shared utility before enrichment
     // ============================================================
 
     // 1. MCA Intelligence Service - Primary Financial Source (0.95 confidence)

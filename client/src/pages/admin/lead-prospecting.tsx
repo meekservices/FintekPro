@@ -25,6 +25,7 @@ interface ProspectLead {
   authorizedCapital?: string;
   annualRevenue?: string;
   netProfit?: string;
+  credhiveScore?: number;
   probe42Score?: number;
   leadScore: number;
   leadQuality: string;
@@ -38,7 +39,7 @@ interface ProspectLead {
     phone?: string;
     otherCompaniesCount?: number;
   }>;
-  // Probe42 v2 enrichment fields
+  // Credhive enrichment fields
   employeeCount?: number;
   gstStatus?: string;
   gstNumber?: string;
@@ -57,7 +58,7 @@ interface ProspectLead {
   incorporationDate?: string;
   companyType?: string;
   companyClass?: string;
-  // Probe42 v2 KYC Extended Fields
+  // Credhive KYC Extended Fields
   sumOfCharges?: string;
   activeCompliance?: string;
   listingStatus?: string;
@@ -168,12 +169,12 @@ export default function LeadProspecting() {
           setApiError(data.fallbackMessage || 'Showing local database results');
           toast({ 
             title: `Found ${data.count || 0} companies from local database`,
-            description: 'Probe42 is unavailable. Showing leads from your database instead.',
+            description: 'Credhive is unavailable. Showing leads from your database instead.',
           });
         } else {
-          setApiError(data.error || 'Probe42 API unavailable');
+          setApiError(data.error || 'Credhive API unavailable');
           toast({ 
-            title: 'Probe42 API Unavailable',
+            title: 'Credhive API Unavailable',
             description: data.fallbackMessage || 'External company search is currently unavailable.',
             variant: 'destructive'
           });
@@ -311,7 +312,10 @@ export default function LeadProspecting() {
     if (formData.get('state')) filters.state = formData.get('state');
     if (formData.get('minRevenue')) filters.minRevenue = parseInt(formData.get('minRevenue') as string);
     if (formData.get('minProfit')) filters.minProfit = parseInt(formData.get('minProfit') as string);
-    if (formData.get('probe42Score')) filters.probe42Score = parseInt(formData.get('probe42Score') as string);
+    if (formData.get('probe42Score') || formData.get('credhiveScore')) {
+      filters.credhiveScore = parseInt((formData.get('credhiveScore') || formData.get('probe42Score')) as string);
+      filters.probe42Score = filters.credhiveScore;
+    }
 
     searchCompaniesMutation.mutate(filters);
   };
@@ -326,7 +330,7 @@ export default function LeadProspecting() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Lead Prospecting</h1>
         <p className="text-muted-foreground">
-          Search 2.8M Indian companies with Probe42 financial data
+          Search 2.8M Indian companies with Credhive financial data
         </p>
       </div>
 
@@ -420,10 +424,10 @@ export default function LeadProspecting() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="probe42Score">Probe42 Score (1-5)</Label>
+                <Label htmlFor="credhiveScore">Credhive Score (1-5)</Label>
                 <Input
-                  id="probe42Score"
-                  name="probe42Score"
+                  id="credhiveScore"
+                  name="credhiveScore"
                   type="number"
                   min="1"
                   max="5"
@@ -454,7 +458,7 @@ export default function LeadProspecting() {
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-medium text-amber-800 dark:text-amber-200">Probe42 API Unavailable</h4>
+                  <h4 className="font-medium text-amber-800 dark:text-amber-200">Credhive API Unavailable</h4>
                   <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{apiError}</p>
                   <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
                     You can still create B2B leads manually in the <a href="/admin/prospect-dashboard" className="underline font-medium hover:text-amber-800 dark:text-amber-200">Prospect Dashboard</a> or import from Zoho CRM.
@@ -872,7 +876,7 @@ export default function LeadProspecting() {
       <Card>
         <CardHeader>
           <CardTitle>Imported Leads</CardTitle>
-          <CardDescription>Companies imported from Probe42</CardDescription>
+          <CardDescription>Companies imported from Credhive</CardDescription>
         </CardHeader>
         <CardContent>
           {!leads || leads.length === 0 ? (

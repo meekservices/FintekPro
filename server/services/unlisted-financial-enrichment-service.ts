@@ -26,8 +26,8 @@ import {
   unlistedAuditLog,
   type UnlistedCompany,
 } from '@shared/schema';
-import { probe42Adapter } from './vendor-adapters/probe42.adapter';
-import type { FinancialStatement, FinancialRatios } from './vendor-adapters/probe42.adapter';
+import { credhiveAdapter as probe42Adapter } from './vendor-adapters/credhive.adapter';
+import type { FinancialStatement, FinancialRatios } from './vendor-adapters/credhive.adapter';
 
 // ── FHS weights (doc: section 4) ────────────────────────────────────────────
 const FHS_WEIGHTS = { roe: 0.35, revenueGrowth: 0.30, leverage: 0.35 };
@@ -170,7 +170,7 @@ class UnlistedFinancialEnrichmentService {
         companyId, companyName: company.name, cin: '',
         profile: 'unavailable', financials: 'unavailable', ratios: 'unavailable',
         financialYearsStored: 0, ratioYearsStored: 0, fhs: null, complianceFlags: [],
-        error: 'CIN not set — cannot enrich via Probe42',
+        error: 'CIN not set — cannot enrich via Credhive',
       };
     }
 
@@ -230,7 +230,7 @@ class UnlistedFinancialEnrichmentService {
           marginEbitda: ratio.marginEbitda?.toString() ?? null,
           marginPat: ratio.marginPat?.toString() ?? null,
           peRatio: ratio.peRatio?.toString() ?? null,
-          dataSource: 'probe42',
+          dataSource: 'credhive',
         };
 
         if (existing.length === 0) {
@@ -279,8 +279,8 @@ class UnlistedFinancialEnrichmentService {
             networth: fin.networth?.toString() ?? null,
             totalDebt: fin.totalDebt?.toString() ?? null,
             operatingCashFlow: fin.operatingCashFlow?.toString() ?? null,
-            dataSource: 'probe42',
-            confidenceScore: '0.75',
+            dataSource: 'credhive',
+            confidenceScore: '0.90',
           };
 
           if (existing.length === 0) {
@@ -323,7 +323,7 @@ class UnlistedFinancialEnrichmentService {
     await db.insert(unlistedAuditLog).values({
       companyId,
       actionType: 'financial_enrichment',
-      actionBy: 'system_probe42',
+      actionBy: 'system_credhive',
       previousValue: { lastSyncedAt: company.lastSyncedAt },
       newValue: {
         profile: result.profile,
@@ -334,7 +334,7 @@ class UnlistedFinancialEnrichmentService {
         financialYearsStored: result.financialYearsStored,
         ratioYearsStored: result.ratioYearsStored,
       },
-      notes: `Probe42 enrichment complete. FHS: ${fhs?.toFixed(3) ?? 'N/A'}. Flags: ${complianceFlags.join(', ') || 'none'}`,
+      notes: `Credhive enrichment complete. FHS: ${fhs?.toFixed(3) ?? 'N/A'}. Flags: ${complianceFlags.join(', ') || 'none'}`,
     } as any);
 
     console.log(`[UnlistedEnrichment] ${company.name} (${company.cin}): profile=${result.profile}, financials=${result.financials}, ratios=${result.ratios}, fhs=${fhs?.toFixed(3)}, flags=${complianceFlags.join(',') || 'none'}`);
@@ -419,7 +419,7 @@ class UnlistedFinancialEnrichmentService {
       marginEbitda: r.marginEbitda ? Number(r.marginEbitda) : null,
       marginPat: r.marginPat ? Number(r.marginPat) : null,
       peRatio: r.peRatio ? Number(r.peRatio) : null,
-      source: r.dataSource ?? 'probe42',
+      source: r.dataSource ?? 'credhive',
     }));
 
     const fhs = computeFHS(mapped);

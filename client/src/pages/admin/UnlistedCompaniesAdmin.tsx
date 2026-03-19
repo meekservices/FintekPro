@@ -20,7 +20,7 @@ import type { UnlistedCompany, CompanyFinancials, CompanyRatios, UnlistedPriceHi
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
 
-interface Probe42SearchResult {
+interface CredhiveSearchResult {
   company_id: string;
   name: string;
   cin: string;
@@ -36,8 +36,8 @@ export default function UnlistedCompaniesAdmin() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sectorFilter, setSectorFilter] = useState('all');
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
-  const [isProbe42DialogOpen, setIsProbe42DialogOpen] = useState(false);
-  const [probe42SearchQuery, setProbe42SearchQuery] = useState('');
+  const [isCredhiveDialogOpen, setIsCredhiveDialogOpen] = useState(false);
+  const [credhiveSearchQuery, setCredhiveSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('companies');
   const [isMoneyControlDialogOpen, setIsMoneyControlDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -132,7 +132,7 @@ export default function UnlistedCompaniesAdmin() {
               <DeleteCompanyDialog onClose={() => setIsDeleteDialogOpen(false)} />
             </DialogContent>
           </Dialog>
-          <Dialog open={isProbe42DialogOpen} onOpenChange={setIsProbe42DialogOpen}>
+          <Dialog open={isCredhiveDialogOpen} onOpenChange={setIsCredhiveDialogOpen}>
             <DialogTrigger asChild>
               <Button data-testid="button-add-company">
                 <Plus className="w-4 h-4 mr-2" />
@@ -140,7 +140,7 @@ export default function UnlistedCompaniesAdmin() {
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-3xl bg-card border-border">
-              <Probe42SearchDialog onClose={() => setIsProbe42DialogOpen(false)} />
+              <CredhiveSearchDialog onClose={() => setIsCredhiveDialogOpen(false)} />
             </DialogContent>
           </Dialog>
         </div>
@@ -233,7 +233,7 @@ function CompanyListView({
   const syncMutation = useMutation({
     mutationFn: async (companyId: string) => {
       setSyncingCompanyId(companyId);
-      return apiRequest(`/api/unlisted/probe42/sync/${companyId}`, { method: 'POST' });
+      return apiRequest(`/api/unlisted/credhive/sync/${companyId}`, { method: 'POST' });
     },
     onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
@@ -308,7 +308,7 @@ function CompanyListView({
   const bulkSyncMutation = useMutation({
     mutationFn: async ({ onlyUnsynced }: { onlyUnsynced: boolean }) => {
       setIsBulkSyncing(true);
-      return apiRequest('/api/unlisted/probe42/sync-all', { 
+      return apiRequest('/api/unlisted/credhive/sync-all', { 
         method: 'POST',
         body: JSON.stringify({ onlyUnsynced })
       });
@@ -816,7 +816,7 @@ function CompanyListView({
                               if (!company.probe42CompanyId) {
                                 toast({
                                   title: 'Cannot sync',
-                                  description: 'This company has no Probe42 ID. It may have been added manually.',
+                                  description: 'This company has no Credhive ID. It may have been added manually.',
                                   variant: 'destructive'
                                 });
                                 return;
@@ -825,7 +825,7 @@ function CompanyListView({
                             }}
                             disabled={syncingCompanyId === company.id}
                             className={company.probe42CompanyId ? 'text-blue-400 hover:text-blue-300' : 'text-muted-foreground'}
-                            title={company.probe42CompanyId ? 'Sync from Probe42' : 'No Probe42 ID available'}
+                            title={company.probe42CompanyId ? 'Sync from Credhive' : 'No Credhive ID available'}
                             data-testid={`button-sync-${company.id}`}
                           >
                             {syncingCompanyId === company.id ? (
@@ -1355,10 +1355,10 @@ function NSDLISINSearchDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
+function CredhiveSearchDialog({ onClose }: { onClose: () => void }) {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Probe42SearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<CredhiveSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
   // Create company mutation
@@ -1371,13 +1371,13 @@ function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
       if (companyId) {
         // Auto-trigger sync
         try {
-          const syncResult = await apiRequest(`/api/unlisted/probe42/sync/${companyId}`, { method: 'POST' });
+          const syncResult = await apiRequest(`/api/unlisted/credhive/sync/${companyId}`, { method: 'POST' });
           queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
           queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies'] });
           
           // Show sync result including ISIN info
           const isinInfo = (syncResult as any)?.data?.isin;
-          let description = 'Company data synced from Probe42';
+          let description = 'Company data synced from Credhive';
           if (isinInfo?.autoPopulated && isinInfo?.source) {
             const sourceLabel = isinInfo.source === 'moneycontrol' ? 'MoneyControl' : 'NSDL';
             description = `${description}. ISIN auto-populated from ${sourceLabel} (${Math.round(isinInfo.matchScore)}% match)`;
@@ -1426,7 +1426,7 @@ function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
 
     setIsSearching(true);
     try {
-      const response = await fetch(`/api/unlisted/probe42/search?q=${encodeURIComponent(searchQuery)}`);
+      const response = await fetch(`/api/unlisted/credhive/search?q=${encodeURIComponent(searchQuery)}`);
       if (!response.ok) throw new Error('Search failed');
       const result = await response.json();
       setSearchResults(result.data || []);
@@ -1441,7 +1441,7 @@ function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const handleLinkAndSync = (result: Probe42SearchResult) => {
+  const handleLinkAndSync = (result: CredhiveSearchResult) => {
     createCompanyMutation.mutate({
       name: result.name,
       cin: result.cin,
@@ -1452,7 +1452,7 @@ function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle className="text-foreground">Search Probe42 Companies</DialogTitle>
+        <DialogTitle className="text-foreground">Search Credhive Companies</DialogTitle>
         <DialogDescription className="text-muted-foreground">
           Search for companies by name or CIN to link and sync data
         </DialogDescription>
@@ -2043,7 +2043,7 @@ function SyncStatusTab({ company }: { company: UnlistedCompany }) {
     onSuccess: (response) => {
       toast({
         title: 'MCA Enrichment Complete',
-        description: response.data?.message || `Fetched financial data from MCA/Probe42`,
+        description: response.data?.message || `Fetched financial data from MCA/Credhive`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies', company.id] });
       queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies', company.id, 'financials'] });
@@ -2064,7 +2064,7 @@ function SyncStatusTab({ company }: { company: UnlistedCompany }) {
     <Card className="bg-card border-border">
       <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle className="text-foreground">Probe42 Sync Status</CardTitle>
+          <CardTitle className="text-foreground">Credhive Sync Status</CardTitle>
           {company.cin && (
             <Button 
               onClick={() => enrichMCAMutation.mutate()}
@@ -2085,7 +2085,7 @@ function SyncStatusTab({ company }: { company: UnlistedCompany }) {
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <Label className="text-muted-foreground">Probe42 Company ID</Label>
+            <Label className="text-muted-foreground">Credhive Company ID</Label>
             <p className="text-foreground font-mono">{company.probe42CompanyId || 'Not linked'}</p>
           </div>
           <div>
@@ -2105,7 +2105,7 @@ function SyncStatusTab({ company }: { company: UnlistedCompany }) {
           </div>
           <div>
             <Label className="text-muted-foreground">Data Source</Label>
-            <p className="text-foreground">Probe42</p>
+            <p className="text-foreground">Credhive</p>
           </div>
           <div>
             <Label className="text-muted-foreground">CIN (for MCA lookup)</Label>
@@ -2116,7 +2116,7 @@ function SyncStatusTab({ company }: { company: UnlistedCompany }) {
         {!company.cin && (
           <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
             <p className="text-yellow-500 text-sm">
-              MCA enrichment requires a CIN. Link this company to Probe42 to obtain the CIN first.
+              MCA enrichment requires a CIN. Link this company to Credhive to obtain the CIN first.
             </p>
           </div>
         )}
@@ -2124,7 +2124,7 @@ function SyncStatusTab({ company }: { company: UnlistedCompany }) {
         {!company.probe42CompanyId && (
           <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
             <p className="text-yellow-500 text-sm">
-              This company is not linked to Probe42. Use the "Add Company" feature to search and link from Probe42.
+              This company is not linked to Credhive. Use the "Add Company" feature to search and link from Credhive.
             </p>
           </div>
         )}
@@ -2158,8 +2158,9 @@ interface MoneyControlMatchResult {
 interface AddCompanyResult {
   companyId: string;
   companyName: string;
+  credhiveFound: boolean;
   probe42Found: boolean;
-  probe42Data: {
+  credhiveData: {
     cin?: string;
     sector?: string;
     industry?: string;
@@ -2213,9 +2214,9 @@ function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
       
       toast({
         title: 'Company Added',
-        description: result.probe42Found 
-          ? `${result.companyName} added with Probe42 data (${result.probe42Data?.financialsSynced || 0} financials synced)`
-          : `${result.companyName} added (Probe42 data not found)`,
+        description: (result.credhiveFound || result.probe42Found)
+          ? `${result.companyName} added with Credhive data (${(result.credhiveData || result.probe42Data)?.financialsSynced || 0} financials synced)`
+          : `${result.companyName} added (Credhive data not found)`,
       });
       setAddingCompanyIsin(null);
     },
@@ -2393,7 +2394,7 @@ function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
                     Unmatched Companies ({previewData.unmatchedCompanies.length})
                   </CardTitle>
                   <CardDescription className="text-muted-foreground text-xs">
-                    These companies from MoneyControl don't match any in your database. Click "Add" to create them with Probe42 data.
+                    These companies from MoneyControl don't match any in your database. Click "Add" to create them with Credhive data.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

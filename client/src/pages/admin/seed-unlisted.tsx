@@ -138,7 +138,7 @@ interface UnifiedSearchResult {
   sector?: string;
   status?: string;
   incorporationDate?: string;
-  source: 'moneycontrol' | 'probe42' | 'mca' | 'internal';
+  source: 'moneycontrol' | 'credhive' | 'probe42' | 'mca' | 'internal';
   currentPrice?: number;
   priceChange?: number;
   priceChangePercent?: number;
@@ -169,12 +169,14 @@ interface UnifiedSearchResponse {
   sources: {
     moneycontrol: number;
     mca: number;
-    probe42: number;
+    credhive: number;
+    probe42?: number;
   };
   sourceStatuses?: {
     moneycontrol: SourceStatus;
     mca: SourceStatus;
-    probe42: SourceStatus;
+    credhive: SourceStatus;
+    probe42?: SourceStatus;
   };
 }
 
@@ -190,10 +192,15 @@ const getSourceBadge = (source: string, dataQuality?: number) => {
       color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
       description: 'Real-time price data'
     },
+    credhive: { 
+      label: 'Credhive', 
+      color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      description: 'Unlisted company intelligence'
+    },
     probe42: { 
-      label: 'Probe42', 
-      color: 'bg-muted text-foreground',
-      description: 'Legacy source (deprecated)'
+      label: 'Credhive', 
+      color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      description: 'Unlisted company intelligence'
     },
     internal: { 
       label: 'FintekPro', 
@@ -331,8 +338,8 @@ export default function SeedUnlistedPage() {
           incorporationDate: selectedSearchResult.incorporationDate,
           currentPrice: selectedSearchResult.currentPrice,
           source: selectedSearchResult.source,
-          probe42CompanyId: selectedSearchResult.source === 'probe42' 
-            ? selectedSearchResult.id.replace('p42_', '') 
+          probe42CompanyId: (selectedSearchResult.source === 'credhive' || selectedSearchResult.source === 'probe42')
+            ? selectedSearchResult.cin || selectedSearchResult.id.replace(/^(ch_|p42_)/, '')
             : undefined,
         })
       });
@@ -1130,7 +1137,7 @@ export default function SeedUnlistedPage() {
         </div>
       </div>
 
-      {/* Unified Search - Search MoneyControl + Probe42 */}
+      {/* Unified Search - Search MoneyControl + Credhive */}
       <Card className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border-blue-500/30">
         <CardHeader className="pb-3">
           <CardTitle className="text-foreground flex items-center gap-2">
@@ -1138,7 +1145,7 @@ export default function SeedUnlistedPage() {
             Add New Unlisted Stock
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            Search across MoneyControl and Probe42 to find companies and publish them to the store
+            Search across MoneyControl and Credhive to find companies and publish them to the store
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -1170,9 +1177,9 @@ export default function SeedUnlistedPage() {
                     MoneyControl: {unifiedSearchData.sources.moneycontrol}
                   </Badge>
                 )}
-                {unifiedSearchData.sources.probe42 > 0 && (
-                  <Badge variant="outline" className="text-muted-foreground border-border">
-                    Probe42: {unifiedSearchData.sources.probe42}
+                {(unifiedSearchData.sources.credhive || unifiedSearchData.sources.probe42 || 0) > 0 && (
+                  <Badge variant="outline" className="text-blue-400 border-blue-400/50">
+                    Credhive: {unifiedSearchData.sources.credhive || unifiedSearchData.sources.probe42}
                   </Badge>
                 )}
               </div>
@@ -1265,39 +1272,39 @@ export default function SeedUnlistedPage() {
                       </div>
                     )}
                     
-                    {/* Probe42 Status */}
-                    {unifiedSearchData.sourceStatuses.probe42 && (
+                    {/* Credhive Status */}
+                    {unifiedSearchData.sourceStatuses.credhive && (
                       <div className={`p-3 rounded-lg border text-left ${
-                        unifiedSearchData.sourceStatuses.probe42.error && !unifiedSearchData.sourceStatuses.probe42.usedMockData
+                        unifiedSearchData.sourceStatuses.credhive.error && !unifiedSearchData.sourceStatuses.credhive.usedMockData
                           ? 'bg-red-900/20 border-red-500/30' 
-                          : unifiedSearchData.sourceStatuses.probe42.usedMockData
+                          : unifiedSearchData.sourceStatuses.credhive.usedMockData
                             ? 'bg-yellow-900/20 border-yellow-500/30'
                             : 'bg-muted/50 border-border'
                       }`}>
                         <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-muted-foreground border-border text-xs">Probe42</Badge>
+                          <Badge variant="outline" className="text-blue-400 border-blue-400/50 text-xs">Credhive</Badge>
                           <span className="text-xs text-muted-foreground">
-                            {unifiedSearchData.sourceStatuses.probe42.searched 
-                              ? `${unifiedSearchData.sourceStatuses.probe42.resultCount} results`
+                            {unifiedSearchData.sourceStatuses.credhive.searched 
+                              ? `${unifiedSearchData.sourceStatuses.credhive.resultCount} results`
                               : 'Not searched'}
                           </span>
-                          {unifiedSearchData.sourceStatuses.probe42.usedMockData && (
+                          {unifiedSearchData.sourceStatuses.credhive.usedMockData && (
                             <Badge variant="outline" className="text-yellow-400 border-yellow-400/50 text-xs">
                               Mock Data
                             </Badge>
                           )}
-                          {unifiedSearchData.sourceStatuses.probe42.error && !unifiedSearchData.sourceStatuses.probe42.usedMockData && (
+                          {unifiedSearchData.sourceStatuses.credhive.error && !unifiedSearchData.sourceStatuses.credhive.usedMockData && (
                             <Badge variant="destructive" className="text-xs">
-                              Error {unifiedSearchData.sourceStatuses.probe42.error.code}
+                              Error {unifiedSearchData.sourceStatuses.credhive.error.code}
                             </Badge>
                           )}
                         </div>
-                        {unifiedSearchData.sourceStatuses.probe42.error && !unifiedSearchData.sourceStatuses.probe42.usedMockData && (
+                        {unifiedSearchData.sourceStatuses.credhive.error && !unifiedSearchData.sourceStatuses.credhive.usedMockData && (
                           <p className="text-xs text-red-300">
-                            {unifiedSearchData.sourceStatuses.probe42.error.troubleshooting}
+                            {unifiedSearchData.sourceStatuses.credhive.error.troubleshooting}
                           </p>
                         )}
-                        {unifiedSearchData.sourceStatuses.probe42.usedMockData && (
+                        {unifiedSearchData.sourceStatuses.credhive.usedMockData && (
                           <p className="text-xs text-yellow-300">
                             Using mock data in development mode. Real API authentication failed.
                           </p>

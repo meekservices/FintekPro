@@ -532,7 +532,7 @@ export default function CompanyDetails() {
             <EmptyState
               icon={BarChart3}
               title="No financial data"
-              description="Financial data will appear here once synced from Probe42"
+              description="Financial data will appear here once synced from Credhive"
             />
           )}
         </TabsContent>
@@ -665,7 +665,7 @@ export default function CompanyDetails() {
             <EmptyState
               icon={Activity}
               title="No ratio data"
-              description="Ratio data will appear here once synced from Probe42"
+              description="Ratio data will appear here once synced from Credhive"
             />
           )}
         </TabsContent>
