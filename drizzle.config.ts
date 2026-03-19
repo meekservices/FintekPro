@@ -1,43 +1,16 @@
 import { defineConfig } from "drizzle-kit";
 
-// drizzle-kit targets DATABASE_URL (Replit-managed heliumdb) and is ONLY
-// allowed to manage the "drizzle_kit_managed" schema — a completely isolated
-// schema that contains just the 6 tables in schema-stub.ts.
-//
-// By limiting introspection to this private schema, drizzle-kit never sees the
-// 755 tables / 85 sequences in the "public" schema, so it never generates DROP
-// SEQUENCE or DROP TABLE statements.
-//
-// SSL is explicitly disabled: Helium runs locally on Replit infrastructure and
-// does NOT support SSL connections (unlike the legacy Neon database which
-// required SSL). Without ssl:false, the pg driver may attempt an SSL handshake
-// which causes "the socket disconnecting unexpectedly" — the root cause of the
-// "SERVER unexpectedly disconnected" error in the Replit DB diff panel.
-//
-// NEVER use PRODUCTION_DATABASE_URL here. The production database stores live
-// user data and has a different schema layout.
-//
-// NOTE: This file is intentionally named drizzle.local.config.ts (not
-// drizzle.config.ts) to prevent Replit's deployment platform from
-// auto-detecting it and running migrations during deployment. Use:
-//   npx drizzle-kit push --config=drizzle.local.config.ts
-// to push schema changes manually.
+// In the Replit deployment diff-check environment, DATABASE_URL points to
+// Helium which is local-only (not reachable from the build container).
+// PRODUCTION_DATABASE_URL (Neon) IS reachable from anywhere, so we prefer
+// it when available. In the local workspace, only DATABASE_URL is used
+// (Helium, no SSL — Helium does not support SSL per Replit upgrade docs).
 
-const baseUrl =
-  process.env.DATABASE_URL ||
-  "postgresql://localhost:5432/placeholder";
+const isProd = !!process.env.PRODUCTION_DATABASE_URL;
 
-function appendParam(url: string, key: string, value: string): string {
-  return url.includes("?") ? `${url}&${key}=${value}` : `${url}?${key}=${value}`;
-}
-
-let dbUrl = baseUrl;
-if (!dbUrl.includes("connect_timeout=")) {
-  dbUrl = appendParam(dbUrl, "connect_timeout", "15");
-}
-if (!dbUrl.includes("statement_timeout") && !dbUrl.includes("options=")) {
-  dbUrl = appendParam(dbUrl, "options", "-c statement_timeout=15000");
-}
+const dbUrl = isProd
+  ? process.env.PRODUCTION_DATABASE_URL!
+  : (process.env.DATABASE_URL || "postgresql://localhost:5432/placeholder");
 
 export default defineConfig({
   out: "./drizzle-migrations",
@@ -45,10 +18,7 @@ export default defineConfig({
   dialect: "postgresql",
   dbCredentials: {
     url: dbUrl,
-    ssl: false,
+    ssl: isProd ? { rejectUnauthorized: false } : false,
   },
-  // Restrict drizzle-kit to the isolated "drizzle_kit_managed" schema only.
-  // This schema is completely separate from "public" and contains only the
-  // 6 tables managed by schema-stub.ts — no foreign sequences or extra tables.
   schemaFilter: ["drizzle_kit_managed"],
 });
