@@ -27,7 +27,7 @@ import {
   type McaShareholdingPattern,
 } from '@shared/schema';
 import { mcaService, type MCACompanyMasterData } from './mca-service';
-import { probe42Service } from './probe42-service';
+import { credhiveService } from './credhive-service';
 import { nanoid } from 'nanoid';
 
 // Cache TTL in hours (data older than this will trigger a refresh)
@@ -102,29 +102,30 @@ class McaDataCacheService {
         console.log(`[MCA Cache] Sandbox API failed for ${cin}: ${apiResult.error?.message}`);
         
         // Try Probe42 as fallback when Sandbox fails
-        console.log(`[MCA Cache] Attempting Probe42 fallback for ${cin}...`);
+        console.log(`[MCA Cache] Attempting Credhive fallback for ${cin}...`);
         try {
-          const probe42Result = await probe42Service.getCompanyDetails(cin);
-          if (probe42Result) {
-            console.log(`[MCA Cache] Probe42 fallback successful for ${cin}`);
+          const credhiveResult = await credhiveService.getCompanyDetails(cin);
+          if (credhiveResult.success && credhiveResult.data) {
+            const credhiveData = credhiveResult.data;
+            console.log(`[MCA Cache] Credhive fallback successful for ${cin}`);
             
-            // Convert Probe42 data to MCA format and persist
-            const probe42Data: Partial<MCACompanyMasterData> = {
-              cin: probe42Result.cin,
-              companyName: probe42Result.companyName,
-              companyStatus: probe42Result.status || 'Active',
-              companyCategory: probe42Result.category || 'Company limited by Shares',
-              companySubCategory: probe42Result.subCategory || 'Non-govt company',
-              companyClass: probe42Result.companyClass || 'Private',
-              registeredAddress: probe42Result.registeredAddress || '',
-              email: probe42Result.email || '',
-              incorporationDate: probe42Result.incorporationDate || '',
-              authorizedCapital: probe42Result.authorizedCapital?.toString() || '0',
-              paidUpCapital: probe42Result.paidUpCapital?.toString() || '0',
+            // Convert Credhive data to MCA format and persist
+            const credhiveMcaData: Partial<MCACompanyMasterData> = {
+              cin: credhiveData.cin,
+              companyName: credhiveData.companyName,
+              companyStatus: credhiveData.status || 'Active',
+              companyCategory: credhiveData.category || 'Company limited by Shares',
+              companySubCategory: 'Non-govt company',
+              companyClass: 'Private',
+              registeredAddress: credhiveData.registeredAddress || '',
+              email: credhiveData.email || '',
+              incorporationDate: '',
+              authorizedCapital: credhiveData.authorizedCapital?.toString() || '0',
+              paidUpCapital: credhiveData.paidUpCapital?.toString() || '0',
             };
 
-            await this.persistCompanyDataFromProbe42(probe42Data, userId, runId);
-            await this.logIngestionComplete(runId, 'completed', 1, 'Probe42 fallback');
+            await this.persistCompanyDataFromProbe42(credhiveMcaData, userId, runId);
+            await this.logIngestionComplete(runId, 'completed', 1, 'Credhive fallback');
             
             const freshData = await this.getCachedCompany(cin);
             return {
@@ -137,8 +138,8 @@ class McaDataCacheService {
               apiCallMade: true,
             };
           }
-        } catch (probe42Error: any) {
-          console.log(`[MCA Cache] Probe42 fallback also failed: ${probe42Error.message}`);
+        } catch (credhiveError: any) {
+          console.log(`[MCA Cache] Credhive fallback also failed: ${credhiveError.message}`);
         }
 
         await this.logIngestionComplete(runId, 'failed', 0, apiResult.error?.message);

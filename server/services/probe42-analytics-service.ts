@@ -18,8 +18,6 @@ import {
   users
 } from '@shared/schema';
 import { eq, and, desc, sql, gte, lte, ilike, or, isNotNull } from 'drizzle-orm';
-import { getProbe42Service } from '../probe42-service';
-
 // ===================================================================
 // TYPE DEFINITIONS
 // ===================================================================
@@ -170,11 +168,10 @@ const INDIAN_STATES = [
 // ===================================================================
 
 class Probe42AnalyticsService {
-  private probe42Service = getProbe42Service();
   private alerts: ProspectingAlert[] = [];
 
   constructor() {
-    console.log('🔍 Probe42 Analytics Service initialized');
+    console.log('🔍 Credhive Analytics Service initialized');
   }
 
   // ===================================================================
@@ -1053,4 +1050,8 @@ export function getProbe42AnalyticsService(): Probe42AnalyticsService {
   return analyticsServiceInstance;
 }
 
+/** @alias getProbe42AnalyticsService */
+export const getCredhiveAnalyticsService = getProbe42AnalyticsService;
+
 export { Probe42AnalyticsService };
+export type CredhiveAnalyticsService = Probe42AnalyticsService;

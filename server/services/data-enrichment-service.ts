@@ -8,7 +8,7 @@
  * - AI guardrails for data usage
  */
 
-import { probe42Service } from './probe42-service';
+import { computeIdentityConfidence } from './credhive-service';
 import { fetchGFMetrics } from './google-finance-service';
 import { finnhubService } from './finnhub-service';
 import { exchangeFilingsService } from './exchange-filings-service';
@@ -985,7 +985,7 @@ class DataEnrichmentService {
       throw new ExternalServiceError('DataEnrichment', 'Company not found', null, false);
     }
 
-    const confidence = probe42Service.computeIdentityConfidence({
+    const confidence = computeIdentityConfidence({
       cin: company.cin,
       isin: company.isin,
       companyName: company.companyName,
@@ -1636,7 +1636,7 @@ class DataEnrichmentService {
       };
     }
 
-    const confidence = probe42Service.computeIdentityConfidence({
+    const confidence = computeIdentityConfidence({
       cin: company.cin,
       isin: company.isin,
       companyName: company.companyName,

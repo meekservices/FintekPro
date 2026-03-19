@@ -16,7 +16,7 @@ import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
 import { credhiveService } from '../services/credhive-service';
 import { credhiveAdapter } from '../services/vendor-adapters/credhive.adapter';
-import { enrichUnlistedCompanyWithMCAData } from '../services/probe42-service';
+import { enrichUnlistedCompanyWithMCAData } from '../services/mca-enrichment-service';
 import { PriceSuggestionService } from '../services/price-suggestion';
 import { priceAggregationService } from '../services/price-aggregation';
 import { moneyControlReconciliation } from '../services/moneycontrol-reconciliation';
@@ -957,7 +957,7 @@ router.post('/moneycontrol/add-company', requireAuth, async (req: Request, res: 
     let probe42Details: any = null;
     
     try {
-      const probe42Results = await probe42Service.searchCompanyByNameOrCIN(name);
+      const probe42Results = await credhiveService.searchCompanyByNameOrCIN(name);
       
       if (probe42Results && probe42Results.length > 0) {
         // Find best match - exact name match or first result
@@ -969,7 +969,7 @@ router.post('/moneycontrol/add-company', requireAuth, async (req: Request, res: 
         probe42CompanyId = bestMatch.company_id;
         
         // Get full company details from Probe42
-        probe42Details = await probe42Service.getCompanyDetails(probe42CompanyId);
+        probe42Details = await credhiveService.getCompanyDetails(probe42CompanyId);
         result.probe42Found = true;
       }
     } catch (error: any) {
@@ -1027,16 +1027,16 @@ router.post('/moneycontrol/add-company', requireAuth, async (req: Request, res: 
     // Sync financials and ratios from Probe42 if we have a company ID
     if (probe42CompanyId && result.probe42Data) {
       try {
-        const financials = await probe42Service.getCompanyFinancials(probe42CompanyId, 5);
+        const financials = await credhiveService.getCompanyFinancials(probe42CompanyId, 5);
         for (const fin of financials) {
-          const dbFormat = probe42Service.convertFinancialsToDbFormat(company.id, fin);
+          const dbFormat = credhiveService.convertFinancialsToDbFormat(company.id, fin);
           await storage.createCompanyFinancials(dbFormat);
           result.probe42Data.financialsSynced++;
         }
         
-        const ratios = await probe42Service.getCompanyRatios(probe42CompanyId, 5);
+        const ratios = await credhiveService.getCompanyRatios(probe42CompanyId, 5);
         for (const ratio of ratios) {
-          const dbFormat = probe42Service.convertRatiosToDbFormat(company.id, ratio);
+          const dbFormat = credhiveService.convertRatiosToDbFormat(company.id, ratio);
           await storage.createCompanyRatios(dbFormat);
           result.probe42Data.ratiosSynced++;
         }
@@ -4623,7 +4623,7 @@ router.get('/admin/companies/:id/identity-confidence', requireAdmin, async (req:
   try {
     const { id } = req.params;
     
-    const eligibility = await probe42Service.checkEnrichmentEligibility(id);
+    const eligibility = await credhiveService.checkEnrichmentEligibility(id);
     
     return apiResponse.success(res, {
       companyId: id,
@@ -4648,7 +4648,7 @@ router.post('/admin/companies/:id/identity-confidence/recalculate', requireAdmin
   try {
     const { id } = req.params;
     
-    const result = await probe42Service.updateCompanyIdentityConfidence(id);
+    const result = await credhiveService.updateCompanyIdentityConfidence(id);
     
     if (!result.success) {
       return apiResponse.badRequest(res, result.error || 'Failed to recalculate');
@@ -4674,7 +4674,7 @@ router.post('/admin/identity-confidence/batch-update', requireAdmin, async (req:
   try {
     const { limit = 100 } = req.body;
     
-    const result = await probe42Service.batchUpdateIdentityConfidence(limit);
+    const result = await credhiveService.batchUpdateIdentityConfidence(limit);
     
     return apiResponse.success(res, {
       processed: result.processed,
@@ -5352,7 +5352,7 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
       // If no Probe42 ID, try to search and link the company
       if (!probe42Id && companyData.name) {
         console.log(`[Refresh] No Probe42 ID, searching for: ${companyData.name}`);
-        const searchResults = await probe42Service.searchCompanyByNameOrCIN(companyData.name.substring(0, 50));
+        const searchResults = await credhiveService.searchCompanyByNameOrCIN(companyData.name.substring(0, 50));
         
         if (searchResults.length > 0) {
           // Link the first matching company
@@ -5374,9 +5374,9 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
       if (probe42Id) {
         // Fetch company details (includes directors), financials, and ratios
         const [companyDetails, financials, ratios] = await Promise.all([
-          probe42Service.getCompanyDetails(probe42Id),
-          probe42Service.getCompanyFinancials(probe42Id, 3),
-          probe42Service.getCompanyRatios(probe42Id, 3),
+          credhiveService.getCompanyDetails(probe42Id),
+          credhiveService.getCompanyFinancials(probe42Id, 3),
+          credhiveService.getCompanyRatios(probe42Id, 3),
         ]);
         
         // Update company with details from Probe42 including CIN if missing
@@ -5579,7 +5579,7 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
     if (!currentCIN && companyData.name) {
       try {
         console.log(`[Auto-Enrich] No CIN available, searching Probe42 by company name: ${companyData.name}`);
-        const probe42Results = await probe42Service.searchCompanyByNameOrCIN(companyData.name);
+        const probe42Results = await credhiveService.searchCompanyByNameOrCIN(companyData.name);
         
         if (probe42Results && probe42Results.length > 0) {
           // Find best match by name similarity
@@ -5767,7 +5767,7 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
     if ((stillNeedsSector || stillNeedsIndustry) && companyData.probe42CompanyId) {
       try {
         console.log(`[Auto-Enrich] Fetching Probe42 data for ID: ${companyData.probe42CompanyId}`);
-        const probe42Details = await probe42Service.getCompanyDetails(companyData.probe42CompanyId);
+        const probe42Details = await credhiveService.getCompanyDetails(companyData.probe42CompanyId);
         
         if (probe42Details) {
           const updateData: any = { lastSyncedAt: new Date() };
@@ -6549,8 +6549,8 @@ router.get('/admin/company-details/:source/:id', requireAdmin, async (req: Reque
         company: details,
       });
     } else if (source === 'probe42') {
-      const details = await probe42Service.getCompanyDetails(id);
-      const financials = await probe42Service.getCompanyFinancials(id).catch(() => null);
+      const details = await credhiveService.getCompanyDetails(id);
+      const financials = await credhiveService.getCompanyFinancials(id).catch(() => null);
       
       return apiResponse.success(res, {
         source: 'probe42',

@@ -14,7 +14,7 @@ import { storage } from './storage';
 import { DealMatcherService } from './services/deal-matcher';
 import { credhiveService } from './services/credhive-service';
 import { unlistedFinancialEnrichmentService } from './services/unlisted-financial-enrichment-service';
-import { getProbe42AnalyticsService } from './services/probe42-analytics-service';
+import { getCredhiveAnalyticsService } from './services/credhive-analytics-service';
 import { companyDataRefreshScheduler } from './services/company-data-refresh-scheduler';
 import { proactiveCacheWarmingService } from './services/proactive-cache-warming-service';
 import { db } from './db';
@@ -242,7 +242,7 @@ export function initializeUnlistedCrons(): void {
   cron.schedule('30 2 * * *', async () => {
     console.log('[CRON] Starting Credhive prospecting alerts check...');
     try {
-      const analyticsService = getProbe42AnalyticsService();
+      const analyticsService = getCredhiveAnalyticsService();
       const alerts = await analyticsService.checkProspectingThresholds({
         minRevenue: 100_000_000,
         minProfit: 10_000_000,
@@ -262,7 +262,7 @@ export function initializeUnlistedCrons(): void {
     try {
       const { prospectLeads } = await import('@shared/schema');
       const { isNotNull, eq: eqDrizzle } = await import('drizzle-orm');
-      const analyticsService = getProbe42AnalyticsService();
+      const analyticsService = getCredhiveAnalyticsService();
       const leads = await db.select({ id: prospectLeads.id, cin: prospectLeads.cin })
         .from(prospectLeads).where(isNotNull(prospectLeads.cin)).limit(100);
       let scored = 0;

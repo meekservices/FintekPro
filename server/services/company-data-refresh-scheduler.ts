@@ -10,7 +10,7 @@
 
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
-import { probe42Service } from './probe42-service';
+import { credhiveService } from './credhive-service';
 
 interface RefreshConfig {
   financialsMaxAgeDays: number;
@@ -144,12 +144,12 @@ class CompanyDataRefreshScheduler {
         if (cins.length === 0) continue;
 
         try {
-          const detailsResult = await probe42Service.batchGetCompanyDetails(cins);
+          const detailsResult = await credhiveService.batchGetCompanyDetails(cins);
           const successfulDetails = [...detailsResult.values()].filter(v => v !== null).length;
           refreshed += successfulDetails;
           this.metrics.detailsUpdated += successfulDetails;
 
-          const financialsResult = await probe42Service.batchGetCompanyFinancials(cins);
+          const financialsResult = await credhiveService.batchGetCompanyFinancials(cins);
           const successfulFinancials = [...financialsResult.values()].filter(v => v !== null).length;
           this.metrics.financialsUpdated += successfulFinancials;
 
@@ -271,12 +271,12 @@ class CompanyDataRefreshScheduler {
     try {
       console.log(`[CompanyRefresh] Manual refresh for ${cin}`);
       
-      const details = await probe42Service.getCompanyDetails(cin);
+      const details = await credhiveService.getCompanyDetails(cin);
       if (details.success) {
         this.metrics.detailsUpdated++;
       }
 
-      const financials = await probe42Service.getCompanyFinancials(cin);
+      const financials = await credhiveService.getCompanyFinancials(cin);
       if (financials.success && financials.data) {
         this.metrics.financialsUpdated++;
       }

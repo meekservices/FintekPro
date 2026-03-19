@@ -803,7 +803,7 @@ server.listen({
     import('./marketing-routes'),
     import('./routes/admin-prospects'),
     import('./services/twilio-webhook-service'),
-    import('./routes/probe42-analytics-routes'),
+    import('./routes/credhive-analytics-routes'),
     import('./user-management-routes'),
     import('./stakeholder-routes'),
     import('./auto-population-routes'),

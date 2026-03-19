@@ -26,7 +26,7 @@ import { getZohoCampaignsService } from './zoho-campaigns-service';
 import { twilioWhatsAppService } from './services/twilio-whatsapp-service';
 import { smsMarketingService } from './services/sms-marketing-service';
 import { whatsAppMarketingService } from './services/whatsapp-marketing-service';
-import { getProbe42Service, normalizeCompanyResult } from './probe42-service';
+import { credhiveService, normalizeCompanyResult } from './services/credhive-service';
 import { apiResponse } from './utils/responses';
 import { getAppBaseUrl } from './utils/app-url';
 import { requireAdmin, requireAuth } from './middleware/roleMiddleware';
@@ -421,16 +421,15 @@ export function registerMarketingRoutes(app: any) {
    */
   app.post('/api/admin/marketing/leads/search', requireAdmin, async (req: any, res: Response) => {
     try {
-      const probe42 = getProbe42Service();
       const { minRevenue, minProfit, credhiveScore, probe42Score, minEbitda, riskLevel } = req.body;
       
       const hasFinancialFilters = minRevenue || minProfit || credhiveScore || probe42Score || minEbitda || riskLevel;
       
       let result;
       if (hasFinancialFilters) {
-        result = await probe42.searchAndEnrich(req.body);
+        result = await credhiveService.searchAndEnrich(req.body);
       } else {
-        const searchResult = await probe42.searchCompanies(req.body);
+        const searchResult = await credhiveService.searchByFilters(req.body);
         result = {
           companies: searchResult.companies,
           available: searchResult.available,
@@ -519,8 +518,7 @@ export function registerMarketingRoutes(app: any) {
         return apiResponse.badRequest(res, 'Director name must be at least 3 characters');
       }
 
-      const probe42 = getProbe42Service();
-      const result = await probe42.searchDirectorsByName(directorName.trim(), { page, limit });
+      const result = await credhiveService.searchDirectorsByName(directorName.trim(), { page, limit });
 
       if (!result.available) {
         return res.json({
@@ -545,7 +543,7 @@ export function registerMarketingRoutes(app: any) {
       for (let i = 0; i < allCINs.length; i += BATCH_SIZE) {
         const batch = allCINs.slice(i, i + BATCH_SIZE);
         await Promise.all(batch.map(async (cin) => {
-          const enriched = await probe42.enrichDirectorCompanyData(cin);
+          const enriched = await credhiveService.enrichDirectorCompanyData(cin);
           if (enriched) {
             enrichedCompanyMap.set(cin, enriched);
           }
@@ -626,8 +624,8 @@ export function registerMarketingRoutes(app: any) {
    */
   app.get('/api/admin/marketing/leads/company/:cin', requireAdmin, async (req: any, res: Response) => {
     try {
-      const probe42 = getProbe42Service();
-      const company = await probe42.getCompanyDetails(req.params.cin);
+      const companyRes = await credhiveService.getCompanyDetails(req.params.cin);
+      const company = companyRes.success ? companyRes.data : null;
 
       if (!company) {
         return apiResponse.notFound(res, 'Company not found');
@@ -653,12 +651,10 @@ export function registerMarketingRoutes(app: any) {
       }
 
       console.log(`🔍 Enriching company for preview: ${cin}`);
-      const probe42 = getProbe42Service();
       
-      // Use full enrichment to get all available data from Probe42 v2 API
-      const enrichment = await probe42.getFullEnrichment(cin);
+      const enrichment = await credhiveService.getFullEnrichment(cin);
       const company = enrichment.baseDetails;
-      const enrichedData = probe42.extractEnrichmentData(enrichment);
+      const enrichedData = credhiveService.extractEnrichmentData(enrichment);
 
       // Build response with all available fields
       const response = {
@@ -730,15 +726,12 @@ export function registerMarketingRoutes(app: any) {
         return apiResponse.badRequest(res, 'Lead already imported');
       }
 
-      const probe42 = getProbe42Service();
-      
-      // Use full enrichment to get all available data from Probe42 v2 API
       console.log(`📊 Starting full enrichment for lead import: ${cin}`);
-      const enrichment = await probe42.getFullEnrichment(cin);
+      const enrichment = await credhiveService.getFullEnrichment(cin);
       const company = enrichment.baseDetails;
       
       // Extract structured enrichment data
-      const enrichedData = probe42.extractEnrichmentData(enrichment);
+      const enrichedData = credhiveService.extractEnrichmentData(enrichment);
 
       // Use company name from search results as fallback if enrichment fails
       const finalCompanyName = company?.companyName || requestCompanyName;
@@ -748,13 +741,13 @@ export function registerMarketingRoutes(app: any) {
       }
 
       // Calculate lead score with enrichment bonus
-      let leadScore = company ? probe42.calculateLeadScore(company) : 10;
+      let leadScore = company ? credhiveService.calculateLeadScore(company) : 10;
       leadScore = Math.min(100, leadScore + Math.floor(enrichedData.enrichmentScore / 5));
-      const leadQuality = probe42.getLeadQuality(leadScore);
+      const leadQuality = credhiveService.getLeadQuality(leadScore);
 
       // Calculate investable surplus
       const investableSurplus = company?.financials && company.financials.length > 0
-        ? probe42.calculateInvestableSurplus(company.financials[0])
+        ? credhiveService.calculateInvestableSurplus(company.financials[0])
         : 0;
 
       // Import lead with full enrichment data
@@ -786,7 +779,7 @@ export function registerMarketingRoutes(app: any) {
           leadScore,
           leadQuality,
           investableSurplus: investableSurplus.toString(),
-          source: 'probe42',
+          source: 'credhive',
           assignedTo: req.body.assignedTo || null,
           // Probe42 v2 enrichment fields
           employeeCount: enrichedData.employeeCount || null,
@@ -944,8 +937,7 @@ export function registerMarketingRoutes(app: any) {
         return apiResponse.badRequest(res, 'CIN required for verification');
       }
 
-      const probe42 = getProbe42Service();
-      const verification = await probe42.verifyClient(cin);
+      const verification = await credhiveService.verifyClient(cin);
 
       if (!verification.verified || !verification.companyDetails) {
         return res.json({

@@ -4,7 +4,6 @@ import { storage } from '../storage';
 import type { InsertUnlistedPriceHistory, InsertUnlistedCompany } from '@shared/schema';
 import { nsdlISINService } from './nsdl-isin-service';
 import { mcaService } from './mca-service';
-import { probe42Service } from './probe42-service';
 
 export interface MoneyControlCompany {
   name: string;

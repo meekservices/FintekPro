@@ -12,7 +12,7 @@ import { aiResponseCacheService } from '../services/ai-response-cache-service';
 import { unifiedStockPriceService } from '../services/unified-stock-price-service';
 import { companyDataRefreshScheduler } from '../services/company-data-refresh-scheduler';
 import { onboardingCacheService } from '../services/onboarding-cache-service';
-import { probe42Service } from '../services/probe42-service';
+import { credhiveService } from '../services/credhive-service';
 import { proactiveCacheWarmingService } from '../services/proactive-cache-warming-service';
 
 const router = Router();
@@ -427,11 +427,11 @@ router.post('/batch-enrich', async (req, res) => {
     
     console.log(`[BatchEnrich] Processing ${cins.length} companies${includeFinancials ? ' with financials' : ''}`);
     
-    const detailsMap = await probe42Service.batchGetCompanyDetails(cins);
+    const detailsMap = await credhiveService.batchGetCompanyDetails(cins);
     
     let financialsMap: Map<string, any[]> | null = null;
     if (includeFinancials) {
-      financialsMap = await probe42Service.batchGetCompanyFinancials(cins, years);
+      financialsMap = await credhiveService.batchGetCompanyFinancials(cins, years);
     }
     
     const results = cins.map(cin => ({

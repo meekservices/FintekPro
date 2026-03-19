@@ -9,7 +9,7 @@
 import { db } from "../db";
 import { listedStocks } from "@shared/schema";
 import { eq, isNull, or, and, sql } from "drizzle-orm";
-import { probe42Service } from "./probe42-service";
+import { credhiveService } from "./credhive-service";
 import { finnhubService } from "./finnhub-service";
 import { exchangeStockService } from "./exchange-stock-service";
 import { mapToBroadSector } from "../utils/sector-consolidation";
@@ -148,7 +148,7 @@ class StockEnrichmentService {
 
       if (!stock.cin || !stock.companyPan) {
         try {
-          const searchResult = await probe42Service.searchCompany(stock.companyName);
+          const searchResult = await credhiveService.searchCompany(stock.companyName);
           
           if (searchResult.success && searchResult.data && searchResult.data.length > 0) {
             const companyData = searchResult.data[0];
@@ -174,7 +174,7 @@ class StockEnrichmentService {
       if (!stock.roe || !stock.roce) {
         try {
           if (stock.cin) {
-            const financials = await probe42Service.getCompanyFinancials(stock.cin);
+            const financials = await credhiveService.getCompanyFinancials(stock.cin);
             
             if (financials.success && financials.data) {
               if (!stock.roe && financials.data.roe) {

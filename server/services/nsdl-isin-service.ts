@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { mcaService } from './mca-service';
-import { probe42Service } from './probe42-service';
+import { credhiveService } from './credhive-service';
 
 interface ISINRecord {
   isin: string;
@@ -470,18 +470,18 @@ class NSDLISINService {
         console.log(`[NSDL ISIN] MCA search failed for "${issuerName}"`);
       }
 
-      // Step 3: Try Probe42 search if MCA didn't find it
+      // Step 3: Try Credhive search if MCA didn't find it
       try {
-        const probe42Results = await probe42Service.searchCompanyByNameOrCIN(issuerName);
-        if (probe42Results.length > 0) {
-          const bestMatch = probe42Results[0];
-          console.log(`[NSDL ISIN] Found CIN via Probe42: ${bestMatch.cin}`);
+        const credhiveResults = await credhiveService.searchCompanyByNameOrCIN(issuerName);
+        if (credhiveResults.length > 0) {
+          const bestMatch = credhiveResults[0];
+          console.log(`[NSDL ISIN] Found CIN via Credhive: ${bestMatch.cin}`);
           
           return {
             cin: bestMatch.cin,
-            companyName: bestMatch.name,
+            companyName: bestMatch.company_name,
             isin: normalizedISIN,
-            source: 'nsdl_probe42',
+            source: 'nsdl_probe42' as const,
             confidence: 0.90,
             additionalData: {
               status: bestMatch.status,
@@ -489,7 +489,7 @@ class NSDLISINService {
           };
         }
       } catch (error) {
-        console.log(`[NSDL ISIN] Probe42 search failed for "${issuerName}"`);
+        console.log(`[NSDL ISIN] Credhive search failed for "${issuerName}"`);
       }
     }
 
