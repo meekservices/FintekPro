@@ -9,7 +9,7 @@ packages = ["atk", "chromium", "gdk-pixbuf", "glib", "glibcLocales", "gtk3", "li
 [deployment]
 deploymentTarget = "autoscale"
 build = ["npm", "run", "build"]
-run = ["npm", "run", "start"]
+run = ["bash", "scripts/start-production.sh"]
 
 [env]
 PORT = "5000"
