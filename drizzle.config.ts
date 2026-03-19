@@ -1,16 +1,14 @@
 import { defineConfig } from "drizzle-kit";
 
-// In the Replit deployment diff-check environment, DATABASE_URL points to
-// Helium which is local-only (not reachable from the build container).
-// PRODUCTION_DATABASE_URL (Neon) IS reachable from anywhere, so we prefer
-// it when available. In the local workspace, only DATABASE_URL is used
-// (Helium, no SSL — Helium does not support SSL per Replit upgrade docs).
+// Replit's deployment diff-check runs in the production environment where
+// NODE_ENV=production and DATABASE_URL points to the Replit-managed production
+// PostgreSQL database (requires SSL). In the local workspace, NODE_ENV is not
+// set to "production" and DATABASE_URL points to Helium (local, no SSL).
 
-const isProd = !!process.env.PRODUCTION_DATABASE_URL;
+const isProd = process.env.NODE_ENV === "production";
 
-const dbUrl = isProd
-  ? process.env.PRODUCTION_DATABASE_URL!
-  : (process.env.DATABASE_URL || "postgresql://localhost:5432/placeholder");
+const dbUrl =
+  process.env.DATABASE_URL || "postgresql://localhost:5432/placeholder";
 
 export default defineConfig({
   out: "./drizzle-migrations",
