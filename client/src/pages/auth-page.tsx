@@ -129,7 +129,10 @@ export default function AuthPage() {
   const portalColor = portalConfig.primaryColor;
   const portalDesc = PORTAL_DESCRIPTIONS[portalType] || PORTAL_DESCRIPTIONS.main;
   const [showPassword, setShowPassword] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authMode, setAuthMode] = useState<"login" | "register">(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("mode") === "register" ? "register" : "login";
+  });
   const effectivePortalType = portalType;
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [resetPasswordStep, setResetPasswordStep] = useState<"request" | "reset">("request");
@@ -834,9 +837,8 @@ export default function AuthPage() {
           </svg>
 
           {/* Logo */}
-          <div className="relative z-10 flex items-center gap-3">
-            <img src={agentLogoImg} alt="FintekPro" className="h-9 object-contain" />
-            <span className="text-white text-lg font-semibold tracking-wide">FintekPro</span>
+          <div className="relative z-10">
+            <img src={agentLogoImg} alt="FintekPro Agent Portal" className="h-20 object-contain" />
           </div>
 
           {/* Hero content */}
@@ -981,9 +983,13 @@ export default function AuthPage() {
 
             <p className="text-center text-sm text-gray-400 mt-7">
               Need an agent account?{" "}
-              <a href="https://partner.fintekpro.com" className="text-blue-600 font-medium hover:underline">
-                Apply to partner
-              </a>
+              <button
+                type="button"
+                onClick={() => setAuthMode("register")}
+                className="text-blue-600 font-medium hover:underline cursor-pointer"
+              >
+                Apply to register
+              </button>
             </p>
           </div>
         </div>
@@ -1189,10 +1195,6 @@ export default function AuthPage() {
                               <a href="https://agent.fintekpro.com" className="font-medium underline" style={{ color: portalColor }}>
                                 Agent Portal
                               </a>
-                              {" · "}
-                              <a href="https://partner.fintekpro.com" className="font-medium underline" style={{ color: portalColor }}>
-                                Partner Portal
-                              </a>
                             </p>
                           )}
                           {(portalType === 'agent' || portalType === 'partner') && (
@@ -1387,12 +1389,8 @@ export default function AuthPage() {
                         {portalType === 'main' && (
                           <p className="text-xs text-center text-muted-foreground">
                             Financial Agent?{" "}
-                            <a href="https://agent.fintekpro.com" className="font-medium underline" style={{ color: portalColor }}>
+                            <a href="https://agent.fintekpro.com?mode=register" className="font-medium underline" style={{ color: portalColor }}>
                               Register on the Agent Portal
-                            </a>
-                            {" · "}
-                            <a href="https://partner.fintekpro.com" className="font-medium underline" style={{ color: portalColor }}>
-                              Partner Portal
                             </a>
                           </p>
                         )}
