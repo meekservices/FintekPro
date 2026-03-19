@@ -3,6 +3,15 @@ import { db } from '../db';
 import { sql } from 'drizzle-orm';
 import { requireAdmin } from '../middleware/roleMiddleware';
 
+async function resolveTableName(tableName: string): Promise<string | null> {
+  if (!isValidTableName(tableName)) return null;
+  const check = await db.execute(
+    sql`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ${tableName} LIMIT 1`
+  );
+  if (check.rows.length === 0) return null;
+  return (check.rows[0] as any).table_name as string;
+}
+
 const router = Router();
 
 interface TableInfo {
@@ -48,9 +57,8 @@ router.get('/tables', requireAdmin, async (req: Request, res: Response) => {
 
 router.get('/tables/:tableName/columns', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { tableName } = req.params;
-    
-    if (!isValidTableName(tableName)) {
+    const safeTableName = await resolveTableName(req.params.tableName);
+    if (!safeTableName) {
       return res.status(400).json({ success: false, error: 'Invalid table name' });
     }
 
@@ -61,7 +69,7 @@ router.get('/tables/:tableName/columns', requireAdmin, async (req: Request, res:
         is_nullable,
         column_default
       FROM information_schema.columns
-      WHERE table_schema = 'public' AND table_name = ${tableName}
+      WHERE table_schema = 'public' AND table_name = ${safeTableName}
       ORDER BY ordinal_position
     `);
 
@@ -81,22 +89,22 @@ router.get('/tables/:tableName/columns', requireAdmin, async (req: Request, res:
 
 router.get('/tables/:tableName/data', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { tableName } = req.params;
+    const safeTableName = await resolveTableName(req.params.tableName);
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 50), 100);
     const offset = (page - 1) * limit;
 
-    if (!isValidTableName(tableName)) {
+    if (!safeTableName) {
       return res.status(400).json({ success: false, error: 'Invalid table name' });
     }
 
     const countResult = await db.execute(
-      sql`SELECT COUNT(*) as total FROM ${sql.identifier(tableName)}`
+      sql`SELECT COUNT(*) as total FROM ${sql.identifier(safeTableName)}`
     );
     const totalRows = parseInt((countResult.rows[0] as any).total) || 0;
 
     const dataResult = await db.execute(
-      sql`SELECT * FROM ${sql.identifier(tableName)} ORDER BY 1 DESC LIMIT ${limit} OFFSET ${offset}`
+      sql`SELECT * FROM ${sql.identifier(safeTableName)} ORDER BY 1 DESC LIMIT ${limit} OFFSET ${offset}`
     );
     const rows = dataResult.rows as any[];
 

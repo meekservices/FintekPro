@@ -108,21 +108,26 @@ def _chromium_dump_dom(symbol: str, exchange: str) -> Optional[str]:
         logger.warning("[GoogleFinance] Rejected unsafe symbol/exchange: %r / %r", symbol, exchange)
         return None
     url = f"https://www.google.com/finance/quote/{symbol.upper()}:{exchange.upper()}"
-    args = _CHROMIUM_FLAGS + [url]
     try:
         if shutil.which("chromium"):
             result = subprocess.run(
-                ["chromium"] + args,
+                ["chromium", "--headless=new", "--no-sandbox", "--disable-gpu",
+                 "--disable-dev-shm-usage", "--disable-extensions",
+                 "--disable-background-networking", "--dump-dom", url],
                 capture_output=True, text=True, timeout=_CHROMIUM_TIMEOUT, shell=False,
             )
         elif shutil.which("chromium-browser"):
             result = subprocess.run(
-                ["chromium-browser"] + args,
+                ["chromium-browser", "--headless=new", "--no-sandbox", "--disable-gpu",
+                 "--disable-dev-shm-usage", "--disable-extensions",
+                 "--disable-background-networking", "--dump-dom", url],
                 capture_output=True, text=True, timeout=_CHROMIUM_TIMEOUT, shell=False,
             )
         elif shutil.which("google-chrome"):
             result = subprocess.run(
-                ["google-chrome"] + args,
+                ["google-chrome", "--headless=new", "--no-sandbox", "--disable-gpu",
+                 "--disable-dev-shm-usage", "--disable-extensions",
+                 "--disable-background-networking", "--dump-dom", url],
                 capture_output=True, text=True, timeout=_CHROMIUM_TIMEOUT, shell=False,
             )
         else:

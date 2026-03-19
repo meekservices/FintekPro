@@ -71,18 +71,17 @@ const _safeCssIdent = (s: string) => s.replace(/[^a-zA-Z0-9_-]/g, "")
 const _safeCssColor = (s: string) => s.replace(/[^a-zA-Z0-9#(),.\s%]/g, "")
 
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
+  const styleRef = React.useRef<HTMLStyleElement>(null)
+
   const colorConfig = Object.entries(config).filter(
     ([, config]) => config.theme || config.color
   )
 
-  if (!colorConfig.length) {
-    return null
-  }
-
   const safeId = _safeCssIdent(id)
-  const cssContent = Object.entries(THEMES)
-    .map(
-      ([theme, prefix]) => `
+  const cssContent = colorConfig.length
+    ? Object.entries(THEMES)
+        .map(
+          ([theme, prefix]) => `
 ${prefix} [data-chart=${safeId}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
@@ -93,19 +92,25 @@ ${colorConfig
       ? `  --color-${_safeCssIdent(key)}: ${_safeCssColor(color)};`
       : null
   })
+  .filter(Boolean)
   .join("\n")}
 }
 `
-    )
-    .join("\n")
+        )
+        .join("\n")
+    : ""
 
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: cssContent,
-      }}
-    />
-  )
+  React.useEffect(() => {
+    if (styleRef.current) {
+      styleRef.current.textContent = cssContent
+    }
+  }, [cssContent])
+
+  if (!colorConfig.length) {
+    return null
+  }
+
+  return <style ref={styleRef} />
 }
 
 const ChartTooltip = RechartsPrimitive.Tooltip
