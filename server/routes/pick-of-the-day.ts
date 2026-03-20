@@ -72,11 +72,69 @@ const DATA_SOURCES: Record<string, { name: string; type: string; refreshInterval
   derivatives: { name: "NSE F&O Data / Options Chain", type: "Real-time (15-min delay)", refreshInterval: "Every 4 hours" },
 };
 
+async function getLiveInstrumentPrice(pick: any): Promise<number | null> {
+  try {
+    switch (pick.category) {
+      case 'listed_stocks': {
+        const row = await db.select({ currentPrice: listedStocks.currentPrice })
+          .from(listedStocks).where(eq(listedStocks.id, pick.instrumentId)).limit(1);
+        return row[0]?.currentPrice ? parseFloat(row[0].currentPrice) : null;
+      }
+      case 'mutual_funds': {
+        const row = await db.select({ nav: mutualFunds.nav })
+          .from(mutualFunds).where(eq(mutualFunds.schemeCode, pick.instrumentId)).limit(1);
+        return row[0]?.nav ? parseFloat(row[0].nav) : null;
+      }
+      case 'bonds': {
+        const row = await db.select({ cleanPrice: bondCatalog.cleanPrice })
+          .from(bondCatalog).where(eq(bondCatalog.id, pick.instrumentId)).limit(1);
+        return row[0]?.cleanPrice ? parseFloat(row[0].cleanPrice) : null;
+      }
+      case 'unlisted': {
+        const row = await db.select({ publishedBuyPrice: unlistedCompanies.publishedBuyPrice })
+          .from(unlistedCompanies).where(eq(unlistedCompanies.id, pick.instrumentId)).limit(1);
+        return row[0]?.publishedBuyPrice ? parseFloat(row[0].publishedBuyPrice) : null;
+      }
+      case 'etfs': {
+        const row = await db.select({ lastPrice: instrumentMaster.lastPrice })
+          .from(instrumentMaster).where(eq(instrumentMaster.id, pick.instrumentId)).limit(1);
+        return row[0]?.lastPrice ? parseFloat(row[0].lastPrice) : null;
+      }
+      case 'global_stocks': {
+        const row = await db.select({ lastPrice: globalInstruments.lastPrice })
+          .from(globalInstruments).where(eq(globalInstruments.id, pick.instrumentId)).limit(1);
+        return row[0]?.lastPrice ? parseFloat(row[0].lastPrice) : null;
+      }
+      case 'reits_invits': {
+        const result = await db.execute(sql`
+          SELECT current_price FROM reits WHERE id::text = ${pick.instrumentId}
+          UNION ALL SELECT current_price FROM invits WHERE id::text = ${pick.instrumentId}
+          LIMIT 1
+        `);
+        const reitRow = (result as any).rows?.[0] || (result as any)[0];
+        return reitRow?.current_price ? parseFloat(reitRow.current_price) : null;
+      }
+      case 'sgb': {
+        const result = await db.execute(sql`
+          SELECT current_price FROM commodity_prices WHERE symbol = 'GOLD' ORDER BY last_updated DESC LIMIT 1
+        `);
+        const goldRow = (result as any).rows?.[0] || (result as any)[0];
+        return goldRow?.current_price ? parseFloat(goldRow.current_price) : null;
+      }
+      default:
+        return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
 async function enrichPicksWithDataSource(picks: any[]) {
   const categoryLastUpdated: Record<string, string> = {};
   const now = new Date();
   const expiredPickIds: number[] = [];
-  
+  const picksToUpdateInDb: { id: number; currentPrice: string; returnPct: string; daysHeld: number; status: string }[] = [];
+
   for (const pick of picks) {
     if (pick.status === 'live' && pick.expiryDate) {
       const expiry = new Date(pick.expiryDate);
@@ -86,13 +144,52 @@ async function enrichPicksWithDataSource(picks: any[]) {
       }
     }
 
+    // --- Always compute daysHeld fresh ---
+    if (pick.recoDate) {
+      pick.daysHeld = Math.floor((now.getTime() - new Date(pick.recoDate).getTime()) / (1000 * 60 * 60 * 24));
+    }
+
+    // --- Fetch live price from instrument table for live picks ---
+    if (pick.status === 'live' && pick.instrumentId) {
+      try {
+        const freshPrice = await getLiveInstrumentPrice(pick);
+        if (freshPrice !== null && freshPrice > 0) {
+          pick.currentPrice = freshPrice;
+          pick.lastPriceUpdate = now.toISOString();
+
+          if (pick.recoPrice) {
+            const recoPrice = parseFloat(pick.recoPrice);
+            if (recoPrice > 0) {
+              pick.returnPct = parseFloat((((freshPrice - recoPrice) / recoPrice) * 100).toFixed(2));
+            }
+          }
+
+          // Determine new status from fresh price
+          let newStatus = 'live';
+          if (pick.targetPrice && freshPrice >= parseFloat(pick.targetPrice)) newStatus = 'target_hit';
+          else if (pick.stoplossPrice && freshPrice <= parseFloat(pick.stoplossPrice)) newStatus = 'stoploss_hit';
+          if (newStatus !== pick.status) pick.status = newStatus;
+
+          if (pick.id) {
+            picksToUpdateInDb.push({
+              id: pick.id,
+              currentPrice: freshPrice.toString(),
+              returnPct: pick.returnPct?.toString() ?? '0',
+              daysHeld: pick.daysHeld ?? 0,
+              status: pick.status,
+            });
+          }
+        }
+      } catch {}
+    }
+
     const source = DATA_SOURCES[pick.category];
     pick.priceDataSource = source?.name || 'Unknown';
     pick.priceDataType = source?.type || 'Unknown';
     pick.priceRefreshInterval = source?.refreshInterval || 'Unknown';
     
-    if (pick.updatedAt || pick.statusUpdatedAt) {
-      const updatedAt = pick.statusUpdatedAt || pick.updatedAt;
+    if (pick.lastPriceUpdate || pick.updatedAt || pick.statusUpdatedAt) {
+      const updatedAt = pick.lastPriceUpdate || pick.statusUpdatedAt || pick.updatedAt;
       pick.lastPriceUpdate = updatedAt;
       const cat = pick.category;
       if (!categoryLastUpdated[cat] || new Date(updatedAt) > new Date(categoryLastUpdated[cat])) {
@@ -177,6 +274,24 @@ async function enrichPicksWithDataSource(picks: any[]) {
     } catch (err) {
       console.warn('[PickOfDay] Failed to auto-expire picks in DB:', err);
     }
+  }
+
+  // Persist freshly fetched prices back to DB in the background (fire-and-forget)
+  if (picksToUpdateInDb.length > 0) {
+    Promise.all(
+      picksToUpdateInDb.map(u =>
+        db.update(dailyPicks)
+          .set({
+            currentPrice: u.currentPrice,
+            returnPct: u.returnPct,
+            daysHeld: u.daysHeld,
+            status: u.status as any,
+            updatedAt: new Date(),
+          })
+          .where(eq(dailyPicks.id, u.id))
+          .catch(() => {})
+      )
+    ).catch(() => {});
   }
 
   return { picks, categoryLastUpdated };
