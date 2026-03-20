@@ -49,8 +49,13 @@ export function getSession() {
   const pgStore = connectPg(session);
   
   // Create a dedicated pool for sessions with resilient settings
+  // Must use the same DB as the main app so the sessions table exists
+  const sessionDbUrl =
+    process.env.PRODUCTION_DATABASE_URL ||
+    process.env.NEON_DATABASE_URL ||
+    process.env.DATABASE_URL;
   const sessionPool = new pg.Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: sessionDbUrl,
     max: 10, // Increased pool size for better availability
     min: 2, // Keep minimum connections alive
     idleTimeoutMillis: 60000, // Close idle connections after 60 seconds
@@ -75,7 +80,7 @@ export function getSession() {
   
   const sessionStore = new pgStore({
     pool: sessionPool, // Use dedicated pool instead of connection string
-    createTableIfMissing: false,
+    createTableIfMissing: true,
     ttl: sessionTtl,
     tableName: "sessions",
     errorLog: (error: Error) => {
