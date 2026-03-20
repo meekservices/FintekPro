@@ -581,8 +581,8 @@ function mergeScreenerWithPython(screener: ScreenerData, python: ScreenerData): 
   };
 }
 
-export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData> {
-  const empty: ScreenerData = {
+function emptyScreenerData(): ScreenerData {
+  return {
     roe: null, roce: null, dividendYield: null, bookValue: null,
     revenueGrowth: null, earningsGrowth: null, debtToEquity: null,
     pe: null, pb: null,
@@ -591,25 +591,9 @@ export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData
     companyDescription: null, salesCagr3Y: null, salesCagr5Y: null, profitCagr3Y: null, profitCagr5Y: null,
     pros: [], cons: [],
   };
+}
 
-  try {
-    const searchRes = await fetch(
-      `https://www.screener.in/api/company/search/?q=${encodeURIComponent(nseSymbol)}`,
-      { headers: { ...BROWSER_HEADERS, Accept: "application/json" }, signal: AbortSignal.timeout(10_000) }
-    );
-    if (!searchRes.ok) return empty;
-    const results = await searchRes.json() as any[];
-    if (!results?.length) return empty;
-
-    const company = results.find((r: any) => r.url?.includes("consolidated")) ?? results[0];
-    const companyUrl = `https://www.screener.in${company.url}`;
-
-    const pageRes = await fetch(companyUrl, {
-      headers: { ...BROWSER_HEADERS, Referer: "https://www.screener.in/" },
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (!pageRes.ok) return empty;
-    const html = await pageRes.text();
+function parseScreenerHtml(html: string, nseSymbol: string): ScreenerData {
 
     const topStart = html.indexOf('id="top"');
     const topEnd   = html.indexOf("</section>", topStart);
@@ -789,10 +773,67 @@ export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData
       companyDescription, salesCagr3Y, salesCagr5Y, profitCagr3Y, profitCagr5Y,
       pros, cons,
     };
+}
+
+export async function fetchFromScreener(nseSymbol: string): Promise<ScreenerData> {
+  try {
+    const searchRes = await fetch(
+      `https://www.screener.in/api/company/search/?q=${encodeURIComponent(nseSymbol)}`,
+      { headers: { ...BROWSER_HEADERS, Accept: "application/json" }, signal: AbortSignal.timeout(10_000) }
+    );
+    if (!searchRes.ok) return emptyScreenerData();
+    const results = await searchRes.json() as any[];
+    if (!results?.length) return emptyScreenerData();
+
+    const company = results.find((r: any) => r.url?.includes("consolidated")) ?? results[0];
+    const companyUrl = `https://www.screener.in${company.url}`;
+
+    const pageRes = await fetch(companyUrl, {
+      headers: { ...BROWSER_HEADERS, Referer: "https://www.screener.in/" },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!pageRes.ok) return emptyScreenerData();
+    const html = await pageRes.text();
+    return parseScreenerHtml(html, nseSymbol);
   } catch (e: any) {
     console.warn("[ResearchNote] Screener.in fetch failed:", e?.message);
-    return empty;
+    return emptyScreenerData();
   }
+}
+
+/**
+ * Direct Screener.in ticker URL fallback — bypasses the search step.
+ * Tries /company/{symbol}/consolidated/ then /company/{symbol}/.
+ * Used as a fallback when Yahoo Finance is rate-limited.
+ */
+async function fetchFromScreenerDirect(symbol: string): Promise<ScreenerData> {
+  const urls = [
+    `https://www.screener.in/company/${symbol}/consolidated/`,
+    `https://www.screener.in/company/${symbol}/`,
+  ];
+  for (const url of urls) {
+    try {
+      console.log(`[ResearchNote] Screener direct: ${url}`);
+      const res = await fetch(url, {
+        headers: { ...BROWSER_HEADERS, Referer: "https://www.screener.in/" },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!res.ok) {
+        console.warn(`[ResearchNote] Screener direct ${url} → HTTP ${res.status}`);
+        continue;
+      }
+      const html = await res.text();
+      const result = parseScreenerHtml(html, symbol);
+      if (result.revenue !== null || result.roe !== null || result.pe !== null || result.bookValue !== null) {
+        console.log(`[ResearchNote] Screener direct succeeded for ${symbol} via ${url}`);
+        return result;
+      }
+      console.warn(`[ResearchNote] Screener direct ${url} returned empty metrics — trying next`);
+    } catch (e: any) {
+      console.warn(`[ResearchNote] Screener direct failed for ${url}:`, e?.message);
+    }
+  }
+  return emptyScreenerData();
 }
 
 // ─── DB enrichment (read all cached fields + freshness check) ─────────────────
@@ -1251,8 +1292,25 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
       console.warn(`[ResearchNote] Yahoo failed for ${ySym}:`, e?.message);
     }
   }
-  // Don't throw on rate limit here — fall through to stale DB data so known stocks (InvITs,
-  // BSE-only, etc.) can still produce a partial report rather than a hard 500.
+  // Don't throw on rate limit here — try Screener.in direct ticker URL before giving up.
+
+  // Screener direct-URL fallback: bypass the search step and hit /company/{SYMBOL}/ directly.
+  // This is especially useful for InvITs / BSE-only stocks where the search API returns nothing.
+  try {
+    console.log(`[ResearchNote] Trying Screener direct ticker fallback for ${nseSymbol}`);
+    const directScreener = await fetchFromScreenerDirect(nseSymbol);
+    if (directScreener.revenue !== null || directScreener.roe !== null || directScreener.pe !== null || directScreener.bookValue !== null) {
+      const data = buildFull({}, dbData, directScreener);
+      cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+      return {
+        ...data,
+        _fundamentalsSource: { source: "SCREENER_DIRECT", scrapedAt: new Date().toISOString(), ageHours: 0 },
+        _screenerData: directScreener,
+      };
+    }
+  } catch (e: any) {
+    console.warn(`[ResearchNote] Screener direct fallback threw for ${nseSymbol}:`, e?.message);
+  }
 
   // Last resort: serve stale DB data with a price of null so the caller gets partial data.
   // Accept if we have any fundamentals OR if the symbol is a known listed stock in our DB.
