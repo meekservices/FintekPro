@@ -183,7 +183,7 @@ interface CompanySearchResult {
   sector: string | null;
   nse_code: string | null;
   bse_code: string | null;
-  type?: "listed" | "unlisted";
+  type?: "listed" | "unlisted" | "external";
   cin?: string | null;
   unlisted_id?: string | null;
   listing_stage?: string | null;
@@ -423,6 +423,9 @@ export default function ResearchNoteGenerator() {
                               <p className="text-sm font-medium text-foreground truncate">{c.company_name}</p>
                               {c.type === "unlisted" && (
                                 <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-300 dark:border-amber-700 uppercase tracking-wide">Unlisted</span>
+                              )}
+                              {c.type === "external" && (
+                                <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-700 uppercase tracking-wide">NSE Live</span>
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5">

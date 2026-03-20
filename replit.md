@@ -296,9 +296,15 @@ FintekPro's institutional market data backbone sits below the pricing engine and
 - `server/routes/research-note-routes.ts` — routes; unified `/search` covers listed+unlisted; `buildReportData()` for listed; `buildUnlistedReportData()` for unlisted
 - `client/src/pages/research-note-generator.tsx` — full frontend UI; handles `type: "listed" | "unlisted"` in search results; unlisted companies show amber badge, valuation models (EV/EBITDA / DCF / Revenue Multiple), FHS, directors, compliance signals
 
-### Unified Search
-- `GET /api/research-note/search?q=` — queries both `listed_stocks` and `unlisted_companies` tables; returns `type: "listed" | "unlisted"` field; deduped by company name; max 15 results
-- Supports search by: company name, NSE symbol, ISIN, CIN (for both listed and unlisted)
+### Unified Search with External Fallback (auto-discovery)
+- `GET /api/research-note/search?q=` — runs three sources **in parallel** and merges:
+  1. `listed_stocks` DB (`type: "listed"`)
+  2. `unlisted_companies` DB (`type: "unlisted"`)
+  3. External: NSE autocomplete → Yahoo Finance fallback (`type: "external"`)
+- External results only appear for symbols not already in the local DB (dedup by symbol + company name)
+- Supports search by: company name, NSE symbol, ISIN, CIN
+- **Auto-persist**: when a report is generated for a stock not in the DB (`resolveCompany` path), the stock is automatically saved to `listed_stocks` (`data_source = 'auto_discovered'`) so future queries are served locally
+- External source wiring: `resolver.ts → searchExternal()` uses shared NSE session cookies from `dataService.ts → getSharedNseHeaders()`
 
 ### Unlisted Research Pipeline
 - `POST /api/research-note/preview-unlisted { cin }` — looks up by CIN or ID; fetches DB financials; calls Credhive if key is set; runs analytics engine

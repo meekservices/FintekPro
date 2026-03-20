@@ -310,6 +310,17 @@ async function refreshNseCookies(): Promise<void> {
   }
 }
 
+/** Returns NSE-compatible request headers (with live cookie) for use by other modules. */
+export async function getSharedNseHeaders(): Promise<Record<string, string>> {
+  await refreshNseCookies();
+  return {
+    ...BROWSER_HEADERS,
+    Cookie: nseCookies,
+    Referer: "https://www.nseindia.com/",
+    Accept: "application/json",
+  };
+}
+
 async function fetchFromNSE(nseSymbol: string): Promise<Partial<FinancialData>> {
   await refreshNseCookies();
   const url = `https://www.nseindia.com/api/quote-equity?symbol=${encodeURIComponent(nseSymbol.toUpperCase())}`;

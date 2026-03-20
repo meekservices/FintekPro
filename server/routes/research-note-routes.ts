@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { resolveCompany } from "../modules/research/resolver";
+import { resolveCompany, searchExternal } from "../modules/research/resolver";
 import { getFinancialData } from "../modules/research/dataService";
 import { momentumSignal, priceLevels, weekRange52Position } from "../modules/research/technicalEngine";
 import { valuationSummary, priceToTargetUpside } from "../modules/research/valuationEngine";
@@ -24,74 +24,91 @@ router.get("/search", async (req: Request, res: Response) => {
     if (!q || q.length < 2) return res.json([]);
 
     const pattern = `%${q.toUpperCase()}%`;
-    const cinPattern = /^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/i.test(q.trim());
 
-    // Listed stocks query
-    const listedRows = await db.execute(sql`
-      SELECT
-        symbol,
-        isin,
-        company_name,
-        sector,
-        nse_code,
-        bse_code,
-        cin,
-        'listed' AS type
-      FROM listed_stocks
-      WHERE is_active = true
-        AND (
-          UPPER(company_name) LIKE ${pattern}
-          OR UPPER(symbol) LIKE ${pattern}
-          OR UPPER(isin) LIKE ${pattern}
-          OR UPPER(COALESCE(nse_code, '')) LIKE ${pattern}
-          OR UPPER(COALESCE(cin, '')) LIKE ${pattern}
-        )
-      ORDER BY
-        CASE WHEN UPPER(symbol) = ${q.toUpperCase()} THEN 0
-             WHEN UPPER(symbol) LIKE ${q.toUpperCase() + "%"} THEN 1
-             ELSE 2 END,
-        company_name
-      LIMIT 8
-    `);
+    // Run local DB queries + external search in parallel
+    const [listedRows, unlistedRows, externalResults] = await Promise.all([
+      db.execute(sql`
+        SELECT
+          symbol,
+          isin,
+          company_name,
+          sector,
+          nse_code,
+          bse_code,
+          cin,
+          'listed' AS type
+        FROM listed_stocks
+        WHERE is_active = true
+          AND (
+            UPPER(company_name) LIKE ${pattern}
+            OR UPPER(symbol) LIKE ${pattern}
+            OR UPPER(isin) LIKE ${pattern}
+            OR UPPER(COALESCE(nse_code, '')) LIKE ${pattern}
+            OR UPPER(COALESCE(cin, '')) LIKE ${pattern}
+          )
+        ORDER BY
+          CASE WHEN UPPER(symbol) = ${q.toUpperCase()} THEN 0
+               WHEN UPPER(symbol) LIKE ${q.toUpperCase() + "%"} THEN 1
+               ELSE 2 END,
+          company_name
+        LIMIT 8
+      `),
+      db.execute(sql`
+        SELECT
+          COALESCE(cin, id) AS symbol,
+          isin,
+          name AS company_name,
+          sector,
+          NULL AS nse_code,
+          NULL AS bse_code,
+          cin,
+          'unlisted' AS type,
+          id AS unlisted_id,
+          listing_stage
+        FROM unlisted_companies
+        WHERE status = 'active'
+          AND (
+            UPPER(name) LIKE ${pattern}
+            OR UPPER(COALESCE(cin, '')) LIKE ${pattern}
+            OR UPPER(COALESCE(isin, '')) LIKE ${pattern}
+          )
+        ORDER BY
+          CASE WHEN UPPER(COALESCE(cin,'')) = ${q.toUpperCase()} THEN 0
+               WHEN UPPER(name) LIKE ${q.toUpperCase() + "%"} THEN 1
+               ELSE 2 END,
+          name
+        LIMIT 7
+      `),
+      // External search runs in parallel — never blocks local results
+      searchExternal(q).catch(() => [] as any[]),
+    ]);
 
-    // Unlisted companies query
-    const unlistedRows = await db.execute(sql`
-      SELECT
-        COALESCE(cin, id) AS symbol,
-        isin,
-        name AS company_name,
-        sector,
-        NULL AS nse_code,
-        NULL AS bse_code,
-        cin,
-        'unlisted' AS type,
-        id AS unlisted_id,
-        listing_stage
-      FROM unlisted_companies
-      WHERE status = 'active'
-        AND (
-          UPPER(name) LIKE ${pattern}
-          OR UPPER(COALESCE(cin, '')) LIKE ${pattern}
-          OR UPPER(COALESCE(isin, '')) LIKE ${pattern}
-        )
-      ORDER BY
-        CASE WHEN UPPER(COALESCE(cin,'')) = ${q.toUpperCase()} THEN 0
-             WHEN UPPER(name) LIKE ${q.toUpperCase() + "%"} THEN 1
-             ELSE 2 END,
-        name
-      LIMIT 7
-    `);
-
-    const listed   = (listedRows.rows || listedRows) as any[];
+    const listed   = (listedRows.rows   || listedRows)   as any[];
     const unlisted = (unlistedRows.rows || unlistedRows) as any[];
+    const external = externalResults as any[];
 
-    // Merge: listed first, then unlisted, deduplicate by company_name
-    const seen = new Set<string>();
+    // Merge: local listed → local unlisted → external, dedup by both symbol and company_name
+    const seenSym  = new Set<string>();
+    const seenName = new Set<string>();
     const merged: any[] = [];
+
     for (const r of [...listed, ...unlisted]) {
-      const key = (r.company_name || '').toUpperCase();
-      if (!seen.has(key)) {
-        seen.add(key);
+      const symKey  = (r.symbol       || '').toUpperCase();
+      const nameKey = (r.company_name || '').toUpperCase();
+      if (!seenSym.has(symKey) && !seenName.has(nameKey)) {
+        seenSym.add(symKey);
+        seenName.add(nameKey);
+        merged.push(r);
+      }
+    }
+
+    // Append external results only for symbols not already covered locally
+    for (const r of external) {
+      const symKey  = (r.symbol       || '').toUpperCase();
+      const nameKey = (r.company_name || '').toUpperCase();
+      if (!seenSym.has(symKey) && !seenName.has(nameKey)) {
+        seenSym.add(symKey);
+        seenName.add(nameKey);
         merged.push(r);
       }
     }
@@ -138,8 +155,57 @@ async function resolveFromDB(input: string): Promise<CompanyInfo | null> {
   };
 }
 
+/**
+ * Silently persists a newly-discovered listed company into listed_stocks so that
+ * future searches and reports are served from the local DB (faster, no external calls).
+ * Fire-and-forget — never throws.
+ */
+async function persistNewListing(opts: {
+  symbol: string;
+  name: string;
+  exchange: string;
+  sector: string | null;
+  price: number | null;
+}): Promise<void> {
+  try {
+    const isBse = opts.exchange?.toUpperCase() === "BSE";
+    await db.execute(sql`
+      INSERT INTO listed_stocks (
+        symbol, company_name, sector, industry,
+        nse_code, bse_code,
+        current_price, previous_close,
+        is_active, data_source, last_updated, created_at
+      ) VALUES (
+        ${opts.symbol},
+        ${opts.name},
+        ${opts.sector},
+        ${opts.sector},
+        ${isBse ? null : "EQ"},
+        ${isBse ? opts.symbol : null},
+        ${opts.price},
+        ${opts.price},
+        true,
+        'auto_discovered',
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT (symbol) DO UPDATE SET
+        company_name  = EXCLUDED.company_name,
+        sector        = COALESCE(listed_stocks.sector, EXCLUDED.sector),
+        current_price = COALESCE(EXCLUDED.current_price, listed_stocks.current_price),
+        data_source   = CASE WHEN listed_stocks.data_source = 'auto_discovered'
+                             THEN 'auto_discovered' ELSE listed_stocks.data_source END,
+        last_updated  = NOW()
+    `);
+    console.log(`[ResearchNote] Auto-persisted new listing: ${opts.symbol} (${opts.name})`);
+  } catch (e: any) {
+    console.warn(`[ResearchNote] Auto-persist skipped for ${opts.symbol}:`, e?.message?.slice(0, 80));
+  }
+}
+
 async function buildReportData(symbol: string): Promise<ReportData & { dataQuality: any }> {
   const dbResult = await resolveFromDB(symbol);
+  const resolvedExternally = !dbResult;
   const company = dbResult ?? await resolveCompany(symbol);
 
   const nseSymbol = (company as CompanyInfo).symbol ?? symbol;
@@ -152,6 +218,17 @@ async function buildReportData(symbol: string): Promise<ReportData & { dataQuali
   const financialsResult = await getFinancialData(nseSymbol).catch((e: any) => { throw e; });
   const financials = financialsResult;
   const fundamentalsSource = (financialsResult as any)._fundamentalsSource ?? { source: "UNKNOWN", scrapedAt: null, ageHours: null };
+
+  // Auto-persist: if this company wasn't in our DB, save it now so future queries are fast
+  if (resolvedExternally && financials.price !== null) {
+    persistNewListing({
+      symbol: cleanSym,
+      name: company.name,
+      exchange: company.exchange ?? "NSE",
+      sector: sector,
+      price: financials.price,
+    }).catch(() => {});
+  }
 
   // Step 2: Fetch peers (with live sector average), shareholding and commentary in parallel
   // Pass target stock's own ROE/PE/PB so sector average includes it
