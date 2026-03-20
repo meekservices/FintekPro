@@ -328,16 +328,19 @@ async function fetchFromNSE(nseSymbol: string): Promise<Partial<FinancialData>> 
   const meta = d.metadata ?? {};
   const sec  = d.securityInfo ?? {};
   const whl  = pi.weekHighLow ?? {};
-  const price: number | null = pi.lastPrice ?? null;
   const issuedSize: number | null = sec.issuedSize ?? null;
   const pfNse = (v: any): number | null => {
     if (v === null || v === undefined) return null;
     const n = typeof v === "number" ? v : parseFloat(v);
     return isFinite(n) ? n : null;
   };
+  const lastPrice  = pfNse(pi.lastPrice);
+  const prevClose  = pfNse(pi.previousClose);
+  // NSE returns lastPrice=0 for InvITs/REITs when market is closed — fall back to previousClose
+  const price: number | null = (lastPrice && lastPrice > 0) ? lastPrice : (prevClose && prevClose > 0 ? prevClose : null);
   return {
     price,
-    previousClose: pfNse(pi.previousClose),
+    previousClose: prevClose,
     marketCap: price !== null && issuedSize !== null ? price * issuedSize : null,
     pe: pfNse(meta.pdSymbolPe),
     fiftyTwoWeekHigh: pfNse(whl.max),
