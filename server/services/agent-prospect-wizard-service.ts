@@ -16,6 +16,7 @@ import { aiInvestmentOrchestrator } from "./ai-investment-orchestrator";
 import { aiResponseCacheService } from "./ai-response-cache-service";
 import { proposalCapitalGainsService } from "./proposal-capital-gains-service";
 import { historicalNavService } from "./historical-nav-service";
+import { callPython, isPythonServiceConfigured } from "../clients/python-client";
 import { getRecommendationsByCategory, getAllActiveRecommendations } from "./recommendation-products-service";
 import { mfReturnsSyncService } from "./mf-returns-sync-service";
 import { mutualFunds, schemeTransactionRules, proposalAuditLog, proposalVersions, signalResolutionLog, rebalanceGovernanceConfig, rebalanceDecisionLog, dailyPicks } from "@shared/schema";
@@ -4738,6 +4739,75 @@ class AgentProspectWizardService {
       allocations.aif = 0;
     }
     
+    // ── Quant engine: Python MVO asset allocation (overrides hardcoded defaults) ─
+    // Call the Python SLSQP optimizer for scientifically optimal asset class weights.
+    // Falls back silently to the TS defaults if Python is unavailable/times out.
+    if (!hasValidCustomAllocations && isPythonServiceConfigured()) {
+      try {
+        const horizonYears = riskProfile.investmentHorizon === 'long_term' ? 10
+                           : riskProfile.investmentHorizon === 'medium_term' ? 5 : 3;
+        const taxBracketStr = (riskProfile.taxBracket ?? 20) >= 30 ? 'high'
+                            : (riskProfile.taxBracket ?? 20) >= 20 ? 'medium' : 'low';
+        const pyAlloc = await callPython<any>('/api/quant/asset-allocation', 'POST', {
+          riskScore:         riskProfile.riskScore ?? 50,
+          segment:           'retail',
+          investableAmount:  investmentAmount,
+          investmentHorizon: horizonYears,
+          goalType:          (riskProfile as any).primaryGoal ?? 'balanced',
+          liquidityNeeds:    riskProfile.liquidityNeeds ?? 'medium',
+          taxBracket:        taxBracketStr,
+        });
+
+        if (pyAlloc?.allocations?.length) {
+          // Map Python asset class weights → wizard allocation buckets
+          let eq = 0, debt = 0, gold = 0, intl = 0, re = 0, alt = 0, corp = 0;
+          for (const a of pyAlloc.allocations as Array<{assetClass: string; weight: number}>) {
+            const w = Math.round((a.weight ?? 0) * 100);
+            switch (a.assetClass) {
+              case 'large_cap_equity':
+              case 'mid_cap_equity':
+              case 'small_cap_equity':   eq   += w; break;
+              case 'international_equity': intl += w; break;
+              case 'government_bonds':
+              case 'money_market':       debt += w; break;
+              case 'corporate_bonds':    corp += w; break;
+              case 'gold':               gold += w; break;
+              case 'real_estate':        re   += w; break;
+              case 'alternatives':       alt  += w; break;
+            }
+          }
+          // Split equity bucket: 60% active equity, 25% index, 15% hybrid
+          allocations.equity  = Math.round(eq * 0.60);
+          allocations.index   = Math.round(eq * 0.25);
+          allocations.hybrid  = Math.round(eq * 0.15);
+          // International: split across US / Europe / Asia
+          allocations.us_markets           = Math.round(intl * 0.50);
+          allocations.europe_markets        = Math.round(intl * 0.25);
+          allocations.asia_pacific_markets  = Math.round(intl * 0.25);
+          // Debt
+          allocations.debt  = debt;
+          allocations.bonds = corp;
+          // Real assets
+          allocations.reit  = Math.round(re * 0.60);
+          allocations.invit = Math.round(re * 0.40);
+          // Alternatives (still subject to PMS/AIF eligibility above)
+          allocations.aif   = Math.round(alt * 0.50);
+          allocations.pms   = Math.round(alt * 0.50);
+          // Commodities
+          allocations.gold   = gold;
+          allocations.silver = (allocations as any).silver ?? 0;
+          console.log('[AlphaEngine] Python MVO allocations applied:', JSON.stringify({
+            equity: allocations.equity, index: allocations.index, hybrid: allocations.hybrid,
+            debt: allocations.debt, bonds: allocations.bonds, gold: allocations.gold,
+            reit: allocations.reit, invit: allocations.invit,
+            us: allocations.us_markets, sharpe: pyAlloc.sharpeRatio,
+          }));
+        }
+      } catch (e: any) {
+        console.warn('[AlphaEngine] Python MVO unavailable, using TS defaults:', e?.message);
+      }
+    }
+
     console.log('[Agent Wizard] Using allocations:', JSON.stringify(allocations), 'Custom:', hasValidCustomAllocations);
     console.log('[Agent Wizard] Total portfolio value:', totalPortfolioValue, 'PMS eligible:', totalPortfolioValue >= MIN_PMS, 'AIF eligible:', totalPortfolioValue >= MIN_AIF);
     
@@ -4889,6 +4959,10 @@ class AgentProspectWizardService {
 
     // Generate suggestions for each category based on allocations
     let matchScoreCounter = 95;
+    // Dedup guard: prevent the same instrument from appearing multiple times.
+    // Root cause: 'reit' and 'invit' both map to the same 'reits_invits' daily_picks
+    // category, so without this guard the top pick (e.g. Embassy REIT) appears 4×.
+    const seenProductNames = new Set<string>();
     
     for (const { category, allocation } of filteredAllocations) {
       if (allocation === 0) continue;
@@ -4935,11 +5009,52 @@ class AgentProspectWizardService {
 
       if (categoryFunds.length === 0) continue;
 
+      // ── ALPHA ENGINE: ML scoring — rank MF candidates by predicted return ────
+      // Calls the Python GBR model (/api/ml/score) if a trained model exists.
+      // Scores are merged with the composite sort below; Python scores take priority.
+      if (!isNonMFCategory && categoryFunds.length >= 3 && isPythonServiceConfigured()) {
+        try {
+          const mlResult = await callPython<any>('/api/ml/score', 'POST', {
+            assetClass: category,
+            assets: categoryFunds.map((f: any, i: number) => ({
+              id: i,
+              pe:              f.pe              ?? null,
+              returns1y:       f.returns1Y       ?? null,
+              returns3y:       f.returns3Y       ?? null,
+              volatility:      f.volatility      ?? null,
+              sharpeRatio:     f.sharpeRatio     ?? null,
+              yield:           null,
+              confidenceScore: null,
+            })),
+            regime: 'sideways',
+          });
+          if (mlResult?.results?.length) {
+            const scoreMap = new Map<number, number>(
+              (mlResult.results as Array<{id: number; predictedReturn: number}>)
+                .map(r => [r.id, r.predictedReturn])
+            );
+            categoryFunds = categoryFunds.map((f: any, i: number) => ({
+              ...f, _mlScore: scoreMap.get(i) ?? 0,
+            }));
+            // Sort by ML predicted return (descending) — overrides composite sort
+            categoryFunds.sort((a: any, b: any) => (b._mlScore ?? 0) - (a._mlScore ?? 0));
+            console.log(`[AlphaEngine] ML scoring applied for ${category}: top fund = ${categoryFunds[0]?.name}`);
+          }
+        } catch (e: any) {
+          console.warn(`[AlphaEngine] ML scoring skipped for ${category}:`, e?.message);
+        }
+      }
+
       // ── ALPHA ENGINE: Composite score sort (Sharpe + returns + expense ratio) ──
       // Higher score = better risk-adjusted value. Sort descending before selecting.
+      // If ML scores are present, _compositeScore is used only as a tiebreaker.
       const scoredFunds = categoryFunds
         .map((f: any) => ({ ...f, _compositeScore: computeFundCompositeScore(f) }))
-        .sort((a: any, b: any) => b._compositeScore - a._compositeScore);
+        .sort((a: any, b: any) =>
+          (b._mlScore !== undefined || a._mlScore !== undefined)
+            ? ((b._mlScore ?? 0) - (a._mlScore ?? 0)) || (b._compositeScore - a._compositeScore)
+            : b._compositeScore - a._compositeScore
+        );
 
       // For high-tax clients, deprioritise dividend variants (they are already excluded
       // by the IDCW scan in scanPlanUpgradeOpportunities, but some catalog entries may slip through)
@@ -4980,6 +5095,17 @@ class AgentProspectWizardService {
           : amountPerFund;
         
         if (fundAmount <= 0) return;
+
+        // ── ALPHA ENGINE: Product-name dedup guard ────────────────────────────
+        // Prevents the same instrument appearing multiple times when shared picks
+        // categories (e.g. 'reit' and 'invit' both query 'reits_invits') return
+        // identical top picks (e.g. Embassy Office Parks REIT appears 4×).
+        const nameKey = (fund.name || '').toLowerCase().trim();
+        if (seenProductNames.has(nameKey)) {
+          console.log(`[AlphaEngine] Dedup: skipping duplicate "${fund.name}" in category ${category}`);
+          return;
+        }
+        seenProductNames.add(nameKey);
 
         // ── ALPHA ENGINE: Existing holdings overlap guard ──────────────────────
         // Skip funds whose subcategory is already represented in existing holdings
@@ -5120,6 +5246,11 @@ class AgentProspectWizardService {
             : amountPerFund;
           
           if (fundAmount <= 0) return;
+
+          // Dedup guard (fallback path)
+          const fbNameKey = (fund.name || '').toLowerCase().trim();
+          if (seenProductNames.has(fbNameKey)) return;
+          seenProductNames.add(fbNameKey);
           
           suggestions.push({
             productType: fund.productType || 'mutual_fund',
