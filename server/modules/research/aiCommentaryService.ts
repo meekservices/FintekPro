@@ -1,4 +1,5 @@
 import type { FinancialData } from "./dataService";
+import OpenAI from "openai";
 
 export interface CommentaryData {
   industryTrends: string;
@@ -92,6 +93,29 @@ const GENERIC_FALLBACK: CommentaryData = {
   outlook: "India's strong macroeconomic fundamentals, demographic dividend, and growing formalisation of the economy provide a supportive backdrop for well-managed companies in this sector.",
 };
 
+// Aliases for sector variants
+const SECTOR_ALIASES: Record<string, string> = {
+  "Road Assets - Toll Annuity Hybrid-Annuity": "Road Assets",
+  "Road Assets - Toll": "Road Assets",
+  "Road Assets - Annuity": "Road Assets",
+  "Infrastructure Investment Trust": "Road Assets",
+  "Real Estate Investment Trust": "Real Estate",
+};
+
+// Additional sector fallbacks not covered above
+Object.assign(SECTOR_FALLBACKS, {
+  "Road Assets": {
+    industryTrends: "India's National Monetisation Pipeline (NMP) targeting ₹6 lakh crore of brownfield infrastructure assets and the National Infrastructure Pipeline (NIP) of ₹111 lakh crore are creating a structural tailwind for InvITs, which offer investors stable, long-term cash flows from operating road assets backed by government concession agreements.",
+    expansionPlans: "Road InvITs are actively expanding their asset base through acquisition of additional highway projects from NHAI and private developers, while optimising toll collection efficiency, refinancing high-cost debt at lower rates, and targeting distribution yield improvement for unit holders.",
+    outlook: "With India's road network expanding at record pace under Bharatmala and PM Gati Shakti, and institutional appetite for yield-generating infrastructure assets rising, InvITs offer a compelling combination of predictable distribution yield (6–9%), inflation-linked revenue escalation, and capital appreciation potential over a 5–10 year horizon.",
+  },
+  "REIT": {
+    industryTrends: "India's REIT market is maturing rapidly with three listed REITs covering over 80 million sq ft of Grade-A commercial office space, benefiting from India's emergence as a global GCC (Global Capability Centre) hub with 1,600+ GCCs operating from India.",
+    expansionPlans: "REITs are expanding portfolios through asset acquisitions, development of adjacent mixed-use real estate, and geographic diversification to cities like Chennai, Hyderabad, and Pune, while optimising occupancy and rental escalations across existing assets.",
+    outlook: "Rising demand for high-quality office space from multinational GCCs, domestic IT expansion, and flex-space operators, combined with India's favourable demographics and urbanisation trajectory, position REITs as an attractive fixed-income alternative with real estate upside.",
+  },
+});
+
 function pct(v: number | null): string {
   if (v === null || v === undefined) return "N/A";
   return `${(v * 100).toFixed(1)}%`;
@@ -167,8 +191,47 @@ Rules:
     }
     throw new Error("Insufficient response lines");
   } catch (e: any) {
-    console.warn(`[ResearchNote] Gemini commentary failed for ${companyName}:`, e?.message);
-    const fallback = SECTOR_FALLBACKS[sectorKey] ?? GENERIC_FALLBACK;
+    console.warn(`[ResearchNote] Gemini commentary failed for ${companyName}:`, e?.message?.slice(0, 120));
+
+    // Try OpenAI as fallback before using static sector text
+    try {
+      const openaiKey = process.env.OPENAI_API_KEY;
+      if (openaiKey) {
+        const openai = new OpenAI({ apiKey: openaiKey });
+        const prompt = `You are a senior equity research analyst at a top Indian brokerage.
+Write EXACTLY 3 sentences responding to the following three questions — one sentence each.
+
+Company: ${companyName}
+Sector/Industry: ${sector ?? "N/A"} / ${industry ?? "N/A"}
+Key Financial Profile: Revenue Growth: ${pct(f.revenueGrowth)}, Earnings Growth: ${pct(f.earningsGrowth)}, ROE: ${pct(f.roe)}, D/E Ratio: ${f.debtToEquity?.toFixed(2) ?? "N/A"}
+
+Question 1 (Sentence 1): What are the current structural growth drivers and key tailwinds for the ${sector ?? "sector"} industry in India?
+Question 2 (Sentence 2): What are likely expansion or strategic initiatives ${companyName} is pursuing, based on its financial profile and sector dynamics?
+Question 3 (Sentence 3): Why does this sector/company merit investor attention right now?
+
+Rules: Be specific, reference real sector dynamics or policies, mention INR amounts where relevant. Do NOT mention stock price or give BUY/SELL ratings.
+Return ONLY the 3 sentences, numbered 1., 2., 3. with no extra text.`;
+
+        const result = await Promise.race([
+          openai.chat.completions.create({ model: "gpt-4.1-mini", messages: [{ role: "user", content: prompt }], max_tokens: 300 }),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("OpenAI timeout")), 10_000)),
+        ]) as any;
+        const text: string = result.choices?.[0]?.message?.content ?? "";
+        const lines = text.split("\n").map((l: string) => l.replace(/^\d+\.\s*/, "").trim()).filter((l: string) => l.length > 20);
+        if (lines.length >= 3) {
+          const data: CommentaryData = { industryTrends: lines[0], expansionPlans: lines[1], outlook: lines[2] };
+          console.log(`[ResearchNote] OpenAI commentary fallback succeeded for ${companyName}`);
+          cache.set(cacheKey, { data, expiresAt: Date.now() + 60 * 60 * 1000 });
+          return data;
+        }
+      }
+    } catch (openaiErr: any) {
+      console.warn(`[ResearchNote] OpenAI commentary fallback failed for ${companyName}:`, openaiErr?.message?.slice(0, 80));
+    }
+
+    // Final fallback: resolve sector alias then use static sector text
+    const resolvedSector = SECTOR_ALIASES[sectorKey] ?? sectorKey;
+    const fallback = SECTOR_FALLBACKS[resolvedSector] ?? SECTOR_FALLBACKS[sectorKey] ?? GENERIC_FALLBACK;
     cache.set(cacheKey, { data: fallback, expiresAt: Date.now() + 15 * 60 * 1000 });
     return fallback;
   }
