@@ -419,8 +419,9 @@ export async function fetchShareholding(nseSymbol: string): Promise<Shareholding
 
 function mcapFmt(crores: number | null): string {
   if (!crores) return "N/A";
-  // Always display in Crores to match table caption
-  return `₹${Math.round(crores).toLocaleString("en-IN")} Cr`;
+  // Normalize: if value > 1 billion it was stored in raw rupees (not crores) — convert
+  const normalized = crores > 1e9 ? crores / 1e7 : crores;
+  return `₹${Math.round(normalized).toLocaleString("en-IN")} Cr`;
 }
 
 /**
@@ -509,7 +510,9 @@ export async function fetchPeersAndAverage(
     interface MutablePeer extends PeerData { _needsEnrich: boolean; }
 
     const peers: MutablePeer[] = rawRows.map((r: any) => {
-      const mcap = r.market_cap_value ? pf(r.market_cap_value) : null;
+      const mcapRaw = r.market_cap_value ? pf(r.market_cap_value) : null;
+      // Normalize: if stored value > 1 billion it is in raw rupees, convert to crores
+      const mcap = mcapRaw && mcapRaw > 1e9 ? mcapRaw / 1e7 : mcapRaw;
       const peFromDb = r.pe_ratio ? pf(r.pe_ratio) : null;
       const isPlaceholderPE = peFromDb !== null && peFromDb === 20;
       return {
