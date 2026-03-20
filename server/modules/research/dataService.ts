@@ -816,6 +816,7 @@ interface DBData {
   returns6M: number | null;
   returns1Y: number | null;
   lastUpdated: Date | null;     // when fundamentals were last written to DB
+  existsInListedStocks: boolean; // true if symbol row exists in listed_stocks (even with null metrics)
 }
 
 async function fetchFromDB(nseSymbol: string): Promise<DBData> {
@@ -824,7 +825,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
     debtToEquity: null, revenueGrowth: null, earningsGrowth: null, beta: null,
     operatingCashFlow: null, freeCashFlow: null, revenue: null, netIncome: null,
     operatingMargin: null, returns1M: null, returns6M: null, returns1Y: null,
-    lastUpdated: null,
+    lastUpdated: null, existsInListedStocks: false,
   };
   try {
     const rows = await db.execute(sql`
@@ -848,7 +849,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
       const lr = ((lsRows as any).rows ?? lsRows)[0] as any;
       if (lr) {
         const pf = (v: any) => (v !== null && v !== undefined ? parseFloat(v) : null);
-        return { ...empty, returns1M: pf(lr.returns_1m), returns6M: pf(lr.returns_6m), returns1Y: pf(lr.returns_1y) };
+        return { ...empty, existsInListedStocks: true, returns1M: pf(lr.returns_1m), returns6M: pf(lr.returns_6m), returns1Y: pf(lr.returns_1y) };
       }
       return empty;
     }
@@ -872,6 +873,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
       returns6M:        pf(r.returns_6m),
       returns1Y:        pf(r.returns_1y),
       lastUpdated:      r.last_updated ? new Date(r.last_updated) : null,
+      existsInListedStocks: true,
     };
   } catch (e: any) {
     console.warn("[ResearchNote] DB read failed:", e?.message);
@@ -1249,13 +1251,14 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
       console.warn(`[ResearchNote] Yahoo failed for ${ySym}:`, e?.message);
     }
   }
-  if (rateLimited) {
-    throw new Error("Financial data is temporarily unavailable. Please wait 60 seconds and try again.");
-  }
+  // Don't throw on rate limit here — fall through to stale DB data so known stocks (InvITs,
+  // BSE-only, etc.) can still produce a partial report rather than a hard 500.
 
-  // Last resort: serve stale DB data with a price of null so the caller gets partial data
-  if (dbData.roe !== null || dbData.bookValue !== null) {
-    console.warn(`[ResearchNote] All live sources failed for ${nseSymbol} — serving stale DB data`);
+  // Last resort: serve stale DB data with a price of null so the caller gets partial data.
+  // Accept if we have any fundamentals OR if the symbol is a known listed stock in our DB.
+  if (dbData.roe !== null || dbData.bookValue !== null || dbData.existsInListedStocks) {
+    const reason = rateLimited ? "rate-limited" : "all sources failed";
+    console.warn(`[ResearchNote] ${reason} for ${nseSymbol} — serving stale/partial DB data (existsInDB: ${dbData.existsInListedStocks})`);
     const staleData = buildFull({}, dbData, screener);
     return {
       ...staleData,
