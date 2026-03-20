@@ -208,6 +208,147 @@ function formatDate(d: Date): string {
   return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
 }
 
+/** Detect if a symbol is an InvIT or REIT based on naming conventions */
+function isInvITorREIT(sym: string): boolean {
+  return /INVIT|REIT|TRUST|ROADS|HIGHWAYS|INFRA(?:INVEST|INVIT)/i.test(sym);
+}
+
+/**
+ * Fetch unit-holding pattern for InvITs/REITs from NSE's dedicated endpoint.
+ * InvITs use "sponsor" terminology instead of "promoter", and have a different API path.
+ */
+async function fetchInvITUnitHolding(sym: string): Promise<ShareholdingData | null> {
+  try {
+    await ensureNseCookies();
+    const today = new Date();
+    const sixMonthsAgo = new Date(today);
+    sixMonthsAgo.setMonth(today.getMonth() - 6);
+
+    // NSE dedicated unit-holding endpoint for InvITs/REITs
+    const url = `https://www.nseindia.com/api/unit-holding-patterns?symbol=${encodeURIComponent(sym)}&from=${formatDate(sixMonthsAgo)}&to=${formatDate(today)}`;
+    const res = await fetch(url, {
+      headers: { ...BROWSER_HEADERS, Cookie: nseCookies, Referer: "https://www.nseindia.com" },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) throw new Error(`NSE unit-holding HTTP ${res.status}`);
+    const raw = await res.json() as any;
+
+    const records: any[] = Array.isArray(raw)
+      ? raw
+      : (raw?.data ?? raw?.unitHoldingPatterns ?? raw?.dateRecords ?? raw?.records ?? []);
+    if (records.length < 1) throw new Error("No unit-holding records");
+
+    const sorted = records.sort((a: any, b: any) =>
+      new Date(b.date ?? b.holdingDate ?? 0).getTime() - new Date(a.date ?? a.holdingDate ?? 0).getTime()
+    );
+    const latest = sorted[0];
+    const prev = sorted[1] ?? null;
+
+    const pf = (v: any) => { const n = parseFloat(String(v ?? "")); return isNaN(n) ? null : n; };
+
+    // Sponsor = Promoter equivalent for InvITs
+    const promoterPct = pf(
+      latest.sponsorAndSponsorGroupUnitHolding ?? latest.sponsor ?? latest.sponsorTotal ??
+      latest.sponsorUnitHolding ?? latest.sponsorGroup ?? latest.promoterAndPromoterGroupShareHolding ?? null
+    );
+    const promoterPrevPct = prev ? pf(
+      prev.sponsorAndSponsorGroupUnitHolding ?? prev.sponsor ?? prev.sponsorTotal ??
+      prev.sponsorUnitHolding ?? prev.sponsorGroup ?? prev.promoterAndPromoterGroupShareHolding ?? null
+    ) : null;
+
+    const instPct = pf(latest.institutionUnitHolding ?? latest.institutionalInvestors ?? latest.institutions ?? null);
+    const pubPct  = pf(latest.publicUnitHolding ?? latest.publicUnitHolders ?? latest.public ?? null);
+
+    const data: ShareholdingData = {
+      promoterPct,
+      promoterPrevPct,
+      promoterChange: (promoterPct !== null && promoterPrevPct !== null)
+        ? Math.round((promoterPct - promoterPrevPct) * 100) / 100 : null,
+      fiiPct: null,
+      diiPct: instPct,   // InvITs don't separate FII/DII — use "institutions" as DII proxy
+      mutualFundPct: pf(latest.mutualFunds ?? latest.mutualFund ?? null),
+      publicPct: pubPct,
+      pledgedPct: pf(latest.pledgedUnitPercentage ?? latest.pledgedSharePercentage ?? latest.pledged ?? null),
+      quarter: latest.quarter ?? latest.holdingDate ?? latest.dateDesc ?? null,
+      prevQuarter: prev?.quarter ?? prev?.holdingDate ?? prev?.dateDesc ?? null,
+    };
+
+    if (promoterPct !== null || pubPct !== null) {
+      console.log(`[ResearchNote] Unit-holding (NSE InvIT) ${sym}: Sponsor ${promoterPct}%, Institutions ${instPct}%, Public ${pubPct}%`);
+      return data;
+    }
+    throw new Error("All unit-holding fields null");
+  } catch (e: any) {
+    console.warn(`[ResearchNote] NSE unit-holding failed for ${sym}:`, e?.message?.slice(0, 80));
+    return null;
+  }
+}
+
+/**
+ * Fetch shareholding from BSE API as a last resort.
+ * BSE has separate endpoints for corporate and InvIT holding patterns.
+ */
+async function fetchShareholdingFromBSE(sym: string): Promise<ShareholdingData | null> {
+  try {
+    // BSE search for script code
+    const searchRes = await fetch(
+      `https://api.bseindia.com/BseIndiaAPI/api/fetchcomp/w?type=EQ&value=${encodeURIComponent(sym)}`,
+      { headers: { ...BROWSER_HEADERS, Referer: "https://www.bseindia.com" }, signal: AbortSignal.timeout(8_000) }
+    );
+    if (!searchRes.ok) return null;
+    const results = await searchRes.json() as any;
+    const scrip = results?.Table?.[0] ?? results?.[0];
+    const scripcode = scrip?.SCRIP_CD ?? scrip?.scripCode;
+    if (!scripcode) return null;
+
+    // Fetch shareholding pattern from BSE
+    const shRes = await fetch(
+      `https://api.bseindia.com/BseIndiaAPI/api/ShareHoldingPatterns/w?scripcode=${scripcode}&qtrid=`,
+      { headers: { ...BROWSER_HEADERS, Referer: "https://www.bseindia.com" }, signal: AbortSignal.timeout(8_000) }
+    );
+    if (!shRes.ok) return null;
+    const shData = await shRes.json() as any;
+
+    const rows: any[] = shData?.ShareHoldingPatterns ?? shData?.Table ?? shData?.data ?? [];
+    if (rows.length < 1) return null;
+
+    // BSE groups data by category — find promoter/sponsor rows
+    const pf = (v: any) => { const n = parseFloat(String(v ?? "")); return isNaN(n) ? null : n; };
+    let promoterPct: number | null = null, fiiPct: number | null = null, diiPct: number | null = null;
+    let publicPct: number | null = null, pledgedPct: number | null = null;
+
+    for (const row of rows) {
+      const cat = String(row.category ?? row.Category ?? row.shareholdercategory ?? "").toLowerCase();
+      const pct = pf(row.percentage ?? row.Percentage ?? row.noOfShares ?? null);
+      if (/promoter|sponsor/.test(cat) && !/pledg/.test(cat) && promoterPct === null) promoterPct = pct;
+      else if (/fii|fpi|foreign/.test(cat) && fiiPct === null) fiiPct = pct;
+      else if (/dii|domestic institution/.test(cat) && diiPct === null) diiPct = pct;
+      else if (/public/.test(cat) && !/institution/.test(cat) && publicPct === null) publicPct = pct;
+      else if (/pledg/.test(cat) && pledgedPct === null) pledgedPct = pct;
+    }
+
+    if (promoterPct === null && publicPct === null) return null;
+
+    const data: ShareholdingData = {
+      promoterPct,
+      promoterPrevPct: null,
+      promoterChange: null,
+      fiiPct,
+      diiPct,
+      mutualFundPct: null,
+      publicPct,
+      pledgedPct,
+      quarter: rows[0]?.quarter ?? rows[0]?.Quarter ?? null,
+      prevQuarter: null,
+    };
+    console.log(`[ResearchNote] Shareholding (BSE) ${sym}: Promoter/Sponsor ${promoterPct}%, FII ${fiiPct}%, Public ${publicPct}%`);
+    return data;
+  } catch (e: any) {
+    console.warn(`[ResearchNote] BSE shareholding failed for ${sym}:`, e?.message?.slice(0, 60));
+    return null;
+  }
+}
+
 /** Scrape shareholding pattern from Screener.in (fallback when NSE API fails) */
 async function fetchShareholdingFromScreener(nseSymbol: string): Promise<ShareholdingData | null> {
   const sym = nseSymbol.toUpperCase();
@@ -335,6 +476,15 @@ export async function fetchShareholding(nseSymbol: string): Promise<Shareholding
   const cached = shareholdingCache.get(sym);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
 
+  // For InvITs/REITs, try the dedicated unit-holding endpoint first
+  if (isInvITorREIT(sym)) {
+    const invitData = await fetchInvITUnitHolding(sym);
+    if (invitData) {
+      shareholdingCache.set(sym, { data: invitData, expiresAt: Date.now() + CACHE_TTL });
+      return invitData;
+    }
+  }
+
   try {
     await ensureNseCookies();
     const today = new Date();
@@ -370,21 +520,38 @@ export async function fetchShareholding(nseSymbol: string): Promise<Shareholding
       return isNaN(n) ? null : n;
     };
 
-    const promoterPct = pf(latest.promoterAndPromoterGroupShareHolding ?? latest.promoter ?? latest.promoterTotal);
-    const promoterPrevPct = prev ? pf(prev.promoterAndPromoterGroupShareHolding ?? prev.promoter ?? prev.promoterTotal) : null;
+    // Support both corporate (promoter) and InvIT/REIT (sponsor) field naming conventions
+    const promoterPct = pf(
+      latest.promoterAndPromoterGroupShareHolding ?? latest.promoter ?? latest.promoterTotal ??
+      latest.sponsorAndSponsorGroupUnitHolding ?? latest.sponsor ?? latest.sponsorTotal ??
+      latest.sponsorUnitHolding ?? latest.sponsorGroup ?? null
+    );
+    const promoterPrevPct = prev ? pf(
+      prev.promoterAndPromoterGroupShareHolding ?? prev.promoter ?? prev.promoterTotal ??
+      prev.sponsorAndSponsorGroupUnitHolding ?? prev.sponsor ?? prev.sponsorTotal ??
+      prev.sponsorUnitHolding ?? prev.sponsorGroup ?? null
+    ) : null;
 
     const fiiRaw = pf(
       latest.foreignInstitutionalInvestors ?? latest.foreignPortfolioInvestors ??
-      latest.fpi ?? latest.fpiTotal ?? latest.fii ?? latest.fiiTotal ?? latest.fiis ?? null
+      latest.fpi ?? latest.fpiTotal ?? latest.fii ?? latest.fiiTotal ?? latest.fiis ??
+      latest.foreignUnitHolders ?? latest.foreignInstitution ?? null
     );
     const diiRaw = pf(
       latest.domesticInstitutionalInvestors ?? latest.domesticInstitutions ??
-      latest.dii ?? latest.diiTotal ?? latest.diis ?? null
+      latest.dii ?? latest.diiTotal ?? latest.diis ??
+      latest.domesticUnitHolders ?? latest.domesticInstitution ?? null
     );
-    const pubRaw = pf(latest.public ?? latest.publicShareholding ?? latest.publicTotal ?? latest.nonInstitutionShareHolding ?? null);
+    const pubRaw = pf(
+      latest.public ?? latest.publicShareholding ?? latest.publicTotal ??
+      latest.nonInstitutionShareHolding ?? latest.publicUnitHolding ?? latest.publicUnitHolders ?? null
+    );
 
-    // If FII/DII not in top-level, try to infer from institution total (nonPromoterNonPublicShareholding)
-    const instTotal = pf(latest.nonPromoterNonPublicShareholding ?? latest.institutionShareHolding ?? latest.institutions ?? null);
+    // If FII/DII not in top-level, try to infer from institution total
+    const instTotal = pf(
+      latest.nonPromoterNonPublicShareholding ?? latest.institutionShareHolding ??
+      latest.institutions ?? latest.institutionUnitHolding ?? null
+    );
     const fiiResolved = fiiRaw ?? (instTotal !== null && diiRaw === null ? instTotal : null);
     const diiResolved = diiRaw;
 
@@ -406,12 +573,21 @@ export async function fetchShareholding(nseSymbol: string): Promise<Shareholding
     return data;
   } catch (e: any) {
     console.warn(`[ResearchNote] NSE shareholding failed for ${sym}:`, e?.message?.slice(0, 60), "— trying Screener.in");
-    // Fallback: scrape shareholding from Screener.in
+
+    // Fallback 1: Screener.in scraper
     const screenerSh = await fetchShareholdingFromScreener(sym);
     if (screenerSh) {
       shareholdingCache.set(sym, { data: screenerSh, expiresAt: Date.now() + CACHE_TTL });
       return screenerSh;
     }
+
+    // Fallback 2: BSE API
+    const bseSh = await fetchShareholdingFromBSE(sym);
+    if (bseSh) {
+      shareholdingCache.set(sym, { data: bseSh, expiresAt: Date.now() + CACHE_TTL });
+      return bseSh;
+    }
+
     shareholdingCache.set(sym, { data: null as any, expiresAt: Date.now() + 5 * 60 * 1000 });
     return null;
   }

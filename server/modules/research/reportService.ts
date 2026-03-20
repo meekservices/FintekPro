@@ -447,14 +447,17 @@ export async function generatePPT(data: ReportData): Promise<Buffer> {
   // ── Slide 6: Shareholding & Governance ───────────────────────────────────
   const s6 = ppt.addSlide();
   s6.background = { color: LIGHT_BG };
-  s6.addText("Shareholding Pattern & Corporate Governance", { x: 0.4, y: 0.2, w: 12, h: 0.45, fontSize: 20, bold: true, color: DARK_TEXT });
+  const isInvITSymbol = /INVIT|REIT|TRUST|ROADS|HIGHWAYS/i.test(data.symbol);
+  const promoterLabel = isInvITSymbol ? "Sponsor" : "Promoter";
+  const slideTitle = isInvITSymbol ? "Unit Holding Pattern & Trust Governance" : "Shareholding Pattern & Corporate Governance";
+  s6.addText(slideTitle, { x: 0.4, y: 0.2, w: 12, h: 0.45, fontSize: 20, bold: true, color: DARK_TEXT });
   s6.addShape(ppt.ShapeType.line, { x: 0.4, y: 0.7, w: 12, h: 0, line: { color: BRAND_COLOR, width: 2 } });
 
   const sh = data.shareholding;
   if (sh) {
     // Stacked bar visual
     const barItems = [
-      { label: "Promoter", pct: sh.promoterPct, color: BRAND_COLOR },
+      { label: promoterLabel, pct: sh.promoterPct, color: BRAND_COLOR },
       { label: "FII / FPI", pct: sh.fiiPct, color: "7c3aed" },
       { label: "DII / MF", pct: sh.diiPct, color: ACCENT_GREEN },
       { label: "Public", pct: sh.publicPct, color: ACCENT_AMBER },
@@ -478,10 +481,10 @@ export async function generatePPT(data: ReportData): Promise<Buffer> {
     });
 
     // QoQ table
-    s6.addText("Quarterly Shareholding Trend", { x: 0.4, y: 2.15, w: 12, h: 0.35, fontSize: 13, bold: true, color: DARK_TEXT });
+    s6.addText(isInvITSymbol ? "Quarterly Unit Holding Trend" : "Quarterly Shareholding Trend", { x: 0.4, y: 2.15, w: 12, h: 0.35, fontSize: 13, bold: true, color: DARK_TEXT });
     const qRows = [
       ["", sh.prevQuarter ?? "Previous Q", sh.quarter ?? "Latest Q", "Change"],
-      ["Promoter %", sh.promoterPrevPct !== null ? `${sh.promoterPrevPct.toFixed(2)}%` : "N/A", sh.promoterPct !== null ? `${sh.promoterPct.toFixed(2)}%` : "N/A", sh.promoterChange !== null ? (sh.promoterChange >= 0 ? `+${sh.promoterChange.toFixed(2)}%` : `${sh.promoterChange.toFixed(2)}%`) : "N/A"],
+      [`${promoterLabel} %`, sh.promoterPrevPct !== null ? `${sh.promoterPrevPct.toFixed(2)}%` : "N/A", sh.promoterPct !== null ? `${sh.promoterPct.toFixed(2)}%` : "N/A", sh.promoterChange !== null ? (sh.promoterChange >= 0 ? `+${sh.promoterChange.toFixed(2)}%` : `${sh.promoterChange.toFixed(2)}%`) : "N/A"],
       ["FII / FPI %", "—", sh.fiiPct !== null ? `${sh.fiiPct.toFixed(2)}%` : "N/A", "—"],
       ["DII / MF %", "—", sh.diiPct !== null ? `${sh.diiPct.toFixed(2)}%` : "N/A", "—"],
     ];
@@ -501,14 +504,19 @@ export async function generatePPT(data: ReportData): Promise<Buffer> {
 
     if (sh.pledgedPct !== null && sh.pledgedPct > 0) {
       const pledgeCol = sh.pledgedPct > 10 ? ACCENT_RED : ACCENT_AMBER;
-      s6.addText(`⚠ Pledged Shares: ${sh.pledgedPct.toFixed(1)}%`, { x: 0.4, y: 4.9, w: 6, h: 0.3, fontSize: 10, bold: true, color: pledgeCol });
+      s6.addText(`⚠ Pledged ${isInvITSymbol ? "Units" : "Shares"}: ${sh.pledgedPct.toFixed(1)}%`, { x: 0.4, y: 4.9, w: 6, h: 0.3, fontSize: 10, bold: true, color: pledgeCol });
     }
 
     if (sh.promoterChange !== null && sh.promoterChange < -1) {
-      s6.addText(`⚠ Promoter holding declined by ${Math.abs(sh.promoterChange).toFixed(1)}% QoQ — monitor for further movement`, { x: 0.4, y: 5.25, w: 12, h: 0.3, fontSize: 10, color: ACCENT_RED, italic: true });
+      s6.addText(`⚠ ${promoterLabel} holding declined by ${Math.abs(sh.promoterChange).toFixed(1)}% QoQ — monitor for further movement`, { x: 0.4, y: 5.25, w: 12, h: 0.3, fontSize: 10, color: ACCENT_RED, italic: true });
     }
   } else {
-    s6.addText("Shareholding data unavailable for this stock.", { x: 0.4, y: 2.5, w: 12, h: 0.4, fontSize: 12, color: LIGHT_TEXT, italic: true, align: "center" });
+    s6.addText(
+      isInvITSymbol
+        ? "Unit holding data unavailable for this trust — quarterly filings may not yet be available on NSE/BSE."
+        : "Shareholding data unavailable for this stock.",
+      { x: 0.4, y: 2.5, w: 12, h: 0.4, fontSize: 12, color: LIGHT_TEXT, italic: true, align: "center" }
+    );
   }
 
   s6.addText("Management & Governance Note", { x: 0.4, y: 5.75, w: 12, h: 0.3, fontSize: 11, bold: true, color: DARK_TEXT });
@@ -908,15 +916,18 @@ export async function generatePDF(data: ReportData): Promise<Buffer> {
     y2 += 10;
 
     // Shareholding
-    doc.fillColor("#1a56db").fontSize(13).font("Helvetica-Bold").text("Shareholding Pattern & Governance", 45, y2);
+    const isInvITPdf = /INVIT|REIT|TRUST|ROADS|HIGHWAYS/i.test(data.symbol);
+    const promoterLabelPdf = isInvITPdf ? "Sponsor Holding" : "Promoter Holding";
+    const shSectionTitle = isInvITPdf ? "Unit Holding Pattern & Governance" : "Shareholding Pattern & Governance";
+    doc.fillColor("#1a56db").fontSize(13).font("Helvetica-Bold").text(shSectionTitle, 45, y2);
     y2 += 18;
     const sh = data.shareholding;
     if (sh) {
       const shRows = [
-        ["Promoter Holding", sh.promoterPct !== null ? `${sh.promoterPct.toFixed(2)}%` : "N/A", sh.promoterChange !== null ? (sh.promoterChange >= 0 ? `+${sh.promoterChange.toFixed(2)}% QoQ` : `${sh.promoterChange.toFixed(2)}% QoQ`) : ""],
-        ["FII / FPI", sh.fiiPct !== null ? `${sh.fiiPct.toFixed(2)}%` : "N/A", ""],
-        ["DII / Mutual Funds", sh.diiPct !== null ? `${sh.diiPct.toFixed(2)}%` : "N/A", sh.mutualFundPct !== null ? `MF: ${sh.mutualFundPct.toFixed(2)}%` : ""],
-        ["Public", sh.publicPct !== null ? `${sh.publicPct.toFixed(2)}%` : "N/A", sh.pledgedPct !== null && sh.pledgedPct > 0 ? `Pledged: ${sh.pledgedPct.toFixed(2)}%` : ""],
+        [promoterLabelPdf, sh.promoterPct !== null ? `${sh.promoterPct.toFixed(2)}%` : "N/A", sh.promoterChange !== null ? (sh.promoterChange >= 0 ? `+${sh.promoterChange.toFixed(2)}% QoQ` : `${sh.promoterChange.toFixed(2)}% QoQ`) : ""],
+        ["FII / FPI", sh.fiiPct !== null ? `${sh.fiiPct.toFixed(2)}%` : isInvITPdf ? "—" : "N/A", ""],
+        [isInvITPdf ? "Institutional Investors" : "DII / Mutual Funds", sh.diiPct !== null ? `${sh.diiPct.toFixed(2)}%` : "N/A", sh.mutualFundPct !== null ? `MF: ${sh.mutualFundPct.toFixed(2)}%` : ""],
+        ["Public Unit Holders", sh.publicPct !== null ? `${sh.publicPct.toFixed(2)}%` : "N/A", sh.pledgedPct !== null && sh.pledgedPct > 0 ? `Pledged: ${sh.pledgedPct.toFixed(2)}%` : ""],
       ];
       shRows.forEach(([label, val, note], i) => {
         const bg = i % 2 === 0 ? "#FFFFFF" : "#EFF6FF";
