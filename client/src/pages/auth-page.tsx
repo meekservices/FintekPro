@@ -123,6 +123,15 @@ export default function AuthPage() {
   const { clearSessionExpired } = useSession();
   usePortalMeta();
   const portalType = subdomain || "main";
+
+  // Post-login destination: use path-based portal prefix so detectSubdomain()
+  // keeps returning the correct portal after navigation (withPortalParams only
+  // adds query params and does NOT survive a path change to "/").
+  const portalHomeRoute =
+    portalType === "agent"   ? "/agent" :
+    portalType === "admin"   ? "/admin" :
+    portalType === "partner" ? "/partner" :
+    withPortalParams("/");
   const portalConfig = PORTAL_BRAND_CONFIG[resolvePortalType(portalType)];
   const portalLabel = portalConfig.label;
   const portalTagline = portalConfig.tagline;
@@ -432,7 +441,7 @@ export default function AuthPage() {
         title: "Login successful",
         description: "Welcome back!",
       });
-      navigate(withPortalParams("/"));
+      navigate(portalHomeRoute);
     },
     onError: (error: Error) => {
       toast({
@@ -672,7 +681,7 @@ export default function AuthPage() {
   // Redirect if already authenticated
   useEffect(() => {
     if (!isAuthLoading && user) {
-      navigate(withPortalParams("/"));
+      navigate(portalHomeRoute);
     }
   }, [isAuthLoading, user, navigate, withPortalParams]);
 
@@ -703,7 +712,7 @@ export default function AuthPage() {
       title: "Continuing with existing session",
       description: "Redirecting you to the dashboard...",
     });
-    navigate(withPortalParams("/"));
+    navigate(portalHomeRoute);
   };
 
   // Handle session conflict - force logout and login fresh
@@ -1752,7 +1761,7 @@ export default function AuthPage() {
               className="w-full" 
               onClick={() => {
                 setShowUserIdDialog(false);
-                navigate(withPortalParams("/"));
+                navigate(portalHomeRoute);
               }}
               data-testid="button-proceed-to-dashboard"
             >
