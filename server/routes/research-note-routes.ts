@@ -115,7 +115,7 @@ interface CompanyInfo {
 async function resolveFromDB(input: string): Promise<CompanyInfo | null> {
   const upper = input.toUpperCase().trim();
   const rows = await db.execute(sql`
-    SELECT symbol, company_name, isin, 'NSE' as exchange, sector, industry, broad_sector
+    SELECT symbol, company_name, isin, sector, industry, broad_sector, nse_code, bse_code
     FROM listed_stocks
     WHERE is_active = true
       AND (UPPER(isin) = ${upper} OR UPPER(symbol) = ${upper})
@@ -123,10 +123,14 @@ async function resolveFromDB(input: string): Promise<CompanyInfo | null> {
   `);
   const r = (rows.rows || rows)[0] as any;
   if (!r) return null;
+  // BSE-only stocks have no nse_code but have a bse_code
+  const isBseOnly = !r.nse_code && !!r.bse_code;
+  const exchange = isBseOnly ? "BSE" : "NSE";
+  const suffix   = isBseOnly ? ".BO" : ".NS";
   return {
-    symbol: r.symbol + ".NS",
+    symbol: r.symbol + suffix,
     name: r.company_name,
-    exchange: "NSE",
+    exchange,
     isin: r.isin,
     sector: r.sector ?? null,
     industry: r.industry ?? null,
