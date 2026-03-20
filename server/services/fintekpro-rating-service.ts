@@ -4,6 +4,7 @@ import { eq, and, desc, gte, lte, sql, inArray, ilike, or, isNotNull, isNull } f
 import { GoogleGenAI } from "@google/genai";
 import { financialMetricsCalculator } from "./financial-metrics-calculator";
 import { getEnrichedStockSnapshot } from './screener/enriched-stock-data';
+import { callPython } from '../clients/python-client';
 
 export type AssetClass = 'mutual_fund' | 'stock' | 'bond' | 'government_security' | 'reit' | 'commodity';
 
@@ -22,7 +23,10 @@ export interface FintekProRating {
   concentrationScore: number; // Backward compatibility
   overallScore: number;
   confidenceLevel: 'high' | 'medium' | 'low';
-  dataSource: 'database' | 'calculated' | 'ai_enhanced';
+  dataSource: 'database' | 'calculated' | 'ai_enhanced' | 'ml_enhanced';
+  mlEnhanced?: boolean;
+  mlPredictedReturn?: number;
+  mlConfidence?: number;
   advancedMetrics?: {
     piotroskiFScore?: number;
     altmanZScore?: number;
@@ -299,13 +303,35 @@ export class FintekProRatingService {
     const momentumScore = this.calculateMomentumScore(returns1y, returns3y);
     const valuationScore = this.calculateMFValuationScore(expenseRatio, fund.category || '');
 
-    const overallScore = (
+    const baseOverallScore = (
       riskAdjustedScore * 0.35 +
       qualityScore * 0.25 +
       liquidityScore * 0.15 +
       momentumScore * 0.15 +
       valuationScore * 0.10
     );
+
+    // --- ML scoring: blend Python GBR predicted return (25% weight) ---
+    const mlResult = await this.getMLScore('mutual_fund', schemeCode, {
+      returns1y,
+      returns3y,
+      volatility: 0,
+      sharpeRatio: 0,
+      pe: 0,
+    });
+    let overallScore = baseOverallScore;
+    let mlEnhanced = false;
+    let mlPredictedReturn: number | undefined;
+    let mlConfidence: number | undefined;
+    if (mlResult) {
+      const mlScore = this.mlReturnToScore(mlResult.predictedReturn);
+      overallScore = baseOverallScore * 0.75 + mlScore * 0.25;
+      mlEnhanced = true;
+      mlPredictedReturn = mlResult.predictedReturn;
+      mlConfidence = mlResult.confidence;
+      console.log(`[FintekPro ML] MF ${schemeCode}: base=${baseOverallScore.toFixed(1)} ml=${mlScore.toFixed(1)} final=${overallScore.toFixed(1)} predictedReturn=${mlResult.predictedReturn.toFixed(2)}%`);
+    }
+    // --- end ML scoring ---
 
     const stars = this.scoreToStars(overallScore);
     const category = this.determineMFCategory(fund.category || '');
@@ -326,7 +352,10 @@ export class FintekProRatingService {
       valuationScore,
       overallScore,
       confidenceLevel: aum > 5000 ? 'high' : aum > 1000 ? 'medium' : 'low',
-      dataSource: includeAI && this.genAI ? 'ai_enhanced' : 'database'
+      dataSource: mlEnhanced ? 'ml_enhanced' : (includeAI && this.genAI ? 'ai_enhanced' : 'database'),
+      mlEnhanced,
+      mlPredictedReturn,
+      mlConfidence,
     };
 
     const keyMetrics = {
@@ -336,7 +365,9 @@ export class FintekProRatingService {
       expenseRatio: `${expenseRatio.toFixed(2)}%`,
       aum: `₹${(aum).toFixed(0)} Cr`,
       nav: `₹${nav.toFixed(2)}`,
-      fintekproRating: fund.crisilRating ? `${fund.crisilRating}-Star` : 'Not Rated'
+      fintekproRating: fund.crisilRating ? `${fund.crisilRating}-Star` : 'Not Rated',
+      ...(mlPredictedReturn !== undefined ? { mlPredictedReturn: `${mlPredictedReturn.toFixed(2)}%` } : {}),
+      ...(mlConfidence !== undefined ? { mlConfidence: `${mlConfidence.toFixed(0)}%` } : {}),
     };
 
     const strengths = this.generateMFStrengths(fund, overallScore, returns1y, returns3y, aum, expenseRatio);
@@ -475,7 +506,7 @@ export class FintekProRatingService {
     valuationScore = Math.min(100, Math.max(0, valuationScore));
     momentumScore = Math.min(100, Math.max(0, momentumScore));
 
-    const overallScore = (
+    const baseOverallScore = (
       riskAdjustedScore * 0.30 +
       qualityScore * 0.25 +
       liquidityScore * 0.15 +
@@ -483,11 +514,33 @@ export class FintekProRatingService {
       valuationScore * 0.15
     );
 
+    // --- ML scoring: blend Python GBR predicted return (25% weight) ---
+    const mlResultStock = await this.getMLScore('stock', stockId, {
+      pe: peRatio,
+      returns1y,
+      returns3y,
+      volatility: beta, // use beta as proxy for volatility
+      sharpeRatio: 0,
+    });
+    let overallScore = baseOverallScore;
+    let stockMlEnhanced = false;
+    let stockMlPredictedReturn: number | undefined;
+    let stockMlConfidence: number | undefined;
+    if (mlResultStock) {
+      const mlScore = this.mlReturnToScore(mlResultStock.predictedReturn);
+      overallScore = baseOverallScore * 0.75 + mlScore * 0.25;
+      stockMlEnhanced = true;
+      stockMlPredictedReturn = mlResultStock.predictedReturn;
+      stockMlConfidence = mlResultStock.confidence;
+      console.log(`[FintekPro ML] Stock ${stockId}: base=${baseOverallScore.toFixed(1)} ml=${mlScore.toFixed(1)} final=${overallScore.toFixed(1)} predictedReturn=${mlResultStock.predictedReturn.toFixed(2)}%`);
+    }
+    // --- end ML scoring ---
+
     const stars = this.scoreToStars(overallScore);
     const percentile = this.scoreToPercentile(overallScore);
 
-    const dataSource: 'database' | 'calculated' | 'ai_enhanced' = 
-      includeAI && this.genAI ? 'ai_enhanced' : hasEnrichedData ? 'database' : 'calculated';
+    const dataSource = stockMlEnhanced ? 'ml_enhanced' as const
+      : (includeAI && this.genAI ? 'ai_enhanced' as const : hasEnrichedData ? 'database' as const : 'calculated' as const);
 
     const rating: FintekProRating = {
       rating: stars,
@@ -505,6 +558,9 @@ export class FintekProRatingService {
       overallScore,
       confidenceLevel: marketCap > 50000 ? 'high' : marketCap > 10000 ? 'medium' : 'low',
       dataSource,
+      mlEnhanced: stockMlEnhanced,
+      mlPredictedReturn: stockMlPredictedReturn,
+      mlConfidence: stockMlConfidence,
       advancedMetrics
     };
 
@@ -526,6 +582,8 @@ export class FintekProRatingService {
     if (enriched?.fundamentals?.grahamNumber != null) keyMetrics.grahamNumber = `₹${enriched.fundamentals.grahamNumber.toFixed(2)}`;
     if (enrichedEvToEbitda != null) keyMetrics.evToEbitda = enrichedEvToEbitda.toFixed(2);
     if (enriched?.technicals?.rsi != null) keyMetrics.rsi = enriched.technicals.rsi.toFixed(1);
+    if (stockMlPredictedReturn !== undefined) keyMetrics.mlPredictedReturn = `${stockMlPredictedReturn.toFixed(2)}%`;
+    if (stockMlConfidence !== undefined) keyMetrics.mlConfidence = `${stockMlConfidence.toFixed(0)}%`;
 
     const strengths = this.generateStockStrengths(stock, overallScore, returns1y, roe, peRatio);
     const concerns = this.generateStockConcerns(stock, overallScore, returns1y, peRatio, beta);
@@ -791,6 +849,34 @@ Focus on: investment suitability, key risks, and potential. Be factual and balan
       return undefined;
     }
   }
+
+  // ---------- Python ML scoring helper ----------
+  private async getMLScore(
+    assetClass: 'mutual_fund' | 'stock',
+    id: string,
+    features: Record<string, number>
+  ): Promise<{ predictedReturn: number; confidence: number } | null> {
+    try {
+      const result = await callPython<any>('/api/ml/score', 'POST', {
+        assetClass,
+        assets: [{ id, ...features }],
+        regime: 'sideways',
+      });
+      if (!result || !result.results || result.results.length === 0) return null;
+      const r = result.results[0];
+      if (r.predictedReturn == null) return null;
+      return { predictedReturn: r.predictedReturn, confidence: r.confidence ?? 50 };
+    } catch {
+      return null;
+    }
+  }
+
+  // Normalize a predicted-return value to a 0-100 score
+  // Anchored so that 6.5% (risk-free) → 50, every 1% above/below → ±3 pts
+  private mlReturnToScore(predictedReturn: number): number {
+    return Math.min(100, Math.max(10, 50 + (predictedReturn - 6.5) * 3));
+  }
+  // ---------- end ML helper ----------
 
   private calculateMFRiskAdjustedScore(returns1y: number, returns3y: number, returns5y: number, expenseRatio: number): number {
     const avgReturn = (returns1y * 0.4 + returns3y * 0.35 + returns5y * 0.25);
