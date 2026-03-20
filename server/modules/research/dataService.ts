@@ -1227,7 +1227,13 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
   console.warn(`[ResearchNote] NSE failed for ${nseSymbol}:`, (nseResult as any).reason?.message);
 
   // Fallback to Yahoo Finance
-  for (const ySym of [`${nseSymbol}.NS`, `${nseSymbol}.BO`]) {
+  // For BSE-only stocks (symbol has .BO suffix), try .BO first to avoid unnecessary rate-limiting on .NS
+  const isBseOnly = symbol.toUpperCase().endsWith('.BO');
+  const yahooSymbols = isBseOnly
+    ? [`${nseSymbol}.BO`, `${nseSymbol}.NS`]
+    : [`${nseSymbol}.NS`, `${nseSymbol}.BO`];
+  let rateLimited = false;
+  for (const ySym of yahooSymbols) {
     try {
       console.log(`[ResearchNote] Yahoo fallback: ${ySym}`);
       const yData = await fetchFromYahoo(ySym);
@@ -1236,10 +1242,15 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
       return { ...data, _fundamentalsSource: fundamentalsSource, _screenerData: screener };
     } catch (e: any) {
       if (isRateLimit(e)) {
-        throw new Error("Financial data is temporarily unavailable. Please wait 60 seconds and try again.");
+        rateLimited = true;
+        console.warn(`[ResearchNote] Yahoo rate-limited for ${ySym}, trying next exchange...`);
+        continue;
       }
       console.warn(`[ResearchNote] Yahoo failed for ${ySym}:`, e?.message);
     }
+  }
+  if (rateLimited) {
+    throw new Error("Financial data is temporarily unavailable. Please wait 60 seconds and try again.");
   }
 
   // Last resort: serve stale DB data with a price of null so the caller gets partial data

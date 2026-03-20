@@ -242,9 +242,9 @@ export function registerAgentCapitalGainsRoutes(app: Express): void {
       
       // Get recent leads
       const recentLeads = await db.select()
-        .from(agentLeads)
-        .where(eq(agentLeads.agentId, agentId))
-        .orderBy(desc(agentLeads.createdAt))
+        .from(schema.agentLeads)
+        .where(eq(schema.agentLeads.agentId, agentId))
+        .orderBy(desc(schema.agentLeads.createdAt))
         .limit(5);
       
       recentLeads.forEach((lead) => {
@@ -343,9 +343,9 @@ export function registerAgentCapitalGainsRoutes(app: Express): void {
   app.get("/api/agent/leads", requireAgent, async (req, res) => {
     try {
       const leads = await db.select()
-        .from(agentLeads)
-        .where(eq(agentLeads.agentId, req.user.id))
-        .orderBy(desc(agentLeads.createdAt));
+        .from(schema.agentLeads)
+        .where(eq(schema.agentLeads.agentId, req.user.id))
+        .orderBy(desc(schema.agentLeads.createdAt));
       
       // Transform to match frontend Lead interface
       const transformedLeads = leads.map(lead => ({
@@ -375,8 +375,8 @@ export function registerAgentCapitalGainsRoutes(app: Express): void {
   app.get("/api/agent/leads/stats", requireAgent, async (req, res) => {
     try {
       const leads = await db.select()
-        .from(agentLeads)
-        .where(eq(agentLeads.agentId, req.user.id));
+        .from(schema.agentLeads)
+        .where(eq(schema.agentLeads.agentId, req.user.id));
       
       const stageCounts = {
         new: 0,
@@ -496,7 +496,7 @@ export function registerAgentCapitalGainsRoutes(app: Express): void {
         }
       }
 
-      const [newLead] = await db.insert(agentLeads)
+      const [newLead] = await db.insert(schema.agentLeads)
         .values({
           agentId: assignedAgentId,
           name,
@@ -543,13 +543,13 @@ export function registerAgentCapitalGainsRoutes(app: Express): void {
         return res.status(400).json({ error: "Invalid stage" });
       }
       
-      const [updated] = await db.update(agentLeads)
+      const [updated] = await db.update(schema.agentLeads)
         .set({ 
           stage, 
           updatedAt: new Date(),
           lastContactAt: new Date()
         })
-        .where(and(eq(agentLeads.id, id), eq(agentLeads.agentId, req.user.id)))
+        .where(and(eq(schema.agentLeads.id, id), eq(schema.agentLeads.agentId, req.user.id)))
         .returning();
       
       if (!updated) {
@@ -1186,16 +1186,16 @@ export function registerAgentCapitalGainsRoutes(app: Express): void {
       
       // Get leads count
       const leadsResult = await db.select({ count: count() })
-        .from(agentLeads)
-        .where(eq(agentLeads.agentId, agentId));
+        .from(schema.agentLeads)
+        .where(eq(schema.agentLeads.agentId, agentId));
       const totalLeads = leadsResult[0]?.count || 0;
       
       // Get converted leads
       const convertedLeadsResult = await db.select({ count: count() })
-        .from(agentLeads)
+        .from(schema.agentLeads)
         .where(and(
-          eq(agentLeads.agentId, agentId),
-          eq(agentLeads.stage, 'converted')
+          eq(schema.agentLeads.agentId, agentId),
+          eq(schema.agentLeads.stage, 'converted')
         ));
       const convertedLeads = convertedLeadsResult[0]?.count || 0;
       
