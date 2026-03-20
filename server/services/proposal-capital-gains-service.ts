@@ -46,7 +46,7 @@ const TAX_REGIMES = {
   ) as any,
   POST_BUDGET_2024: Object.fromEntries(
     Object.entries(POST_BUDGET_2024_RATES).map(([k, v]) => [k, {
-      stcg: { rate: v.stcg, thresholdDays: v.ltcgThresholdDays },
+      stcg: { rate: v.stcg, thresholdDays: v.ltcgThresholdDays, slabBased: isSlabBasedFromConfig(k as TaxAssetClass) },
       ltcg: { rate: v.ltcg, thresholdDays: v.ltcgThresholdDays, exemption: v.ltcgExemption }
     }])
   ) as any,
@@ -58,10 +58,10 @@ const TAX_REGIMES = {
  * See: shared/types/instrument-charges.ts for full charge taxonomy (ChargeType enum).
  */
 const EXIT_LOAD_RULES = {
-  equity: { withinDays: 365, rate: 0.01 }, // 1% if redeemed within 1 year
-  debt: { withinDays: 365, rate: 0.005 }, // 0.5% typical
+  equity: { withinDays: 365, rate: 0.01 },     // 1% if redeemed within 1 year
+  debt: { withinDays: 90, rate: 0.0025 },      // 0.25% if redeemed within 90 days (SEBI typical)
   hybrid: { withinDays: 365, rate: 0.01 },
-  liquid: { withinDays: 7, rate: 0.0007 }, // 0.007% for 1 day, 0 after 7 days
+  liquid: { withinDays: 7, rate: 0.00007 },    // 0.0070% for Day 1 (SEBI mandated tiered; simplified flat)
   gold_silver: { withinDays: 365, rate: 0.01 }
 };
 
@@ -1142,6 +1142,11 @@ class ProposalCapitalGainsService {
     let taxLossHarvestingOpportunity = 0;
     let grandfatheringBenefitTotal = 0;
     const allAlerts: TaxAlert[] = [];
+    // Track LTCG gains eligible for ₹1.25L annual exemption (equity/hybrid_equity/elss/index/sectoral)
+    let exemptibleLTCGGains = 0;
+    let exemptibleLTCGTax = 0;
+    const EXEMPTIBLE_EQUITY_CATS = new Set(['equity', 'hybrid_equity', 'elss', 'index', 'sectoral']);
+    const EQUITY_LTCG_RATE = 0.125; // Post-Budget 2024 rate for exemption-eligible categories
     
     for (const holding of holdings) {
       if (holding.action === 'HOLD') continue;
@@ -1168,6 +1173,12 @@ class ProposalCapitalGainsService {
         } else if (taxInfo.taxType === 'LTCG') {
           totalLTCG += taxInfo.unrealizedGain;
           ltcgTax += taxInfo.estimatedTax;
+          // Track exemption-eligible LTCG (Section 112A — equity & equity-oriented funds)
+          const cat = this.getAssetCategory(holding.productType, holding.category);
+          if (EXEMPTIBLE_EQUITY_CATS.has(cat)) {
+            exemptibleLTCGGains += taxInfo.unrealizedGain;
+            exemptibleLTCGTax += taxInfo.estimatedTax;
+          }
         }
       } else {
         taxLossHarvestingOpportunity += Math.abs(taxInfo.unrealizedGain);
@@ -1176,6 +1187,14 @@ class ProposalCapitalGainsService {
       totalExitLoad += taxInfo.exitLoad;
       grandfatheringBenefitTotal += taxInfo.grandfatheringBenefit;
       allAlerts.push(...taxInfo.alerts);
+    }
+
+    // Apply LTCG exemption at portfolio level (₹1.25L per FY under Section 112A)
+    // This exemption applies only to equity and equity-oriented fund LTCG gains
+    const LTCG_ANNUAL_EXEMPTION = 125000;
+    if (exemptibleLTCGGains > 0) {
+      const revisedExemptibleTax = Math.max(0, exemptibleLTCGGains - LTCG_ANNUAL_EXEMPTION) * EQUITY_LTCG_RATE;
+      ltcgTax = ltcgTax - exemptibleLTCGTax + revisedExemptibleTax;
     }
     
     // Calculate surcharge on total gains (including slab-based)
