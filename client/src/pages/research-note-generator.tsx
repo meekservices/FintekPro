@@ -828,7 +828,13 @@ export default function ResearchNoteGenerator() {
                     <MetricCard label="Revenue Growth" value={fmtPct(f.revenueGrowth)} />
                     <MetricCard label="Earnings Growth" value={fmtPct(f.earningsGrowth)} />
                     <MetricCard label="Face Value" value={fmt(f.faceValue, cp)} />
-                    {!d.isUnlisted && <MetricCard label="VWAP" value={fmt(f.vwap, cp)} />}
+                    {!d.isUnlisted && (
+                      <MetricCard
+                        label="VWAP"
+                        value={fmt(f.vwap, cp)}
+                        subText={f.vwap !== null && f.previousClose !== null && Math.abs(f.vwap - f.previousClose) < 0.01 ? "prev. close" : undefined}
+                      />
+                    )}
                   </div>
                   {(f.returns1M !== null || f.returns1Y !== null) && (
                     <div className="mt-3 pt-3 border-t grid grid-cols-3 gap-2 text-center">

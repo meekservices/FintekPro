@@ -346,7 +346,8 @@ async function fetchFromNSE(nseSymbol: string): Promise<Partial<FinancialData>> 
     fiftyTwoWeekHigh: pfNse(whl.max),
     fiftyTwoWeekLow:  pfNse(whl.min),
     faceValue: pfNse(sec.faceValue),
-    vwap: pfNse(pi.vwap) || null, // treat 0 as N/A — NSE returns 0 for InvITs/REITs
+    // NSE returns vwap=0 for InvITs/REITs when market is closed — fall back to previousClose
+    vwap: (pfNse(pi.vwap) && (pfNse(pi.vwap) ?? 0) > 0) ? pfNse(pi.vwap) : (prevClose && prevClose > 0 ? prevClose : null),
     currency: "INR",
   };
 }
