@@ -124,14 +124,9 @@ export default function AuthPage() {
   usePortalMeta();
   const portalType = subdomain || "main";
 
-  // Post-login destination: use path-based portal prefix so detectSubdomain()
-  // keeps returning the correct portal after navigation (withPortalParams only
-  // adds query params and does NOT survive a path change to "/").
-  const portalHomeRoute =
-    portalType === "agent"   ? "/agent" :
-    portalType === "admin"   ? "/admin" :
-    portalType === "partner" ? "/partner" :
-    withPortalParams("/");
+  // After login, go to /?agent=true (or /?admin=true etc.) so the portal
+  // query param is preserved and detectSubdomain() keeps returning the right portal.
+  const portalHomeRoute = withPortalParams("/");
   const portalConfig = PORTAL_BRAND_CONFIG[resolvePortalType(portalType)];
   const portalLabel = portalConfig.label;
   const portalTagline = portalConfig.tagline;

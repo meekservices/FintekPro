@@ -1756,6 +1756,21 @@ function PartnerRoutes() {
   );
 }
 
+// AgentRoot: shows AuthPage if not logged in, FieldAgentPortal if logged in.
+// This makes /?agent=true work as the agent sign-in page directly.
+function AgentRoot() {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return <LoadingState variant="agent-dashboard" />;
+  if (!user) return <AuthPage />;
+  return (
+    <AgentLayout>
+      <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+        <FieldAgentPortal />
+      </Suspense>
+    </AgentLayout>
+  );
+}
+
 function AgentRoutes() {
   return (
     <Switch>
@@ -1773,15 +1788,7 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
-      <Route path="/">
-        {() => (
-          <AgentLayout>
-            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
-              <FieldAgentPortal />
-            </Suspense>
-          </AgentLayout>
-        )}
-      </Route>
+      <Route path="/" component={AgentRoot} />
       <Route path="/agent">
         {() => (
           <AgentLayout>

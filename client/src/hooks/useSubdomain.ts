@@ -16,15 +16,13 @@ function detectSubdomain(): string {
   // Debug logging only on initial detection (not during polling)
   // Note: Removed frequent console.log to improve performance
   
-  // PRIORITY 1: Query params for development/Replit environments
-  if (isDev) {
-    if (urlParams.get('admin') === 'true') {
-      return 'admin';
-    } else if (urlParams.get('partner') === 'true') {
-      return 'partner';
-    } else if (urlParams.get('agent') === 'true') {
-      return 'agent';
-    }
+  // PRIORITY 1: Query params — works in ALL environments
+  if (urlParams.get('admin') === 'true') {
+    return 'admin';
+  } else if (urlParams.get('partner') === 'true') {
+    return 'partner';
+  } else if (urlParams.get('agent') === 'true') {
+    return 'agent';
   }
   
   // PRIORITY 2: Path-based portal detection (works in all environments)
@@ -90,7 +88,7 @@ export function withPortalParams(path: string): string {
 export function useSubdomain() {
   // Use state to ensure re-render when subdomain is detected
   const [subdomain, setSubdomain] = useState<string>(() => detectSubdomain());
-  const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
+  const [currentPath, setCurrentPath] = useState(() => window.location.pathname + window.location.search);
   
   // Re-detect on mount and URL changes
   useEffect(() => {
@@ -103,12 +101,12 @@ export function useSubdomain() {
     const handlePopState = () => {
       const newSubdomain = detectSubdomain();
       setSubdomain(newSubdomain);
-      setCurrentPath(window.location.pathname);
+      setCurrentPath(window.location.pathname + window.location.search);
     };
     
-    // Poll for pathname changes (handles pushState navigation)
+    // Poll for pathname OR search param changes (handles pushState navigation)
     const checkPathChange = () => {
-      const newPath = window.location.pathname;
+      const newPath = window.location.pathname + window.location.search;
       if (newPath !== currentPath) {
         setCurrentPath(newPath);
         const newSubdomain = detectSubdomain();
