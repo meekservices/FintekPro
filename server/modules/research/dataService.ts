@@ -343,7 +343,7 @@ async function fetchFromNSE(nseSymbol: string): Promise<Partial<FinancialData>> 
     fiftyTwoWeekHigh: pfNse(whl.max),
     fiftyTwoWeekLow:  pfNse(whl.min),
     faceValue: pfNse(sec.faceValue),
-    vwap: pfNse(pi.vwap),
+    vwap: pfNse(pi.vwap) || null, // treat 0 as N/A — NSE returns 0 for InvITs/REITs
     currency: "INR",
   };
 }
@@ -980,7 +980,11 @@ function buildFull(
     price,
     previousClose: base.previousClose ?? null,
     marketCap:     base.marketCap ?? null,
-    pe:            base.pe ?? null,
+    pe:            (() => {
+      const eps = dbData.eps ?? base.eps ?? null;
+      // NSE → screener → compute from price/EPS as last resort
+      return base.pe ?? screener.pe ?? (price && eps && eps > 0 ? Math.round((price / eps) * 10) / 10 : null);
+    })(),
     eps:           dbData.eps ?? base.eps ?? null,
     roe,
     roce:          screener.roce ?? dbData.roce ?? null,
@@ -996,7 +1000,7 @@ function buildFull(
     currency:      base.currency ?? "INR",
     bookValue,
     faceValue:     base.faceValue ?? null,
-    vwap:          base.vwap ?? null,
+    vwap:          base.vwap || null, // treat 0 as N/A
     operatingCashFlow: screener.operatingCashFlow ?? dbData.operatingCashFlow ?? null,
     freeCashFlow:   screener.freeCashFlow   ?? dbData.freeCashFlow   ?? null,
     revenue:        screener.revenue        ?? dbData.revenue        ?? null,
