@@ -27,15 +27,14 @@ function detectSubdomain(): string {
     }
   }
   
-  // PRIORITY 2: Path-based portal detection for Replit environments
-  if (isReplitEnv) {
-    if (pathname.startsWith('/admin')) {
-      return 'admin';
-    } else if (pathname.startsWith('/agent')) {
-      return 'agent';
-    } else if (pathname.startsWith('/partner')) {
-      return 'partner';
-    }
+  // PRIORITY 2: Path-based portal detection (works in all environments)
+  // /agent/*, /admin/*, /partner/* paths always route to their respective portals
+  if (pathname.startsWith('/agent/') || pathname === '/agent') {
+    return 'agent';
+  } else if (pathname.startsWith('/admin/') || pathname === '/admin') {
+    return 'admin';
+  } else if (pathname.startsWith('/partner/') || pathname === '/partner') {
+    return 'partner';
   }
   
   // PRIORITY 3: Localhost subdomain detection

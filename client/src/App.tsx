@@ -1761,6 +1761,7 @@ function AgentRoutes() {
     <Switch>
       <Route path="/auth" component={AuthPage} />
       <Route path="/agent/auth" component={AuthPage} />
+      <Route path="/agent/login" component={AuthPage} />
       {/* Public proposal preview - accessible on all subdomains */}
       <Route path="/proposal/:shareToken" component={PublicProposalPage} />
       <Route path="/agent/advisor-profile">
