@@ -1595,7 +1595,8 @@ export default function AgentProspectWizard() {
             const payload = await response.json();
             // API returns { success: true, holdings: [...] }
             const backendHoldings = payload.holdings ?? [];
-            console.log('[Holdings] Loaded saved holdings (backend):', backendHoldings.length);
+            const holdingSource = payload.source ?? 'wizard_session';
+            console.log('[Holdings] Loaded saved holdings (backend):', backendHoldings.length, 'source:', holdingSource);
             if (backendHoldings.length > 0) {
               // Transform backend holdings to frontend format
               const frontendHoldings = backendHoldings.map(toFrontendHolding);
@@ -1603,7 +1604,9 @@ export default function AgentProspectWizard() {
               setHoldings(frontendHoldings);
               toast({ 
                 title: "Portfolio Loaded", 
-                description: `${frontendHoldings.length} saved holdings loaded from previous session` 
+                description: holdingSource === 'real_portfolio'
+                  ? `${frontendHoldings.length} holdings imported from client's existing portfolio`
+                  : `${frontendHoldings.length} saved holdings loaded from previous session`
               });
             }
           }

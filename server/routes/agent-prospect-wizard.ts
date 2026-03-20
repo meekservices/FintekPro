@@ -1,6 +1,9 @@
 import { Router, Request, Response } from "express";
 import { storage } from "../storage";
 import multer from "multer";
+import { db } from "../db";
+import { portfolios, portfolioHoldings } from "@shared/schema";
+import { eq, inArray, or } from "drizzle-orm";
 import { 
   agentProspectWizardService, 
   ProspectPortfolioHolding, 
@@ -1867,6 +1870,8 @@ router.get("/prospects/:id/portfolio", async (req: Request, res: Response) => {
 });
 
 // GET saved holdings for a prospect
+// Falls back to the client's real portfolio (portfolioHoldings) when currentPortfolio is empty
+// and the prospect was converted to a full client (convertedUserId is set).
 router.get("/prospects/:id/holdings", async (req: Request, res: Response) => {
   try {
     const agentId = (req as any).user?.id;
@@ -1882,8 +1887,80 @@ router.get("/prospects/:id/holdings", async (req: Request, res: Response) => {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const holdings = (prospect.currentPortfolio as any[]) || [];
-    res.json({ success: true, holdings });
+    let holdings = (prospect.currentPortfolio as any[]) || [];
+
+    // --- Fallback: pull from real portfolio when wizard scratchpad is empty ---
+    let holdingSource = 'wizard_session';
+    if (holdings.length === 0) {
+      try {
+        // First: look up portfolios by convertedUserId (full client), then by prospectId (linked prospect)
+        const portfolioConditions = [];
+        if (prospect.convertedUserId) {
+          portfolioConditions.push(eq(portfolios.userId, prospect.convertedUserId));
+        }
+        // Also check portfolios directly linked to this prospect record
+        portfolioConditions.push(eq(portfolios.prospectId, req.params.id));
+
+        const userPortfolios = await db
+          .select({ id: portfolios.id })
+          .from(portfolios)
+          .where(
+            portfolioConditions.length === 1
+              ? portfolioConditions[0]
+              : or(...portfolioConditions)
+          );
+
+        if (userPortfolios.length > 0) {
+          const portfolioIds = userPortfolios.map(p => p.id);
+
+          // Fetch all holdings across all portfolios in one query
+          const rawHoldings = await db
+            .select({
+              name: portfolioHoldings.name,
+              isin: portfolioHoldings.isin,
+              symbol: portfolioHoldings.symbol,
+              assetType: portfolioHoldings.assetType,
+              productType: portfolioHoldings.productType,
+              quantity: portfolioHoldings.quantity,
+              avgPrice: portfolioHoldings.avgPrice,
+              currentValue: portfolioHoldings.currentValue,
+              investedValue: portfolioHoldings.investedValue,
+              folioNumber: portfolioHoldings.folioNumber,
+              broker: portfolioHoldings.broker,
+              purchaseDate: portfolioHoldings.purchaseDate,
+              confidenceScore: portfolioHoldings.confidenceScore,
+            })
+            .from(portfolioHoldings)
+            .where(inArray(portfolioHoldings.portfolioId, portfolioIds));
+
+          if (rawHoldings.length > 0) {
+            // Transform to wizard currentPortfolio format
+            holdings = rawHoldings.map(h => ({
+              name: h.name || 'Unknown',
+              isin: h.isin ?? undefined,
+              symbol: h.symbol ?? undefined,
+              assetType: h.assetType,
+              productType: h.productType ?? h.assetType,
+              quantity: parseFloat(h.quantity?.toString() || '0'),
+              averageCost: h.avgPrice ? parseFloat(h.avgPrice.toString()) : undefined,
+              currentValue: parseFloat(h.currentValue?.toString() || '0'),
+              investedValue: h.investedValue ? parseFloat(h.investedValue.toString()) : undefined,
+              folioNumber: h.folioNumber ?? undefined,
+              broker: h.broker ?? undefined,
+              purchaseDate: h.purchaseDate ? String(h.purchaseDate) : undefined,
+              confidenceScore: h.confidenceScore ?? undefined,
+            }));
+            holdingSource = 'real_portfolio';
+            console.log(`[Agent Wizard] Loaded ${holdings.length} holdings from real portfolio for client ${prospect.convertedUserId} (prospect ${req.params.id})`);
+          }
+        }
+      } catch (fallbackErr) {
+        console.warn("[Agent Wizard] Real portfolio fallback failed, returning empty:", fallbackErr);
+      }
+    }
+    // --- end fallback ---
+
+    res.json({ success: true, holdings, source: holdingSource });
   } catch (error: any) {
     console.error("[Agent Wizard] Error fetching holdings:", error);
     res.status(500).json({ success: false, message: error.message });
