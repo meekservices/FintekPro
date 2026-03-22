@@ -3,7 +3,7 @@ import { storage } from "../storage";
 import multer from "multer";
 import { db } from "../db";
 import { portfolios, portfolioHoldings, prospectLeads } from "@shared/schema";
-import { eq, inArray, or } from "drizzle-orm";
+import { eq, inArray, or, desc as descOrd } from "drizzle-orm";
 import { 
   agentProspectWizardService, 
   ProspectPortfolioHolding, 
@@ -27,7 +27,8 @@ import { assertLotsNotDropped } from "../services/holding-transformer";
 import { requireAuth, requireRole } from "../middleware/roleMiddleware";
 import { prospectReadinessService } from "../services/prospect-readiness-service";
 import { portfolioAnalyticsDataService } from "../services/portfolio-analytics-data-service";
-import { enrichAndScoreProspect, bulkScoreProspects, scoreProspect, calculateWealthFromDirectorships } from "../services/prospect-scoring-engine";
+import { enrichAndScoreProspect, bulkScoreProspects, getSectorBenchmarks, getBenchmarkForSegment } from "../services/prospect-scoring-engine";
+import { prospectScoreHistory } from "@shared/schema";
 
 // Multer setup for CAS file upload
 const upload = multer({
@@ -3326,7 +3327,7 @@ router.post(
 );
 
 /**
- * GET /api/prospect-wizard/prospects/:id/score
+ * GET /api/agent-wizard/prospects/:id/score
  *
  * Returns the current saved score for a prospect (no recomputation).
  */
@@ -3340,13 +3341,16 @@ router.get(
         .select({
           id: prospectLeads.id,
           companyName: prospectLeads.companyName,
+          industrySegment: prospectLeads.industrySegment,
           estimatedNetworth: prospectLeads.estimatedNetworth,
+          investableSurplus: prospectLeads.investableSurplus,
           wealthScore: prospectLeads.wealthScore,
           activityScore: prospectLeads.activityScore,
           relationshipScore: prospectLeads.relationshipScore,
           compositeScore: prospectLeads.compositeScore,
           scoringVersion: prospectLeads.scoringVersion,
           scoredAt: prospectLeads.scoredAt,
+          leadQuality: prospectLeads.leadQuality,
         })
         .from(prospectLeads)
         .where(eq(prospectLeads.id, id))
@@ -3359,6 +3363,12 @@ router.get(
       const row = rows[0];
       const scored = row.compositeScore !== null && row.compositeScore !== undefined;
 
+      // Fetch sector benchmark if segment is known
+      let sectorBenchmark = null;
+      if (row.industrySegment) {
+        sectorBenchmark = await getBenchmarkForSegment(row.industrySegment);
+      }
+
       res.json({
         success: true,
         prospectId: id,
@@ -3367,17 +3377,151 @@ router.get(
         scoring: scored
           ? {
               estimatedNetworth: parseFloat(String(row.estimatedNetworth || "0")),
+              investableSurplus: parseFloat(String(row.investableSurplus || "0")),
               wealthScore: parseFloat(String(row.wealthScore || "0")),
               activityScore: parseFloat(String(row.activityScore || "0")),
               relationshipScore: parseFloat(String(row.relationshipScore || "0")),
               compositeScore: parseFloat(String(row.compositeScore || "0")),
               scoringVersion: row.scoringVersion,
               scoredAt: row.scoredAt,
+              leadQuality: row.leadQuality,
             }
           : null,
+        sectorBenchmark,
       });
     } catch (error: any) {
       console.error("[Get Score] Error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+);
+
+/**
+ * GET /api/agent-wizard/prospects/:id/score-history
+ *
+ * Returns the scoring audit trail for a prospect (Upgrade 7).
+ */
+router.get(
+  "/prospects/:id/score-history",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const limit = Math.min(parseInt(String(req.query.limit || "20")), 100);
+
+      const history = await db
+        .select()
+        .from(prospectScoreHistory)
+        .where(eq(prospectScoreHistory.prospectId, id))
+        .orderBy(descOrd(prospectScoreHistory.createdAt))
+        .limit(limit);
+
+      res.json({
+        success: true,
+        prospectId: id,
+        history: history.map((h) => ({
+          id: h.id,
+          compositeScore: parseFloat(String(h.compositeScore || "0")),
+          wealthScore: parseFloat(String(h.wealthScore || "0")),
+          activityScore: parseFloat(String(h.activityScore || "0")),
+          relationshipScore: parseFloat(String(h.relationshipScore || "0")),
+          financialHealthScore: parseFloat(String(h.financialHealthScore || "0")),
+          estimatedNetworth: parseFloat(String(h.estimatedNetworth || "0")),
+          investableSurplus: parseFloat(String(h.investableSurplus || "0")),
+          leadQualityBefore: h.leadQualityBefore,
+          leadQualityAfter: h.leadQualityAfter,
+          scoringVersion: h.scoringVersion,
+          triggeredBy: h.triggeredBy,
+          createdAt: h.createdAt,
+        })),
+      });
+    } catch (error: any) {
+      console.error("[Score History] Error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+);
+
+/**
+ * GET /api/agent-wizard/prospects/benchmarks/sector
+ *
+ * Returns average composite/wealth/activity/relationship scores by industry segment (Upgrade 8).
+ */
+router.get(
+  "/prospects/benchmarks/sector",
+  requireAuth,
+  async (_req: Request, res: Response) => {
+    try {
+      const benchmarks = await getSectorBenchmarks();
+      res.json({ success: true, benchmarks });
+    } catch (error: any) {
+      console.error("[Sector Benchmarks] Error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+);
+
+/**
+ * GET /api/agent-wizard/prospects/top-ranked
+ *
+ * Returns top prospects sorted by compositeScore DESC (Upgrade 6 — data layer).
+ * limit defaults to 20, max 100.
+ */
+router.get(
+  "/prospects/top-ranked",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const limit = Math.min(parseInt(String(req.query.limit || "20")), 100);
+      const { isNotNull } = await import("drizzle-orm");
+
+      const rows = await db
+        .select({
+          id: prospectLeads.id,
+          cin: prospectLeads.cin,
+          companyName: prospectLeads.companyName,
+          city: prospectLeads.city,
+          state: prospectLeads.state,
+          industrySegment: prospectLeads.industrySegment,
+          compositeScore: prospectLeads.compositeScore,
+          wealthScore: prospectLeads.wealthScore,
+          activityScore: prospectLeads.activityScore,
+          relationshipScore: prospectLeads.relationshipScore,
+          estimatedNetworth: prospectLeads.estimatedNetworth,
+          investableSurplus: prospectLeads.investableSurplus,
+          leadQuality: prospectLeads.leadQuality,
+          leadScore: prospectLeads.leadScore,
+          status: prospectLeads.status,
+          assignedTo: prospectLeads.assignedTo,
+          scoredAt: prospectLeads.scoredAt,
+        })
+        .from(prospectLeads)
+        .where(isNotNull(prospectLeads.compositeScore))
+        .orderBy(descOrd(prospectLeads.compositeScore))
+        .limit(limit);
+
+      res.json({
+        success: true,
+        prospects: rows.map((r) => ({
+          ...r,
+          compositeScore: parseFloat(String(r.compositeScore || "0")),
+          wealthScore: parseFloat(String(r.wealthScore || "0")),
+          activityScore: parseFloat(String(r.activityScore || "0")),
+          relationshipScore: parseFloat(String(r.relationshipScore || "0")),
+          estimatedNetworth: parseFloat(String(r.estimatedNetworth || "0")),
+          investableSurplus: parseFloat(String(r.investableSurplus || "0")),
+          scoreTier:
+            parseFloat(String(r.compositeScore || "0")) >= 80
+              ? "platinum"
+              : parseFloat(String(r.compositeScore || "0")) >= 60
+              ? "gold"
+              : parseFloat(String(r.compositeScore || "0")) >= 40
+              ? "silver"
+              : "bronze",
+        })),
+      });
+    } catch (error: any) {
+      console.error("[Top Ranked] Error:", error);
       res.status(500).json({ success: false, error: error.message });
     }
   }

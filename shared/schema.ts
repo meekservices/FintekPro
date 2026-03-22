@@ -13233,7 +13233,27 @@ export const prospectLeads = pgTable("prospect_leads", {
   index("idx_prospect_created").on(table.createdAt),
 ]);
 
-// Lead Activities - Track all interactions with prospect leads
+// Prospect Score History — append-only audit log of every scoring run
+export const prospectScoreHistory = pgTable("prospect_score_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  prospectId: varchar("prospect_id").references(() => prospectLeads.id, { onDelete: "cascade" }).notNull(),
+  compositeScore: numeric("composite_score", { precision: 6, scale: 2 }),
+  wealthScore: numeric("wealth_score", { precision: 6, scale: 2 }),
+  activityScore: numeric("activity_score", { precision: 6, scale: 2 }),
+  relationshipScore: numeric("relationship_score", { precision: 6, scale: 2 }),
+  financialHealthScore: numeric("financial_health_score", { precision: 6, scale: 2 }),
+  estimatedNetworth: numeric("estimated_networth", { precision: 18, scale: 2 }),
+  investableSurplus: numeric("investable_surplus", { precision: 18, scale: 2 }),
+  leadQualityBefore: varchar("lead_quality_before", { length: 20 }),
+  leadQualityAfter: varchar("lead_quality_after", { length: 20 }),
+  scoringVersion: varchar("scoring_version", { length: 20 }),
+  triggeredBy: varchar("triggered_by", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_psh_prospect_id").on(table.prospectId),
+  index("idx_psh_created_at").on(table.createdAt),
+]);
+
 export const leadActivities = pgTable("lead_activities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   

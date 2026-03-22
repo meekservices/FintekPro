@@ -140,6 +140,7 @@ export default function AdminProspectDashboardPage() {
   const [assignTarget, setAssignTarget] = useState<{ id: string; type: "b2b" | "individual" } | null>(null);
   const [isEditLeadOpen, setIsEditLeadOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<B2BLead | null>(null);
+  const [isBulkScoring, setIsBulkScoring] = useState(false);
 
   const { data: metrics, isLoading: loadingMetrics, refetch: refetchMetrics } = useQuery<ProspectMetrics>({
     queryKey: ["/api/admin/prospects/metrics"]
@@ -265,6 +266,40 @@ export default function AdminProspectDashboardPage() {
     }
   });
 
+  // Upgrade 2: Bulk Score All handler
+  const handleBulkScoreAll = async () => {
+    setIsBulkScoring(true);
+    try {
+      const response = await apiRequest("/api/agent-wizard/prospects/bulk-score", {
+        method: "POST",
+        body: JSON.stringify({ limit: 200, staleAfterDays: 7, triggeredBy: "admin_bulk_button" })
+      });
+      const data: any = response;
+      toast({
+        title: "Bulk Scoring Complete",
+        description: `${data.result?.succeeded ?? 0} leads scored, ${data.result?.failed ?? 0} failed`
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent-wizard/prospects/top-ranked"] });
+      refetchB2B();
+      refetchMetrics();
+    } catch (err: any) {
+      toast({ title: "Bulk Scoring Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsBulkScoring(false);
+    }
+  };
+
+  // Upgrade 6: Top Prospects query
+  const { data: topProspectsData, isLoading: loadingTopProspects, refetch: refetchTopProspects } = useQuery<{ success: boolean; prospects: any[] }>({
+    queryKey: ["/api/agent-wizard/prospects/top-ranked"],
+    queryFn: async () => {
+      const r = await apiRequest("/api/agent-wizard/prospects/top-ranked?limit=50");
+      return r as any;
+    },
+    enabled: activeTab === "top-prospects",
+  });
+
   const zohoImportMutation = useMutation({
     mutationFn: async ({ module, assignToAgent, maxRecords }: { module: string; assignToAgent?: string; maxRecords: number }) => {
       const response = await apiRequest("/api/admin/prospects/import/zoho-crm", {
@@ -366,6 +401,10 @@ export default function AdminProspectDashboardPage() {
             <TabsTrigger value="individual">
               <Users className="mr-2 h-4 w-4" />
               Individual Prospects
+            </TabsTrigger>
+            <TabsTrigger value="top-prospects">
+              <TrendingUp className="mr-2 h-4 w-4" />
+              Top Prospects
             </TabsTrigger>
           </TabsList>
         </ScrollableTabsList>
@@ -514,6 +553,11 @@ export default function AdminProspectDashboardPage() {
                       Bulk Assign ({selectedLeads.length})
                     </Button>
                   )}
+                  {/* Upgrade 2: Bulk Score All */}
+                  <Button variant="outline" onClick={handleBulkScoreAll} disabled={isBulkScoring}>
+                    {isBulkScoring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <TrendingUp className="mr-2 h-4 w-4" />}
+                    {isBulkScoring ? "Scoring..." : "Score All Leads"}
+                  </Button>
                   <Button onClick={() => setIsCreateB2BOpen(true)}>
                     <UserPlus className="mr-2 h-4 w-4" />
                     Add Lead
@@ -830,6 +874,119 @@ export default function AdminProspectDashboardPage() {
               {individualData?.total && (
                 <div className="text-sm text-muted-foreground">
                   Showing {individualData.prospects?.length || 0} of {individualData.total} prospects
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Upgrade 6: Top Prospects ranked tab */}
+        <TabsContent value="top-prospects" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-orange-500" />
+                    Top Prospects by FP Score
+                  </CardTitle>
+                  <CardDescription>
+                    Ranked by Wealth Engine composite score — updated nightly. Only scored leads are shown.
+                  </CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => refetchTopProspects()} disabled={loadingTopProspects}>
+                  {loadingTopProspects ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh"}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingTopProspects ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : !topProspectsData?.prospects?.length ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                  <p className="font-medium">No scored prospects yet</p>
+                  <p className="text-sm mt-1">Click "Score All Leads" in the B2B Leads tab to compute scores</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-8">#</TableHead>
+                        <TableHead>Company</TableHead>
+                        <TableHead>Segment</TableHead>
+                        <TableHead className="text-right">FP Score</TableHead>
+                        <TableHead className="text-right">Wealth</TableHead>
+                        <TableHead className="text-right">Activity</TableHead>
+                        <TableHead className="text-right">Relation</TableHead>
+                        <TableHead className="text-right">Net Worth</TableHead>
+                        <TableHead className="text-right">Investable</TableHead>
+                        <TableHead>Quality</TableHead>
+                        <TableHead>Tier</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {topProspectsData.prospects.map((p: any, idx: number) => (
+                        <TableRow key={p.id} className="hover:bg-muted/40">
+                          <TableCell className="font-medium text-muted-foreground">{idx + 1}</TableCell>
+                          <TableCell>
+                            <div className="font-medium">{p.companyName}</div>
+                            {p.city && <div className="text-xs text-muted-foreground">{p.city}{p.state ? `, ${p.state}` : ""}</div>}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">{p.industrySegment || "—"}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className={`font-bold text-lg ${p.compositeScore >= 65 ? "text-green-600 dark:text-green-400" : p.compositeScore >= 35 ? "text-yellow-600 dark:text-yellow-400" : "text-muted-foreground"}`}>
+                              {p.compositeScore.toFixed(1)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right text-sm">{p.wealthScore.toFixed(1)}</TableCell>
+                          <TableCell className="text-right text-sm">{p.activityScore.toFixed(1)}</TableCell>
+                          <TableCell className="text-right text-sm">{p.relationshipScore.toFixed(1)}</TableCell>
+                          <TableCell className="text-right text-sm">
+                            {p.estimatedNetworth > 0
+                              ? `₹${(p.estimatedNetworth / 1e7).toFixed(1)}Cr`
+                              : "—"}
+                          </TableCell>
+                          <TableCell className="text-right text-sm">
+                            {p.investableSurplus > 0
+                              ? `₹${(p.investableSurplus / 1e7).toFixed(1)}Cr`
+                              : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={
+                              p.leadQuality === "hot" ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" :
+                              p.leadQuality === "warm" ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300" :
+                              "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                            }>
+                              {p.leadQuality || "—"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className={
+                              p.scoreTier === "platinum" ? "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300" :
+                              p.scoreTier === "gold" ? "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300" :
+                              p.scoreTier === "silver" ? "bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300" :
+                              ""
+                            }>
+                              {p.scoreTier}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs capitalize">{p.status || "—"}</Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className="mt-3 text-xs text-muted-foreground">
+                    Showing top {topProspectsData.prospects.length} scored leads • Scores: 0–100 (hot ≥65, warm ≥35)
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -1373,23 +1530,37 @@ function ScoreBar({ label, score, icon, color }: { label: string; score: number;
 function ProspectScorePanel({ leadId, onScored }: { leadId: string; onScored?: () => void }) {
   const { toast } = useToast();
   const [relStrength, setRelStrength] = useState(50);
+  const [showHistory, setShowHistory] = useState(false);
 
-  const { data, isLoading, refetch } = useQuery<{ success: boolean; scored: boolean; scoring: ScoreData | null }>({
+  const { data, isLoading, refetch } = useQuery<{
+    success: boolean; scored: boolean; scoring: ScoreData | null; sectorBenchmark: any;
+  }>({
     queryKey: ["/api/agent-wizard/prospects", leadId, "score"],
-    queryFn: () => apiRequest("GET", `/api/agent-wizard/prospects/${leadId}/score`).then(r => r.json()),
+    queryFn: () => apiRequest(`/api/agent-wizard/prospects/${leadId}/score`),
     enabled: !!leadId,
+  });
+
+  // Upgrade 7: Score history
+  const { data: historyData, isLoading: loadingHistory } = useQuery<{
+    success: boolean; history: any[];
+  }>({
+    queryKey: ["/api/agent-wizard/prospects", leadId, "score-history"],
+    queryFn: () => apiRequest(`/api/agent-wizard/prospects/${leadId}/score-history`),
+    enabled: !!leadId && showHistory,
   });
 
   const computeMutation = useMutation({
     mutationFn: () =>
-      apiRequest("POST", `/api/agent-wizard/prospects/${leadId}/compute-score`, {
-        relationshipStrength: relStrength,
-      }).then(r => r.json()),
-    onSuccess: (res) => {
+      apiRequest(`/api/agent-wizard/prospects/${leadId}/compute-score`, {
+        method: "POST",
+        body: JSON.stringify({ relationshipStrength: relStrength }),
+      }),
+    onSuccess: (res: any) => {
       if (res.success) {
         toast({ title: "Score computed", description: `Composite score: ${res.scoring.compositeScore.toFixed(1)}/100` });
         refetch();
         onScored?.();
+        queryClient.invalidateQueries({ queryKey: ["/api/agent-wizard/prospects/top-ranked"] });
       } else {
         toast({ title: "Error", description: res.error, variant: "destructive" });
       }
@@ -1397,7 +1568,8 @@ function ProspectScorePanel({ leadId, onScored }: { leadId: string; onScored?: (
     onError: () => toast({ title: "Failed to compute score", variant: "destructive" }),
   });
 
-  const scoring = data?.scoring;
+  const scoring = data?.scoring as any;
+  const benchmark = data?.sectorBenchmark;
 
   return (
     <div className="border rounded-lg p-4 space-y-4 bg-gradient-to-br from-violet-50/30 to-transparent dark:from-violet-950/10">
@@ -1406,11 +1578,28 @@ function ProspectScorePanel({ leadId, onScored }: { leadId: string; onScored?: (
           <Sparkles className="h-4 w-4 text-violet-600" />
           <span className="font-semibold text-sm">FintekPro Wealth Score</span>
         </div>
-        {scoring && (
-          <Badge className="bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-300 text-base font-bold px-3 py-1">
-            {scoring.compositeScore.toFixed(1)}/100
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {scoring && (
+            <Badge className={`text-base font-bold px-3 py-1 ${
+              scoring.compositeScore >= 65
+                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                : scoring.compositeScore >= 35
+                ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+                : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300"
+            }`}>
+              {scoring.compositeScore.toFixed(1)}/100
+            </Badge>
+          )}
+          {scoring?.leadQuality && (
+            <Badge className={
+              scoring.leadQuality === "hot" ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" :
+              scoring.leadQuality === "warm" ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300" :
+              "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+            }>
+              {scoring.leadQuality}
+            </Badge>
+          )}
+        </div>
       </div>
 
       {isLoading && (
@@ -1428,17 +1617,82 @@ function ProspectScorePanel({ leadId, onScored }: { leadId: string; onScored?: (
           {scoring.financialHealthScore !== undefined && (
             <ScoreBar label="Financial Health" score={scoring.financialHealthScore} icon={<Trophy className="h-3 w-3" />} color="bg-amber-500" />
           )}
-          {scoring.estimatedNetworth > 0 && (
-            <div className="text-xs text-muted-foreground pt-1 flex items-center gap-1">
-              <Info className="h-3 w-3" />
-              Est. Net Worth: ₹{(scoring.estimatedNetworth / 1_00_00_000).toFixed(2)} Cr
+
+          {/* Upgrade 3: Investable surplus */}
+          {(scoring.estimatedNetworth > 0 || scoring.investableSurplus > 0) && (
+            <div className="mt-1 pt-2 border-t grid grid-cols-2 gap-2 text-xs">
+              {scoring.estimatedNetworth > 0 && (
+                <div className="bg-muted/40 rounded p-2">
+                  <p className="text-muted-foreground">Est. Net Worth</p>
+                  <p className="font-semibold">₹{(scoring.estimatedNetworth / 1e7).toFixed(2)} Cr</p>
+                </div>
+              )}
+              {scoring.investableSurplus > 0 && (
+                <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded p-2">
+                  <p className="text-muted-foreground">Investable Surplus</p>
+                  <p className="font-semibold text-emerald-700 dark:text-emerald-400">₹{(scoring.investableSurplus / 1e7).toFixed(2)} Cr</p>
+                </div>
+              )}
             </div>
           )}
+
+          {/* Upgrade 8: Sector benchmark comparison */}
+          {benchmark && (
+            <div className="mt-1 pt-2 border-t text-xs space-y-1">
+              <p className="text-muted-foreground font-medium">vs Sector avg ({benchmark.segment})</p>
+              <div className="grid grid-cols-2 gap-1">
+                <span className="text-muted-foreground">Composite</span>
+                <span className={scoring.compositeScore >= benchmark.avgCompositeScore ? "text-green-600 font-medium" : "text-red-600"}>
+                  {scoring.compositeScore.toFixed(1)} vs {benchmark.avgCompositeScore?.toFixed(1) ?? "—"}
+                  {scoring.compositeScore >= benchmark.avgCompositeScore ? " ▲" : " ▼"}
+                </span>
+                <span className="text-muted-foreground">Wealth</span>
+                <span className={scoring.wealthScore >= benchmark.avgWealthScore ? "text-green-600 font-medium" : "text-red-600"}>
+                  {scoring.wealthScore.toFixed(1)} vs {benchmark.avgWealthScore?.toFixed(1) ?? "—"}
+                </span>
+              </div>
+              <p className="text-muted-foreground">{benchmark.sampleSize} peers in benchmark</p>
+            </div>
+          )}
+
           {scoring.scoredAt && (
             <p className="text-xs text-muted-foreground">
               Last scored: {format(new Date(scoring.scoredAt), "dd MMM yyyy, HH:mm")}
               {scoring.scoringVersion && ` (${scoring.scoringVersion})`}
             </p>
+          )}
+
+          {/* Upgrade 7: Score history toggle */}
+          <button
+            className="text-xs text-violet-600 dark:text-violet-400 underline-offset-2 hover:underline"
+            onClick={() => setShowHistory(!showHistory)}
+          >
+            {showHistory ? "Hide" : "Show"} score history
+          </button>
+
+          {showHistory && (
+            <div className="border rounded p-2 space-y-1 max-h-40 overflow-y-auto">
+              {loadingHistory ? (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />Loading history…
+                </div>
+              ) : !historyData?.history?.length ? (
+                <p className="text-xs text-muted-foreground">No history yet</p>
+              ) : (
+                historyData.history.map((h: any, i: number) => (
+                  <div key={h.id || i} className="text-xs flex items-center justify-between gap-2 py-0.5 border-b last:border-0">
+                    <span className="text-muted-foreground">
+                      {h.createdAt ? format(new Date(h.createdAt), "dd MMM yy HH:mm") : "—"}
+                    </span>
+                    <span className="font-medium">{parseFloat(h.compositeScore).toFixed(1)}</span>
+                    {h.leadQualityAfter && (
+                      <Badge variant="outline" className="text-[10px] px-1 py-0">{h.leadQualityAfter}</Badge>
+                    )}
+                    <span className="text-muted-foreground text-[10px]">{h.triggeredBy || ""}</span>
+                  </div>
+                ))
+              )}
+            </div>
           )}
         </div>
       )}

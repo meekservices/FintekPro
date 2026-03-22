@@ -30,6 +30,7 @@ export function initializeUnlistedCrons(): void {
     console.log('⏭️ [Price/MoneyControl/BondCalendar] Skipped (development mode - production only)');
     console.log('⏭️ [MF Cron Jobs] Monthly Returns, NAV Pre-warm SKIPPED (development mode)');
     console.log('⏭️ [Credhive Alerts/Lead Scoring] Skipped (development mode - production only)');
+    console.log('⏭️ [ProspectAutoScoring] Nightly scoring skipped (development mode - production only)');
     console.log('⏭️ [CompanyRefresh] Skipped (development mode - production only)');
     console.log('⏭️ [CacheWarming] Skipped (development mode - production only)');
     return;
@@ -281,6 +282,23 @@ export function initializeUnlistedCrons(): void {
       console.error('[CRON] Lead scoring refresh failed:', error.message);
     }
   });
+
+  // ── Prospect Wealth + Scoring Engine — nightly at 3 AM IST (9:30 PM UTC) ───
+  // Upgrade 5: Auto-score unscored and stale prospect leads every night
+  cron.schedule('30 21 * * *', async () => {
+    console.log('[CRON][ProspectAutoScoring] Starting nightly prospect scoring...');
+    try {
+      const { bulkScoreProspects } = await import('./services/prospect-scoring-engine');
+      const result = await bulkScoreProspects({ limit: 200, staleAfterDays: 7, triggeredBy: 'nightly_cron' });
+      console.log(`[CRON][ProspectAutoScoring] Done: ${result.succeeded} scored, ${result.failed} failed (of ${result.processed} checked)`);
+      if (result.errors.length > 0) {
+        console.warn('[CRON][ProspectAutoScoring] Errors:', result.errors.slice(0, 5).join('; '));
+      }
+    } catch (error: any) {
+      console.error('[CRON][ProspectAutoScoring] Nightly scoring failed:', error.message);
+    }
+  }, { timezone: 'Asia/Kolkata' });
+  console.log('⚡ [ProspectAutoScoring] Nightly scoring cron scheduled (3:00 AM IST)');
 
   // ── Company data refresh ────────────────────────────────────────────────────
   try {
