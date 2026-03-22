@@ -627,8 +627,22 @@ function parseScreenerHtml(html: string, nseSymbol: string): ScreenerData {
       }
     }
 
-    const [revPrev, revLatest] = extractTableLastTwoRows(html, "profit-loss", "Sales");
-    const [patPrev, patLatest] = extractTableLastTwoRows(html, "profit-loss", "Net Profit");
+    // Revenue: try multiple label variants (Screener uses "Sales" for most, but
+    // banking/NBFC use "Net Interest Income", insurance use "Premium Earned", etc.)
+    const revLabels = ["Sales", "Revenue from Operations", "Revenue", "Net Revenue", "Net Interest Income", "Interest Income", "Premium Earned", "Net Interest Earned"];
+    let revPrev: number | null = null, revLatest: number | null = null;
+    for (const lbl of revLabels) {
+      const [p, l] = extractTableLastTwoRows(html, "profit-loss", lbl);
+      if (l !== null) { revPrev = p; revLatest = l; break; }
+    }
+
+    // Net Profit: try multiple label variants
+    const patLabels = ["Net Profit", "Profit after tax", "PAT", "Net Income"];
+    let patPrev: number | null = null, patLatest: number | null = null;
+    for (const lbl of patLabels) {
+      const [p, l] = extractTableLastTwoRows(html, "profit-loss", lbl);
+      if (l !== null) { patPrev = p; patLatest = l; break; }
+    }
 
     const revenueGrowth: number | null =
       revPrev && revLatest && revPrev > 0
@@ -665,12 +679,17 @@ function parseScreenerHtml(html: string, nseSymbol: string): ScreenerData {
 
     const [, equityCapital] = extractTableLastTwoRows(html, "balance-sheet", "Equity Capital");
     const [, reserves]      = extractTableLastTwoRows(html, "balance-sheet", "Reserves");
-    const [, borrowings]    = extractTableLastTwoRows(html, "balance-sheet", "Borrowings");
+    // Borrowings: try multiple label variants
+    const [, borrowings1] = extractTableLastTwoRows(html, "balance-sheet", "Borrowings");
+    const [, borrowings2] = extractTableLastTwoRows(html, "balance-sheet", "Total Borrowings");
+    const [, borrowings3] = extractTableLastTwoRows(html, "balance-sheet", "Long Term Borrowing");
+    const borrowings = borrowings1 ?? borrowings2 ?? borrowings3 ?? null;
 
     const totalEquity = (equityCapital ?? 0) + (reserves ?? 0);
     const debtToEquity: number | null =
       borrowings !== null && totalEquity > 0
         ? Math.round((borrowings / totalEquity) * 1000) / 1000
+        : borrowings === 0 ? 0   // zero debt → D/E = 0
         : null;
 
     // ─── Extended historical tables ───────────────────────────────────────────
