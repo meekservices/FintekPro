@@ -368,6 +368,43 @@ export default function ResearchNoteGenerator() {
   const f = d?.financials;
   const cp = f?.currency === "INR" ? "₹" : "$";
 
+  // Score peers for same-sector buy picks using available PE and ROE data
+  const scoredPeerPicks = (() => {
+    if (!d?.peers?.length) return [];
+    return d.peers
+      .map((peer) => {
+        let score = 0;
+        const roe = peer.roe !== null ? peer.roe * 100 : null;
+        const pe = peer.pe;
+        const pb = peer.pb;
+        if (roe !== null) {
+          if (roe >= 20) score += 5;
+          else if (roe >= 15) score += 4;
+          else if (roe >= 10) score += 3;
+          else if (roe >= 0) score += 1;
+          else score -= 1;
+        }
+        if (pe !== null && pe > 0) {
+          if (pe <= 15) score += 4;
+          else if (pe <= 25) score += 3;
+          else if (pe <= 40) score += 2;
+          else if (pe <= 60) score += 1;
+        }
+        if (pb !== null && pb > 0) {
+          if (pb <= 1.5) score += 2;
+          else if (pb <= 3) score += 1;
+        }
+        let recommendation: "STRONG BUY" | "BUY" | "HOLD" | "AVOID" = "HOLD";
+        if (score >= 9) recommendation = "STRONG BUY";
+        else if (score >= 5) recommendation = "BUY";
+        else if (score < 2) recommendation = "AVOID";
+        return { ...peer, score, recommendation };
+      })
+      .filter((p) => p.recommendation === "STRONG BUY" || p.recommendation === "BUY")
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+  })();
+
   return (
     <AgentLayout>
       <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
@@ -1600,6 +1637,68 @@ export default function ResearchNoteGenerator() {
                       </div>
                     </div>
                   ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Same Sector Buy Picks from Peers */}
+            {d?.peers && d.peers.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-green-600" />
+                    BUY-Rated Peers in {d.sector || "Same Sector"}
+                  </CardTitle>
+                  <p className="text-[10px] text-muted-foreground">Peer stocks scoring BUY or STRONG BUY based on ROE, P/E &amp; P/B fundamentals</p>
+                </CardHeader>
+                <CardContent>
+                  {scoredPeerPicks.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2">No peers currently meet the BUY criteria based on available fundamental data.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-2 pr-4 font-medium text-muted-foreground text-xs">Company</th>
+                            <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">CMP</th>
+                            <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">P/E</th>
+                            <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">P/B</th>
+                            <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">ROE</th>
+                            <th className="text-right py-2 pl-2 font-medium text-muted-foreground text-xs">Rating</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {scoredPeerPicks.map((pick) => (
+                            <tr key={pick.symbol} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                              <td className="py-2 pr-4">
+                                <div>
+                                  <p className="font-semibold text-xs">{pick.symbol}</p>
+                                  <p className="text-[10px] text-muted-foreground leading-tight">{pick.name.length > 28 ? pick.name.slice(0, 28) + "…" : pick.name}</p>
+                                </div>
+                              </td>
+                              <td className="text-right py-2 px-2 text-xs font-medium">
+                                {pick.price ? `₹${Math.round(pick.price).toLocaleString("en-IN")}` : "—"}
+                              </td>
+                              <td className="text-right py-2 px-2 text-xs">
+                                {pick.pe ? pick.pe.toFixed(1) : "—"}
+                              </td>
+                              <td className="text-right py-2 px-2 text-xs">
+                                {pick.pb !== null ? pick.pb.toFixed(2) : "—"}
+                              </td>
+                              <td className={`text-right py-2 px-2 text-xs font-medium ${pick.roe !== null && pick.roe * 100 >= 15 ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
+                                {pick.roe !== null ? `${(pick.roe * 100).toFixed(1)}%` : "—"}
+                              </td>
+                              <td className="text-right py-2 pl-2">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold text-white ${pick.recommendation === "STRONG BUY" ? "bg-green-600" : "bg-emerald-500"}`}>
+                                  {pick.recommendation}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}

@@ -881,4 +881,143 @@ router.post("/generate/ppt-unlisted", async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/research-note/sector-picks
+// Returns top buy-rated stocks from the same sector using financial scoring
+router.get("/sector-picks", async (req: Request, res: Response) => {
+  try {
+    const { sector, industry, exclude, limit = "5" } = req.query as Record<string, string>;
+    if (!sector && !industry) {
+      return res.status(400).json({ error: "sector or industry is required" });
+    }
+
+    const maxResults = Math.min(parseInt(limit) || 5, 10);
+
+    // Fetch stocks in the same sector with financial data
+    const rows = await db.execute(sql`
+      SELECT
+        ls.symbol,
+        ls.company_name,
+        ls.sector,
+        ls.industry,
+        ls.current_price,
+        ls.pe_ratio,
+        ls.market_cap_value,
+        COALESCE(sf.roe, ls.roe) AS roe,
+        sf.revenue_growth,
+        sf.debt_to_equity,
+        sf.earnings_growth,
+        sf.roce
+      FROM listed_stocks ls
+      LEFT JOIN screener_financials sf ON sf.symbol = ls.symbol
+      WHERE ls.is_published = true
+        AND ls.symbol != ${exclude || ""}
+        AND (
+          ${sector ? sql`ls.sector = ${sector}` : sql`TRUE`}
+        )
+        AND ls.company_name IS NOT NULL
+      ORDER BY ls.market_cap_value DESC NULLS LAST
+      LIMIT 80
+    `);
+
+    const rawRows = ((rows as any).rows || rows) as any[];
+    const stocks = rawRows.filter((r: any) => r.symbol && r.company_name);
+
+    // Score each stock using FintekPro financial heuristics
+    const scored = stocks.map((s: any) => {
+      let score = 0;
+      const roe = s.roe ? parseFloat(s.roe) : null;
+      const pe = s.pe_ratio ? parseFloat(s.pe_ratio) : null;
+      const revGrowth = s.revenue_growth ? parseFloat(s.revenue_growth) : null;
+      const de = s.debt_to_equity ? parseFloat(s.debt_to_equity) : null;
+      const epsGrowth = s.earnings_growth ? parseFloat(s.earnings_growth) : null;
+      const roce = s.roce ? parseFloat(s.roce) : null;
+
+      // ROE scoring (0-5) — sf.roe stored as decimal (e.g. 0.179 = 17.9%)
+      if (roe !== null) {
+        const roePct = roe > 1 ? roe : roe * 100; // normalise to percentage
+        if (roePct >= 20) score += 5;
+        else if (roePct >= 15) score += 4;
+        else if (roePct >= 10) score += 3;
+        else if (roePct >= 0) score += 1;
+        else score -= 1;
+      }
+
+      // PE scoring (0-4)
+      if (pe !== null && pe > 0) {
+        if (pe <= 15) score += 4;
+        else if (pe <= 25) score += 3;
+        else if (pe <= 40) score += 2;
+        else if (pe <= 60) score += 1;
+      }
+
+      // Revenue growth scoring (0-4)
+      if (revGrowth !== null) {
+        const rg = revGrowth > 1 ? revGrowth / 100 : revGrowth;
+        if (rg >= 0.20) score += 4;
+        else if (rg >= 0.10) score += 3;
+        else if (rg >= 0.0) score += 2;
+        else score -= 1;
+      }
+
+      // D/E scoring (0-3)
+      if (de !== null) {
+        if (de <= 0.5) score += 3;
+        else if (de <= 1.0) score += 2;
+        else if (de <= 2.0) score += 1;
+      }
+
+      // Earnings growth (0-3)
+      if (epsGrowth !== null) {
+        const eg = epsGrowth > 1 ? epsGrowth / 100 : epsGrowth;
+        if (eg >= 0.20) score += 3;
+        else if (eg >= 0.10) score += 2;
+        else if (eg >= 0.0) score += 1;
+      }
+
+      // ROCE bonus — also stored as decimal
+      if (roce !== null) {
+        const rocePct = roce > 1 ? roce : roce * 100;
+        if (rocePct >= 15) score += 1;
+      }
+
+      let recommendation: "STRONG BUY" | "BUY" | "HOLD" | "AVOID" = "HOLD";
+      if (score >= 13) recommendation = "STRONG BUY";
+      else if (score >= 8) recommendation = "BUY";
+      else if (score < 3) recommendation = "AVOID";
+
+      return {
+        symbol: s.symbol,
+        companyName: s.company_name,
+        sector: s.sector,
+        industry: s.industry,
+        currentPrice: s.current_price ? parseFloat(s.current_price) : null,
+        pe: pe,
+        roe: roe,
+        revenueGrowth: revGrowth,
+        debtToEquity: de,
+        earningsGrowth: epsGrowth,
+        score,
+        recommendation,
+      };
+    });
+
+    // Return only BUY and STRONG BUY, sorted by score
+    const buys = scored
+      .filter((s) => s.recommendation === "STRONG BUY" || s.recommendation === "BUY")
+      .sort((a, b) => b.score - a.score)
+      .slice(0, maxResults);
+
+    res.json({
+      success: true,
+      sector,
+      industry,
+      count: buys.length,
+      picks: buys,
+    });
+  } catch (err: any) {
+    console.error("Error fetching sector picks:", err);
+    res.status(500).json({ error: err.message || "Failed to fetch sector picks" });
+  }
+});
+
 export default router;
