@@ -877,124 +877,221 @@ export default function AuthPage() {
           </div>
 
           <div className="w-full max-w-sm">
-            <h2 className="text-2xl font-bold text-gray-900 mb-1 text-center">Agent Portal</h2>
-            <p className="text-sm text-gray-500 mb-7 text-center">Sign in to manage your practice</p>
+            {authMode === "login" ? (
+              <>
+                <h2 className="text-2xl font-bold text-gray-900 mb-1 text-center">Agent Portal</h2>
+                <p className="text-sm text-gray-500 mb-7 text-center">Sign in to manage your practice</p>
 
-            {/* Method toggle */}
-            <div className="bg-gray-100 rounded-lg p-1 flex mb-6 gap-1">
-              <button
-                type="button"
-                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${loginMethod === 'password' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setLoginMethod('password')}
-              >
-                Password
-              </button>
-              <button
-                type="button"
-                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${loginMethod === 'otp' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setLoginMethod('otp')}
-              >
-                OTP Login
-              </button>
-            </div>
-
-            {/* Password login form */}
-            {loginMethod === 'password' && (
-              <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
-                <div>
-                  <Label htmlFor="agent-pw-id" className="text-gray-700 text-sm font-medium">Email Address</Label>
-                  <div className="relative mt-1">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="agent-pw-id"
-                      {...loginForm.register("identifier")}
-                      placeholder="agent@fintekpro.in"
-                      className="pl-9"
-                      autoFocus
-                    />
-                  </div>
-                  {loginForm.formState.errors.identifier && (
-                    <p className="text-sm text-red-600 mt-1">{loginForm.formState.errors.identifier.message}</p>
-                  )}
+                {/* Method toggle */}
+                <div className="bg-gray-100 rounded-lg p-1 flex mb-6 gap-1">
+                  <button
+                    type="button"
+                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${loginMethod === 'password' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                    onClick={() => setLoginMethod('password')}
+                  >
+                    Password
+                  </button>
+                  <button
+                    type="button"
+                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${loginMethod === 'otp' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                    onClick={() => setLoginMethod('otp')}
+                  >
+                    OTP Login
+                  </button>
                 </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <Label htmlFor="agent-pw-pass" className="text-gray-700 text-sm font-medium">Password</Label>
-                    {agentForgotPasswordDialog}
-                  </div>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="agent-pw-pass"
-                      {...loginForm.register("password")}
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      className="pl-9 pr-10"
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      onClick={() => setShowPassword(!showPassword)}
+                {/* Password login form */}
+                {loginMethod === 'password' && (
+                  <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+                    <div>
+                      <Label htmlFor="agent-pw-id" className="text-gray-700 text-sm font-medium">Email Address</Label>
+                      <div className="relative mt-1">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          id="agent-pw-id"
+                          {...loginForm.register("identifier")}
+                          placeholder="agent@fintekpro.in"
+                          className="pl-9"
+                          autoFocus
+                        />
+                      </div>
+                      {loginForm.formState.errors.identifier && (
+                        <p className="text-sm text-red-600 mt-1">{loginForm.formState.errors.identifier.message}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <Label htmlFor="agent-pw-pass" className="text-gray-700 text-sm font-medium">Password</Label>
+                        {agentForgotPasswordDialog}
+                      </div>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          id="agent-pw-pass"
+                          {...loginForm.register("password")}
+                          type={showPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          className="pl-9 pr-10"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                      {loginForm.formState.errors.password && (
+                        <p className="text-sm text-red-600 mt-1">{loginForm.formState.errors.password.message}</p>
+                      )}
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                      disabled={loginMutation.isPending || sessionCheckMutation.isPending}
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  {loginForm.formState.errors.password && (
-                    <p className="text-sm text-red-600 mt-1">{loginForm.formState.errors.password.message}</p>
-                  )}
+                      {(loginMutation.isPending || sessionCheckMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Sign In
+                    </Button>
+                  </form>
+                )}
+
+                {/* OTP Login (passwordless) form */}
+                {loginMethod === 'otp' && (
+                  <form onSubmit={(e) => { e.preventDefault(); if (otpLoginEmail.trim()) requestOtpMutation.mutate(otpLoginEmail.trim()); }} className="space-y-4">
+                    <div>
+                      <Label htmlFor="agent-otp-id" className="text-gray-700 text-sm font-medium">Mobile or Email</Label>
+                      <div className="relative mt-1">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          id="agent-otp-id"
+                          value={otpLoginEmail}
+                          onChange={(e) => setOtpLoginEmail(e.target.value)}
+                          placeholder="9876543210 or agent@email.com"
+                          className="pl-9"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                      disabled={requestOtpMutation.isPending || !otpLoginEmail.trim()}
+                    >
+                      {requestOtpMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Send OTP
+                    </Button>
+                  </form>
+                )}
+
+                <p className="text-center text-sm text-gray-400 mt-7">
+                  Need an agent account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode("register")}
+                    className="text-blue-600 font-medium hover:underline cursor-pointer"
+                  >
+                    Apply to register
+                  </button>
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-2xl font-bold text-gray-900 mb-1 text-center">Agent Registration</h2>
+                <p className="text-sm text-gray-500 mb-5 text-center">Create your agent account</p>
+
+                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-5 text-sm text-blue-700 flex items-start gap-2">
+                  <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>You'll receive a unique Agent ID on registration. Your account will be active immediately — use your email or ID to log in.</span>
                 </div>
 
-                <Button
-                  type="submit"
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
-                  disabled={loginMutation.isPending || sessionCheckMutation.isPending}
-                >
-                  {(loginMutation.isPending || sessionCheckMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Sign In
-                </Button>
-              </form>
-            )}
+                {registrationStep === "otp" && !registrationOtpDialogOpen && registrationIdentifier && (
+                  <div className="mb-4 p-3 rounded-lg border-2 border-amber-400 bg-amber-50 text-sm text-amber-700">
+                    <strong>Verification pending!</strong> A 6-digit code was sent to <strong>{registrationOtpChannel}</strong>.{" "}
+                    <button type="button" className="underline font-medium" onClick={() => setRegistrationOtpDialogOpen(true)}>Enter code</button>
+                  </div>
+                )}
 
-            {/* OTP Login (passwordless) form */}
-            {loginMethod === 'otp' && (
-              <form onSubmit={(e) => { e.preventDefault(); if (otpLoginEmail.trim()) requestOtpMutation.mutate(otpLoginEmail.trim()); }} className="space-y-4">
-                <div>
-                  <Label htmlFor="agent-otp-id" className="text-gray-700 text-sm font-medium">Mobile or Email</Label>
-                  <div className="relative mt-1">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
+                  <div>
+                    <Label htmlFor="agent-reg-name" className="text-gray-700 text-sm font-medium">Full Name</Label>
+                    <Input id="agent-reg-name" {...registerForm.register("fullName")} placeholder="Your full name" autoFocus />
+                    {registerForm.formState.errors.fullName && (
+                      <p className="text-sm text-red-600 mt-1">{registerForm.formState.errors.fullName.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="agent-reg-email" className="text-gray-700 text-sm font-medium">Email Address</Label>
+                    <Input id="agent-reg-email" {...registerForm.register("email")} type="email" placeholder="agent@example.com" />
+                    {registerForm.formState.errors.email && (
+                      <p className="text-sm text-red-600 mt-1">{registerForm.formState.errors.email.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="agent-reg-mobile" className="text-gray-700 text-sm font-medium">Mobile Number</Label>
+                    <Input id="agent-reg-mobile" {...registerForm.register("mobile")} type="tel" placeholder="9876543210" maxLength={10} />
+                    {registerForm.formState.errors.mobile && (
+                      <p className="text-sm text-red-600 mt-1">{registerForm.formState.errors.mobile.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="agent-reg-pass" className="text-gray-700 text-sm font-medium">Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="agent-reg-pass"
+                        {...registerForm.register("password")}
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Create a password"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    {registerForm.formState.errors.password && (
+                      <p className="text-sm text-red-600 mt-1">{registerForm.formState.errors.password.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="agent-reg-confirm" className="text-gray-700 text-sm font-medium">Confirm Password</Label>
                     <Input
-                      id="agent-otp-id"
-                      value={otpLoginEmail}
-                      onChange={(e) => setOtpLoginEmail(e.target.value)}
-                      placeholder="9876543210 or agent@email.com"
-                      className="pl-9"
-                      autoFocus
+                      id="agent-reg-confirm"
+                      {...registerForm.register("confirmPassword")}
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Confirm your password"
                     />
+                    {registerForm.formState.errors.confirmPassword && (
+                      <p className="text-sm text-red-600 mt-1">{registerForm.formState.errors.confirmPassword.message}</p>
+                    )}
                   </div>
-                </div>
+                  <Button
+                    type="submit"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                    disabled={registerMutation.isPending}
+                  >
+                    {registerMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Create Agent Account
+                  </Button>
+                </form>
 
-                <Button
-                  type="submit"
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
-                  disabled={requestOtpMutation.isPending || !otpLoginEmail.trim()}
-                >
-                  {requestOtpMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Send OTP
-                </Button>
-              </form>
+                <p className="text-center text-sm text-gray-400 mt-6">
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode("login")}
+                    className="text-blue-600 font-medium hover:underline cursor-pointer"
+                  >
+                    Sign in
+                  </button>
+                </p>
+              </>
             )}
-
-            <p className="text-center text-sm text-gray-400 mt-7">
-              Need an agent account?{" "}
-              <button
-                type="button"
-                onClick={() => setAuthMode("register")}
-                className="text-blue-600 font-medium hover:underline cursor-pointer"
-              >
-                Apply to register
-              </button>
-            </p>
           </div>
         </div>
 
