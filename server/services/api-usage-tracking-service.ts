@@ -67,10 +67,10 @@ const DEFAULT_PROVIDERS: ProviderPricing[] = [
   { providerName: 'twilio-sms', displayName: 'Twilio — SMS', description: 'SMS OTP & notifications', costPerCall: 0.5 },
   { providerName: 'twilio-whatsapp', displayName: 'Twilio — WhatsApp', description: 'WhatsApp business messaging', costPerCall: 0.3 },
 
-  // Probe42 — separate services
-  { providerName: 'probe42-details', displayName: 'Probe42 — Company Details', description: 'Company master data & directors', costPerCall: 5 },
-  { providerName: 'probe42-financials', displayName: 'Probe42 — Company Financials', description: 'Balance sheet, P&L, cash flow', costPerCall: 8 },
-  { providerName: 'probe42-ratios', displayName: 'Probe42 — Company Ratios', description: 'Financial ratios & analytics', costPerCall: 5 },
+  // CredHive — separate services
+  { providerName: 'credhive-details', displayName: 'CredHive — Company Details', description: 'Company master data & directors', costPerCall: 5 },
+  { providerName: 'credhive-financials', displayName: 'CredHive — Company Financials', description: 'Balance sheet, P&L, cash flow', costPerCall: 8 },
+  { providerName: 'credhive-ratios', displayName: 'CredHive — Company Ratios', description: 'Financial ratios & analytics', costPerCall: 5 },
 
   // Google Gemini — single service
   { providerName: 'gemini', displayName: 'Google Gemini', description: 'AI features (fallback)', costPerCall: 0.01 },
@@ -188,7 +188,7 @@ class ApiUsageTrackingService {
       'truthscreen': (ep) => ep.includes('ckyc') ? 'truthscreen-ckyc' : ep.includes('esign') || ep.includes('sign') ? 'truthscreen-esign' : 'truthscreen-aadhaar',
       'cashfree': (ep) => ep.includes('payout') ? 'cashfree-payouts' : ep.includes('pan') ? 'cashfree-pan' : ep.includes('bank') || ep.includes('penny') ? 'cashfree-bank' : 'cashfree-payments',
       'twilio': (ep) => ep.includes('whatsapp') ? 'twilio-whatsapp' : 'twilio-sms',
-      'probe42': (ep) => ep.includes('financial') ? 'probe42-financials' : ep.includes('ratio') ? 'probe42-ratios' : 'probe42-details',
+      'credhive': (ep) => ep.includes('financial') ? 'credhive-financials' : ep.includes('ratio') ? 'credhive-ratios' : 'credhive-details',
       'zoho': (ep) => ep.includes('book') ? 'zoho-books' : ep.includes('campaign') ? 'zoho-campaigns' : ep.includes('meeting') ? 'zoho-meeting' : ep.includes('sign') ? 'zoho-sign' : 'zoho-crm',
       'protean': (ep) => ep.includes('kra') ? 'protean-kra' : 'protean-esign',
       'turtlefin': (ep) => ep.includes('health') ? 'turtlefin-health' : ep.includes('general') || ep.includes('motor') ? 'turtlefin-general' : 'turtlefin-life',

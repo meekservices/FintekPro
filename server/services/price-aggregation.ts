@@ -2,7 +2,7 @@
  * Unlisted Price Aggregation Service
  * Aggregates price suggestions from multiple sources:
  * 1. MoneyControl.com - External indicative prices
- * 2. Internal Calculation - PriceSuggestionService using Probe42 fundamentals
+ * 2. Internal Calculation - PriceSuggestionService using CredHive fundamentals
  * 3. Marketplace - Seller/Buyer offers from the platform
  */
 
@@ -183,7 +183,7 @@ class UnlistedPriceAggregationService {
   }
 
   /**
-   * Get internal price calculation using Probe42 fundamentals
+   * Get internal price calculation using CredHive fundamentals
    */
   private async getInternalCalculation(companyId: string): Promise<InternalCalculation> {
     try {

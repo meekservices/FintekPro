@@ -13114,7 +13114,7 @@ export const campaignRecipients = pgTable("campaign_recipients", {
   index("idx_campaign_recipient_status").on(table.status),
 ]);
 
-// Prospect Leads - Companies from Probe42 or other sources
+// Prospect Leads - Companies from CredHive or other sources
 export const prospectLeads = pgTable("prospect_leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
@@ -13134,7 +13134,7 @@ export const prospectLeads = pgTable("prospect_leads", {
   state: varchar("state"),
   pincode: varchar("pincode"),
   
-  // Financial information from Probe42
+  // Financial information from CredHive
   paidUpCapital: numeric("paid_up_capital", { precision: 15, scale: 2 }),
   authorizedCapital: numeric("authorized_capital", { precision: 15, scale: 2 }),
   annualRevenue: numeric("annual_revenue", { precision: 15, scale: 2 }),
@@ -13154,7 +13154,7 @@ export const prospectLeads = pgTable("prospect_leads", {
   riskLevel: varchar("risk_level"), // low/medium/high
   
   // Directors information
-  directors: jsonb("directors"), // Array of director details from Probe42
+  directors: jsonb("directors"), // Array of director details from CredHive
   authorizedSignatories: jsonb("authorized_signatories"),
   
   // Lead scoring
@@ -13167,7 +13167,7 @@ export const prospectLeads = pgTable("prospect_leads", {
   assignedTo: varchar("assigned_to").references(() => users.id), // Agent/partner assigned
   
   // Source tracking
-  source: varchar("source").notNull().default("probe42"), // probe42/manual/referral/import
+  source: varchar("source").notNull().default("credhive"), // credhive/manual/referral/import
   importBatchId: varchar("import_batch_id"), // Batch import tracking
   
   // Engagement
@@ -13175,7 +13175,7 @@ export const prospectLeads = pgTable("prospect_leads", {
   nextFollowUpAt: timestamp("next_follow_up_at"),
   notes: text("notes"),
   
-  // Probe42 v2 Enrichment Data
+  // CredHive Enrichment Data
   employeeCount: integer("employee_count"), // From EPFO endpoint
   gstStatus: varchar("gst_status"), // Active/Cancelled/Suspended
   gstNumber: varchar("gst_number"), // GSTIN
@@ -13196,7 +13196,7 @@ export const prospectLeads = pgTable("prospect_leads", {
   companyType: varchar("company_type"), // Private/Public/LLP/OPC etc.
   companyClass: varchar("company_class"), // Company class from MCA
   
-  // Probe42 v2 KYC Extended Fields
+  // CredHive KYC Extended Fields
   sumOfCharges: numeric("sum_of_charges", { precision: 18, scale: 2 }), // Total charges/debt from KYC
   activeCompliance: varchar("active_compliance"), // ACTIVE compliant / Non-compliant
   listingStatus: varchar("listing_status"), // Listed / Unlisted
@@ -13279,13 +13279,13 @@ export const leadActivities = pgTable("lead_activities", {
   index("idx_lead_activity_created").on(table.createdAt),
 ]);
 
-// Client Intelligence - Probe42 data for existing clients
+// Client Intelligence - CredHive data for existing clients
 export const clientIntelligence = pgTable("client_intelligence", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   userId: varchar("user_id").references(() => users.id).notNull().unique(),
   
-  // Probe42 company verification (for corporate clients)
+  // CredHive company verification (for corporate clients)
   cin: varchar("cin"),
   companyVerified: boolean("company_verified").default(false),
   

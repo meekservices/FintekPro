@@ -28,9 +28,9 @@ export const CACHE_TTL = {
 
 // Cost estimates per API call (in INR)
 export const API_COST_ESTIMATES = {
-  probe42_company_search: 0.50,
-  probe42_company_details: 1.00,
-  probe42_financials: 2.00,
+  credhive_company_search: 0.50,
+  credhive_company_details: 1.00,
+  credhive_financials: 2.00,
   sandbox_pan: 0.75,
   sandbox_gstin: 0.50,
   sandbox_mca: 1.50,

@@ -137,7 +137,6 @@ export interface ProspectScoreInput {
   networth: number;
   directorships: DirectorCompany[];
   relationshipStrength?: number;
-  probe42Score?: number | null;
   creditRating?: string | null;
   openChargesCount?: number | null;
   activeLegalCases?: number | null;
@@ -185,9 +184,7 @@ export function scoreProspect(data: ProspectScoreInput): ProspectScoreResult {
   const relationshipScore = data.relationshipStrength ?? 50;
 
   let financialHealthScore = 50;
-  if (data.probe42Score != null) {
-    financialHealthScore = (data.probe42Score / 5) * 100;
-  } else if (data.creditRating) {
+  if (data.creditRating) {
     financialHealthScore = creditRatingToScore(data.creditRating);
   }
   if (data.openChargesCount && data.openChargesCount > 5) financialHealthScore -= 10;
@@ -271,7 +268,6 @@ export async function enrichAndScoreProspect(
     networth: estimatedNetworth,
     directorships: directorCompanies,
     relationshipStrength: options.relationshipStrength,
-    probe42Score: lead.probe42Score,
     creditRating: lead.creditRating,
     openChargesCount: lead.openChargesCount,
     activeLegalCases: lead.activeLegalCases,

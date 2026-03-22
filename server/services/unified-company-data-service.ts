@@ -205,7 +205,7 @@ class UnifiedCompanyDataService {
     
     const results: DataFetchResult[] = [];
     let mcaData: MCACompanyMasterData | null = null;
-    let probe42Details: CredhiveDirectorData | null = null;
+    let credhiveDirectorData: CredhiveDirectorData | null = null;
     let ownFinancials: CompanyFinancials[] = [];
     let ownRatios: CompanyRatios[] = [];
 
@@ -266,13 +266,13 @@ class UnifiedCompanyDataService {
       try {
         const dirResp = await credhiveService.getDirectors(company.cin);
         if (dirResp.success && dirResp.data && dirResp.data.length > 0) {
-          probe42Details = {
+          credhiveDirectorData = {
             directors: dirResp.data
               .filter(d => d.is_active)
               .map(d => ({ name: d.name, din: d.din, designation: d.designation }))
           };
-          results.push({ success: true, source: 'credhive', data: probe42Details });
-          console.log(`[UnifiedData] Got Credhive directors: ${probe42Details.directors?.length || 0}`);
+          results.push({ success: true, source: 'credhive', data: credhiveDirectorData });
+          console.log(`[UnifiedData] Got Credhive directors: ${credhiveDirectorData.directors?.length || 0}`);
         }
       } catch (error: any) {
         console.log(`[UnifiedData] Credhive fetch failed: ${error.message}`);
@@ -317,7 +317,7 @@ class UnifiedCompanyDataService {
     const aggregatedData = this.aggregateData(
       company || undefined, 
       mcaData, 
-      probe42Details,
+      credhiveDirectorData,
       ownFinancials, 
       ownRatios, 
       results,
@@ -361,7 +361,7 @@ class UnifiedCompanyDataService {
   private aggregateData(
     company: UnlistedCompany | undefined,
     mcaData: MCACompanyMasterData | null,
-    probe42Details: CredhiveDirectorData | null,
+    credhiveDirectorData: CredhiveDirectorData | null,
     ownFinancials: CompanyFinancials[],
     ownRatios: CompanyRatios[],
     fetchResults: DataFetchResult[],
@@ -431,7 +431,7 @@ class UnifiedCompanyDataService {
     const capitalData = this.buildCapitalData(company, mcaData);
 
     // Build directors data (also check company.directors from enrichment)
-    const directorsData = this.buildDirectorsData(company, mcaData, probe42Details);
+    const directorsData = this.buildDirectorsData(company, mcaData, credhiveDirectorData);
 
     // Build charges data
     const chargesData = this.buildChargesData(mcaData);
@@ -576,7 +576,7 @@ class UnifiedCompanyDataService {
   private buildDirectorsData(
     company: UnlistedCompany | undefined,
     mcaData: MCACompanyMasterData | null,
-    probe42Details: CredhiveDirectorData | null
+    credhiveDirectorData: CredhiveDirectorData | null
   ): UnifiedCompanyData['directors'] {
     // Priority: MCA (official) → Credhive → FintekPro (enriched)
     if (mcaData?.directors && mcaData.directors.length > 0) {
@@ -591,9 +591,9 @@ class UnifiedCompanyDataService {
     }
 
     // Fallback to Credhive directors
-    if (probe42Details?.directors && probe42Details.directors.length > 0) {
+    if (credhiveDirectorData?.directors && credhiveDirectorData.directors.length > 0) {
       return {
-        list: probe42Details.directors.map(d => ({
+        list: credhiveDirectorData.directors.map(d => ({
           name: d.name,
           din: d.din || '',
           designation: d.designation || '',

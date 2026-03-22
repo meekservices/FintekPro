@@ -324,7 +324,7 @@ if (isProductionEnvironment()) {
     console.log('[CRON][UnlistedEnrichment] Starting daily MCA enrichment sweep...');
     try {
       const { sql } = await import('drizzle-orm');
-      const { enrichUnlistedCompanyWithMCAData } = await import('./services/probe42-service'); // MCA function — kept as-is
+      const { enrichUnlistedCompanyWithMCAData } = await import('./services/mca-enrichment-service');
 
       const staleRows = await db.execute(sql`
         SELECT id, name, cin FROM unlisted_companies

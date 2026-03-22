@@ -2,11 +2,11 @@
  * Unlisted Financial Enrichment Service
  *
  * Orchestrates financial data enrichment for unlisted equity instruments
- * exclusively through the Probe42 vendor adapter.
+ * exclusively through the CredHive vendor adapter.
  * MCA is NOT used for financial statements — only for company identity lookups.
  *
  * Flow:
- *  1. Fetch company profile from Probe42 (base-details)
+ *  1. Fetch company profile from CredHive (base-details)
  *  2. Fetch financial ratios (credit-ratings — always available)
  *  3. Attempt full financials (kyc endpoint — subscription-dependent, graceful fallback)
  *  4. Compute Financial Health Score (FHS) from available data
@@ -26,7 +26,7 @@ import {
   unlistedAuditLog,
   type UnlistedCompany,
 } from '@shared/schema';
-import { credhiveAdapter as probe42Adapter } from './vendor-adapters/credhive.adapter';
+import { credhiveAdapter } from './vendor-adapters/credhive.adapter';
 import type { FinancialStatement, FinancialRatios } from './vendor-adapters/credhive.adapter';
 
 // ── FHS weights (doc: section 4) ────────────────────────────────────────────
@@ -154,7 +154,7 @@ function checksumFinancials(f: FinancialStatement): string {
 
 class UnlistedFinancialEnrichmentService {
   /**
-   * Enrich a single unlisted company with Probe42 financial data.
+   * Enrich a single unlisted company with CredHive financial data.
    * Safe to call repeatedly — checksum deduplication prevents duplicate FY rows.
    */
   async enrichCompany(companyId: string): Promise<EnrichmentResult> {
@@ -183,7 +183,7 @@ class UnlistedFinancialEnrichmentService {
     // 1. Company profile
     let profileStatus: string | null = null;
     try {
-      const profile = await probe42Adapter.fetchCompanyProfile(company.cin);
+      const profile = await credhiveAdapter.fetchCompanyProfile(company.cin);
       if (profile) {
         result.profile = 'fetched';
         profileStatus = profile.status ?? null;
@@ -205,7 +205,7 @@ class UnlistedFinancialEnrichmentService {
     // 2. Financial ratios (credit-ratings endpoint — always available)
     let ratioRows: FinancialRatios[] = [];
     try {
-      ratioRows = await probe42Adapter.fetchRatios(company.cin);
+      ratioRows = await credhiveAdapter.fetchRatios(company.cin);
       result.ratios = ratioRows.length > 0 ? 'fetched' : 'unavailable';
 
       for (const ratio of ratioRows) {
@@ -252,7 +252,7 @@ class UnlistedFinancialEnrichmentService {
     // 3. Full financial statements (/kyc endpoint — subscription-dependent)
     let financialRows: FinancialStatement[] = [];
     try {
-      financialRows = await probe42Adapter.fetchFinancials(company.cin);
+      financialRows = await credhiveAdapter.fetchFinancials(company.cin);
       if (financialRows.length > 0) {
         result.financials = 'fetched';
         for (const fin of financialRows) {

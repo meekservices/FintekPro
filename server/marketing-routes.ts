@@ -4,7 +4,7 @@
  * Endpoints for:
  * - Email campaigns (Zoho Campaigns)
  * - WhatsApp broadcasts (Twilio)
- * - Lead prospecting (Probe42)
+ * - Lead prospecting (CredHive)
  * - Client intelligence
  * - Campaign analytics
  */
@@ -421,9 +421,9 @@ export function registerMarketingRoutes(app: any) {
    */
   app.post('/api/admin/marketing/leads/search', requireAdmin, async (req: any, res: Response) => {
     try {
-      const { minRevenue, minProfit, credhiveScore, probe42Score, minEbitda, riskLevel } = req.body;
+      const { minRevenue, minProfit, credhiveScore, minEbitda, riskLevel } = req.body;
       
-      const hasFinancialFilters = minRevenue || minProfit || credhiveScore || probe42Score || minEbitda || riskLevel;
+      const hasFinancialFilters = minRevenue || minProfit || credhiveScore || minEbitda || riskLevel;
       
       let result;
       if (hasFinancialFilters) {
@@ -620,7 +620,7 @@ export function registerMarketingRoutes(app: any) {
   });
 
   /**
-   * Get company details from Probe42
+   * Get company details from CredHive
    */
   app.get('/api/admin/marketing/leads/company/:cin', requireAdmin, async (req: any, res: Response) => {
     try {
@@ -640,7 +640,7 @@ export function registerMarketingRoutes(app: any) {
 
   /**
    * Enrich company data for preview (before import)
-   * Fetches full enrichment data from Probe42 v2 API without saving
+   * Fetches full enrichment data from CredHive without saving
    */
   app.post('/api/admin/marketing/leads/enrich-preview', requireAdmin, async (req: any, res: Response) => {
     try {
@@ -710,7 +710,7 @@ export function registerMarketingRoutes(app: any) {
   });
 
   /**
-   * Import prospect lead from Probe42 with full v2 API enrichment
+   * Import prospect lead from CredHive with full enrichment
    */
   app.post('/api/admin/marketing/leads/import', requireAdmin, async (req: any, res: Response) => {
     try {
@@ -773,7 +773,7 @@ export function registerMarketingRoutes(app: any) {
           debtToEquityRatio: company?.financials?.[0]?.debtToEquityRatio?.toString() || null,
           currentRatio: company?.financials?.[0]?.currentRatio?.toString() || null,
           roe: company?.financials?.[0]?.roe?.toString() || null,
-          probe42Score: company?.probe42Score?.score || null,
+          probe42Score: null,
           directors: enrichedData.directors?.length ? enrichedData.directors as any : (company?.directors as any),
           authorizedSignatories: company?.authorizedSignatories as any,
           leadScore,
@@ -781,7 +781,7 @@ export function registerMarketingRoutes(app: any) {
           investableSurplus: investableSurplus.toString(),
           source: 'credhive',
           assignedTo: req.body.assignedTo || null,
-          // Probe42 v2 enrichment fields
+          // CredHive enrichment fields
           employeeCount: enrichedData.employeeCount || null,
           gstStatus: enrichedData.gstStatus || null,
           gstNumber: enrichedData.gstNumber || null,
@@ -805,7 +805,7 @@ export function registerMarketingRoutes(app: any) {
           incorporationDate: company?.incorporationDate || null,
           companyType: company?.companyType || enrichedData.entityType || null,
           companyClass: company?.companyClass || null,
-          // Probe42 v2 KYC Extended Fields
+          // CredHive extended fields
           sumOfCharges: enrichedData.sumOfCharges?.toString() || null,
           activeCompliance: enrichedData.activeCompliance || null,
           listingStatus: enrichedData.listingStatus || null,
@@ -923,11 +923,11 @@ export function registerMarketingRoutes(app: any) {
   });
 
   // ============================================================================
-  // CLIENT INTELLIGENCE - Probe42 verification for existing clients
+  // CLIENT INTELLIGENCE - CredHive verification for existing clients
   // ============================================================================
 
   /**
-   * Verify client via Probe42
+   * Verify client via CredHive
    */
   app.post('/api/admin/marketing/client-intelligence/verify/:userId', requireAdmin, async (req: any, res: Response) => {
     try {
@@ -948,21 +948,18 @@ export function registerMarketingRoutes(app: any) {
 
       const company = verification.companyDetails;
 
-      // Determine financial health status
+      // Determine financial health status based on risk flags
       let healthStatus = 'fair';
-      const scoreValue = company.probe42Score?.score;
-      if (scoreValue) {
-        if (scoreValue >= 4) healthStatus = 'excellent';
-        else if (scoreValue === 3) healthStatus = 'good';
-        else if (scoreValue === 2) healthStatus = 'fair';
-        else healthStatus = 'poor';
-      }
+      if (verification.riskFlags.length === 0) healthStatus = 'excellent';
+      else if (verification.riskFlags.length <= 1) healthStatus = 'good';
+      else if (verification.riskFlags.length <= 3) healthStatus = 'fair';
+      else healthStatus = 'poor';
 
       // Determine risk level
       let riskLevel = 'medium';
-      if (verification.riskFlags.length === 0 && scoreValue && scoreValue >= 4) {
+      if (verification.riskFlags.length === 0) {
         riskLevel = 'low';
-      } else if (verification.riskFlags.length >= 3 || (scoreValue && scoreValue <= 2)) {
+      } else if (verification.riskFlags.length >= 3) {
         riskLevel = 'high';
       }
 
@@ -973,7 +970,7 @@ export function registerMarketingRoutes(app: any) {
           userId: req.params.userId,
           cin: cin || null,
           companyVerified: true,
-          probe42Score: scoreValue || null,
+          probe42Score: null,
           financialHealthStatus: healthStatus,
           annualRevenue: company.financials?.[0]?.revenue?.toString() || null,
           netProfit: company.financials?.[0]?.netProfit?.toString() || null,
@@ -989,7 +986,7 @@ export function registerMarketingRoutes(app: any) {
           set: {
             cin: cin || null,
             companyVerified: true,
-            probe42Score: scoreValue || null,
+            probe42Score: null,
             financialHealthStatus: healthStatus,
             annualRevenue: company.financials?.[0]?.revenue?.toString() || null,
             netProfit: company.financials?.[0]?.netProfit?.toString() || null,
@@ -1985,7 +1982,7 @@ export function registerMarketingRoutes(app: any) {
               fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown',
               investmentPotential: 'medium',
               synced: true,
-              probe42Score: Math.floor(Math.random() * 40) + 60,
+              probe42Score: null,
               updatedAt: new Date()
             });
             syncedCount++;
@@ -2041,7 +2038,7 @@ export function registerMarketingRoutes(app: any) {
           fullName: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Unknown',
           investmentPotential: 'medium',
           synced: true,
-          probe42Score: Math.floor(Math.random() * 40) + 60,
+          probe42Score: null,
           updatedAt: new Date()
         });
       } else {

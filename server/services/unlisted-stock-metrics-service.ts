@@ -15,7 +15,7 @@
  * - EBITDA Margin = EBITDA / Revenue × 100
  * 
  * Data Sources:
- * - MCA financial data (via Probe42 API)
+ * - MCA financial data (via CredHive API)
  * - Current trading prices from unlisted marketplace
  */
 
@@ -314,7 +314,7 @@ class UnlistedStockMetricsService {
     return {
       service: 'UnlistedStockMetricsService',
       version: '1.0.0',
-      dataSource: 'MCA Filings via Probe42 API',
+      dataSource: 'MCA Filings via CredHive API',
       formulas: {
         ROE: {
           formula: '(Net Profit / Networth) × 100',
