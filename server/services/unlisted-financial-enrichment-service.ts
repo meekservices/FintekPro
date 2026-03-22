@@ -323,7 +323,7 @@ class UnlistedFinancialEnrichmentService {
     await db.insert(unlistedAuditLog).values({
       companyId,
       actionType: 'financial_enrichment',
-      actionBy: 'system_credhive',
+      actionBy: 'system_probe42',
       previousValue: { lastSyncedAt: company.lastSyncedAt },
       newValue: {
         profile: result.profile,
