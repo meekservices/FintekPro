@@ -319,6 +319,22 @@ FintekPro's institutional market data backbone sits below the pricing engine and
 - Endpoints: `/company/search`, `/company/{cin}`, `/company/{cin}/financials`, `/company/{cin}/directors`, `/company/{cin}/compliance`
 - Auto-fallback: if Credhive unavailable, uses `company_financials` table data; response always includes `dataSource: "credhive" | "db_cache" | "unavailable"`
 
+### Prospect Wealth Engine + Scoring Engine (v1.0)
+- Service: `server/services/prospect-scoring-engine.ts`
+- Wealth Engine: `estimatedNetworth = Σ (revenue × 3 × holdingPct/100)` per directorship; falls back to `annualRevenue × 3 × 50%` if no director holding data
+- Scoring Engine (4-component blend):
+  - `wealthScore` = min(networth / ₹1B, 1) × 100 — **30% weight**
+  - `activityScore` = min(directorships × 10, 100) — **20% weight**
+  - `relationshipScore` = agent-supplied 0–100 (default 50) — **30% weight**
+  - `financialHealthScore` = Probe42 score scaled to 100, or credit-rating proxy — **20% weight**
+  - `compositeScore` = 0.3W + 0.2A + 0.3R + 0.2F (capped at 100)
+- DB columns added to `prospect_leads`: `estimated_networth`, `wealth_score`, `activity_score`, `relationship_score`, `composite_score`, `scoring_version`, `scored_at`
+- API endpoints (all under `/api/agent-wizard`):
+  - `POST /prospects/:id/compute-score` — run Wealth + Scoring engine for one prospect, optionally pass `{ relationshipStrength: number }`
+  - `POST /prospects/bulk-score` — batch score up to `limit` prospects
+  - `GET /prospects/:id/score` — read saved scores (no recomputation)
+- Frontend: "FintekPro Wealth Score" panel in the Edit Lead dialog (admin prospect dashboard) with score bars, net worth display, relationship strength slider, and "Compute Score" button; `compositeScore` column added to the leads table
+
 ### PPT Fix
 - ESM/CJS fix: `const PptxCtor = (PptxGenJS as any).default ?? PptxGenJS; const ppt = new PptxCtor();`
 - This must always be used — `new PptxGenJS()` directly causes "not a constructor" crash

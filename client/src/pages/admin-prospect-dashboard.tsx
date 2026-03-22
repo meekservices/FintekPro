@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Users, UserPlus, Building2, Search, Filter, RefreshCw, Download, 
   TrendingUp, Target, ArrowRight, Loader2, CheckCircle2, AlertCircle,
-  UserCheck, Clock, Zap, BarChart3, Link2, Cloud, Eye, History, Pencil
+  UserCheck, Clock, Zap, BarChart3, Link2, Cloud, Eye, History, Pencil,
+  Sparkles, Trophy, Activity, HeartHandshake, Banknote, Info
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -68,6 +69,14 @@ interface B2BLead {
   assignedAgentName: string | null;
   source: string;
   createdAt: string;
+  // Prospect Scoring Engine fields
+  compositeScore?: number | null;
+  wealthScore?: number | null;
+  activityScore?: number | null;
+  relationshipScore?: number | null;
+  estimatedNetworth?: number | null;
+  scoringVersion?: string | null;
+  scoredAt?: string | null;
 }
 
 interface IndividualProspect {
@@ -585,6 +594,12 @@ export default function AdminProspectDashboardPage() {
                         <TableHead>Location</TableHead>
                         <TableHead>Quality</TableHead>
                         <TableHead>Score</TableHead>
+                        <TableHead>
+                          <div className="flex items-center gap-1">
+                            <Sparkles className="h-3 w-3 text-violet-500" />
+                            <span>FP Score</span>
+                          </div>
+                        </TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Assigned To</TableHead>
                         <TableHead>Source</TableHead>
@@ -627,6 +642,18 @@ export default function AdminProspectDashboardPage() {
                               <span className="font-medium">{lead.leadScore}</span>
                               <span className="text-muted-foreground">/100</span>
                             </div>
+                          </TableCell>
+                          <TableCell>
+                            {lead.compositeScore != null ? (
+                              <div className="flex items-center gap-1">
+                                <Sparkles className={`h-3 w-3 ${lead.compositeScore >= 70 ? "text-violet-600" : lead.compositeScore >= 40 ? "text-amber-500" : "text-muted-foreground"}`} />
+                                <span className={`font-semibold text-sm ${lead.compositeScore >= 70 ? "text-violet-700 dark:text-violet-400" : lead.compositeScore >= 40 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+                                  {Number(lead.compositeScore).toFixed(1)}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground italic">—</span>
+                            )}
                           </TableCell>
                           <TableCell>
                             <Badge className={STATUS_COLORS[lead.status] || "bg-muted"}>
@@ -1313,6 +1340,144 @@ function ZohoImportDialog({ open, onOpenChange, agents, onSubmit, isPending }: {
   );
 }
 
+// ── Prospect Scoring Panel ────────────────────────────────────────────────────
+
+interface ScoreData {
+  wealthScore: number;
+  activityScore: number;
+  relationshipScore: number;
+  financialHealthScore?: number;
+  compositeScore: number;
+  estimatedNetworth: number;
+  scoringVersion?: string;
+  scoredAt?: string;
+}
+
+function ScoreBar({ label, score, icon, color }: { label: string; score: number; icon: ReactNode; color: string }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between items-center text-xs">
+        <div className="flex items-center gap-1 text-muted-foreground">
+          {icon}
+          {label}
+        </div>
+        <span className="font-semibold">{score.toFixed(1)}</span>
+      </div>
+      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${Math.min(score, 100)}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function ProspectScorePanel({ leadId, onScored }: { leadId: string; onScored?: () => void }) {
+  const { toast } = useToast();
+  const [relStrength, setRelStrength] = useState(50);
+
+  const { data, isLoading, refetch } = useQuery<{ success: boolean; scored: boolean; scoring: ScoreData | null }>({
+    queryKey: ["/api/agent-wizard/prospects", leadId, "score"],
+    queryFn: () => apiRequest("GET", `/api/agent-wizard/prospects/${leadId}/score`).then(r => r.json()),
+    enabled: !!leadId,
+  });
+
+  const computeMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", `/api/agent-wizard/prospects/${leadId}/compute-score`, {
+        relationshipStrength: relStrength,
+      }).then(r => r.json()),
+    onSuccess: (res) => {
+      if (res.success) {
+        toast({ title: "Score computed", description: `Composite score: ${res.scoring.compositeScore.toFixed(1)}/100` });
+        refetch();
+        onScored?.();
+      } else {
+        toast({ title: "Error", description: res.error, variant: "destructive" });
+      }
+    },
+    onError: () => toast({ title: "Failed to compute score", variant: "destructive" }),
+  });
+
+  const scoring = data?.scoring;
+
+  return (
+    <div className="border rounded-lg p-4 space-y-4 bg-gradient-to-br from-violet-50/30 to-transparent dark:from-violet-950/10">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-violet-600" />
+          <span className="font-semibold text-sm">FintekPro Wealth Score</span>
+        </div>
+        {scoring && (
+          <Badge className="bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-300 text-base font-bold px-3 py-1">
+            {scoring.compositeScore.toFixed(1)}/100
+          </Badge>
+        )}
+      </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Loading score…
+        </div>
+      )}
+
+      {!isLoading && scoring && (
+        <div className="space-y-2.5">
+          <ScoreBar label="Wealth" score={scoring.wealthScore} icon={<Banknote className="h-3 w-3" />} color="bg-emerald-500" />
+          <ScoreBar label="Activity" score={scoring.activityScore} icon={<Activity className="h-3 w-3" />} color="bg-blue-500" />
+          <ScoreBar label="Relationship" score={scoring.relationshipScore} icon={<HeartHandshake className="h-3 w-3" />} color="bg-pink-500" />
+          {scoring.financialHealthScore !== undefined && (
+            <ScoreBar label="Financial Health" score={scoring.financialHealthScore} icon={<Trophy className="h-3 w-3" />} color="bg-amber-500" />
+          )}
+          {scoring.estimatedNetworth > 0 && (
+            <div className="text-xs text-muted-foreground pt-1 flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              Est. Net Worth: ₹{(scoring.estimatedNetworth / 1_00_00_000).toFixed(2)} Cr
+            </div>
+          )}
+          {scoring.scoredAt && (
+            <p className="text-xs text-muted-foreground">
+              Last scored: {format(new Date(scoring.scoredAt), "dd MMM yyyy, HH:mm")}
+              {scoring.scoringVersion && ` (${scoring.scoringVersion})`}
+            </p>
+          )}
+        </div>
+      )}
+
+      {!isLoading && !scoring && (
+        <p className="text-xs text-muted-foreground">No score computed yet. Click below to run the Wealth Engine.</p>
+      )}
+
+      <div className="space-y-2 pt-1 border-t">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-muted-foreground">Relationship Strength</Label>
+          <span className="text-xs font-medium">{relStrength}/100</span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={relStrength}
+          onChange={(e) => setRelStrength(Number(e.target.value))}
+          className="w-full accent-violet-600"
+        />
+        <Button
+          size="sm"
+          className="w-full bg-violet-600 hover:bg-violet-700 text-white"
+          onClick={() => computeMutation.mutate()}
+          disabled={computeMutation.isPending}
+        >
+          {computeMutation.isPending ? (
+            <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Computing…</>
+          ) : (
+            <><Sparkles className="mr-2 h-3 w-3" />{scoring ? "Recompute Score" : "Compute Score"}</>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isPending }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -1501,6 +1666,8 @@ function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isPending }: {
               placeholder="e.g., Real Estate, Manufacturing"
             />
           </div>
+
+          {lead && <ProspectScorePanel leadId={lead.id} />}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

@@ -156,7 +156,13 @@ router.get('/b2b-leads', requireAdmin, async (req: any, res: Response) => {
         source: prospectLeads.source,
         lastContactedAt: prospectLeads.lastContactedAt,
         nextFollowUpAt: prospectLeads.nextFollowUpAt,
-        createdAt: prospectLeads.createdAt
+        createdAt: prospectLeads.createdAt,
+        compositeScore: prospectLeads.compositeScore,
+        wealthScore: prospectLeads.wealthScore,
+        activityScore: prospectLeads.activityScore,
+        relationshipScore: prospectLeads.relationshipScore,
+        estimatedNetworth: prospectLeads.estimatedNetworth,
+        scoredAt: prospectLeads.scoredAt,
       })
       .from(prospectLeads)
       .leftJoin(users, eq(prospectLeads.assignedTo, users.id))

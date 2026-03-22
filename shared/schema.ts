@@ -13210,7 +13210,16 @@ export const prospectLeads = pgTable("prospect_leads", {
   // Conversion
   convertedToUserId: varchar("converted_to_user_id").references(() => users.id),
   convertedAt: timestamp("converted_at"),
-  
+
+  // FintekPro Prospect Scoring Engine
+  estimatedNetworth: numeric("estimated_networth", { precision: 18, scale: 2 }), // computed from directorship revenue multiples
+  wealthScore: numeric("wealth_score", { precision: 6, scale: 2 }),             // 0-100 wealth component
+  activityScore: numeric("activity_score", { precision: 6, scale: 2 }),         // 0-100 directorship activity component
+  relationshipScore: numeric("relationship_score", { precision: 6, scale: 2 }), // 0-100 relationship strength (agent-set or default 50)
+  compositeScore: numeric("composite_score", { precision: 6, scale: 2 }),       // 0-100 final blended score
+  scoringVersion: varchar("scoring_version"),                                    // engine version label for auditability
+  scoredAt: timestamp("scored_at"),                                              // when score was last computed
+
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -13219,6 +13228,7 @@ export const prospectLeads = pgTable("prospect_leads", {
   index("idx_prospect_company_name").on(table.companyName),
   index("idx_prospect_status").on(table.status),
   index("idx_prospect_score").on(table.leadScore),
+  index("idx_prospect_composite_score").on(table.compositeScore),
   index("idx_prospect_assigned").on(table.assignedTo),
   index("idx_prospect_created").on(table.createdAt),
 ]);

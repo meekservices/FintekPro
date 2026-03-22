@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { storage } from "../storage";
 import multer from "multer";
 import { db } from "../db";
-import { portfolios, portfolioHoldings } from "@shared/schema";
+import { portfolios, portfolioHoldings, prospectLeads } from "@shared/schema";
 import { eq, inArray, or } from "drizzle-orm";
 import { 
   agentProspectWizardService, 
@@ -27,6 +27,7 @@ import { assertLotsNotDropped } from "../services/holding-transformer";
 import { requireAuth, requireRole } from "../middleware/roleMiddleware";
 import { prospectReadinessService } from "../services/prospect-readiness-service";
 import { portfolioAnalyticsDataService } from "../services/portfolio-analytics-data-service";
+import { enrichAndScoreProspect, bulkScoreProspects, scoreProspect, calculateWealthFromDirectorships } from "../services/prospect-scoring-engine";
 
 // Multer setup for CAS file upload
 const upload = multer({
@@ -3265,6 +3266,118 @@ router.get(
       });
     } catch (error: any) {
       console.error("[Get Prospect Goals] Error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+);
+
+// ── Wealth Engine + Scoring Engine endpoints ──────────────────────────────────
+
+/**
+ * POST /api/prospect-wizard/prospects/:id/compute-score
+ *
+ * Runs the Wealth Engine + Scoring Engine for a single prospect lead.
+ * Optionally accepts { relationshipStrength: number } in the body.
+ */
+router.post(
+  "/prospects/:id/compute-score",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const relationshipStrength = req.body?.relationshipStrength;
+
+      const result = await enrichAndScoreProspect(id, {
+        relationshipStrength: typeof relationshipStrength === "number" ? relationshipStrength : undefined,
+      });
+
+      res.json({ success: true, prospectId: id, scoring: result });
+    } catch (error: any) {
+      console.error("[Compute Score] Error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+);
+
+/**
+ * POST /api/prospect-wizard/prospects/bulk-score
+ *
+ * Batch-runs the scoring engine across all (or up to `limit`) prospect leads.
+ * Body: { limit?: number, relationshipStrength?: number }
+ */
+router.post(
+  "/prospects/bulk-score",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const limit = typeof req.body?.limit === "number" ? req.body.limit : 50;
+      const relationshipStrength = typeof req.body?.relationshipStrength === "number"
+        ? req.body.relationshipStrength
+        : undefined;
+
+      const result = await bulkScoreProspects({ limit, relationshipStrength });
+
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error("[Bulk Score] Error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+);
+
+/**
+ * GET /api/prospect-wizard/prospects/:id/score
+ *
+ * Returns the current saved score for a prospect (no recomputation).
+ */
+router.get(
+  "/prospects/:id/score",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const rows = await db
+        .select({
+          id: prospectLeads.id,
+          companyName: prospectLeads.companyName,
+          estimatedNetworth: prospectLeads.estimatedNetworth,
+          wealthScore: prospectLeads.wealthScore,
+          activityScore: prospectLeads.activityScore,
+          relationshipScore: prospectLeads.relationshipScore,
+          compositeScore: prospectLeads.compositeScore,
+          scoringVersion: prospectLeads.scoringVersion,
+          scoredAt: prospectLeads.scoredAt,
+        })
+        .from(prospectLeads)
+        .where(eq(prospectLeads.id, id))
+        .limit(1);
+
+      if (!rows.length) {
+        return res.status(404).json({ success: false, error: "Prospect not found" });
+      }
+
+      const row = rows[0];
+      const scored = row.compositeScore !== null && row.compositeScore !== undefined;
+
+      res.json({
+        success: true,
+        prospectId: id,
+        companyName: row.companyName,
+        scored,
+        scoring: scored
+          ? {
+              estimatedNetworth: parseFloat(String(row.estimatedNetworth || "0")),
+              wealthScore: parseFloat(String(row.wealthScore || "0")),
+              activityScore: parseFloat(String(row.activityScore || "0")),
+              relationshipScore: parseFloat(String(row.relationshipScore || "0")),
+              compositeScore: parseFloat(String(row.compositeScore || "0")),
+              scoringVersion: row.scoringVersion,
+              scoredAt: row.scoredAt,
+            }
+          : null,
+      });
+    } catch (error: any) {
+      console.error("[Get Score] Error:", error);
       res.status(500).json({ success: false, error: error.message });
     }
   }
