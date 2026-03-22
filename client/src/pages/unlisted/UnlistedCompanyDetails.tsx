@@ -36,7 +36,7 @@ const getDataSourceLabel = (source: string | null | undefined) => {
       color: 'text-green-500',
       description: 'Official government filings'
     },
-    probe42: { 
+    credhive: { 
       label: 'Credhive', 
       color: 'text-blue-500',
       description: 'Unlisted company intelligence'

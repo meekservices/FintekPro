@@ -312,9 +312,8 @@ export default function LeadProspecting() {
     if (formData.get('state')) filters.state = formData.get('state');
     if (formData.get('minRevenue')) filters.minRevenue = parseInt(formData.get('minRevenue') as string);
     if (formData.get('minProfit')) filters.minProfit = parseInt(formData.get('minProfit') as string);
-    if (formData.get('probe42Score') || formData.get('credhiveScore')) {
-      filters.credhiveScore = parseInt((formData.get('credhiveScore') || formData.get('probe42Score')) as string);
-      filters.probe42Score = filters.credhiveScore;
+    if (formData.get('credhiveScore')) {
+      filters.credhiveScore = parseInt(formData.get('credhiveScore') as string);
     }
 
     searchCompaniesMutation.mutate(filters);
@@ -432,7 +431,7 @@ export default function LeadProspecting() {
                   min="1"
                   max="5"
                   placeholder="3"
-                  data-testid="input-probe42-score"
+                  data-testid="input-credhive-score"
                 />
                 <p className="text-xs text-muted-foreground">Financial health: 5 = Excellent, 1 = Poor</p>
               </div>

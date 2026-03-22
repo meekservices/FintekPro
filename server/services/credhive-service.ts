@@ -342,7 +342,7 @@ class CredhiveService {
   }
 
   /**
-   * Search companies by name, returning a probe42-compatible shape.
+   * Search companies by name, returning a credhive-compatible shape.
    * Accepts a string or a CompanySearchFilters object.
    */
   async searchCompany(nameOrFilters: string | Record<string, any>): Promise<{ success: boolean; data?: any[]; error?: string }> {
@@ -362,7 +362,7 @@ class CredhiveService {
   }
 
   /**
-   * Get company details in probe42-compatible shape.
+   * Get company details in credhive-compatible shape.
    */
   async getCompanyDetails(cin: string): Promise<{ success: boolean; data?: any; error?: string }> {
     const r = await this.getCompanyProfile(cin);
@@ -391,7 +391,7 @@ class CredhiveService {
   }
 
   /**
-   * Get financials in probe42-compatible shape.
+   * Get financials in credhive-compatible shape.
    */
   async getCompanyFinancials(cin: string): Promise<{ success: boolean; data?: any; error?: string }> {
     const r = await this.getFinancials(cin);
@@ -448,7 +448,7 @@ class CredhiveService {
 
   /**
    * Full enrichment: combines profile + financials + directors + compliance.
-   * Returns a merged object compatible with the previous probe42 enrichment shape.
+   * Returns a merged object compatible with the credhive enrichment shape.
    */
   async getFullEnrichment(cin: string): Promise<{
     baseDetails: any | null;
@@ -565,7 +565,7 @@ class CredhiveService {
   }
 
   /**
-   * Search companies with complex filters (probe42-compatible signature).
+   * Search companies with complex filters (credhive-compatible signature).
    */
   async searchByFilters(filters: {
     nameStartsWith?: string;
@@ -784,7 +784,7 @@ class CredhiveService {
 
 export const credhiveService = new CredhiveService();
 
-// ─── Standalone utility exports (previously in probe42-service) ───────────────
+// ─── Standalone utility exports (previously in credhive-service) ─────────────
 
 /**
  * Identity confidence scoring for Indian companies.

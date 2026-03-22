@@ -101,7 +101,7 @@ class McaDataCacheService {
       if (!apiResult.success || !apiResult.data) {
         console.log(`[MCA Cache] Sandbox API failed for ${cin}: ${apiResult.error?.message}`);
         
-        // Try Probe42 as fallback when Sandbox fails
+        // Try CredHive as fallback when Sandbox fails
         console.log(`[MCA Cache] Attempting Credhive fallback for ${cin}...`);
         try {
           const credhiveResult = await credhiveService.getCompanyDetails(cin);
@@ -124,7 +124,7 @@ class McaDataCacheService {
               paidUpCapital: credhiveData.paidUpCapital?.toString() || '0',
             };
 
-            await this.persistCompanyDataFromProbe42(credhiveMcaData, userId, runId);
+            await this.persistCompanyDataFromCredhive(credhiveMcaData, userId, runId);
             await this.logIngestionComplete(runId, 'completed', 1, 'Credhive fallback');
             
             const freshData = await this.getCachedCompany(cin);
@@ -161,7 +161,7 @@ class McaDataCacheService {
         
         return {
           success: false,
-          error: apiResult.error?.message || 'Failed to fetch company data from both Sandbox and Probe42',
+          error: apiResult.error?.message || 'Failed to fetch company data from both Sandbox and CredHive',
           apiCallMade: true,
         };
       }
@@ -342,16 +342,16 @@ class McaDataCacheService {
   }
 
   /**
-   * Persist company data from Probe42 fallback response
+   * Persist company data from CredHive fallback response
    */
-  async persistCompanyDataFromProbe42(
+  async persistCompanyDataFromCredhive(
     data: Partial<MCACompanyMasterData>,
     userId?: string,
     runId?: string
   ): Promise<void> {
     const cin = data.cin;
     if (!cin) {
-      throw new Error('CIN is required to persist Probe42 data');
+      throw new Error('CIN is required to persist CredHive data');
     }
     
     try {
@@ -376,7 +376,7 @@ class McaDataCacheService {
         lastAnnualReturn: null,
         lastBalanceSheet: null,
         updatedAt: new Date(),
-        sourceAttribution: 'Probe42 Fallback',
+        sourceAttribution: 'CredHive Fallback',
       };
 
       if (existingCompany.length > 0) {
@@ -395,9 +395,9 @@ class McaDataCacheService {
         });
       }
 
-      console.log(`[MCA Cache] Persisted Probe42 data for ${cin}`);
+      console.log(`[MCA Cache] Persisted CredHive data for ${cin}`);
     } catch (error: any) {
-      console.error(`[MCA Cache] Error persisting Probe42 data for ${cin}:`, error.message);
+      console.error(`[MCA Cache] Error persisting CredHive data for ${cin}:`, error.message);
       throw error;
     }
   }

@@ -398,7 +398,7 @@ class NSDLISINService {
    * Flow:
    * 1. Try to get issuer name from NSDL registry
    * 2. Use issuer name to search MCA for CIN
-   * 3. Fallback to Probe42 search if MCA doesn't find it
+   * 3. Fallback to CredHive search if MCA doesn't find it
    * 
    * @param isin - Indian ISIN (12 character alphanumeric starting with INE)
    * @returns Company identity data including CIN, or null if not found

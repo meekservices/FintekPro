@@ -6,7 +6,7 @@
  *
  * Domain breakdown:
  *   cron-enrichment.ts   – MF/NAV/benchmark/stock/pricing/corporate-actions
- *   cron-unlisted.ts     – Unlisted marketplace, Probe42, MCA, lead scoring
+ *   cron-unlisted.ts     – Unlisted marketplace, CredHive, MCA, lead scoring
  *   cron-order-ops.ts    – Unified order expiry, processing timeout, KYC reminders
  *   cron-compliance.ts   – Reconciliation, CKYC SLA, audit integrity, GIFT City
  *
@@ -20,14 +20,14 @@
  *  Every hour :15   │ Processing order timeout
  *  Every 4h  :30    │ KYC upgrade reminders
  *  Every 6h  :00    │ Stale unified order cleanup
- *  Every 6h  :05    │ Probe42 company sync
+ *  Every 6h  :05    │ CredHive company sync
  *  Every 12h :00    │ Price suggestions, expired listings cleanup
  *  Daily 12:30 AM   │ Bond calendar refresh, Monthly returns (1st only)
  *  Daily  1:00 AM   │ Daily reconciliation
  *  Daily  2:20 AM   │ GIFT City product maintenance
  *  Daily  3:30 AM   │ Expiry warning emails (24h notice)
  *  Daily  3:35 AM   │ MF NAV cache pre-warm
- *  Daily  2:30 AM   │ Probe42 prospecting alerts
+ *  Daily  2:30 AM   │ CredHive prospecting alerts
  *  Daily  2:40 AM   │ Error digest
  *  Daily  5:00 AM   │ Data enrichment scheduler
  *  Daily  6:00 AM   │ Fixed Income status

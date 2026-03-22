@@ -3,7 +3,7 @@
  * 
  * Fetches and populates actual financial data into mca_financial_snapshot table.
  * Since Sandbox API doesn't provide financial statement values (only filing dates),
- * and Probe42's /kyc endpoint requires higher tier subscription, this service:
+ * and CredHive's /kyc endpoint requires higher tier subscription, this service:
  * 
  * 1. Cross-references with company_financials table (for companies that have data)
  * 2. Allows manual data import via CSV/JSON

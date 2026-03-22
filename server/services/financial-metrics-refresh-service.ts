@@ -4,7 +4,7 @@ import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { financialMetricsCalculator } from './financial-metrics-calculator';
 import { fetchWithTimeout } from '../utils/fetch-with-timeout';
 
-interface Probe42FinancialData {
+interface CredHiveFinancialData {
   revenue?: number;
   ebitda?: number;
   pat?: number;
@@ -32,7 +32,7 @@ interface Probe42FinancialData {
 }
 
 export class FinancialMetricsRefreshService {
-  private probe42BaseUrl = 'https://api.probe42.in/probe_data_api';
+  private credhiveBaseUrl = 'https://api.probe42.in/probe_data_api';
   private finnhubBaseUrl = 'https://finnhub.io/api/v1';
 
   constructor() {
@@ -87,9 +87,9 @@ export class FinancialMetricsRefreshService {
   }
 
   private async fetchStockFinancials(stock: schema.ListedStock): Promise<any> {
-    // Try Probe42 first
-    const probe42Data = await this.fetchFromProbe42(stock);
-    if (probe42Data) return probe42Data;
+    // Try CredHive first
+    const credhiveData = await this.fetchFromCredhive(stock);
+    if (credhiveData) return credhiveData;
 
     // Fallback to Finnhub
     const finnhubData = await this.fetchFromFinnhub(stock.symbol);
@@ -104,7 +104,7 @@ export class FinancialMetricsRefreshService {
     };
   }
 
-  private async fetchFromProbe42(stock: schema.ListedStock): Promise<any> {
+  private async fetchFromCredhive(stock: schema.ListedStock): Promise<any> {
     const apiKey = process.env.PROBE42_API_KEY;
     if (!apiKey) return null;
 
@@ -137,7 +137,7 @@ export class FinancialMetricsRefreshService {
 
       return null;
     } catch (error) {
-      console.warn(`[FinancialMetricsRefresh] Probe42 fetch failed for ${stock.symbol}:`, error);
+      console.warn(`[FinancialMetricsRefresh] CredHive fetch failed for ${stock.symbol}:`, error);
       return null;
     }
   }
@@ -242,7 +242,7 @@ export class FinancialMetricsRefreshService {
         isin,
         fiscalYear,
         ...metrics,
-        dataSource: 'probe42',
+        dataSource: 'credhive',
         dataQuality: 'complete',
       });
     }

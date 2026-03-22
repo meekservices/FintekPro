@@ -313,7 +313,7 @@ router.get('/company-refresh', async (req, res) => {
       success: true,
       data: {
         ...metrics,
-        description: 'Automatic company data refresh using Probe42 batch APIs',
+        description: 'Automatic company data refresh using CredHive batch APIs',
       }
     });
   } catch (error: any) {

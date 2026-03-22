@@ -339,7 +339,7 @@ class MoneyControlScraperService {
   /**
    * IDENTITY ENRICHMENT FLOW
    * For unmatched MoneyControl companies:
-   * 1. Use ISIN to lookup CIN via NSDL/MCA/Probe42
+   * 1. Use ISIN to lookup CIN via NSDL/MCA/CredHive
    * 2. Get full company profile (legal name, PAN, address, etc.)
    * 3. Create new unlisted company with enriched data
    * 4. Set initial price at 97% of MoneyControl price

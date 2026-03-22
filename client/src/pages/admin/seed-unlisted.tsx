@@ -138,7 +138,7 @@ interface UnifiedSearchResult {
   sector?: string;
   status?: string;
   incorporationDate?: string;
-  source: 'moneycontrol' | 'credhive' | 'probe42' | 'mca' | 'internal';
+  source: 'moneycontrol' | 'credhive' | 'mca' | 'internal';
   currentPrice?: number;
   priceChange?: number;
   priceChangePercent?: number;
@@ -170,13 +170,11 @@ interface UnifiedSearchResponse {
     moneycontrol: number;
     mca: number;
     credhive: number;
-    probe42?: number;
   };
   sourceStatuses?: {
     moneycontrol: SourceStatus;
     mca: SourceStatus;
     credhive: SourceStatus;
-    probe42?: SourceStatus;
   };
 }
 
@@ -193,11 +191,6 @@ const getSourceBadge = (source: string, dataQuality?: number) => {
       description: 'Real-time price data'
     },
     credhive: { 
-      label: 'Credhive', 
-      color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-      description: 'Unlisted company intelligence'
-    },
-    probe42: { 
       label: 'Credhive', 
       color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
       description: 'Unlisted company intelligence'
@@ -338,8 +331,8 @@ export default function SeedUnlistedPage() {
           incorporationDate: selectedSearchResult.incorporationDate,
           currentPrice: selectedSearchResult.currentPrice,
           source: selectedSearchResult.source,
-          probe42CompanyId: (selectedSearchResult.source === 'credhive' || selectedSearchResult.source === 'probe42')
-            ? selectedSearchResult.cin || selectedSearchResult.id.replace(/^(ch_|p42_)/, '')
+          probe42CompanyId: selectedSearchResult.source === 'credhive'
+            ? selectedSearchResult.cin || selectedSearchResult.id.replace(/^ch_/, '')
             : undefined,
         })
       });
@@ -1177,9 +1170,9 @@ export default function SeedUnlistedPage() {
                     MoneyControl: {unifiedSearchData.sources.moneycontrol}
                   </Badge>
                 )}
-                {(unifiedSearchData.sources.credhive || unifiedSearchData.sources.probe42 || 0) > 0 && (
+                {(unifiedSearchData.sources.credhive || 0) > 0 && (
                   <Badge variant="outline" className="text-blue-400 border-blue-400/50">
-                    Credhive: {unifiedSearchData.sources.credhive || unifiedSearchData.sources.probe42}
+                    Credhive: {unifiedSearchData.sources.credhive}
                   </Badge>
                 )}
               </div>

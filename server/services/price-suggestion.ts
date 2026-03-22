@@ -64,9 +64,9 @@ export class PriceSuggestionService {
       const pbRatio = Number(latestRatios.pbRatio);
       const roe = Number(latestRatios.roe);
       
-      // Add data source attribution for MCA/Probe42 enriched data
+      // Add data source attribution for MCA/CredHive enriched data
       const dataSource = (latestFinancials.dataSource || '').toLowerCase().trim();
-      const sourceLabel = dataSource.includes('probe42') ? ' (MCA via Probe42)' : 
+      const sourceLabel = dataSource.includes('credhive') ? ' (MCA via CredHive)' : 
                           dataSource.includes('mca') ? ' (MCA Registry)' : 
                           dataSource ? ` (${latestFinancials.dataSource})` : '';
       const confidenceScore = parseFloat(String(latestFinancials.confidenceScore || '0'));
@@ -102,7 +102,7 @@ export class PriceSuggestionService {
       valuationFactors
     );
 
-    // Apply risk adjustment discount if Probe42 data shows high risk
+    // Apply risk adjustment discount if CredHive data shows high risk
     const riskDiscount = this.calculateRiskDiscount(latestFinancials, latestRatios);
     if (riskDiscount > 0) {
       const discountMultiplier = 1 - riskDiscount;
@@ -127,7 +127,7 @@ export class PriceSuggestionService {
   }
 
   /**
-   * Calculate risk discount based on Probe42 financial health indicators
+   * Calculate risk discount based on CredHive financial health indicators
    * Returns 0.10 (10%) if Debt/Equity > 2 OR Networth < 0, otherwise 0
    */
   private calculateRiskDiscount(
@@ -331,7 +331,7 @@ export class PriceSuggestionService {
     const LANDING_PRICE_WEIGHT = 0.35;      // Seller feed (marketValue)
     const RECENT_DEAL_WEIGHT = 0.30;        // Deal history
     const MARKET_FEED_WEIGHT = 0.20;        // Price history (sellerFeedValue)
-    const INTRINSIC_VALUE_WEIGHT = 0.15;    // Probe42 fundamentals
+    const INTRINSIC_VALUE_WEIGHT = 0.15;    // CredHive fundamentals
 
     let totalWeightedPrice = 0;
     let actualTotalWeight = 0;
@@ -358,7 +358,7 @@ export class PriceSuggestionService {
       components.push(`Feed(20%)`);
     }
 
-    // Intrinsic Value (15%) - from Probe42 financials
+    // Intrinsic Value (15%) - from CredHive financials
     if (factors.fundamentalValue && factors.fundamentalValue > 0) {
       totalWeightedPrice += factors.fundamentalValue * INTRINSIC_VALUE_WEIGHT;
       actualTotalWeight += INTRINSIC_VALUE_WEIGHT;

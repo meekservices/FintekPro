@@ -175,7 +175,7 @@ export default function ClientIntelligence() {
             <CardTitle className="text-sm font-medium">Avg Credhive Score</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-avg-probe42-score">
+            <div className="text-2xl font-bold" data-testid="text-avg-credhive-score">
               {stats.avgScore}/5
             </div>
             <p className="text-xs text-muted-foreground">

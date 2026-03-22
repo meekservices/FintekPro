@@ -73,7 +73,7 @@ const mockMCAData = {
   annualReturns: [],
 };
 
-type DataSource = 'fintekpro' | 'mca' | 'moneycontrol' | 'probe42';
+type DataSource = 'fintekpro' | 'mca' | 'moneycontrol' | 'credhive';
 
 interface TestResult {
   sourcesAttempted: string[];

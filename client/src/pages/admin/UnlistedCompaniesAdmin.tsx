@@ -1466,7 +1466,7 @@ function CredhiveSearchDialog({ onClose }: { onClose: () => void }) {
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             className="bg-muted border-border text-foreground"
-            data-testid="input-probe42-search"
+            data-testid="input-credhive-search"
           />
           <Button onClick={handleSearch} disabled={isSearching} data-testid="button-search">
             {isSearching ? (
@@ -2159,7 +2159,6 @@ interface AddCompanyResult {
   companyId: string;
   companyName: string;
   credhiveFound: boolean;
-  probe42Found: boolean;
   credhiveData: {
     cin?: string;
     sector?: string;
@@ -2214,8 +2213,8 @@ function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
       
       toast({
         title: 'Company Added',
-        description: (result.credhiveFound || result.probe42Found)
-          ? `${result.companyName} added with Credhive data (${(result.credhiveData || result.probe42Data)?.financialsSynced || 0} financials synced)`
+        description: result.credhiveFound
+          ? `${result.companyName} added with Credhive data (${result.credhiveData?.financialsSynced || 0} financials synced)`
           : `${result.companyName} added (Credhive data not found)`,
       });
       setAddingCompanyIsin(null);

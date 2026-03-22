@@ -221,7 +221,7 @@ class DataEnrichmentService {
 
   /**
    * Fetch financial data from MCA (Ministry of Corporate Affairs) 
-   * Primary source for financial data since Probe42 /kyc endpoint is not accessible
+   * Primary source for financial data since CredHive /kyc endpoint is not accessible
    * Uses MCA Intelligence Service for comprehensive financial history
    */
   async fetchFromMCA(
@@ -994,7 +994,7 @@ class DataEnrichmentService {
     });
 
     // Allow admin-triggered fetches (forceRefresh) to bypass identity check when CIN or ISIN is present
-    // This enables MCA fallback for companies without Probe42 mapping
+    // This enables MCA fallback for companies without CredHive mapping
     const hasValidIdentifier = !!(company.cin || company.isin);
     const allowBypass = options.forceRefresh && hasValidIdentifier;
 

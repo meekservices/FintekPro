@@ -516,7 +516,7 @@ router.post('/credhive/sync/:companyId', requireAuth, async (req: Request, res: 
       isin: isinResult.isin || company.isin,
     });
     
-    // Create sync log (reuses existing Probe42SyncLog table)
+    // Create sync log (stored in probe42_sync_log table for historical continuity)
     const totalNew = financialsCount + ratiosCount;
     const totalUpdated = financialsUpdated + ratiosUpdated;
     await storage.createProbe42SyncLog({
@@ -908,8 +908,8 @@ router.post('/moneycontrol/import', requireAuth, async (req: Request, res: Respo
 
 /**
  * POST /api/unlisted/moneycontrol/add-company
- * Add a missing company from MoneyControl with Probe42 enrichment (Admin only)
- * Creates company -> Searches Probe42 -> Syncs data -> Imports MC price
+ * Add a missing company from MoneyControl with CredHive enrichment (Admin only)
+ * Creates company -> Searches CredHive -> Syncs data -> Imports MC price
  */
 router.post('/moneycontrol/add-company', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -934,8 +934,8 @@ router.post('/moneycontrol/add-company', requireAuth, async (req: Request, res: 
     const result: {
       companyId: string;
       companyName: string;
-      probe42Found: boolean;
-      probe42Data: {
+      credhiveFound: boolean;
+      credhiveData: {
         cin?: string;
         sector?: string;
         industry?: string;
@@ -947,33 +947,33 @@ router.post('/moneycontrol/add-company', requireAuth, async (req: Request, res: 
     } = {
       companyId: '',
       companyName: name,
-      probe42Found: false,
-      probe42Data: null,
+      credhiveFound: false,
+      credhiveData: null,
       priceImported: false,
     };
     
-    // Search Probe42 for company by name
-    let probe42CompanyId: string | null = null;
-    let probe42Details: any = null;
+    // Search CredHive for company by name
+    let credhiveCompanyId: string | null = null;
+    let credhiveDetails: any = null;
     
     try {
-      const probe42Results = await credhiveService.searchCompanyByNameOrCIN(name);
+      const credhiveResults = await credhiveService.searchCompanyByNameOrCIN(name);
       
-      if (probe42Results && probe42Results.length > 0) {
+      if (credhiveResults && credhiveResults.length > 0) {
         // Find best match - exact name match or first result
-        const exactMatch = probe42Results.find(r => 
+        const exactMatch = credhiveResults.find(r => 
           r.name.toLowerCase() === name.toLowerCase()
         );
-        const bestMatch = exactMatch || probe42Results[0];
+        const bestMatch = exactMatch || credhiveResults[0];
         
-        probe42CompanyId = bestMatch.company_id;
+        credhiveCompanyId = bestMatch.company_id;
         
-        // Get full company details from Probe42
-        probe42Details = await credhiveService.getCompanyDetails(probe42CompanyId);
-        result.probe42Found = true;
+        // Get full company details from CredHive
+        credhiveDetails = await credhiveService.getCompanyDetails(credhiveCompanyId);
+        result.credhiveFound = true;
       }
     } catch (error: any) {
-      console.warn('Probe42 search failed, creating company with basic data:', error.message);
+      console.warn('CredHive search failed, creating company with basic data:', error.message);
     }
     
     // Create the company
@@ -984,37 +984,37 @@ router.post('/moneycontrol/add-company', requireAuth, async (req: Request, res: 
       createdBy: req.user.id,
     };
     
-    // Enrich with Probe42 data if available
-    if (probe42Details) {
-      companyData.cin = probe42Details.cin;
-      companyData.sector = probe42Details.sector;
-      companyData.industry = probe42Details.industry;
-      companyData.website = probe42Details.website;
-      companyData.description = probe42Details.description;
-      if (probe42Details.incorporation_date) {
-        companyData.incorporationDate = probe42Details.incorporation_date;
+    // Enrich with CredHive data if available
+    if (credhiveDetails) {
+      companyData.cin = credhiveDetails.cin;
+      companyData.sector = credhiveDetails.sector;
+      companyData.industry = credhiveDetails.industry;
+      companyData.website = credhiveDetails.website;
+      companyData.description = credhiveDetails.description;
+      if (credhiveDetails.incorporation_date) {
+        companyData.incorporationDate = credhiveDetails.incorporation_date;
       }
-      if (probe42Details.paid_up_capital) {
-        companyData.paidUpCapital = probe42Details.paid_up_capital.toString();
+      if (credhiveDetails.paid_up_capital) {
+        companyData.paidUpCapital = credhiveDetails.paid_up_capital.toString();
       }
-      if (probe42Details.authorized_capital) {
-        companyData.authorizedCapital = probe42Details.authorized_capital.toString();
+      if (credhiveDetails.authorized_capital) {
+        companyData.authorizedCapital = credhiveDetails.authorized_capital.toString();
       }
-      if (probe42Details.face_value) {
-        companyData.faceValue = probe42Details.face_value.toString();
+      if (credhiveDetails.face_value) {
+        companyData.faceValue = credhiveDetails.face_value.toString();
       }
-      if (probe42Details.total_shares) {
-        companyData.totalShares = typeof probe42Details.total_shares === 'number' 
-          ? probe42Details.total_shares 
-          : parseInt(probe42Details.total_shares, 10);
+      if (credhiveDetails.total_shares) {
+        companyData.totalShares = typeof credhiveDetails.total_shares === 'number' 
+          ? credhiveDetails.total_shares 
+          : parseInt(credhiveDetails.total_shares, 10);
       }
-      companyData.probe42CompanyId = probe42CompanyId;
+      companyData.probe42CompanyId = credhiveCompanyId;
       companyData.lastSyncedAt = new Date();
       
-      result.probe42Data = {
-        cin: probe42Details.cin,
-        sector: probe42Details.sector,
-        industry: probe42Details.industry,
+      result.credhiveData = {
+        cin: credhiveDetails.cin,
+        sector: credhiveDetails.sector,
+        industry: credhiveDetails.industry,
         financialsSynced: 0,
         ratiosSynced: 0,
       };
@@ -1024,24 +1024,24 @@ router.post('/moneycontrol/add-company', requireAuth, async (req: Request, res: 
     result.companyId = company.id;
     result.companyName = company.name;
     
-    // Sync financials and ratios from Probe42 if we have a company ID
-    if (probe42CompanyId && result.probe42Data) {
+    // Sync financials and ratios from CredHive if we have a company ID
+    if (credhiveCompanyId && result.credhiveData) {
       try {
-        const financials = await credhiveService.getCompanyFinancials(probe42CompanyId, 5);
+        const financials = await credhiveService.getCompanyFinancials(credhiveCompanyId, 5);
         for (const fin of financials) {
           const dbFormat = credhiveService.convertFinancialsToDbFormat(company.id, fin);
           await storage.createCompanyFinancials(dbFormat);
-          result.probe42Data.financialsSynced++;
+          result.credhiveData.financialsSynced++;
         }
         
-        const ratios = await credhiveService.getCompanyRatios(probe42CompanyId, 5);
+        const ratios = await credhiveService.getCompanyRatios(credhiveCompanyId, 5);
         for (const ratio of ratios) {
           const dbFormat = credhiveService.convertRatiosToDbFormat(company.id, ratio);
           await storage.createCompanyRatios(dbFormat);
-          result.probe42Data.ratiosSynced++;
+          result.credhiveData.ratiosSynced++;
         }
       } catch (error: any) {
-        console.warn('Failed to sync financials/ratios from Probe42:', error.message);
+        console.warn('Failed to sync financials/ratios from CredHive:', error.message);
       }
     }
     
@@ -1065,7 +1065,7 @@ router.post('/moneycontrol/add-company', requireAuth, async (req: Request, res: 
     
     return apiResponse.created(res, result, 
       `Company "${name}" created successfully` + 
-      (result.probe42Found ? ' with Probe42 data' : '') +
+      (result.credhiveFound ? ' with CredHive data' : '') +
       (result.priceImported ? ` and price ₹${price?.toLocaleString('en-IN')}` : '')
     );
   } catch (error: any) {
@@ -4722,7 +4722,7 @@ router.post('/admin/companies/:id/enrich', requireAdmin, async (req: Request, re
 
 /**
  * POST /api/unlisted/admin/companies/:id/enrich-mca
- * Trigger MCA/Probe42 enrichment for an unlisted company (Admin only)
+ * Trigger MCA/CredHive enrichment for an unlisted company (Admin only)
  * Fetches comprehensive data including financials, charges, legal cases, directors
  * and stores it in the companyFinancials table
  */
@@ -4885,7 +4885,7 @@ router.get('/admin/companies/:id/test-enrichment', requireAdmin, async (req: Req
         probe42CompanyId: company.probe42CompanyId,
       },
       financialYear: fy,
-      fallbackChainOrder: ['probe42', 'mca', 'nse_bse', 'finnhub', 'yahoo'],
+      fallbackChainOrder: ['credhive', 'mca', 'nse_bse', 'finnhub', 'yahoo'],
       sourcesAttempted,
       sourcesSucceeded: enriched.sources,
       metricsCollected: Object.keys(enriched.metrics),
@@ -5345,22 +5345,22 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
       results.push({ source: 'mca', status: 'skipped', error: 'API not configured' });
     }
     
-    // Try Probe42 sync - always attempt as it has mock data fallback in development
+    // Try CredHive sync - always attempt as it has mock data fallback in development
     try {
-      let probe42Id = companyData.probe42CompanyId;
+      let credhiveId = companyData.probe42CompanyId;
       
-      // If no Probe42 ID, try to search and link the company
-      if (!probe42Id && companyData.name) {
-        console.log(`[Refresh] No Probe42 ID, searching for: ${companyData.name}`);
+      // If no CredHive ID, try to search and link the company
+      if (!credhiveId && companyData.name) {
+        console.log(`[Refresh] No CredHive ID, searching for: ${companyData.name}`);
         const searchResults = await credhiveService.searchCompanyByNameOrCIN(companyData.name.substring(0, 50));
         
         if (searchResults.length > 0) {
           // Link the first matching company
-          probe42Id = searchResults[0].company_id;
-          console.log(`[Refresh] Found and linking Probe42 company: ${probe42Id}`);
+          credhiveId = searchResults[0].company_id;
+          console.log(`[Refresh] Found and linking CredHive company: ${credhiveId}`);
           
-          // Update company with Probe42 ID and CIN if available
-          const updateData: any = { probe42CompanyId: probe42Id };
+          // Update company with CredHive ID and CIN if available
+          const updateData: any = { probe42CompanyId: credhiveId };
           if (searchResults[0].cin && !companyData.cin) {
             updateData.cin = searchResults[0].cin;
             console.log(`[Refresh] Auto-populated CIN: ${searchResults[0].cin}`);
@@ -5370,21 +5370,21 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
         }
       }
       
-      // Use company's probe42 ID if available for direct sync
-      if (probe42Id) {
+      // Use company's CredHive ID if available for direct sync
+      if (credhiveId) {
         // Fetch company details (includes directors), financials, and ratios
         const [companyDetails, financials, ratios] = await Promise.all([
-          credhiveService.getCompanyDetails(probe42Id),
-          credhiveService.getCompanyFinancials(probe42Id, 3),
-          credhiveService.getCompanyRatios(probe42Id, 3),
+          credhiveService.getCompanyDetails(credhiveId),
+          credhiveService.getCompanyFinancials(credhiveId, 3),
+          credhiveService.getCompanyRatios(credhiveId, 3),
         ]);
         
-        // Update company with details from Probe42 including CIN if missing
+        // Update company with details from CredHive including CIN if missing
         if (companyDetails) {
           const updateData: any = { lastSyncedAt: new Date() };
           if (companyDetails.cin && !companyData.cin) {
             updateData.cin = companyDetails.cin;
-            console.log(`[Refresh] Auto-populated CIN from Probe42 details: ${companyDetails.cin}`);
+            console.log(`[Refresh] Auto-populated CIN from CredHive details: ${companyDetails.cin}`);
           }
           // Add capital info if available
           if (companyDetails.paid_up_capital) {
@@ -5402,7 +5402,7 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
           await storage.updateUnlistedCompany(companyId, updateData);
           
           if (companyDetails.directors && companyDetails.directors.length > 0) {
-            console.log(`[Refresh] Got ${companyDetails.directors.length} directors from Probe42`);
+            console.log(`[Refresh] Got ${companyDetails.directors.length} directors from CredHive`);
           }
         }
         
@@ -5423,7 +5423,7 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
               totalAssets: fin.total_assets?.toString(),
               networth: fin.networth?.toString(),
               totalDebt: fin.total_debt?.toString(),
-              dataSource: 'probe42' as const,
+              dataSource: 'credhive' as const,
               verified: false,
             };
             if (existingFin) {
@@ -5436,7 +5436,7 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
             console.log(`[Refresh] Could not save financial for ${fin.financial_year}:`, finError);
           }
         }
-        console.log(`[Refresh] Saved ${financialsSaved} financials from Probe42`);
+        console.log(`[Refresh] Saved ${financialsSaved} financials from CredHive`);
         
         // Store ratios in database
         let ratiosSaved = 0;
@@ -5457,7 +5457,7 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
               currentRatio: ratio.current_ratio?.toString(),
               revenueGrowth: ratio.revenue_growth?.toString(),
               profitGrowth: ratio.profit_growth?.toString(),
-              dataSource: 'probe42' as const,
+              dataSource: 'credhive' as const,
             };
             if (existingRatio) {
               await storage.updateCompanyRatios(existingRatio.id, ratioData);
@@ -5469,11 +5469,11 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
             console.log(`[Refresh] Could not save ratio for ${ratio.financial_year}:`, ratioError);
           }
         }
-        console.log(`[Refresh] Saved ${ratiosSaved} ratios from Probe42`);
+        console.log(`[Refresh] Saved ${ratiosSaved} ratios from CredHive`);
         
         if (financialsSaved > 0 || ratiosSaved > 0 || (companyDetails?.directors && companyDetails.directors.length > 0)) {
           results.push({ 
-            source: 'probe42', 
+            source: 'credhive', 
             status: 'success',
             data: {
               financials: financialsSaved,
@@ -5482,17 +5482,17 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
             }
           });
         } else {
-          results.push({ source: 'probe42', status: 'no_data' });
+          results.push({ source: 'credhive', status: 'no_data' });
         }
       } else {
-        results.push({ source: 'probe42', status: 'skipped', error: 'Could not find matching company in Probe42' });
+        results.push({ source: 'credhive', status: 'skipped', error: 'Could not find matching company in CredHive' });
       }
     } catch (p42Error: any) {
-      results.push({ source: 'probe42', status: 'error', error: p42Error.message });
+      results.push({ source: 'credhive', status: 'error', error: p42Error.message });
     }
     
     // Also run multi-source data enrichment with forceRefresh to bypass identity confidence check
-    // This ensures MCA fallback is used when CIN/ISIN are present but no Probe42 mapping exists
+    // This ensures MCA fallback is used when CIN/ISIN are present but no CredHive mapping exists
     try {
       const currentYear = new Date().getFullYear();
       const fy = `FY${currentYear - 1}-${currentYear.toString().slice(-2)}`;
@@ -5540,7 +5540,7 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
 /**
  * POST /api/unlisted/admin/auto-enrich/:companyId
  * Auto-enrich company metadata (name, sector, industry) from MCA using CIN
- * with Probe42 fallback. Used when sector/industry are "Unknown"
+ * with CredHive fallback. Used when sector/industry are "Unknown"
  */
 router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response) => {
   try {
@@ -5573,21 +5573,21 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
       });
     }
     
-    // If CIN is missing but we have a company name, try to fetch CIN from Probe42 search
+    // If CIN is missing but we have a company name, try to fetch CIN from CredHive search
     // Note: Sandbox.co.in MCA API doesn't support company name search, only CIN lookup
     let currentCIN = companyData.cin;
     if (!currentCIN && companyData.name) {
       try {
-        console.log(`[Auto-Enrich] No CIN available, searching Probe42 by company name: ${companyData.name}`);
-        const probe42Results = await credhiveService.searchCompanyByNameOrCIN(companyData.name);
+        console.log(`[Auto-Enrich] No CIN available, searching CredHive by company name: ${companyData.name}`);
+        const credhiveResults = await credhiveService.searchCompanyByNameOrCIN(companyData.name);
         
-        if (probe42Results && probe42Results.length > 0) {
+        if (credhiveResults && credhiveResults.length > 0) {
           // Find best match by name similarity
           const searchNameLower = companyData.name.toLowerCase().replace(/\s+/g, ' ').trim();
-          let bestMatch = probe42Results[0];
+          let bestMatch = credhiveResults[0];
           let bestScore = 0;
           
-          for (const result of probe42Results) {
+          for (const result of credhiveResults) {
             const resultNameLower = result.name.toLowerCase().replace(/\s+/g, ' ').trim();
             // Simple word match scoring
             const searchWords = searchNameLower.split(' ');
@@ -5608,9 +5608,9 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
           if (bestMatch.cin && bestScore >= 0.4) {
             currentCIN = bestMatch.cin;
             companyData.cin = bestMatch.cin; // Update local reference to prevent overwrite
-            console.log(`[Auto-Enrich] Found CIN ${bestMatch.cin} for "${companyData.name}" via Probe42 (matched: "${bestMatch.name}", score: ${(bestScore * 100).toFixed(1)}%)`);
+            console.log(`[Auto-Enrich] Found CIN ${bestMatch.cin} for "${companyData.name}" via CredHive (matched: "${bestMatch.name}", score: ${(bestScore * 100).toFixed(1)}%)`);
             
-            // Save the CIN and Probe42 ID to the company record
+            // Save the CIN and CredHive ID to the company record
             const updatePayload: any = { cin: bestMatch.cin, lastSyncedAt: new Date() };
             if (bestMatch.company_id) {
               updatePayload.probe42CompanyId = bestMatch.company_id;
@@ -5621,9 +5621,9 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
               field: 'cin',
               oldValue: null,
               newValue: bestMatch.cin,
-              source: 'Probe42'
+              source: 'CredHive'
             });
-            enrichmentSource = 'Probe42';
+            enrichmentSource = 'CredHive';
             
             // Also update name if official name differs meaningfully
             if (bestMatch.name && bestMatch.name.toLowerCase() !== companyData.name.toLowerCase()) {
@@ -5632,18 +5632,18 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
                 field: 'name',
                 oldValue: companyData.name,
                 newValue: bestMatch.name,
-                source: 'Probe42'
+                source: 'CredHive'
               });
               companyData.name = bestMatch.name; // Update local reference
             }
           } else {
-            console.log(`[Auto-Enrich] Probe42 search found ${probe42Results.length} results but no confident match (best score: ${(bestScore * 100).toFixed(1)}%)`);
+            console.log(`[Auto-Enrich] CredHive search found ${credhiveResults.length} results but no confident match (best score: ${(bestScore * 100).toFixed(1)}%)`);
           }
         } else {
-          console.log(`[Auto-Enrich] Could not find CIN for "${companyData.name}" in Probe42 search`);
+          console.log(`[Auto-Enrich] Could not find CIN for "${companyData.name}" in CredHive search`);
         }
       } catch (cinError: any) {
-        console.error('[Auto-Enrich] Error searching Probe42 for CIN:', cinError.message);
+        console.error('[Auto-Enrich] Error searching CredHive for CIN:', cinError.message);
       }
     }
     
@@ -5746,9 +5746,9 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
           
           if (Object.keys(updateData).length > 1) {
             await storage.updateUnlistedCompany(companyId, updateData);
-            // Combine sources if CIN was found via Probe42
-            if (enrichmentSource === 'Probe42') {
-              enrichmentSource = 'Probe42 + MCA';
+            // Combine sources if CIN was found via CredHive
+            if (enrichmentSource === 'CredHive') {
+              enrichmentSource = 'CredHive + MCA';
             } else if (enrichmentSource === 'none') {
               enrichmentSource = 'MCA';
             }
@@ -5760,51 +5760,51 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
       }
     }
     
-    // If still missing sector/industry, try Probe42
+    // If still missing sector/industry, try CredHive
     const stillNeedsSector = enrichedFields.every(f => f.field !== 'sector') && needsSectorEnrich;
     const stillNeedsIndustry = enrichedFields.every(f => f.field !== 'industry') && needsIndustryEnrich;
     
     if ((stillNeedsSector || stillNeedsIndustry) && companyData.probe42CompanyId) {
       try {
-        console.log(`[Auto-Enrich] Fetching Probe42 data for ID: ${companyData.probe42CompanyId}`);
-        const probe42Details = await credhiveService.getCompanyDetails(companyData.probe42CompanyId);
+        console.log(`[Auto-Enrich] Fetching CredHive data for ID: ${companyData.probe42CompanyId}`);
+        const credhiveDetails = await credhiveService.getCompanyDetails(companyData.probe42CompanyId);
         
-        if (probe42Details) {
+        if (credhiveDetails) {
           const updateData: any = { lastSyncedAt: new Date() };
           
-          if (probe42Details.sector && stillNeedsSector) {
-            updateData.sector = probe42Details.sector;
+          if (credhiveDetails.sector && stillNeedsSector) {
+            updateData.sector = credhiveDetails.sector;
             enrichedFields.push({
               field: 'sector',
               oldValue: companyData.sector || 'Unknown',
-              newValue: probe42Details.sector,
-              source: 'Probe42'
+              newValue: credhiveDetails.sector,
+              source: 'CredHive'
             });
           }
           
-          if (probe42Details.industry && stillNeedsIndustry) {
-            updateData.industry = probe42Details.industry;
+          if (credhiveDetails.industry && stillNeedsIndustry) {
+            updateData.industry = credhiveDetails.industry;
             enrichedFields.push({
               field: 'industry',
               oldValue: companyData.industry || 'Unknown',
-              newValue: probe42Details.industry,
-              source: 'Probe42'
+              newValue: credhiveDetails.industry,
+              source: 'CredHive'
             });
           }
           
           if (Object.keys(updateData).length > 1) {
             await storage.updateUnlistedCompany(companyId, updateData);
-            // Combine sources properly - add Probe42 details to existing source
-            if (enrichmentSource.includes('MCA') && !enrichmentSource.includes('Probe42')) {
-              enrichmentSource = enrichmentSource + ' + Probe42 Details';
+            // Combine sources properly
+            if (enrichmentSource.includes('MCA') && !enrichmentSource.includes('CredHive')) {
+              enrichmentSource = enrichmentSource + ' + CredHive';
             } else if (enrichmentSource === 'none' || enrichmentSource === '') {
-              enrichmentSource = 'Probe42';
+              enrichmentSource = 'CredHive';
             }
-            console.log(`[Auto-Enrich] Updated ${enrichedFields.length} fields from Probe42 for ${companyData.name}`);
+            console.log(`[Auto-Enrich] Updated ${enrichedFields.length} fields from CredHive for ${companyData.name}`);
           }
         }
       } catch (p42Error: any) {
-        console.error('[Auto-Enrich] Probe42 error:', p42Error.message);
+        console.error('[Auto-Enrich] CredHive error:', p42Error.message);
       }
     }
     
@@ -6278,7 +6278,7 @@ router.get('/admin/reconciliation/cache-status', requireAdmin, async (req: Reque
 
 // ===================================================================
 // UNIFIED SEARCH ROUTES (Admin only)
-// Search across MoneyControl and Probe42 simultaneously
+// Search across MoneyControl and CredHive simultaneously
 // ===================================================================
 
 interface UnifiedSearchResult {
@@ -6290,7 +6290,7 @@ interface UnifiedSearchResult {
   sector?: string;
   status?: string;
   incorporationDate?: string;
-  source: 'moneycontrol' | 'probe42' | 'mca' | 'fintekpro';
+  source: 'moneycontrol' | 'credhive' | 'mca' | 'fintekpro';
   currentPrice?: number;
   priceChange?: number;
   priceChangePercent?: number;
@@ -6548,12 +6548,12 @@ router.get('/admin/company-details/:source/:id', requireAdmin, async (req: Reque
         source: 'mca',
         company: details,
       });
-    } else if (source === 'probe42') {
+    } else if (source === 'credhive') {
       const details = await credhiveService.getCompanyDetails(id);
       const financials = await credhiveService.getCompanyFinancials(id).catch(() => null);
       
       return apiResponse.success(res, {
-        source: 'probe42',
+        source: 'credhive',
         company: details,
         financials,
       });
@@ -6570,7 +6570,7 @@ router.get('/admin/company-details/:source/:id', requireAdmin, async (req: Reque
         company: company.externalCompany,
       });
     } else {
-      return apiResponse.badRequest(res, 'Invalid source. Use "mca", "moneycontrol", or "probe42"');
+      return apiResponse.badRequest(res, 'Invalid source. Use "mca", "moneycontrol", or "credhive"');
     }
   } catch (error: any) {
     console.error('Error fetching company details:', error);
@@ -6621,7 +6621,7 @@ const addToFintekProSchema = z.object({
   currentPrice: z.number().positive('Current price must be positive').optional(),
   buyPrice: z.number().positive('Buy price must be positive').max(10000000, 'Buy price too high').optional(),
   sellPrice: z.number().positive('Sell price must be positive').max(10000000, 'Sell price too high').optional(),
-  source: z.enum(['moneycontrol', 'probe42', 'manual']),
+  source: z.enum(['moneycontrol', 'credhive', 'manual']),
   probe42CompanyId: z.string().optional(),
 });
 
@@ -6701,7 +6701,7 @@ const publishCompanySchema = z.object({
   currentPrice: z.number().positive('Current price must be positive').optional(),
   buyPrice: z.number().positive('Buy price must be positive').max(10000000, 'Buy price too high'),
   sellPrice: z.number().positive('Sell price must be positive').max(10000000, 'Sell price too high'),
-  source: z.enum(['moneycontrol', 'probe42', 'manual']),
+  source: z.enum(['moneycontrol', 'credhive', 'manual']),
   probe42CompanyId: z.string().optional(),
 }).refine(data => data.sellPrice > data.buyPrice, {
   message: 'Sell price must be greater than buy price',
@@ -8421,7 +8421,7 @@ router.get('/companies/:id/proposal-modifiers', requireAuth, async (req: Request
 /**
  * GET /api/unlisted/admin/financial-health
  * Admin dashboard: negative NW companies, high leverage, no financials, consecutive losses.
- * Fully derived from Probe42 data stored in company_financials / company_ratios.
+ * Fully derived from CredHive data stored in company_financials / company_ratios.
  */
 router.get('/admin/financial-health', requireAdmin, async (req: Request, res: Response) => {
   try {
@@ -8435,7 +8435,7 @@ router.get('/admin/financial-health', requireAdmin, async (req: Request, res: Re
 
 /**
  * POST /api/unlisted/admin/companies/:id/enrich
- * Trigger on-demand Probe42 enrichment for a single company.
+ * Trigger on-demand CredHive enrichment for a single company.
  * Useful immediately after adding a new instrument or after subscription upgrade.
  */
 router.post('/admin/companies/:id/enrich', requireAdmin, async (req: Request, res: Response) => {
@@ -8485,11 +8485,11 @@ router.get('/companies/:id/fhs', requireAuth, async (req: Request, res: Response
 
 /**
  * GET /api/unlisted/admin/vendor-calls
- * View Probe42 API call log (rate/cost monitoring).
+ * View CredHive API call log (rate/cost monitoring).
  */
 router.get('/admin/vendor-calls', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { vendor = 'probe42', limit = '100', success } = req.query;
+    const { vendor = 'credhive', limit = '100', success } = req.query;
     const { db: dbConn } = await import('../db');
     const { vendorApiCallLog } = await import('@shared/schema');
     const { desc: descOrd, eq: eqOp, and: andOp } = await import('drizzle-orm');

@@ -29,7 +29,7 @@ class RequestDeduplicationService {
    * Execute a request with deduplication
    * If an identical request is already in-flight, return its promise instead of making a new call
    * 
-   * @param key Unique identifier for the request (e.g., 'probe42:company:U12345MH2020PTC123456')
+   * @param key Unique identifier for the request (e.g., 'credhive:company:U12345MH2020PTC123456')
    * @param fetcher Function that makes the actual API call
    * @param ttlMs Optional TTL for keeping the result cached after completion (default: 0, no post-completion caching)
    */

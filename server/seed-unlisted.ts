@@ -308,7 +308,7 @@ export async function seedUnlistedMarketplace(userId: string) {
         companyId,
         financialYear: calculatedRatios.financialYear,
         // P/E and P/B are calculated dynamically during MCA enrichment
-        // when current price is available (see probe42-service.ts)
+        // when current price is available (see credhive-service.ts)
         peRatio: null, // Will be calculated from: Price / (PAT / Shares Outstanding)
         pbRatio: null, // Will be calculated from: Price / (Networth / Shares Outstanding)
         roe: calculatedRatios.roe,
