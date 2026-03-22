@@ -60,6 +60,8 @@ interface B2BLead {
   primaryMobile: string | null;
   city: string | null;
   state: string | null;
+  address: string | null;
+  pincode: string | null;
   industrySegment: string | null;
   companyCategory: string | null;
   leadScore: number;
@@ -1061,8 +1063,10 @@ function CreateB2BDialog({ open, onOpenChange, agents, onSubmit, isPending }: {
     cin: "",
     primaryEmail: "",
     primaryMobile: "",
+    address: "",
     city: "",
     state: "",
+    pincode: "",
     industrySegment: "",
     companyCategory: "mid_market",
     leadQuality: "warm",
@@ -1135,6 +1139,16 @@ function CreateB2BDialog({ open, onOpenChange, agents, onSubmit, isPending }: {
               />
             </div>
           </div>
+          <div className="grid gap-2">
+            <Label htmlFor="address">Address</Label>
+            <Textarea
+              id="address"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              placeholder="Registered office address"
+              rows={2}
+            />
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="city">City</Label>
@@ -1142,6 +1156,7 @@ function CreateB2BDialog({ open, onOpenChange, agents, onSubmit, isPending }: {
                 id="city"
                 value={formData.city}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                placeholder="Mumbai"
               />
             </div>
             <div className="grid gap-2">
@@ -1150,8 +1165,19 @@ function CreateB2BDialog({ open, onOpenChange, agents, onSubmit, isPending }: {
                 id="state"
                 value={formData.state}
                 onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                placeholder="Maharashtra"
               />
             </div>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="pincode">Pincode</Label>
+            <Input
+              id="pincode"
+              value={formData.pincode}
+              onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
+              placeholder="400001"
+              maxLength={6}
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
@@ -1745,14 +1771,15 @@ function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isPending }: {
     companyName: "",
     primaryEmail: "",
     primaryMobile: "",
+    address: "",
     city: "",
     state: "",
+    pincode: "",
     industrySegment: "",
     leadQuality: "",
     status: "",
     notes: "",
-    website: "",
-    address: ""
+    website: ""
   });
 
   useEffect(() => {
@@ -1761,14 +1788,15 @@ function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isPending }: {
         companyName: lead.companyName || "",
         primaryEmail: lead.primaryEmail || "",
         primaryMobile: lead.primaryMobile || "",
+        address: lead.address || "",
         city: lead.city || "",
         state: lead.state || "",
+        pincode: lead.pincode || "",
         industrySegment: lead.industrySegment || "",
         leadQuality: lead.leadQuality || "",
         status: lead.status || "",
         notes: "",
-        website: (lead as any).website || "",
-        address: (lead as any).address || ""
+        website: (lead as any).website || ""
       });
     }
   }, [lead, open]);
@@ -1778,13 +1806,14 @@ function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isPending }: {
     if (formData.companyName) updates.companyName = formData.companyName;
     if (formData.primaryEmail) updates.primaryEmail = formData.primaryEmail;
     if (formData.primaryMobile) updates.primaryMobile = formData.primaryMobile;
+    if (formData.address) updates.address = formData.address;
     if (formData.city) updates.city = formData.city;
     if (formData.state) updates.state = formData.state;
+    if (formData.pincode) updates.pincode = formData.pincode;
     if (formData.industrySegment) updates.industrySegment = formData.industrySegment;
     if (formData.leadQuality) updates.leadQuality = formData.leadQuality;
     if (formData.status) updates.status = formData.status;
     if (formData.website) updates.website = formData.website;
-    if (formData.address) updates.address = formData.address;
     onSubmit(updates);
   };
 
@@ -1869,6 +1898,17 @@ function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isPending }: {
                 placeholder="Maharashtra"
               />
             </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="edit-pincode">Pincode</Label>
+            <Input
+              id="edit-pincode"
+              value={formData.pincode}
+              onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
+              placeholder="400001"
+              maxLength={6}
+            />
           </div>
 
           <div className="grid gap-2">

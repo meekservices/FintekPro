@@ -229,6 +229,35 @@ export async function enrichAndScoreProspect(
 
   const fallbackRevenue = lead.annualRevenue ? parseFloat(String(lead.annualRevenue)) : null;
 
+  // Backfill address fields from CredHive when city/state/pincode are missing
+  if (lead.cin && (!lead.city || !lead.state || !lead.pincode)) {
+    try {
+      const profileResult = await credhiveService.getCompanyProfile(lead.cin);
+      if (profileResult.success && profileResult.data) {
+        const rawAddr = (profileResult.data as any).registered_address;
+        if (rawAddr && typeof rawAddr === "object") {
+          const addrUpdates: Record<string, string> = {};
+          if (!lead.city && rawAddr.city) addrUpdates.city = rawAddr.city;
+          if (!lead.state && rawAddr.state) addrUpdates.state = rawAddr.state;
+          if (!lead.pincode && rawAddr.pincode) addrUpdates.pincode = rawAddr.pincode;
+          if (!lead.address) {
+            const parts = [rawAddr.address_line, rawAddr.city, rawAddr.state, rawAddr.pincode].filter(Boolean);
+            if (parts.length > 0) addrUpdates.address = parts.join(", ");
+          }
+          if (Object.keys(addrUpdates).length > 0) {
+            await db.update(prospectLeads).set(addrUpdates as any).where(eq(prospectLeads.id, prospectId));
+            Object.assign(lead, addrUpdates);
+          }
+        } else if (rawAddr && typeof rawAddr === "string" && !lead.address) {
+          await db.update(prospectLeads).set({ address: rawAddr } as any).where(eq(prospectLeads.id, prospectId));
+          (lead as any).address = rawAddr;
+        }
+      }
+    } catch {
+      // Non-fatal — continue scoring even if address backfill fails
+    }
+  }
+
   // Upgrade 4: DIN-based multi-company lookup
   const directorCompanies = await fetchDirectorCompanies(
     lead.cin ?? "",
