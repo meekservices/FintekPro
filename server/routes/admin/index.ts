@@ -4543,6 +4543,42 @@ System Security Data:`;
     }
   });
   
+  // Screener.in bulk enrichment — fills revenue_growth, debt_to_equity, earnings_growth for pending stocks
+  // Works in any environment (dev + prod). Runs in background, returns immediately.
+  app.post("/api/admin/enrichment/screener/run", requireAdmin, async (req: any, res) => {
+    try {
+      const limit = Math.min(Number(req.body?.limit) || 100, 500);
+      const { runScreenerEnrichmentBatch } = await import("../../cron-enrichment");
+      runScreenerEnrichmentBatch(limit, "AdminScreenerEnrich").catch((e: any) =>
+        console.warn("[AdminScreenerEnrich] Batch failed:", e?.message)
+      );
+      res.json({ success: true, message: `Screener.in enrichment started for up to ${limit} pending stocks`, status: "running" });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Status of Screener.in enrichment (pending / complete / failed counts)
+  app.get("/api/admin/enrichment/screener/status", requireAdmin, async (_req, res) => {
+    try {
+      const { neon } = await import("@neondatabase/serverless");
+      const sqlNeon = neon(process.env.DATABASE_URL!);
+      const [statusRows, nullRevRows] = await Promise.all([
+        sqlNeon`SELECT enrichment_status, COUNT(*) as cnt FROM listed_stocks WHERE is_active = true GROUP BY enrichment_status ORDER BY cnt DESC`,
+        sqlNeon`SELECT 
+          COUNT(*) as total,
+          COUNT(revenue_growth) as has_revenue_growth,
+          COUNT(debt_to_equity) as has_debt_equity,
+          COUNT(earnings_growth) as has_earnings_growth,
+          COUNT(roe) as has_roe
+        FROM screener_financials`,
+      ]);
+      res.json({ success: true, enrichmentStatus: statusRows, screenerFinancials: nullRevRows[0] });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Combined enrichment stats
   app.get("/api/admin/enrichment/stats", requireAdmin, async (req, res) => {
     try {
