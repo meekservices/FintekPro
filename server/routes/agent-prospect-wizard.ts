@@ -27,7 +27,7 @@ import { assertLotsNotDropped } from "../services/holding-transformer";
 import { requireAuth, requireRole } from "../middleware/roleMiddleware";
 import { prospectReadinessService } from "../services/prospect-readiness-service";
 import { portfolioAnalyticsDataService } from "../services/portfolio-analytics-data-service";
-import { enrichAndScoreProspect, bulkScoreProspects, getSectorBenchmarks, getBenchmarkForSegment } from "../services/prospect-scoring-engine";
+import { enrichAndScoreProspect, bulkScoreProspects, getSectorBenchmarks, getBenchmarkForSegment, bustBenchmarkCache } from "../services/prospect-scoring-engine";
 import { prospectScoreHistory } from "@shared/schema";
 
 // Multer setup for CAS file upload
@@ -388,6 +388,90 @@ router.get("/prospects", async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
+
+// ── Static sub-collection routes must come BEFORE /:id wildcard ──────────────
+
+/**
+ * GET /api/agent-wizard/prospects/top-ranked
+ * Returns top prospects sorted by compositeScore DESC (Upgrade 6).
+ * MUST be before /:id to avoid Express capturing "top-ranked" as an id param.
+ */
+router.get(
+  "/prospects/top-ranked",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const limit = Math.min(parseInt(String(req.query.limit || "20")), 100);
+      const { isNotNull: isNotNullStatic } = await import("drizzle-orm");
+
+      const rows = await db
+        .select({
+          id: prospectLeads.id,
+          cin: prospectLeads.cin,
+          companyName: prospectLeads.companyName,
+          city: prospectLeads.city,
+          state: prospectLeads.state,
+          industrySegment: prospectLeads.industrySegment,
+          compositeScore: prospectLeads.compositeScore,
+          wealthScore: prospectLeads.wealthScore,
+          activityScore: prospectLeads.activityScore,
+          relationshipScore: prospectLeads.relationshipScore,
+          estimatedNetworth: prospectLeads.estimatedNetworth,
+          investableSurplus: prospectLeads.investableSurplus,
+          leadQuality: prospectLeads.leadQuality,
+          leadScore: prospectLeads.leadScore,
+          status: prospectLeads.status,
+          assignedTo: prospectLeads.assignedTo,
+          scoredAt: prospectLeads.scoredAt,
+        })
+        .from(prospectLeads)
+        .where(isNotNullStatic(prospectLeads.compositeScore))
+        .orderBy(descOrd(prospectLeads.compositeScore))
+        .limit(limit);
+
+      res.json({
+        success: true,
+        prospects: rows.map((r) => {
+          const cs = parseFloat(String(r.compositeScore || "0"));
+          return {
+            ...r,
+            compositeScore: cs,
+            wealthScore: parseFloat(String(r.wealthScore || "0")),
+            activityScore: parseFloat(String(r.activityScore || "0")),
+            relationshipScore: parseFloat(String(r.relationshipScore || "0")),
+            estimatedNetworth: parseFloat(String(r.estimatedNetworth || "0")),
+            investableSurplus: parseFloat(String(r.investableSurplus || "0")),
+            scoreTier: cs >= 80 ? "platinum" : cs >= 60 ? "gold" : cs >= 40 ? "silver" : "bronze",
+          };
+        }),
+      });
+    } catch (error: any) {
+      console.error("[Top Ranked] Error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+);
+
+/**
+ * GET /api/agent-wizard/prospects/benchmarks/sector
+ * Returns average scores by industry segment (Upgrade 8).
+ * Placed before /:id for safety (3-segment path, but consistent ordering is good practice).
+ */
+router.get(
+  "/prospects/benchmarks/sector",
+  requireAuth,
+  async (_req: Request, res: Response) => {
+    try {
+      const benchmarks = await getSectorBenchmarks();
+      res.json({ success: true, benchmarks });
+    } catch (error: any) {
+      console.error("[Sector Benchmarks] Error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+);
+
+// ── Per-prospect routes (/prospects/:id and sub-paths) ────────────────────────
 
 router.get("/prospects/:id", async (req: Request, res: Response) => {
   try {
@@ -3315,10 +3399,13 @@ router.post(
       const relationshipStrength = typeof req.body?.relationshipStrength === "number"
         ? req.body.relationshipStrength
         : undefined;
+      const staleAfterDays = typeof req.body?.staleAfterDays === "number" ? req.body.staleAfterDays : undefined;
+      const triggeredBy: string = req.body?.triggeredBy ?? "admin_manual";
 
-      const result = await bulkScoreProspects({ limit, relationshipStrength });
+      const result = await bulkScoreProspects({ limit, relationshipStrength, staleAfterDays, triggeredBy });
+      bustBenchmarkCache(); // sector averages changed after scoring
 
-      res.json({ success: true, ...result });
+      res.json({ success: true, result });
     } catch (error: any) {
       console.error("[Bulk Score] Error:", error);
       res.status(500).json({ success: false, error: error.message });
@@ -3437,91 +3524,6 @@ router.get(
       });
     } catch (error: any) {
       console.error("[Score History] Error:", error);
-      res.status(500).json({ success: false, error: error.message });
-    }
-  }
-);
-
-/**
- * GET /api/agent-wizard/prospects/benchmarks/sector
- *
- * Returns average composite/wealth/activity/relationship scores by industry segment (Upgrade 8).
- */
-router.get(
-  "/prospects/benchmarks/sector",
-  requireAuth,
-  async (_req: Request, res: Response) => {
-    try {
-      const benchmarks = await getSectorBenchmarks();
-      res.json({ success: true, benchmarks });
-    } catch (error: any) {
-      console.error("[Sector Benchmarks] Error:", error);
-      res.status(500).json({ success: false, error: error.message });
-    }
-  }
-);
-
-/**
- * GET /api/agent-wizard/prospects/top-ranked
- *
- * Returns top prospects sorted by compositeScore DESC (Upgrade 6 — data layer).
- * limit defaults to 20, max 100.
- */
-router.get(
-  "/prospects/top-ranked",
-  requireAuth,
-  async (req: Request, res: Response) => {
-    try {
-      const limit = Math.min(parseInt(String(req.query.limit || "20")), 100);
-      const { isNotNull } = await import("drizzle-orm");
-
-      const rows = await db
-        .select({
-          id: prospectLeads.id,
-          cin: prospectLeads.cin,
-          companyName: prospectLeads.companyName,
-          city: prospectLeads.city,
-          state: prospectLeads.state,
-          industrySegment: prospectLeads.industrySegment,
-          compositeScore: prospectLeads.compositeScore,
-          wealthScore: prospectLeads.wealthScore,
-          activityScore: prospectLeads.activityScore,
-          relationshipScore: prospectLeads.relationshipScore,
-          estimatedNetworth: prospectLeads.estimatedNetworth,
-          investableSurplus: prospectLeads.investableSurplus,
-          leadQuality: prospectLeads.leadQuality,
-          leadScore: prospectLeads.leadScore,
-          status: prospectLeads.status,
-          assignedTo: prospectLeads.assignedTo,
-          scoredAt: prospectLeads.scoredAt,
-        })
-        .from(prospectLeads)
-        .where(isNotNull(prospectLeads.compositeScore))
-        .orderBy(descOrd(prospectLeads.compositeScore))
-        .limit(limit);
-
-      res.json({
-        success: true,
-        prospects: rows.map((r) => ({
-          ...r,
-          compositeScore: parseFloat(String(r.compositeScore || "0")),
-          wealthScore: parseFloat(String(r.wealthScore || "0")),
-          activityScore: parseFloat(String(r.activityScore || "0")),
-          relationshipScore: parseFloat(String(r.relationshipScore || "0")),
-          estimatedNetworth: parseFloat(String(r.estimatedNetworth || "0")),
-          investableSurplus: parseFloat(String(r.investableSurplus || "0")),
-          scoreTier:
-            parseFloat(String(r.compositeScore || "0")) >= 80
-              ? "platinum"
-              : parseFloat(String(r.compositeScore || "0")) >= 60
-              ? "gold"
-              : parseFloat(String(r.compositeScore || "0")) >= 40
-              ? "silver"
-              : "bronze",
-        })),
-      });
-    } catch (error: any) {
-      console.error("[Top Ranked] Error:", error);
       res.status(500).json({ success: false, error: error.message });
     }
   }

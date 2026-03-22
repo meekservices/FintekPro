@@ -294,11 +294,22 @@ export async function bulkScoreProspects(options: {
   relationshipStrength?: number;
   triggeredBy?: string;
 } = {}): Promise<{ processed: number; succeeded: number; failed: number; errors: string[] }> {
-  const { limit = 50, relationshipStrength, triggeredBy = "bulk" } = options;
+  const { limit = 50, staleAfterDays, relationshipStrength, triggeredBy = "bulk" } = options;
+  const { or, isNull, lt: ltDrizzle } = await import("drizzle-orm");
+
+  // Build filter: unscored OR scored more than staleAfterDays ago
+  const staleThreshold = staleAfterDays
+    ? new Date(Date.now() - staleAfterDays * 24 * 60 * 60 * 1000)
+    : null;
+
+  const whereClause = staleThreshold
+    ? or(isNull(prospectLeads.scoredAt), ltDrizzle(prospectLeads.scoredAt, staleThreshold))
+    : isNull(prospectLeads.scoredAt); // default: only unscored leads
 
   const leads = await db
     .select({ id: prospectLeads.id, companyName: prospectLeads.companyName })
     .from(prospectLeads)
+    .where(whereClause)
     .limit(limit);
 
   let succeeded = 0;
@@ -329,8 +340,17 @@ export interface SectorBenchmark {
   count: number;
 }
 
+// ── Sector benchmark cache (5-minute TTL) ────────────────────────────────────
+let _benchmarkCache: { data: SectorBenchmark[]; expiresAt: number } | null = null;
+const BENCHMARK_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 /** Compute average scores per industry segment from existing scored leads */
 export async function getSectorBenchmarks(): Promise<SectorBenchmark[]> {
+  const now = Date.now();
+  if (_benchmarkCache && now < _benchmarkCache.expiresAt) {
+    return _benchmarkCache.data;
+  }
+
   const rows = await db
     .select({
       industrySegment: prospectLeads.industrySegment,
@@ -344,7 +364,7 @@ export async function getSectorBenchmarks(): Promise<SectorBenchmark[]> {
     .where(isNotNull(prospectLeads.compositeScore))
     .groupBy(prospectLeads.industrySegment);
 
-  return rows
+  const data = rows
     .filter((r) => r.industrySegment)
     .map((r) => ({
       industrySegment: r.industrySegment!,
@@ -354,6 +374,14 @@ export async function getSectorBenchmarks(): Promise<SectorBenchmark[]> {
       avgRelationshipScore: parseFloat(String(r.avgRelationship || "0")),
       count: Number(r.count),
     }));
+
+  _benchmarkCache = { data, expiresAt: now + BENCHMARK_CACHE_TTL_MS };
+  return data;
+}
+
+/** Bust the benchmark cache — call after any bulk scoring run */
+export function bustBenchmarkCache(): void {
+  _benchmarkCache = null;
 }
 
 /** Get the benchmark for a single industry segment */

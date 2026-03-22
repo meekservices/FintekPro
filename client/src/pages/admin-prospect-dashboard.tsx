@@ -1506,6 +1506,8 @@ interface ScoreData {
   financialHealthScore?: number;
   compositeScore: number;
   estimatedNetworth: number;
+  investableSurplus: number;
+  leadQuality?: string;
   scoringVersion?: string;
   scoredAt?: string;
 }
@@ -1639,7 +1641,7 @@ function ProspectScorePanel({ leadId, onScored }: { leadId: string; onScored?: (
           {/* Upgrade 8: Sector benchmark comparison */}
           {benchmark && (
             <div className="mt-1 pt-2 border-t text-xs space-y-1">
-              <p className="text-muted-foreground font-medium">vs Sector avg ({benchmark.segment})</p>
+              <p className="text-muted-foreground font-medium">vs Sector avg ({benchmark.industrySegment})</p>
               <div className="grid grid-cols-2 gap-1">
                 <span className="text-muted-foreground">Composite</span>
                 <span className={scoring.compositeScore >= benchmark.avgCompositeScore ? "text-green-600 font-medium" : "text-red-600"}>
@@ -1651,7 +1653,7 @@ function ProspectScorePanel({ leadId, onScored }: { leadId: string; onScored?: (
                   {scoring.wealthScore.toFixed(1)} vs {benchmark.avgWealthScore?.toFixed(1) ?? "—"}
                 </span>
               </div>
-              <p className="text-muted-foreground">{benchmark.sampleSize} peers in benchmark</p>
+              <p className="text-muted-foreground">{benchmark.count} peers in benchmark</p>
             </div>
           )}
 
