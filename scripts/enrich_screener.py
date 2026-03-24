@@ -307,31 +307,32 @@ def get_symbols(conn, resume=False, limit=None):
                 """)
         return [row[0] for row in cur.fetchall()]
 
+_COLUMN_SQL_FRAGMENTS: dict[str, str] = {
+    'roe':             'roe = COALESCE(%s, roe)',
+    'roce':            'roce = COALESCE(%s, roce)',
+    'dividend_yield':  'dividend_yield = COALESCE(%s, dividend_yield)',
+    'book_value':      'book_value = COALESCE(%s, book_value)',
+    'revenue_growth':  'revenue_growth = COALESCE(%s, revenue_growth)',
+    'earnings_growth': 'earnings_growth = COALESCE(%s, earnings_growth)',
+    'debt_to_equity':  'debt_to_equity = COALESCE(%s, debt_to_equity)',
+    'revenue':         'revenue = COALESCE(%s, revenue)',
+    'net_income':      'net_income = COALESCE(%s, net_income)',
+    'total_debt':      'total_debt = COALESCE(%s, total_debt)',
+    'total_equity':    'total_equity = COALESCE(%s, total_equity)',
+}
+
+
 def update_symbol(conn, symbol: str, data: dict, beta: float | None):
     """Update screener_financials for the most recent fiscal year of a symbol."""
     if not data:
         return
 
-    fields = {
-        'roe':            data.get('roe'),
-        'roce':           data.get('roce'),
-        'dividend_yield': data.get('dividend_yield'),
-        'book_value':     data.get('book_value'),
-        'revenue_growth': data.get('revenue_growth'),
-        'earnings_growth':data.get('earnings_growth'),
-        'debt_to_equity': data.get('debt_to_equity'),
-        'revenue':        data.get('revenue'),
-        'net_income':     data.get('net_income'),
-        'total_debt':     data.get('total_debt'),
-        'total_equity':   data.get('total_equity'),
-    }
-
-    # Build SET clause — only update non-null fields
     set_parts = []
     values = []
-    for col, val in fields.items():
+    for col, sql_fragment in _COLUMN_SQL_FRAGMENTS.items():
+        val = data.get(col)
         if val is not None:
-            set_parts.append(f"{col} = COALESCE(%s, {col})")
+            set_parts.append(sql_fragment)
             values.append(val)
 
     if not set_parts:
@@ -340,18 +341,16 @@ def update_symbol(conn, symbol: str, data: dict, beta: float | None):
     set_parts.append("last_updated = now()")
     values.append(symbol)
 
-    sql = f"""
-        UPDATE screener_financials
-        SET {', '.join(set_parts)}
-        WHERE symbol = %s
-          AND fiscal_year = (
-            SELECT MAX(fiscal_year) FROM screener_financials WHERE symbol = %s
-          )
-    """
-    values.append(symbol)  # for the subquery
+    query = (
+        "UPDATE screener_financials SET "
+        + ", ".join(set_parts)
+        + " WHERE symbol = %s AND fiscal_year = ("
+        + "SELECT MAX(fiscal_year) FROM screener_financials WHERE symbol = %s)"
+    )
+    values.append(symbol)
 
     with conn.cursor() as cur:
-        cur.execute(sql, values)
+        cur.execute(query, values)
     conn.commit()
 
 # ─── Main ─────────────────────────────────────────────────────────────────────

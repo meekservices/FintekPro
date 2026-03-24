@@ -1777,7 +1777,7 @@ router.post("/api/agent/zoho/leads/:leadId/proposal", requireAuth, async (req, r
     });
 
     if (!noteId) {
-      console.warn(`[Agent Zoho] Failed to create note for lead ${leadId}`);
+      console.warn('[Agent Zoho] Failed to create note for lead', leadId);
       return res.status(502).json({
         success: false,
         synced: false,
