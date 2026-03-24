@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import DOMPurify from "isomorphic-dompurify";
+import parse from "html-react-parser";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1538,8 +1539,9 @@ export default function AgentESignPage() {
                   {uploadedDocumentData?.convertedFormat === 'html' && uploadedDocumentData?.htmlContent ? (
                     <div 
                       className="p-6 prose dark:prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(uploadedDocumentData.htmlContent) }}
-                    />
+                    >
+                      {parse(DOMPurify.sanitize(uploadedDocumentData.htmlContent))}
+                    </div>
                   ) : uploadedDocumentData?.displayUrl ? (
                     <iframe
                       src={uploadedDocumentData.displayUrl}

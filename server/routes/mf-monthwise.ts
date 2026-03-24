@@ -1,4 +1,5 @@
 import { Express } from 'express';
+import { randomInt } from 'crypto';
 import { storage } from '../storage';
 import { db } from '../db';
 import * as schema from '@shared/schema';
@@ -1692,7 +1693,7 @@ export function registerMFMonthwiseRoutes(app: Express): void {
         accountType: "INDIVIDUAL",
         openingDate: new Date().toISOString().split('T')[0],
         kycStatus: "COMPLETED",
-        tpin: Math.floor(100000 + Math.random() * 900000).toString(),
+        tpin: randomInt(100000, 1000000).toString(),
         holdingNature: "BENEFICIAL_OWNER"
       };
 

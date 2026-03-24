@@ -98,7 +98,7 @@ import { validateKYC } from './kyc-middleware';
 import { requireLevel1, requireLevel2, injectKYCLevel, checkProductAccess, getAccessibleProducts, getUserKYCLevel } from './middleware/kyc-level-gate';
 import { MultiSourceMFService } from './services/multisource-mf-service';
 import { ObjectStorageService, ObjectNotFoundError } from './objectStorage';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomInt } from 'crypto';
 import { ObjectPermission } from './objectAcl';
 import AIPortfolioService from './ai-portfolio-service';
 import { FundComparisonService } from './services/fund-comparison-service';
@@ -7688,7 +7688,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       }
       
       // Generate OTP and challenge ID
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otp = randomInt(100000, 1000000).toString();
       const challengeId = `refresh_${schemeType}_${userId}_${Date.now()}`;
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
       

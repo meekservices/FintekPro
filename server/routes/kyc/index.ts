@@ -1,4 +1,5 @@
 import { Express, Request, Response } from 'express';
+import { randomInt } from 'crypto';
 import { requireClientOrHigher } from '../../middleware/auth';
 import { getAccessibleProducts, getUserKYCLevel } from '../../middleware/kyc-level-gate';
 import { storage } from '../../storage';
@@ -1626,7 +1627,7 @@ export function registerKYCWizardRoutes(app: Express) {
       }
       
       // Generate 6-digit OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otp = randomInt(100000, 1000000).toString();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
       
       // Delete any existing OTP for this identifier
