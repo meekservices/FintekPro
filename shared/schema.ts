@@ -13720,7 +13720,7 @@ export const unlistedAuditLog = pgTable("unlisted_audit_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
   actionType: varchar("action_type").notNull(), // price_saved, price_published, compliance_override, trading_suspended, trading_resumed
-  actionBy: varchar("action_by").references(() => users.id).notNull(),
+  actionBy: varchar("action_by").notNull(), // system identifier or admin/agent id string (no FK - stores system_ prefixed values)
   
   // Price Change Details
   previousBuyPrice: decimal("previous_buy_price", { precision: 20, scale: 2 }),
