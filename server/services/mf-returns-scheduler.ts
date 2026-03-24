@@ -212,7 +212,7 @@ class MFReturnsScheduler {
       .where(
         and(
           or(isNull(mutualFunds.returns1y), isNull(mutualFunds.returns3y)),
-          or(isNull(mutualFunds.updatedAt), lt(mutualFunds.updatedAt, twentyHoursAgo))
+          or(isNull(mutualFunds.lastUpdated), lt(mutualFunds.lastUpdated, twentyHoursAgo))
         )
       )
       .limit(batchSize);
@@ -234,7 +234,7 @@ class MFReturnsScheduler {
               returns3y: storedReturns.returns3y?.toString(),
               returns5y: storedReturns.returns5y?.toString(),
               nav: storedReturns.currentNav?.toString(),
-              updatedAt: new Date()
+              lastUpdated: new Date()
             })
             .where(eq(mutualFunds.schemeCode, fund.schemeCode));
           
@@ -262,25 +262,25 @@ class MFReturnsScheduler {
                   returns3y: freshReturns.returns3y?.toString(),
                   returns5y: freshReturns.returns5y?.toString(),
                   nav: freshReturns.currentNav?.toString(),
-                  updatedAt: new Date()
+                  lastUpdated: new Date()
                 })
                 .where(eq(mutualFunds.schemeCode, fund.schemeCode));
               
               apiSynced++;
             } else {
               // Insufficient NAV history (e.g. new NFO with only 2 data points).
-              // Stamp updatedAt so this fund is excluded from the next 20 hours
+              // Stamp lastUpdated so this fund is excluded from the next 20 hours
               // of hourly runs — preventing redundant MFAPI calls every hour.
               await db.update(mutualFunds)
-                .set({ updatedAt: new Date() })
+                .set({ lastUpdated: new Date() })
                 .where(eq(mutualFunds.schemeCode, fund.schemeCode));
             }
           } catch (err: any) {
-            // API fetch failed — still stamp updatedAt so we don't hammer MFAPI
+            // API fetch failed — still stamp lastUpdated so we don't hammer MFAPI
             // on every hourly cycle. The fund will be retried after the cooldown.
             try {
               await db.update(mutualFunds)
-                .set({ updatedAt: new Date() })
+                .set({ lastUpdated: new Date() })
                 .where(eq(mutualFunds.schemeCode, fund.schemeCode));
             } catch (tsErr: any) {
               console.warn('[MFReturnsScheduler] Failed to update timestamp:', tsErr?.message);
