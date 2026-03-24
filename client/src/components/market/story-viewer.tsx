@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import DOMPurify from "isomorphic-dompurify";
+import parse from "html-react-parser";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -182,9 +183,10 @@ export function StoryViewer({ story, onRefresh, isRefreshing = false }: StoryVie
           {/* Main Content */}
           <div 
             className="prose dark:prose-invert max-w-none mb-6"
-            dangerouslySetInnerHTML={{ __html: sanitizedContent }}
             data-testid="story-content"
-          />
+          >
+            {parse(sanitizedContent)}
+          </div>
           
           {/* Key Points */}
           {story.keyPoints.length > 0 && (
