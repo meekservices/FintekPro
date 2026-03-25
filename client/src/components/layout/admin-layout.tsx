@@ -426,12 +426,17 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <h1 className="text-2xl font-bold text-foreground mb-2">
             Access Denied
           </h1>
-          <p className="text-muted-foreground mb-6">
-            This admin portal is restricted to administrators only. Please sign in with an admin account.
+          <p className="text-muted-foreground mb-2">
+            This admin portal is restricted to administrators only.
           </p>
+          {user.email && (
+            <p className="text-sm text-muted-foreground mb-6">
+              You are signed in as <strong>{user.email}</strong>, which does not have admin access.
+            </p>
+          )}
           <div className="space-y-3">
-            <Button asChild className="w-full">
-              <a href="/auth">Sign In</a>
+            <Button className="w-full" onClick={() => { window.location.href = '/api/logout'; }}>
+              Sign Out and Switch Account
             </Button>
             <Button variant="outline" asChild className="w-full">
               <a href="https://fintekpro.com">Go to Main Portal</a>

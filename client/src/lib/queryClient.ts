@@ -269,11 +269,11 @@ export const getQueryFn: <T>(options: {
       credentials: "include",
     });
 
-    if (res.status === 401) {
+    if (res.status === 401 || res.status === 403) {
       if (unauthorizedBehavior === "returnNull") {
         return null;
       }
-      if (shouldTriggerSessionExpired(url)) {
+      if (res.status === 401 && shouldTriggerSessionExpired(url)) {
         notifySessionExpired({ url, queryKey });
         throw new ApiError("Session expired", 401, {
           code: "SESSION_EXPIRED",

@@ -227,12 +227,17 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
           <h1 className="text-2xl font-bold text-foreground mb-2">
             Access Denied
           </h1>
-          <p className="text-muted-foreground mb-6">
-            This partner portal is restricted to registered partners only. Please sign in with a partner account.
+          <p className="text-muted-foreground mb-2">
+            This partner portal is restricted to registered partners only.
           </p>
+          {user.email && (
+            <p className="text-sm text-muted-foreground mb-6">
+              You are signed in as <strong>{user.email}</strong>, which does not have partner access.
+            </p>
+          )}
           <div className="space-y-3">
-            <Button asChild className="w-full">
-              <a href="/auth">Sign In</a>
+            <Button className="w-full" onClick={() => { window.location.href = '/api/logout'; }}>
+              Sign Out and Switch Account
             </Button>
             <Button asChild className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
               <a href="/partner/register">Register as Partner</a>
