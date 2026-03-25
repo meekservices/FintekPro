@@ -6,15 +6,18 @@ import * as schema from "@shared/schema";
 neonConfig.webSocketConstructor = ws;
 neonConfig.pipelineConnect = false;
 
-// Accept either secret name — NEON_DATABASE_URL is Replit's auto-provisioned
-// name for the same Neon connection string.
+// Connection priority:
+//   1. PRODUCTION_DATABASE_URL — user-managed Neon instance (primary for all environments)
+//   2. DATABASE_URL            — Replit-managed built-in PostgreSQL (dev fallback)
+// NOTE: NEON_DATABASE_URL (old Replit Neon dev database) has been removed — Replit
+//       is retiring that database. DATABASE_URL is the new Replit-managed database.
 const selectedDbUrl =
   process.env.PRODUCTION_DATABASE_URL ||
-  process.env.NEON_DATABASE_URL;
+  process.env.DATABASE_URL;
 
 if (!selectedDbUrl) {
   throw new Error(
-    "No database URL found. Set PRODUCTION_DATABASE_URL or NEON_DATABASE_URL in your environment secrets.",
+    "No database URL found. Set PRODUCTION_DATABASE_URL in your environment secrets.",
   );
 }
 
@@ -24,7 +27,7 @@ export const isUsingProductionDb = true;
 
 const dbUrlSource = process.env.PRODUCTION_DATABASE_URL
   ? 'PRODUCTION_DATABASE_URL'
-  : 'NEON_DATABASE_URL';
+  : 'DATABASE_URL';
 
 if (!isProduction) {
   console.log(`🔗 [DB] Development using PRODUCTION database via ${dbUrlSource}`);

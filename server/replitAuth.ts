@@ -52,7 +52,6 @@ export function getSession() {
   // Must use the same DB as the main app so the sessions table exists
   const sessionDbUrl =
     process.env.PRODUCTION_DATABASE_URL ||
-    process.env.NEON_DATABASE_URL ||
     process.env.DATABASE_URL;
   const sessionPool = new pg.Pool({
     connectionString: sessionDbUrl,
