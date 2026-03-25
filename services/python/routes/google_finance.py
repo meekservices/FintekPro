@@ -41,6 +41,9 @@ _SESSION.headers.update({
 _CHROMIUM_TIMEOUT = 20
 _JSONP_TIMEOUT = 6
 
+# Resolved path to the Chromium binary (None if not installed)
+_CHROMIUM = shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome")
+
 def _safe_float(v) -> Optional[float]:
     try:
         if v is None:
