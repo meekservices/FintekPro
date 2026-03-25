@@ -101,7 +101,8 @@ export async function callPython<T = any>(
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      console.warn(`[PythonClient] ${method} ${path} → HTTP ${res.status}: ${text.slice(0, 200)}`);
+      const summary = text.replace(/\s+/g, ' ').slice(0, 120);
+      console.warn(`[PythonClient] ${method} ${path} → HTTP ${res.status}: ${summary}`);
       return null;
     }
 
