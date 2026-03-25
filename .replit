@@ -8,7 +8,7 @@ packages = ["atk", "chromium", "gdk-pixbuf", "glib", "glibcLocales", "gtk3", "li
 
 [deployment]
 deploymentTarget = "autoscale"
-build = ["npm", "run", "build"]
+build = ["bash", "-c", "NODE_OPTIONS='--max-old-space-size=2048' npm run build"]
 run = ["bash", "scripts/start-production.sh"]
 
 [env]
