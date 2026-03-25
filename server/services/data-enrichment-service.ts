@@ -1185,7 +1185,7 @@ class DataEnrichmentService {
           });
         }
       } catch (error: any) {
-        console.error(`[DataEnrichment] MCA fetch failed: ${error.message}`);
+        console.warn(`[DataEnrichment] MCA fetch failed: ${error.message}`);
         auditTrail.push({
           id: crypto.randomUUID(),
           timestamp: new Date(),
@@ -1228,7 +1228,7 @@ class DataEnrichmentService {
         });
       }
     } catch (error: any) {
-      console.error(`[DataEnrichment] NSE/BSE fetch failed: ${error.message}`);
+      console.warn(`[DataEnrichment] NSE/BSE fetch failed: ${error.message}`);
       auditTrail.push({
         id: crypto.randomUUID(),
         timestamp: new Date(),
@@ -1284,7 +1284,7 @@ class DataEnrichmentService {
           collectedMetrics.set(key, existing);
         }
       } catch (error: any) {
-        console.error(`[DataEnrichment] BSE fetch failed: ${error.message}`);
+        console.warn(`[DataEnrichment] BSE fetch failed: ${error.message}`);
         auditTrail.push({
           id: crypto.randomUUID(),
           timestamp: new Date(),
@@ -1345,7 +1345,7 @@ class DataEnrichmentService {
           });
         }
       } catch (error: any) {
-        console.error(`[DataEnrichment] Finnhub fetch failed: ${error.message}`);
+        console.warn(`[DataEnrichment] Finnhub fetch failed: ${error.message}`);
         auditTrail.push({
           id: crypto.randomUUID(),
           timestamp: new Date(),
@@ -1432,7 +1432,7 @@ class DataEnrichmentService {
           });
         }
       } catch (error: any) {
-        console.error(`[DataEnrichment] Yahoo fetch failed: ${error.message}`);
+        console.warn(`[DataEnrichment] Yahoo fetch failed: ${error.message}`);
         auditTrail.push({
           id: crypto.randomUUID(),
           timestamp: new Date(),

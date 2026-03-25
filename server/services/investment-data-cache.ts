@@ -93,7 +93,7 @@ class InvestmentDataCache {
         
         if (cacheAge >= config.ttlMs && !this.refreshLocks.get(productType)) {
           this.refreshProductType(productType).catch(err => {
-            console.error(`❌ [InvestmentDataCache] Background refresh failed for ${productType}:`, err);
+            console.warn(`[InvestmentDataCache] Background refresh failed for ${productType}: ${err?.message || err}`);
           });
         }
       }
@@ -127,7 +127,7 @@ class InvestmentDataCache {
       }
     } catch (error) {
       this.metrics.errors++;
-      console.error(`❌ [InvestmentDataCache] Refresh failed for ${type}:`, error);
+      console.warn(`[InvestmentDataCache] Refresh failed for ${type}: ${(error as any)?.message || error}`);
       if (existingEntry) {
         existingEntry.isRefreshing = false;
       }
@@ -195,7 +195,7 @@ class InvestmentDataCache {
         last_updated: reit.lastUpdated?.toISOString() || new Date().toISOString(),
       }));
     } catch (error) {
-      console.error('❌ [InvestmentDataCache] Failed to fetch REITs:', error);
+      console.warn(`[InvestmentDataCache] Failed to fetch REITs: ${(error as any)?.message || error}`);
       return [];
     }
   }
@@ -227,7 +227,7 @@ class InvestmentDataCache {
         last_updated: invit.lastUpdated?.toISOString() || new Date().toISOString(),
       }));
     } catch (error) {
-      console.error('❌ [InvestmentDataCache] Failed to fetch InvITs:', error);
+      console.warn(`[InvestmentDataCache] Failed to fetch InvITs: ${(error as any)?.message || error}`);
       return [];
     }
   }
@@ -259,7 +259,7 @@ class InvestmentDataCache {
         last_updated: ipo.updatedAt?.toISOString() || new Date().toISOString(),
       }));
     } catch (error) {
-      console.error('❌ [InvestmentDataCache] Failed to fetch IPOs:', error);
+      console.warn(`[InvestmentDataCache] Failed to fetch IPOs: ${(error as any)?.message || error}`);
       return [];
     }
   }
@@ -291,7 +291,7 @@ class InvestmentDataCache {
         last_updated: company.lastPriceUpdate?.toISOString() || new Date().toISOString(),
       }));
     } catch (error) {
-      console.error('❌ [InvestmentDataCache] Failed to fetch Unlisted Equities:', error);
+      console.warn(`[InvestmentDataCache] Failed to fetch Unlisted Equities: ${(error as any)?.message || error}`);
       return [];
     }
   }
@@ -326,7 +326,7 @@ class InvestmentDataCache {
         last_updated: aif.updatedAt?.toISOString() || new Date().toISOString(),
       }));
     } catch (error) {
-      console.error('❌ [InvestmentDataCache] Failed to fetch AIFs:', error);
+      console.warn(`[InvestmentDataCache] Failed to fetch AIFs: ${(error as any)?.message || error}`);
       return [];
     }
   }
@@ -468,7 +468,7 @@ class InvestmentDataCache {
       if (cacheAge < config.staleTtlMs) {
         this.metrics.hits++;
         if (!this.refreshLocks.get(type)) {
-          this.refreshProductType(type).catch(console.error);
+          this.refreshProductType(type).catch(err => console.warn(`[InvestmentDataCache] Stale refresh failed for ${type}: ${err?.message || err}`));
         }
         return { data: entry.data, cached: true, cacheAge };
       }
