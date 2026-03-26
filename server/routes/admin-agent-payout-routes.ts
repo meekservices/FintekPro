@@ -497,7 +497,7 @@ router.get("/stats", async (req: Request, res: Response) => {
     const [pendingStats] = await db
       .select({
         count: sql<number>`count(*)`,
-        amount: sql<number>`COALESCE(SUM(claim_amount::numeric), 0)`,
+        amount: sql<number>`COALESCE(SUM(claimed_amount::numeric), 0)`,
       })
       .from(agentPayoutClaims)
       .where(eq(agentPayoutClaims.status, "pending"));
@@ -505,7 +505,7 @@ router.get("/stats", async (req: Request, res: Response) => {
     const [approvedStats] = await db
       .select({
         count: sql<number>`count(*)`,
-        amount: sql<number>`COALESCE(SUM(claim_amount::numeric), 0)`,
+        amount: sql<number>`COALESCE(SUM(approved_amount::numeric), 0)`,
       })
       .from(agentPayoutClaims)
       .where(eq(agentPayoutClaims.status, "approved"));
@@ -513,7 +513,7 @@ router.get("/stats", async (req: Request, res: Response) => {
     const [paidStats] = await db
       .select({
         count: sql<number>`count(*)`,
-        amount: sql<number>`COALESCE(SUM(claim_amount::numeric), 0)`,
+        amount: sql<number>`COALESCE(SUM(approved_amount::numeric), 0)`,
       })
       .from(agentPayoutClaims)
       .where(eq(agentPayoutClaims.status, "paid"));

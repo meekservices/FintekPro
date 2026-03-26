@@ -201,16 +201,20 @@ class LoanCommissionService {
 
     // Agent-assisted applications may have different agent share based on agent role
     let adjustedAgentAmount = baseResult.agentAmount;
+    let adjustedFintekProAmount = baseResult.fintekProAmount;
     if (params.originationMode === OriginationMode.AGENT_ASSISTED && params.agentRole) {
-      // Master agents get higher share
+      // Master agents get 20% bonus on their share — deducted from FintekPro's share to keep totals balanced
       if (params.agentRole === "master_agent") {
-        adjustedAgentAmount = baseResult.agentAmount * 1.2; // 20% bonus
+        const bonus = Math.round(baseResult.agentAmount * 0.20 * 100) / 100;
+        adjustedAgentAmount = Math.round((baseResult.agentAmount + bonus) * 100) / 100;
+        adjustedFintekProAmount = Math.round((baseResult.fintekProAmount - bonus) * 100) / 100;
       }
     }
 
     return {
       ...baseResult,
-      agentAmount: Math.round(adjustedAgentAmount * 100) / 100,
+      agentAmount: adjustedAgentAmount,
+      fintekProAmount: adjustedFintekProAmount,
       originationMode: params.originationMode,
       routingIntent: params.routingIntent,
       bankCode: params.bankCode,
@@ -272,6 +276,17 @@ class LoanCommissionService {
     customRate?: number
   ): Promise<CommissionLedgerEntry | null> {
     try {
+      // Guard against duplicate entries for the same application
+      const existing = await db
+        .select({ id: loanCommissionLedger.id })
+        .from(loanCommissionLedger)
+        .where(eq(loanCommissionLedger.applicationId, applicationId))
+        .limit(1);
+      if (existing.length > 0) {
+        console.warn(`[CommissionService] Commission entry already exists for application ${applicationId} (id: ${existing[0].id}) — skipping duplicate creation`);
+        return existing[0] as any as CommissionLedgerEntry;
+      }
+
       const calculation = this.calculateCommission(loanAmount, productType, customRate);
       
       const entry: Partial<InsertLoanCommissionLedger> = {
@@ -345,17 +360,47 @@ class LoanCommissionService {
     disbursementDate: Date
   ): Promise<void> {
     try {
+      // Fetch the existing ledger entry to get the product type and custom rate
+      const existing = await db
+        .select()
+        .from(loanCommissionLedger)
+        .where(eq(loanCommissionLedger.applicationId, applicationId))
+        .limit(1);
+
+      if (existing.length === 0) {
+        console.warn(`[CommissionService] No ledger entry found for application ${applicationId} — cannot update on disbursement`);
+        return;
+      }
+
+      const entry = existing[0] as any;
+      const productType = (entry.productId || 'personal') as LoanProductType;
+      const customRate = entry.commissionRate ? parseFloat(entry.commissionRate) : undefined;
+
+      // Recalculate commission on actual disbursed amount
+      const calculation = this.calculateCommission(disbursedAmount, productType, customRate);
+
       await db
         .update(loanCommissionLedger)
         .set({
           loanAmount: disbursedAmount.toString(),
           disbursementDate,
+          commissionableBase: calculation.breakdown.commissionableBase.toString(),
+          grossCommission: calculation.grossCommission.toString(),
+          tdsAmount: calculation.tdsAmount.toString(),
+          gstAmount: calculation.gstAmount.toString(),
+          netCommission: calculation.netCommission.toString(),
+          fintekProAmount: calculation.fintekProAmount.toString(),
+          partnerAmount: calculation.partnerAmount.toString(),
+          agentAmount: calculation.agentAmount.toString(),
           status: 'approved',
           updatedAt: new Date(),
-        })
+        } as any)
         .where(eq(loanCommissionLedger.applicationId, applicationId));
 
-      console.log(`[CommissionService] Updated commission for disbursed loan ${applicationId}`);
+      console.log(`[CommissionService] Recalculated commission on actual disbursement of ₹${disbursedAmount} for application ${applicationId}`, {
+        grossCommission: calculation.grossCommission,
+        netCommission: calculation.netCommission,
+      });
     } catch (error) {
       console.error('[CommissionService] Failed to update on disbursement:', error);
     }
@@ -418,58 +463,75 @@ class LoanCommissionService {
     byProvider: Record<string, { count: number; amount: number }>;
     byProduct: Record<string, { count: number; amount: number }>;
   }> {
-    const entries = await this.getCommissionLedger(filters);
+    // Use SQL aggregation rather than pulling all rows into memory
+    const conditions: any[] = [];
+    if (filters?.providerId) conditions.push(eq(loanCommissionLedger.providerId, filters.providerId));
+    if (filters?.startDate) conditions.push(gte(loanCommissionLedger.createdAt, filters.startDate));
+    if (filters?.endDate) conditions.push(lte(loanCommissionLedger.createdAt, filters.endDate));
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const summary = {
-      totalGrossCommission: 0,
-      totalNetCommission: 0,
-      totalTds: 0,
-      totalGst: 0,
-      totalFintekProShare: 0,
-      totalPartnerShare: 0,
-      totalAgentShare: 0,
-      pendingCount: 0,
-      approvedCount: 0,
-      paidCount: 0,
-      byProvider: {} as Record<string, { count: number; amount: number }>,
-      byProduct: {} as Record<string, { count: number; amount: number }>,
-    };
+    const [totals] = await db
+      .select({
+        totalGrossCommission: sql<number>`COALESCE(SUM(gross_commission::numeric), 0)`,
+        totalNetCommission: sql<number>`COALESCE(SUM(net_commission::numeric), 0)`,
+        totalTds: sql<number>`COALESCE(SUM(tds_amount::numeric), 0)`,
+        totalGst: sql<number>`COALESCE(SUM(gst_amount::numeric), 0)`,
+        totalFintekProShare: sql<number>`COALESCE(SUM(fintek_pro_amount::numeric), 0)`,
+        totalPartnerShare: sql<number>`COALESCE(SUM(partner_amount::numeric), 0)`,
+        totalAgentShare: sql<number>`COALESCE(SUM(agent_amount::numeric), 0)`,
+        pendingCount: sql<number>`COUNT(*) FILTER (WHERE status = 'pending')`,
+        approvedCount: sql<number>`COUNT(*) FILTER (WHERE status = 'approved')`,
+        paidCount: sql<number>`COUNT(*) FILTER (WHERE status = 'paid')`,
+      })
+      .from(loanCommissionLedger)
+      .where(where);
 
-    for (const entry of entries) {
-      const gross = parseFloat(entry.grossCommission) || 0;
-      const net = parseFloat(entry.netCommission) || 0;
-      const tds = parseFloat(entry.tdsAmount) || 0;
-      const gst = parseFloat(entry.gstAmount) || 0;
-      const fintekPro = parseFloat(entry.fintekProAmount) || 0;
-      const partner = parseFloat(entry.partnerAmount) || 0;
-      const agent = parseFloat(entry.agentAmount) || 0;
+    const byProviderRows = await db
+      .select({
+        providerId: loanCommissionLedger.providerId,
+        count: sql<number>`COUNT(*)`,
+        amount: sql<number>`COALESCE(SUM(net_commission::numeric), 0)`,
+      })
+      .from(loanCommissionLedger)
+      .where(where)
+      .groupBy(loanCommissionLedger.providerId);
 
-      summary.totalGrossCommission += gross;
-      summary.totalNetCommission += net;
-      summary.totalTds += tds;
-      summary.totalGst += gst;
-      summary.totalFintekProShare += fintekPro;
-      summary.totalPartnerShare += partner;
-      summary.totalAgentShare += agent;
+    const byProductRows = await db
+      .select({
+        productId: loanCommissionLedger.productId,
+        count: sql<number>`COUNT(*)`,
+        amount: sql<number>`COALESCE(SUM(net_commission::numeric), 0)`,
+      })
+      .from(loanCommissionLedger)
+      .where(where)
+      .groupBy(loanCommissionLedger.productId);
 
-      if (entry.status === 'pending') summary.pendingCount++;
-      if (entry.status === 'approved') summary.approvedCount++;
-      if (entry.status === 'paid') summary.paidCount++;
-
-      if (!summary.byProvider[entry.providerId]) {
-        summary.byProvider[entry.providerId] = { count: 0, amount: 0 };
-      }
-      summary.byProvider[entry.providerId].count++;
-      summary.byProvider[entry.providerId].amount += net;
-
-      if (!summary.byProduct[entry.productId]) {
-        summary.byProduct[entry.productId] = { count: 0, amount: 0 };
-      }
-      summary.byProduct[entry.productId].count++;
-      summary.byProduct[entry.productId].amount += net;
+    const byProvider: Record<string, { count: number; amount: number }> = {};
+    for (const row of byProviderRows) {
+      byProvider[row.providerId] = { count: Number(row.count), amount: Number(row.amount) };
     }
 
-    return summary;
+    const byProduct: Record<string, { count: number; amount: number }> = {};
+    for (const row of byProductRows) {
+      if (row.productId) {
+        byProduct[row.productId] = { count: Number(row.count), amount: Number(row.amount) };
+      }
+    }
+
+    return {
+      totalGrossCommission: Number(totals?.totalGrossCommission || 0),
+      totalNetCommission: Number(totals?.totalNetCommission || 0),
+      totalTds: Number(totals?.totalTds || 0),
+      totalGst: Number(totals?.totalGst || 0),
+      totalFintekProShare: Number(totals?.totalFintekProShare || 0),
+      totalPartnerShare: Number(totals?.totalPartnerShare || 0),
+      totalAgentShare: Number(totals?.totalAgentShare || 0),
+      pendingCount: Number(totals?.pendingCount || 0),
+      approvedCount: Number(totals?.approvedCount || 0),
+      paidCount: Number(totals?.paidCount || 0),
+      byProvider,
+      byProduct,
+    };
   }
 
   async updateCommissionStatus(

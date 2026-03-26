@@ -77,7 +77,7 @@ class CommissionReconciliationService {
       result.totalAmount += row.commissionAmount;
 
       try {
-        const paymentResult = await this.processPaymentRow(row, paidBy, sourceType, batch.id, i + 1);
+        const paymentResult = await this.processPaymentRow(row, paidBy, sourceType, batch.id, i + 1, fileName);
         
         if (paymentResult.matchStatus === 'matched') {
           result.matched++;
@@ -114,7 +114,8 @@ class CommissionReconciliationService {
     paidBy: 'bank' | 'master_dsa',
     payerName: string,
     batchId: string,
-    rowNum: number
+    rowNum: number,
+    sourceFileName?: string
   ): Promise<any> {
     let commissionLedgerId: string | null = null;
     let expectedAmount = 0;
@@ -161,7 +162,7 @@ class CommissionReconciliationService {
         ${id}, ${commissionLedgerId}, ${row.applicationId || null}, ${paidBy}, ${payerName}, ${row.utrNumber || null},
         ${expectedAmount.toString()}, ${row.commissionAmount.toString()}, ${paymentDate}, ${row.utrNumber || null}, ${row.paymentMode || null},
         ${matchStatus}, ${matchVariance.toString()}, ${matchStatus === 'matched' ? now : null}, ${matchStatus === 'matched' ? 'system' : null}, ${this.defaultTolerance.toString()},
-        ${matchStatus === 'matched' ? 'realized' : 'accrued'}, ${matchStatus === 'matched' ? now : null}, ${null}, ${rowNum},
+        ${matchStatus === 'matched' ? 'realized' : 'accrued'}, ${matchStatus === 'matched' ? now : null}, ${sourceFileName || null}, ${rowNum},
         ${batchId}, ${row.remarks || null}, ${now}, ${now}
       )
     `);

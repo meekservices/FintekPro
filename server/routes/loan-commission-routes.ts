@@ -1,9 +1,26 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { loanCommissionService, COMMISSION_RATE_CONFIG, LoanProductType } from "../services/loan-commission-service";
 import { payloadTransformerFactory, applicationToCanonical, validateCanonicalPayload } from "../services/bank-connectors";
 import { dsaLoanService } from "../services/dsa-loan-service";
 
 const router = Router();
+
+const ADMIN_ROLES = ["admin", "superadmin", "master_agent"];
+
+function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
+  const user = (req as any).user;
+  if (!user) {
+    return res.status(401).json({ success: false, error: "Authentication required" });
+  }
+  const userRole = user.role || user.roles?.[0];
+  if (!userRole || !ADMIN_ROLES.includes(userRole)) {
+    return res.status(403).json({ success: false, error: "Admin role required to access commission data" });
+  }
+  next();
+}
+
+// All commission ledger and webhook routes require admin auth
+router.use(requireAdminAuth);
 
 router.get("/rates", async (req: Request, res: Response) => {
   try {

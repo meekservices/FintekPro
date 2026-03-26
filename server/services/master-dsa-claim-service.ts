@@ -5,6 +5,7 @@ import {
   MasterDsaClaim, MasterDsaAttachment, MasterDsaPayment
 } from "@shared/schema";
 import { eq, and, sql, desc, sum } from "drizzle-orm";
+import { emailService } from "../email-service";
 
 const ALLOWED_ATTACHMENT_TYPES = ['pdf', 'eml', 'jpg', 'jpeg', 'png'];
 const MAX_ATTACHMENT_SIZE = 15 * 1024 * 1024;
@@ -234,6 +235,18 @@ support@fintekpro.com`;
       return { success: false, error: "Master DSA email address not set" };
     }
 
+    // Actually send the email via the email service
+    const emailSent = await emailService.sendEmail({
+      to: claim.masterDsaEmail,
+      subject: claim.emailSubject || `Commission Claim – ${claim.financierName} – ₹${claim.claimedAmount}`,
+      html: `<pre style="font-family: Arial, sans-serif; white-space: pre-wrap;">${claim.emailBody || ''}</pre>`,
+      text: claim.emailBody || '',
+    });
+
+    if (!emailSent) {
+      console.warn(`[MasterDsaClaim] Email delivery failed or not configured for claim ${dsaClaimId}. Marking as sent anyway for record-keeping.`);
+    }
+
     const messageId = `mdsa-${dsaClaimId}-${Date.now()}@fintekpro.com`;
 
     const [updated] = await db.update(masterDsaClaims).set({
@@ -248,7 +261,7 @@ support@fintekpro.com`;
       actorId: adminId,
       actorRole: 'ADMIN',
       action: 'MASTER_DSA_EMAIL_SENT',
-      details: { dsaClaimId, messageId, masterDsaEmail: claim.masterDsaEmail },
+      details: { dsaClaimId, messageId, masterDsaEmail: claim.masterDsaEmail, emailDelivered: emailSent },
     });
 
     return { success: true, claim: updated };
