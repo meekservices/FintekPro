@@ -936,6 +936,29 @@ server.listen({
         console.error('[ML Cron] Auto-training failed:', e);
       }
     }, { timezone: 'UTC' });
+    // Daily pick expiry sweep at 01:30 UTC (7:00 AM IST) — expires picks past their expiry_date
+    cron.schedule('30 1 * * *', async () => {
+      console.log('[PicksExpiry] Running daily expiry sweep...');
+      try {
+        const { db: cronDb } = await import('./db');
+        const { sql: cronSql } = await import('drizzle-orm');
+        const result = await cronDb.execute(cronSql`
+          UPDATE daily_picks
+          SET status = 'expired', updated_at = NOW()
+          WHERE status = 'live'
+            AND expiry_date IS NOT NULL
+            AND expiry_date < CURRENT_DATE
+        `);
+        const count = (result as any).rowCount ?? 0;
+        console.log(`[PicksExpiry] Expired ${count} picks past their expiry date`);
+        // Also run the service's full status update (target/stoploss hits)
+        const { pickOfTheDayService: svc } = await import('./services/pick-of-the-day-service');
+        const r = await svc.updatePickStatuses();
+        console.log(`[PicksExpiry] Status sweep complete: ${r.updated} picks updated`);
+      } catch (e) {
+        console.error('[PicksExpiry] Expiry sweep failed:', e);
+      }
+    }, { timezone: 'UTC' });
   } else {
     console.log('⏭️ [AI Regime/Governance] Daily schedulers skipped (development mode - production only)');
   }

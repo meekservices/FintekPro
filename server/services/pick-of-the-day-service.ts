@@ -300,9 +300,19 @@ class PickOfTheDayService {
       .select()
       .from(dailyPicks)
       .where(eq(dailyPicks.status, 'live'))
-      .orderBy(desc(dailyPicks.recoDate));
-    
-    return picks.map(this.transformPick);
+      .orderBy(desc(dailyPicks.recoDate), desc(dailyPicks.id));
+
+    // Deduplicate: for the same instrument+category keep the most recent pick only.
+    // Picks are already sorted newest-first so the first occurrence wins.
+    const seen = new Set<string>();
+    const deduped = picks.filter(p => {
+      const key = (p.instrumentId ?? p.instrumentName ?? '') + '::' + p.category;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return deduped.map(this.transformPick);
   }
 
   async getPickHistory(category?: PickCategory, limit = 50): Promise<DailyPickData[]> {
@@ -391,6 +401,11 @@ class PickOfTheDayService {
     ];
     const existingCategories = new Set(existingPicks.map(p => p.category));
     const missingCategories = ALL_CATEGORIES.filter(c => !existingCategories.has(c));
+    // Track instrument+category combos already picked today to prevent same-day same-instrument duplicates
+    const existingInstrumentKeys = new Set(
+      existingPicks.map(p => (p.instrumentId ?? p.instrumentName ?? '') + '::' + p.category)
+    );
+    (this as any)._existingInstrumentKeys = existingInstrumentKeys;
 
     if (missingCategories.length === 0) {
       console.log(`[PickOfTheDay] Picks already exist for ${today}: ${existingPicks.length} picks (all categories covered)`);
@@ -3024,6 +3039,7 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 
           switch (pick.category) {
             case 'listed_stocks':
+            case 'etfs':
             case 'etf': {
               if (pick.symbol) {
                 const rows = await db.select({ p: listedStocks.currentPrice }).from(listedStocks).where(eq(listedStocks.symbol, pick.symbol)).limit(1);
