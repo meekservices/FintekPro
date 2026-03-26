@@ -269,9 +269,11 @@ export class AIProposalEngine {
     if (name.includes("multi cap") || name.includes("multicap")) return "equity_multi_cap";
     if (name.includes("focused")) return "equity_focused";
     if (name.includes("sectoral") || name.includes("thematic")) return "equity_sectoral";
+    // Hybrid checks: specific sub-types must come before the generic "hybrid"/"balanced" checks
     if (name.includes("aggressive hybrid")) return "hybrid_aggressive";
-    if (name.includes("balanced") || name.includes("hybrid")) return "hybrid_balanced";
     if (name.includes("conservative hybrid")) return "hybrid_conservative";
+    if (name.includes("balanced advantage") || name.includes("dynamic asset")) return "hybrid_balanced";
+    if (name.includes("balanced") || name.includes("hybrid")) return "hybrid_balanced";
     if (name.includes("debt") || name.includes("income")) return "debt_short_duration";
     if (name.includes("equity")) return "equity_multi_cap";
     return "equity_multi_cap";
@@ -477,9 +479,11 @@ export class AIProposalEngine {
 
   analyzeAllocationDeviation(
     currentAllocation: Record<string, { value: number; percentage: number }>,
-    riskCategory: "conservative" | "moderate" | "aggressive"
+    riskCategory: "conservative" | "moderate" | "aggressive" | "very_aggressive" | string
   ): Record<string, { current: number; target: number; deviation: number }> {
-    const ideal = IDEAL_ALLOCATIONS[riskCategory] as Record<string, { min: number; max: number; target: number }>;
+    // Normalise "very_aggressive" to "aggressive" — IDEAL_ALLOCATIONS has no very_aggressive entry
+    const normalisedCategory = riskCategory === "very_aggressive" ? "aggressive" : riskCategory;
+    const ideal = (IDEAL_ALLOCATIONS[normalisedCategory] || IDEAL_ALLOCATIONS["moderate"]) as Record<string, { min: number; max: number; target: number }>;
     const deviation: Record<string, { current: number; target: number; deviation: number }> = {};
 
     for (const [assetClass, targets] of Object.entries(ideal)) {
@@ -984,7 +988,6 @@ export class AIProposalEngine {
         isin: rec.isin,
         schemeName: rec.schemeName,
         amcName: rec.amcName,
-        switchFromProductId: rec.switchFromIsin ? undefined : undefined,
         switchFromIsin: rec.switchFromIsin,
         switchFromSchemeName: rec.switchFromSchemeName,
         amount: rec.amount?.toString(),

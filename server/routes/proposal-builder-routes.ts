@@ -9,8 +9,11 @@ import { ReportDependencyResolver } from '../services/report-dependency-resolver
 import { ReportLabelRegistry } from '../services/report-label-registry';
 import { generateRegulatorGradePdf, type ProposalPdfConfig } from '../services/reports/regulator-grade-pdf-renderer';
 import { proposalAuditService } from '../services/proposal-audit-service';
+import { requireAgent } from '../middleware/auth';
 
 const router = Router();
+
+router.use(requireAgent);
 
 GoalBenchmarkMapper.initializeDefaults().catch(e =>
   console.warn('[ProposalBuilder] Benchmark defaults init warning:', e?.message)

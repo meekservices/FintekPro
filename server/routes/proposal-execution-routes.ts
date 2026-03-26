@@ -11,8 +11,11 @@ import {
   checkoutInputSchema,
   approvalActionInputSchema
 } from '../services/proposal-execution-engine';
+import { requireClientOrHigher } from '../middleware/auth';
 
 const router = Router();
+
+router.use(requireClientOrHigher);
 
 // ============================================================================
 // PROPOSAL ROUTES

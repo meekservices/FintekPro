@@ -4,8 +4,11 @@ import { db } from "../db";
 import { aiProposals, aiProposalItems, portfolioDiagnostics, aiAuditLogs, clientRiskProfiles } from "@shared/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
+import { requireClientOrHigher, requireAgent, requireAdmin } from "../middleware/auth";
 
 const router = Router();
+
+router.use(requireClientOrHigher);
 
 const updateRiskProfileSchema = z.object({
   riskCategory: z.enum(["conservative", "moderate", "aggressive"]).optional(),
@@ -45,7 +48,7 @@ router.get("/risk-profile", async (req, res) => {
   }
 });
 
-router.get("/risk-profile/:userId", async (req, res) => {
+router.get("/risk-profile/:userId", requireAgent, async (req, res) => {
   try {
     const { userId } = req.params;
     const profile = await aiProposalEngine.getOrCreateRiskProfile(userId);
@@ -96,7 +99,13 @@ router.put("/risk-profile", async (req, res) => {
 
 router.post("/diagnostics", async (req, res) => {
   try {
-    const userId = req.body.userId || (req as any).user?.id;
+    const requestingUser = (req as any).user;
+    let userId: string;
+    if (req.body.userId && ['agent', 'partner', 'admin', 'superadmin'].some((r: string) => (requestingUser?.roles || [requestingUser?.role]).includes(r))) {
+      userId = req.body.userId;
+    } else {
+      userId = requestingUser?.id;
+    }
     if (!userId) {
       return res.status(401).json({ error: "User ID required" });
     }
@@ -125,7 +134,7 @@ router.get("/diagnostics/:id", async (req, res) => {
   }
 });
 
-router.get("/diagnostics/latest/:userId", async (req, res) => {
+router.get("/diagnostics/latest/:userId", requireAgent, async (req, res) => {
   try {
     const { userId } = req.params;
     const diagnostics = await aiProposalEngine.getLatestDiagnostics(userId);
@@ -141,9 +150,10 @@ router.get("/diagnostics/latest/:userId", async (req, res) => {
   }
 });
 
-router.post("/generate", async (req, res) => {
+router.post("/generate", requireAgent, async (req, res) => {
   try {
-    const { clientId, agentId, diagnosticsId, title } = req.body;
+    const { clientId, diagnosticsId, title } = req.body;
+    const agentId = (req as any).user?.id;
 
     if (!clientId) {
       return res.status(400).json({ error: "Client ID is required" });
@@ -207,7 +217,7 @@ router.get("/proposals", async (req, res) => {
   }
 });
 
-router.get("/proposals/client/:clientId", async (req, res) => {
+router.get("/proposals/client/:clientId", requireAgent, async (req, res) => {
   try {
     const { clientId } = req.params;
     const proposals = await aiProposalEngine.getClientProposals(clientId);
@@ -218,9 +228,14 @@ router.get("/proposals/client/:clientId", async (req, res) => {
   }
 });
 
-router.get("/proposals/agent/:agentId", async (req, res) => {
+router.get("/proposals/agent/:agentId", requireAgent, async (req, res) => {
   try {
     const { agentId } = req.params;
+    const requestingUser = (req as any).user;
+    const isAdmin = ['admin', 'superadmin'].some((r: string) => (requestingUser?.roles || [requestingUser?.role]).includes(r));
+    if (!isAdmin && requestingUser?.id !== agentId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
     const proposals = await aiProposalEngine.getAgentProposals(agentId);
     res.json(proposals);
   } catch (error: any) {
@@ -245,10 +260,10 @@ router.get("/proposals/:id", async (req, res) => {
   }
 });
 
-router.post("/proposals/:id/submit", async (req, res) => {
+router.post("/proposals/:id/submit", requireAgent, async (req, res) => {
   try {
     const { id } = req.params;
-    const agentId = (req as any).user?.id || req.body.agentId;
+    const agentId = (req as any).user?.id;
 
     if (!agentId) {
       return res.status(401).json({ error: "Agent ID required" });
@@ -266,8 +281,12 @@ router.put("/proposals/:id/status", async (req, res) => {
   try {
     const { id } = req.params;
     const { status, notes } = req.body;
-    const actorId = (req as any).user?.id || req.body.actorId;
-    const actorRole = req.body.actorRole || "agent";
+    const actorId = (req as any).user?.id;
+    const requestingUser = (req as any).user;
+    const roles: string[] = requestingUser?.roles || (requestingUser?.role ? [requestingUser.role] : []);
+    const actorRole = roles.includes('admin') || roles.includes('superadmin') ? 'agent'
+      : roles.some((r: string) => ['agent', 'partner'].includes(r)) ? 'agent'
+      : 'client';
 
     if (!actorId) {
       return res.status(401).json({ error: "Actor ID required" });
@@ -281,18 +300,17 @@ router.put("/proposals/:id/status", async (req, res) => {
   }
 });
 
-router.put("/items/:id", async (req, res) => {
+router.put("/items/:id", requireAgent, async (req, res) => {
   try {
     const { id } = req.params;
-    const actorId = (req as any).user?.id || req.body.actorId;
-    const actorRole = req.body.actorRole || "agent";
+    const actorId = (req as any).user?.id;
 
     if (!actorId) {
       return res.status(401).json({ error: "Actor ID required" });
     }
 
     const validated = updateProposalItemSchema.parse(req.body);
-    const item = await aiProposalEngine.updateProposalItem(id, validated, actorId, actorRole);
+    const item = await aiProposalEngine.updateProposalItem(id, validated, actorId, "agent");
     res.json(item);
   } catch (error: any) {
     console.error("Error updating proposal item:", error);
@@ -303,7 +321,7 @@ router.put("/items/:id", async (req, res) => {
 router.post("/items/:id/approve", async (req, res) => {
   try {
     const { id } = req.params;
-    const clientId = (req as any).user?.id || req.body.clientId;
+    const clientId = (req as any).user?.id;
 
     if (!clientId) {
       return res.status(401).json({ error: "Client ID required" });
@@ -321,7 +339,7 @@ router.post("/items/:id/reject", async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
-    const clientId = (req as any).user?.id || req.body.clientId;
+    const clientId = (req as any).user?.id;
 
     if (!clientId) {
       return res.status(401).json({ error: "Client ID required" });
@@ -338,7 +356,7 @@ router.post("/items/:id/reject", async (req, res) => {
 router.post("/proposals/:id/finalize", async (req, res) => {
   try {
     const { id } = req.params;
-    const clientId = (req as any).user?.id || req.body.clientId;
+    const clientId = (req as any).user?.id;
 
     if (!clientId) {
       return res.status(401).json({ error: "Client ID required" });
@@ -352,7 +370,7 @@ router.post("/proposals/:id/finalize", async (req, res) => {
   }
 });
 
-router.get("/proposals/:id/audit", async (req, res) => {
+router.get("/proposals/:id/audit", requireAgent, async (req, res) => {
   try {
     const { id } = req.params;
     const logs = await aiProposalEngine.getAuditLogs(id);
@@ -363,7 +381,7 @@ router.get("/proposals/:id/audit", async (req, res) => {
   }
 });
 
-router.get("/all-proposals", async (req, res) => {
+router.get("/all-proposals", requireAdmin, async (req, res) => {
   try {
     const { status, limit = 50, offset = 0 } = req.query;
     
@@ -382,40 +400,40 @@ router.get("/all-proposals", async (req, res) => {
   }
 });
 
-router.get("/stats", async (req, res) => {
+router.get("/stats", requireAdmin, async (req, res) => {
   try {
-    const userId = req.query.userId as string;
-    
-    const diagnosticsQuery = userId 
-      ? db.select().from(portfolioDiagnostics).where(eq(portfolioDiagnostics.userId, userId))
-      : db.select().from(portfolioDiagnostics);
-    
-    const proposalsQuery = userId
-      ? db.select().from(aiProposals).where(eq(aiProposals.clientId, userId))
-      : db.select().from(aiProposals);
+    const userId = req.query.userId as string | undefined;
 
-    const [diagnosticsList, proposalsList] = await Promise.all([
-      diagnosticsQuery.limit(100),
-      proposalsQuery.limit(100),
+    const [diagnosticsRows, proposalsRows] = await Promise.all([
+      userId
+        ? db.select({ healthScore: portfolioDiagnostics.healthScore })
+            .from(portfolioDiagnostics)
+            .where(eq(portfolioDiagnostics.userId, userId))
+        : db.select({ healthScore: portfolioDiagnostics.healthScore })
+            .from(portfolioDiagnostics),
+      userId
+        ? db.select({ status: aiProposals.status })
+            .from(aiProposals)
+            .where(eq(aiProposals.clientId, userId))
+        : db.select({ status: aiProposals.status })
+            .from(aiProposals),
     ]);
 
-    const stats = {
-      totalDiagnostics: diagnosticsList.length,
-      totalProposals: proposalsList.length,
-      proposalsByStatus: {} as Record<string, number>,
-      avgHealthScore: 0,
-    };
-
-    for (const p of proposalsList) {
-      stats.proposalsByStatus[p.status] = (stats.proposalsByStatus[p.status] || 0) + 1;
+    const proposalsByStatus: Record<string, number> = {};
+    for (const p of proposalsRows) {
+      proposalsByStatus[p.status] = (proposalsByStatus[p.status] || 0) + 1;
     }
 
-    if (diagnosticsList.length > 0) {
-      const totalHealth = diagnosticsList.reduce((sum, d) => sum + (d.healthScore || 0), 0);
-      stats.avgHealthScore = Math.round(totalHealth / diagnosticsList.length);
-    }
+    const avgHealthScore = diagnosticsRows.length > 0
+      ? Math.round(diagnosticsRows.reduce((sum, d) => sum + (d.healthScore || 0), 0) / diagnosticsRows.length)
+      : 0;
 
-    res.json(stats);
+    res.json({
+      totalDiagnostics: diagnosticsRows.length,
+      totalProposals: proposalsRows.length,
+      proposalsByStatus,
+      avgHealthScore,
+    });
   } catch (error: any) {
     console.error("Error fetching stats:", error);
     res.status(500).json({ error: error.message });

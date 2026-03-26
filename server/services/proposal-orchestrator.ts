@@ -339,7 +339,7 @@ export class ProposalOrchestrator {
   }
 
   private static checkTimeHorizon(riskProfile: any, sessionPurpose: string) {
-    const horizonYears = riskProfile?.investmentHorizon || 5;
+    const horizonYears = riskProfile?.timeHorizonYears || 5;
     const minRequired = sessionPurpose === 'retirement_review' ? 10 : 
                         sessionPurpose === 'fresh_investment' ? 3 : 1;
     
