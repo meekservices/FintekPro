@@ -1064,6 +1064,21 @@ server.listen({
     console.error('[Migration] agents/partners arn_expiry_date error:', e?.message);
   }
 
+  // Migrate prospect_id into tables that reference prospects/agents
+  try {
+    const { db: mainDb } = await import('./db');
+    const { sql: migSql } = await import('drizzle-orm');
+    await mainDb.execute(migSql`
+      ALTER TABLE tax_reminder_subscriptions ADD COLUMN IF NOT EXISTS prospect_id VARCHAR;
+      ALTER TABLE kyc_approvals              ADD COLUMN IF NOT EXISTS prospect_id VARCHAR;
+      ALTER TABLE mf_orders                  ADD COLUMN IF NOT EXISTS prospect_id VARCHAR;
+      ALTER TABLE prospect_proposals         ADD COLUMN IF NOT EXISTS prospect_id VARCHAR
+    `);
+    console.log('✅ [Migration] prospect_id columns verified/added (tax_reminders, kyc_approvals, mf_orders, prospect_proposals)');
+  } catch (e: any) {
+    console.error('[Migration] prospect_id columns error:', e?.message);
+  }
+
   // Register additional routes from routes.ts (but don't create a new server - we already have one)
   await registerRoutes(app, server);
 
