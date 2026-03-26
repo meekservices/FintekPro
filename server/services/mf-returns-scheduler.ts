@@ -6,7 +6,7 @@ import { historicalNavService } from "./historical-nav-service";
 import { updateLiveReturnsCache } from "./agent-prospect-wizard-service";
 import { db } from "../db";
 import { mutualFunds } from "@shared/schema";
-import { sql, eq } from "drizzle-orm";
+import { sql, eq, or, and, isNull, lt } from "drizzle-orm";
 
 const POPULAR_SCHEME_CODES = [
   // Large Cap
@@ -210,7 +210,10 @@ class MFReturnsScheduler {
       })
       .from(mutualFunds)
       .where(
-        sql`(returns_1y IS NULL OR returns_3y IS NULL) AND (last_updated IS NULL OR last_updated < ${twentyHoursAgo})`
+        and(
+          or(isNull(mutualFunds.returns1y), isNull(mutualFunds.returns3y)),
+          or(isNull(mutualFunds.lastUpdated), lt(mutualFunds.lastUpdated, twentyHoursAgo))
+        )
       )
       .limit(batchSize);
       
