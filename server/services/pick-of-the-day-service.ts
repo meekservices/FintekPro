@@ -99,6 +99,8 @@ class PickOfTheDayService {
   private readonly DEFAULT_VALIDITY_DAYS = 30;
   private readonly ROTATION_DAYS = 7;
   private recentPicksCache: Map<string, Set<string>> = new Map();
+  private _isGeneratingPicks = false;
+  private _generationPromise: Promise<DailyPickData[]> | null = null;
 
   constructor() {
     const status = unifiedAIRecommendationEngine.getStatus();
@@ -386,6 +388,21 @@ class PickOfTheDayService {
   }
 
   async generateDailyPicks(): Promise<DailyPickData[]> {
+    // Concurrency guard: if already generating, return the in-flight promise to avoid duplicate picks
+    if (this._isGeneratingPicks && this._generationPromise) {
+      console.log('[PickOfTheDay] Generation already in progress — awaiting existing run');
+      return this._generationPromise;
+    }
+
+    this._isGeneratingPicks = true;
+    this._generationPromise = this._generateDailyPicksInternal().finally(() => {
+      this._isGeneratingPicks = false;
+      this._generationPromise = null;
+    });
+    return this._generationPromise;
+  }
+
+  private async _generateDailyPicksInternal(): Promise<DailyPickData[]> {
     const today = new Date().toISOString().split('T')[0];
     
     const existingPicks = await db
@@ -783,8 +800,10 @@ class PickOfTheDayService {
           and(
             eq(mutualFunds.isPublished, true),
             sql`${mutualFunds.nav} IS NOT NULL`,
+            sql`${mutualFunds.nav}::float > 0`,
             sql`(${mutualFunds.category} IS NULL OR ${mutualFunds.category} NOT ILIKE '%ETF%')`,
-            sql`${mutualFunds.schemeName} NOT ILIKE '%ETF%'`
+            sql`${mutualFunds.schemeName} NOT ILIKE '%ETF%'`,
+            sql`(${mutualFunds.lastUpdated} IS NULL OR ${mutualFunds.lastUpdated} > NOW() - INTERVAL '45 days')`
           )
         )
         .limit(100);

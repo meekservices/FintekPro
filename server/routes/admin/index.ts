@@ -55,34 +55,6 @@ async function ensureAgentNotificationsTable() {
 ensureAgentNotificationsTable();
 
 export function registerAdminPanelRoutes(app: Express): void {
-  // Test endpoint without auth to verify real data
-  app.get("/api/admin/dashboard/test", async (req, res) => {
-    try {
-      // Mock admin user for testing
-      (req as any).user = { 
-        id: 'dc41e192-05de-481c-b1cc-947d8ea42cff',
-        roles: ['admin'],
-        email: 'skmohanty0@gmail.com'
-      } as any;
-      
-      const userStats = await adminService.getUserStats();
-      const activityMetrics = await adminService.getActivityMetrics();
-      const platformInsights = await adminService.getPlatformInsights();
-
-      const response = {
-        success: true,
-        timestamp: new Date().toISOString(),
-        userStats,
-        activityMetrics,
-        platformInsights
-      };
-
-      res.json(response);
-    } catch (error) {
-      console.error("Error in test dashboard:", error);
-      res.status(500).json({ error: "Failed to fetch test dashboard data" });
-    }
-  });
   
   // Admin Dashboard - Overview statistics
 

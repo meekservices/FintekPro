@@ -1,5 +1,23 @@
 # FintekPro - Financial Services Platform
 
+## Stability & Security Fixes (March 26, 2026)
+
+### Data Quality — Daily Picks Feed
+- **Stale-NAV filter**: `generateMutualFundPick()` now excludes funds with `last_updated > 45 days ago` — prevents closed-ended / discontinued funds from being picked.
+- **Enhanced daily expiry cron**: Three-pass sweep: (1) expires past `expiry_date`, (2) expires MF picks whose linked fund NAV is >45 days stale, (3) force-expires picks older than 180 days as safety net.
+- **Concurrency guard**: `generateDailyPicks()` now returns an in-flight promise if generation is already in progress — prevents race condition that was creating exact duplicate picks across all categories on the same day.
+- **Production DB clean-up**: Expired Reliance Fixed Horizon Fund XXII (ID 60) and UTI FTIF Series XXVIII-XIV (ID 35) — both had 44-day-stale NAV data. Cleared 8 duplicate picks for March 26.
+
+### Security
+- **Admin backdoor removed**: Deleted unauthenticated `/api/admin/dashboard/test` endpoint with hardcoded credentials.
+- **OTP hardened**: Replaced `Math.random()` with `crypto.randomInt()` for OTP generation; hardcoded `123456` tester OTP blocked when `REPLIT_DEPLOYMENT === '1'`.
+
+### Bug Fixes
+- **`multiSourceMFService` crash**: Imported and instantiated `MultiSourceMFService` in `reports-inline.ts` — `/api/mutual-funds` was returning 500.
+- **ETF category bug**: Added `case 'etfs':` alongside `case 'etf':` in `updateLivePricesDaily()` — ETF picks now receive daily price updates.
+
+---
+
 ## Publish Readiness (March 2026)
 - **Build**: ✅ Zero TypeScript errors, zero build warnings. `dist/index.js` (14 MB) + `dist/public/` frontend assets.
 - **Auth debug logging**: ✅ Removed sensitive cookie/header/session-ID console.logs from `/api/login` and `/api/login/verify-otp` handlers. No credentials leak to stdout in production.

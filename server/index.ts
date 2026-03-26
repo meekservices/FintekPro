@@ -942,6 +942,7 @@ server.listen({
       try {
         const { db: cronDb } = await import('./db');
         const { sql: cronSql } = await import('drizzle-orm');
+        // 1. Expire picks past their scheduled expiry date
         const result = await cronDb.execute(cronSql`
           UPDATE daily_picks
           SET status = 'expired', updated_at = NOW()
@@ -951,6 +952,34 @@ server.listen({
         `);
         const count = (result as any).rowCount ?? 0;
         console.log(`[PicksExpiry] Expired ${count} picks past their expiry date`);
+
+        // 2. Expire mutual fund picks whose NAV data is >45 days stale (discontinued/closed funds)
+        const staleMfResult = await cronDb.execute(cronSql`
+          UPDATE daily_picks dp
+          SET status = 'expired', updated_at = NOW()
+          FROM mutual_funds mf
+          WHERE dp.status = 'live'
+            AND dp.category = 'mutual_funds'
+            AND dp.instrument_id = mf.scheme_code
+            AND mf.last_updated < NOW() - INTERVAL '45 days'
+        `);
+        const staleMfCount = (staleMfResult as any).rowCount ?? 0;
+        if (staleMfCount > 0) {
+          console.log(`[PicksExpiry] Expired ${staleMfCount} MF picks with stale NAV data (>45 days)`);
+        }
+
+        // 3. Safety net: expire any live picks that are >180 days old regardless of expiry_date
+        const ageResult = await cronDb.execute(cronSql`
+          UPDATE daily_picks
+          SET status = 'expired', updated_at = NOW()
+          WHERE status = 'live'
+            AND reco_date < CURRENT_DATE - INTERVAL '180 days'
+        `);
+        const ageCount = (ageResult as any).rowCount ?? 0;
+        if (ageCount > 0) {
+          console.log(`[PicksExpiry] Force-expired ${ageCount} picks older than 180 days`);
+        }
+
         // Also run the service's full status update (target/stoploss hits)
         const { pickOfTheDayService: svc } = await import('./services/pick-of-the-day-service');
         const r = await svc.updatePickStatuses();

@@ -3,6 +3,9 @@ import { storage } from '../storage';
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, sql, and, or, gte, lte, count, inArray } from 'drizzle-orm';
+import { MultiSourceMFService } from '../services/multisource-mf-service';
+
+const multiSourceMFService = new MultiSourceMFService(storage);
 
 export function registerReportsInlineRoutes(app: Express): void {
   // ===== REPORTS API ENDPOINTS =====

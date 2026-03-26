@@ -2,7 +2,7 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { scrypt, randomBytes, randomInt, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { type User } from "@shared/schema";
@@ -52,7 +52,7 @@ export async function comparePasswords(supplied: string, stored: string): Promis
 }
 
 export function generateOtp(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return randomInt(100000, 999999).toString();
 }
 
 export async function generateUniqueUserId(email?: string): Promise<string> {
@@ -716,7 +716,8 @@ export function setupAuth(app: Express) {
         }
 
         // Credentials are valid - now send OTP for mandatory verification
-        const isTesterAccount = user.email === "test@fintekpro.com" || (user.roles && Array.isArray(user.roles) && user.roles.includes("tester"));
+        const isDeployedProduction = process.env.REPLIT_DEPLOYMENT === '1' || process.env.NODE_ENV === 'production';
+        const isTesterAccount = !isDeployedProduction && (user.email === "test@fintekpro.com" || (user.roles && Array.isArray(user.roles) && user.roles.includes("tester")));
         const otp = isTesterAccount ? "123456" : generateOtp();
         const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
