@@ -359,7 +359,8 @@ class AIFeedbackEngine {
       .select()
       .from(dailyPicks)
       .where(eq(dailyPicks.status, 'live'))
-      .orderBy(desc(dailyPicks.recoDate));
+      .orderBy(desc(dailyPicks.recoDate))
+      .limit(Math.max(limit * 10, 100)); // cap DB fetch; rank and slice to `limit` below
 
     if (livePicks.length === 0) return [];
 

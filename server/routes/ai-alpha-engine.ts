@@ -10,26 +10,9 @@ import { aiModelGovernance } from "../services/ai-model-governance";
 import { db } from "../db";
 import { aiModelRegistry, aiRegimeHistory, aiFeatureSnapshots, aiPriceHistory, dailyPicks, aiPredictionLogs } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
+import { requireAuth, requireAdmin } from "../middleware/auth";
 
 const router = Router();
-
-function requireAuth(req: any, res: any, next: any) {
-  if (!req.isAuthenticated || !req.isAuthenticated()) {
-    return res.status(401).json({ success: false, error: "Authentication required" });
-  }
-  next();
-}
-
-function requireAdmin(req: any, res: any, next: any) {
-  if (!req.isAuthenticated || !req.isAuthenticated()) {
-    return res.status(401).json({ success: false, error: "Authentication required" });
-  }
-  const user = (req as any).user;
-  if (!user?.role || !['admin', 'super_admin'].includes(user.role)) {
-    return res.status(403).json({ success: false, error: "Admin access required" });
-  }
-  next();
-}
 
 router.get("/backtest", requireAuth, async (req, res) => {
   try {

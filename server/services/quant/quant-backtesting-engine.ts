@@ -49,7 +49,9 @@ class QuantBacktestingEngine {
     const categories = Object.keys(weights);
     const failReasons: string[] = [];
 
-    const minLen = Math.min(...categories.map(c => (categoryReturns[c] || []).length));
+    const minLen = categories.length === 0
+      ? 0
+      : Math.min(...categories.map(c => (categoryReturns[c] || []).length));
     const periods = Math.max(minLen, 36);
 
     const portfolioReturns: number[] = [];

@@ -79,8 +79,10 @@ export class GoalPlanningEngine {
     }
 
     const totalInvestment = currentSavings + requiredSipAmount * monthsRemaining;
-    const expectedCorpus = futureValueOfCurrentSavings + 
-      (requiredSipAmount * (Math.pow(1 + monthlyRate, monthsRemaining) - 1) / monthlyRate);
+    const sipFV = monthlyRate === 0
+      ? requiredSipAmount * monthsRemaining
+      : requiredSipAmount * (Math.pow(1 + monthlyRate, monthsRemaining) - 1) / monthlyRate;
+    const expectedCorpus = futureValueOfCurrentSavings + sipFV;
 
     return {
       requiredSipAmount: Math.ceil(requiredSipAmount),

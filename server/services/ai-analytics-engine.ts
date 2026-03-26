@@ -314,7 +314,7 @@ export class AIAnalyticsEngine {
   }
 
   computeAdvanceDeclineRatio(advances: number, declines: number): number {
-    if (declines === 0) return advances > 0 ? Infinity : 0;
+    if (declines === 0) return advances > 0 ? 9999 : 0; // cap to avoid Infinity in JSON
     return advances / declines;
   }
 

@@ -11,7 +11,7 @@ interface SIPSimulationInput {
   sipAmount: number;
   candidateFunds: string[];
   existingPortfolio: PortfolioFund[];
-  horizonMonths: 6 | 12 | 24;
+  horizonMonths: number;
 }
 
 interface MonthlySnapshot {

@@ -32,9 +32,8 @@ export class TaxOrchestrator {
       throw new Error("Invalid PAN format. Please enter a valid 10-digit PAN number.");
     }
 
-    // Determine financial year from assessment year
-    const ayParts = data.assessmentYear.split('-');
-    const financialYear = `${parseInt(ayParts[0]) - 1}-${parseInt(ayParts[1]) - 1}`;
+    // Use the caller-supplied financialYear (must be AY - 1 year) rather than silently recomputing
+    const financialYear = data.financialYear;
 
     const sessionData = {
       userId: data.userId,

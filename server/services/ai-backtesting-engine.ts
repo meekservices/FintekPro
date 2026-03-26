@@ -339,6 +339,15 @@ export class AIBacktestingEngine {
   ): Promise<void> {
     const today = new Date().toISOString().split('T')[0];
 
+    // Guard: skip insert if a snapshot for this asset/date already exists
+    const existing = await db
+      .select({ id: aiFeatureSnapshots.id })
+      .from(aiFeatureSnapshots)
+      .where(and(eq(aiFeatureSnapshots.assetId, assetId), eq(aiFeatureSnapshots.snapshotDate, today)))
+      .limit(1);
+
+    if (existing.length > 0) return;
+
     await db.insert(aiFeatureSnapshots).values({
       assetId,
       assetClass,

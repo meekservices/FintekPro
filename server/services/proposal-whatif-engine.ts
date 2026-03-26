@@ -185,7 +185,7 @@ export class WhatIfSimulatorEngine {
           projectedValue5Y:  snapAt(60)  || Math.round(totalAmount * Math.pow(1 + annualReturn / 100, 5)),
           projectedValue10Y: finalCorpus || Math.round(totalAmount * Math.pow(1 + annualReturn / 100, 10)),
           maxDrawdown:       Math.round(Math.min(adjVol * 2.5, 0.6) * 10000) / 100,
-          probabilityOfLoss: Math.max(0, Math.round(((0.5 - xirr / adjVol * 0.1) * 100) * 100) / 100),
+          probabilityOfLoss: Math.min(100, Math.max(0, Math.round(((0.5 - xirr / adjVol * 0.1) * 100) * 100) / 100)),
           valueAtRisk95:     Math.round(totalAmount * (1 - adjVol * 1.645)),
         };
       }

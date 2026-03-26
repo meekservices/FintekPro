@@ -5,10 +5,10 @@ import { polygonMarketService } from './polygon-market-service';
 import { usOrderNotificationService } from './us-order-notification-service';
 
 interface AllocationTarget {
-  conservative: { equity: 30, debt: 50, gold: 10, cash: 10 };
-  moderate: { equity: 50, debt: 30, gold: 10, cash: 10 };
-  aggressive: { equity: 70, debt: 20, gold: 5, cash: 5 };
-  very_aggressive: { equity: 85, debt: 10, gold: 3, cash: 2 };
+  conservative: { equity: number; debt: number; gold: number; cash: number };
+  moderate: { equity: number; debt: number; gold: number; cash: number };
+  aggressive: { equity: number; debt: number; gold: number; cash: number };
+  very_aggressive: { equity: number; debt: number; gold: number; cash: number };
 }
 
 interface SuggestedTrade {
