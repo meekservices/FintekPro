@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { kycOrchestrationEngine } from "../services/kyc-orchestration-engine";
 import { identityTokenService } from "../services/identity-token-service";
 import { dpdpConsentService } from "../services/dpdp-consent-service";
@@ -13,8 +13,15 @@ import {
   platformAuditLogs,
   conversionFunnels,
 } from "@shared/schema";
+import { requireClientOrHigher, requireAdmin } from "../middleware/auth";
 
 const router = Router();
+
+// All KYC engine routes require at minimum a logged-in user
+router.use(requireClientOrHigher);
+
+// Admin sub-router — requires admin/superadmin role
+router.use("/admin", requireAdmin);
 
 router.post("/verify", async (req: Request, res: Response) => {
   try {

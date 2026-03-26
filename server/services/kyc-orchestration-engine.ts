@@ -121,8 +121,16 @@ class KycOrchestrationEngine {
 
         await this.recordProviderMetric(provider.id, false, result.latencyMs, result.errorCode);
 
-        const fallbackErrorCodes = (priorityEntry.fallbackErrorCodes as string[] | null) || [];
-        if (result.errorCode && fallbackErrorCodes.includes(result.errorCode)) {
+        // Fallback logic:
+        // - If fallbackErrorCodes is null (not configured in DB) → always fall through to next provider
+        // - If fallbackErrorCodes is an explicit array → only fall through for listed codes
+        // - If fallbackErrorCodes is an explicit empty array → stop and return error immediately
+        const fallbackErrorCodes = priorityEntry.fallbackErrorCodes as string[] | null;
+        const shouldFallback = fallbackErrorCodes === null
+          ? true
+          : (result.errorCode ? fallbackErrorCodes.includes(result.errorCode) : false);
+
+        if (shouldFallback) {
           console.log(`[KYC-ENGINE] Fallback triggered: provider=${provider.providerCode}, errorCode=${result.errorCode}, trying next provider`);
           await this.logAuditEvent(
             "kyc_fallback",
@@ -140,7 +148,7 @@ class KycOrchestrationEngine {
           continue;
         }
 
-        console.log(`[KYC-ENGINE] Non-recoverable error from provider=${provider.providerCode}, errorCode=${result.errorCode}`);
+        console.log(`[KYC-ENGINE] Non-recoverable error from provider=${provider.providerCode}, errorCode=${result.errorCode} (fallback suppressed by config)`);
         return result;
       }
 

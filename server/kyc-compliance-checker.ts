@@ -134,14 +134,17 @@ async function checkKYCLevel(
         }
         break;
       case "pan_verified":
-        // Check if profile is completed (which includes PAN verification)
-        if (!profile.isProfileCompleted) missing.push("Complete profile verification");
+        // Check actual PAN verification flags — not just profile completeness
+        if (!profile.panVerifiedViaSandbox && !profile.panVerifiedViaSmartKyc) {
+          missing.push("PAN verification (complete PAN verification via the KYC wizard)");
+        }
         break;
       case "video_kyc":
-        if (!profile.videoKycCompleted) missing.push("Video KYC");
+        if (!profile.videoKycCompleted && !profile.videoKycCompletedAt) missing.push("Video KYC (In-Person Verification)");
         break;
       case "income_proof":
-        // Income proof field may not exist - treat as optional for now
+        // Income proof is verified via annualIncomeAmount being present
+        if (!profile.annualIncomeAmount) missing.push("Income proof");
         break;
     }
   }

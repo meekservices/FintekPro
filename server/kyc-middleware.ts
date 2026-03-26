@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { checkKYCCompliance, TransactionContext } from "./kyc-compliance-checker";
 import { storage } from "./storage";
 import { db } from "./db";
-import { customerCareAgents } from "@shared/schema";
+import { customerCareAgents, platformAuditLogs } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 /**
@@ -488,7 +488,7 @@ export function allowSubAgentProductViewing() {
 }
 
 /**
- * Log KYC validation attempts for audit trail
+ * Log KYC validation attempts for audit trail — persisted to platform_audit_logs
  */
 export async function logKYCAttempt(
   userId: string,
@@ -497,6 +497,29 @@ export async function logKYCAttempt(
   result: "passed" | "failed",
   reason?: string
 ) {
-  // TODO: Implement logging to database for audit trail
-  console.log(`[KYC Audit] ${new Date().toISOString()} | User: ${userId} | Type: ${transactionType} | Amount: ₹${amount} | Result: ${result}${reason ? ` | Reason: ${reason}` : ""}`);
+  console.log(
+    `[KYC Audit] ${new Date().toISOString()} | User: ${userId} | Type: ${transactionType} | Amount: ₹${amount} | Result: ${result}${reason ? ` | Reason: ${reason}` : ""}`
+  );
+
+  try {
+    await db.insert(platformAuditLogs).values({
+      entityType: "kyc_check",
+      entityId: userId,
+      eventType: result === "passed" ? "kyc_check_passed" : "kyc_check_failed",
+      action: `kyc_${result}_${transactionType}`,
+      actorId: userId,
+      actorRole: "user",
+      changeDetails: {
+        transactionType,
+        amount,
+        result,
+        reason: reason ?? null,
+      },
+      regulatoryTag: "KYC_PMLA",
+      severity: result === "failed" ? "WARN" : "INFO",
+    });
+  } catch (dbErr: any) {
+    // Non-blocking — audit logging must never fail a transaction
+    console.error("[KYC Audit] Failed to persist audit log to DB:", dbErr?.message);
+  }
 }
