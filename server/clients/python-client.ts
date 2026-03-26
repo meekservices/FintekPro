@@ -11,10 +11,26 @@
  *     Returns null on any error so callers can fall back gracefully.
  */
 import { Request, Response } from 'express';
-import { issueServiceToken } from '../utils/service-token';
+import jwt from 'jsonwebtoken';
 
 function getBaseUrl(): string {
   return process.env.PYTHON_SERVICE_URL?.replace(/\/$/, '') || '';
+}
+
+function issuePythonToken(user: any): string {
+  const secret = process.env.PYTHON_SERVICE_SECRET || process.env.SESSION_SECRET;
+  if (!secret) throw new Error('PYTHON_SERVICE_SECRET not configured');
+  return jwt.sign(
+    {
+      sub: user.id,
+      role: user.role || 'user',
+      roles: user.roles || (user.role ? [user.role] : ['user']),
+      email: user.email ?? null,
+      mobile: user.mobile ?? null,
+    },
+    secret,
+    { expiresIn: 900, issuer: 'fintekpro-main' }
+  );
 }
 
 const SYSTEM_USER = {
@@ -31,7 +47,7 @@ async function fetchWithToken(user: any, url: string, init: RequestInit = {}): P
     ...(init.headers as Record<string, string> || {}),
   };
   if (user) {
-    headers['Authorization'] = `Bearer ${issueServiceToken(user)}`;
+    headers['Authorization'] = `Bearer ${issuePythonToken(user)}`;
   }
   return fetch(url, { ...init, headers });
 }

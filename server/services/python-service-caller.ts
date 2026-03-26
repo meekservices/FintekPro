@@ -2,9 +2,9 @@ import axios from 'axios';
 import jwt from 'jsonwebtoken';
 
 function generateInternalServiceToken(): string {
-  const secret = process.env.SESSION_SECRET;
+  const secret = process.env.PYTHON_SERVICE_SECRET || process.env.SESSION_SECRET;
   if (!secret) {
-    throw new Error('SESSION_SECRET not configured — cannot generate internal service token');
+    throw new Error('PYTHON_SERVICE_SECRET not configured — cannot generate internal service token');
   }
   return jwt.sign(
     { sub: 'internal-cron', role: 'system', roles: ['system'], email: null, mobile: null },

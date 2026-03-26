@@ -5,7 +5,7 @@ import jwt
 from jwt.exceptions import PyJWTError as JWTError
 from typing import Optional
 
-SECRET = os.getenv("SESSION_SECRET", "")
+SECRET = os.getenv("PYTHON_SERVICE_SECRET") or os.getenv("SESSION_SECRET", "")
 ALGORITHM = "HS256"
 ISSUER = "fintekpro-main"
 
@@ -23,7 +23,7 @@ class TokenPayload:
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)) -> TokenPayload:
     if not SECRET:
-        raise HTTPException(status_code=500, detail="SESSION_SECRET not configured on Python service")
+        raise HTTPException(status_code=500, detail="PYTHON_SERVICE_SECRET not configured on Python service")
     token = credentials.credentials
     try:
         payload = jwt.decode(token, SECRET, algorithms=[ALGORITHM], issuer=ISSUER)
