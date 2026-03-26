@@ -414,63 +414,65 @@ class CASStatementService {
   /**
    * Normalize text for parsing by ensuring date patterns start on new lines.
    * This fixes issues where PDF text extraction doesn't preserve proper line breaks.
+   *
+   * Supports both dash-format (DD-Mon-YYYY) and slash-format (DD/Mon/YYYY) dates.
    */
   private normalizeTextForParsing(text: string): string {
-    // CAS date format: DD-Mon-YYYY (e.g., 01-Aug-2023, 18-Mar-2024)
-    // Insert newline before date patterns that are preceded by non-newline chars
-    // This ensures each transaction starts on its own line
-    
-    // Pattern: digit followed by date pattern (e.g., "83.85501-Aug-2023" -> "83.855\n01-Aug-2023")
+    // CAS date formats: DD-Mon-YYYY and DD/Mon/YYYY
+    // Match both separators so slash-format dates from some CAMS PDFs are also split.
+    const DATE_PATTERN = /\d{2}[-\/][A-Za-z]{3}[-\/]\d{4}/;
+
+    // Pattern: digit followed by date pattern (e.g., "83.85501-Aug-2023" or "83.85501/Aug/2023")
     let normalized = text.replace(
-      /(\d)(\d{2}-[A-Za-z]{3}-\d{4})/g, 
+      /(\d)(\d{2}[-\/][A-Za-z]{3}[-\/]\d{4})/g,
       '$1\n$2'
     );
-    
-    // Pattern: letter followed by date pattern (e.g., "OK01-Aug-2023" -> "OK\n01-Aug-2023")
+
+    // Pattern: letter followed by date pattern (e.g., "OK01-Aug-2023" or "OK01/Aug/2023")
     normalized = normalized.replace(
-      /([A-Za-z])(\d{2}-[A-Za-z]{3}-\d{4})/g,
+      /([A-Za-z])(\d{2}[-\/][A-Za-z]{3}[-\/]\d{4})/g,
       '$1\n$2'
     );
-    
-    // Pattern: closing paren or asterisk followed by date (e.g., "***01-Aug-2023" -> "***\n01-Aug-2023")
+
+    // Pattern: closing paren or asterisk followed by date
     normalized = normalized.replace(
-      /(\*{3}|\))(\d{2}-[A-Za-z]{3}-\d{4})/g,
+      /(\*{3}|\))(\d{2}[-\/][A-Za-z]{3}[-\/]\d{4})/g,
       '$1\n$2'
     );
-    
+
     // Ensure "Closing Unit Balance" starts on new line
     normalized = normalized.replace(
       /([^\n])(Closing Unit Balance)/gi,
       '$1\n$2'
     );
-    
+
     // Ensure "Opening Unit Balance" starts on new line
     normalized = normalized.replace(
       /([^\n])(Opening Unit Balance)/gi,
       '$1\n$2'
     );
-    
+
     // Ensure "Folio No:" starts on new line
     normalized = normalized.replace(
       /([^\n])(Folio No:)/gi,
       '$1\n$2'
     );
-    
+
     // Ensure "ISIN:" has proper spacing
     normalized = normalized.replace(
       /([^\n\s])(ISIN:)/gi,
       '$1\n$2'
     );
-    
+
     // Debug: Log normalization details
     const originalLines = text.split('\n').length;
     const normalizedLines = normalized.split('\n').length;
     console.log(`[CAS Service v4] Text normalization: ${originalLines} -> ${normalizedLines} lines (added ${normalizedLines - originalLines})`);
-    
-    // Log sample of date patterns found after normalization
-    const dateLines = normalized.split('\n').filter(line => /^\d{2}-[A-Za-z]{3}-\d{4}/.test(line.trim()));
+
+    // Log sample of date patterns found after normalization (both formats)
+    const dateLines = normalized.split('\n').filter(line => DATE_PATTERN.test(line.trim().substring(0, 11)));
     console.log(`[CAS Service v4] Found ${dateLines.length} lines starting with dates after normalization`);
-    
+
     return normalized;
   }
   
@@ -487,15 +489,23 @@ class CASStatementService {
     if (panMatch) info.pan = panMatch[1];
     
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    for (let i = 0; i < Math.min(30, lines.length); i++) {
+    // Scan up to 50 lines (extended from 30) to handle longer CAS headers.
+    // Accept three name formats:
+    //   1. Title-case:  "Rajesh Kumar" / "K. Rajan"
+    //   2. ALL-CAPS:    "RAJESH KUMAR SHARMA"
+    //   3. Initial-led: "K Rajan" / "S.K. Sharma"
+    const NAME_PATTERNS = [
+      /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+$/,           // Title-case (2+ words)
+      /^[A-Z]{2,}(?:\s+[A-Z]{2,})+$/,               // ALL-CAPS (2+ words)
+      /^[A-Z]\.?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*$/, // Initial + surname
+    ];
+    const NAME_EXCLUSIONS = ['Consolidated', 'Statement', 'Email', 'Mobile', 'Mutual Fund',
+      'Account', 'Portfolio', 'Summary', 'Dear', 'Investor', 'Period', 'Date'];
+    for (let i = 0; i < Math.min(50, lines.length); i++) {
       const line = lines[i];
-      if (line.match(/^[A-Z][a-z]+\s+[A-Z][a-z]+/) && 
-          !line.includes('Consolidated') && 
-          !line.includes('Statement') &&
-          !line.includes('Email') &&
-          !line.includes('Mobile') &&
-          !line.includes('Mutual Fund') &&
-          line.length < 50) {
+      if (line.length >= 3 && line.length < 60 &&
+          NAME_PATTERNS.some(p => p.test(line)) &&
+          !NAME_EXCLUSIONS.some(ex => line.includes(ex))) {
         info.name = line.trim();
         break;
       }
@@ -644,6 +654,31 @@ class CASStatementService {
         }
       }
       
+      // Fallback: if the hardcoded AMC list missed lines, do a regex pass over all
+      // summary lines that contain two financial numbers (>= 1000) and look like an
+      // AMC entry (mixed-case text followed by amounts).  This catches new AMCs not
+      // yet present in the static list.
+      if (entries.length === 0) {
+        for (const line of lines) {
+          const trimmed = line.trim();
+          // Skip blank / header / total lines
+          if (!trimmed || /^\s*(Total|Cost Value|Market Value|Mutual Fund|INR|\(INR\)|PORTFOLIO)/i.test(trimmed)) continue;
+          // Must look like text (AMC name portion) followed by numbers
+          const amcTextMatch = trimmed.match(/^([A-Za-z0-9&\s\-\.]{5,60?}?)\s+([\d,]+\.?\d+)\s+([\d,]+\.?\d+)\s*$/);
+          if (amcTextMatch) {
+            const candidateName = amcTextMatch[1].trim();
+            const cost = parseFloat(amcTextMatch[2].replace(/,/g, ''));
+            const market = parseFloat(amcTextMatch[3].replace(/,/g, ''));
+            // Only accept if both values look like real portfolio amounts (>= 100)
+            if (cost >= 100 && market >= 100 &&
+                !entries.some(e => e.amcName.toLowerCase().includes(candidateName.toLowerCase().substring(0, 10)))) {
+              entries.push({ amcName: candidateName, costValue: cost, marketValue: market });
+              console.log(`[CAS Service v4] Portfolio Summary (regex fallback): ${candidateName} - Cost: ${cost}, Market: ${market}`);
+            }
+          }
+        }
+      }
+
       if (entries.length === 0 && totalCostValue === 0) {
         console.log('[CAS Service v4] Could not parse Portfolio Summary entries');
         return undefined;

@@ -90,7 +90,7 @@ export interface SafeExtractResult {
   success: boolean;
   result?: TextExtractResult;
   error?: string;
-  errorCode?: 'INVALID_INPUT' | 'FILE_TOO_LARGE' | 'PARSE_ERROR' | 'EMPTY_CONTENT' | 'UNKNOWN';
+  errorCode?: 'INVALID_INPUT' | 'FILE_TOO_LARGE' | 'PARSE_ERROR' | 'EMPTY_CONTENT' | 'PASSWORD_PROTECTED' | 'UNKNOWN';
   /** True when Gemini Vision OCR was used instead of pdf-parse */
   ocrFallbackUsed?: boolean;
   ocrConfidence?: 'high' | 'medium' | 'low' | 'unknown';
@@ -452,6 +452,23 @@ class UnifiedPDFParser {
       const result = await this.extractText(input, options);
 
       if (!result.text || result.text.trim().length === 0) {
+        // ── PASSWORD-PROTECTED PDF DETECTION ──────────────────────────
+        // A password-protected PDF contains "/Encrypt" in its cross-reference
+        // table.  pdf-parse returns empty text rather than an error, so we
+        // inspect the raw bytes to surface a clear, actionable message.
+        if (rawBuffer) {
+          const pdfHead = rawBuffer.slice(0, Math.min(rawBuffer.length, 65536)).toString('latin1');
+          if (pdfHead.includes('/Encrypt')) {
+            console.warn('[UnifiedPDFParser] PDF appears to be password-protected (/Encrypt found)');
+            return {
+              success: false,
+              result,
+              error: 'PDF is password-protected. Please remove the password and re-upload.',
+              errorCode: 'PASSWORD_PROTECTED',
+            };
+          }
+        }
+
         // ── OCR FALLBACK ──────────────────────────────────────────────
         if (enableOCRFallback && rawBuffer) {
           console.log('[UnifiedPDFParser] Empty text from pdf-parse — attempting Gemini OCR fallback');

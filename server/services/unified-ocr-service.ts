@@ -175,29 +175,58 @@ class UnifiedOCRService {
       };
     }
 
-    try {
+    // Helper: call Gemini once and return raw text (throws on API error)
+    const callGemini = async (): Promise<string> => {
       const prompt = PROMPT_FOR_HINT[hint];
       const base64Data = buffer.toString('base64');
-
       const response = await this.ai.models.generateContent({
         model: GEMINI_MODEL,
         contents: [
           {
             role: 'user',
             parts: [
-              {
-                inlineData: {
-                  mimeType: 'application/pdf',
-                  data: base64Data,
-                },
-              },
+              { inlineData: { mimeType: 'application/pdf', data: base64Data } },
               { text: prompt },
             ],
           },
         ],
       });
+      return response.text || '';
+    };
 
-      const text = response.text || '';
+    // Helper: compute confidence from extracted text using multiple signals
+    const computeConfidence = (text: string): OCRResult['confidence'] => {
+      const wordCount = text.split(/\s+/).length;
+      // Financial-document signals that raise confidence beyond raw word count
+      const hasISIN = /IN[FE0][A-Z0-9]{9}/i.test(text);
+      const hasFinancialNumbers = (text.match(/[\d,]+\.\d{2,4}/g) || []).length >= 3;
+      const hasDatePattern = /\d{2}[-\/][A-Za-z]{3}[-\/]\d{4}/.test(text);
+      const signalBoost = (hasISIN ? 1 : 0) + (hasFinancialNumbers ? 1 : 0) + (hasDatePattern ? 1 : 0);
+      // Thresholds: 200 words OR strong financial signals → high; 50 words OR 1 signal → medium
+      if (wordCount > 200 || signalBoost >= 2) return 'high';
+      if (wordCount > 50 || signalBoost >= 1) return 'medium';
+      return 'low';
+    };
+
+    // Helper: decide if an error looks like a transient Gemini 5xx that is worth retrying
+    const isRetryableError = (err: any): boolean => {
+      const msg: string = (err?.message || '').toLowerCase();
+      return /5\d{2}|rate.?limit|overloaded|unavailable|timeout|econnreset|socket hang/i.test(msg);
+    };
+
+    try {
+      let text = '';
+      try {
+        text = await callGemini();
+      } catch (firstErr: any) {
+        if (isRetryableError(firstErr)) {
+          console.warn('[UnifiedOCR] Gemini transient error — retrying once after 1 s:', firstErr.message);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          text = await callGemini(); // second attempt; let it throw if it fails again
+        } else {
+          throw firstErr;
+        }
+      }
 
       if (!text || text.trim().length === 0) {
         return {
@@ -211,10 +240,8 @@ class UnifiedOCRService {
         };
       }
 
-      // Confidence heuristic: longer text with structure = higher confidence
+      const confidence = computeConfidence(text);
       const wordCount = text.split(/\s+/).length;
-      const confidence: OCRResult['confidence'] =
-        wordCount > 200 ? 'high' : wordCount > 50 ? 'medium' : 'low';
 
       console.log(
         `[UnifiedOCR] Scanned PDF extracted via Gemini: ${wordCount} words, confidence=${confidence}, ${Date.now() - start}ms`
@@ -315,11 +342,18 @@ class UnifiedOCRService {
       }
 
       const wordCount = text.split(/\s+/).length;
+      // Use same multi-signal heuristic as PDF OCR for consistency
+      const hasISIN = /IN[FE0][A-Z0-9]{9}/i.test(text);
+      const hasFinancialNumbers = (text.match(/[\d,]+\.\d{2,4}/g) || []).length >= 3;
+      const hasDatePattern = /\d{2}[-\/][A-Za-z]{3}[-\/]\d{4}/.test(text);
+      const signalBoost = (hasISIN ? 1 : 0) + (hasFinancialNumbers ? 1 : 0) + (hasDatePattern ? 1 : 0);
       const confidence: OCRResult['confidence'] =
-        wordCount > 100 ? 'high' : wordCount > 30 ? 'medium' : 'low';
+        wordCount > 200 || signalBoost >= 2 ? 'high'
+        : wordCount > 50 || signalBoost >= 1 ? 'medium'
+        : 'low';
 
       console.log(
-        `[UnifiedOCR] Image extracted via Gemini: ${wordCount} words, ${Date.now() - start}ms`
+        `[UnifiedOCR] Image extracted via Gemini: ${wordCount} words, confidence=${confidence}, ${Date.now() - start}ms`
       );
 
       return {
