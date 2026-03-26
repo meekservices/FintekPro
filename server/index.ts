@@ -835,6 +835,12 @@ server.listen({
   ]);
   app.use('/api/unlisted', unlistedRoutes.default);
   app.use('/api/compliance', complianceRoutes.default);
+
+  // Regulatory Audit Norms — centralised SEBI/AMFI/PMLA/RBI norm definitions + health checks
+  const { default: regulatoryAuditNormsRoutes } = await import('./routes/regulatory-audit-norms-routes');
+  app.use('/api/admin/regulatory-audit', regulatoryAuditNormsRoutes);
+  console.log('✅ Regulatory Audit Norms routes registered (/api/admin/regulatory-audit/*)');
+
   app.use('/api/bonds', bondMarketplaceRoutes.default);
   app.use('/api/admin/bond-seed', bondSeedAdminRoutes.default);
   app.use('/api/migration', bondSeedAdminRoutes.migrationRouter);

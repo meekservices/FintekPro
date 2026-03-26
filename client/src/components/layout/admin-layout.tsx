@@ -214,6 +214,7 @@ const navCategories: NavCategory[] = [
     icon: Shield,
     items: [
       { title: "Regulatory Dashboard", href: "/admin/compliance-dashboard", icon: Shield, description: "SEBI/RBI compliance" },
+      { title: "Audit Norms", href: "/admin/regulatory-audit-norms", icon: Scale, description: "SEBI/AMFI/PMLA/RBI norms" },
       { title: "SEBI MF Compliance", href: "/admin/sebi-mf-compliance", icon: Scale, description: "SEBI 2026 MF categorisation" },
       { title: "Unlisted Compliance", href: "/admin/unlisted/compliance-alerts", icon: AlertTriangle, description: "Blocked trades" },
       { title: "Bond Audit Log", href: "/admin/bonds/audit-log", icon: History, description: "Bond audit trail" },

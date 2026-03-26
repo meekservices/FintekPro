@@ -578,6 +578,7 @@ export function EnhancedNavigation() {
         items: [
           { name: "Supplier Management", href: "/suppliers", icon: Building2, description: "Vendors & partners" },
           { name: "Compliance Dashboard", href: "/admin/compliance-dashboard", icon: Scale, description: "Regulatory compliance" },
+          { name: "Audit Norms", href: "/admin/regulatory-audit-norms", icon: Shield, description: "SEBI/AMFI/PMLA/RBI norms" },
           { name: "Regulatory Compliance", href: "/admin/unlisted/regulatory-compliance", icon: Shield, description: "Compliance rules" },
           { name: "KYC Compliance", href: "/admin/kyc-compliance", icon: AlertCircle, description: "KYC monitoring" }
         ]
