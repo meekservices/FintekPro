@@ -1,4 +1,5 @@
 import { db } from "../db";
+import { getAppBaseUrl } from "../utils/app-url";
 import { 
   prospectClients, 
   prospectProposals,
@@ -5843,7 +5844,7 @@ class AgentProspectWizardService {
       throw new Error('Proposal not found');
     }
 
-    const shareUrl = `${process.env.BASE_URL || 'https://fintekpro.replit.app'}/proposal/${proposal.shareToken}`;
+    const shareUrl = `${getAppBaseUrl()}/proposal/${proposal.shareToken}`;
 
     await db.update(prospectProposals)
       .set({

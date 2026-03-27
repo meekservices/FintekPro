@@ -1,6 +1,7 @@
 import { Express, Response } from 'express';
 import { partnerService } from '../../partner-service';
 import { db } from '../../db';
+import { getAppBaseUrl } from '../../utils/app-url';
 import * as schema from '@shared/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 import { registerPartnerHierarchyRoutes } from './hierarchy-routes';
@@ -1001,9 +1002,7 @@ export function registerPartnerPortalRoutes(app: Express): void {
           (partner_user_id, invite_code, invitee_name, invitee_email, invitee_mobile)
         VALUES (${userId}, ${code}, ${inviteeName || null}, ${inviteeEmail || null}, ${inviteeMobile || null})
       `);
-      const appUrl = process.env.REPLIT_DOMAINS 
-        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-        : 'http://localhost:5000';
+      const appUrl = getAppBaseUrl();
       res.json({ success: true, inviteCode: code, inviteLink: `${appUrl}/agent/register?ref=${code}` });
     } catch (error) {
       console.error("Error creating invite:", error);

@@ -185,7 +185,7 @@ app.use(helmet({
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
-      frameAncestors: ["'self'", "https://*.replit.dev", "https://*.replit.com"],
+      frameAncestors: ["'self'", "https://*.replit.dev", "https://*.replit.com", "https://*.railway.app"],
     },
   },
   hsts: {
@@ -245,8 +245,12 @@ app.use(cors({
         origin.endsWith('.replit.dev') ||
         origin.endsWith('.repl.co') ||
         origin.endsWith('.replit.app');
-    
-    if (isReplitOrigin) {
+
+    // Allow Railway domains
+    const isRailwayOrigin = origin.endsWith('.railway.app') ||
+        origin.endsWith('.up.railway.app');
+
+    if (isReplitOrigin || isRailwayOrigin) {
       return callback(null, true);
     }
     
@@ -374,6 +378,10 @@ const createCsrfProtection = () => (req: Request, res: Response, next: NextFunct
     
     const replitDomains = process.env.REPLIT_DOMAINS?.split(',').map(d => `https://${d.trim()}`) || [];
     allowedOrigins.push(...replitDomains);
+
+    if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+      allowedOrigins.push(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+    }
     
     if (!isProduction) {
       allowedOrigins.push('http://localhost:5000', 'http://127.0.0.1:5000');
@@ -381,7 +389,11 @@ const createCsrfProtection = () => (req: Request, res: Response, next: NextFunct
     
     const requestOrigin = origin || (referer ? new URL(referer).origin : null);
     
-    if (requestOrigin && !allowedOrigins.some(allowed => requestOrigin.startsWith(allowed.replace(/\/$/, '')))) {
+    const isRailwayRequest = requestOrigin
+      ? requestOrigin.endsWith('.railway.app') || requestOrigin.endsWith('.up.railway.app')
+      : false;
+
+    if (requestOrigin && !isRailwayRequest && !allowedOrigins.some(allowed => requestOrigin.startsWith(allowed.replace(/\/$/, '')))) {
       logger.warn(`[CSRF] Blocked request from: ${requestOrigin}`);
       return res.status(403).json({ error: 'Invalid request origin' });
     }

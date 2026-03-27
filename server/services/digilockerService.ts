@@ -78,7 +78,7 @@ export class DigiLockerService {
           appId: process.env.DIGILOCKER_APP_ID || "FINTEK_APP_001",
           apiKey: process.env.DIGILOCKER_API_KEY || "",
           orgId: process.env.DIGILOCKER_ORG_ID || "FINTEK_ORG_001",
-          domain: process.env.REPLIT_DOMAIN || "localhost:5000",
+          domain: process.env.APP_DOMAIN || process.env.REPLIT_DOMAIN || "fintekpro.com",
           environment: "development",
           documentTypesAllowed: ["issued", "uploaded"],
           isActive: true,
