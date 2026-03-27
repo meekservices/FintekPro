@@ -58,7 +58,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
-import { insertPartnerSchema, insertAgentSchema, insertSupplierSchema } from "@shared/schema";
+import type { InsertPartner, InsertAgent, InsertSupplier } from "@shared/schema";
 
 function buildUrl(base: string, params: Record<string, any>): string {
   const url = new URL(base, window.location.origin);
@@ -147,21 +147,45 @@ interface Supplier {
   createdAt: string;
 }
 
-// Validation schemas - using shared insert schemas from @shared/schema
-// Partner schema: extend shared schema with password requirement for creation
-const partnerSchema = insertPartnerSchema.extend({
+// Standalone schemas — avoids circular-dependency TDZ crash in production bundles
+const partnerSchema = z.object({
+  companyName: z.string().min(1, "Company name is required"),
+  contactEmail: z.string().email("Valid email is required"),
+  contactPhone: z.string().optional(),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  partnerType: z.string().min(1, "Partner type is required"),
+  commissionRate: z.string().optional(),
+  isActive: z.boolean().optional(),
 });
 
-const partnerEditSchema = insertPartnerSchema.partial().extend({
+const partnerEditSchema = z.object({
+  companyName: z.string().min(1).optional(),
+  contactEmail: z.string().email().optional(),
+  contactPhone: z.string().optional(),
   password: z.string().min(8).optional().or(z.literal("")),
+  partnerType: z.string().optional(),
+  commissionRate: z.string().optional(),
+  isActive: z.boolean().optional(),
 });
 
-// Agent schema: use shared insert schema directly
-const agentSchema = insertAgentSchema;
+const agentSchema = z.object({
+  fullName: z.string().min(1, "Full name is required"),
+  email: z.string().email("Valid email is required"),
+  phone: z.string().optional(),
+  employeeId: z.string().optional(),
+  arnCode: z.string().optional(),
+  euinNumber: z.string().optional(),
+  agentType: z.string().min(1, "Agent type is required"),
+  status: z.string().optional(),
+});
 
-// Supplier schema: use shared insert schema directly
-const supplierSchema = insertSupplierSchema;
+const supplierSchema = z.object({
+  companyName: z.string().min(1, "Company name is required"),
+  contactEmail: z.string().email("Valid email is required"),
+  contactPhone: z.string().optional(),
+  supplierType: z.string().optional(),
+  isActive: z.boolean().optional(),
+});
 
 export default function StakeholdersPage() {
   const [activeTab, setActiveTab] = useState<StakeholderType>("clients");

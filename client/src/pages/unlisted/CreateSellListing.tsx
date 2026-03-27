@@ -16,12 +16,21 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { ArrowLeft, TrendingUp, Shield, AlertCircle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { insertSellListingSchema, type UnlistedCompany, type User } from "@shared/schema";
+import type { UnlistedCompany, User } from "@shared/schema";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// Extended validation schema
-const sellListingFormSchema = insertSellListingSchema.extend({
+// Standalone schema — avoids circular-dependency TDZ crash in production bundles
+const sellListingFormSchema = z.object({
+  companyId: z.string().min(1, "Company is required"),
+  quantity: z.number().min(1, "Quantity must be at least 1"),
+  askPrice: z.string().min(1, "Ask price is required"),
+  landingPrice: z.string().min(1, "Landing price is required"),
+  floorPrice: z.string().min(1, "Floor price is required"),
   validUntil: z.string().min(1, "Valid until date is required"),
+  lockInPeriod: z.number().optional(),
+  minimumLotSize: z.number().optional(),
+  notes: z.string().optional(),
+  autoRenew: z.boolean().optional(),
 }).refine(
   (data) => Number(data.landingPrice) <= Number(data.askPrice),
   {

@@ -18,12 +18,18 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { ArrowLeft, ShoppingCart, Shield, AlertCircle, Filter } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { insertBuyRequestSchema, type UnlistedCompany, type SellListing, type User } from "@shared/schema";
+import type { UnlistedCompany, SellListing, User } from "@shared/schema";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// Extended validation schema
-const buyRequestFormSchema = insertBuyRequestSchema.extend({
+// Standalone schema — avoids circular-dependency TDZ crash in production bundles
+const buyRequestFormSchema = z.object({
+  companyId: z.string().min(1, "Company is required"),
+  quantity: z.number().min(1, "Quantity must be at least 1"),
+  maxPrice: z.string().min(1, "Max price is required"),
+  targetPrice: z.string().optional(),
   validUntil: z.string().min(1, "Valid until date is required"),
+  preferredLotSize: z.number().optional(),
+  notes: z.string().optional(),
 });
 
 type BuyRequestFormData = z.infer<typeof buyRequestFormSchema>;
