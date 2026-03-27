@@ -8,7 +8,7 @@ packages = ["atk", "chromium", "gdk-pixbuf", "glib", "glibcLocales", "gtk3", "li
 
 [deployment]
 deploymentTarget = "autoscale"
-build = ["bash", "-c", "NODE_OPTIONS='--max-old-space-size=2048' npm run build && (psql $DATABASE_URL -c 'CREATE SCHEMA IF NOT EXISTS drizzle_kit_managed;' 2>/dev/null; npx drizzle-kit push --force 2>/dev/null; exit 0)"]
+build = ["bash", "-c", "NODE_OPTIONS='--max-old-space-size=2048' npm run build"]
 run = ["bash", "scripts/start-production.sh"]
 
 [env]
