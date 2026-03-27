@@ -3,7 +3,8 @@ import { storage } from '../storage';
 import { db } from '../db';
 import { requireAdmin, requireAgent } from '../middleware/roleMiddleware';
 import * as schema from '@shared/schema';
-import { eq, desc, sql, and, or, gte, lte, inArray } from 'drizzle-orm';
+import { eq, desc, sql, and, or, gte, lte, inArray, lt, count } from 'drizzle-orm';
+import { agentAppointments, prospectClients, portfolios } from '@shared/schema';
 
 export function registerAgentCapitalGainsRoutes(app: Express): void {
   // ============ AGENT CAPITAL GAINS REPORTS ROUTES ============
