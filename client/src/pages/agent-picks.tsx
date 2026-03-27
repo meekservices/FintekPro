@@ -1774,19 +1774,29 @@ export default function AgentPicksPage() {
               </div>
 
               {/* AI Rationale */}
-              {selectedPick.rationale && (
-                <div className="rounded-lg border p-4 bg-primary/5">
-                  <h4 className="font-semibold text-sm flex items-center gap-2 mb-2">
-                    <Brain className="h-4 w-4 text-primary" />
-                    AI Rationale
-                  </h4>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {typeof selectedPick.rationale === 'string'
-                      ? selectedPick.rationale.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim()
-                      : JSON.stringify(selectedPick.rationale)}
-                  </p>
-                </div>
-              )}
+              {selectedPick.rationale && (() => {
+                const raw = typeof selectedPick.rationale === 'string'
+                  ? selectedPick.rationale.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim()
+                  : JSON.stringify(selectedPick.rationale);
+                let displayText = raw;
+                try {
+                  const parsed = JSON.parse(raw);
+                  if (parsed && typeof parsed === 'object' && parsed.error) {
+                    displayText = '';
+                  }
+                } catch {
+                  // not JSON — use raw text as-is
+                }
+                return displayText ? (
+                  <div className="rounded-lg border p-4 bg-primary/5">
+                    <h4 className="font-semibold text-sm flex items-center gap-2 mb-2">
+                      <Brain className="h-4 w-4 text-primary" />
+                      AI Rationale
+                    </h4>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{displayText}</p>
+                  </div>
+                ) : null;
+              })()}
 
               {/* Key Metrics */}
               {selectedPick.keyMetrics && Object.keys(selectedPick.keyMetrics).length > 0 && (
@@ -1797,7 +1807,7 @@ export default function AgentPicksPage() {
                   </h4>
                   <div className="grid grid-cols-2 gap-2">
                     {Object.entries(selectedPick.keyMetrics)
-                      .filter(([k]) => !['cin', 'seriesCode', 'strategy', 'expiry'].includes(k))
+                      .filter(([k, v]) => !['cin', 'seriesCode', 'strategy', 'expiry', 'greeks'].includes(k) && typeof v !== 'object')
                       .slice(0, 8)
                       .map(([key, val]) => (
                         <div key={key} className="bg-muted/50 rounded-md px-3 py-2">
@@ -1806,6 +1816,25 @@ export default function AgentPicksPage() {
                         </div>
                       ))}
                   </div>
+                  {selectedPick.keyMetrics.greeks && (
+                    <div className="mt-2 bg-muted/50 rounded-md px-3 py-2">
+                      <p className="text-xs text-muted-foreground mb-1">Greeks</p>
+                      <p className="font-medium text-sm font-mono">
+                        {typeof selectedPick.keyMetrics.greeks.delta === 'number' && (
+                          <span className="mr-3">Δ {selectedPick.keyMetrics.greeks.delta.toFixed(4)}</span>
+                        )}
+                        {typeof selectedPick.keyMetrics.greeks.theta === 'number' && (
+                          <span className="mr-3">Θ {selectedPick.keyMetrics.greeks.theta.toFixed(4)}</span>
+                        )}
+                        {typeof selectedPick.keyMetrics.greeks.vega === 'number' && (
+                          <span className="mr-3">V {selectedPick.keyMetrics.greeks.vega.toFixed(4)}</span>
+                        )}
+                        {typeof selectedPick.keyMetrics.greeks.gamma === 'number' && (
+                          <span>Γ {selectedPick.keyMetrics.greeks.gamma.toFixed(4)}</span>
+                        )}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

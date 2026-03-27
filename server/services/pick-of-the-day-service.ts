@@ -2501,6 +2501,29 @@ class PickOfTheDayService {
   }
 
   private buildRationalePrompt(params: any): string {
+    const isDerivative = params.type === 'derivatives' || params.category === 'derivatives';
+
+    if (isDerivative) {
+      const spotPrice = params.spotPrice ?? params.currentPrice ?? params.entryPrice ?? 0;
+      const strike = params.strikePrice ?? params.strike ?? 0;
+      return `Generate a concise, professional trading rationale for a derivatives strategy pick.
+
+Instrument: ${params.name || params.symbol}
+Symbol: ${params.symbol}
+Strategy: ${params.strategy}
+Outlook: ${params.outlook}
+Spot Price: ₹${spotPrice.toFixed(0)}
+Strike Price: ₹${strike}
+Expiry: ${params.expiry}
+Entry Price: ₹${params.entryPrice}
+Implied Volatility: ${params.iv ? params.iv.toFixed(1) + '%' : 'N/A'}
+Lot Size: ${params.lotSize}
+Max Profit: ${params.maxProfit}
+Max Loss: ${params.maxLoss}
+
+Write a 2-3 sentence rationale for this ${params.strategy} strategy. Explain the market view, key risk-reward, and why this expiry/strike makes sense today. Be specific and actionable. Do not use markdown formatting.`;
+    }
+
     const categoryName = {
       'listed_stocks': 'Stock',
       'mutual_funds': 'Mutual Fund',
@@ -2528,14 +2551,18 @@ class PickOfTheDayService {
       enrichedContext += `\nAnalyst Avg Target: ₹${params.analystAvgTarget.toFixed(0)} (${params.analystCount || 0} analysts)`;
     }
 
+    const currentPrice = params.currentPrice ?? 0;
+    const targetPrice = params.targetPrice ?? 0;
+    const upside = currentPrice > 0 ? Math.round((targetPrice / currentPrice - 1) * 100) : 0;
+
     return `Generate a concise, professional investment rationale for today's ${categoryName} pick.
 
 Product: ${params.name}
 ${params.symbol ? `Symbol: ${params.symbol}` : ''}
 ${params.sector ? `Sector: ${params.sector}` : ''}
-Current Price: ₹${params.currentPrice}
-Target Price: ₹${params.targetPrice} (${Math.round((params.targetPrice / params.currentPrice - 1) * 100)}% upside)
-Stop Loss: ₹${params.stoplossPrice}
+Current Price: ₹${currentPrice}
+Target Price: ₹${targetPrice} (${upside}% upside)
+Stop Loss: ₹${params.stoplossPrice ?? 'N/A'}
 ${params.fintekproRating ? `FintekPro Rating: ${params.fintekproRating}/5` : ''}
 ${params.peRatio ? `P/E Ratio: ${params.peRatio}` : ''}
 ${params.returns1Y ? `1Y Returns: ${params.returns1Y}%` : ''}
@@ -2546,7 +2573,15 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
   }
 
   private generateFallbackRationale(params: any): string {
-    const upside = Math.round((params.targetPrice / params.currentPrice - 1) * 100);
+    const isDerivative = params.type === 'derivatives' || params.category === 'derivatives';
+    if (isDerivative) {
+      const spotPrice = params.spotPrice ?? params.currentPrice ?? params.entryPrice ?? 0;
+      return `${params.strategy} on ${params.symbol} with ${params.outlook} outlook. Spot at ₹${spotPrice.toFixed(0)}, IV at ${params.iv ? params.iv.toFixed(1) + '%' : 'N/A'}. Max profit: ${params.maxProfit}, Max loss: ${params.maxLoss}. Lot size: ${params.lotSize}, Expiry: ${params.expiry}. Suitable for ${params.outlook} market view.`;
+    }
+
+    const currentPrice = params.currentPrice ?? 0;
+    const targetPrice = params.targetPrice ?? 0;
+    const upside = currentPrice > 0 ? Math.round((targetPrice / currentPrice - 1) * 100) : 0;
     
     let enrichedInsights = '';
     if (params.dcfUpside != null) {
