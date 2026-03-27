@@ -18,6 +18,30 @@
 
 ---
 
+## Database Architecture (March 2026)
+
+### Two-Database Strategy
+| Environment | Database | Connection Variable | SSL |
+|-------------|----------|---------------------|-----|
+| Development | Replit Helium (local PostgreSQL, 758 tables) | `DATABASE_URL` | `ssl: false` |
+| Production | Neon (external, 9.4M row NAV data) | `PRODUCTION_DATABASE_URL` | via WebSocket |
+
+**Why this split:**
+- Replit's publish flow checks `DATABASE_URL` (Helium) for schema diffs. Previously the app directed both environments to Neon, causing "SERVER unexpectedly disconnected" during publish (Helium doesn't support SSL; old code forced it).
+- Enrichment writes (AMFI, stock prices, bond catalogs) **always** go through `db-production.ts` → `PRODUCTION_DATABASE_URL` regardless of environment. The enrichment schedulers also have `isProduction` guards so they skip in development entirely.
+
+### Key Files
+- `server/db.ts` — main app DB; uses `DATABASE_URL` in dev, `PRODUCTION_DATABASE_URL` in production
+- `server/db-production.ts` — enrichment-only connection, always `PRODUCTION_DATABASE_URL`
+- `drizzle.local.config.ts` — schema push for Helium dev DB (full schema, `ssl: false`)
+- `drizzle.production.config.ts` — startup sync for Neon (6-table `drizzle_kit_managed` schema only, to avoid touching the 755-table public schema)
+
+### Publish Safety Notes
+- **Never click "Copy development database to production"** during deploy — Helium has no enrichment data.
+- Schema sync at production startup (`scripts/start-production.sh`) targets the `drizzle_kit_managed` schema only. If Neon's TCP port is unreachable (Replit autoscale blocks port 5432), it skips gracefully.
+
+---
+
 ## Publish Readiness (March 2026)
 - **Build**: ✅ Zero TypeScript errors, zero build warnings. `dist/index.js` (14 MB) + `dist/public/` frontend assets.
 - **Auth debug logging**: ✅ Removed sensitive cookie/header/session-ID console.logs from `/api/login` and `/api/login/verify-otp` handlers. No credentials leak to stdout in production.
