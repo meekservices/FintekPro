@@ -33,7 +33,8 @@
 ### Key Files
 - `server/db.ts` — main app DB; uses `DATABASE_URL` in dev, `PRODUCTION_DATABASE_URL` in production
 - `server/db-production.ts` — enrichment-only connection, always `PRODUCTION_DATABASE_URL`
-- `drizzle.local.config.ts` — schema push for Helium dev DB (full schema, `ssl: false`)
+- `drizzle.config.ts` — **Replit publish diff-check entry point**. Routes to `PRODUCTION_DATABASE_URL` (Neon, SSL) when set, falls back to `DATABASE_URL` (Helium, ssl:false). Restricted to 6-table `drizzle_kit_managed` stub — can never generate DROP statements against the 755-table public schema.
+- `drizzle.local.config.ts` — full schema push for Helium dev DB (`ssl: false`). Run manually: `npx drizzle-kit push --config=drizzle.local.config.ts`
 - `drizzle.production.config.ts` — startup sync for Neon (6-table `drizzle_kit_managed` schema only, to avoid touching the 755-table public schema)
 
 ### Publish Safety Notes
