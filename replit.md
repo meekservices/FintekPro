@@ -42,6 +42,31 @@
 
 ---
 
+## Engine Review & Bug Fixes (March 2026 — 48 Engines)
+
+All 48 FintekPro engines systematically reviewed. 10 bugs fixed:
+
+| Engine | Fix |
+|--------|-----|
+| E03 ai-analytics-engine | `Infinity` in computeAdvanceDeclineRatio → capped at 9999 |
+| E04 ai-backtesting-engine | Duplicate `snapshotFeatures` inserts — added check-before-insert |
+| E05 ai-feedback-engine | Unbounded live picks query — added `.limit()` |
+| E11 ai-alpha-engine | Inline `requireAuth/requireAdmin` using wrong role `'super_admin'` → imported from central middleware |
+| E15 proposal-whatif-engine | `probabilityOfLoss` in Python path missing `Math.min(100,…)` upper bound |
+| E19 quant-backtesting-engine | `Math.min()` with empty spread when `categories=[]` |
+| E30 us-rebalancing-engine | `AllocationTarget` interface used literal value types instead of `number` |
+| E32 goal-planning-engine | Division-by-zero in `calculateSIPForGoal` when `monthlyRate=0` |
+| E40 sip-simulator-engine | `horizonMonths` type widened from `6\|12\|24` literal union to `number` |
+| E47 tax-orchestrator | Caller's `financialYear` silently overridden by recomputed value |
+
+### Admin Route Fix (March 2026)
+- **`server/routes/admin/index.ts` line 4537**: Replaced `neon(process.env.DATABASE_URL!)` (Neon WebSocket client pointed at Helium — invalid) with `pool.query()` from `../../db`. The `pool` correctly routes to Helium in dev and Neon in production.
+
+### TDZ Production Crash Fix (March 2026)
+- `CreateSellListing.tsx`, `CreateBuyRequest.tsx`, `stakeholders.tsx` — all now use standalone `z.object()` instead of `.extend()` on drizzle-generated schemas. Eliminates "Cannot access 'ta' before initialization" in the `chunk-investments` bundle.
+
+---
+
 ## Publish Readiness (March 2026)
 - **Build**: ✅ Zero TypeScript errors, zero build warnings. `dist/index.js` (14 MB) + `dist/public/` frontend assets.
 - **Auth debug logging**: ✅ Removed sensitive cookie/header/session-ID console.logs from `/api/login` and `/api/login/verify-otp` handlers. No credentials leak to stdout in production.
