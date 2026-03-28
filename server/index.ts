@@ -1166,6 +1166,45 @@ server.listen({
     console.error('[Migration] screener_stocks columns error:', e?.message);
   }
 
+  // mutual_funds — add columns introduced after initial production deployment
+  try {
+    await db.execute(sql`
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS plan_type VARCHAR DEFAULT 'regular';
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT false;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS published_by VARCHAR;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS amfi_code VARCHAR;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS isin VARCHAR;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS option_type VARCHAR;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS scheme_status VARCHAR DEFAULT 'active';
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS last_verified_at TIMESTAMPTZ;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS data_source VARCHAR;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS isin_dividend_payout VARCHAR;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS isin_dividend_reinvest VARCHAR;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS isin_growth VARCHAR;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS repurchase_price NUMERIC(15,4);
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS sale_price NUMERIC(15,4);
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS launch_date DATE;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS min_sip_amount NUMERIC(15,2);
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS min_lumpsum_amount NUMERIC(15,2);
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS amc_code VARCHAR;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS exit_load_percent NUMERIC(8,4);
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS exit_load_days INTEGER;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS scheme_sub_category VARCHAR;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS benchmark_index VARCHAR;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS benchmark_index_code VARCHAR;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS benchmark_confidence_score NUMERIC(3,2);
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS taxonomy_version VARCHAR(20) DEFAULT 'SEBI_2017';
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS compliance_status VARCHAR(30) DEFAULT 'PENDING';
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS naming_validation_status VARCHAR(10) DEFAULT 'PENDING';
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS lifecycle_metadata JSONB;
+      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS compliance_blocked_reason TEXT
+    `);
+    console.log('✅ [Migration] mutual_funds columns verified/added');
+  } catch (e: any) {
+    console.error('[Migration] mutual_funds columns error:', e?.message);
+  }
+
   // Register additional routes from routes.ts (but don't create a new server - we already have one)
   await registerRoutes(app, server);
 
