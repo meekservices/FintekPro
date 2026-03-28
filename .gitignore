@@ -78,3 +78,4 @@ attached_assets/
 
 # Drizzle local config (Replit-specific)
 drizzle.local.config.ts
+pnpm-lock.yaml
