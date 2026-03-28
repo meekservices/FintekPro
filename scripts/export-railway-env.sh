@@ -22,7 +22,8 @@ SKIP=(
   CONNECTORS_HOSTNAME REPLIT_CONNECTORS_HOSTNAME
   # Replit Object Storage — different on Railway
   DEFAULT_OBJECT_STORAGE_BUCKET_ID PRIVATE_OBJECT_DIR PUBLIC_OBJECT_SEARCH_PATHS
-  # Replit local Postgres (Helium) — Railway uses Neon
+  # Replit local Postgres (Helium) — unreachable from Railway, use PRODUCTION_DATABASE_URL
+  DATABASE_URL NEON_DATABASE_URL
   PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD
   # Railway sets PORT automatically
   PORT
