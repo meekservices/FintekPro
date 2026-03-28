@@ -1,6 +1,10 @@
-// Import CJS bundle directly — avoids ESM interop error in Node.js production builds
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const PptxGenJS = require("pptxgenjs/dist/pptxgen.cjs.js");
+// pptxgenjs ships pptxgen.es.js with ES `import` syntax but its own package.json
+// has "type":"git" (not "module"), so Node.js 20 loads it as CJS and crashes on the
+// bare `import JSZip` statement inside that file. Force the `require` export condition
+// (which resolves to pptxgen.cjs.js) using createRequire — the ESM-safe alternative.
+import { createRequire } from "module";
+const _require = createRequire(import.meta.url);
+const PptxGenJS = _require("pptxgenjs");
 import PDFDocument from "pdfkit";
 import type { FinancialData, HistoricalTable } from "./dataService";
 import type { RatingResult } from "./recommendationEngine";
