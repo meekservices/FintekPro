@@ -1,4 +1,6 @@
-import PptxGenJS from "pptxgenjs";
+// Import CJS bundle directly — avoids ESM interop error in Node.js production builds
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const PptxGenJS = require("pptxgenjs/dist/pptxgen.cjs.js");
 import PDFDocument from "pdfkit";
 import type { FinancialData, HistoricalTable } from "./dataService";
 import type { RatingResult } from "./recommendationEngine";
