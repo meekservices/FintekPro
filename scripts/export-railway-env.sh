@@ -4,7 +4,7 @@
 #   Railway → your FintekPro service → Variables → RAW EDITOR
 #
 # The script only prints app secrets — it skips Replit-internal vars,
-# Nix/Poetry build vars, and system vars that don't belong on Railway.
+# Nix/Poetry build vars, system vars, and any test/demo/mock IDs.
 
 # Vars to skip (Replit-internal / system / build-time only)
 SKIP=(
@@ -28,6 +28,12 @@ SKIP=(
   PORT
   # GitHub token is Replit-scoped
   GITHUB_TOKEN GITHUB_ACTIONS
+  # Test / demo / mock credentials — never go to production
+  TEST_USER_ID TEST_USER_EMAIL TEST_ADMIN_ID TEST_ADMIN_EMAIL
+  DEMO_USER_ID DEMO_USER_EMAIL DEMO_CLIENT_ID DEMO_CLIENT_SECRET
+  MOCK_API_KEY MOCK_SECRET FAKE_API_KEY DUMMY_KEY
+  TEST_PAYMENT_KEY TEST_PAYMENT_SECRET TEST_WEBHOOK_SECRET
+  DEMO_WEBHOOK_SECRET MOCK_WEBHOOK_SECRET
   # System / shell / terminal
   PATH HOME USER SHELL TERM DISPLAY COLORTERM TERM_PROGRAM TERM_PROGRAM_VERSION
   PWD OLDPWD SHLVL HISTFILE HISTSIZE HISTFILESIZE HISTCONTROL PROMPT_DIRTRIM
@@ -75,15 +81,43 @@ echo "APP_DOMAIN=fintekpro.com"
 echo "PYTHON_SERVICE_URL=REPLACE_WITH_FINTEK_ANALYTICS_RAILWAY_URL"
 echo ""
 
-# Export all other vars, skipping the blocklist
+# Pattern-based skip: keys that look like test / demo / mock IDs.
+# Matches keys that contain any of these as whole words (case-insensitive):
+#   TEST, DEMO, MOCK, FAKE, DUMMY
+# Safe exceptions preserved: SANDBOX (Sandbox.co.in API), NEON (Neon DB)
+is_test_key() {
+  local k="${1^^}"  # uppercase
+  # Skip if key contains _TEST_ or starts/ends with TEST
+  [[ "$k" =~ (^|_)TEST(_|$) ]] && return 0
+  # Skip if key contains _DEMO_ or starts/ends with DEMO
+  [[ "$k" =~ (^|_)DEMO(_|$) ]] && return 0
+  # Skip if key contains _MOCK_ or starts/ends with MOCK
+  [[ "$k" =~ (^|_)MOCK(_|$) ]] && return 0
+  # Skip if key contains _FAKE_ or starts/ends with FAKE
+  [[ "$k" =~ (^|_)FAKE(_|$) ]] && return 0
+  # Skip if key contains _DUMMY_ or starts/ends with DUMMY
+  [[ "$k" =~ (^|_)DUMMY(_|$) ]] && return 0
+  return 1
+}
+
+# Export all other vars, skipping the blocklist and test/demo patterns
 while IFS='=' read -r key value; do
   [[ -z "$key" ]] && continue
   [[ "$key" == _* ]] && continue
   [[ "$key" =~ ^npm_ ]] && continue
+  # Skip if in explicit blocklist
   if [[ "$skip_set" == *" $key "* ]]; then
+    continue
+  fi
+  # Skip if it looks like a test/demo/mock key
+  if is_test_key "$key"; then
+    echo "# SKIPPED (test/demo): $key" >&2
     continue
   fi
   # Escape newlines in values (Railway Raw Editor needs single-line values)
   value_escaped="${value//$'\n'/\\n}"
   echo "${key}=${value_escaped}"
 done < <(env | sort)
+
+echo "" >&2
+echo "✅ Done. Copy the output above (not this line) into Railway → Variables → RAW EDITOR." >&2
