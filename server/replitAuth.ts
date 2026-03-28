@@ -321,6 +321,29 @@ export async function setupAuth(app: Express) {
     passport.session()(req, res, next);
   });
 
+  // REPL_ID is only present in the Replit runtime environment.
+  // On Railway (and other non-Replit hosts) it is undefined, so the
+  // openid-client discovery call would throw "clientId must be a non-empty
+  // string".  In that case we skip Replit OIDC entirely — users authenticate
+  // through local email/mobile credentials (set up in server/auth.ts).
+  // Session, passport initialisation and serialize/deserialize are still
+  // registered above so local auth continues to work normally.
+  if (!process.env.REPL_ID) {
+    console.log('[Auth] REPL_ID not set — Replit OIDC skipped (non-Replit host, local auth only)');
+    passport.serializeUser((user: Express.User, cb) => {
+      cb(null, (user as any).id);
+    });
+    passport.deserializeUser(async (id: string, cb) => {
+      try {
+        const user = await storage.getUser(id);
+        cb(null, user || false);
+      } catch (err) {
+        cb(err);
+      }
+    });
+    return;
+  }
+
   const config = await getOidcConfig();
 
   const verify: VerifyFunction = async (

@@ -1149,6 +1149,23 @@ server.listen({
     console.error('[Migration] prospect_id columns error:', e?.message);
   }
 
+  try {
+    const { sql: migSql } = await import('drizzle-orm');
+    await mainDb.execute(migSql`
+      ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+      ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS current_price NUMERIC(20,6);
+      ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS market_cap_value NUMERIC(20,2);
+      ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS market_cap_category VARCHAR(20);
+      ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS country VARCHAR(10) DEFAULT 'IN';
+      ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'INR';
+      ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS data_source VARCHAR(50);
+      ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()
+    `);
+    console.log('✅ [Migration] screener_stocks columns verified/added');
+  } catch (e: any) {
+    console.error('[Migration] screener_stocks columns error:', e?.message);
+  }
+
   // Register additional routes from routes.ts (but don't create a new server - we already have one)
   await registerRoutes(app, server);
 

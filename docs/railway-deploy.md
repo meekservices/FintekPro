@@ -14,9 +14,12 @@
 | `server/utils/app-url.ts` | `APP_URL` → `RAILWAY_PUBLIC_DOMAIN` → Replit → fallback |
 | `server/index.ts` | CORS + CSRF: accept `*.railway.app` / `*.up.railway.app` |
 | `server/index.ts` | CSP frame-ancestors: added `*.railway.app` |
+| `server/index.ts` | Inline migration: `screener_stocks` columns (`is_active`, `current_price`, etc.) |
 | `server/services/agent-prospect-wizard-service.ts` | Replaced `fintekpro.replit.app` with `getAppBaseUrl()` |
 | `server/services/digilockerService.ts` | Replaced `REPLIT_DOMAIN` with `APP_DOMAIN \|\| REPLIT_DOMAIN \|\| "fintekpro.com"` |
 | `server/routes/partner/index.ts` | Replaced `REPLIT_DOMAINS`-based invite URL with `getAppBaseUrl()` |
+| `server/replitAuth.ts` | Guard `REPL_ID` — skip Replit OIDC on Railway, local auth only |
+| `server/modules/research/reportService.ts` | `pptxgenjs` loaded via `createRequire` to force CJS build |
 
 ## 3. Railway Environment Variables
 
