@@ -25,7 +25,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from auth import TokenPayload, verify_token
-from .google_finance import fetch_gf_peer_batch
+
+try:
+    from .google_finance import fetch_gf_peer_batch
+    _GF_AVAILABLE = True
+except Exception as _gf_err:
+    import logging as _log
+    _log.getLogger(__name__).warning(f"[market_data] google_finance unavailable: {_gf_err} — peer-enrich will use yfinance only")
+    _GF_AVAILABLE = False
+    def fetch_gf_peer_batch(symbols):  # type: ignore
+        return {}
 
 logger = logging.getLogger(__name__)
 
