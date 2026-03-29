@@ -10,52 +10,44 @@ neonConfig.pipelineConnect = false;
 const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
 
 // Connection strategy:
-//   Development → DATABASE_URL (Replit Helium local PostgreSQL, no SSL)
-//   Production  → PRODUCTION_DATABASE_URL (Neon via WebSocket, no explicit SSL needed)
+//   PRODUCTION_DATABASE_URL set → always use Railway Postgres (both dev and prod)
+//   PRODUCTION_DATABASE_URL absent → fall back to DATABASE_URL (Replit Helium)
 //
-// Keeping dev on Helium (DATABASE_URL) means Replit's publish diff-check
-// can connect to the dev database without hitting the SSL handshake failure
-// that occurred when the app directed every environment to Neon.
-//
-// Enrichment writes (AMFI, stock prices, NAV data, etc.) always go through
-// db-production.ts which hard-wires PRODUCTION_DATABASE_URL — so enrichment
-// never touches the dev Helium database.
-const selectedDbUrl = isProduction
-  ? (process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL)
-  : (process.env.DATABASE_URL || process.env.PRODUCTION_DATABASE_URL);
+// This means Replit dev and Railway production both point to the same
+// Railway Postgres instance once PRODUCTION_DATABASE_URL is configured,
+// giving developers an accurate view of live data during development.
+const selectedDbUrl =
+  process.env.PRODUCTION_DATABASE_URL ||
+  process.env.DATABASE_URL;
 
 if (!selectedDbUrl) {
   throw new Error(
-    isProduction
-      ? "No database URL found. Set PRODUCTION_DATABASE_URL in your environment secrets."
-      : "No database URL found. DATABASE_URL (Replit Helium) is required for development.",
+    "No database URL found. Set PRODUCTION_DATABASE_URL (Railway Postgres) or DATABASE_URL in your environment secrets."
   );
 }
 
-// Export whether the main db connection is the production Neon instance.
+// Export whether the main db connection is the production Railway instance.
 // Used by the app to gate production-only behaviour.
-export const isUsingProductionDb = isProduction;
+export const isUsingProductionDb = isProduction || !!process.env.PRODUCTION_DATABASE_URL;
 
 // Detect if the selected URL is a Neon endpoint.
 // Neon connections use WebSocket and need no explicit ssl config.
-// Helium (Replit-managed local PostgreSQL) uses standard TCP and does NOT
-// support SSL — omitting ssl:false causes the "socket disconnecting
-// unexpectedly" error documented by Replit.
+// Helium (Replit-managed local PostgreSQL) and Railway use standard TCP.
 const isNeonUrl =
   selectedDbUrl.includes('neon.tech') ||
   selectedDbUrl.includes('.neon.') ||
   selectedDbUrl.includes('neon.database');
 
-const dbUrlSource = isProduction
-  ? (process.env.PRODUCTION_DATABASE_URL ? 'PRODUCTION_DATABASE_URL' : 'DATABASE_URL')
-  : (process.env.DATABASE_URL ? 'DATABASE_URL (Helium)' : 'PRODUCTION_DATABASE_URL (fallback)');
+const isRailwayUrl =
+  selectedDbUrl.includes('railway.app') ||
+  selectedDbUrl.includes('.railway.internal') ||
+  selectedDbUrl.includes('rlwy.net');
 
-if (!isProduction) {
-  console.log(`🔗 [DB] Development: connected to ${dbUrlSource}`);
-}
-if (isProduction) {
-  console.log(`🔗 [DB] Production: connected to Neon database via ${dbUrlSource}`);
-}
+const dbUrlSource = process.env.PRODUCTION_DATABASE_URL
+  ? 'PRODUCTION_DATABASE_URL (Railway Postgres)'
+  : 'DATABASE_URL (Helium)';
+
+console.log(`🔗 [DB] Connected to ${dbUrlSource}`);
 
 // Autoscale: keep per-instance pool small so N concurrent instances stay within
 // Neon's connection limit. At max=5, up to 20 autoscale instances = 100 connections.
@@ -67,8 +59,8 @@ const POOL_CONFIG = {
   idleTimeoutMillis: isProduction ? 60000 : 30000,
   connectionTimeoutMillis: 15000,
   allowExitOnIdle: false,
-  // Disable SSL for Helium (Replit local PostgreSQL) — it runs without SSL.
-  // Neon connections go via WebSocket so this field is ignored for them.
+  // Neon: WebSocket transport, ssl field ignored.
+  // Railway + Helium: standard TCP — Railway external proxy accepts ssl:false.
   ...(isNeonUrl ? {} : { ssl: false }),
 };
 
