@@ -22,7 +22,7 @@ function issuePythonToken(user: any): string {
   if (!secret) throw new Error('PYTHON_SERVICE_SECRET not configured');
   return jwt.sign(
     {
-      sub: user.id,
+      sub: String(user.id),
       role: user.role || 'user',
       roles: user.roles || (user.role ? [user.role] : ['user']),
       email: user.email ?? null,
@@ -34,7 +34,7 @@ function issuePythonToken(user: any): string {
 }
 
 const SYSTEM_USER = {
-  id: 0,
+  id: 'system',
   role: 'admin',
   roles: ['admin'],
   email: 'system@fintekpro.internal',
