@@ -229,7 +229,7 @@ router.get("/health-check", async (_req: Request, res: Response) => {
       alpaca: "ALPACA_API_KEY",
       openai: "OPENAI_API_KEY",
       gemini: "GEMINI_API_KEY",
-      stripe: "STRIPE_SECRET_KEY",
+      cashfree: "CASHFREE_APP_ID",
       twilio: "TWILIO_AUTH_TOKEN",
       sandbox: "SANDBOX_API_KEY",
     };
