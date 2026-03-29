@@ -10506,7 +10506,7 @@ export const taxReminderSubscriptions = pgTable(
     pricingTier: varchar("pricing_tier").notNull(), // 'basic', 'standard', 'premium'
     annualPrice: decimal("annual_price", { precision: 10, scale: 2 }).notNull(),
     isFree: boolean("is_free").default(false).notNull(), // true if user has expert ITR filing service
-    stripeSubscriptionId: varchar("stripe_subscription_id"), // nullable
+    cashfreeSubscriptionId: varchar("cashfree_subscription_id"), // nullable
     validFrom: date("valid_from").notNull(),
     validUntil: date("valid_until").notNull(),
     reminderChannels: jsonb("reminder_channels").default(sql`'["email"]'`).notNull(), // ['email', 'sms', 'whatsapp']
