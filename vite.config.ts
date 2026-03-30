@@ -80,6 +80,25 @@ export default defineConfig({
             id.includes("/node_modules/victory")
           ) return "vendor-charts";
 
+          // ── Shared app code ─────────────────────────────────────────────────────
+          // Components, hooks, and lib are used across many page chunks. Assigning
+          // them here — before the page rules — prevents any single page chunk from
+          // "owning" a shared module, which is the root cause of circular chunk
+          // loading (chunk-portfolio ↔ chunk-admin etc.) and TDZ runtime crashes.
+          //
+          // Feature-specific component dirs are excluded so they stay collocated
+          // with their page chunk and don't create false cycles via chunk-shared.
+          if (
+            id.includes("/client/src/components/loan") ||
+            id.includes("/client/src/components/agent/")
+          ) return undefined; // let Vite place these naturally with their page chunk
+
+          if (
+            id.includes("/client/src/components/") ||
+            id.includes("/client/src/hooks/") ||
+            id.includes("/client/src/lib/")
+          ) return "chunk-shared";
+
           // ── App service chunks — only downloaded when the user visits that section ──
 
           // Admin sub-chunks (was one 2.3 MB chunk — now 4 smaller chunks)
