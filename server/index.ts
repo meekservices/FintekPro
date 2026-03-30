@@ -693,11 +693,7 @@ function startPythonSidecar() {
 }
 
 const server = createServer(app);
-const port = parseInt(process.env.PORT || '5000', 10);
-
-// Port 5000 cleanup: reusePort: true (set in server.listen below) allows the new
-// server to bind even if an old instance is still holding the port, so no manual
-// cleanup is needed here. (fuser/lsof are not available in Replit's NixOS anyway.)
+const PORT = parseInt(process.env.PORT || '5000', 10);
 
 // Boot-in-progress middleware - returns 503 for API routes not yet loaded
 app.use('/api', (req: Request, res: Response, next: NextFunction) => {
@@ -717,14 +713,10 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
 setupGracefulShutdown(server, killPythonSidecar);
 
 // Start listening IMMEDIATELY - before ANY async initialization
-server.listen({
-  port,
-  host: "0.0.0.0",
-  reusePort: true,
-}, () => {
+server.listen(PORT, '0.0.0.0', () => {
   bootState.serverListening = true;
-  console.log(`🚀 Server listening on port ${port} (boot time: ${bootState.getBootTime()}ms)`);
-  logger.info(`Server listening on port ${port}`, { port, environment: process.env.NODE_ENV || 'development', bootTime: bootState.getBootTime() });
+  console.log(`🚀 Server listening on port ${PORT} (boot time: ${bootState.getBootTime()}ms)`);
+  logger.info(`Server listening on port ${PORT}`, { port: PORT, environment: process.env.NODE_ENV || 'development', bootTime: bootState.getBootTime() });
 });
 
 (async () => {
