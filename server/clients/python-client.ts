@@ -9,16 +9,60 @@
  *  1. proxyToPython(req, res, path) — HTTP proxy pass-through for Express routes
  *  2. callPython<T>(user, path, method?, body?) — direct programmatic call from Node.js services
  *     Returns null on any error so callers can fall back gracefully.
+ *
+ * Circuit breaker:
+ *  After CIRCUIT_OPEN_THRESHOLD consecutive non-200 responses the breaker opens
+ *  for CIRCUIT_OPEN_DURATION_MS. All calls during the open window return null
+ *  immediately (or 503 for proxy calls) — no outbound requests are made.
+ *  This prevents a secret-mismatch / Python-down event from generating a
+ *  log flood that can destabilise the main service under Railway's health checks.
  */
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 
+// ── Circuit breaker state ──────────────────────────────────────────────────
+const CIRCUIT_OPEN_THRESHOLD  = 5;           // consecutive failures before opening
+const CIRCUIT_OPEN_DURATION_MS = 2 * 60 * 1000; // 2 minutes open before retry
+
+let circuitFailures   = 0;
+let circuitOpenUntil  = 0;   // epoch ms — 0 means closed
+
+function circuitIsOpen(): boolean {
+  if (circuitOpenUntil === 0) return false;
+  if (Date.now() < circuitOpenUntil) return true;
+  // Half-open: allow one probe
+  circuitOpenUntil = 0;
+  return false;
+}
+
+function recordFailure(status?: number): void {
+  circuitFailures++;
+  if (circuitFailures >= CIRCUIT_OPEN_THRESHOLD) {
+    const wasOpen = circuitOpenUntil > 0;
+    circuitOpenUntil = Date.now() + CIRCUIT_OPEN_DURATION_MS;
+    if (!wasOpen) {
+      console.warn(
+        `[PythonClient] ⚡ Circuit OPEN after ${circuitFailures} consecutive failures` +
+        (status ? ` (last status: ${status})` : '') +
+        ` — pausing calls for ${CIRCUIT_OPEN_DURATION_MS / 1000}s`
+      );
+    }
+  }
+}
+
+function recordSuccess(): void {
+  if (circuitFailures > 0) {
+    console.info('[PythonClient] ✅ Circuit CLOSED — Python service healthy again');
+  }
+  circuitFailures = 0;
+  circuitOpenUntil = 0;
+}
+
+// ── URL helpers ───────────────────────────────────────────────────────────
 function getBaseUrl(): string {
   let url = process.env.PYTHON_SERVICE_URL?.trim() || '';
   if (!url) return '';
   url = url.replace(/\/$/, '');
-  // Auto-prepend https:// if the env var was set without a protocol
-  // (e.g. PYTHON_SERVICE_URL=python.fintekpro.com → https://python.fintekpro.com)
   if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
     url = `https://${url}`;
   }
@@ -76,6 +120,15 @@ export async function proxyToPython(req: Request, res: Response, path: string): 
     return;
   }
 
+  if (circuitIsOpen()) {
+    res.status(503).json({
+      error: 'Quant analytics service temporarily unavailable',
+      degraded: true,
+      detail: 'Circuit breaker open — Python service is recovering. Retrying automatically.',
+    });
+    return;
+  }
+
   const queryString = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
   const url = `${baseUrl}${path}${queryString}`;
   const body = ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body);
@@ -86,8 +139,14 @@ export async function proxyToPython(req: Request, res: Response, path: string): 
       body,
     });
     const json = await upstream.json();
+    if (upstream.ok) {
+      recordSuccess();
+    } else {
+      recordFailure(upstream.status);
+    }
     res.status(upstream.status).json(json);
   } catch (err: any) {
+    recordFailure();
     res.status(502).json({
       error: 'Python Analytics Service unreachable',
       detail: err.message,
@@ -114,6 +173,8 @@ export async function callPython<T = any>(
   const baseUrl = getBaseUrl();
   if (!baseUrl) return null;
 
+  if (circuitIsOpen()) return null;
+
   const url = `${baseUrl}${path}`;
   const user = userForToken ?? SYSTEM_USER;
 
@@ -126,11 +187,16 @@ export async function callPython<T = any>(
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       const summary = text.replace(/\s+/g, ' ').slice(0, 120);
-      console.warn(`[PythonClient] ${method} ${path} → HTTP ${res.status}: ${summary}`);
+      // Only log if circuit hasn't just opened to avoid log flooding
+      if (circuitFailures < CIRCUIT_OPEN_THRESHOLD) {
+        console.warn(`[PythonClient] ${method} ${path} → HTTP ${res.status}: ${summary}`);
+      }
+      recordFailure(res.status);
       return null;
     }
 
     const json = await res.json();
+    recordSuccess();
 
     if (json && typeof json === 'object' && 'error' in json) {
       console.warn(`[PythonClient] ${method} ${path} → Python error: ${json.error}`);
@@ -139,7 +205,10 @@ export async function callPython<T = any>(
 
     return json as T;
   } catch (err: any) {
-    console.warn(`[PythonClient] ${method} ${path} unreachable: ${err.message}`);
+    if (circuitFailures < CIRCUIT_OPEN_THRESHOLD) {
+      console.warn(`[PythonClient] ${method} ${path} unreachable: ${err.message}`);
+    }
+    recordFailure();
     return null;
   }
 }
