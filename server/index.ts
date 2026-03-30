@@ -487,6 +487,17 @@ app.use(sensitiveDataMaskingMiddleware);
 // Subdomain detection middleware - must come early to be available in all routes
 app.use(subdomainDetection);
 
+// Redirect bare root domain → www (e.g. fintekpro.com → www.fintekpro.com)
+// Needed because most DNS providers don't allow CNAME on the apex (@) record.
+app.use((req, res, next) => {
+  const host = req.hostname;
+  const customDomain = process.env.CUSTOM_DOMAIN || 'fintekpro.com';
+  if (host === customDomain) {
+    return res.redirect(301, `https://www.${customDomain}${req.originalUrl}`);
+  }
+  next();
+});
+
 // Portal-bound session validation - enforce portal mismatch security
 app.use(validateSessionPortal);
 
