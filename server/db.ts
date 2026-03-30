@@ -22,22 +22,25 @@ if (!selectedDbUrl) {
 export const isUsingProductionDb = isProduction || !!process.env.PRODUCTION_DATABASE_URL;
 
 // SSL config based on URL type:
-//   Neon (neon.tech)           → SSL required (port 5432 + TLS)
-//   Railway public (rlwy.net)  → SSL required
-//   Railway internal           → no SSL (private network)
-//   Local / Helium             → no SSL
+//   Neon (neon.tech)               → SSL with cert verification (managed CA)
+//   Railway public (rlwy.net)      → SSL with cert verification (managed CA)
+//   Railway internal (.internal)   → no SSL (private network, no cert needed)
+//   Local / Replit Helium          → no SSL
+const isRailwayInternal = selectedDbUrl.includes('.railway.internal');
 const needsSsl =
-  selectedDbUrl.includes('neon.tech') ||
-  selectedDbUrl.includes('.neon.') ||
-  selectedDbUrl.includes('neon.database') ||
-  selectedDbUrl.includes('rlwy.net') ||
-  selectedDbUrl.includes('railway.app');
+  !isRailwayInternal && (
+    selectedDbUrl.includes('neon.tech') ||
+    selectedDbUrl.includes('.neon.') ||
+    selectedDbUrl.includes('neon.database') ||
+    selectedDbUrl.includes('rlwy.net') ||
+    selectedDbUrl.includes('railway.app')
+  );
 
 const dbUrlSource = process.env.PRODUCTION_DATABASE_URL
   ? 'PRODUCTION_DATABASE_URL'
   : 'DATABASE_URL';
 
-console.log(`🔗 [DB] Connected to ${dbUrlSource} (${needsSsl ? 'SSL' : 'TCP'})`);
+console.log(`🔗 [DB] Connected to ${dbUrlSource} (${needsSsl ? 'SSL' : isRailwayInternal ? 'TCP/internal' : 'TCP'})`);
 
 const POOL_CONFIG = {
   connectionString: selectedDbUrl,
@@ -46,7 +49,7 @@ const POOL_CONFIG = {
   idleTimeoutMillis: isProduction ? 60000 : 30000,
   connectionTimeoutMillis: 15000,
   allowExitOnIdle: false,
-  ...(needsSsl ? { ssl: { rejectUnauthorized: false } } : { ssl: false }),
+  ssl: needsSsl ? true : false,
 };
 
 export const pool = new Pool(POOL_CONFIG);
