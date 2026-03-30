@@ -1,72 +1,88 @@
 import twilio from 'twilio';
 import { fetchWithTimeout } from '../utils/fetch-with-timeout';
 
-let connectionSettings: any;
 let cachedClient: any = null;
 let cachedPhoneNumber: string | null = null;
 
-async function getCredentials() {
+async function getCredentialsFromReplitConnector() {
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const xReplitToken = process.env.REPL_IDENTITY 
-    ? 'repl ' + process.env.REPL_IDENTITY 
-    : process.env.WEB_REPL_RENEWAL 
-    ? 'depl ' + process.env.WEB_REPL_RENEWAL 
+  const xReplitToken = process.env.REPL_IDENTITY
+    ? 'repl ' + process.env.REPL_IDENTITY
+    : process.env.WEB_REPL_RENEWAL
+    ? 'depl ' + process.env.WEB_REPL_RENEWAL
     : null;
 
-  if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
-  }
+  if (!hostname || !xReplitToken) return null;
 
-  connectionSettings = await fetchWithTimeout(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=twilio',
-    {
-      headers: {
-        'Accept': 'application/json',
-        'X_REPLIT_TOKEN': xReplitToken
-      },
-      timeoutMs: 10_000,
-    }
-  ).then(res => res.json()).then((data: any) => data.items?.[0]);
+  try {
+    const data = await fetchWithTimeout(
+      'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=twilio',
+      {
+        headers: {
+          'Accept': 'application/json',
+          'X_REPLIT_TOKEN': xReplitToken
+        },
+        timeoutMs: 10_000,
+      }
+    ).then(res => res.json());
 
-  if (!connectionSettings || !connectionSettings.settings.account_sid) {
-    throw new Error('Twilio not connected');
+    const settings = data.items?.[0]?.settings;
+    if (!settings?.account_sid) return null;
+
+    return {
+      accountSid: settings.account_sid,
+      apiKey: settings.api_key,
+      apiKeySecret: settings.api_key_secret,
+      phoneNumber: settings.phone_number
+    };
+  } catch {
+    return null;
   }
-  
-  const settings = connectionSettings.settings;
+}
+
+function getCredentialsFromEnv() {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const phoneNumber = process.env.TWILIO_PHONE_NUMBER;
+
+  if (!accountSid || !authToken) return null;
+
   return {
-    accountSid: settings.account_sid,
-    apiKey: settings.api_key,
-    apiKeySecret: settings.api_key_secret,
-    phoneNumber: settings.phone_number
+    accountSid,
+    apiKey: accountSid,
+    apiKeySecret: authToken,
+    phoneNumber: phoneNumber || ''
   };
 }
 
+async function getCredentials() {
+  const replit = await getCredentialsFromReplitConnector();
+  if (replit) return replit;
+
+  const env = getCredentialsFromEnv();
+  if (env) return env;
+
+  throw new Error('Twilio not configured: set TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN or use the Replit connector');
+}
+
 export async function getTwilioClient() {
-  if (cachedClient) {
-    return cachedClient;
-  }
+  if (cachedClient) return cachedClient;
+
   const { accountSid, apiKey, apiKeySecret } = await getCredentials();
-  
-  // Handle different authentication modes:
-  // 1. API Key auth (apiKey != accountSid): use apiKey + apiKeySecret
-  // 2. Account SID auth (apiKey == accountSid): use accountSid + apiKeySecret as auth token
+
   if (apiKey && apiKey !== accountSid && apiKeySecret) {
-    cachedClient = twilio(apiKey, apiKeySecret, {
-      accountSid: accountSid
-    });
+    cachedClient = twilio(apiKey, apiKeySecret, { accountSid });
   } else {
-    // Direct account credentials
     cachedClient = twilio(accountSid, apiKeySecret);
   }
-  
-  console.log('✅ Twilio client initialized via Replit connector');
+
+  console.log('✅ Twilio client initialized via ' +
+    (process.env.REPLIT_CONNECTORS_HOSTNAME ? 'Replit connector' : 'env credentials'));
   return cachedClient;
 }
 
 export async function getTwilioFromPhoneNumber() {
-  if (cachedPhoneNumber) {
-    return cachedPhoneNumber;
-  }
+  if (cachedPhoneNumber) return cachedPhoneNumber;
   const { phoneNumber } = await getCredentials();
   cachedPhoneNumber = phoneNumber;
   return phoneNumber;
