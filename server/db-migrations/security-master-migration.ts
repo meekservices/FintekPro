@@ -13,7 +13,27 @@ import { sql } from "drizzle-orm";
 export async function initializeSecurityMaster() {
   try {
     console.log("🔄 [SecurityMaster] Initializing view...");
-    
+
+    // Drop any conflicting TABLE or MATERIALIZED VIEW before CREATE OR REPLACE VIEW.
+    // In Railway production the object can exist as a TABLE from a prior migration.
+    await db.execute(sql`
+      DO $$
+      DECLARE obj_type text;
+      BEGIN
+        SELECT CASE relkind
+          WHEN 'r' THEN 'TABLE'
+          WHEN 'm' THEN 'MATERIALIZED VIEW'
+        END INTO obj_type
+        FROM pg_class
+        WHERE relname = 'security_master'
+          AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+          AND relkind IN ('r', 'm');
+        IF obj_type IS NOT NULL THEN
+          EXECUTE 'DROP ' || obj_type || ' security_master CASCADE';
+        END IF;
+      END$$
+    `);
+
     await db.execute(sql`
       CREATE OR REPLACE VIEW security_master AS
       SELECT

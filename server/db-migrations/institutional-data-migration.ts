@@ -139,6 +139,27 @@ export async function runInstitutionalDataMigration(): Promise<void> {
     // ── 5. Security Master VIEW ──────────────────────────────────────────────
     // Unified cross-asset ISIN lookup. READ-ONLY view — no direct writes.
     // Consolidates: listed_stocks (equities) + mutual_funds + corporate_bonds + unlisted_companies
+    //
+    // Drop any conflicting non-view object (TABLE or MATERIALIZED VIEW) with the
+    // same name before attempting CREATE OR REPLACE VIEW, which only works when
+    // the existing object is already a regular view.
+    await db.execute(sql`
+      DO $$
+      DECLARE obj_type text;
+      BEGIN
+        SELECT CASE relkind
+          WHEN 'r' THEN 'TABLE'
+          WHEN 'm' THEN 'MATERIALIZED VIEW'
+        END INTO obj_type
+        FROM pg_class
+        WHERE relname = 'security_master'
+          AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+          AND relkind IN ('r', 'm');
+        IF obj_type IS NOT NULL THEN
+          EXECUTE 'DROP ' || obj_type || ' security_master CASCADE';
+        END IF;
+      END$$
+    `);
     await db.execute(sql`
       CREATE OR REPLACE VIEW security_master AS
         SELECT
