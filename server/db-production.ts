@@ -16,19 +16,21 @@ export function getProductionDb() {
     );
   }
 
-  const needsSsl =
+  const isRailwayInternal = prodUrl.includes('.railway.internal');
+  const needsSsl = !isRailwayInternal && (
     prodUrl.includes('neon.tech') ||
     prodUrl.includes('.neon.') ||
     prodUrl.includes('neon.database') ||
     prodUrl.includes('rlwy.net') ||
-    prodUrl.includes('railway.app');
+    prodUrl.includes('railway.app')
+  );
 
   prodPool = new Pool({
     connectionString: prodUrl,
     max: 5,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 20000,
-    ...(needsSsl ? { ssl: { rejectUnauthorized: false } } : { ssl: false }),
+    ssl: needsSsl ? true : false,
   });
 
   prodPool.on('error', (err) => {
