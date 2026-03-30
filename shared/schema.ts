@@ -28092,6 +28092,7 @@ export const mcaFinancialSnapshot = pgTable("mca_financial_snapshot", {
   isVerified: boolean("is_verified").default(false),
   verifiedBy: varchar("verified_by", { length: 100 }),
   verifiedAt: timestamp("verified_at"),
+  dataCompleteness: numeric("data_completeness").default("0"), // 0-100 percentage of fields populated
   notes: text("notes"),
 }, (table) => [
   index("idx_mca_fs_cin").on(table.cin),

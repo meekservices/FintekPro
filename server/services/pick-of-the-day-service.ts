@@ -1586,7 +1586,7 @@ class PickOfTheDayService {
         SELECT 
           id, name, symbol, isin_code as isin, sector, 
           current_price::numeric as "currentPrice",
-          dividend_yield::numeric as "dividendYield",
+          distribution_yield::numeric as "dividendYield",
           nav::numeric,
           'REIT' as type
         FROM reits 
@@ -1599,7 +1599,7 @@ class PickOfTheDayService {
         SELECT 
           id, name, symbol, isin_code as isin, sector,
           current_price::numeric as "currentPrice",
-          dividend_yield::numeric as "dividendYield",
+          distribution_yield::numeric as "dividendYield",
           nav::numeric,
           'InvIT' as type
         FROM invits 

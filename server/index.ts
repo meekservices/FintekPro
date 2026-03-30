@@ -1160,6 +1160,104 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     console.warn('[Migration] cache UNIQUE index skipped:', e?.message);
   }
 
+  // Boot-time: add missing UNIQUE indexes so ON CONFLICT upserts work correctly.
+  // These tables have .unique() / uniqueIndex() in the Drizzle schema but the
+  // constraints were never applied to the existing Railway DB.
+  try {
+    const { db: uqDb } = await import('./db');
+    const { sql: uqSql } = await import('drizzle-orm');
+
+    // ── currency_rates (base_currency, target_currency) ───────────────────────
+    await uqDb.execute(uqSql`
+      DELETE FROM currency_rates
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (base_currency, target_currency) id
+        FROM currency_rates
+        ORDER BY base_currency, target_currency, last_updated DESC NULLS LAST
+      )
+    `);
+    await uqDb.execute(uqSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_currency_rates_base_target
+        ON currency_rates (base_currency, target_currency)
+    `);
+
+    // ── mf_taxonomy_versions (version) ───────────────────────────────────────
+    await uqDb.execute(uqSql`
+      DELETE FROM mf_taxonomy_versions
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (version) id
+        FROM mf_taxonomy_versions
+        ORDER BY version, id ASC
+      )
+    `);
+    await uqDb.execute(uqSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_taxonomy_versions_version
+        ON mf_taxonomy_versions (version)
+    `);
+
+    // ── mf_category_master (taxonomy_version, group_code) ────────────────────
+    await uqDb.execute(uqSql`
+      DELETE FROM mf_category_master
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (taxonomy_version, group_code) id
+        FROM mf_category_master
+        ORDER BY taxonomy_version, group_code, id ASC
+      )
+    `);
+    await uqDb.execute(uqSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_category_master_version_code
+        ON mf_category_master (taxonomy_version, group_code)
+    `);
+
+    // ── mf_subcategory_master (subcategory_code) ──────────────────────────────
+    await uqDb.execute(uqSql`
+      DELETE FROM mf_subcategory_master
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (subcategory_code) id
+        FROM mf_subcategory_master
+        ORDER BY subcategory_code, id ASC
+      )
+    `);
+    await uqDb.execute(uqSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_subcategory_master_code
+        ON mf_subcategory_master (subcategory_code)
+    `);
+
+    // ── quant_governance_policy (risk_profile) ────────────────────────────────
+    await uqDb.execute(uqSql`
+      DELETE FROM quant_governance_policy
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (risk_profile) id
+        FROM quant_governance_policy
+        ORDER BY risk_profile, id ASC
+      )
+    `);
+    await uqDb.execute(uqSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_quant_governance_policy_risk_profile
+        ON quant_governance_policy (risk_profile)
+    `);
+
+    console.log('✅ [Migration] ON CONFLICT UNIQUE indexes verified/created');
+  } catch (e: any) {
+    console.warn('[Migration] ON CONFLICT UNIQUE index skipped:', e?.message);
+  }
+
+  // Boot-time: add missing columns to tables that exist in Railway DB but predate schema additions.
+  try {
+    const { db: colDb } = await import('./db');
+    const { sql: colSql } = await import('drizzle-orm');
+
+    // mca_financial_snapshot.data_completeness — queried by MCA refresh scheduler
+    await colDb.execute(colSql`
+      ALTER TABLE mca_financial_snapshot
+        ADD COLUMN IF NOT EXISTS data_completeness NUMERIC DEFAULT 0
+    `);
+
+    console.log('✅ [Migration] mca_financial_snapshot.data_completeness verified/added');
+  } catch (e: any) {
+    console.warn('[Migration] mca_financial_snapshot column skipped:', e?.message);
+  }
+
   // Migrate capital_gains_tax_reminders: add prospect_id + created_by_agent_id if missing
   try {
     const { db: mainDb } = await import('./db');
