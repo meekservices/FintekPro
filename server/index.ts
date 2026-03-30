@@ -1117,23 +1117,46 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     console.error('[Migration] agent_notifications table error:', e?.message);
   }
 
-  // Boot-time: ensure UNIQUE indexes on cache tables so ON CONFLICT upserts work correctly
+  // Boot-time: ensure UNIQUE indexes on cache tables so ON CONFLICT upserts work correctly.
+  // Must deduplicate first — Railway DB may have duplicate rows from runs before the
+  // unique constraint was present; CREATE UNIQUE INDEX fails if duplicates exist.
   try {
     const { db: cacheDb } = await import('./db');
     const { sql: cacheSql } = await import('drizzle-orm');
-    // stock_prices_cache — MarketMoversCache uses ON CONFLICT (symbol)
+
+    // ── stock_prices_cache ────────────────────────────────────────────────────
+    // Deduplicate: keep the most-recently-updated row per symbol
+    await cacheDb.execute(cacheSql`
+      DELETE FROM stock_prices_cache
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (symbol) id
+        FROM stock_prices_cache
+        ORDER BY symbol, updated_at DESC NULLS LAST
+      )
+    `);
     await cacheDb.execute(cacheSql`
       CREATE UNIQUE INDEX IF NOT EXISTS uq_stock_prices_cache_symbol
         ON stock_prices_cache (symbol)
     `);
-    // financial_instruments_cache — FinancialDataRepository uses ON CONFLICT (instrument_type, symbol, exchange)
+
+    // ── financial_instruments_cache ───────────────────────────────────────────
+    // Deduplicate: keep the most-recently-updated row per (instrument_type, symbol, exchange)
+    await cacheDb.execute(cacheSql`
+      DELETE FROM financial_instruments_cache
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (instrument_type, symbol, COALESCE(exchange, '')) id
+        FROM financial_instruments_cache
+        ORDER BY instrument_type, symbol, COALESCE(exchange, ''), updated_at DESC NULLS LAST
+      )
+    `);
     await cacheDb.execute(cacheSql`
       CREATE UNIQUE INDEX IF NOT EXISTS uq_financial_instruments_cache_type_symbol_exchange
         ON financial_instruments_cache (instrument_type, symbol, exchange)
     `);
+
     console.log('✅ [Migration] cache table UNIQUE indexes verified/created');
   } catch (e: any) {
-    // Non-fatal: tables may not exist yet on first boot (created lazily by their services)
+    // Non-fatal: tables may not exist on very first boot (created lazily by their services)
     console.warn('[Migration] cache UNIQUE index skipped:', e?.message);
   }
 
