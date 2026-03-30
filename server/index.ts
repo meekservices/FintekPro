@@ -1166,6 +1166,7 @@ server.listen({
   }
 
   try {
+    const { db: mainDb } = await import('./db');
     const { sql: migSql } = await import('drizzle-orm');
     await mainDb.execute(migSql`
       ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
@@ -1184,6 +1185,8 @@ server.listen({
 
   // mutual_funds — add columns introduced after initial production deployment
   try {
+    const { db } = await import('./db');
+    const { sql } = await import('drizzle-orm');
     await db.execute(sql`
       ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS plan_type VARCHAR DEFAULT 'regular';
       ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT false;
