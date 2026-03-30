@@ -1124,8 +1124,9 @@ export class MultiSourceMFService {
   private async enrichFundsWithFintekProRating(funds: FundExtended[]): Promise<FundExtended[]> {
     const enrichedFunds: FundExtended[] = [];
     
-    // Process in batches to avoid overwhelming the rating service
-    const batchSize = 5;
+    // Process in small batches with a pause between each to avoid overwhelming
+    // the Python ML service when this runs concurrently with other background jobs.
+    const batchSize = 3;
     for (let i = 0; i < funds.length; i += batchSize) {
       const batch = funds.slice(i, i + batchSize);
       const batchPromises = batch.map(fund => this.enrichWithFintekProRating(fund));
@@ -1137,6 +1138,11 @@ export class MultiSourceMFService {
         console.warn('⚠️ Batch FintekPro rating enrichment failed:', error);
         // Add original funds without rating data if enrichment fails
         enrichedFunds.push(...batch);
+      }
+
+      // Throttle: give the Python service a brief breathing room between batches
+      if (i + batchSize < funds.length) {
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
     
