@@ -2,7 +2,7 @@
  * FintekPro Self-Healing Supervisor
  *
  * Production-grade process monitor with:
- *  - HTTP health checks (/healthz)
+ *  - HTTP health checks (/api/health)
  *  - Exponential-backoff auto-restart
  *  - Memory threshold watchdog (500 MB)
  *  - Crash-pattern detection (ECONNREFUSED, DB timeout)
@@ -25,7 +25,7 @@ const MEMORY_LIMIT_MB       = 700;      // restart if RSS exceeds this
 
 const PORT         = parseInt(process.env.PORT || '5000', 10);
 const IS_PROD      = process.env.NODE_ENV === 'production';
-const HEALTH_PATH  = '/healthz';
+const HEALTH_PATH  = '/api/health';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let appProcess    = null;
@@ -191,6 +191,13 @@ function scheduleRestart() {
 
 // ── Health check ──────────────────────────────────────────────────────────────
 function healthCheck(callback) {
+  let called = false;
+  function done(result) {
+    if (called) return;
+    called = true;
+    callback(result);
+  }
+
   const req = http.get(
     {
       hostname: '127.0.0.1',
@@ -198,10 +205,14 @@ function healthCheck(callback) {
       path: HEALTH_PATH,
       timeout: 4000,
     },
-    (res) => callback(res.statusCode === 200)
+    (res) => {
+      // Consume the body so the socket closes cleanly — prevents double-callback
+      res.resume();
+      done(res.statusCode === 200);
+    }
   );
-  req.on('error', () => callback(false));
-  req.on('timeout', () => { req.destroy(); callback(false); });
+  req.on('error', () => done(false));
+  req.on('timeout', () => { req.destroy(); done(false); });
 }
 
 function startHealthMonitor() {
@@ -282,7 +293,11 @@ function init() {
   setTimeout(() => {
     log('🩺 Starting health monitor...');
     startHealthMonitor();
-    startMemoryWatchdog();
+    if (IS_PROD) {
+      startMemoryWatchdog();
+    } else {
+      log('ℹ️  Memory watchdog disabled (development mode)');
+    }
   }, STARTUP_GRACE);
 }
 

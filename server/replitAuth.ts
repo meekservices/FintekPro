@@ -21,10 +21,8 @@ const CUSTOM_DOMAINS = [
   'partner.fintekpro.com'
 ];
 
-// REPLIT_DOMAINS may not be set in production deployments with custom domains
-if (!process.env.REPLIT_DOMAINS) {
-  console.warn("⚠️ REPLIT_DOMAINS not set - using custom domains only for auth");
-}
+// REPLIT_DOMAINS is only present in Replit dev environments.
+// Railway production uses CUSTOM_DOMAINS above — no warning needed.
 
 const getOidcConfig = memoize(
   async () => {
