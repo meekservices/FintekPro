@@ -713,7 +713,9 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
 setupGracefulShutdown(server, killPythonSidecar);
 
 // Start listening IMMEDIATELY - before ANY async initialization
-server.listen(PORT, '0.0.0.0', () => {
+// reusePort: true (SO_REUSEPORT) lets a new instance bind even if the old one
+// is still holding the port during a supervisor restart — no fuser/lsof needed.
+server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
   bootState.serverListening = true;
   console.log(`🚀 Server listening on port ${PORT} (boot time: ${bootState.getBootTime()}ms)`);
   logger.info(`Server listening on port ${PORT}`, { port: PORT, environment: process.env.NODE_ENV || 'development', bootTime: bootState.getBootTime() });
