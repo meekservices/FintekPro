@@ -29312,6 +29312,7 @@ export const financialInstrumentsCache = pgTable("financial_instruments_cache", 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
+  uniqueIndex("uq_fin_cache_type_symbol_exchange").on(table.instrumentType, table.symbol, table.exchange),
   index("idx_fin_cache_type").on(table.instrumentType),
   index("idx_fin_cache_symbol").on(table.symbol),
   index("idx_fin_cache_type_symbol").on(table.instrumentType, table.symbol),
