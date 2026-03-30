@@ -12,7 +12,7 @@
  *   node supervisor.js
  */
 
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const http = require('http');
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -80,8 +80,18 @@ function getStartCommand() {
   return { cmd: 'npm', args: ['run', 'dev'] };
 }
 
+function freePort() {
+  try {
+    execSync(`fuser -k ${PORT}/tcp 2>/dev/null || true`, { stdio: 'ignore' });
+  } catch {
+    // fuser not available or port already free — ignore
+  }
+}
+
 function startApp() {
   if (restarting) return;
+
+  freePort(); // ensure port is clear before binding
 
   const { cmd, args } = getStartCommand();
   log(`🚀 Starting app: ${cmd} ${args.join(' ')}`);
