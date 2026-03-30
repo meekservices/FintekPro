@@ -14,7 +14,15 @@ import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 
 function getBaseUrl(): string {
-  return process.env.PYTHON_SERVICE_URL?.replace(/\/$/, '') || '';
+  let url = process.env.PYTHON_SERVICE_URL?.trim() || '';
+  if (!url) return '';
+  url = url.replace(/\/$/, '');
+  // Auto-prepend https:// if the env var was set without a protocol
+  // (e.g. PYTHON_SERVICE_URL=python.fintekpro.com → https://python.fintekpro.com)
+  if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `https://${url}`;
+  }
+  return url;
 }
 
 function issuePythonToken(user: any): string {

@@ -1117,6 +1117,26 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     console.error('[Migration] agent_notifications table error:', e?.message);
   }
 
+  // Boot-time: ensure UNIQUE indexes on cache tables so ON CONFLICT upserts work correctly
+  try {
+    const { db: cacheDb } = await import('./db');
+    const { sql: cacheSql } = await import('drizzle-orm');
+    // stock_prices_cache — MarketMoversCache uses ON CONFLICT (symbol)
+    await cacheDb.execute(cacheSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_stock_prices_cache_symbol
+        ON stock_prices_cache (symbol)
+    `);
+    // financial_instruments_cache — FinancialDataRepository uses ON CONFLICT (instrument_type, symbol, exchange)
+    await cacheDb.execute(cacheSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_financial_instruments_cache_type_symbol_exchange
+        ON financial_instruments_cache (instrument_type, symbol, exchange)
+    `);
+    console.log('✅ [Migration] cache table UNIQUE indexes verified/created');
+  } catch (e: any) {
+    // Non-fatal: tables may not exist yet on first boot (created lazily by their services)
+    console.warn('[Migration] cache UNIQUE index skipped:', e?.message);
+  }
+
   // Migrate capital_gains_tax_reminders: add prospect_id + created_by_agent_id if missing
   try {
     const { db: mainDb } = await import('./db');
