@@ -35,7 +35,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pkill -f 'tsx server/index.ts' 2>/dev/null; pkill -f 'python3 -m uvicorn' 2>/dev/null; sleep 1; fuser -k 5000/tcp 2>/dev/null; fuser -k 8001/tcp 2>/dev/null; sleep 2; npm run dev"
+args = "pkill -f 'supervisor.cjs' 2>/dev/null; pkill -f 'tsx server/index.ts' 2>/dev/null; sleep 1; fuser -k 5000/tcp 2>/dev/null; sleep 2; node supervisor.cjs"
 waitForPort = 5000
 
 [agent]
