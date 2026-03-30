@@ -569,6 +569,11 @@ app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
 
+// /healthz - supervisor/orchestrator health check (Railway, Kubernetes, self-healing supervisor)
+app.get('/healthz', (_req: Request, res: Response) => {
+  res.status(200).send('OK');
+});
+
 // ============================================================================
 // IMMEDIATE SERVER START - Create and listen SYNCHRONOUSLY before any async work
 // This ensures health checks respond within Replit's 5-second deployment timeout
