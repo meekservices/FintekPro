@@ -1,12 +1,9 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import pg from 'pg';
+const { Pool } = pg;
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 
-neonConfig.webSocketConstructor = ws;
-neonConfig.pipelineConnect = false;
-
-let prodPool: Pool | null = null;
+let prodPool: InstanceType<typeof Pool> | null = null;
 let prodDb: ReturnType<typeof drizzle> | null = null;
 
 export function getProductionDb() {
@@ -19,11 +16,19 @@ export function getProductionDb() {
     );
   }
 
+  const needsSsl =
+    prodUrl.includes('neon.tech') ||
+    prodUrl.includes('.neon.') ||
+    prodUrl.includes('neon.database') ||
+    prodUrl.includes('rlwy.net') ||
+    prodUrl.includes('railway.app');
+
   prodPool = new Pool({
     connectionString: prodUrl,
     max: 5,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 20000,
+    ...(needsSsl ? { ssl: { rejectUnauthorized: false } } : { ssl: false }),
   });
 
   prodPool.on('error', (err) => {

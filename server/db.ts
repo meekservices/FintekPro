@@ -1,21 +1,14 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import pg from 'pg';
+const { Pool } = pg;
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
-
-neonConfig.webSocketConstructor = ws;
-neonConfig.pipelineConnect = false;
 
 // Determine environment first — URL selection depends on it.
 const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
 
 // Connection strategy:
-//   PRODUCTION_DATABASE_URL set → always use Railway Postgres (both dev and prod)
-//   PRODUCTION_DATABASE_URL absent → fall back to DATABASE_URL (Replit Helium)
-//
-// This means Replit dev and Railway production both point to the same
-// Railway Postgres instance once PRODUCTION_DATABASE_URL is configured,
-// giving developers an accurate view of live data during development.
+//   PRODUCTION_DATABASE_URL set → always use Railway/Neon Postgres (both dev and prod)
+//   PRODUCTION_DATABASE_URL absent → fall back to DATABASE_URL (Replit Helium / local)
 const selectedDbUrl =
   process.env.PRODUCTION_DATABASE_URL ||
   process.env.DATABASE_URL;
@@ -26,32 +19,26 @@ if (!selectedDbUrl) {
   );
 }
 
-// Export whether the main db connection is the production Railway instance.
-// Used by the app to gate production-only behaviour.
 export const isUsingProductionDb = isProduction || !!process.env.PRODUCTION_DATABASE_URL;
 
-// Detect if the selected URL is a Neon endpoint.
-// Neon connections use WebSocket and need no explicit ssl config.
-// Helium (Replit-managed local PostgreSQL) and Railway use standard TCP.
-const isNeonUrl =
+// SSL config based on URL type:
+//   Neon (neon.tech)           → SSL required (port 5432 + TLS)
+//   Railway public (rlwy.net)  → SSL required
+//   Railway internal           → no SSL (private network)
+//   Local / Helium             → no SSL
+const needsSsl =
   selectedDbUrl.includes('neon.tech') ||
   selectedDbUrl.includes('.neon.') ||
-  selectedDbUrl.includes('neon.database');
-
-const isRailwayUrl =
-  selectedDbUrl.includes('railway.app') ||
-  selectedDbUrl.includes('.railway.internal') ||
-  selectedDbUrl.includes('rlwy.net');
+  selectedDbUrl.includes('neon.database') ||
+  selectedDbUrl.includes('rlwy.net') ||
+  selectedDbUrl.includes('railway.app');
 
 const dbUrlSource = process.env.PRODUCTION_DATABASE_URL
-  ? 'PRODUCTION_DATABASE_URL (Railway Postgres)'
-  : 'DATABASE_URL (Helium)';
+  ? 'PRODUCTION_DATABASE_URL'
+  : 'DATABASE_URL';
 
-console.log(`🔗 [DB] Connected to ${dbUrlSource}`);
+console.log(`🔗 [DB] Connected to ${dbUrlSource} (${needsSsl ? 'SSL' : 'TCP'})`);
 
-// Autoscale: keep per-instance pool small so N concurrent instances stay within
-// Neon's connection limit. At max=5, up to 20 autoscale instances = 100 connections.
-// In dev, 5 is sufficient since only one process runs locally.
 const POOL_CONFIG = {
   connectionString: selectedDbUrl,
   max: 5,
@@ -59,9 +46,7 @@ const POOL_CONFIG = {
   idleTimeoutMillis: isProduction ? 60000 : 30000,
   connectionTimeoutMillis: 15000,
   allowExitOnIdle: false,
-  // Neon: WebSocket transport, ssl field ignored.
-  // Railway + Helium: standard TCP — Railway external proxy accepts ssl:false.
-  ...(isNeonUrl ? {} : { ssl: false }),
+  ...(needsSsl ? { ssl: { rejectUnauthorized: false } } : { ssl: false }),
 };
 
 export const pool = new Pool(POOL_CONFIG);
@@ -92,7 +77,6 @@ pool.on('connect', () => {
   }
 });
 
-// Monitor pool usage and warn before exhaustion
 function checkPoolHealth() {
   const waiting = pool.waitingCount;
   const total = pool.totalCount;
