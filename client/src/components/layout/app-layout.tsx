@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Bell,
+  LogIn,
   Settings,
   ShieldCheck,
   Briefcase,
@@ -178,97 +179,115 @@ export function AppLayout({ children }: AppLayoutProps) {
                   </DropdownMenuTrigger>
 
                   <DropdownMenuContent align="end" className="w-64">
-                    {/* User header — name, email, KYC chip, role badge(s) */}
-                    <DropdownMenuLabel className="font-normal p-3">
-                      <div className="flex flex-col gap-1.5">
-                        <p className="text-sm font-semibold leading-none text-foreground">{displayName}</p>
-                        {user?.email && (
-                          <p className="text-xs leading-none text-muted-foreground truncate">{user.email}</p>
-                        )}
-                        <div className="flex flex-wrap items-center gap-1 mt-1">
-                          {/* KYC status chip */}
-                          {kycChip && (
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] px-1.5 py-0 h-4 ${kycChip.className}`}
-                            >
-                              {kycChip.label}
-                            </Badge>
-                          )}
-                          {/* One badge per distinct role the user holds */}
-                          {roleBadgeLabels.map(label => (
-                            <Badge
-                              key={label}
-                              variant="secondary"
-                              className="text-[10px] px-1.5 py-0 h-4"
-                            >
-                              {label}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </DropdownMenuLabel>
-
-                    <DropdownMenuSeparator />
-
-                    {/* Account Settings (consolidated — replaces separate Profile + Settings links) */}
-                    <DropdownMenuItem
-                      onClick={() => setLocation('/profile?tab=settings')}
-                      className="cursor-pointer"
-                    >
-                      <Settings className="mr-2 h-4 w-4" />
-                      Account Settings
-                    </DropdownMenuItem>
-
-                    {/* Portal switcher — only for users with 2+ distinct portal categories */}
-                    {showPortalSwitcher && (
+                    {!user && (
                       <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground px-2 py-1 font-semibold">
-                          My Portals
+                        <DropdownMenuLabel className="font-normal">
+                          <p className="text-sm font-medium leading-none">Welcome</p>
+                          <p className="text-xs text-muted-foreground mt-1">Sign in to access your account</p>
                         </DropdownMenuLabel>
-                        {hasAgentRole && (
-                          <DropdownMenuItem asChild>
-                            <a
-                              href="/?agent=true"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="cursor-pointer flex items-center gap-2"
-                            >
-                              <Briefcase className="h-4 w-4 text-emerald-500" />
-                              <span>Agent Portal</span>
-                            </a>
-                          </DropdownMenuItem>
-                        )}
-                        {hasPartnerRole && (
-                          <DropdownMenuItem asChild>
-                            <a
-                              href="/?partner=true"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="cursor-pointer flex items-center gap-2"
-                            >
-                              <Building2 className="h-4 w-4 text-blue-500" />
-                              <span>Partner Portal</span>
-                            </a>
-                          </DropdownMenuItem>
-                        )}
-                        {hasAdminRole && (
-                          <DropdownMenuItem asChild>
-                            <a
-                              href="/?admin=true"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="cursor-pointer flex items-center gap-2"
-                            >
-                              <ShieldCheck className="h-4 w-4 text-orange-500" />
-                              <span>Admin Panel</span>
-                            </a>
-                          </DropdownMenuItem>
-                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setLocation('/auth')} className="cursor-pointer">
+                          <LogIn className="mr-2 h-4 w-4" />
+                          Sign In
+                        </DropdownMenuItem>
                       </>
                     )}
-                    {/* Log Out intentionally omitted — already in sidebar nav */}
+                    {/* Authenticated user content */}
+                    {user && (
+                      <>
+                        {/* User header — name, email, KYC chip, role badge(s) */}
+                        <DropdownMenuLabel className="font-normal p-3">
+                          <div className="flex flex-col gap-1.5">
+                            <p className="text-sm font-semibold leading-none text-foreground">{displayName}</p>
+                            {user.email && (
+                              <p className="text-xs leading-none text-muted-foreground truncate">{user.email}</p>
+                            )}
+                            <div className="flex flex-wrap items-center gap-1 mt-1">
+                              {/* KYC status chip */}
+                              {kycChip && (
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[10px] px-1.5 py-0 h-4 ${kycChip.className}`}
+                                >
+                                  {kycChip.label}
+                                </Badge>
+                              )}
+                              {/* One badge per distinct role the user holds */}
+                              {roleBadgeLabels.map(label => (
+                                <Badge
+                                  key={label}
+                                  variant="secondary"
+                                  className="text-[10px] px-1.5 py-0 h-4"
+                                >
+                                  {label}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </DropdownMenuLabel>
+
+                        <DropdownMenuSeparator />
+
+                        {/* Account Settings (consolidated — replaces separate Profile + Settings links) */}
+                        <DropdownMenuItem
+                          onClick={() => setLocation('/profile?tab=settings')}
+                          className="cursor-pointer"
+                        >
+                          <Settings className="mr-2 h-4 w-4" />
+                          Account Settings
+                        </DropdownMenuItem>
+
+                        {/* Portal switcher — only for users with 2+ distinct portal categories */}
+                        {showPortalSwitcher && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground px-2 py-1 font-semibold">
+                              My Portals
+                            </DropdownMenuLabel>
+                            {hasAgentRole && (
+                              <DropdownMenuItem asChild>
+                                <a
+                                  href="/?agent=true"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="cursor-pointer flex items-center gap-2"
+                                >
+                                  <Briefcase className="h-4 w-4 text-emerald-500" />
+                                  <span>Agent Portal</span>
+                                </a>
+                              </DropdownMenuItem>
+                            )}
+                            {hasPartnerRole && (
+                              <DropdownMenuItem asChild>
+                                <a
+                                  href="/?partner=true"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="cursor-pointer flex items-center gap-2"
+                                >
+                                  <Building2 className="h-4 w-4 text-blue-500" />
+                                  <span>Partner Portal</span>
+                                </a>
+                              </DropdownMenuItem>
+                            )}
+                            {hasAdminRole && (
+                              <DropdownMenuItem asChild>
+                                <a
+                                  href="/?admin=true"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="cursor-pointer flex items-center gap-2"
+                                >
+                                  <ShieldCheck className="h-4 w-4 text-orange-500" />
+                                  <span>Admin Panel</span>
+                                </a>
+                              </DropdownMenuItem>
+                            )}
+                          </>
+                        )}
+                        {/* Log Out intentionally omitted — already in sidebar nav */}
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
