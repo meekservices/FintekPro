@@ -1,7 +1,8 @@
 # FintekPro Python Analytics Service
 
-Pandas/SciPy/sklearn-powered analytics running alongside the main Node.js portal.
-Deploy this as a **separate Replit project** (always-on VM) — the main portal proxies to it transparently.
+FastAPI micro-service providing Pandas / SciPy / scikit-learn powered analytics alongside the main Node.js portal. The main portal proxies all `/api/python/*` and `/api/ml/*` requests to this service transparently.
+
+---
 
 ## Endpoints
 
@@ -24,47 +25,88 @@ Deploy this as a **separate Replit project** (always-on VM) — the main portal 
 
 ## Authentication
 
-Every request must carry a short-lived JWT issued by the main portal (same `SESSION_SECRET`).
-The main portal injects this automatically via the proxy client.
+Every request must carry a short-lived JWT (15 min) issued by the main Node.js portal, signed with the shared `PYTHON_SERVICE_SECRET`. The main portal injects this automatically via `server/clients/python-client.ts`.
 
-## Deploy Steps
+---
 
-1. **Create a new Replit project** → choose **Python** template
-2. **Copy the contents** of `services/python/` into the new project root
-   (all files: `main.py`, `auth.py`, `database.py`, `requirements.txt`, `.replit`, `routes/`)
-3. **Add these environment secrets** to the new project:
+## Deploy to Railway
 
-   | Secret | Value |
-   |--------|-------|
-   | `PRODUCTION_DATABASE_URL` | Same Neon/Postgres connection string as the main portal |
-   | `SESSION_SECRET` | Same secret as the main portal (used for JWT verification) |
+This is deployed as a **separate Railway service** within the same project, communicating with the main Node.js service via Railway's private internal network — no public internet hop, no extra cost.
 
-4. **Publish the new project as an Always-On VM**
-   - In the new project: click Deploy → choose **Reserved VM (Always-On)**
-   - ⚠️ Do NOT use Autoscale — this service needs to stay running continuously
-   - The deployment run command is already configured in `.replit`
+### Step 1 — Add a new service in Railway
 
-5. **Copy the deployed URL** — it will look like:
-   `https://fintekpro-python.your-username.replit.app`
+1. Open your Railway project dashboard.
+2. Click **+ New Service** → **GitHub Repo**.
+3. Select the same repository as the main portal.
+4. Under **Settings → Source**, set **Root Directory** to `services/python`.
+5. Railway auto-detects Python from `requirements.txt` and builds with Nixpacks.
 
-6. **Back in the main FintekPro project**, add this environment secret:
+### Step 2 — Set environment variables on the Python service
 
-   | Secret | Value |
-   |--------|-------|
-   | `PYTHON_SERVICE_URL` | `https://fintekpro-python.your-username.replit.app` |
+In Railway → Python service → **Variables**, add:
 
-7. **Redeploy the main portal** — it will log:
-   `ℹ️ [Python] Production mode — using external service at https://...`
+| Variable | Value |
+|----------|-------|
+| `PRODUCTION_DATABASE_URL` | Same Neon/Postgres connection string as the main service |
+| `PYTHON_SERVICE_SECRET` | Same value as `SESSION_SECRET` on the main service |
 
-8. **Verify** — call `GET /api/python/health` on the main portal; it should return `status: "ok"` with the full capability list.
+> **Only these two are required.** `PORT` is injected automatically by Railway.
 
-## Local Dev
+### Step 3 — Deploy and get the private domain
 
-```bash
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+1. Click **Deploy** on the Python service.
+2. Wait for the healthcheck at `/health` to pass — allow up to 3 minutes for the scikit-learn cold start.
+3. Go to **Settings → Networking → Private Domain**.
+   - It will look like: `fintekpro-python.railway.internal`
+   - Private domains are reachable only from other services in the same Railway project (free, no public traffic).
+
+### Step 4 — Set PYTHON_SERVICE_URL on the main service
+
+In Railway → **main Node.js service** → **Variables**, add:
+
+| Variable | Value |
+|----------|-------|
+| `PYTHON_SERVICE_URL` | `http://fintekpro-python.railway.internal` |
+
+> Use `http://` (not `https://`) for Railway private networking. No TLS needed for internal traffic.
+
+### Step 5 — Redeploy the main service
+
+Trigger a redeploy. The boot log will confirm:
+
+```
+ℹ️ [Python] Production mode — using external service at http://fintekpro-python.railway.internal
 ```
 
-## Calling from Main Portal (without deploying)
+Verify by calling `GET /api/python/health` on the main portal — it should return `status: "ok"` with the full capability list.
 
-Hit `GET /api/python/health` on the main portal — it returns a `not_configured` status with instructions when `PYTHON_SERVICE_URL` is not set.
+---
+
+## Local Development
+
+The main portal's development supervisor starts this automatically on port 8001 when `PYTHON_SERVICE_URL` is not set. No manual setup needed for local dev.
+
+To run standalone:
+
+```bash
+cd services/python
+pip install -r requirements.txt
+cp .env.example .env          # fill in PRODUCTION_DATABASE_URL and PYTHON_SERVICE_SECRET
+uvicorn main:app --reload --port 8001
+```
+
+---
+
+## Troubleshooting
+
+### 502 errors in main service logs + circuit breaker opens
+
+`PYTHON_SERVICE_URL` is set but the Python service is not yet running (still starting up, or healthcheck failed). The circuit breaker opens after 5 consecutive 502s and pauses all Python calls for 2 minutes automatically — the rest of the app continues normally. Once the Python service is healthy, the circuit resets on the next probe.
+
+### "PYTHON_SERVICE_SECRET not configured on Python service"
+
+The `PYTHON_SERVICE_SECRET` env var is missing on the Python Railway service. Add it in Railway → Python service → Variables (same value as `SESSION_SECRET` on the main service).
+
+### Healthcheck timeout on cold start
+
+scikit-learn's first import takes 30–60 seconds. `healthcheckTimeout = 180` in `railway.toml` covers this. If it still times out, increase the value.

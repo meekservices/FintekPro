@@ -46,6 +46,16 @@ function recordFailure(status?: number): void {
         (status ? ` (last status: ${status})` : '') +
         ` — pausing calls for ${CIRCUIT_OPEN_DURATION_MS / 1000}s`
       );
+      if (status === 502) {
+        const url = process.env.PYTHON_SERVICE_URL || '(not set)';
+        console.warn(
+          `[PythonClient] 💡 Railway hint: PYTHON_SERVICE_URL is "${url}" but the service returned 502.` +
+          ` Check Railway → Python service → Deployments to ensure it is running and healthy.` +
+          ` The expected value is: http://<python-service-name>.railway.internal` +
+          ` (see services/python/README.md for full setup steps).` +
+          ` AI scoring and quant features will be degraded until the service is reachable.`
+        );
+      }
     }
   }
 }
