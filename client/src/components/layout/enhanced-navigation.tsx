@@ -459,9 +459,9 @@ export function EnhancedNavigation() {
   const hasAdminRole = user?.roles?.some(r => ADMIN_PORTAL_ROLE_SET.has(r));
   const hasAgentRole = user?.roles?.some(r => AGENT_PORTAL_ROLE_SET.has(r));
   const hasPartnerRole = user?.roles?.some(r => PARTNER_PORTAL_ROLE_SET.has(r));
-  // Show "My Portals" only when user has access to 2+ distinct portal categories
-  const portalCategoryCount = [hasAdminRole, hasAgentRole, hasPartnerRole].filter(Boolean).length;
-  const hasMultiPortalAccess = portalCategoryCount >= 2;
+  // Show "My Portals" when user has any extra portal role beyond the client portal
+  // (client portal is the current context, so even one additional portal qualifies)
+  const hasMultiPortalAccess = !!(hasAdminRole || hasAgentRole || hasPartnerRole);
 
   const isItemActive = (href: string) => {
     if (href === "/" && location === "/") return true;
