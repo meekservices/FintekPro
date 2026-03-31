@@ -87,9 +87,9 @@ import {
   HeartPulse,
   Crosshair,
   BellRing,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useCart } from "@/hooks/use-cart";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -122,7 +122,6 @@ interface NavigationGroup {
 
 export function EnhancedNavigation() {
   const [location] = useLocation();
-  const [isOpen, setIsOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const isMobile = useIsMobile();
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -136,7 +135,6 @@ export function EnhancedNavigation() {
   const [openGroups, setOpenGroups] = useState<string[]>([]);
   const [openSubItems, setOpenSubItems] = useState<string[]>([]);
   const { user, isAuthenticated, isLoading } = useAuth();
-  const { cart } = useCart();
 
   useEffect(() => {
     try {
@@ -175,9 +173,7 @@ export function EnhancedNavigation() {
     );
   };
 
-  // Role checks
-  const isAdmin = user?.roles?.includes('admin') || user?.roles?.includes('super_admin');
-  const isAgent = user?.roles?.includes('agent') || user?.roles?.includes('partner');
+  // Role checks for conditional nav items
   const isPremium = (user as any)?.kycLevel === 'enhanced' || (user as any)?.kycLevel === 'accredited';
   const isKycComplete = (user as any)?.kycStatus === 'verified' || (user as any)?.kycStatus === 'approved';
 
@@ -453,147 +449,16 @@ export function EnhancedNavigation() {
     }
   ];
 
-  // ============ AGENT PORTAL (Role-based, 6 sections) ============
-  if (isAgent) {
-    navigationGroups.push(
-      {
-        title: "Agent: Overview",
-        items: [
-          { name: "Agent Dashboard", href: "/agent", icon: LayoutDashboard, description: "Agent overview" },
-          { name: "Tracker", href: "/agent/tracker", icon: LineChart, description: "MFCentral-powered AUM, SIP & trail tracker", badge: "NEW" },
-          { name: "Performance", href: "/agent-performance", icon: BadgePercent, description: "Performance metrics" },
-          { name: "Leaderboard", href: "/agent/leaderboard", icon: Award, description: "Top agents ranking" },
-          { name: "Revenue Cockpit", href: "/agent/revenue", icon: DollarSign, description: "Revenue analytics" }
-        ]
-      },
-      {
-        title: "Agent: Clients",
-        items: [
-          { name: "Prospect Wizard", href: "/agent-prospect-wizard", icon: Sparkles, description: "Complete onboarding workflow", badge: "NEW" },
-          { name: "Client Pipeline", href: "/agent/crm/pipeline", icon: Target, description: "CRM pipeline management" },
-          { name: "My Clients", href: "/agent/clients", icon: Users, description: "Client directory" },
-          { name: "CRM Analytics", href: "/agent/crm/analytics", icon: Eye, description: "CRM analytics & insights" },
-          { name: "Tasks", href: "/agent/tasks", icon: ListChecks, description: "Task management" },
-          { name: "Onboard Client", href: "/agent/onboard-client", icon: UserPlus, description: "New client onboarding" },
-          { name: "External Portfolios", href: "/agent/external-portfolios", icon: Briefcase, description: "COB & external holdings" },
-          { name: "SIP Health", href: "/agent/sip-health", icon: HeartPulse, description: "Monitor client SIP status" }
-        ]
-      },
-      {
-        title: "Agent: Advisory",
-        items: [
-          { name: "Proposals", href: "/agent/proposals", icon: ClipboardCheck, description: "Create & manage proposals" },
-          { name: "AI Recommendations", href: "/ai-recommendations", icon: Sparkles, description: "AI-powered insights", badge: "AI" },
-          { name: "Pick of the Day", href: "/agent/picks", icon: Star, description: "Daily investment picks" },
-          { name: "Research Workspace", href: "/agent/research-lists", icon: Search, description: "Research & watchlists" },
-          { name: "Investment Baskets", href: "/agent/baskets", icon: Grid3x3, description: "Curated thematic portfolios", badge: "NEW" },
-          { name: "Market Alerts", href: "/agent/market-alerts", icon: BellRing, description: "Significant moves in client holdings", badge: "LIVE" },
-          { name: "Portfolio Drift", href: "/agent/portfolio-drift", icon: Crosshair, description: "Detect allocation drift across clients" },
-          { name: "Screener", href: "/agent/screener", icon: BarChart3, description: "Stock screener" },
-          { name: "Report Builder", href: "/agent/report-builder", icon: FileText, description: "Custom reports" }
-        ]
-      },
-      {
-        title: "Agent: Loans (DSA)",
-        items: [
-          { name: "Loan Applications", href: "/agent/loan-applications", icon: ClipboardList, description: "Track applications" },
-          { name: "Loan Marketplace", href: "/agent/loan-marketplace", icon: Store, description: "Multi-bank products" },
-          { name: "Apply for Client", href: "/agent/loan-apply", icon: Banknote, description: "New loan application" },
-          { name: "Builder Finance", href: "/agent/loan-apply?type=developer", icon: Building2, description: "Project & developer finance", badge: "NEW" },
-          { name: "DSA Performance", href: "/agent/dsa-performance", icon: Activity, description: "DSA analytics" },
-          { name: "Payout Claims", href: "/agent/payout-claims", icon: CircleDollarSign, description: "Commission claims" },
-          { name: "Revenue Sheet", href: "/agent/revenue-sheet", icon: Receipt, description: "Case-wise monthly payout", badge: "NEW" }
-        ]
-      },
-      {
-        title: "Agent: Operations",
-        items: [
-          { name: "Calendar", href: "/agent/calendar", icon: Calendar, description: "Schedule & appointments" },
-          { name: "Meetings", href: "/agent/meetings", icon: Phone, description: "Client meetings" },
-          { name: "eSign", href: "/agent/esign", icon: Pen, description: "Digital signatures" },
-          { name: "Bulk Communication", href: "/agent/bulk-communication", icon: Send, description: "Mass outreach" },
-          { name: "Field View", href: "/agent-field-view", icon: MapPin, description: "Field activities" },
-          { name: "Orders", href: "/agent/orders", icon: ShoppingCart, description: "Order management" },
-          { name: "My Profile", href: "/agent/kyc", icon: UserCheck, description: "Your personal & professional profile" }
-        ]
-      },
-      {
-        title: "Agent: My Brand",
-        items: [
-          { name: "Agent Marketing Profile", href: "/agent/advisor-profile", icon: Briefcase, description: "Photo, credentials & public microsite", badge: "NEW" },
-          { name: "Festival Greetings", href: "/agent/festival-greetings", icon: Sparkles, description: "Marketing greeting cards" },
-          { name: "SIP Health Monitor", href: "/agent/sip-health", icon: HeartPulse, description: "Client SIP status" },
-          { name: "Market Alert Center", href: "/agent/market-alerts", icon: BellRing, description: "Client holding moves" },
-        ]
-      },
-      {
-        title: "Agent: Knowledge",
-        items: [
-          { name: "Knowledge Hub", href: "/agent/knowledge-hub", icon: BookOpen, description: "Market intelligence" },
-          { name: "Market Brief", href: "/agent/knowledge-hub/market-brief", icon: Newspaper, description: "Daily AI market brief", badge: "AI" },
-          { name: "Training", href: "/agent/training", icon: GraduationCap, description: "Training & certifications" },
-          { name: "Product Knowledge", href: "/agent/knowledge-hub/products", icon: Lightbulb, description: "Product deep-dives" }
-        ]
-      }
-    );
-  }
-
-  // ============ ADMIN PANEL (Role-based, 5 sections) ============
-  if (isAdmin) {
-    navigationGroups.push(
-      {
-        title: "Admin: System",
-        items: [
-          { name: "Admin Dashboard", href: "/admin", icon: LayoutDashboard, description: "System overview" },
-          { name: "User Management", href: "/admin/users", icon: Users, description: "Manage users & roles" },
-          { name: "Audit Logs", href: "/admin/unlisted/audit-log", icon: ScrollText, description: "Compliance audit trail" },
-          { name: "API Usage", href: "/admin/api-usage", icon: Activity, description: "API monitoring" },
-          { name: "Engine Health", href: "/admin/engine-health-check", icon: Gauge, description: "System health check" }
-        ]
-      },
-      {
-        title: "Admin: Products",
-        items: [
-          { name: "Store Management", href: "/admin/store-management", icon: Package, description: "Manage products" },
-          { name: "MF Admin", href: "/admin/mf-enrichment", icon: PieChart, description: "Mutual fund data" },
-          { name: "Bond Admin", href: "/admin/bond-seed", icon: Landmark, description: "Bond marketplace admin" },
-          { name: "Unlisted Admin", href: "/admin/unlisted/companies", icon: Building, description: "Unlisted shares" },
-          { name: "Listed Stocks", href: "/admin/listed-stocks-seed", icon: TrendingUp, description: "Stock data management" },
-          { name: "MF Benchmarks", href: "/admin/mf-benchmarks", icon: BarChart3, description: "Benchmark management" }
-        ]
-      },
-      {
-        title: "Admin: Financial",
-        items: [
-          { name: "Partner Hierarchy", href: "/admin/partner-hierarchy", icon: GitBranch, description: "Manage partners & commissions" },
-          { name: "Commission Engine", href: "/admin/commission-master", icon: CircleDollarSign, description: "Configure payouts" },
-          { name: "Agent Payouts", href: "/admin/agent-payouts", icon: Banknote, description: "Payout management" },
-          { name: "Platform Fees", href: "/admin/global-fee-model", icon: DollarSign, description: "Fee configuration" },
-          { name: "Loan Management", href: "/admin/loan-marketplace", icon: ClipboardList, description: "DSA loan admin" },
-          { name: "Prospect Dashboard", href: "/admin/prospect-dashboard", icon: Target, description: "Prospect analytics" }
-        ]
-      },
-      {
-        title: "Admin: Compliance",
-        items: [
-          { name: "Supplier Management", href: "/suppliers", icon: Building2, description: "Vendors & partners" },
-          { name: "Compliance Dashboard", href: "/admin/compliance-dashboard", icon: Scale, description: "Regulatory compliance" },
-          { name: "Audit Norms", href: "/admin/regulatory-audit-norms", icon: Shield, description: "SEBI/AMFI/PMLA/RBI norms" },
-          { name: "Regulatory Compliance", href: "/admin/unlisted/regulatory-compliance", icon: Shield, description: "Compliance rules" },
-          { name: "KYC Compliance", href: "/admin/kyc-compliance", icon: AlertCircle, description: "KYC monitoring" }
-        ]
-      },
-      {
-        title: "Admin: Data",
-        items: [
-          { name: "Data Enrichment", href: "/admin/data-enrichment", icon: Database, description: "Data quality management" },
-          { name: "System Health", href: "/admin/system-health", icon: Zap, description: "System monitoring" },
-          { name: "Zoho Import", href: "/admin/zoho-import", icon: Layers, description: "Zoho data sync" },
-          { name: "Parser Admin", href: "/admin/parser-config", icon: FileText, description: "Document parser config" }
-        ]
-      }
-    );
-  }
+  // Portal access checks for "My Portals" launcher
+  const hasAdminRole = user?.roles?.some(r => [
+    'superadmin', 'master_agent', 'admin', 'tester',
+    'bd_head', 'compliance_officer', 'finance_head', 'ops_head', 'hr_head', 'tech_head',
+    'regulatory_auditor', 'bd_team', 'compliance_team', 'finance_team', 'ops_team',
+    'hr_team', 'tech_backend', 'tech_frontend', 'tech_devops'
+  ].includes(r));
+  const hasAgentRole = user?.roles?.some(r => ['agent', 'sub_agent', 'associate'].includes(r));
+  const hasPartnerRole = user?.roles?.some(r => ['partner', 'partner_ops'].includes(r));
+  const hasMultiPortalAccess = !!(hasAdminRole || hasAgentRole || hasPartnerRole);
 
   const isItemActive = (href: string) => {
     if (href === "/" && location === "/") return true;
@@ -748,6 +613,56 @@ export function EnhancedNavigation() {
 
       {/* Bottom Actions */}
       <div className="p-2 border-t border-border">
+        {/* My Portals launcher */}
+        {isAuthenticated && hasMultiPortalAccess && (
+          <div className={`mb-2 ${inSheet || !isCollapsed ? 'border border-border/60 rounded-lg p-2 bg-muted/30' : ''}`}>
+            {(inSheet || !isCollapsed) && (
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold px-1 mb-1.5 flex items-center gap-1">
+                <Layers className="h-3 w-3" /> My Portals
+              </p>
+            )}
+            {hasAgentRole && (
+              <a href="/?agent=true" target="_blank" rel="noopener noreferrer">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`${inSheet || !isCollapsed ? 'w-full justify-start' : 'w-full justify-center px-0'} mb-0.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10`}
+                  title={isCollapsed && !inSheet ? "Agent Portal" : undefined}
+                >
+                  <Briefcase className="h-4 w-4" />
+                  {(inSheet || !isCollapsed) && <span className="ml-3 text-xs">Agent Portal</span>}
+                </Button>
+              </a>
+            )}
+            {hasPartnerRole && (
+              <a href="/?partner=true" target="_blank" rel="noopener noreferrer">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`${inSheet || !isCollapsed ? 'w-full justify-start' : 'w-full justify-center px-0'} mb-0.5 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10`}
+                  title={isCollapsed && !inSheet ? "Partner Portal" : undefined}
+                >
+                  <Building2 className="h-4 w-4" />
+                  {(inSheet || !isCollapsed) && <span className="ml-3 text-xs">Partner Portal</span>}
+                </Button>
+              </a>
+            )}
+            {hasAdminRole && (
+              <a href="/?admin=true" target="_blank" rel="noopener noreferrer">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`${inSheet || !isCollapsed ? 'w-full justify-start' : 'w-full justify-center px-0'} text-orange-600 dark:text-orange-400 hover:bg-orange-500/10`}
+                  title={isCollapsed && !inSheet ? "Admin Panel" : undefined}
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  {(inSheet || !isCollapsed) && <span className="ml-3 text-xs">Admin Panel</span>}
+                </Button>
+              </a>
+            )}
+          </div>
+        )}
+
         <Link href="/referral-program" onClick={inSheet ? handleMobileNavClick : undefined}>
           <Button 
             variant="ghost" 

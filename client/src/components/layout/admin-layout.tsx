@@ -525,12 +525,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <Search className="h-5 w-5" />
           </Button>
           
-          <div className="flex items-center gap-4">
-            <Link href="/admin/theme-settings">
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" data-testid="btn-theme-settings" title="Theme & Accessibility">
-                <Palette className="h-5 w-5" />
-              </Button>
-            </Link>
+          <div className="flex items-center gap-3">
             <DropdownMenu open={notificationsOpen} onOpenChange={setNotificationsOpen}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground relative" data-testid="btn-notifications">
@@ -573,24 +568,72 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-            
-            <div className="flex items-center gap-3 border-l border-border pl-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-foreground">{user?.email}</p>
-                <p className="text-xs text-muted-foreground capitalize">
-                  {user?.roles?.includes('superadmin') ? 'Super Admin' : 'Admin'}
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => logoutMutation.mutate()}
-                className="text-muted-foreground hover:text-red-400"
-                data-testid="button-logout"
-              >
-                <LogOut className="h-5 w-5" />
-              </Button>
-            </div>
+
+            {/* Avatar dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex items-center gap-2 px-2 h-9 hover:bg-card rounded-lg"
+                  data-testid="button-admin-profile-menu"
+                >
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-600 to-slate-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                    {user?.email?.charAt(0).toUpperCase() || 'A'}
+                  </div>
+                  <div className="text-left hidden md:block">
+                    <p className="text-xs font-medium text-foreground leading-tight max-w-[100px] truncate">
+                      {user?.email?.split('@')[0] || 'Admin'}
+                    </p>
+                    <p className="text-[10px] text-blue-400 font-medium capitalize">
+                      {user?.roles?.includes('superadmin') ? 'Super Admin' : 'Admin'}
+                    </p>
+                  </div>
+                  <ChevronDown className="h-3 w-3 text-muted-foreground hidden md:block" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 bg-background border-border shadow-xl" sideOffset={8}>
+                <DropdownMenuLabel className="p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-600 to-slate-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                      {user?.email?.charAt(0).toUpperCase() || 'A'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {user?.firstName && user?.lastName
+                          ? `${user.firstName} ${user.lastName}`
+                          : user?.email?.split('@')[0] || 'Admin'}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                      <p className="text-[10px] text-blue-400 font-medium capitalize mt-0.5">
+                        {user?.roles?.includes('superadmin') ? 'Super Admin' : 'Admin'}
+                      </p>
+                    </div>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/theme-settings" className="flex items-center gap-2.5 px-3 py-2 cursor-pointer">
+                    <Palette className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">Theme & Accessibility</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/users" className="flex items-center gap-2.5 px-3 py-2 cursor-pointer">
+                    <Settings className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">Admin Settings</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="flex items-center gap-2.5 px-3 py-2 text-red-500 hover:text-red-500 hover:bg-red-500/10 cursor-pointer"
+                  onClick={() => logoutMutation.mutate()}
+                  data-testid="button-logout"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span className="text-sm font-medium">Sign Out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
