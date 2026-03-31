@@ -240,6 +240,7 @@ const navCategories: NavCategory[] = [
       { title: "PDF Parser", href: "/admin/parser-config", icon: FileText, description: "Unified PDF parser settings" },
       { title: "Database", href: "/admin/database", icon: Database, description: "Database management" },
       { title: "Data Providers", href: "/admin/data-providers", icon: Activity, description: "Provider health & fallback" },
+      { title: "WhatsApp Setup", href: "/admin/whatsapp-setup", icon: MessageSquare, description: "Link WhatsApp device & scan QR" },
     ]
   },
 ];

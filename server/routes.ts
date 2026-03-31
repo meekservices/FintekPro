@@ -769,7 +769,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   });
 
   app.get('/api/admin/whatsapp/status', requireAdmin, (_req, res) => {
-    res.json(whatsappService.getStatus());
+    const status = whatsappService.getStatus();
+    const dataUrl = whatsappService.getQrCodeDataUrl();
+    res.json({ ...status, qrDataUrl: dataUrl });
   });
 
   app.post('/api/admin/whatsapp/init', requireAdmin, async (_req, res) => {
