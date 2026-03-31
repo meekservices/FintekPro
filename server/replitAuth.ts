@@ -319,6 +319,52 @@ export async function setupAuth(app: Express) {
     passport.session()(req, res, next);
   });
 
+  // /api/user must be registered regardless of REPL_ID (Railway has no Replit
+  // env vars, so the early-return below would otherwise skip this route entirely,
+  // causing a 404 in production for the auth-check that every page performs).
+  app.get("/api/user", isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Fetch PAN from user_profiles table (where KYC data is stored)
+    let panNumber: string | null = null;
+    try {
+      const userProfile = await storage.getUserProfile(user.id);
+      if (userProfile?.panNumber) {
+        if (userProfile.panNumber.includes(':')) {
+          try {
+            panNumber = await PANConsentService.decryptPAN(userProfile.panNumber);
+          } catch {
+            panNumber = userProfile.panNumber;
+          }
+        } else {
+          panNumber = userProfile.panNumber;
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching user profile PAN:", err);
+    }
+
+    res.json({
+      id: user.id,
+      userId: user.userId,
+      email: user.email,
+      mobile: user.mobile,
+      firstName: user.firstName,
+      middleName: user.middleName,
+      lastName: user.lastName,
+      profileImageUrl: user.profileImageUrl,
+      isEmailVerified: user.isEmailVerified,
+      isMobileVerified: user.isMobileVerified,
+      roles: user.roles,
+      lastLoginAt: user.lastLoginAt,
+      panNumber: panNumber,
+    });
+  });
+
   // REPL_ID is only present in the Replit runtime environment.
   // On Railway (and other non-Replit hosts) it is undefined, so the
   // openid-client discovery call would throw "clientId must be a non-empty
@@ -458,51 +504,6 @@ export async function setupAuth(app: Express) {
     });
   });
 
-  app.get("/api/user", isAuthenticated, async (req, res) => {
-    const user = req.user as any;
-    
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    
-    // Fetch PAN from user_profiles table (where KYC data is stored)
-    let panNumber: string | null = null;
-    try {
-      const userProfile = await storage.getUserProfile(user.id);
-      if (userProfile?.panNumber) {
-        // PAN is stored as plaintext in user_profiles
-        // Check if it looks encrypted (contains colons) - if so, decrypt
-        if (userProfile.panNumber.includes(':')) {
-          try {
-            panNumber = await PANConsentService.decryptPAN(userProfile.panNumber);
-          } catch {
-            // If decryption fails, it might be plaintext stored with a colon (edge case)
-            panNumber = userProfile.panNumber;
-          }
-        } else {
-          panNumber = userProfile.panNumber;
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching user profile PAN:", err);
-    }
-    
-    res.json({
-      id: user.id,
-      userId: user.userId,
-      email: user.email,
-      mobile: user.mobile,
-      firstName: user.firstName,
-      middleName: user.middleName,
-      lastName: user.lastName,
-      profileImageUrl: user.profileImageUrl,
-      isEmailVerified: user.isEmailVerified,
-      isMobileVerified: user.isMobileVerified,
-      roles: user.roles,
-      lastLoginAt: user.lastLoginAt,
-      panNumber: panNumber,
-    });
-  });
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {

@@ -786,15 +786,33 @@ export function setupAuth(app: Express) {
               otpDelivered = true;
               deliveryChannel = "SMS";
             } else {
-              console.log(`❌ All OTP delivery channels failed for ${otpDestination}`);
+              // WhatsApp + SMS both failed — try email as last resort if available
+              if (user.email) {
+                console.log(`⚠️ WhatsApp+SMS failed for ${otpDestination}, falling back to email: ${user.email}`);
+                const emailFallback = await emailService.sendLoginOTP(user.email, otp);
+                if (emailFallback) {
+                  console.log(`✅ Login OTP sent via email fallback to: ${user.email}`);
+                  otpDelivered = true;
+                  deliveryChannel = "email";
+                  otpDestination = user.email;
+                  otpType = "email";
+                } else {
+                  console.log(`❌ All OTP delivery channels (WhatsApp, SMS, email) failed for this account`);
+                }
+              } else {
+                console.log(`❌ All OTP delivery channels failed for ${otpDestination} (no email fallback)`);
+              }
             }
           }
         }
 
         // Check if OTP was actually delivered
         if (!otpDelivered) {
-          console.error(`❌ OTP delivery failed for ${otpDestination} - no delivery channel available`);
-          return apiResponse.serverError(res, "Unable to send OTP. Please check your contact details or try again later.");
+          console.error(`❌ OTP delivery failed — no delivery channel available for this account`);
+          return res.status(503).json({
+            error: "Unable to send OTP",
+            message: "We could not reach you via SMS, WhatsApp, or email. Please contact support or try again later.",
+          });
         }
 
         // Return success with OTP destination info (don't complete login yet)
