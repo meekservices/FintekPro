@@ -458,7 +458,9 @@ export function EnhancedNavigation() {
   ].includes(r));
   const hasAgentRole = user?.roles?.some(r => ['agent', 'sub_agent', 'associate'].includes(r));
   const hasPartnerRole = user?.roles?.some(r => ['partner', 'partner_ops'].includes(r));
-  const hasMultiPortalAccess = !!(hasAdminRole || hasAgentRole || hasPartnerRole);
+  // Show "My Portals" only when user has access to 2+ distinct portal categories
+  const portalCategoryCount = [hasAdminRole, hasAgentRole, hasPartnerRole].filter(Boolean).length;
+  const hasMultiPortalAccess = portalCategoryCount >= 2;
 
   const isItemActive = (href: string) => {
     if (href === "/" && location === "/") return true;
