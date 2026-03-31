@@ -49,10 +49,10 @@ const DEFAULT_PROVIDERS: ProviderPricing[] = [
   { providerName: 'sandbox-mca', displayName: 'Sandbox — MCA Data', description: 'Ministry of Corporate Affairs company data', costPerCall: 3 },
   { providerName: 'sandbox-gstin', displayName: 'Sandbox — GSTIN Verification', description: 'GST identification number verification', costPerCall: 1.5 },
 
-  // Truthscreen/AuthBridge — separate services
-  { providerName: 'truthscreen-aadhaar', displayName: 'AuthBridge — Aadhaar Verification', description: 'Aadhaar identity verification (OTP/offline)', costPerCall: 3 },
-  { providerName: 'truthscreen-ckyc', displayName: 'AuthBridge — CKYC Search', description: 'Central KYC registry lookup', costPerCall: 5 },
-  { providerName: 'truthscreen-esign', displayName: 'AuthBridge — eSign', description: 'Aadhaar-based electronic signature', costPerCall: 10 },
+  // TruthScreen (formerly AuthBridge — same company) — separate services
+  { providerName: 'truthscreen-aadhaar', displayName: 'TruthScreen — Aadhaar Verification', description: 'Aadhaar identity verification (OTP/offline)', costPerCall: 3 },
+  { providerName: 'truthscreen-ckyc', displayName: 'TruthScreen — CKYC Search', description: 'Central KYC registry lookup', costPerCall: 5 },
+  { providerName: 'truthscreen-esign', displayName: 'TruthScreen — eSign', description: 'Aadhaar-based electronic signature', costPerCall: 10 },
 
   // Cashfree — separate services
   { providerName: 'cashfree-payments', displayName: 'Cashfree — Payment Gateway', description: 'Online payment collection (UPI, cards, netbanking)', costPerCall: 0 },
