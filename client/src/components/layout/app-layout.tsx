@@ -29,20 +29,16 @@ import {
   ChevronDown,
 } from "lucide-react";
 import type { UserAlert } from "@shared/schema";
+import { ADMIN_PORTAL_ROLES, AGENT_PORTAL_ROLES, PARTNER_PORTAL_ROLES } from "@shared/roles";
 
 interface AppLayoutProps {
   children: React.ReactNode;
 }
 
-// Typed sets to avoid `as any` casts
-const ADMIN_ROLE_SET = new Set<string>([
-  'superadmin', 'master_agent', 'admin', 'tester',
-  'bd_head', 'compliance_officer', 'finance_head', 'ops_head', 'hr_head', 'tech_head',
-  'regulatory_auditor', 'bd_team', 'compliance_team', 'finance_team', 'ops_team',
-  'hr_team', 'tech_backend', 'tech_frontend', 'tech_devops',
-]);
-const AGENT_ROLE_SET = new Set<string>(['agent', 'sub_agent', 'associate']);
-const PARTNER_ROLE_SET = new Set<string>(['partner', 'partner_ops']);
+// Typed sets built from the single source of truth in shared/roles.ts
+const ADMIN_ROLE_SET  = new Set<string>(ADMIN_PORTAL_ROLES);
+const AGENT_ROLE_SET  = new Set<string>(AGENT_PORTAL_ROLES);
+const PARTNER_ROLE_SET = new Set<string>(PARTNER_PORTAL_ROLES);
 
 const ROLE_LABELS: Record<string, string> = {
   superadmin: 'Super Admin',

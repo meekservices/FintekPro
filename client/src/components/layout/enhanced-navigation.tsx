@@ -92,6 +92,12 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ADMIN_PORTAL_ROLES, AGENT_PORTAL_ROLES, PARTNER_PORTAL_ROLES } from "@shared/roles";
+
+// Sets built from shared/roles.ts — single source of truth for portal-role mapping
+const ADMIN_PORTAL_ROLE_SET  = new Set<string>(ADMIN_PORTAL_ROLES);
+const AGENT_PORTAL_ROLE_SET  = new Set<string>(AGENT_PORTAL_ROLES);
+const PARTNER_PORTAL_ROLE_SET = new Set<string>(PARTNER_PORTAL_ROLES);
 
 interface NavigationSubItem {
   name: string;
@@ -449,15 +455,10 @@ export function EnhancedNavigation() {
     }
   ];
 
-  // Portal access checks for "My Portals" launcher
-  const hasAdminRole = user?.roles?.some(r => [
-    'superadmin', 'master_agent', 'admin', 'tester',
-    'bd_head', 'compliance_officer', 'finance_head', 'ops_head', 'hr_head', 'tech_head',
-    'regulatory_auditor', 'bd_team', 'compliance_team', 'finance_team', 'ops_team',
-    'hr_team', 'tech_backend', 'tech_frontend', 'tech_devops'
-  ].includes(r));
-  const hasAgentRole = user?.roles?.some(r => ['agent', 'sub_agent', 'associate'].includes(r));
-  const hasPartnerRole = user?.roles?.some(r => ['partner', 'partner_ops'].includes(r));
+  // Portal access checks for "My Portals" launcher — sourced from shared/roles.ts
+  const hasAdminRole = user?.roles?.some(r => ADMIN_PORTAL_ROLE_SET.has(r));
+  const hasAgentRole = user?.roles?.some(r => AGENT_PORTAL_ROLE_SET.has(r));
+  const hasPartnerRole = user?.roles?.some(r => PARTNER_PORTAL_ROLE_SET.has(r));
   // Show "My Portals" only when user has access to 2+ distinct portal categories
   const portalCategoryCount = [hasAdminRole, hasAgentRole, hasPartnerRole].filter(Boolean).length;
   const hasMultiPortalAccess = portalCategoryCount >= 2;
