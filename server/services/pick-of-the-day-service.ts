@@ -109,12 +109,13 @@ class PickOfTheDayService {
     const isProduction = process.env.NODE_ENV === 'production' || process.env.REPL_DEPLOYMENT === '1';
     const refreshIntervalMs = isProduction ? 4 * 60 * 60 * 1000 : 30 * 60 * 1000; // 4h prod / 30min dev
     
-    // Initial refresh after boot (slightly delayed to let DB connections settle)
+    // Initial refresh after boot — delayed to 90 s so the T+45s Python health probe fires first
+    // and resets the circuit breaker before we attempt ml/score calls.
     setTimeout(() => {
       this.refreshLivePicks()
         .then(r => console.log(`📊 [PickOfTheDay] Initial price refresh: ${r.updated} updated, ${r.errors} errors`))
         .catch(e => console.error("[PickOfTheDay] Initial refresh failed:", e));
-    }, 20000);
+    }, 90000);
 
     // Periodic refresh
     setInterval(() => {

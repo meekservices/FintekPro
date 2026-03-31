@@ -187,8 +187,11 @@ export function startPythonKeepAlive(): void {
       if (res.ok) {
         if (!lastWasHealthy) {
           console.info('[PythonClient] ✅ Keep-alive: Python service recovered');
-          recordSuccess();
         }
+        // Always reset the circuit on a successful ping — even if the circuit was
+        // tripped by other callers (e.g. boot-time ml/score bursts) rather than
+        // by a keep-alive failure.
+        recordSuccess();
         lastWasHealthy = true;
       } else {
         if (lastWasHealthy) {
