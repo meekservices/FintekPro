@@ -4,26 +4,37 @@ import type { Message } from 'whatsapp-web.js';
 import qrcode from 'qrcode-terminal';
 import QRCode from 'qrcode';
 import { accessSync, constants } from 'fs';
+import { execSync } from 'child_process';
 import { storage } from './storage';
 import { randomUUID } from 'crypto';
 
 function resolveChromiumPath(): string | undefined {
-  // 1. Explicit env override (set CHROMIUM_PATH on Railway/any host)
+  // 1. Explicit env override — set CHROMIUM_PATH on Railway if auto-detect fails
   if (process.env.CHROMIUM_PATH) return process.env.CHROMIUM_PATH;
 
-  // 2. Common paths — first one that exists wins
-  const candidates = [
-    '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium', // Replit
-    '/usr/bin/google-chrome-stable', // Railway default when chrome is installed
+  // 2. Dynamic PATH lookup — works when Nixpacks installs chromium in PATH
+  const whichCandidates = ['chromium', 'google-chrome-stable', 'google-chrome', 'chromium-browser'];
+  for (const bin of whichCandidates) {
+    try {
+      const found = execSync(`which ${bin} 2>/dev/null`, { timeout: 2000 }).toString().trim();
+      if (found) { return found; }
+    } catch { /* not in PATH */ }
+  }
+
+  // 3. Known static paths — Replit Nix path and common Linux locations
+  const staticCandidates = [
+    '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+    '/usr/bin/google-chrome-stable',
     '/usr/bin/google-chrome',
     '/usr/bin/chromium-browser',
     '/usr/bin/chromium',
     '/snap/bin/chromium',
   ];
-  for (const p of candidates) {
+  for (const p of staticCandidates) {
     try { accessSync(p, constants.X_OK); return p; } catch { /* not found */ }
   }
-  // 3. Let Puppeteer auto-detect (works when puppeteer downloads its own Chromium)
+
+  // 4. Let Puppeteer use its bundled Chromium (fallback, may not be present)
   return undefined;
 }
 
