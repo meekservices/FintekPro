@@ -1,6 +1,7 @@
 [phases.setup]
-# Pin Python 3.11 — tested with numpy/scipy/scikit-learn stack
-nixPkgs = ["python311", "python311Packages.pip", "gcc", "libffi"]
+# Python 3.12 — prebuilt wheels exist for numpy/scipy/scikit-learn/asyncpg.
+# No gcc needed; pip resolves all packages from PyPI binary wheels.
+nixPkgs = ["python312", "python312Packages.pip"]
 
 [phases.install]
 cmds = ["pip install --no-cache-dir -r requirements.txt"]
