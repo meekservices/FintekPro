@@ -135,12 +135,22 @@ class CommodityPriceSyncScheduler {
       const quote = result.meta;
       const indicators = result.indicators?.quote?.[0];
       
+      const price = quote.regularMarketPrice || 0;
+      const prevClose = quote.previousClose && quote.previousClose > 0 ? quote.previousClose : null;
+      const change = prevClose != null ? price - prevClose : null;
+      // Guard: only compute percent when prevClose is a real positive value.
+      // Dividing by 0 or 1 (the old fallback) produces astronomically large values
+      // that overflow DECIMAL(8,4) columns (max ±9999.9999).
+      const changePercent = prevClose != null && prevClose > 0
+        ? ((price - prevClose) / prevClose) * 100
+        : null;
+
       return {
         symbol,
-        price: quote.regularMarketPrice || 0,
-        previousClose: quote.previousClose,
-        change: quote.regularMarketPrice - (quote.previousClose || 0),
-        changePercent: ((quote.regularMarketPrice - (quote.previousClose || 0)) / (quote.previousClose || 1)) * 100,
+        price,
+        previousClose: prevClose,
+        change: change ?? undefined,
+        changePercent: changePercent ?? undefined,
         high: indicators?.high?.[indicators.high.length - 1],
         low: indicators?.low?.[indicators.low.length - 1]
       };
