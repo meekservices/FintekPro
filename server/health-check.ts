@@ -22,9 +22,10 @@ interface ReadinessStatus extends HealthStatus {
     rssMb: number;
     heapUtilizationPct: number;
   };
-  pythonSidecar: {
+  pythonService: {
     reachable: boolean;
     responseTimeMs?: number;
+    url?: string;
   };
   errorRate: {
     pct: number;
@@ -70,7 +71,7 @@ export async function readinessCheck(_req: Request, res: Response) {
       rssMb: toMb(mem.rss),
       heapUtilizationPct: Math.round((mem.heapUsed / mem.heapTotal) * 100),
     },
-    pythonSidecar: { reachable: false },
+    pythonService: { reachable: false, url: process.env.PYTHON_SERVICE_URL || '(not configured)' },
     errorRate: { pct: 0, level: 'ok' },
   };
 
@@ -85,16 +86,19 @@ export async function readinessCheck(_req: Request, res: Response) {
     readiness.database.error = err instanceof Error ? err.message : 'DB check failed';
   }
 
-  // 2. Python AI sidecar on port 8001 (non-fatal — degraded service, not unhealthy)
-  try {
-    const sidecarStart = Date.now();
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 1500);
-    const resp = await fetch('http://127.0.0.1:8001/health', { signal: controller.signal });
-    clearTimeout(timer);
-    readiness.pythonSidecar = { reachable: resp.ok, responseTimeMs: Date.now() - sidecarStart };
-  } catch {
-    readiness.pythonSidecar = { reachable: false };
+  // 2. Python Analytics Service on Railway (non-fatal — degraded service, not unhealthy)
+  const pyUrl = process.env.PYTHON_SERVICE_URL?.replace(/\/$/, '');
+  if (pyUrl) {
+    try {
+      const pyStart = Date.now();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3000);
+      const resp = await fetch(`${pyUrl}/health`, { signal: controller.signal });
+      clearTimeout(timer);
+      readiness.pythonService = { reachable: resp.ok, responseTimeMs: Date.now() - pyStart, url: pyUrl };
+    } catch {
+      readiness.pythonService = { reachable: false, url: pyUrl };
+    }
   }
 
   // 3. Error rate from the global monitor (lazy import avoids circular dep)
