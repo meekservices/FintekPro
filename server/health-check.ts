@@ -2,13 +2,6 @@ import { Request, Response } from 'express';
 import { db } from './db';
 import { sql } from 'drizzle-orm';
 
-/**
- * Health Check Endpoints for Production Deployment
- * 
- * /health - Basic health check (always returns 200 if server is running)
- * /ready - Readiness check (checks database connectivity)
- */
-
 interface HealthStatus {
   status: 'healthy' | 'unhealthy';
   timestamp: string;
@@ -20,73 +13,115 @@ interface HealthStatus {
 interface ReadinessStatus extends HealthStatus {
   database: {
     connected: boolean;
-    responseTime?: number;
+    responseTimeMs?: number;
     error?: string;
+  };
+  memory: {
+    heapUsedMb: number;
+    heapTotalMb: number;
+    rssMb: number;
+    heapUtilizationPct: number;
+  };
+  pythonSidecar: {
+    reachable: boolean;
+    responseTimeMs?: number;
+  };
+  errorRate: {
+    pct: number;
+    level: 'ok' | 'elevated' | 'critical';
   };
 }
 
 /**
- * Basic health check - returns 200 if server is running
- * Used by load balancers to check if server process is alive
+ * Basic health check — returns 200 as long as the process is alive.
+ * Used by Railway's /api/health probe and load balancers.
  */
-export async function healthCheck(req: Request, res: Response) {
+export async function healthCheck(_req: Request, res: Response) {
   const health: HealthStatus = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
-    version: process.env.npm_package_version || '1.0.0'
+    version: process.env.npm_package_version || '1.0.0',
   };
-
   res.status(200).json(health);
 }
 
 /**
- * Readiness check - verifies all dependencies are ready
- * Used by orchestrators (Kubernetes, etc.) to know when to route traffic
+ * Readiness check — verifies all runtime dependencies before routing traffic.
+ * Checks: Neon DB connectivity, Python sidecar (port 8001), heap pressure, error rate.
+ * Returns 503 if any critical check fails (DB down or heap >90% or error rate >15%).
  */
-export async function readinessCheck(req: Request, res: Response) {
-  const startTime = Date.now();
-  
+export async function readinessCheck(_req: Request, res: Response) {
+  const dbStart = Date.now();
+  const mem = process.memoryUsage();
+  const toMb = (b: number) => Math.round(b / 1024 / 1024);
+
   const readiness: ReadinessStatus = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
     version: process.env.npm_package_version || '1.0.0',
-    database: {
-      connected: false
-    }
+    database: { connected: false },
+    memory: {
+      heapUsedMb: toMb(mem.heapUsed),
+      heapTotalMb: toMb(mem.heapTotal),
+      rssMb: toMb(mem.rss),
+      heapUtilizationPct: Math.round((mem.heapUsed / mem.heapTotal) * 100),
+    },
+    pythonSidecar: { reachable: false },
+    errorRate: { pct: 0, level: 'ok' },
   };
 
+  // 1. Database connectivity
   try {
-    // Check database connectivity with a simple query
     await db.execute(sql`SELECT 1`);
-    const responseTime = Date.now() - startTime;
-    
     readiness.database.connected = true;
-    readiness.database.responseTime = responseTime;
-    
-    // Server is ready to accept traffic
-    res.status(200).json(readiness);
-    
-  } catch (error) {
-    // Database connection failed
+    readiness.database.responseTimeMs = Date.now() - dbStart;
+  } catch (err) {
     readiness.status = 'unhealthy';
     readiness.database.connected = false;
-    readiness.database.error = error instanceof Error ? error.message : 'Database connection failed';
-    
-    // Return 503 Service Unavailable - tells load balancer not to route traffic here
-    res.status(503).json(readiness);
+    readiness.database.error = err instanceof Error ? err.message : 'DB check failed';
   }
+
+  // 2. Python AI sidecar on port 8001 (non-fatal — degraded service, not unhealthy)
+  try {
+    const sidecarStart = Date.now();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1500);
+    const resp = await fetch('http://127.0.0.1:8001/health', { signal: controller.signal });
+    clearTimeout(timer);
+    readiness.pythonSidecar = { reachable: resp.ok, responseTimeMs: Date.now() - sidecarStart };
+  } catch {
+    readiness.pythonSidecar = { reachable: false };
+  }
+
+  // 3. Error rate from the global monitor (lazy import avoids circular dep)
+  try {
+    const { errorMonitor } = await import('./error-monitor');
+    const h = errorMonitor.getSystemHealth();
+    const pct = Math.round(h.performance.errorRate * 10) / 10;
+    readiness.errorRate = {
+      pct,
+      level: pct > 15 ? 'critical' : pct > 5 ? 'elevated' : 'ok',
+    };
+    if (pct > 15) readiness.status = 'unhealthy';
+  } catch {
+    // Monitor unavailable — safe to ignore here
+  }
+
+  // 4. Heap pressure guard (>90% → unhealthy, Railway should restart)
+  if (readiness.memory.heapUtilizationPct > 90) {
+    readiness.status = 'unhealthy';
+  }
+
+  res.status(readiness.status === 'healthy' ? 200 : 503).json(readiness);
 }
 
 /**
- * Liveness check - similar to health but can include more detailed checks
- * Used to determine if the application should be restarted
+ * Liveness check — minimal check; process restarts if this fails.
  */
 export async function livenessCheck(req: Request, res: Response) {
-  // For now, same as health check
-  // Can be enhanced to check for deadlocks, memory leaks, etc.
   return healthCheck(req, res);
 }

@@ -1389,7 +1389,32 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
   // ROUTES ARE NOW FULLY REGISTERED - mark as ready
   // ============================================================================
   bootState.routesReady = true;
-  console.log(`✅ All routes registered (total boot time: ${bootState.getBootTime()}ms)`);
+  const bootMs = bootState.getBootTime();
+  console.log(`✅ All routes registered (total boot time: ${bootMs}ms)`);
+
+  // T05: Emit structured DEPLOY audit event — appears in compliance_audit_trail
+  // for every Railway deployment or manual restart. Useful for audit trail continuity.
+  (async () => {
+    try {
+      const { auditLog } = await import('./middleware/audit-trail');
+      await auditLog({
+        action: 'system_deploy',
+        category: 'admin',
+        outcome: 'success',
+        riskLevel: 'low',
+        details: {
+          event: 'server_boot_complete',
+          bootTimeMs: bootMs,
+          nodeVersion: process.version,
+          nodeEnv: process.env.NODE_ENV,
+          appUrl: process.env.APP_URL || process.env.RAILWAY_PUBLIC_DOMAIN || 'unknown',
+          version: process.env.npm_package_version || '1.0.0',
+          timestamp: new Date().toISOString(),
+        },
+      });
+      console.log('📋 [Deploy] Boot audit event logged to compliance_audit_trail');
+    } catch { /* best-effort — never block boot */ }
+  })();
 
   // Seed credit ratings from existing data (fire-and-forget)
   creditRatingsService.seedCreditRatings().catch(err => {

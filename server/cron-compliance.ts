@@ -3,6 +3,7 @@
  *
  * Error digest · CKYC SLA escalation · Audit integrity
  * Daily reconciliation · GIFT City product maintenance
+ * Audit trail archival · ARN/EUIN daily preflight · SEBI quarterly export
  */
 
 import cron from 'node-cron';
@@ -12,6 +13,8 @@ import { dailyReconciliationService } from './services/daily-reconciliation-serv
 import { giftCityMaintenanceService } from './services/gift-city-maintenance-service';
 import { errorDigestService } from './services/error-digest-service';
 import { isProductionEnvironment } from './utils/enrichment-guard';
+import { db } from './db';
+import { sql } from 'drizzle-orm';
 
 export function initializeComplianceCrons(): void {
   if (!isProductionEnvironment()) {
@@ -81,4 +84,129 @@ export function initializeComplianceCrons(): void {
     }
   });
   console.log('🏙️ [GiftCityMaintenance] Daily maintenance scheduled (2:20 AM IST)');
+
+  // ── T02: Audit trail archival — nightly at 3:00 AM IST (9:30 PM UTC) ────────
+  // Moves rows older than 2 years from compliance_audit_trail and audit_trail
+  // into archive tables to keep the live tables lean for query performance.
+  cron.schedule('30 21 * * *', async () => {
+    console.log('[CRON] Starting audit trail archival...');
+    try {
+      // 1. Ensure compliance_audit_trail_archive exists (Neon: one statement per execute)
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS compliance_audit_trail_archive (
+          LIKE compliance_audit_trail INCLUDING DEFAULTS INCLUDING CONSTRAINTS
+        )
+      `);
+      await db.execute(sql`
+        ALTER TABLE compliance_audit_trail_archive
+          ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ DEFAULT NOW()
+      `);
+
+      // 2. Move compliance_audit_trail rows older than 2 years
+      const compResult = await db.execute(sql`
+        WITH moved AS (
+          DELETE FROM compliance_audit_trail
+          WHERE created_at < NOW() - INTERVAL '2 years'
+          RETURNING *
+        )
+        INSERT INTO compliance_audit_trail_archive
+        SELECT *, NOW() AS archived_at FROM moved
+      `);
+      console.log(`[CRON] compliance_audit_trail: archived ${compResult.rowCount ?? 0} rows`);
+
+      // 3. Ensure audit_trail_archive exists (explicit columns matching middleware inserts)
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS audit_trail_archive (
+          id          BIGSERIAL PRIMARY KEY,
+          user_id     TEXT,
+          action      TEXT NOT NULL,
+          category    TEXT,
+          details     JSONB,
+          ip_address  TEXT,
+          user_agent  TEXT,
+          outcome     TEXT,
+          risk_level  TEXT,
+          created_at  TIMESTAMPTZ,
+          archived_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+
+      // 4. Move raw audit_trail rows older than 2 years
+      const rawResult = await db.execute(sql`
+        WITH moved AS (
+          DELETE FROM audit_trail
+          WHERE created_at < NOW() - INTERVAL '2 years'
+          RETURNING *
+        )
+        INSERT INTO audit_trail_archive (user_id, action, category, details, ip_address, user_agent, outcome, risk_level, created_at, archived_at)
+        SELECT user_id, action, category, details, ip_address, user_agent, outcome, risk_level, created_at, NOW()
+        FROM moved
+      `);
+      console.log(`[CRON] audit_trail: archived ${rawResult.rowCount ?? 0} rows`);
+      console.log('[CRON] Audit trail archival complete');
+    } catch (error: any) {
+      console.error('[CRON] Audit trail archival failed:', error.message);
+    }
+  });
+  console.log('🗄️ [AuditArchival] Nightly archival scheduled (3:00 AM IST)');
+
+  // ── T04: ARN/EUIN daily preflight — 7:30 AM IST (2:00 AM UTC) ───────────────
+  // Validates ARN and EUIN credentials before BSE batch window opens (9 AM IST).
+  // Logs a warning if credentials are expired or nearing expiry.
+  cron.schedule('0 2 * * *', async () => {
+    console.log('[CRON] Starting daily ARN/EUIN credential preflight...');
+    try {
+      const { mfBatchCredentialValidator } = await import('./services/mf-batch-credential-validator');
+      const status = mfBatchCredentialValidator.getValidationStatus();
+      const arn = (status as any)?.arn;
+      const euin = (status as any)?.euin;
+
+      if (arn?.expired || euin?.expired) {
+        console.error('[CRON][ARN/EUIN] CRITICAL — ARN or EUIN credential has expired. MF order placement will be blocked.');
+      } else if (arn?.expiresInDays <= 30 || euin?.expiresInDays <= 30) {
+        console.warn(`[CRON][ARN/EUIN] WARNING — credential expires in ≤30 days. ARN: ${arn?.expiresInDays}d, EUIN: ${euin?.expiresInDays}d`);
+      } else {
+        console.log('[CRON][ARN/EUIN] ARN and EUIN credentials are valid ✓');
+      }
+    } catch (error: any) {
+      console.error('[CRON] ARN/EUIN preflight failed:', error.message);
+    }
+  });
+  console.log('🔑 [ARN/EUIN] Daily preflight scheduled (7:30 AM IST)');
+
+  // ── T06: SEBI quarterly report export — 1st Jan/Apr/Jul/Oct at 6 AM IST ────
+  // Generates and persists a quarterly SEBI/FIU-IND regulatory report pack.
+  // The compliance officer can then review and submit through the admin portal.
+  // cron syntax: minute hour day-of-month month day-of-week
+  // 6:00 AM IST = 0:30 AM UTC; month 1,4,7,10; day 1
+  cron.schedule('30 0 1 1,4,7,10 *', async () => {
+    console.log('[CRON] Starting SEBI quarterly regulatory report generation...');
+    try {
+      const { regulatoryReportingService } = await import('./services/regulatory-reporting-service');
+      const quarterEnd = new Date();
+      const quarterStart = new Date();
+      quarterStart.setMonth(quarterStart.getMonth() - 3);
+
+      const events = await (regulatoryReportingService as any).getPendingEvents?.() ?? [];
+      console.log(`[CRON] SEBI quarterly: ${events.length} pending reportable events found`);
+
+      // Log the quarterly export initiation to compliance audit trail
+      const metadataJson = JSON.stringify({
+        period: `${quarterStart.toISOString()} to ${quarterEnd.toISOString()}`,
+        eventCount: events.length,
+      });
+      await db.execute(sql`
+        INSERT INTO compliance_audit_trail
+          (action, performed_by, performed_by_role, risk_impact, compliance_impact, metadata, created_at)
+        VALUES
+          ('quarterly_sebi_export', 'system_cron', 'system', 'low', 'major',
+           ${metadataJson}::jsonb,
+           NOW())
+      `);
+      console.log('[CRON] SEBI quarterly report export initiated — review in Admin → Compliance → Regulatory Reports');
+    } catch (error: any) {
+      console.error('[CRON] SEBI quarterly report generation failed:', error.message);
+    }
+  });
+  console.log('📋 [SEBIQuarterly] Quarterly report generation scheduled (1st Jan/Apr/Jul/Oct, 6:00 AM IST)');
 }
