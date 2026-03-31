@@ -1,18 +1,38 @@
 #!/bin/bash
+set -euo pipefail
 
-echo "[Startup] Running database schema sync against production DB..."
+echo "[Startup] FintekPro production boot — $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-# Extract the direct DB host from PRODUCTION_DATABASE_URL for TCP reachability check.
-# drizzle-kit uses raw TCP port 5432. In Replit's autoscale deployment, outbound TCP
-# to port 5432 is blocked — only HTTPS (port 443) is allowed. The app itself uses
-# Neon's HTTP-based serverless driver, so it works fine.
-# If the direct endpoint is unreachable we skip the sync; inline migrations handle
-# any new columns added to schema-stub.ts.
+# ---------------------------------------------------------------------------
+# 1. Pre-flight: fail immediately on missing critical secrets
+# ---------------------------------------------------------------------------
+MISSING_VARS=()
+for VAR in PRODUCTION_DATABASE_URL SESSION_SECRET; do
+  if [ -z "${!VAR:-}" ]; then
+    MISSING_VARS+=("$VAR")
+  fi
+done
 
+if [ ${#MISSING_VARS[@]} -gt 0 ]; then
+  echo "[Startup] FATAL — missing required environment variables:"
+  for V in "${MISSING_VARS[@]}"; do
+    echo "  • $V"
+  done
+  echo "[Startup] Set these in Railway → Project → Variables before deploying."
+  exit 1
+fi
+
+echo "[Startup] Critical environment variables present ✓"
+
+# ---------------------------------------------------------------------------
+# 2. Database schema sync (drizzle-kit push)
+#    Neon's pooler uses HTTPS (port 443). We probe TCP/5432 on the *direct*
+#    endpoint. If unreachable we skip; inline migrations in server/index.ts
+#    handle any new columns added since last deploy.
+# ---------------------------------------------------------------------------
 DB_HOST=$(node -e "
   try {
     const url = process.env.PRODUCTION_DATABASE_URL || '';
-    // Strip the pooler segment (.c-N.) to get the direct endpoint hostname
     const direct = url.replace(/\\.c-\\d+\\./, '.');
     const match = direct.match(/@([^:@/]+)/);
     process.stdout.write(match ? match[1] : '');
@@ -27,37 +47,36 @@ if [ -n "$DB_HOST" ]; then
 fi
 
 if [ "$TCP_REACHABLE" = false ]; then
-  echo "[Startup] Neon direct endpoint (TCP/5432) not reachable from this environment — skipping schema sync."
-  echo "[Startup] App uses Neon HTTP driver; inline migrations will handle any new columns."
+  echo "[Startup] Neon direct TCP/5432 not reachable — skipping schema sync (inline migrations active)"
 else
-  # TCP reachable — run drizzle-kit push with retries
   SYNC_SUCCESS=false
   for attempt in 1 2 3; do
-    echo "[Startup] Schema sync attempt $attempt/3..."
-    if timeout 45 ./node_modules/.bin/drizzle-kit push --config=drizzle.production.config.ts --force 2>&1; then
-      echo "[Startup] Schema sync complete."
+    echo "[Startup] Schema sync attempt $attempt/3…"
+    if timeout 60 ./node_modules/.bin/drizzle-kit push --config=drizzle.production.config.ts --force 2>&1; then
+      echo "[Startup] Schema sync complete ✓"
       SYNC_SUCCESS=true
       break
     else
       EXIT_CODE=$?
       if [ $EXIT_CODE -eq 124 ]; then
-        echo "[Startup] Schema sync timed out after 45s — schema already up to date, skipping."
+        echo "[Startup] Schema sync timed out — schema already up to date, continuing"
         SYNC_SUCCESS=true
         break
       else
-        echo "[Startup] Schema sync attempt $attempt failed (exit code $EXIT_CODE)."
-        if [ $attempt -lt 3 ]; then
-          echo "[Startup] Waiting 5s before retry..."
-          sleep 5
-        fi
+        echo "[Startup] Attempt $attempt failed (exit $EXIT_CODE)"
+        [ $attempt -lt 3 ] && sleep 5
       fi
     fi
   done
 
   if [ "$SYNC_SUCCESS" = false ]; then
-    echo "[Startup] All schema sync attempts failed — continuing anyway (inline migrations will handle column additions)."
+    echo "[Startup] Schema sync failed after 3 attempts — continuing (inline migrations will handle additions)"
   fi
 fi
 
-echo "[Startup] Starting server..."
+# ---------------------------------------------------------------------------
+# 3. Start the compiled server
+#    Railway sends SIGTERM on redeploy/scale; graceful-shutdown.ts handles it.
+# ---------------------------------------------------------------------------
+echo "[Startup] Starting server (dist/index.js)…"
 exec node dist/index.js
