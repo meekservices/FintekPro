@@ -467,12 +467,17 @@ async function seedScreenerStocks(): Promise<BootstrapResult> {
 
     console.log(`[ProductionBootstrap] Screener stocks: filling ${gapCount} gap from listed_stocks...`);
 
+    // Use NOT EXISTS instead of ON CONFLICT to avoid dependency on a specific
+    // unique constraint name — ON CONFLICT (symbol) fails when the DB index
+    // was created as a non-unique index before the schema added .unique().
     await db.execute(sql`
       INSERT INTO screener_stocks (symbol, company_name, isin, exchange, sector, industry, is_active, data_source)
-      SELECT symbol, company_name, isin, 'NSE', sector, industry, true, 'listed_stocks'
-      FROM listed_stocks
-      WHERE symbol IS NOT NULL AND symbol != ''
-      ON CONFLICT (symbol) DO NOTHING
+      SELECT ls.symbol, ls.company_name, ls.isin, 'NSE', ls.sector, ls.industry, true, 'listed_stocks'
+      FROM listed_stocks ls
+      WHERE ls.symbol IS NOT NULL AND ls.symbol != ''
+        AND NOT EXISTS (
+          SELECT 1 FROM screener_stocks ss WHERE ss.symbol = ls.symbol
+        )
     `);
 
     const newCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM screener_stocks`);

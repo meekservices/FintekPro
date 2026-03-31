@@ -758,6 +758,21 @@ export const complianceAuditTrail = pgTable("compliance_audit_trail", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Generic HTTP request audit trail — used by server/middleware/audit-trail.ts
+// NOTE: separate from compliance_audit_trail which tracks compliance-specific events
+export const auditTrail = pgTable("audit_trail", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id"),
+  action: varchar("action").notNull(),
+  category: varchar("category").notNull(),
+  details: text("details"),          // JSON-serialised context
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  outcome: varchar("outcome"),       // 'success' | 'failure' | 'pending'
+  riskLevel: varchar("risk_level"),  // 'low' | 'medium' | 'high' | 'critical'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // OTP verification table
 export const otpVerifications = pgTable("otp_verifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
