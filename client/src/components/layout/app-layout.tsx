@@ -125,8 +125,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   const hasAdminRole  = roles.some(r => ADMIN_ROLE_SET.has(r));
   const hasAgentRole  = roles.some(r => AGENT_ROLE_SET.has(r));
   const hasPartnerRole = roles.some(r => PARTNER_ROLE_SET.has(r));
-  const portalCategoryCount = [hasAdminRole, hasAgentRole, hasPartnerRole].filter(Boolean).length;
-  const showPortalSwitcher = portalCategoryCount >= 2;
+  // Show portal switcher when user has any extra portal role beyond the current client portal
+  const showPortalSwitcher = hasAdminRole || hasAgentRole || hasPartnerRole;
 
   return (
     <div className="min-h-screen bg-background">
