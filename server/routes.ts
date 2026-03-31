@@ -650,16 +650,19 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Initialize Product Account Service
   const productAccountService = new ProductAccountService(storage as any);
   
-  // Initialize WhatsApp service with secure version
-  // DISABLED: WhatsApp QR code generation causes excessive log output
-  // Uncomment when needed for WhatsApp authentication features
-  // try {
-  //   await whatsappService.initialize();
-  //   console.log('✅ WhatsApp service initialized successfully');
-  // } catch (error) {
-  //   console.log('⚠️ WhatsApp service initialization failed (non-critical):', error instanceof Error ? error.message : 'Unknown error');
-  // }
-  
+  // WhatsApp Web (QR-code) client — enabled via ENABLE_WHATSAPP=true
+  // In production, use the admin endpoint GET /api/admin/whatsapp/qr to scan the QR.
+  if (process.env.ENABLE_WHATSAPP === 'true') {
+    try {
+      await whatsappService.initialize();
+      console.log('✅ WhatsApp Web client initialized');
+    } catch (error) {
+      console.log('⚠️ WhatsApp Web client init failed (non-critical):', error instanceof Error ? error.message : error);
+    }
+  } else {
+    console.log('⏭️ [WhatsApp Web] Skipped — set ENABLE_WHATSAPP=true to enable');
+  }
+
   // Start mutual funds background refresh job (production only - writes to DB)
   if (isProductionEnvironment()) {
     mutualFundsRefreshJob.start();
@@ -737,6 +740,46 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     
     next();
   };
+
+  // WhatsApp Web admin endpoints (requireAdmin is now in scope)
+  app.get('/api/admin/whatsapp/qr', requireAdmin, (_req, res) => {
+    const status = whatsappService.getStatus();
+    if (status.isReady) {
+      return res.send(`<!DOCTYPE html><html><body style="font-family:sans-serif;text-align:center;padding:40px">
+        <h2 style="color:#25d366">✅ WhatsApp Connected</h2>
+        <p>The WhatsApp client is already authenticated and ready.</p>
+      </body></html>`);
+    }
+    const dataUrl = whatsappService.getQrCodeDataUrl();
+    if (!dataUrl) {
+      return res.send(`<!DOCTYPE html><html><body style="font-family:sans-serif;text-align:center;padding:40px">
+        <h2>⏳ QR Code Not Ready</h2>
+        <p>WhatsApp is initializing. Refresh in 5–10 seconds.</p>
+        <script>setTimeout(()=>location.reload(),5000)</script>
+      </body></html>`);
+    }
+    res.send(`<!DOCTYPE html><html><head><title>WhatsApp QR</title></head>
+      <body style="font-family:sans-serif;text-align:center;padding:40px;background:#f0fdf4">
+        <h2 style="color:#128c7e">📱 Scan to Link WhatsApp</h2>
+        <p>Open WhatsApp → Linked Devices → Link a Device, then scan below.</p>
+        <img src="${dataUrl}" style="border:4px solid #25d366;border-radius:12px" />
+        <p style="color:#666;font-size:13px">QR codes expire in ~60 s — page auto-refreshes every 30 s</p>
+        <script>setTimeout(()=>location.reload(),30000)</script>
+      </body></html>`);
+  });
+
+  app.get('/api/admin/whatsapp/status', requireAdmin, (_req, res) => {
+    res.json(whatsappService.getStatus());
+  });
+
+  app.post('/api/admin/whatsapp/init', requireAdmin, async (_req, res) => {
+    try {
+      await whatsappService.initialize();
+      res.json({ success: true, message: 'WhatsApp initialization started — visit /api/admin/whatsapp/qr to scan' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
 
   // Basic user authentication middleware - uses session auth
   const authenticateUser = async (req: any, res: any, next: any) => {
