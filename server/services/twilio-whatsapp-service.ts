@@ -231,6 +231,11 @@ class TwilioWhatsAppService {
     return this.sendMessage(to, body);
   }
 
+  async sendLoginOTP(mobile: string, otp: string): Promise<boolean> {
+    const result = await this.sendOTP(mobile, otp);
+    return result.success;
+  }
+
   async sendWelcomeMessage(to: string, userName: string): Promise<{ success: boolean; messageSid?: string; error?: string }> {
     const body = `👋 Welcome to *FintekPro*, ${userName}!\n\nYour trusted partner for:\n📈 Stock & Mutual Fund investments\n💼 Portfolio management\n📊 Market insights\n🔐 Secure KYC verification\n\nReply HELP for assistance or visit our app to get started.`;
     return this.sendMessage(to, body);

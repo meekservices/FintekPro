@@ -2,8 +2,30 @@ import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth } = pkg;
 import type { Message } from 'whatsapp-web.js';
 import qrcode from 'qrcode-terminal';
+import QRCode from 'qrcode';
+import { accessSync, constants } from 'fs';
 import { storage } from './storage';
 import { randomUUID } from 'crypto';
+
+function resolveChromiumPath(): string | undefined {
+  // 1. Explicit env override (set CHROMIUM_PATH on Railway/any host)
+  if (process.env.CHROMIUM_PATH) return process.env.CHROMIUM_PATH;
+
+  // 2. Common paths — first one that exists wins
+  const candidates = [
+    '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium', // Replit
+    '/usr/bin/google-chrome-stable', // Railway default when chrome is installed
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/snap/bin/chromium',
+  ];
+  for (const p of candidates) {
+    try { accessSync(p, constants.X_OK); return p; } catch { /* not found */ }
+  }
+  // 3. Let Puppeteer auto-detect (works when puppeteer downloads its own Chromium)
+  return undefined;
+}
 
 let whatsappClient: InstanceType<typeof Client> | null = null;
 
@@ -20,45 +42,60 @@ interface AuthSession {
 export class WhatsAppService {
   private client: InstanceType<typeof Client>;
   private isReady: boolean = false;
-  private qrCode: string | null = null;
+  private qrCode: string | null = null;        // raw QR string
+  private qrCodeDataUrl: string | null = null; // PNG data URL for browser display
   private authSessions: Map<string, AuthSession> = new Map();
 
   constructor() {
+    const chromiumPath = resolveChromiumPath();
+    const puppeteerConfig: any = {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu',
+        '--disable-web-security',
+        '--disable-features=TranslateUI',
+        '--disable-extensions'
+      ]
+    };
+    if (chromiumPath) {
+      puppeteerConfig.executablePath = chromiumPath;
+      console.log(`[WhatsApp] Using Chromium at: ${chromiumPath}`);
+    } else {
+      console.log('[WhatsApp] No Chromium path found — Puppeteer will use its bundled browser');
+    }
+
     this.client = new Client({
       authStrategy: new LocalAuth({
         dataPath: process.env.WHATSAPP_SESSION_PATH || '/tmp/whatsapp-sessions'
       }),
-      puppeteer: {
-        headless: true,
-        executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--disable-gpu',
-          '--disable-web-security',
-          '--disable-features=TranslateUI',
-          '--disable-extensions'
-        ]
-      }
+      puppeteer: puppeteerConfig
     });
 
     this.setupEventHandlers();
   }
 
   private setupEventHandlers() {
-    this.client.on('qr', (qr: string) => {
-      // SECURITY: Only log QR code in development - never in production
+    this.client.on('qr', async (qr: string) => {
+      this.qrCode = qr;
+      // Generate PNG data URL so the QR can be served via the admin endpoint
+      // on any host (Railway included) where there's no terminal to print to.
+      try {
+        this.qrCodeDataUrl = await QRCode.toDataURL(qr, { width: 300, margin: 2 });
+        console.log('[WhatsApp] QR Code ready — visit /api/admin/whatsapp/qr to scan');
+      } catch (err) {
+        console.error('[WhatsApp] Failed to generate QR image:', err);
+      }
+      // Also print to terminal in development for convenience
       if (process.env.NODE_ENV !== 'production') {
         console.log('WhatsApp QR Code generated. Scan with your phone:');
         qrcode.generate(qr, { small: true });
-      } else {
-        console.log('WhatsApp QR Code generated - use admin endpoint to retrieve for setup');
       }
-      this.qrCode = qr;
     });
 
     this.client.on('ready', () => {
@@ -255,6 +292,10 @@ export class WhatsAppService {
 
   async getQRCode(): Promise<string | null> {
     return this.qrCode;
+  }
+
+  getQrCodeDataUrl(): string | null {
+    return this.qrCodeDataUrl;
   }
 
   async verifyAuthSession(sessionId: string): Promise<{ success: boolean; userId?: string }> {
