@@ -154,7 +154,7 @@ class CkycOrchestratorService {
     const names: Record<string, string> = {
       'truthscreen': 'TruthScreen CKYC',
       'cersai': 'CERSAI Registry',
-      'authbridge': 'AuthBridge CKYC',
+      'authbridge': 'TruthScreen CKYC',
       'offline_aadhaar': 'Offline Aadhaar Verification',
       'vkyc': 'Video KYC',
       'manual': 'Manual Document Upload',

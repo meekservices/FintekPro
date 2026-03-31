@@ -1,9 +1,15 @@
 /**
- * AuthBridge Aadhaar eSign (DSC) Service
- * 
- * Handles Aadhaar-based Digital Signature Certificate (eSign) via AuthBridge API
- * Used for legally valid electronic document signing under IT Act 2000
- * 
+ * TruthScreen Aadhaar eSign (DSC) Service
+ * (Previously named "AuthBridge" — same company, same service.)
+ *
+ * Handles Aadhaar-based Digital Signature Certificate (eSign) via TruthScreen API.
+ * Used for legally valid electronic document signing under IT Act 2000.
+ *
+ * NOTE: The active eSign path in production is server/services/unified-esign-service.ts,
+ * which uses server/services/truthscreen-esign-service.ts as the TruthScreen provider.
+ * This file is kept for reference / direct usage. Credentials are read from
+ * TRUTHSCREEN_USERNAME + TRUTHSCREEN_PASSWORD (same as all other TruthScreen services).
+ *
  * Flow:
  * 1. Initiate eSign request with document hash
  * 2. Send Aadhaar OTP to user's linked mobile
@@ -82,16 +88,16 @@ interface ESignCertificate {
 
 class AuthBridgeESignService {
   private baseUrl: string;
-  private apiKey: string;
-  private clientId: string;
+  private apiKey: string;   // maps to TRUTHSCREEN_USERNAME
+  private clientId: string; // maps to TRUTHSCREEN_PASSWORD (kept as clientId for API header compat)
   private clientSecret: string;
   private environment: 'sandbox' | 'production';
 
-  // AuthBridge eSign API URLs
-  private static readonly SANDBOX_URL = 'https://sandbox.authbridge.com';
-  private static readonly PRODUCTION_URL = 'https://api.authbridge.com';
-  
-  // eSign API Endpoints
+  // TruthScreen eSign API base URL (AuthBridge = TruthScreen, same company)
+  private static readonly PRODUCTION_URL = 'https://www.truthscreen.com';
+  private static readonly SANDBOX_URL = 'https://www.truthscreen.com'; // same base, docType controls mode
+
+  // eSign API Endpoints (TruthScreen format)
   private static readonly ESIGN_INITIATE = '/v2/esign/aadhaar/initiate';
   private static readonly ESIGN_VERIFY = '/v2/esign/aadhaar/verify';
   private static readonly ESIGN_STATUS = '/v2/esign/status';
@@ -99,30 +105,34 @@ class AuthBridgeESignService {
   private static readonly ESIGN_RESEND_OTP = '/v2/esign/resend-otp';
 
   constructor() {
-    // Environment auto-detection
-    const explicitEnv = process.env.AUTHBRIDGE_ESIGN_ENVIRONMENT || process.env.AUTHBRIDGE_ENVIRONMENT;
-    if (explicitEnv === 'production' || explicitEnv === 'PRODUCTION') {
-      this.environment = 'production';
-    } else if (explicitEnv === 'sandbox' || explicitEnv === 'SANDBOX') {
-      this.environment = 'sandbox';
-    } else {
-      this.environment = process.env.NODE_ENV === 'production' ? 'production' : 'sandbox';
-    }
+    this.environment = process.env.NODE_ENV === 'production' ? 'production' : 'sandbox';
 
-    const defaultUrl = this.environment === 'production' 
-      ? AuthBridgeESignService.PRODUCTION_URL 
-      : AuthBridgeESignService.SANDBOX_URL;
-    
-    this.baseUrl = process.env.AUTHBRIDGE_ESIGN_BASE_URL || process.env.AUTHBRIDGE_BASE_URL || defaultUrl;
-    this.apiKey = process.env.AUTHBRIDGE_ESIGN_API_KEY || process.env.AUTHBRIDGE_API_KEY || '';
-    this.clientId = process.env.AUTHBRIDGE_ESIGN_CLIENT_ID || process.env.AUTHBRIDGE_CLIENT_ID || '';
-    this.clientSecret = process.env.AUTHBRIDGE_ESIGN_CLIENT_SECRET || process.env.AUTHBRIDGE_CLIENT_SECRET || '';
+    // Credentials: TRUTHSCREEN_USERNAME / TRUTHSCREEN_PASSWORD
+    // (AUTHBRIDGE_* env vars are accepted as fallbacks for backward compatibility
+    //  during the Railway variable migration period)
+    this.baseUrl = process.env.TRUTHSCREEN_BASE_URL
+      || process.env.AUTHBRIDGE_ESIGN_BASE_URL
+      || process.env.AUTHBRIDGE_BASE_URL
+      || AuthBridgeESignService.PRODUCTION_URL;
+
+    this.apiKey = process.env.TRUTHSCREEN_USERNAME
+      || process.env.AUTHBRIDGE_ESIGN_API_KEY
+      || process.env.AUTHBRIDGE_API_KEY
+      || '';
+
+    this.clientId = process.env.TRUTHSCREEN_PASSWORD
+      || process.env.AUTHBRIDGE_ESIGN_CLIENT_ID
+      || process.env.AUTHBRIDGE_CLIENT_ID
+      || '';
+
+    this.clientSecret = process.env.AUTHBRIDGE_ESIGN_CLIENT_SECRET
+      || process.env.AUTHBRIDGE_CLIENT_SECRET
+      || '';
 
     if (!this.apiKey || !this.clientId) {
-      console.log(`[AuthBridge eSign] Running in mock mode (no API credentials)`);
-      console.log(`ℹ️ [AuthBridge eSign] Environment: ${this.environment} (auto-detected)`);
+      console.log(`[TruthScreen eSign] Running in mock mode (TRUTHSCREEN_USERNAME / TRUTHSCREEN_PASSWORD not set)`);
     } else {
-      console.log(`✅ [AuthBridge eSign] Initialized in ${this.environment.toUpperCase()} mode`);
+      console.log(`✅ [TruthScreen eSign] Initialized in ${this.environment.toUpperCase()} mode`);
       console.log(`   Base URL: ${this.baseUrl}`);
     }
   }
@@ -177,7 +187,7 @@ class AuthBridgeESignService {
       });
 
       if (this.isInMockMode()) {
-        console.log(`[AuthBridge eSign] Mock mode - simulating OTP sent for transaction: ${transactionId}`);
+        console.log(`[TruthScreen eSign] Mock mode - simulating OTP sent for transaction: ${transactionId}`);
         
         return {
           success: true,
@@ -234,7 +244,7 @@ class AuthBridgeESignService {
       };
 
     } catch (error) {
-      console.error('[AuthBridge eSign] Initiate error:', error);
+      console.error('[TruthScreen eSign] Initiate error:', error);
       
       // Update request as failed
       await db.update(esignRequests)
@@ -420,7 +430,7 @@ class AuthBridgeESignService {
       }
 
     } catch (error) {
-      console.error('[AuthBridge eSign] Verify error:', error);
+      console.error('[TruthScreen eSign] Verify error:', error);
       
       if (error instanceof AppError) throw error;
       
@@ -497,7 +507,7 @@ class AuthBridgeESignService {
       };
 
     } catch (error) {
-      console.error('[AuthBridge eSign] Resend OTP error:', error);
+      console.error('[TruthScreen eSign] Resend OTP error:', error);
       if (error instanceof AppError) throw error;
       throw new AppError('Failed to resend OTP', 500, 'ESIGN_RESEND_FAILED');
     }

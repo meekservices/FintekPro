@@ -2,7 +2,7 @@
  * CKYC Provider Adapter Interface
  * 
  * Abstracts CKYC verification providers for runtime selection and lazy-loading.
- * Supports TruthScreen, AuthBridge, CERSAI Reference, Offline Aadhaar, V-KYC, and Manual verification.
+ * Supports TruthScreen (formerly AuthBridge — same company), CERSAI Reference, Offline Aadhaar, V-KYC, and Manual verification.
  */
 
 import { AppError } from '../utils/errors';

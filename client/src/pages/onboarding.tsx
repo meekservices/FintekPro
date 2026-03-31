@@ -2489,7 +2489,7 @@ export default function SmartKYCOnboarding() {
                   <Alert className="bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/20">
                     <ShieldCheck className="h-4 w-4 text-green-600" />
                     <AlertDescription className="text-green-800 dark:text-green-200 text-xs">
-                      Aadhaar eSign is the most widely accepted digital signature in India. Valid under IT Act 2000 (S.3A), accepted by <strong>SEBI, RBI, IRDAI, PFRDA, UIDAI</strong>, and all government bodies. Issued by CCA-licensed ESPs (AuthBridge, Protean/NSDL, eMudhra, CVL/CDSL).
+                      Aadhaar eSign is the most widely accepted digital signature in India. Valid under IT Act 2000 (S.3A), accepted by <strong>SEBI, RBI, IRDAI, PFRDA, UIDAI</strong>, and all government bodies. Issued by CCA-licensed ESPs (TruthScreen/AuthBridge, Protean/NSDL, eMudhra, CVL/CDSL).
                     </AlertDescription>
                   </Alert>
 
@@ -2506,7 +2506,7 @@ export default function SmartKYCOnboarding() {
                     <div className="border rounded-md p-4 bg-card space-y-3">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <BadgeCheck className="h-3.5 w-3.5" />
-                        <span>ESP Providers: AuthBridge | Protean (NSDL) | eMudhra | CVL (CDSL)</span>
+                        <span>ESP Providers: TruthScreen | Protean (NSDL) | eMudhra | CVL (CDSL)</span>
                       </div>
 
                       {aadhaarEsignStatus === 'idle' && (

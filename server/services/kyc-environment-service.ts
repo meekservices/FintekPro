@@ -142,7 +142,7 @@ class KycEnvironmentService {
       sandbox: 'Sandbox.co.in',
       truthscreen: 'TruthScreen',
       cashfree: 'Cashfree',
-      authbridge: 'AuthBridge',
+      authbridge: 'TruthScreen',
       offline_xml: 'Offline XML',
       mock: 'Mock',
       none: 'Not Configured',

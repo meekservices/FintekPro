@@ -107,7 +107,7 @@ const initialSuggestions: Suggestion[] = [
   {
     id: "ckyc-api",
     title: "Enable CKYC Verification",
-    description: "Connect to AuthBridge CKYC API for real KYC verification",
+    description: "Connect to TruthScreen CKYC API for real KYC verification",
     category: "production_apis",
     priority: "critical",
     status: "pending",
@@ -272,11 +272,11 @@ const sampleErrorLogs: ErrorLogEntry[] = [
     timestamp: new Date().toISOString(),
     level: "low",
     category: "integration",
-    message: "AuthBridge CKYC API credentials not configured - using mock mode",
-    source: "server/services/authbridge-ckyc-service.ts",
+    message: "TruthScreen CKYC API credentials not configured - using mock mode",
+    source: "server/authbridge-ckyc-api.ts",
     count: 1,
     lastOccurrence: new Date().toISOString(),
-    suggestedFix: "Add AuthBridge API credentials for production CKYC verification",
+    suggestedFix: "Add TRUTHSCREEN_USERNAME and TRUTHSCREEN_PASSWORD for production CKYC verification",
     resolved: false
   },
   {
