@@ -163,6 +163,53 @@ export async function probePythonHealth(): Promise<boolean> {
   }
 }
 
+/**
+ * Keep-alive pinger — prevents Railway from sleeping the Python service.
+ * Sends a lightweight GET /health every 5 minutes. Silent on success;
+ * logs a single warning if the ping fails (avoids log spam).
+ *
+ * Only starts when PYTHON_SERVICE_URL is set. Safe to call unconditionally
+ * at boot — it no-ops if the URL is absent.
+ */
+export function startPythonKeepAlive(): void {
+  const baseUrl = getBaseUrl();
+  if (!baseUrl) return;
+
+  const INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+  let lastWasHealthy = true;
+
+  const ping = async () => {
+    try {
+      const res = await fetch(`${baseUrl}/health`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (res.ok) {
+        if (!lastWasHealthy) {
+          console.info('[PythonClient] ✅ Keep-alive: Python service recovered');
+          recordSuccess();
+        }
+        lastWasHealthy = true;
+      } else {
+        if (lastWasHealthy) {
+          console.warn(`[PythonClient] ⚠️  Keep-alive ping → HTTP ${res.status} from ${baseUrl}/health`);
+        }
+        lastWasHealthy = false;
+        recordFailure(res.status);
+      }
+    } catch (err: any) {
+      if (lastWasHealthy) {
+        console.warn(`[PythonClient] ⚠️  Keep-alive ping failed: ${err.message}`);
+      }
+      lastWasHealthy = false;
+      recordFailure();
+    }
+  };
+
+  console.info(`[PythonClient] 🔄 Keep-alive active — pinging ${baseUrl}/health every 5 min`);
+  setInterval(ping, INTERVAL_MS);
+}
+
 export async function proxyToPython(req: Request, res: Response, path: string): Promise<void> {
   const baseUrl = getBaseUrl();
   if (!baseUrl) {
