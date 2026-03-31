@@ -59,7 +59,6 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
   console.error('[Global] Unhandled rejection:', reason);
 });
 
-import { spawn } from "child_process";
 import path from "path";
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
@@ -580,118 +579,6 @@ app.get('/healthz', (_req: Request, res: Response) => {
 // ============================================================================
 import { createServer } from 'http';
 
-// ---------------------------------------------------------------------------
-// Python Analytics Sidecar — starts uvicorn on port 8001 inside this repl
-// Only activates when PYTHON_SERVICE_URL is not already set to an external URL
-// ---------------------------------------------------------------------------
-
-// Module-level reference so graceful shutdown can terminate the sidecar cleanly
-let _pythonSidecarProc: ReturnType<typeof spawn> | null = null;
-
-export function killPythonSidecar() {
-  if (_pythonSidecarProc && !_pythonSidecarProc.killed) {
-    try { _pythonSidecarProc.kill('SIGKILL'); } catch (_) { /* best-effort */ }
-  }
-  try {
-    const { execSync } = require('child_process');
-    execSync('fuser -k 8001/tcp 2>/dev/null || true', { stdio: 'ignore' });
-  } catch (_) { /* best-effort */ }
-}
-
-function startPythonSidecar() {
-  // Autoscale containers are ephemeral — never spawn a local process there.
-  // In production, point PYTHON_SERVICE_URL at a separately deployed always-on VM.
-  if (process.env.NODE_ENV === 'production') {
-    if (process.env.PYTHON_SERVICE_URL) {
-      console.log(`ℹ️  [Python] Production mode — using external service at ${process.env.PYTHON_SERVICE_URL}`);
-    } else {
-      console.log('ℹ️  [Python] Production mode — quant analytics in degraded mode (set PYTHON_SERVICE_URL to enable full analytics)');
-    }
-    return;
-  }
-
-  if (process.env.PYTHON_SERVICE_URL && !process.env.PYTHON_SERVICE_URL.includes('localhost')) {
-    console.log(`ℹ️  [Python] External PYTHON_SERVICE_URL detected (${process.env.PYTHON_SERVICE_URL}) — skipping local sidecar`);
-    return;
-  }
-
-  const pythonDir = path.resolve(process.cwd(), 'services/python');
-  const python3 = process.env.PYTHON_BIN || 'python3';
-
-  process.env.PYTHON_SERVICE_URL = 'http://localhost:8001';
-  console.log('🐍 [Python] Starting local sidecar on port 8001...');
-
-  // Guard: only one launch may be in flight at a time.
-  // Without this, queued setTimeout(launch, 5000) calls from a previous crash loop
-  // fire in rapid succession and each one kills the previous spawn.
-  let _launchInFlight = false;
-  let _retryTimer: NodeJS.Timeout | null = null;
-
-  const scheduleLaunch = (delayMs: number) => {
-    if (_retryTimer) clearTimeout(_retryTimer); // cancel any pending retry
-    _retryTimer = setTimeout(launch, delayMs);
-  };
-
-  const launch = () => {
-    if (_launchInFlight) return;
-    _launchInFlight = true;
-    if (_retryTimer) { clearTimeout(_retryTimer); _retryTimer = null; }
-
-    // Force-kill any uvicorn process before starting fresh.
-    // spawnSync with direct args — no shell wrapper, so no self-match risk.
-    // pkill naturally excludes its own PID from results.
-    try {
-      const { spawnSync, execSync } = require('child_process');
-      spawnSync('pkill', ['-9', '-f', 'uvicorn main:app --host 0.0.0.0 --port 8001'], { stdio: 'ignore' });
-      spawnSync('fuser', ['-k', '8001/tcp'], { stdio: 'ignore' });
-      execSync('sleep 2', { stdio: 'ignore' });
-    } catch (_) { /* best-effort */ }
-
-    const proc = spawn(python3, ['-m', 'uvicorn', 'main:app', '--host', '0.0.0.0', '--port', '8001', '--log-level', 'warning'], {
-      cwd: pythonDir,
-      env: {
-        ...process.env,
-        PYTHONUNBUFFERED: '1',
-      },
-    });
-
-    _pythonSidecarProc = proc;
-
-    proc.stdout.on('data', (data: Buffer) => {
-      const lines = data.toString().trim().split('\n');
-      lines.forEach((line: string) => { if (line) console.log(`[Python] ${line}`); });
-    });
-
-    proc.stderr.on('data', (data: Buffer) => {
-      const lines = data.toString().trim().split('\n');
-      lines.forEach((line: string) => {
-        if (line && !line.includes('INFO:') && !line.includes('Started server') && !line.includes('Uvicorn running')) {
-          console.warn(`[Python] ${line}`);
-        } else if (line) {
-          console.log(`[Python] ${line}`);
-        }
-      });
-    });
-
-    proc.on('close', (code: number | null) => {
-      _launchInFlight = false;
-      if (_pythonSidecarProc === proc) _pythonSidecarProc = null;
-      if (code !== 0 && code !== null) {
-        console.warn(`⚠️  [Python] Sidecar exited (code ${code}) — restarting in 5s...`);
-        scheduleLaunch(5000);
-      }
-    });
-
-    proc.on('error', (err: Error) => {
-      _launchInFlight = false;
-      console.error(`❌ [Python] Failed to start sidecar: ${err.message}`);
-      scheduleLaunch(5000);
-    });
-  };
-
-  launch();
-}
-
 const server = createServer(app);
 const PORT = parseInt(process.env.PORT || '5000', 10);
 
@@ -709,8 +596,7 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Setup graceful shutdown — kills the Python sidecar before closing HTTP server
-setupGracefulShutdown(server, killPythonSidecar);
+setupGracefulShutdown(server);
 
 // Start listening IMMEDIATELY - before ANY async initialization
 // reusePort: true (SO_REUSEPORT) lets a new instance bind even if the old one
@@ -722,12 +608,18 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
 });
 
 (async () => {
-  // Start Python analytics sidecar (non-blocking — runs uvicorn on port 8001)
-  startPythonSidecar();
+  // Python analytics served by https://python.fintekpro.com (external Railway service).
+  // Log the configured URL so it's visible in every boot.
+  const pyUrl = process.env.PYTHON_SERVICE_URL;
+  if (pyUrl) {
+    console.log(`ℹ️  [Python] Using external service at ${pyUrl}`);
+  } else {
+    console.warn('⚠️  [Python] PYTHON_SERVICE_URL not set — quant/AI analytics will return 503');
+  }
 
   // Delayed health probe — fires 45 s after boot so the Python service
-  // has time to complete its scikit-learn cold-start (~30 s on Railway).
-  // This resets the circuit breaker if it opened during the boot 502 storm.
+  // (cold-start ~30 s on Railway) is ready before we validate the connection.
+  // Also resets the circuit breaker if it opened during the initial 502 storm.
   setTimeout(async () => {
     try {
       const { probePythonHealth } = await import('./clients/python-client');
