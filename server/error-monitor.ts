@@ -232,8 +232,54 @@ class ErrorMonitor {
   }
 }
 
+// ── Error-rate sustained alerting ─────────────────────────────────────────────
+// Fires a CRITICAL log when error rate stays above 15% for 3 consecutive 5-min checks.
+// This is the minimum alerting layer before a full APM integration is wired in.
+let _alertConsecutiveHighErrorChecks = 0;
+let _alertLastFiredAt: number | null = null;
+const ALERT_ERROR_RATE_THRESHOLD = 15;   // %
+const ALERT_CONSECUTIVE_REQUIRED = 3;    // consecutive 5-min windows
+const ALERT_COOLDOWN_MS = 30 * 60 * 1000; // 30 min between repeat alerts
+
+function _checkErrorRateAlert(monitor: ErrorMonitor) {
+  const health = monitor.getSystemHealth();
+  const rate = health.performance.errorRate;
+
+  if (rate >= ALERT_ERROR_RATE_THRESHOLD) {
+    _alertConsecutiveHighErrorChecks++;
+  } else {
+    _alertConsecutiveHighErrorChecks = 0;
+    return;
+  }
+
+  if (_alertConsecutiveHighErrorChecks < ALERT_CONSECUTIVE_REQUIRED) return;
+
+  const now = Date.now();
+  if (_alertLastFiredAt && now - _alertLastFiredAt < ALERT_COOLDOWN_MS) return;
+  _alertLastFiredAt = now;
+  _alertConsecutiveHighErrorChecks = 0;
+
+  const msg = `[ErrorMonitor] ALERT — sustained error rate ${rate.toFixed(1)}% (>${ALERT_ERROR_RATE_THRESHOLD}% for ${ALERT_CONSECUTIVE_REQUIRED} consecutive checks). Total requests: ${health.performance.avgResponseTime.toFixed(0)}ms avg response. Check Railway logs immediately.`;
+  console.error(msg);
+
+  // Record as a critical self-error so the error digest service picks it up
+  monitor.recordError({
+    timestamp: new Date(),
+    errorType: 'error_rate_spike',
+    severity: 'critical',
+    source: 'error-monitor-alert',
+    message: msg,
+    context: { errorRate: rate, threshold: ALERT_ERROR_RATE_THRESHOLD },
+  });
+}
+
 // Global error monitor instance
 export const errorMonitor = new ErrorMonitor();
+
+// Start the 5-minute alerting heartbeat (only in production to avoid noise in dev)
+if (process.env.NODE_ENV === 'production') {
+  setInterval(() => _checkErrorRateAlert(errorMonitor), 5 * 60 * 1000);
+}
 
 // Express middleware for error monitoring
 export function errorMonitoringMiddleware(req: any, res: any, next: any) {
