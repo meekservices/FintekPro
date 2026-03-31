@@ -612,6 +612,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
+                  <Link href="/profile" className="flex items-center gap-2.5 px-3 py-2 cursor-pointer">
+                    <UserCheck className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">Admin Profile</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <Link href="/admin/theme-settings" className="flex items-center gap-2.5 px-3 py-2 cursor-pointer">
                     <Palette className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm">Theme & Accessibility</span>
