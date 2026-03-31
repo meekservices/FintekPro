@@ -551,7 +551,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
     );
   }
 
-  const isAgent = user.roles?.includes('agent') || user.roles?.includes('admin') || user.roles?.includes('superadmin') || user.roles?.includes('partner');
+  const isAgent = user.roles?.some(r => ['agent', 'sub_agent', 'associate', 'admin', 'superadmin', 'master_agent', 'tester'].includes(r));
 
   if (!isAgent) {
     return (
@@ -640,12 +640,6 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                 <span className="text-xs">⌘</span>K
               </kbd>
             </Button>
-
-            <Link href="/agent/theme-settings" className="hidden sm:block">
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hover:bg-card/50 h-9 w-9 rounded-lg" data-testid="btn-theme-settings" title="Theme & Accessibility">
-                <Palette className="h-4 w-4" />
-              </Button>
-            </Link>
 
             <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
               <PopoverTrigger asChild>
