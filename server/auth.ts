@@ -55,6 +55,28 @@ export function generateOtp(): string {
   return randomInt(100000, 999999).toString();
 }
 
+const DEFAULT_OTP_CHANNEL_ORDER = ['email', 'whatsapp', 'sms'] as const;
+
+async function getOtpChannelOrder(userId?: string): Promise<string[]> {
+  try {
+    if (userId) {
+      const userPrefs = await db.query.notificationPreferences.findFirst({
+        where: eq(schema.notificationPreferences.userId, userId),
+      });
+      if (userPrefs?.preferredOtpChannels && userPrefs.preferredOtpChannels.length > 0) {
+        return userPrefs.preferredOtpChannels;
+      }
+    }
+    const adminSetting = await db.query.adminSettings.findFirst({
+      where: eq(schema.adminSettings.key, 'otp_channel_priority'),
+    });
+    if (adminSetting?.value && Array.isArray(adminSetting.value) && (adminSetting.value as string[]).length > 0) {
+      return adminSetting.value as string[];
+    }
+  } catch (_) {}
+  return [...DEFAULT_OTP_CHANNEL_ORDER];
+}
+
 export async function generateUniqueUserId(email?: string): Promise<string> {
   // Generate userId in format: XXX123456
   // First 3 characters: first 3 alphabetic letters from email (uppercase), fallback to "FTP"
@@ -299,31 +321,49 @@ export function setupAuth(app: Express) {
         }
       });
 
-      // Send OTP via SMS first (primary channel for Replit testing compatibility)
+      // Send OTP following admin-configured channel priority order (no user pref yet at registration)
+      const regChannelOrder = await getOtpChannelOrder();
+      console.log(`[OTP] Registration channel priority: ${regChannelOrder.join(' → ')}`);
       let primaryDelivered = false;
-      const smsSent = await smsService.sendOTP(mobile, otp);
-      if (smsSent) {
-        console.log(`✅ Registration OTP sent via SMS to: ${mobile}`);
-        primaryDelivered = true;
-      } else {
-        console.log(`⚠️ SMS delivery failed for ${mobile}, trying WhatsApp...`);
-        // Try WhatsApp as fallback
-        const whatsappSent = await whatsappService.sendLoginOTP(mobile, otp);
-        if (whatsappSent) {
-          console.log(`✅ Registration OTP sent via WhatsApp to: ${mobile}`);
-          primaryDelivered = true;
+      let regDeliveryChannel = "";
+      for (const channel of regChannelOrder) {
+        if (channel === 'email') {
+          const sent = await emailService.sendRegistrationOTP(email, otp);
+          if (sent) {
+            console.log(`✅ Registration OTP sent via email to: ${email}`);
+            primaryDelivered = true;
+            regDeliveryChannel = "email";
+            break;
+          }
+          console.log(`⚠️ Email delivery failed for registration, trying next channel...`);
+        } else if (channel === 'whatsapp') {
+          const sent = await whatsappService.sendLoginOTP(mobile, otp);
+          if (sent) {
+            console.log(`✅ Registration OTP sent via WhatsApp to: ${mobile}`);
+            primaryDelivered = true;
+            regDeliveryChannel = "WhatsApp";
+            break;
+          }
+          console.log(`⚠️ WhatsApp delivery failed for registration, trying next channel...`);
+        } else if (channel === 'sms') {
+          const sent = await smsService.sendOTP(mobile, otp);
+          if (sent) {
+            console.log(`✅ Registration OTP sent via SMS to: ${mobile}`);
+            primaryDelivered = true;
+            regDeliveryChannel = "SMS";
+            break;
+          }
+          console.log(`⚠️ SMS delivery failed for registration, trying next channel...`);
         }
       }
-
-      // Also send to email as secondary channel
-      const emailSent = await emailService.sendRegistrationOTP(email, otp);
-      if (emailSent) {
-        console.log(`✅ Registration OTP also sent to email: ${email}`);
-      } else {
-        console.log(`⚠️ Email delivery failed for ${email}`);
+      // If email was not the primary channel, always also send to email as a safety copy
+      if (regDeliveryChannel !== "email") {
+        const emailAlso = await emailService.sendRegistrationOTP(email, otp);
+        if (emailAlso) {
+          console.log(`✅ Registration OTP also sent to email: ${email}`);
+        }
       }
-
-      if (!primaryDelivered && !emailSent) {
+      if (!primaryDelivered) {
         console.log(`⚠️ All delivery channels failed for registration. Please check service configuration.`);
       }
 
@@ -753,7 +793,8 @@ export function setupAuth(app: Express) {
           verified: false,
         });
 
-        // Send OTP via appropriate channels (email/SMS/WhatsApp)
+        // Send OTP via appropriate channels following priority order:
+        // user preference → admin global setting → default (email → whatsapp → sms)
         let otpDelivered = false;
         let deliveryChannel = "";
 
@@ -761,48 +802,41 @@ export function setupAuth(app: Express) {
           otpDelivered = true;
           deliveryChannel = "TEST_BYPASS";
           console.log(`🧪 Skipping OTP delivery for test account - use OTP: ${otp}`);
-        } else if (otpType === "email") {
-          const emailSent = await emailService.sendLoginOTP(otpDestination, otp);
-          if (emailSent) {
-            console.log(`✅ Login OTP sent to email: ${otpDestination}`);
-            otpDelivered = true;
-            deliveryChannel = "email";
-          } else {
-            console.log(`⚠️ Email delivery failed for ${otpDestination}`);
-          }
         } else {
-          // For mobile, try WhatsApp first (default preference), then SMS as fallback
-          const whatsappSent = await whatsappService.sendLoginOTP(otpDestination, otp);
-          if (whatsappSent) {
-            console.log(`✅ Login OTP sent via WhatsApp to: ${otpDestination}`);
-            otpDelivered = true;
-            deliveryChannel = "WhatsApp";
-          } else {
-            // Try SMS as fallback
-            console.log(`⚠️ WhatsApp delivery failed for ${otpDestination}, trying SMS...`);
-            const smsSent = await smsService.sendOTP(otpDestination, otp);
-            if (smsSent) {
-              console.log(`✅ Login OTP sent via SMS to: ${otpDestination}`);
-              otpDelivered = true;
-              deliveryChannel = "SMS";
-            } else {
-              // WhatsApp + SMS both failed — try email as last resort if available
-              if (user.email) {
-                console.log(`⚠️ WhatsApp+SMS failed for ${otpDestination}, falling back to email: ${user.email}`);
-                const emailFallback = await emailService.sendLoginOTP(user.email, otp);
-                if (emailFallback) {
-                  console.log(`✅ Login OTP sent via email fallback to: ${user.email}`);
-                  otpDelivered = true;
-                  deliveryChannel = "email";
-                  otpDestination = user.email;
-                  otpType = "email";
-                } else {
-                  console.log(`❌ All OTP delivery channels (WhatsApp, SMS, email) failed for this account`);
-                }
-              } else {
-                console.log(`❌ All OTP delivery channels failed for ${otpDestination} (no email fallback)`);
+          const channelOrder = await getOtpChannelOrder(user.id);
+          console.log(`[OTP] Channel priority for ${user.id}: ${channelOrder.join(' → ')}`);
+          for (const channel of channelOrder) {
+            if (channel === 'email' && user.email) {
+              const sent = await emailService.sendLoginOTP(user.email, otp);
+              if (sent) {
+                console.log(`✅ Login OTP sent via email to: ${user.email}`);
+                otpDelivered = true;
+                deliveryChannel = "email";
+                break;
               }
+              console.log(`⚠️ Email delivery failed, trying next channel...`);
+            } else if (channel === 'whatsapp' && user.mobile) {
+              const sent = await whatsappService.sendLoginOTP(user.mobile, otp);
+              if (sent) {
+                console.log(`✅ Login OTP sent via WhatsApp to: ${user.mobile}`);
+                otpDelivered = true;
+                deliveryChannel = "WhatsApp";
+                break;
+              }
+              console.log(`⚠️ WhatsApp delivery failed, trying next channel...`);
+            } else if (channel === 'sms' && user.mobile) {
+              const sent = await smsService.sendOTP(user.mobile, otp);
+              if (sent) {
+                console.log(`✅ Login OTP sent via SMS to: ${user.mobile}`);
+                otpDelivered = true;
+                deliveryChannel = "SMS";
+                break;
+              }
+              console.log(`⚠️ SMS delivery failed, trying next channel...`);
             }
+          }
+          if (!otpDelivered) {
+            console.log(`❌ All OTP delivery channels (${channelOrder.join(', ')}) failed for this account`);
           }
         }
 

@@ -783,6 +783,54 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
+  // Admin: Read global OTP channel priority
+  app.get('/api/admin/settings/otp-priority', requireAdmin, async (_req, res) => {
+    try {
+      const { adminSettings } = await import('@shared/schema');
+      const setting = await db.query.adminSettings.findFirst({
+        where: eq(adminSettings.key, 'otp_channel_priority'),
+      });
+      const channels = (setting?.value as string[] | null) || ['email', 'whatsapp', 'sms'];
+      res.json({ success: true, channels });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Admin: Update global OTP channel priority
+  app.put('/api/admin/settings/otp-priority', requireAdmin, async (req, res) => {
+    try {
+      const { channels } = req.body;
+      const valid = ['email', 'whatsapp', 'sms'];
+      if (!Array.isArray(channels) || channels.length === 0 || !channels.every(c => valid.includes(c))) {
+        return res.status(400).json({ success: false, error: 'channels must be a non-empty array of email/whatsapp/sms' });
+      }
+      const unique = [...new Set(channels)];
+      if (unique.length !== 3) {
+        return res.status(400).json({ success: false, error: 'All three channels (email, whatsapp, sms) must be present exactly once' });
+      }
+      const { adminSettings } = await import('@shared/schema');
+      const existing = await db.query.adminSettings.findFirst({
+        where: eq(adminSettings.key, 'otp_channel_priority'),
+      });
+      if (existing) {
+        await db.update(adminSettings)
+          .set({ value: unique, updatedAt: new Date(), updatedBy: (req as any).user?.id })
+          .where(eq(adminSettings.key, 'otp_channel_priority'));
+      } else {
+        await db.insert(adminSettings).values({
+          key: 'otp_channel_priority',
+          value: unique,
+          description: 'Global OTP delivery channel priority order (email/whatsapp/sms)',
+          updatedBy: (req as any).user?.id,
+        });
+      }
+      res.json({ success: true, channels: unique });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // Basic user authentication middleware - uses session auth
   const authenticateUser = async (req: any, res: any, next: any) => {
     // Check if user is authenticated via session (Passport.js)

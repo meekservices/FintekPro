@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -16,6 +18,11 @@ import {
   AlertCircle,
   Play,
   Info,
+  Mail,
+  MessageSquare,
+  Phone,
+  Save,
+  ListOrdered,
 } from 'lucide-react';
 
 interface WhatsAppStatus {
@@ -24,14 +31,38 @@ interface WhatsAppStatus {
   qrDataUrl: string | null;
 }
 
+interface OtpPriorityData {
+  success: boolean;
+  channels: string[];
+}
+
+const CHANNEL_LABELS: Record<string, { label: string; icon: any; color: string }> = {
+  email:    { label: 'Email',    icon: Mail,          color: 'text-blue-500' },
+  whatsapp: { label: 'WhatsApp', icon: MessageSquare, color: 'text-green-500' },
+  sms:      { label: 'SMS',      icon: Phone,         color: 'text-orange-500' },
+};
+
+const ALL_CHANNELS = ['email', 'whatsapp', 'sms'];
+
 export default function WhatsAppSetupPage() {
   const { toast } = useToast();
   const [polling, setPolling] = useState(false);
+  const [priority, setPriority] = useState<string[]>(['email', 'whatsapp', 'sms']);
 
   const { data: status, isLoading, refetch } = useQuery<WhatsAppStatus>({
     queryKey: ['/api/admin/whatsapp/status'],
     refetchInterval: polling ? 5000 : false,
   });
+
+  const { data: otpPriority, isLoading: priorityLoading } = useQuery<OtpPriorityData>({
+    queryKey: ['/api/admin/settings/otp-priority'],
+  });
+
+  useEffect(() => {
+    if (otpPriority?.channels && otpPriority.channels.length === 3) {
+      setPriority(otpPriority.channels);
+    }
+  }, [otpPriority]);
 
   useEffect(() => {
     if (status?.isReady && polling) {
@@ -51,6 +82,29 @@ export default function WhatsAppSetupPage() {
     },
   });
 
+  const priorityMutation = useMutation({
+    mutationFn: (channels: string[]) =>
+      apiRequest('/api/admin/settings/otp-priority', { method: 'PUT', body: JSON.stringify({ channels }) }),
+    onSuccess: () => {
+      toast({ title: 'OTP priority saved', description: `Order set to: ${priority.join(' → ')}` });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/settings/otp-priority'] });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Save failed', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const handlePriorityChange = (slot: number, value: string) => {
+    const next = [...priority];
+    const displaced = next[slot];
+    const swapIdx = next.indexOf(value);
+    next[swapIdx] = displaced;
+    next[slot] = value;
+    setPriority(next);
+  };
+
+  const isDirty = JSON.stringify(priority) !== JSON.stringify(otpPriority?.channels ?? ['email', 'whatsapp', 'sms']);
+
   const handleRefresh = () => {
     refetch();
     queryClient.invalidateQueries({ queryKey: ['/api/admin/whatsapp/status'] });
@@ -64,9 +118,9 @@ export default function WhatsAppSetupPage() {
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">WhatsApp Device Setup</h1>
+          <h1 className="text-2xl font-bold text-foreground">WhatsApp &amp; OTP Setup</h1>
           <p className="text-muted-foreground mt-1">
-            Link a WhatsApp account so OTP messages and notifications are delivered via WhatsApp.
+            Configure WhatsApp device linking and the global OTP delivery channel priority.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
@@ -78,8 +132,89 @@ export default function WhatsAppSetupPage() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
+            <ListOrdered className="h-5 w-5" />
+            OTP Channel Priority
+          </CardTitle>
+          <CardDescription>
+            Set the global default delivery order for login and registration OTPs. Users can override
+            this in their own communication settings.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {priorityLoading ? (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              Loading…
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-3">
+                {[0, 1, 2].map((slot) => {
+                  const ch = priority[slot];
+                  const meta = CHANNEL_LABELS[ch];
+                  const Icon = meta?.icon;
+                  return (
+                    <div key={slot} className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Priority {slot + 1}
+                      </p>
+                      <Select value={ch} onValueChange={(v) => handlePriorityChange(slot, v)}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue>
+                            <span className="flex items-center gap-2">
+                              {Icon && <Icon className={`h-4 w-4 ${meta.color}`} />}
+                              {meta?.label ?? ch}
+                            </span>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ALL_CHANNELS.map((c) => {
+                            const m = CHANNEL_LABELS[c];
+                            const MIcon = m.icon;
+                            return (
+                              <SelectItem key={c} value={c}>
+                                <span className="flex items-center gap-2">
+                                  <MIcon className={`h-4 w-4 ${m.color}`} />
+                                  {m.label}
+                                </span>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex items-center justify-between pt-1">
+                <p className="text-xs text-muted-foreground">
+                  Current order: <strong>{priority.join(' → ')}</strong>
+                </p>
+                <Button
+                  size="sm"
+                  disabled={!isDirty || priorityMutation.isPending}
+                  onClick={() => priorityMutation.mutate(priority)}
+                >
+                  {priorityMutation.isPending ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  Save Priority
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
             <Smartphone className="h-5 w-5" />
-            Connection Status
+            WhatsApp Connection Status
           </CardTitle>
         </CardHeader>
         <CardContent>
