@@ -282,6 +282,7 @@ const MarketingDashboard = lazyWithRetry(() => import("@/pages/admin/marketing-d
 const FestivalMarketing = lazyWithRetry(() => import("@/pages/admin/festival-marketing"));
 const EmailCampaigns = lazyWithRetry(() => import("@/pages/admin/email-campaigns"));
 const WhatsAppCampaigns = lazyWithRetry(() => import("@/pages/admin/whatsapp-campaigns"));
+const WhatsAppSetup = lazyWithRetry(() => import("@/pages/admin/whatsapp-setup"));
 const SMSCampaigns = lazyWithRetry(() => import("@/pages/admin/sms-campaigns"));
 const SmsInbox = lazyWithRetry(() => import("@/pages/admin/sms-inbox"));
 const LeadProspecting = lazyWithRetry(() => import("@/pages/admin/lead-prospecting"));
@@ -795,6 +796,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <WhatsAppCampaigns />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/whatsapp-setup">
+        {() => (
+          <AdminLayout>
+            <WhatsAppSetup />
           </AdminLayout>
         )}
       </Route>
