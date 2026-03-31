@@ -17,7 +17,7 @@ export function setupGracefulShutdown(server: Server, beforeShutdown?: () => voi
 
     console.log(`[Graceful Shutdown] Received ${signal} — killing children and exiting immediately`);
 
-    // 1. Kill Python sidecar (and port 8001) before anything else
+    // 1. Run any pre-shutdown hook (e.g. drain in-flight requests)
     if (beforeShutdown) {
       try { beforeShutdown(); } catch (_) { /* best-effort */ }
     }
