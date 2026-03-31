@@ -1,9 +1,13 @@
 [build]
 builder = "NIXPACKS"
+# pip install is auto-detected from requirements.txt; Python version pinned in nixpacks.toml.
 
 [deploy]
-startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT --workers 2 --log-level info"
 healthcheckPath = "/health"
-healthcheckTimeout = 120
+# Allow 3 min for cold start — scikit-learn import + asyncpg pool creation
+healthcheckTimeout = 180
+# Drain live requests gracefully before kill on redeploy
+drainSeconds = 20
 restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 3
+restartPolicyMaxRetries = 5
