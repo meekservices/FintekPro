@@ -725,6 +725,16 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
   // Start Python analytics sidecar (non-blocking — runs uvicorn on port 8001)
   startPythonSidecar();
 
+  // Delayed health probe — fires 45 s after boot so the Python service
+  // has time to complete its scikit-learn cold-start (~30 s on Railway).
+  // This resets the circuit breaker if it opened during the boot 502 storm.
+  setTimeout(async () => {
+    try {
+      const { probePythonHealth } = await import('./clients/python-client');
+      await probePythonHealth();
+    } catch (_) { /* best-effort — never crash the main server */ }
+  }, 45_000);
+
   // Extended health check endpoints
   const { readinessCheck, livenessCheck } = await import('./health-check');
   app.get('/ready', (req, res) => {

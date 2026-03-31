@@ -118,6 +118,51 @@ export function isPythonServiceConfigured(): boolean {
   return !!getBaseUrl();
 }
 
+/**
+ * Active health probe — bypasses the circuit breaker so it can be used to
+ * RESET the circuit after a cold-start 502 storm.
+ *
+ * Call this 45–60 s after server boot so the Python service has time to
+ * finish its scikit-learn import (~30 s on Railway).
+ *
+ * Returns true if the Python service is reachable and healthy.
+ */
+export async function probePythonHealth(): Promise<boolean> {
+  const baseUrl = getBaseUrl();
+  if (!baseUrl) {
+    console.info('[PythonClient] ℹ️  PYTHON_SERVICE_URL not set — Python features are disabled');
+    return false;
+  }
+  const url = `${baseUrl}/health`;
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (res.ok) {
+      const json = await res.json().catch(() => ({}));
+      recordSuccess();
+      const caps: string[] = json?.capabilities ?? [];
+      console.info(
+        `[PythonClient] ✅ Python service healthy at ${baseUrl}` +
+        (caps.length ? ` — capabilities: ${caps.slice(0, 5).join(', ')}${caps.length > 5 ? '…' : ''}` : '')
+      );
+      return true;
+    }
+    console.warn(`[PythonClient] ⚠️  Python health probe → HTTP ${res.status} from ${url}`);
+    recordFailure(res.status);
+    return false;
+  } catch (err: any) {
+    const tip = baseUrl.includes('.railway.internal')
+      ? 'Check Railway → Fintek Analytics service → Deployments'
+      : `Verify PYTHON_SERVICE_URL="${baseUrl}" is reachable`;
+    console.warn(`[PythonClient] ❌ Python health probe failed: ${err.message}. ${tip}`);
+    recordFailure();
+    return false;
+  }
+}
+
 export async function proxyToPython(req: Request, res: Response, path: string): Promise<void> {
   const baseUrl = getBaseUrl();
   if (!baseUrl) {
