@@ -622,8 +622,11 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
   // Also resets the circuit breaker if it opened during the initial 502 storm.
   setTimeout(async () => {
     try {
-      const { probePythonHealth } = await import('./clients/python-client');
+      const { probePythonHealth, startPythonKeepAlive } = await import('./clients/python-client');
       await probePythonHealth();
+      // Start keep-alive pinger AFTER initial probe — prevents Railway from
+      // sleeping the Python service between the hourly market-quotes cron runs.
+      startPythonKeepAlive();
     } catch (_) { /* best-effort — never crash the main server */ }
   }, 45_000);
 
