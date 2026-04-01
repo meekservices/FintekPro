@@ -35,35 +35,60 @@ class CommodityPriceSyncScheduler {
   private isRunning = false;
   private syncTimer: NodeJS.Timeout | null = null;
 
-  // Internal symbol → Yahoo futures ticker (used for all API calls)
+  // Internal symbol → Yahoo/CME futures ticker (used for AV, Python/yfinance, Yahoo tiers)
   private readonly FUTURES_SYMBOLS: Record<string, string> = {
+    // ── Precious metals ─────────────────────────────────────────────────────
     'GOLD':        'GC=F',
     'SILVER':      'SI=F',
     'PLATINUM':    'PL=F',
     'PALLADIUM':   'PA=F',
+    // ── Energy ──────────────────────────────────────────────────────────────
     'CRUDE_OIL':   'CL=F',
+    'BRENT':       'BZ=F',
+    'BRENT_CRUDE': 'BZ=F',   // DB alias — same ICE Brent contract
     'NATURAL_GAS': 'NG=F',
+    // ── Base metals (CME) ────────────────────────────────────────────────────
     'COPPER':      'HG=F',
+    'ALUMINUM':    'ALI=F',  // CME Aluminum Mini futures
+    // ── Agricultural (CME) ──────────────────────────────────────────────────
     'WHEAT':       'ZW=F',
     'CORN':        'ZC=F',
     'COTTON':      'CT=F',
     'COFFEE':      'KC=F',
-    'BRENT':       'BZ=F',
+    'SOYBEAN':     'ZS=F',   // CME Soybean futures
   };
 
-  // Tier 1: Alpha Vantage (precious metals + energy — separate infra from Yahoo)
+  // Alpha Vantage physical commodity function names for LME base metals.
+  // These use the ?function=NICKEL&interval=daily endpoint (separate from GLOBAL_QUOTE).
+  // ZINC, NICKEL, LEAD, TIN trade only on LME; no free Yahoo/CME futures ticker exists.
+  // AV returns daily World-Bank-sourced spot prices — fires when ALPHA_VANTAGE_API_KEY is set.
+  private readonly AV_PHYSICAL_COMMODITY_FUNCTIONS: Record<string, string> = {
+    'ZINC':   'ZINC',
+    'NICKEL': 'NICKEL',
+    'LEAD':   'LEAD',
+    'TIN':    'TIN',
+  };
+
+  // MCX India-only commodities: no free global API provides daily prices.
+  // These require a dedicated MCX/NCDEX data subscription (e.g., BSE/NSE commodity feed).
+  // They are skipped gracefully and logged separately so the missed-count stays clean.
+  private readonly MCX_INDIA_ONLY = new Set(['MENTHA_OIL', 'CASTOR_SEED']);
+
+  // Tier 1: Alpha Vantage (precious metals + energy + aluminum — separate infra from Yahoo)
   private readonly AV_SYMBOLS = new Set([
     'GOLD', 'SILVER', 'PLATINUM', 'PALLADIUM',
-    'CRUDE_OIL', 'NATURAL_GAS', 'COPPER', 'BRENT',
+    'CRUDE_OIL', 'NATURAL_GAS', 'COPPER',
+    'BRENT', 'BRENT_CRUDE',
+    'ALUMINUM',
   ]);
 
-  // Tier 2: Python/yfinance primary (agricultural); AV misses also fall here
+  // Tier 2: Python/yfinance primary (agricultural + soybean); AV misses also fall here
   private readonly PYTHON_PRIMARY_SYMBOLS = new Set([
-    'WHEAT', 'CORN', 'COTTON', 'COFFEE',
+    'WHEAT', 'CORN', 'COTTON', 'COFFEE', 'SOYBEAN',
   ]);
 
   constructor() {
-    console.log('✅ Commodity Price Sync Scheduler initialized (3-tier: AV → Python/yfinance → Yahoo)');
+    console.log('✅ Commodity Price Sync Scheduler initialized (4-tier: AV GLOBAL_QUOTE → AV Physical LME → Python/yfinance → Yahoo)');
   }
 
   start(): void {
@@ -175,6 +200,50 @@ class CommodityPriceSyncScheduler {
     return results;
   }
 
+  // ── Tier 1.5: Alpha Vantage Physical Commodity (LME base metals) ─────────
+  // Alpha Vantage exposes daily World-Bank-sourced LME spot prices via dedicated
+  // function names (NICKEL, ZINC, LEAD, TIN) — separate from GLOBAL_QUOTE futures.
+  // Response: { data: [ { date, value }, ... ] } ordered newest-first.
+  private async fetchAlphaVantagePhysicalPrice(internalSymbol: string): Promise<CommodityPriceData | null> {
+    const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
+    if (!apiKey) return null;
+
+    const avFunction = this.AV_PHYSICAL_COMMODITY_FUNCTIONS[internalSymbol.toUpperCase()];
+    if (!avFunction) return null;
+
+    try {
+      const url = `https://www.alphavantage.co/query?function=${avFunction}&interval=daily&apikey=${apiKey}`;
+      const resp = await fetch(url, {
+        signal: AbortSignal.timeout(12000),
+        headers: { 'Accept': 'application/json', 'User-Agent': 'FintekPro/2.5' },
+      });
+      if (!resp.ok) return null;
+
+      const json = await resp.json();
+      if (json['Note'] || json['Information'] || json['Error Message']) return null;
+
+      const data = json['data'];
+      if (!Array.isArray(data) || !data.length) return null;
+
+      const price = parseFloat(data[0]?.value);
+      if (!price || price <= 0) return null;
+
+      const prev      = data.length > 1 ? parseFloat(data[1].value) : undefined;
+      const change    = prev != null && prev > 0 ? price - prev : undefined;
+      const changePct = (change != null && prev != null && prev > 0) ? (change / prev) * 100 : undefined;
+
+      return {
+        symbol:        internalSymbol,
+        price,
+        change,
+        changePercent: changePct,
+        source:        'alpha_vantage_physical',
+      };
+    } catch {
+      return null;
+    }
+  }
+
   // ── Tier 3: Yahoo Finance direct HTTP (last resort) ───────────────────────
   private async fetchYahooPrice(internalSymbol: string): Promise<CommodityPriceData | null> {
     const futuresSym = this.FUTURES_SYMBOLS[internalSymbol.toUpperCase()];
@@ -280,9 +349,28 @@ class CommodityPriceSyncScheduler {
       console.log(`[CommoditySync] AV fetched ${avHit}/${avSymbols.length}`);
     }
 
+    // ── Tier 1.5: Alpha Vantage Physical Commodity (LME base metals) ─────────
+    // ZINC, NICKEL, LEAD, TIN have no liquid CME futures on Yahoo Finance.
+    // AV provides daily World-Bank-sourced LME spot prices via dedicated function names.
+    const avPhysNeeded = allSymbols.filter(s => !priced.has(s) && this.AV_PHYSICAL_COMMODITY_FUNCTIONS[s]);
+    if (avPhysNeeded.length && process.env.ALPHA_VANTAGE_API_KEY) {
+      console.log(`[CommoditySync] Tier 1.5 — AV Physical for ${avPhysNeeded.length} LME metals`);
+      const avPhysSettled = await Promise.allSettled(avPhysNeeded.map(s => this.fetchAlphaVantagePhysicalPrice(s)));
+      let avPhysHit = 0;
+      for (let i = 0; i < avPhysNeeded.length; i++) {
+        const r = avPhysSettled[i];
+        if (r.status === 'fulfilled' && r.value && r.value.price > 0) {
+          priced.set(avPhysNeeded[i], r.value);
+          avPhysHit++;
+        }
+      }
+      if (avPhysHit > 0) console.log(`[CommoditySync] AV Physical filled ${avPhysHit}/${avPhysNeeded.length}`);
+    }
+
     // ── Tier 2: Python/yfinance batch ──────────────────────────────────────
-    // Primary for agricultural; also picks up any Tier 1 misses
-    const pythonNeeded = allSymbols.filter(s => !priced.has(s));
+    // Primary for agricultural (WHEAT, CORN, COTTON, COFFEE, SOYBEAN); also covers
+    // any Tier 1/1.5 misses that have a FUTURES_SYMBOLS mapping.
+    const pythonNeeded = allSymbols.filter(s => !priced.has(s) && !this.MCX_INDIA_ONLY.has(s));
     if (pythonNeeded.length) {
       console.log(`[CommoditySync] Tier 2 — Python/yfinance batch for ${pythonNeeded.length} symbols`);
       const pythonResults = await this.fetchPythonBatchPrices(pythonNeeded);
@@ -293,7 +381,8 @@ class CommodityPriceSyncScheduler {
     }
 
     // ── Tier 3: Yahoo Finance — last resort, sequential ────────────────────
-    const yahooNeeded = allSymbols.filter(s => !priced.has(s));
+    // Skips symbols not in FUTURES_SYMBOLS (e.g. LME metals already priced by AV Physical)
+    const yahooNeeded = allSymbols.filter(s => !priced.has(s) && !this.MCX_INDIA_ONLY.has(s));
     if (yahooNeeded.length) {
       console.log(`[CommoditySync] Tier 3 — Yahoo last-resort for ${yahooNeeded.length} symbols`);
       for (const sym of yahooNeeded) {
@@ -318,10 +407,19 @@ class CommodityPriceSyncScheduler {
       }
     }
 
-    const missed = allSymbols.filter(s => !priced.has(s));
-    if (missed.length) {
-      errors += missed.length;
-      console.warn(`[CommoditySync] ${missed.length} symbols had no price from any tier: ${missed.join(', ')}`);
+    // ── Report misses — distinguish API gaps from known data-feed limits ──
+    const missed    = allSymbols.filter(s => !priced.has(s));
+    const mcxMissed = missed.filter(s => this.MCX_INDIA_ONLY.has(s));
+    const apiMissed = missed.filter(s => !this.MCX_INDIA_ONLY.has(s));
+    if (mcxMissed.length) {
+      console.info(
+        `[CommoditySync] ℹ️  ${mcxMissed.join(', ')} — MCX India only; ` +
+        `no free global API available. Set up a BSE/NSE commodity feed to price these.`,
+      );
+    }
+    if (apiMissed.length) {
+      errors += apiMissed.length;
+      console.warn(`[CommoditySync] ${apiMissed.length} symbols had no price from any tier: ${apiMissed.join(', ')}`);
     }
 
     console.log(`[CommoditySync] Refresh complete — updated: ${updated}, errors: ${errors}`);
