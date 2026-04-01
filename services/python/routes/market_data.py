@@ -8,6 +8,9 @@ Endpoints:
   GET  /market/movers/indian   — NIFTY50 top gainers & losers
   GET  /market/health          — provider health check
 
+Source waterfall for batch quotes (/market/quotes):
+  yfinance fast_info batch (primary) → Google Finance JSONP concurrent fallback
+
 Source waterfall for peer enrichment:
   yfinance (primary) → Google Finance (fallback for symbols yfinance misses)
 
@@ -27,13 +30,15 @@ from pydantic import BaseModel
 from auth import TokenPayload, verify_token
 
 try:
-    from .google_finance import fetch_gf_peer_batch
+    from .google_finance import fetch_gf_peer_batch, fetch_gf_batch_quotes
     _GF_AVAILABLE = True
 except Exception as _gf_err:
     import logging as _log
-    _log.getLogger(__name__).warning(f"[market_data] google_finance unavailable: {_gf_err} — peer-enrich will use yfinance only")
+    _log.getLogger(__name__).warning(f"[market_data] google_finance unavailable: {_gf_err} — will use yfinance only")
     _GF_AVAILABLE = False
     def fetch_gf_peer_batch(symbols):  # type: ignore
+        return {}
+    def fetch_gf_batch_quotes(symbols):  # type: ignore
         return {}
 
 logger = logging.getLogger(__name__)
@@ -655,6 +660,18 @@ def _fetch_quotes_sync(symbols: List[str]) -> dict:
                 logger.debug(f"[yfinance] Quote skip {sym}: {e}")
     except Exception as e:
         logger.error(f"[yfinance] Batch quotes error: {e}")
+
+    # ── Google Finance fallback for symbols yfinance couldn't price ──────────
+    # Run concurrently so 20 missing ETFs resolve in ~3-5 s, not 120 s.
+    if _GF_AVAILABLE:
+        missing = [s for s in symbols if s not in results or not results[s].get("price")]
+        if missing:
+            logger.info(f"[market_data] yfinance missed {len(missing)} symbols — trying Google Finance: {missing}")
+            gf_results = fetch_gf_batch_quotes(missing)
+            for sym, data in gf_results.items():
+                results[sym] = data
+            if gf_results:
+                logger.info(f"[market_data] Google Finance filled {len(gf_results)}/{len(missing)} missing quotes")
 
     return results
 

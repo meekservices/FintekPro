@@ -21,6 +21,7 @@ import re
 import shutil
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from typing import Dict, List, Optional
 
@@ -303,4 +304,111 @@ def fetch_gf_peer_batch(symbols: List[str], exchange: str = "NSE") -> Dict[str, 
             time.sleep(1.0)
         except Exception as e:
             logger.debug(f"[GoogleFinance] peer batch skip {sym}: {e}")
+    return results
+
+
+# ─── Exchange hints for common US ETFs & large-caps ───────────────────────────
+# Used by fetch_gf_batch_quotes to skip the exchange-discovery loop for known tickers.
+
+_EXCHANGE_HINTS: Dict[str, str] = {
+    # US ETFs — NYSEARCA
+    "SPY": "NYSEARCA", "IWM": "NYSEARCA", "VTI": "NYSEARCA", "VOO": "NYSEARCA",
+    "IVV": "NYSEARCA", "VEA": "NYSEARCA", "VWO": "NYSEARCA", "EFA": "NYSEARCA",
+    "AGG": "NYSEARCA", "GLD": "NYSEARCA", "SLV": "NYSEARCA", "XLF": "NYSEARCA",
+    "XLK": "NYSEARCA", "XLE": "NYSEARCA", "XLV": "NYSEARCA", "XLI": "NYSEARCA",
+    "ARKK": "NYSEARCA", "DIA": "NYSEARCA", "IEMG": "NYSEARCA", "HYG": "NYSEARCA",
+    # US ETFs — NASDAQ
+    "QQQ": "NASDAQ", "BND": "NASDAQ", "LQD": "NASDAQ", "TLT": "NASDAQ",
+    "QQQM": "NASDAQ", "SCHA": "NASDAQ",
+    # US large-cap equities — NASDAQ
+    "AAPL": "NASDAQ", "MSFT": "NASDAQ", "GOOGL": "NASDAQ", "AMZN": "NASDAQ",
+    "NVDA": "NASDAQ", "META": "NASDAQ", "TSLA": "NASDAQ", "AVGO": "NASDAQ",
+    "ADBE": "NASDAQ", "NFLX": "NASDAQ", "INTC": "NASDAQ", "CSCO": "NASDAQ",
+    # US large-cap equities — NYSE
+    "BRK-B": "NYSE", "JPM": "NYSE", "V": "NYSE", "UNH": "NYSE", "MA": "NYSE",
+    "JNJ": "NYSE", "XOM": "NYSE", "HD": "NYSE", "PG": "NYSE", "CVX": "NYSE",
+    "MRK": "NYSE", "ABBV": "NYSE", "PFE": "NYSE", "BAC": "NYSE", "WMT": "NYSE",
+    "KO": "NYSE", "DIS": "NYSE", "T": "NYSE", "VZ": "NYSE",
+}
+
+_US_EXCHANGE_FALLBACK = ["NYSEARCA", "NASDAQ", "NYSE", "BATS"]
+
+
+def _try_jsonp_fast(symbol: str, exchange: str, timeout: int = 3) -> Optional[dict]:
+    """Like _try_jsonp but with a configurable (shorter) timeout for batch fallback."""
+    url = f"https://finance.google.com/finance/info?client=ig&q={exchange}:{symbol}"
+    try:
+        resp = _SESSION.get(url, timeout=timeout)
+        if not resp.ok:
+            return None
+        text = resp.text.strip()
+        if text.startswith("//"):
+            text = text[2:].strip()
+        data = json.loads(text)
+        if not isinstance(data, list) or not data:
+            return None
+        item = data[0]
+        price = _safe_float(item.get("l_fix") or item.get("l"))
+        if not price:
+            return None
+        return {
+            "symbol": symbol,
+            "price": price,
+            "change": _safe_float(item.get("c_fix") or item.get("c")),
+            "changePercent": _safe_float(item.get("cp_fix") or item.get("cp")),
+            "previousClose": _safe_float(item.get("pcls_fix")),
+            "source": "google_finance_jsonp",
+        }
+    except Exception as e:
+        logger.debug(f"[GoogleFinance] fast JSONP failed {exchange}:{symbol}: {e}")
+        return None
+
+
+def _gf_one_symbol(sym: str) -> tuple:
+    """Resolve one symbol via Google Finance JSONP. Returns (sym, result_or_None)."""
+    try:
+        bare = sym.replace(".NS", "").replace(".BO", "")
+        if sym.endswith(".NS"):
+            result = _try_jsonp_fast(bare, "NSE") or _try_jsonp_fast(bare, "BOM")
+        elif sym.endswith(".BO"):
+            result = _try_jsonp_fast(bare, "BOM") or _try_jsonp_fast(bare, "NSE")
+        else:
+            hint = _EXCHANGE_HINTS.get(sym.upper())
+            if hint:
+                result = _try_jsonp_fast(sym, hint)
+            else:
+                result = None
+                for exch in _US_EXCHANGE_FALLBACK:
+                    result = _try_jsonp_fast(sym, exch)
+                    if result and result.get("price"):
+                        break
+        return (sym, result if (result and result.get("price")) else None)
+    except Exception as e:
+        logger.debug(f"[GoogleFinance] batch skip {sym}: {e}")
+        return (sym, None)
+
+
+def fetch_gf_batch_quotes(symbols: List[str], max_workers: int = 6) -> Dict[str, dict]:
+    """
+    Concurrent Google Finance JSONP fallback for a batch of symbols.
+    Uses a 3-second per-request timeout so the full batch resolves within ~10 seconds
+    even for large inputs. Returns only symbols that successfully priced.
+
+    Designed to be called after yfinance batch for symbols yfinance missed.
+    max_workers=6 keeps concurrent outbound connections reasonable.
+    """
+    if not symbols:
+        return {}
+    results: Dict[str, dict] = {}
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        futures = {ex.submit(_gf_one_symbol, sym): sym for sym in symbols}
+        for fut in as_completed(futures, timeout=20):
+            try:
+                sym, data = fut.result()
+                if data:
+                    results[sym] = {**data, "symbol": sym}
+            except Exception as e:
+                logger.debug(f"[GoogleFinance] batch future error: {e}")
+    if results:
+        logger.info(f"[GoogleFinance] batch filled {len(results)}/{len(symbols)} symbols via JSONP")
     return results
