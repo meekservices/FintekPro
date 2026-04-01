@@ -244,6 +244,39 @@ class FinancialDataRepository {
     }
   }
 
+  private async fetchBatchFromAlphaVantage(
+    symbols: string[],
+    instrumentType: 'global_stock' | 'etf' = 'global_stock',
+  ): Promise<Map<string, InstrumentData>> {
+    const results = new Map<string, InstrumentData>();
+    if (!process.env.ALPHA_VANTAGE_API_KEY || !symbols.length) return results;
+
+    // Fire all requests concurrently — AV will respond with "Note" if rate-limited;
+    // those are caught gracefully and simply stay absent so the next tier handles them.
+    const settled = await Promise.allSettled(symbols.map(sym => this.fetchFromAlphaVantage(sym)));
+
+    let rateLimited = 0;
+    for (let i = 0; i < symbols.length; i++) {
+      const r = settled[i];
+      if (r.status === 'fulfilled' && r.value.success && r.value.data?.currentPrice) {
+        results.set(symbols[i], { ...r.value.data, instrumentType });
+      } else if (
+        r.status === 'fulfilled' &&
+        (r.value.error?.toLowerCase().includes('rate limit') || r.value.error?.toLowerCase().includes('note'))
+      ) {
+        rateLimited++;
+      }
+    }
+
+    if (results.size > 0) {
+      console.log(`✅ [AlphaVantage] Batch: ${results.size}/${symbols.length} ${instrumentType}s (${rateLimited} rate-limited)`);
+    } else if (rateLimited > 0) {
+      console.log(`⚠️ [AlphaVantage] Rate-limited for all ${rateLimited} ${instrumentType} requests — next tier takes over`);
+    }
+
+    return results;
+  }
+
   async fetchAlphaVantageHistorical(symbol: string, outputSize: string = 'compact'): Promise<{ success: boolean; data?: Array<{ date: string; open: number; high: number; low: number; close: number; volume: number }>; error?: string }> {
     const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
     if (!apiKey) return { success: false, error: 'Alpha Vantage API key not configured' };
@@ -758,97 +791,65 @@ class FinancialDataRepository {
   async refreshGlobalStocks(symbols: string[]): Promise<{ success: number; failed: number }> {
     let success = 0;
     let failed = 0;
+    const saved = new Set<string>();
 
-    // Priority 0: Python sidecar via yfinance (fastest, no Node.js rate limits)
-    const pythonResults = await this.fetchBatchFromPython(symbols, 'global_stock');
-    const pythonSaved = new Set<string>();
-    for (const [sym, data] of pythonResults) {
+    const persist = async (data: InstrumentData, sym: string): Promise<void> => {
       try {
         await this.saveToDatabase(data);
+        saved.add(sym);
         success++;
-        pythonSaved.add(sym);
-      } catch (saveErr: any) {
-        console.warn(`[FinancialDataRepository] Failed to save DB record for ${sym}:`, saveErr?.message);
+      } catch (err: any) {
+        console.warn(`[GlobalStocks] Save failed for ${sym}: ${err.message}`);
       }
+    };
+
+    // ── Market-segregated routing ──────────────────────────────────────────
+    // US equities (no suffix) → Alpha Vantage first: completely separate infra
+    //   from Yahoo, so Python/yfinance and Yahoo Node.js don't compete with it.
+    // Indian (.NS/.BO) + International (.HK/.T/.L etc.) → Python/yfinance first:
+    //   unmatched coverage for non-US markets; no alternative free source matches it.
+    const usSymbols   = symbols.filter(s => !s.includes('.'));
+    const indSymbols  = symbols.filter(s => s.includes('.NS') || s.includes('.BO'));
+    const intlSymbols = symbols.filter(s => s.includes('.') && !s.includes('.NS') && !s.includes('.BO'));
+
+    // ── Tier 1-A: Alpha Vantage for US equities ────────────────────────────
+    if (usSymbols.length && process.env.ALPHA_VANTAGE_API_KEY) {
+      const avResults = await this.fetchBatchFromAlphaVantage(usSymbols, 'global_stock');
+      for (const [sym, data] of avResults) await persist(data, sym);
     }
-    let remaining0 = symbols.filter(s => !pythonSaved.has(s));
-    if (remaining0.length === 0) {
-      console.log(`📊 [FinancialDataRepository] Refreshed global stocks: ${success} success, ${failed} failed`);
-      return { success, failed };
+
+    // ── Tier 1-B: Python/yfinance for Indian + Intl (best for non-US) ─────
+    const nonUsNeeded = [...indSymbols, ...intlSymbols].filter(s => !saved.has(s));
+    if (nonUsNeeded.length) {
+      const pythonResults = await this.fetchBatchFromPython(nonUsNeeded, 'global_stock');
+      for (const [sym, data] of pythonResults) await persist(data, sym);
     }
-    failed = remaining0.length;
 
-    if (process.env.FMP_API_KEY) {
-      const fmpResults = await this.fetchBatchFromFMP(remaining0, 'global_stock');
-      const savedSymbols = new Set<string>();
-      for (const [sym, data] of fmpResults) {
-        try {
-          await this.saveToDatabase(data);
-          success++;
-          failed = Math.max(0, failed - 1);
-          savedSymbols.add(sym);
-        } catch (err: any) {
-          console.log(`⚠️ [FMP] Save failed for ${sym}: ${err.message}`);
-        }
-      }
+    // ── Tier 2: Python/yfinance for US equities Alpha Vantage missed ───────
+    // Python's /market/quotes now has Google Finance JSONP fallback built in,
+    // so this tier covers both yfinance and Google Finance for US stragglers.
+    const usNeeded = usSymbols.filter(s => !saved.has(s));
+    if (usNeeded.length) {
+      console.log(`[GlobalStocks] ${usNeeded.length} US symbols after AV → Python/yfinance+GF`);
+      const pythonResults = await this.fetchBatchFromPython(usNeeded, 'global_stock');
+      for (const [sym, data] of pythonResults) await persist(data, sym);
+    }
 
-      let remaining = remaining0.filter(s => !savedSymbols.has(s));
+    // ── Tier 3: FMP for any still-missing symbols ──────────────────────────
+    const fmpNeeded = symbols.filter(s => !saved.has(s));
+    if (fmpNeeded.length && process.env.FMP_API_KEY) {
+      const fmpResults = await this.fetchBatchFromFMP(fmpNeeded, 'global_stock');
+      for (const [sym, data] of fmpResults) await persist(data, sym);
+    }
 
-      if (remaining.length > 0 && process.env.POLYGON_API_KEY) {
-        console.log(`[FinancialDataRepository] ${remaining.length} stocks need Polygon fallback...`);
-        const polygonSaved = new Set<string>();
-        for (const sym of remaining) {
-          try {
-            const result = await this.fetchFromMassive(sym);
-            if (result.success && result.data?.currentPrice) {
-              await this.saveToDatabase(result.data);
-              success++;
-              failed = Math.max(0, failed - 1);
-              polygonSaved.add(sym);
-            }
-          } catch (polyErr: any) {
-            console.warn(`[FinancialDataRepository] Polygon fetch failed for symbol:`, polyErr?.message);
-          }
-          await new Promise(r => setTimeout(r, 300));
-        }
-        remaining = remaining.filter(s => !polygonSaved.has(s));
-        if (polygonSaved.size > 0) console.log(`[FinancialDataRepository] Polygon saved ${polygonSaved.size} stocks`);
-      }
-
-      if (remaining.length > 0) {
-        console.log(`[FinancialDataRepository] ${remaining.length} stocks need Yahoo fallback...`);
-        const yahooResult = await this.refreshViaYahoo(remaining, 'global_stock');
-        success += yahooResult.success;
-        failed = Math.max(0, failed - yahooResult.success);
-      }
-    } else {
-      let remaining = [...remaining0];
-
-      if (process.env.POLYGON_API_KEY) {
-        console.log(`[FinancialDataRepository] ${remaining.length} stocks trying Polygon...`);
-        const polygonSaved = new Set<string>();
-        for (const sym of remaining) {
-          try {
-            const result = await this.fetchFromMassive(sym);
-            if (result.success && result.data?.currentPrice) {
-              await this.saveToDatabase(result.data);
-              success++;
-              failed = Math.max(0, failed - 1);
-              polygonSaved.add(sym);
-            }
-          } catch (polyErr: any) {
-            console.warn(`[FinancialDataRepository] Polygon fetch failed for symbol:`, polyErr?.message);
-          }
-          await new Promise(r => setTimeout(r, 300));
-        }
-        remaining = remaining.filter(s => !polygonSaved.has(s));
-      }
-
-      if (remaining.length > 0) {
-        const yahooResult = await this.refreshViaYahoo(remaining, 'global_stock');
-        success += yahooResult.success;
-        failed = Math.max(0, failed - yahooResult.success);
-      }
+    // ── Tier 4: Yahoo Finance — genuine last resort ────────────────────────
+    const yahooNeeded = symbols.filter(s => !saved.has(s));
+    failed = yahooNeeded.length;
+    if (yahooNeeded.length) {
+      console.log(`[GlobalStocks] ${yahooNeeded.length} symbols hitting Yahoo last-resort`);
+      const yahooResult = await this.refreshViaYahoo(yahooNeeded, 'global_stock');
+      success += yahooResult.success;
+      failed = Math.max(0, failed - yahooResult.success);
     }
 
     console.log(`📊 [FinancialDataRepository] Refreshed global stocks: ${success} success, ${failed} failed`);
@@ -858,54 +859,49 @@ class FinancialDataRepository {
   async refreshETFs(symbols: string[]): Promise<{ success: number; failed: number }> {
     let success = 0;
     let failed = 0;
+    const saved = new Set<string>();
 
-    // Priority 0: Python sidecar via yfinance
-    const pythonResults = await this.fetchBatchFromPython(symbols, 'etf');
-    const pythonSaved = new Set<string>();
-    for (const [sym, data] of pythonResults) {
+    const persist = async (data: InstrumentData, sym: string): Promise<void> => {
       try {
         await this.saveToDatabase(data);
+        saved.add(sym);
         success++;
-        pythonSaved.add(sym);
-      } catch (saveErr: any) {
-        console.warn(`[FinancialDataRepository] Failed to save DB record for ${sym} (second pass):`, saveErr?.message);
+      } catch (err: any) {
+        console.warn(`[ETFs] Save failed for ${sym}: ${err.message}`);
       }
-    }
-    let remaining0 = symbols.filter(s => !pythonSaved.has(s));
-    if (remaining0.length === 0) {
-      console.log(`📊 [FinancialDataRepository] Refreshed ETFs: ${success} success, ${failed} failed`);
-      return { success, failed };
-    }
-    failed = remaining0.length;
+    };
 
+    // ── Tier 1: FMP — ETF specialist, separate infra from Yahoo ───────────
+    // FMP is optimised for ETF data (NAV, expense ratio, category) and does NOT
+    // run over Yahoo infrastructure, so it doesn't compete with yfinance or
+    // Yahoo Node.js. Make it the primary source for all ETFs.
     if (process.env.FMP_API_KEY) {
-      const fmpResults = await this.fetchBatchFromFMP(remaining0, 'etf');
-      const savedSymbols = new Set<string>();
-      for (const [sym, data] of fmpResults) {
-        try {
-          await this.saveToDatabase(data);
-          success++;
-          failed = Math.max(0, failed - 1);
-          savedSymbols.add(sym);
-        } catch (err: any) {
-          console.log(`⚠️ [FMP] Save failed for ETF ${sym}: ${err.message}`);
-        }
+      const fmpResults = await this.fetchBatchFromFMP(symbols, 'etf');
+      for (const [sym, data] of fmpResults) await persist(data, sym);
+      if (saved.size === symbols.length) {
+        console.log(`📊 [ETFs] Refreshed ${success} ETFs via FMP (no fallback needed)`);
+        return { success, failed };
       }
+    }
 
-      let remaining = remaining0.filter(s => !savedSymbols.has(s));
+    // ── Tier 2: Python/yfinance + Google Finance JSONP ─────────────────────
+    // The Python /market/quotes endpoint now runs GF JSONP concurrently for
+    // any symbols yfinance misses — so this single call covers two sources.
+    const tier2Needed = symbols.filter(s => !saved.has(s));
+    if (tier2Needed.length) {
+      console.log(`[ETFs] ${tier2Needed.length} ETFs after FMP → Python/yfinance+GF`);
+      const pythonResults = await this.fetchBatchFromPython(tier2Needed, 'etf');
+      for (const [sym, data] of pythonResults) await persist(data, sym);
+    }
 
-      if (remaining.length > 0) {
-        console.log(`[FinancialDataRepository] ${remaining.length} ETFs need Yahoo fallback...`);
-        const yahooResult = await this.refreshViaYahoo(remaining, 'etf');
-        success += yahooResult.success;
-        failed = Math.max(0, failed - yahooResult.success);
-      }
-    } else {
-      if (remaining0.length > 0) {
-        const yahooResult = await this.refreshViaYahoo(remaining0, 'etf');
-        success += yahooResult.success;
-        failed = Math.max(0, failed - yahooResult.success);
-      }
+    // ── Tier 3: Yahoo Finance — genuine last resort ────────────────────────
+    const yahooNeeded = symbols.filter(s => !saved.has(s));
+    failed = yahooNeeded.length;
+    if (yahooNeeded.length) {
+      console.log(`[ETFs] ${yahooNeeded.length} ETFs hitting Yahoo last-resort`);
+      const yahooResult = await this.refreshViaYahoo(yahooNeeded, 'etf');
+      success += yahooResult.success;
+      failed = Math.max(0, failed - yahooResult.success);
     }
 
     console.log(`📊 [FinancialDataRepository] Refreshed ETFs: ${success} success, ${failed} failed`);
