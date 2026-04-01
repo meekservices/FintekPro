@@ -894,6 +894,17 @@ class FinancialDataRepository {
       for (const [sym, data] of pythonResults) await persist(data, sym);
     }
 
+    // ── Tier 2.5: Alpha Vantage for US ETFs Python couldn't price ─────────
+    // Alpha Vantage GLOBAL_QUOTE endpoint works for all US-listed ETFs and
+    // runs on completely separate infrastructure from Yahoo Finance, so it
+    // resolves gracefully even when Yahoo / yfinance is rate-limited.
+    const avNeeded = symbols.filter(s => !saved.has(s) && !s.includes('.'));
+    if (avNeeded.length && process.env.ALPHA_VANTAGE_API_KEY) {
+      console.log(`[ETFs] ${avNeeded.length} US ETFs after Python → Alpha Vantage`);
+      const avResults = await this.fetchBatchFromAlphaVantage(avNeeded, 'etf');
+      for (const [sym, data] of avResults) await persist(data, sym);
+    }
+
     // ── Tier 3: Yahoo Finance — genuine last resort ────────────────────────
     const yahooNeeded = symbols.filter(s => !saved.has(s));
     failed = yahooNeeded.length;

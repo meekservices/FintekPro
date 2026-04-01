@@ -1,5 +1,6 @@
 import os
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,6 +22,14 @@ from routes.market_data import router as market_data_router
 from routes.derivatives import router as derivatives_router
 
 load_dotenv()
+
+# yfinance emits noisy WARNING/ERROR messages when Yahoo Finance temporarily
+# rate-limits or returns empty responses (e.g. "possibly delisted", "Expecting
+# value: line 1 column 1").  Our fallback chain (Google Finance JSONP, then
+# Alpha Vantage, then Yahoo Node.js) already handles these gracefully, so we
+# suppress the library's own log output to keep Railway logs clean.
+logging.getLogger("yfinance").setLevel(logging.CRITICAL)
+logging.getLogger("peewee").setLevel(logging.WARNING)
 
 
 async def _auto_train_ml() -> None:
