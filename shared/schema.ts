@@ -27939,8 +27939,8 @@ export const lrsComplianceTracking = pgTable("lrs_compliance_tracking", {
   fatcaStatus: varchar("fatca_status", { length: 20 }).default("pending"), // pending, compliant, non_compliant
   fatcaDeclarationDate: date("fatca_declaration_date"),
   crsStatus: varchar("crs_status", { length: 20 }).default("pending"),
-  form15caFiled: boolean("form_15ca_filed").default(false),
-  form15cbObtained: boolean("form_15cb_obtained").default(false),
+  form15caFiled: boolean("form15ca_filed").default(false),
+  form15cbObtained: boolean("form15cb_obtained").default(false),
   taxResidencyCertificate: boolean("tax_residency_certificate").default(false),
   w8benFiled: boolean("w8ben_filed").default(false),
   w8benExpiryDate: date("w8ben_expiry_date"),
@@ -27980,8 +27980,8 @@ export const lrsTransactions = pgTable("lrs_transactions", {
   adBankName: varchar("ad_bank_name", { length: 255 }), // Authorized Dealer bank
   adBankBranch: varchar("ad_bank_branch", { length: 255 }),
   swiftReference: varchar("swift_reference", { length: 50 }),
-  form15caNumber: varchar("form_15ca_number", { length: 50 }),
-  form15cbNumber: varchar("form_15cb_number", { length: 50 }),
+  form15caNumber: varchar("form15ca_number", { length: 50 }),
+  form15cbNumber: varchar("form15cb_number", { length: 50 }),
   tcsRate: numeric("tcs_rate"), // Tax collected at source
   tcsAmount: numeric("tcs_amount"),
   status: varchar("status", { length: 20 }).default("completed"), // pending, completed, failed, reversed
