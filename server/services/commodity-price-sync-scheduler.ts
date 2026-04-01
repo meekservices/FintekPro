@@ -1,7 +1,7 @@
-import axios from 'axios';
 import { db } from '../db';
 import { commodities } from '@shared/schema';
 import { eq, sql } from 'drizzle-orm';
+import { callPython } from '../clients/python-client';
 
 interface CommodityPriceData {
   symbol: string;
@@ -11,262 +11,350 @@ interface CommodityPriceData {
   changePercent?: number;
   high?: number;
   low?: number;
+  source: string;
 }
 
 /**
- * Commodity Price Sync Scheduler
- * Updates commodity prices daily from Finnhub and Yahoo Finance.
- * Covers: Gold, Silver, Crude Oil, Natural Gas, Copper, etc.
+ * Commodity Price Sync Scheduler — 3-tier market-segregated routing
+ *
+ * Tier 1 – Alpha Vantage (GLOBAL_QUOTE for futures symbols)
+ *   Precious metals: Gold (GC=F), Silver (SI=F), Platinum (PL=F), Palladium (PA=F)
+ *   Energy:          Crude WTI (CL=F), Natural Gas (NG=F), Copper (HG=F)
+ *   → Completely separate infra from Yahoo. No rate-limit competition.
+ *
+ * Tier 2 – Python / yfinance batch (/market/quotes)
+ *   Agricultural: Wheat (ZW=F), Corn (ZC=F), Cotton (CT=F), Coffee (KC=F)
+ *   + fallback for any Tier 1 misses
+ *   → Python service already has Google Finance JSONP concurrent fallback built in.
+ *
+ * Tier 3 – Yahoo Finance direct HTTP (last resort only)
+ *   Only for symbols both Tier 1 and Tier 2 failed to price.
  */
 class CommodityPriceSyncScheduler {
-  private syncIntervalMs = 24 * 60 * 60 * 1000; // 24 hours
+  private syncIntervalMs = 6 * 60 * 60 * 1000; // every 6 hours (commodities move intraday)
   private isRunning = false;
   private syncTimer: NodeJS.Timeout | null = null;
-  
-  // Commodity symbol mappings for different data sources
-  private readonly FINNHUB_SYMBOLS: Record<string, string> = {
-    'GOLD': 'OANDA:XAU_USD',
-    'SILVER': 'OANDA:XAG_USD',
-    'CRUDE_OIL': 'OANDA:WTICO_USD',
-    'NATURAL_GAS': 'OANDA:NATGAS_USD',
-    'COPPER': 'OANDA:XCU_USD',
-    'PLATINUM': 'OANDA:XPT_USD',
-    'PALLADIUM': 'OANDA:XPD_USD'
-  };
-  
-  private readonly YAHOO_SYMBOLS: Record<string, string> = {
-    'GOLD': 'GC=F',
-    'SILVER': 'SI=F',
-    'CRUDE_OIL': 'CL=F',
+
+  // Internal symbol → Yahoo futures ticker (used for all API calls)
+  private readonly FUTURES_SYMBOLS: Record<string, string> = {
+    'GOLD':        'GC=F',
+    'SILVER':      'SI=F',
+    'PLATINUM':    'PL=F',
+    'PALLADIUM':   'PA=F',
+    'CRUDE_OIL':   'CL=F',
     'NATURAL_GAS': 'NG=F',
-    'COPPER': 'HG=F',
-    'PLATINUM': 'PL=F',
-    'WHEAT': 'ZW=F',
-    'CORN': 'ZC=F',
-    'COTTON': 'CT=F',
-    'COFFEE': 'KC=F'
+    'COPPER':      'HG=F',
+    'WHEAT':       'ZW=F',
+    'CORN':        'ZC=F',
+    'COTTON':      'CT=F',
+    'COFFEE':      'KC=F',
+    'BRENT':       'BZ=F',
   };
 
+  // Tier 1: Alpha Vantage (precious metals + energy — separate infra from Yahoo)
+  private readonly AV_SYMBOLS = new Set([
+    'GOLD', 'SILVER', 'PLATINUM', 'PALLADIUM',
+    'CRUDE_OIL', 'NATURAL_GAS', 'COPPER', 'BRENT',
+  ]);
+
+  // Tier 2: Python/yfinance primary (agricultural); AV misses also fall here
+  private readonly PYTHON_PRIMARY_SYMBOLS = new Set([
+    'WHEAT', 'CORN', 'COTTON', 'COFFEE',
+  ]);
+
   constructor() {
-    console.log('✅ Commodity Price Sync Scheduler initialized');
+    console.log('✅ Commodity Price Sync Scheduler initialized (3-tier: AV → Python/yfinance → Yahoo)');
   }
 
   start(): void {
-    if (this.isRunning) {
-      console.log('[Commodity Sync] Scheduler already running');
-      return;
-    }
-
+    if (this.isRunning) return;
     this.isRunning = true;
-    console.log('[Commodity Sync] Starting commodity price sync scheduler...');
-    
-    // Schedule daily price refresh at 8 AM IST (after PMS sync)
-    this.scheduleNextSync();
-    
-    // Run startup catch-up in background
+    console.log('[CommoditySync] Starting — refreshes every 6 hours, first run at T+9 min');
+
     setTimeout(async () => {
-      try {
-        await this.runStartupCatchUp();
-      } catch (error) {
-        console.error('[Commodity Sync] Startup catch-up failed:', error);
-      }
-    }, 9 * 60 * 1000); // Wait 9 minutes after server starts
-    
-    console.log('[Commodity Sync] Scheduler started');
+      try { await this.runPriceRefresh(); }
+      catch (err) { console.error('[CommoditySync] Startup refresh failed:', err); }
+    }, 9 * 60 * 1000);
+
+    this.scheduleNextSync();
   }
 
   stop(): void {
     this.isRunning = false;
-    if (this.syncTimer) {
-      clearTimeout(this.syncTimer);
-      this.syncTimer = null;
-    }
-    console.log('[Commodity Sync] Scheduler stopped');
+    if (this.syncTimer) { clearTimeout(this.syncTimer); this.syncTimer = null; }
+    console.log('[CommoditySync] Scheduler stopped');
   }
 
   private scheduleNextSync(): void {
-    // Calculate time until 8 AM IST tomorrow
-    const now = new Date();
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const nowIST = new Date(now.getTime() + istOffset);
-    
-    const next8AM = new Date(nowIST);
-    next8AM.setHours(8, 0, 0, 0);
-    if (nowIST.getHours() >= 8) {
-      next8AM.setDate(next8AM.getDate() + 1);
-    }
-    
-    const msUntilNext = next8AM.getTime() - nowIST.getTime();
-    
-    console.log(`[Commodity Sync] Next price sync scheduled in ${Math.round(msUntilNext / 1000 / 60)} minutes`);
-    
     this.syncTimer = setTimeout(async () => {
-      try {
-        await this.runPriceRefresh();
-      } catch (error) {
-        console.error('[Commodity Sync] Price refresh failed:', error);
-      }
-      // Schedule next sync
-      if (this.isRunning) {
-        this.scheduleNextSync();
-      }
-    }, msUntilNext);
+      try { await this.runPriceRefresh(); }
+      catch (err) { console.error('[CommoditySync] Scheduled refresh failed:', err); }
+      if (this.isRunning) this.scheduleNextSync();
+    }, this.syncIntervalMs);
+    console.log(`[CommoditySync] Next sync in ${this.syncIntervalMs / 60000} minutes`);
   }
 
-  private async fetchYahooPrice(symbol: string): Promise<CommodityPriceData | null> {
+  // ── Tier 1: Alpha Vantage GLOBAL_QUOTE ────────────────────────────────────
+  private async fetchAlphaVantagePrice(internalSymbol: string): Promise<CommodityPriceData | null> {
+    const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
+    if (!apiKey) return null;
+
+    const futuresSym = this.FUTURES_SYMBOLS[internalSymbol.toUpperCase()];
+    if (!futuresSym) return null;
+
     try {
-      const yahooSymbol = this.YAHOO_SYMBOLS[symbol.toUpperCase()];
-      if (!yahooSymbol) return null;
-      
-      const response = await axios.get(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}`,
-        {
-          params: { interval: '1d', range: '5d' },
-          timeout: 10000,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        }
-      );
-      
-      const result = response.data?.chart?.result?.[0];
-      if (!result) return null;
-      
-      const quote = result.meta;
-      const indicators = result.indicators?.quote?.[0];
-      
-      const price = quote.regularMarketPrice || 0;
-      const prevClose = quote.previousClose && quote.previousClose > 0 ? quote.previousClose : null;
-      const change = prevClose != null ? price - prevClose : null;
-      // Guard: only compute percent when prevClose is a real positive value.
-      // Dividing by 0 or 1 (the old fallback) produces astronomically large values
-      // that overflow DECIMAL(8,4) columns (max ±9999.9999).
-      const changePercent = prevClose != null && prevClose > 0
-        ? ((price - prevClose) / prevClose) * 100
-        : null;
+      const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(futuresSym)}&apikey=${apiKey}`;
+      const resp = await fetch(url, {
+        signal: AbortSignal.timeout(10000),
+        headers: { 'Accept': 'application/json', 'User-Agent': 'FintekPro/2.5' },
+      });
+      if (!resp.ok) return null;
+
+      const json = await resp.json();
+      if (json['Note'] || json['Information'] || json['Error Message']) return null;
+
+      const q = json['Global Quote'];
+      if (!q || !q['05. price']) return null;
+
+      const price     = parseFloat(q['05. price']);
+      const prevClose = parseFloat(q['08. previous close']) || undefined;
+      const change    = parseFloat(q['09. change']) || undefined;
+      const changePct = parseFloat((q['10. change percent'] || '0').replace('%', '')) || undefined;
 
       return {
-        symbol,
+        symbol: internalSymbol,
         price,
         previousClose: prevClose,
-        change: change ?? undefined,
-        changePercent: changePercent ?? undefined,
-        high: indicators?.high?.[indicators.high.length - 1],
-        low: indicators?.low?.[indicators.low.length - 1]
+        change,
+        changePercent: changePct,
+        high: parseFloat(q['03. high']) || undefined,
+        low:  parseFloat(q['04. low'])  || undefined,
+        source: 'alpha_vantage',
       };
-    } catch (error) {
-      console.error(`[Commodity Sync] Failed to fetch Yahoo price for ${symbol}:`, error);
+    } catch {
       return null;
     }
   }
 
-  async runPriceRefresh(): Promise<{ updated: number; errors: number }> {
-    console.log('[Commodity Sync] Running daily price refresh...');
-    
-    let updated = 0;
-    let errors = 0;
-    
+  // ── Tier 2: Python / yfinance batch (/market/quotes) ─────────────────────
+  private async fetchPythonBatchPrices(internalSymbols: string[]): Promise<Map<string, CommodityPriceData>> {
+    const results = new Map<string, CommodityPriceData>();
+    if (!internalSymbols.length) return results;
+
+    const futuresSymbols = internalSymbols
+      .map(s => ({ internal: s, futures: this.FUTURES_SYMBOLS[s.toUpperCase()] }))
+      .filter(x => x.futures);
+
+    if (!futuresSymbols.length) return results;
+
     try {
-      // Get all commodities that need price update
-      const staleThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      
-      const staleCommodities = await db.select({
-        id: commodities.id,
-        symbol: commodities.symbol,
-        name: commodities.name,
-        currentPrice: commodities.currentPrice
-      })
-        .from(commodities)
-        .where(sql`${commodities.lastUpdated} IS NULL OR ${commodities.lastUpdated} < ${staleThreshold}`)
-        .orderBy(sql`${commodities.lastUpdated} ASC NULLS FIRST`)
-        .limit(50);
-      
-      console.log(`[Commodity Sync] Found ${staleCommodities.length} stale commodities to refresh`);
-      
-      for (const commodity of staleCommodities) {
-        try {
-          // Try to fetch price from Yahoo Finance
-          const priceData = await this.fetchYahooPrice(commodity.symbol);
-          
-          const now = new Date();
-          const updateData: any = { lastUpdated: now };
-          
-          if (priceData && priceData.price > 0) {
-            updateData.previousClose = commodity.currentPrice;
-            updateData.currentPrice = priceData.price.toString();
-            updateData.dayChange = priceData.change?.toString();
-            updateData.dayChangePercent = priceData.changePercent?.toString();
-            if (priceData.high) updateData.weekHigh = priceData.high.toString();
-            if (priceData.low) updateData.weekLow = priceData.low.toString();
-            updateData.dataSource = 'yahoo_finance';
-          }
-          
-          await db.update(commodities)
-            .set(updateData)
-            .where(eq(commodities.id, commodity.id));
-          updated++;
-          
-          // Rate limit - wait between requests
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (err) {
-          errors++;
-          console.error(`[Commodity Sync] Failed to update ${commodity.symbol}:`, err);
+      const resp = await callPython<{ results: Record<string, any>; count: number }>(
+        '/market/quotes', 'POST',
+        { symbols: futuresSymbols.map(x => x.futures) },
+      );
+      if (!resp?.results) return results;
+
+      for (const { internal, futures } of futuresSymbols) {
+        const q = resp.results[futures];
+        if (!q?.price) continue;
+        results.set(internal, {
+          symbol:       internal,
+          price:        parseFloat(q.price),
+          previousClose: q.previousClose != null ? parseFloat(q.previousClose) : undefined,
+          change:        q.change        != null ? parseFloat(q.change)        : undefined,
+          changePercent: q.changePercent != null ? parseFloat(q.changePercent) : undefined,
+          high:          q.dayHigh       != null ? parseFloat(q.dayHigh)       : undefined,
+          low:           q.dayLow        != null ? parseFloat(q.dayLow)        : undefined,
+          source: 'python-yfinance',
+        });
+      }
+    } catch (err: any) {
+      console.warn(`[CommoditySync] Python batch failed: ${err.message}`);
+    }
+
+    return results;
+  }
+
+  // ── Tier 3: Yahoo Finance direct HTTP (last resort) ───────────────────────
+  private async fetchYahooPrice(internalSymbol: string): Promise<CommodityPriceData | null> {
+    const futuresSym = this.FUTURES_SYMBOLS[internalSymbol.toUpperCase()];
+    if (!futuresSym) return null;
+
+    try {
+      const resp = await fetch(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(futuresSym)}?interval=1d&range=5d`,
+        {
+          signal: AbortSignal.timeout(10000),
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        },
+      );
+      if (!resp.ok) return null;
+
+      const data = await resp.json();
+      const result = data?.chart?.result?.[0];
+      if (!result) return null;
+
+      const meta     = result.meta;
+      const price    = meta.regularMarketPrice || 0;
+      const prevClose = (meta.previousClose && meta.previousClose > 0) ? meta.previousClose : null;
+      const change   = prevClose != null ? price - prevClose : undefined;
+      const changePct = prevClose != null && prevClose > 0
+        ? ((price - prevClose) / prevClose) * 100
+        : undefined;
+      const indicators = result.indicators?.quote?.[0];
+
+      return {
+        symbol:        internalSymbol,
+        price,
+        previousClose: prevClose ?? undefined,
+        change,
+        changePercent: changePct,
+        high: indicators?.high?.[indicators.high.length - 1],
+        low:  indicators?.low?.[indicators.low.length - 1],
+        source: 'yahoo_finance',
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  // ── Persist one commodity price update to DB ───────────────────────────────
+  private async persistPrice(commodityId: string, currentPrice: string, priceData: CommodityPriceData): Promise<void> {
+    await db.update(commodities).set({
+      previousClose:    currentPrice,
+      currentPrice:     priceData.price.toString(),
+      dayChange:        priceData.change?.toString(),
+      dayChangePercent: priceData.changePercent?.toString(),
+      weekHigh:         priceData.high?.toString(),
+      weekLow:          priceData.low?.toString(),
+      dataSource:       priceData.source,
+      lastUpdated:      new Date(),
+    }).where(eq(commodities.id, commodityId));
+  }
+
+  // ── Main refresh — runs the full 3-tier waterfall ─────────────────────────
+  async runPriceRefresh(): Promise<{ updated: number; errors: number }> {
+    console.log('[CommoditySync] Starting 3-tier price refresh...');
+    let updated = 0;
+    let errors  = 0;
+
+    const staleThreshold = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    const staleCommodities = await db.select({
+      id:           commodities.id,
+      symbol:       commodities.symbol,
+      currentPrice: commodities.currentPrice,
+    })
+      .from(commodities)
+      .where(sql`${commodities.lastUpdated} IS NULL OR ${commodities.lastUpdated} < ${staleThreshold}`)
+      .orderBy(sql`${commodities.lastUpdated} ASC NULLS FIRST`)
+      .limit(50);
+
+    if (!staleCommodities.length) {
+      console.log('[CommoditySync] All commodity prices are fresh');
+      return { updated, errors };
+    }
+
+    console.log(`[CommoditySync] ${staleCommodities.length} stale commodities → starting tiered refresh`);
+
+    const priced  = new Map<string, CommodityPriceData>(); // internal symbol → data
+    const byId    = new Map<string, { id: string; currentPrice: string }>(); // internal symbol → db row
+    for (const c of staleCommodities) {
+      if (c.symbol) byId.set(c.symbol.toUpperCase(), { id: c.id, currentPrice: c.currentPrice?.toString() || '0' });
+    }
+
+    const allSymbols = staleCommodities.map(c => c.symbol?.toUpperCase()).filter(Boolean) as string[];
+
+    // ── Tier 1: Alpha Vantage for precious metals + energy ─────────────────
+    const avSymbols = allSymbols.filter(s => this.AV_SYMBOLS.has(s));
+    if (avSymbols.length && process.env.ALPHA_VANTAGE_API_KEY) {
+      console.log(`[CommoditySync] Tier 1 — Alpha Vantage for ${avSymbols.length} metals/energy`);
+      const settled = await Promise.allSettled(avSymbols.map(s => this.fetchAlphaVantagePrice(s)));
+      let avHit = 0;
+      for (let i = 0; i < avSymbols.length; i++) {
+        const r = settled[i];
+        if (r.status === 'fulfilled' && r.value && r.value.price > 0) {
+          priced.set(avSymbols[i], r.value);
+          avHit++;
         }
       }
-      
-      console.log(`[Commodity Sync] Price refresh complete: ${updated} updated, ${errors} errors`);
-    } catch (error) {
-      console.error('[Commodity Sync] Price refresh failed:', error);
+      console.log(`[CommoditySync] AV fetched ${avHit}/${avSymbols.length}`);
     }
-    
+
+    // ── Tier 2: Python/yfinance batch ──────────────────────────────────────
+    // Primary for agricultural; also picks up any Tier 1 misses
+    const pythonNeeded = allSymbols.filter(s => !priced.has(s));
+    if (pythonNeeded.length) {
+      console.log(`[CommoditySync] Tier 2 — Python/yfinance batch for ${pythonNeeded.length} symbols`);
+      const pythonResults = await this.fetchPythonBatchPrices(pythonNeeded);
+      for (const [sym, data] of pythonResults) {
+        priced.set(sym, data);
+      }
+      console.log(`[CommoditySync] Python filled ${pythonResults.size}/${pythonNeeded.length}`);
+    }
+
+    // ── Tier 3: Yahoo Finance — last resort, sequential ────────────────────
+    const yahooNeeded = allSymbols.filter(s => !priced.has(s));
+    if (yahooNeeded.length) {
+      console.log(`[CommoditySync] Tier 3 — Yahoo last-resort for ${yahooNeeded.length} symbols`);
+      for (const sym of yahooNeeded) {
+        try {
+          const data = await this.fetchYahooPrice(sym);
+          if (data && data.price > 0) priced.set(sym, data);
+          await new Promise(r => setTimeout(r, 800)); // respect Yahoo rate limits
+        } catch { /* skip */ }
+      }
+    }
+
+    // ── Persist all priced results to DB ──────────────────────────────────
+    for (const [sym, data] of priced) {
+      const row = byId.get(sym);
+      if (!row) continue;
+      try {
+        await this.persistPrice(row.id, row.currentPrice, data);
+        updated++;
+      } catch (err: any) {
+        errors++;
+        console.error(`[CommoditySync] DB save failed for ${sym}: ${err.message}`);
+      }
+    }
+
+    const missed = allSymbols.filter(s => !priced.has(s));
+    if (missed.length) {
+      errors += missed.length;
+      console.warn(`[CommoditySync] ${missed.length} symbols had no price from any tier: ${missed.join(', ')}`);
+    }
+
+    console.log(`[CommoditySync] Refresh complete — updated: ${updated}, errors: ${errors}`);
     return { updated, errors };
   }
 
   async runStartupCatchUp(): Promise<{ updated: number; errors: number }> {
-    console.log('[Commodity Sync] Running startup catch-up for stale prices...');
-    
-    const staleThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    
-    const [countResult] = await db.select({ count: sql<number>`count(*)` })
-      .from(commodities)
-      .where(sql`${commodities.lastUpdated} IS NULL OR ${commodities.lastUpdated} < ${staleThreshold}`);
-    
-    const staleCommodityCount = Number(countResult?.count || 0);
-    console.log(`[Commodity Sync] Found ${staleCommodityCount} commodities needing price refresh`);
-    
-    if (staleCommodityCount === 0) {
-      return { updated: 0, errors: 0 };
-    }
-    
-    // Process all stale commodities
+    console.log('[CommoditySync] Running startup catch-up...');
     const result = await this.runPriceRefresh();
-    
-    console.log(`[Commodity Sync] Startup catch-up complete: ${result.updated} updated, ${result.errors} errors`);
+    console.log(`[CommoditySync] Startup catch-up done: ${result.updated} updated, ${result.errors} errors`);
     return result;
   }
 
   async getStatus(): Promise<{
     totalCommodities: number;
     staleCommodities: number;
-    recentlyUpdated: number;
+    recentlyUpdated:  number;
     isRunning: boolean;
   }> {
-    const staleThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentThreshold = new Date(Date.now() - 60 * 60 * 1000); // Last hour
-    
-    const [total] = await db.select({ count: sql<number>`count(*)` }).from(commodities);
-    const [stale] = await db.select({ count: sql<number>`count(*)` })
-      .from(commodities)
+    const staleThreshold  = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    const recentThreshold = new Date(Date.now() - 60 * 60 * 1000);
+
+    const [total]  = await db.select({ count: sql<number>`count(*)` }).from(commodities);
+    const [stale]  = await db.select({ count: sql<number>`count(*)` }).from(commodities)
       .where(sql`${commodities.lastUpdated} IS NULL OR ${commodities.lastUpdated} < ${staleThreshold}`);
-    const [recent] = await db.select({ count: sql<number>`count(*)` })
-      .from(commodities)
+    const [recent] = await db.select({ count: sql<number>`count(*)` }).from(commodities)
       .where(sql`${commodities.lastUpdated} > ${recentThreshold}`);
-    
+
     return {
-      totalCommodities: Number(total?.count || 0),
-      staleCommodities: Number(stale?.count || 0),
-      recentlyUpdated: Number(recent?.count || 0),
-      isRunning: this.isRunning
+      totalCommodities: Number(total?.count  || 0),
+      staleCommodities: Number(stale?.count  || 0),
+      recentlyUpdated:  Number(recent?.count || 0),
+      isRunning: this.isRunning,
     };
   }
 }
