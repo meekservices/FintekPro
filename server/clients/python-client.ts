@@ -242,6 +242,7 @@ export async function proxyToPython(req: Request, res: Response, path: string): 
     const upstream = await fetchWithToken((req as any).user, url, {
       method: req.method,
       body,
+      signal: AbortSignal.timeout(30_000),
     });
     const json = await upstream.json();
     if (upstream.ok) {
@@ -287,6 +288,7 @@ export async function callPython<T = any>(
     const res = await fetchWithToken(user, url, {
       method,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(15_000),
     });
 
     if (!res.ok) {
