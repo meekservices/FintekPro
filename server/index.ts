@@ -608,7 +608,7 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
 });
 
 (async () => {
-  // Python analytics served by https://python.fintekpro.com (external Railway service).
+  // Python analytics micro-service (Railway private network or public URL via PYTHON_SERVICE_URL).
   // Log the configured URL so it's visible in every boot.
   const pyUrl = process.env.PYTHON_SERVICE_URL;
   if (pyUrl) {
