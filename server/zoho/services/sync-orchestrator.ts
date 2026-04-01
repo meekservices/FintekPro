@@ -136,7 +136,6 @@ export class ZohoSyncOrchestrator {
       .limit(1);
 
     if (!connection) {
-      console.warn('[ZohoSyncOrchestrator] No active Zoho connection found in DB — skipping sync');
       return null;
     }
 

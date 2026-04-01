@@ -7,6 +7,7 @@ let reconciliationTask: cron.ScheduledTask | null = null;
 function isSyncEnabled(): boolean {
   if (process.env.ZOHO_SYNC_ENABLED === 'true') return true;
   if (process.env.ZOHO_SYNC_ENABLED === 'false') return false;
+  if (!process.env.ZOHO_CLIENT_ID) return false;
   return process.env.NODE_ENV === 'production';
 }
 
