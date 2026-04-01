@@ -64,7 +64,6 @@ export class ZohoWebhookProcessor {
       .limit(1);
 
     if (!connection) {
-      console.warn('[ZohoWebhookProcessor] No active Zoho connection found in DB — skipping');
       return null;
     }
 
