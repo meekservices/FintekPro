@@ -49,6 +49,135 @@ def _is_stale(key: str) -> bool:
     return (time.time() - MODEL_CACHE[key]["trained_at"]) > CACHE_TTL_S
 
 
+async def train_model_internal(
+    asset_class: str = "all",
+    max_samples: int = 5000,
+    n_estimators: int = 200,
+    max_depth: int = 4,
+    learning_rate: float = 0.05,
+    n_folds: int = 5,
+) -> dict:
+    """
+    Core training logic shared by the HTTP endpoint and the boot-time auto-trainer.
+    Returns a result dict; callers check for 'error' key on failure.
+    """
+    try:
+        async with db_conn() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT category, return_pct, confidence_score, key_metrics
+                FROM daily_picks
+                WHERE status IN ('target_hit', 'stoploss_hit', 'expired')
+                  AND return_pct IS NOT NULL
+                  AND ($1 = 'all' OR category = $1)
+                ORDER BY reco_date DESC
+                LIMIT $2
+                """,
+                asset_class, max_samples,
+            )
+
+        if not rows or len(rows) < 20:
+            return {"error": f"Insufficient training data: {len(rows) if rows else 0} samples (need ≥ 20)"}
+
+        records = []
+        for row in rows:
+            try:
+                metrics = dict(row["key_metrics"]) if row["key_metrics"] else {}
+                feat = {}
+                for k in FEATURE_KEYS:
+                    v = metrics.get(k)
+                    if v is not None and not (isinstance(v, float) and np.isnan(v)):
+                        feat[k] = float(v)
+                if row["confidence_score"] is not None:
+                    feat["confidenceScore"] = float(row["confidence_score"])
+                if len(feat) < 2:
+                    continue
+                feat["_target"] = float(row["return_pct"])
+                feat["_category"] = str(row["category"])
+                records.append(feat)
+            except Exception:
+                continue
+
+        if len(records) < 20:
+            return {"error": f"Only {len(records)} usable samples after feature extraction (need ≥ 20)"}
+
+        df = pd.DataFrame(records)
+        available_features = [f for f in FEATURE_KEYS if f in df.columns and df[f].notna().sum() > 5]
+        if not available_features:
+            return {"error": "No usable features found in training data"}
+
+        y = df["_target"].values
+        X_scaled, scaler, means = _impute_and_scale(df, available_features)
+
+        model = GradientBoostingRegressor(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            learning_rate=learning_rate,
+            subsample=0.8,
+            random_state=42,
+            validation_fraction=0.1,
+            n_iter_no_change=20,
+            tol=1e-4,
+        )
+
+        kf = KFold(n_splits=min(n_folds, len(records) // 5), shuffle=True, random_state=42)
+        cv_r2   = cross_val_score(model, X_scaled, y, cv=kf, scoring="r2")
+        cv_rmse = np.sqrt(-cross_val_score(model, X_scaled, y, cv=kf, scoring="neg_mean_squared_error"))
+
+        model.fit(X_scaled, y)
+
+        y_pred           = model.predict(X_scaled)
+        train_r2         = float(r2_score(y, y_pred))
+        train_rmse       = float(np.sqrt(mean_squared_error(y, y_pred)))
+        directional_acc  = float(np.mean(np.sign(y_pred) == np.sign(y)))
+        importance_dict  = {f: round(float(imp), 6)
+                            for f, imp in zip(available_features, model.feature_importances_)}
+
+        MODEL_CACHE[_cache_key(asset_class)] = {
+            "model":         model,
+            "scaler":        scaler,
+            "feature_cols":  available_features,
+            "feature_means": means,
+            "asset_class":   asset_class,
+            "trained_at":    time.time(),
+            "metadata": {
+                "assetClass":          asset_class,
+                "sampleSize":          len(records),
+                "features":            available_features,
+                "nEstimators":         int(model.n_estimators_),
+                "maxDepth":            max_depth,
+                "learningRate":        learning_rate,
+                "trainR2":             round(train_r2, 4),
+                "trainRmse":           round(train_rmse, 4),
+                "cvR2Mean":            round(float(cv_r2.mean()), 4),
+                "cvR2Std":             round(float(cv_r2.std()), 4),
+                "cvRmseMean":          round(float(cv_rmse.mean()), 4),
+                "directionalAccuracy": round(directional_acc, 4),
+                "featureImportances":  importance_dict,
+                "modelVersion":        "py-sklearn-v1",
+                "trainedAt":           pd.Timestamp.now().isoformat(),
+            },
+        }
+
+        return {
+            "success":            True,
+            "assetClass":         asset_class,
+            "sampleSize":         len(records),
+            "features":           available_features,
+            "trainR2":            round(train_r2, 4),
+            "trainRmse":          round(train_rmse, 4),
+            "cvR2":               {"mean": round(float(cv_r2.mean()), 4), "std": round(float(cv_r2.std()), 4)},
+            "cvRmse":             {"mean": round(float(cv_rmse.mean()), 4)},
+            "directionalAccuracy": round(directional_acc, 4),
+            "featureImportances": importance_dict,
+            "nEstimatorsActual":  int(model.n_estimators_),
+            "modelVersion":       "py-sklearn-v1",
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
 def _impute_and_scale(df: pd.DataFrame, feature_cols: List[str],
                       scaler: Optional[StandardScaler] = None) -> tuple:
     X = df[feature_cols].copy()
@@ -109,133 +238,17 @@ async def train_model(
     if token.role not in ("admin", "agent"):
         return {"error": "Admin or agent role required"}
 
-    try:
-        asset_class = payload.get("assetClass", "all")
-        max_samples = int(payload.get("maxSamples", 5000))
-        n_estimators = int(payload.get("nEstimators", 200))
-        max_depth = int(payload.get("maxDepth", 4))
-        learning_rate = float(payload.get("learningRate", 0.05))
-        n_folds = int(payload.get("nFolds", 5))
-
-        async with db_conn() as conn:
-            rows = await conn.fetch(
-                """
-                SELECT category, return_pct, confidence_score, key_metrics
-                FROM daily_picks
-                WHERE status IN ('target_hit', 'stoploss_hit', 'expired')
-                  AND return_pct IS NOT NULL
-                  AND ($1 = 'all' OR category = $1)
-                ORDER BY reco_date DESC
-                LIMIT $2
-                """,
-                asset_class, max_samples,
-            )
-
-        if not rows or len(rows) < 20:
-            return {
-                "error": f"Insufficient training data: {len(rows) if rows else 0} samples (need ≥ 20)",
-                "tip": "Run more daily picks to completion before training",
-            }
-
-        records = []
-        for row in rows:
-            try:
-                metrics = dict(row["key_metrics"]) if row["key_metrics"] else {}
-                feat = {}
-                for k in FEATURE_KEYS:
-                    v = metrics.get(k)
-                    if v is not None and not (isinstance(v, float) and np.isnan(v)):
-                        feat[k] = float(v)
-                if row["confidence_score"] is not None:
-                    feat["confidenceScore"] = float(row["confidence_score"])
-                if len(feat) < 2:
-                    continue
-                feat["_target"] = float(row["return_pct"])
-                feat["_category"] = str(row["category"])
-                records.append(feat)
-            except Exception:
-                continue
-
-        if len(records) < 20:
-            return {"error": f"Only {len(records)} usable samples after feature extraction (need ≥ 20)"}
-
-        df = pd.DataFrame(records)
-        available_features = [f for f in FEATURE_KEYS if f in df.columns and df[f].notna().sum() > 5]
-        if not available_features:
-            return {"error": "No usable features found in training data"}
-
-        y = df["_target"].values
-        X_scaled, scaler, means = _impute_and_scale(df, available_features)
-
-        model = GradientBoostingRegressor(
-            n_estimators=n_estimators,
-            max_depth=max_depth,
-            learning_rate=learning_rate,
-            subsample=0.8,
-            random_state=42,
-            validation_fraction=0.1,
-            n_iter_no_change=20,
-            tol=1e-4,
-        )
-
-        kf = KFold(n_splits=min(n_folds, len(records) // 5), shuffle=True, random_state=42)
-        cv_r2 = cross_val_score(model, X_scaled, y, cv=kf, scoring="r2")
-        cv_rmse = np.sqrt(-cross_val_score(model, X_scaled, y, cv=kf, scoring="neg_mean_squared_error"))
-
-        model.fit(X_scaled, y)
-
-        y_pred = model.predict(X_scaled)
-        train_r2 = float(r2_score(y, y_pred))
-        train_rmse = float(np.sqrt(mean_squared_error(y, y_pred)))
-        directional_acc = float(np.mean(np.sign(y_pred) == np.sign(y)))
-
-        importance_dict = {f: round(float(imp), 6)
-                           for f, imp in zip(available_features, model.feature_importances_)}
-
-        cache_entry = {
-            "model": model,
-            "scaler": scaler,
-            "feature_cols": available_features,
-            "feature_means": means,
-            "asset_class": asset_class,
-            "trained_at": time.time(),
-            "metadata": {
-                "assetClass": asset_class,
-                "sampleSize": len(records),
-                "features": available_features,
-                "nEstimators": int(model.n_estimators_),
-                "maxDepth": max_depth,
-                "learningRate": learning_rate,
-                "trainR2": round(train_r2, 4),
-                "trainRmse": round(train_rmse, 4),
-                "cvR2Mean": round(float(cv_r2.mean()), 4),
-                "cvR2Std": round(float(cv_r2.std()), 4),
-                "cvRmseMean": round(float(cv_rmse.mean()), 4),
-                "directionalAccuracy": round(directional_acc, 4),
-                "featureImportances": importance_dict,
-                "modelVersion": "py-sklearn-v1",
-                "trainedAt": pd.Timestamp.now().isoformat(),
-            },
-        }
-        MODEL_CACHE[_cache_key(asset_class)] = cache_entry
-
-        return {
-            "success": True,
-            "assetClass": asset_class,
-            "sampleSize": len(records),
-            "features": available_features,
-            "trainR2": round(train_r2, 4),
-            "trainRmse": round(train_rmse, 4),
-            "cvR2": {"mean": round(float(cv_r2.mean()), 4), "std": round(float(cv_r2.std()), 4)},
-            "cvRmse": {"mean": round(float(cv_rmse.mean()), 4)},
-            "directionalAccuracy": round(directional_acc, 4),
-            "featureImportances": importance_dict,
-            "nEstimatorsActual": int(model.n_estimators_),
-            "modelVersion": "py-sklearn-v1",
-        }
-
-    except Exception as e:
-        return {"error": str(e)}
+    result = await train_model_internal(
+        asset_class=payload.get("assetClass", "all"),
+        max_samples=int(payload.get("maxSamples", 5000)),
+        n_estimators=int(payload.get("nEstimators", 200)),
+        max_depth=int(payload.get("maxDepth", 4)),
+        learning_rate=float(payload.get("learningRate", 0.05)),
+        n_folds=int(payload.get("nFolds", 5)),
+    )
+    if "error" in result and result["error"].startswith("Insufficient"):
+        result["tip"] = "Run more daily picks to completion before training"
+    return result
 
 
 @router.post("/score")

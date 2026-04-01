@@ -51,8 +51,8 @@ function recordFailure(status?: number): void {
         console.warn(
           `[PythonClient] 💡 Railway hint: PYTHON_SERVICE_URL is "${url}" but the service returned 502.` +
           ` Check Railway → Python service → Deployments to ensure it is running and healthy.` +
-          ` The expected value is: http://<python-service-name>.railway.internal` +
-          ` (see services/python/README.md for full setup steps).` +
+          ` The expected value is: http://<python-service-name>.railway.internal:8080` +
+          ` (port 8080 is required for Railway private networking — the client auto-injects it for .railway.internal URLs).` +
           ` AI scoring and quant features will be degraded until the service is reachable.`
         );
       }
@@ -73,8 +73,20 @@ function getBaseUrl(): string {
   let url = process.env.PYTHON_SERVICE_URL?.trim() || '';
   if (!url) return '';
   url = url.replace(/\/$/, '');
-  if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
-    url = `https://${url}`;
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `http://${url}`;
+  }
+  // Railway private networking requires explicit port 8080.
+  // Auto-inject it when the URL is a .railway.internal hostname without a port.
+  // e.g. http://fintek-analytics.railway.internal → http://fintek-analytics.railway.internal:8080
+  if (url.includes('.railway.internal')) {
+    try {
+      const parsed = new URL(url);
+      if (!parsed.port) {
+        parsed.port = '8080';
+        url = parsed.toString().replace(/\/$/, '');
+      }
+    } catch { /* malformed URL — use as-is */ }
   }
   return url;
 }

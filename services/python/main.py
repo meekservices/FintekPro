@@ -1,4 +1,5 @@
 import os
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,7 +12,7 @@ from routes.forecasting import router as forecasting_router
 from routes.portfolio_ops import router as portfolio_ops_router
 from routes.fixed_income import router as fixed_income_router
 from routes.factor_model import router as factor_model_router
-from routes.ml_scoring import router as ml_scoring_router
+from routes.ml_scoring import router as ml_scoring_router, train_model_internal
 from routes.regime import router as regime_router
 from routes.price_returns import router as price_returns_router
 from routes.corporate_actions import router as corporate_actions_router
@@ -22,11 +23,33 @@ from routes.derivatives import router as derivatives_router
 load_dotenv()
 
 
+async def _auto_train_ml() -> None:
+    """
+    Background task: attempt to pre-train the ML scoring model at service startup.
+    Runs 20 s after boot so the DB connection pool is fully warmed.
+    Logs success or skips gracefully — never blocks startup or crashes the service.
+    """
+    await asyncio.sleep(20)
+    try:
+        result = await train_model_internal(asset_class="all", max_samples=5000)
+        if result.get("success"):
+            print(
+                f"✅ [MLAutoTrain] Model ready: {result.get('sampleSize', 0)} samples | "
+                f"R²={result.get('trainR2')} | directional={result.get('directionalAccuracy')}"
+            )
+        else:
+            print(f"ℹ️  [MLAutoTrain] Training skipped at startup: {result.get('error', 'unknown reason')}"
+                  " — call POST /api/ml/train once daily_picks have completed outcomes.")
+    except Exception as exc:
+        print(f"ℹ️  [MLAutoTrain] Non-critical startup error: {exc}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("✅ [FintekPro Python Service] Starting up...")
     await get_pool()
     print("✅ [FintekPro Python Service] Database pool ready")
+    asyncio.create_task(_auto_train_ml())
     yield
     await close_pool()
     print("⏹️  [FintekPro Python Service] Shutdown complete")
