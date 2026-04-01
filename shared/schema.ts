@@ -28870,7 +28870,7 @@ export const historicalNavData = pgTable("historical_nav_data", {
 }, (table) => [
   index("idx_historical_nav_identifier").on(table.identifier, table.identifierType),
   index("idx_historical_nav_date").on(table.identifier, table.date),
-  index("idx_historical_nav_lookup").on(table.identifier, table.identifierType, table.date),
+  uniqueIndex("idx_historical_nav_unique").on(table.identifier, table.identifierType, table.date),
 ]);
 
 export const insertHistoricalNavDataSchema = createInsertSchema(historicalNavData).omit({ id: true, createdAt: true, fetchedAt: true });
