@@ -1264,6 +1264,29 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     console.error('[Migration] mutual_funds columns error:', e?.message);
   }
 
+  // Boot-time: create audit_trail table if missing (used by audit-trail middleware)
+  try {
+    const { db: auditDb } = await import('./db');
+    const { sql: auditSql } = await import('drizzle-orm');
+    await auditDb.execute(auditSql`
+      CREATE TABLE IF NOT EXISTS audit_trail (
+        id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id     VARCHAR,
+        action      VARCHAR NOT NULL,
+        category    VARCHAR NOT NULL,
+        details     TEXT,
+        ip_address  VARCHAR,
+        user_agent  TEXT,
+        outcome     VARCHAR,
+        risk_level  VARCHAR,
+        created_at  TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    console.log('✅ [Migration] audit_trail table verified/created');
+  } catch (e: any) {
+    console.error('[Migration] audit_trail table error:', e?.message);
+  }
+
   // Register additional routes from routes.ts (but don't create a new server - we already have one)
   await registerRoutes(app, server);
 
