@@ -263,7 +263,8 @@ const CATEGORY_CONFIG: Record<ProductCategory, {
 class UnifiedAIRecommendationEngine {
   private gemini: GoogleGenAI | null = null;
   private openai: OpenAI | null = null;
-  private modelPreference: 'gemini' | 'openai' = 'gemini';
+  private groq: OpenAI | null = null;
+  private modelPreference: 'gemini' | 'openai' | 'groq' = 'gemini';
   private _regimeCache: { data: { regime: string; signal_score: number; confidence: number }; fetchedAt: number } | null = null;
 
   constructor() {
@@ -280,7 +281,7 @@ class UnifiedAIRecommendationEngine {
   }
 
   private initializeModels() {
-    // Initialize OpenAI (fallback) - prefer Replit AI Integrations with its proxy base URL
+    // Initialize OpenAI (optional paid fallback)
     const useAiIntegrations = !!process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
     const openaiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || 
                       process.env.OPENAI_API_KEY;
@@ -290,6 +291,14 @@ class UnifiedAIRecommendationEngine {
         config.baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
       }
       this.openai = new OpenAI(config);
+    }
+
+    // Initialize Groq (free-tier fallback — Llama 3.3 70B, 14,400 req/day)
+    if (process.env.GROQ_API_KEY) {
+      this.groq = new OpenAI({
+        baseURL: 'https://api.groq.com/openai/v1',
+        apiKey: process.env.GROQ_API_KEY,
+      });
     }
 
     // Initialize Gemini (primary)
@@ -302,7 +311,8 @@ class UnifiedAIRecommendationEngine {
 
     const status = ['Python sidecar (primary scoring)'];
     if (this.gemini) status.push('Gemini (text generation / advisory)');
-    if (this.openai) status.push('OpenAI (fallback)');
+    if (this.groq)   status.push('Groq/Llama-3.3-70B (free fallback)');
+    if (this.openai) status.push('OpenAI (paid fallback)');
     
     console.log(`✅ Unified AI Recommendation Engine initialized: ${status.join(', ')}`);
   }
