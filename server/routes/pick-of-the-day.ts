@@ -395,6 +395,7 @@ router.get("/stats", async (req, res) => {
   }
 });
 
+
 router.post("/generate", requireAdmin, async (req, res) => {
   try {
     const picks = await pickOfTheDayService.generateDailyPicks();
