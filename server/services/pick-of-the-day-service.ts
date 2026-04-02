@@ -700,6 +700,31 @@ class PickOfTheDayService {
           console.warn(`[PickOfTheDay] Golden prices RSI fallback failed for ${topStock.symbol}:`, err);
         }
       }
+
+      // ── RSI fallback via yahoo-finance2 when golden_prices is empty ──────────
+      if (needsRsi && directRsi === null && topStock.symbol) {
+        try {
+          const yahooFinance = require('yahoo-finance2').default;
+          const nseSymbol = `${topStock.symbol}.NS`;
+          const period1 = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          const historical = await yahooFinance.historical(nseSymbol, { period1, interval: '1d' });
+          if (historical && historical.length >= 15) {
+            const closes = historical.map((h: any) => h.close as number);
+            let gains = 0, losses = 0;
+            for (let i = closes.length - 14; i < closes.length; i++) {
+              const diff = closes[i] - closes[i - 1];
+              if (diff > 0) gains += diff;
+              else losses += Math.abs(diff);
+            }
+            const avgGain = gains / 14;
+            const avgLoss = losses / 14;
+            directRsi = avgLoss === 0 ? 100 : Math.round((100 - (100 / (1 + avgGain / avgLoss))) * 100) / 100;
+            console.log(`[PickOfTheDay] Yahoo Finance RSI(14) for ${topStock.symbol}: ${directRsi}`);
+          }
+        } catch (err) {
+          console.warn(`[PickOfTheDay] Yahoo Finance RSI fallback failed for ${topStock.symbol}:`, err);
+        }
+      }
       // ─────────────────────────────────────────────────────────────────────────
 
       const enrichedRationaleData: Record<string, any> = {};

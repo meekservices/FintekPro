@@ -1807,12 +1807,12 @@ export default function AgentPicksPage() {
                   </h4>
                   <div className="grid grid-cols-2 gap-2">
                     {Object.entries(selectedPick.keyMetrics)
-                      .filter(([k, v]) => !['cin', 'seriesCode', 'strategy', 'expiry', 'greeks'].includes(k) && typeof v !== 'object')
-                      .slice(0, 8)
+                      .filter(([k, v]) => !['cin', 'seriesCode', 'strategy', 'expiry', 'greeks'].includes(k) && (v !== null && v !== undefined ? typeof v !== 'object' : ['rsi', 'roic'].includes(k)))
+                      .slice(0, 10)
                       .map(([key, val]) => (
                         <div key={key} className="bg-muted/50 rounded-md px-3 py-2">
                           <p className="text-xs text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</p>
-                          <p className="font-medium text-sm">{String(val)}</p>
+                          <p className={`font-medium text-sm ${(val === null || val === undefined) ? 'text-muted-foreground' : ''}`}>{val === null || val === undefined ? 'N/A' : String(val)}</p>
                         </div>
                       ))}
                   </div>
