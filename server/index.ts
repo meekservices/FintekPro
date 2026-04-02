@@ -1144,30 +1144,120 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
 
     console.log('✅ [Migration] ON CONFLICT UNIQUE indexes verified/created');
 
-    // ── historical_nav_data (identifier, identifier_type, date) ───────────────
-    // Large table — run dedup + index creation in the background so it doesn't
-    // block route registration. ON CONFLICT fallback in the service handles the
-    // interim period before the index lands.
+    // ── Background unique-index repair ────────────────────────────────────────
+    // All tables below have ON CONFLICT clauses in their services but the
+    // corresponding unique indexes were never pushed to the production DB.
+    // Each block: dedup rows (keep latest), then CREATE UNIQUE INDEX IF NOT EXISTS.
+    // Runs via setImmediate so it never blocks route registration / boot.
     setImmediate(async () => {
-      try {
-        const { db: navDb } = await import('./db');
-        const { sql: navSql } = await import('drizzle-orm');
-        await navDb.execute(navSql`
-          DELETE FROM historical_nav_data
-          WHERE id NOT IN (
-            SELECT DISTINCT ON (identifier, identifier_type, date) id
-            FROM historical_nav_data
-            ORDER BY identifier, identifier_type, date, fetched_at DESC NULLS LAST
-          )
-        `);
-        await navDb.execute(navSql`
-          CREATE UNIQUE INDEX IF NOT EXISTS idx_historical_nav_unique
-            ON historical_nav_data (identifier, identifier_type, date)
-        `);
-        console.log('✅ [Migration] historical_nav_data unique index created (background)');
-      } catch (e: any) {
-        console.warn('[Migration] historical_nav_data index (background):', e?.message);
-      }
+      const { db: bgDb } = await import('./db');
+      const { sql: bgSql } = await import('drizzle-orm');
+
+      // Helper: dedup by arbitrary columns, keeping row with max id
+      const dedupAndIndex = async (
+        label: string,
+        dedupsql: string,
+        indexsql: string
+      ) => {
+        try {
+          await bgDb.execute(bgSql.raw(dedupsql));
+          await bgDb.execute(bgSql.raw(indexsql));
+          console.log(`✅ [Migration] ${label} unique index created (background)`);
+        } catch (e: any) {
+          console.warn(`[Migration] ${label} (background):`, e?.message);
+        }
+      };
+
+      // 1. historical_nav_data (identifier, identifier_type, date)
+      await dedupAndIndex(
+        'historical_nav_data',
+        `DELETE FROM historical_nav_data
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (identifier, identifier_type, date) id
+           FROM historical_nav_data
+           ORDER BY identifier, identifier_type, date, fetched_at DESC NULLS LAST
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_historical_nav_unique
+           ON historical_nav_data (identifier, identifier_type, date)`
+      );
+
+      // 2. mutual_fund_metrics (scheme_code, fiscal_year)
+      await dedupAndIndex(
+        'mutual_fund_metrics',
+        `DELETE FROM mutual_fund_metrics
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (scheme_code, fiscal_year) id
+           FROM mutual_fund_metrics
+           ORDER BY scheme_code, fiscal_year, last_updated DESC NULLS LAST
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_metrics_scheme_fy
+           ON mutual_fund_metrics (scheme_code, fiscal_year)`
+      );
+
+      // 3. mf_taxonomy_versions (version)
+      await dedupAndIndex(
+        'mf_taxonomy_versions',
+        `DELETE FROM mf_taxonomy_versions
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (version) id
+           FROM mf_taxonomy_versions
+           ORDER BY version, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_taxonomy_version
+           ON mf_taxonomy_versions (version)`
+      );
+
+      // 4. mf_category_master (taxonomy_version, group_code)
+      await dedupAndIndex(
+        'mf_category_master',
+        `DELETE FROM mf_category_master
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (taxonomy_version, group_code) id
+           FROM mf_category_master
+           ORDER BY taxonomy_version, group_code, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_mf_category_master_version_code
+           ON mf_category_master (taxonomy_version, group_code)`
+      );
+
+      // 5. mf_subcategory_master (subcategory_code)
+      await dedupAndIndex(
+        'mf_subcategory_master',
+        `DELETE FROM mf_subcategory_master
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (subcategory_code) id
+           FROM mf_subcategory_master
+           ORDER BY subcategory_code, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_subcategory_code
+           ON mf_subcategory_master (subcategory_code)`
+      );
+
+      // 6. mf_portfolio_holdings (scheme_code, isin, as_of_date)
+      await dedupAndIndex(
+        'mf_portfolio_holdings',
+        `DELETE FROM mf_portfolio_holdings
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (scheme_code, isin, as_of_date) id
+           FROM mf_portfolio_holdings
+           ORDER BY scheme_code, isin, as_of_date, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_mf_portfolio_holdings_unique
+           ON mf_portfolio_holdings (scheme_code, isin, as_of_date)`
+      );
+
+      // 7. mf_overlap_matrix (scheme_code_a, scheme_code_b)
+      await dedupAndIndex(
+        'mf_overlap_matrix',
+        `DELETE FROM mf_overlap_matrix
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (scheme_code_a, scheme_code_b) id
+           FROM mf_overlap_matrix
+           ORDER BY scheme_code_a, scheme_code_b, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_mf_overlap_matrix_pair
+           ON mf_overlap_matrix (scheme_code_a, scheme_code_b)`
+      );
     });
   } catch (e: any) {
     console.warn('[Migration] ON CONFLICT UNIQUE index skipped:', e?.message);
