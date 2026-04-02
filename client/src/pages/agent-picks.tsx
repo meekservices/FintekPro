@@ -65,7 +65,20 @@ import {
   X,
   Download,
   Lightbulb,
+  Copy,
+  Zap,
+  Search,
 } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+} from "recharts";
 
 interface DailyPick {
   id: number;
@@ -319,6 +332,7 @@ export default function AgentPicksPage() {
   const [todayMarketFilter, setTodayMarketFilter] = useState<string>("all");
   const [liveMarketFilter, setLiveMarketFilter] = useState<string>("all");
   const [historyMarketFilter, setHistoryMarketFilter] = useState<string>("all");
+  const [liveSearchQuery, setLiveSearchQuery] = useState<string>("");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [sharePickId, setSharePickId] = useState<number | null>(null);
   const [shareEmail, setShareEmail] = useState("");
@@ -524,6 +538,14 @@ export default function AgentPicksPage() {
     if (isPickExpired(p)) return false;
     if (liveCategoryFilter !== "all" && p.category !== liveCategoryFilter) return false;
     if (liveCategoryFilter === "global_stocks" && !filterByMarket(p, liveMarketFilter)) return false;
+    if (liveSearchQuery.trim()) {
+      const q = liveSearchQuery.toLowerCase();
+      const match =
+        p.instrumentName?.toLowerCase().includes(q) ||
+        p.symbol?.toLowerCase().includes(q) ||
+        p.sectorCategory?.toLowerCase().includes(q);
+      if (!match) return false;
+    }
     return true;
   });
 
@@ -637,6 +659,60 @@ export default function AgentPicksPage() {
     unknown: 'N/A',
   };
 
+  const topPickOfDay = todayPicks.length > 0
+    ? [...todayPicks].sort((a, b) => (b.confidenceScore ?? 0) - (a.confidenceScore ?? 0))[0]
+    : null;
+
+  const exportTodaysPicksCSV = () => {
+    const rows = [
+      ['Name', 'Symbol', 'Category', 'Entry Price', 'Target', 'Stoploss', 'Upside%', 'Downside%', 'Horizon', 'Confidence', 'Date'],
+      ...todayPicks.map(p => {
+        const up = p.targetPrice && p.recoPrice ? ((p.targetPrice - p.recoPrice) / p.recoPrice * 100).toFixed(1) : '';
+        const dn = p.stoplossPrice && p.recoPrice ? ((p.recoPrice - p.stoplossPrice) / p.recoPrice * 100).toFixed(1) : '';
+        return [
+          p.instrumentName,
+          p.symbol || '',
+          categoryLabels[p.category] || p.category,
+          p.recoPrice,
+          p.targetPrice,
+          p.stoplossPrice,
+          up,
+          dn,
+          p.timeHorizon || '',
+          p.confidenceScore ?? '',
+          new Date(p.recoDate).toLocaleDateString('en-IN'),
+        ];
+      }),
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fintek-picks-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const historicalChartData = (() => {
+    const closed = historyPicks
+      .filter(p => p.status === 'target_hit' || p.status === 'stoploss_hit')
+      .sort((a, b) => new Date(a.recoDate).getTime() - new Date(b.recoDate).getTime());
+    let cumulative = 0;
+    return closed.map(p => {
+      const ret = p.returnPct ?? (p.status === 'target_hit'
+        ? (p.targetPrice && p.recoPrice ? (p.targetPrice - p.recoPrice) / p.recoPrice * 100 : 0)
+        : (p.stoplossPrice && p.recoPrice ? -(p.recoPrice - p.stoplossPrice) / p.recoPrice * 100 : 0));
+      cumulative += Number(ret);
+      return {
+        date: new Date(p.recoDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+        return: Number(ret).toFixed(1),
+        cumulative: Number(cumulative.toFixed(1)),
+        name: p.instrumentName,
+      };
+    });
+  })();
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -689,81 +765,72 @@ export default function AgentPicksPage() {
         </div>
       )}
 
-      {/* Performance Stats */}
+      {/* #1 Performance Hero Banner */}
       {loadingStats ? (
-        <div className="grid gap-4 md:grid-cols-5">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
-        </div>
+        <Skeleton className="h-36 w-full rounded-xl" />
       ) : stats ? (
-        <div className="space-y-2">
-        {statsData?.lastDataRefresh && (
-          <div className="text-[11px] text-muted-foreground flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            Stats as of {new Date(statsData.lastDataRefresh).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
-          </div>
-        )}
-        <div className="grid gap-4 md:grid-cols-5">
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2">
-                <History className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Total Picks</span>
+        <div className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-primary/10 via-primary/5 to-background p-6">
+          <div className="absolute inset-0 bg-grid-white/5 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.6))]" />
+          <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+                AI Performance Track Record
+              </p>
+              <div className="flex flex-wrap items-end gap-6">
+                <div>
+                  <div className="text-4xl font-black text-primary leading-none">{stats.hitRate ?? 0}%</div>
+                  <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <Trophy className="h-3 w-3 text-amber-500" /> Hit Rate
+                  </div>
+                </div>
+                <div>
+                  <div className={`text-4xl font-black leading-none ${(stats.avgReturn ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {(stats.avgReturn ?? 0) >= 0 ? '+' : ''}{(stats.avgReturn ?? 0).toFixed(1)}%
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <TrendingUp className="h-3 w-3 text-green-500" /> Avg Return
+                  </div>
+                </div>
+                <div className="hidden sm:block w-px h-10 bg-border" />
+                <div className="flex gap-6">
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">{stats.livePicks}</div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Live
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">{stats.targetHits}</div>
+                    <div className="text-xs text-muted-foreground">Targets Hit</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold">{stats.totalPicks}</div>
+                    <div className="text-xs text-muted-foreground">Total Picks</div>
+                  </div>
+                </div>
               </div>
-              <div className="text-2xl font-bold mt-1">{stats.totalPicks}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-muted-foreground">Live</span>
-              </div>
-              <div className="text-2xl font-bold mt-1 text-green-600">{stats.livePicks}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-blue-500" />
-                <span className="text-sm text-muted-foreground">Target Hits</span>
-              </div>
-              <div className="text-2xl font-bold mt-1 text-blue-600">{stats.targetHits}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2">
-                <Target className="h-4 w-4 text-orange-500" />
-                <span className="text-sm text-muted-foreground">Hit Rate</span>
-              </div>
+            </div>
+            <div className="sm:text-right">
               {(() => {
                 const closedCount = stats.targetHits + (stats.stoplossHits || 0) + (stats.expired || 0);
                 return closedCount > 0 ? (
-                  <>
-                    <div className="text-2xl font-bold mt-1">{stats.hitRate}%</div>
-                    <span className="text-xs text-muted-foreground">{closedCount} closed</span>
-                    <Progress value={stats.hitRate} className="mt-1 h-1" />
-                  </>
-                ) : (
-                  <div className="text-lg font-medium mt-1 text-muted-foreground">--</div>
-                );
+                  <div className="space-y-1">
+                    <div className="text-xs text-muted-foreground">{closedCount} closed picks</div>
+                    <Progress value={stats.hitRate} className="h-2 w-32" />
+                    <div className="text-[10px] text-muted-foreground">
+                      {stats.targetHits} wins · {stats.stoplossHits || 0} losses · {stats.expired || 0} expired
+                    </div>
+                  </div>
+                ) : null;
               })()}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2">
-                <Percent className="h-4 w-4 text-purple-500" />
-                <span className="text-sm text-muted-foreground">Avg Return</span>
-              </div>
-              <div className={`text-2xl font-bold mt-1 ${(stats.avgReturn ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {(stats.avgReturn ?? 0) >= 0 ? '+' : ''}{(stats.avgReturn ?? 0).toFixed(2)}%
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              {statsData?.lastDataRefresh && (
+                <div className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1 sm:justify-end">
+                  <Clock className="h-3 w-3" />
+                  Stats as of {new Date(statsData.lastDataRefresh).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -791,26 +858,73 @@ export default function AgentPicksPage() {
         </ScrollableTabsList>
 
         <TabsContent value="today" className="space-y-4">
+          {/* #6 Top Pick of the Day */}
+          {topPickOfDay && !loadingToday && (
+            <div className="relative overflow-hidden rounded-xl border-2 border-amber-400/60 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/20 p-4">
+              <div className="absolute top-3 right-3">
+                <Badge className="bg-amber-500 text-white text-xs flex items-center gap-1">
+                  <Zap className="h-3 w-3" /> Top Pick of the Day
+                </Badge>
+              </div>
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-full bg-amber-400/20 shrink-0">
+                  {(() => { const Icon = categoryIcons[topPickOfDay.category] || TrendingUp; return <Icon className="h-6 w-6 text-amber-600" />; })()}
+                </div>
+                <div className="flex-1 min-w-0 pr-24">
+                  <h3 className="font-bold text-lg leading-tight">{topPickOfDay.instrumentName}</h3>
+                  <div className="flex items-center gap-2 flex-wrap mt-1">
+                    {topPickOfDay.symbol && <span className="text-sm text-muted-foreground font-mono">{topPickOfDay.symbol}</span>}
+                    <Badge variant="outline" className="text-[10px]">{categoryLabels[topPickOfDay.category]}</Badge>
+                    {topPickOfDay.timeHorizon && horizonConfig[topPickOfDay.timeHorizon] && (
+                      <Badge variant="outline" className={horizonConfig[topPickOfDay.timeHorizon].color + " text-[10px]"}>
+                        {horizonConfig[topPickOfDay.timeHorizon].label}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-4 mt-3 text-sm">
+                    <span><span className="text-muted-foreground text-xs">Entry</span><br /><strong>{formatPrice(topPickOfDay.recoPrice, topPickOfDay.category)}</strong></span>
+                    <span><span className="text-xs text-green-600">Target</span><br /><strong className="text-green-600">{formatPrice(topPickOfDay.targetPrice, topPickOfDay.category)}</strong></span>
+                    <span><span className="text-xs text-red-500">Stoploss</span><br /><strong className="text-red-500">{formatPrice(topPickOfDay.stoplossPrice, topPickOfDay.category)}</strong></span>
+                    {topPickOfDay.confidenceScore !== undefined && (
+                      <span><span className="text-xs text-muted-foreground">AI Confidence</span><br /><strong className={getConfidenceColor(topPickOfDay.confidenceScore)}>{topPickOfDay.confidenceScore}%</strong></span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <Card>
             <CardHeader>
-              <CardTitle>Today's Top Picks</CardTitle>
-              <CardDescription>
-                AI-selected investment opportunities for {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Today's Top Picks</CardTitle>
+                  <CardDescription>
+                    AI-selected investment opportunities for {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  </CardDescription>
+                </div>
+                {/* #10 Export button */}
+                {todayPicks.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={exportTodaysPicksCSV} className="shrink-0">
+                    <Download className="h-4 w-4 mr-2" /> Export CSV
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
-              {/* Category Filter Tabs */}
-              <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b">
+              {/* #3 + #11 Category Filter — horizontal scroll + hit rates */}
+              <div className="flex gap-2 mb-4 pb-4 border-b overflow-x-auto scrollbar-none">
                 {allCategories.map(({ key, label, icon: Icon }) => {
                   const count = todayCounts[key] || 0;
                   const isActive = todayCategoryFilter === key;
+                  const catStats = key !== 'all' ? stats?.byCategory?.[key] : null;
                   return (
                     <Button
                       key={key}
                       variant={isActive ? "default" : "outline"}
                       size="sm"
                       onClick={() => setTodayCategoryFilter(key)}
-                      className="flex items-center gap-1.5"
+                      className="flex items-center gap-1.5 shrink-0"
                     >
                       <Icon className="h-3.5 w-3.5" />
                       {label}
@@ -818,6 +932,11 @@ export default function AgentPicksPage() {
                         <Badge variant={isActive ? "secondary" : "outline"} className="ml-1 text-[10px] px-1.5">
                           {count}
                         </Badge>
+                      )}
+                      {catStats && catStats.total > 0 && (
+                        <span className={`text-[9px] font-semibold ml-0.5 ${catStats.hitRate >= 50 ? 'text-green-500' : catStats.hitRate >= 25 ? 'text-amber-500' : 'text-muted-foreground'}`}>
+                          {catStats.hitRate}%
+                        </span>
                       )}
                     </Button>
                   );
@@ -1352,24 +1471,48 @@ export default function AgentPicksPage() {
         <TabsContent value="live" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Live Recommendations</CardTitle>
-              <CardDescription>
-                Active picks being tracked for target/stoploss
-              </CardDescription>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <CardTitle>Live Recommendations</CardTitle>
+                  <CardDescription>
+                    Active picks being tracked for target/stoploss
+                  </CardDescription>
+                </div>
+                {/* #5 Search box */}
+                <div className="relative w-full sm:w-56">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search instrument, symbol…"
+                    value={liveSearchQuery}
+                    onChange={e => setLiveSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 text-sm rounded-md border border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                  {liveSearchQuery && (
+                    <button
+                      className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                      onClick={() => setLiveSearchQuery("")}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              {/* Category Filter Tabs */}
-              <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b">
+              {/* #3 + #11 Category Filter — horizontal scroll + hit rates */}
+              <div className="flex gap-2 mb-4 pb-4 border-b overflow-x-auto scrollbar-none">
                 {allCategories.map(({ key, label, icon: Icon }) => {
                   const count = liveCounts[key] || 0;
                   const isActive = liveCategoryFilter === key;
+                  const catStats = key !== 'all' ? stats?.byCategory?.[key] : null;
                   return (
                     <Button
                       key={key}
                       variant={isActive ? "default" : "outline"}
                       size="sm"
                       onClick={() => setLiveCategoryFilter(key)}
-                      className="flex items-center gap-1.5"
+                      className="flex items-center gap-1.5 shrink-0"
                     >
                       <Icon className="h-3.5 w-3.5" />
                       {label}
@@ -1377,6 +1520,11 @@ export default function AgentPicksPage() {
                         <Badge variant={isActive ? "secondary" : "outline"} className="ml-1 text-[10px] px-1.5">
                           {count}
                         </Badge>
+                      )}
+                      {catStats && catStats.total > 0 && (
+                        <span className={`text-[9px] font-semibold ml-0.5 ${catStats.hitRate >= 50 ? 'text-green-500' : catStats.hitRate >= 25 ? 'text-amber-500' : 'text-muted-foreground'}`}>
+                          {catStats.hitRate}%
+                        </span>
                       )}
                     </Button>
                   );
@@ -1467,18 +1615,64 @@ export default function AgentPicksPage() {
               </div>
             </CardHeader>
             <CardContent>
-              {/* Category Filter Tabs */}
-              <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b">
+              {/* #13 Cumulative Performance Chart */}
+              {historicalChartData.length >= 2 && (
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-semibold flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-primary" />
+                      Cumulative Return — Closed Picks
+                    </h4>
+                    <span className={`text-xs font-semibold ${historicalChartData[historicalChartData.length - 1].cumulative >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {historicalChartData[historicalChartData.length - 1].cumulative >= 0 ? '+' : ''}{historicalChartData[historicalChartData.length - 1].cumulative}%
+                    </span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <LineChart data={historicalChartData} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                      <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} width={42} />
+                      <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" />
+                      <RechartsTooltip
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null;
+                          const d = payload[0].payload;
+                          return (
+                            <div className="bg-background border rounded-lg shadow-lg p-3 text-xs space-y-1">
+                              <p className="font-semibold">{d.name}</p>
+                              <p className="text-muted-foreground">{d.date}</p>
+                              <p>Pick return: <span className={Number(d.return) >= 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>{Number(d.return) >= 0 ? '+' : ''}{d.return}%</span></p>
+                              <p>Cumulative: <span className={Number(d.cumulative) >= 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>{Number(d.cumulative) >= 0 ? '+' : ''}{d.cumulative}%</span></p>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="cumulative"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 4 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* #3 + #11 Category Filter — horizontal scroll + hit rates */}
+              <div className="flex gap-2 mb-4 pb-4 border-b overflow-x-auto scrollbar-none">
                 {allCategories.map(({ key, label, icon: Icon }) => {
                   const count = historyCounts[key] || 0;
                   const isActive = historyCategoryFilter === key;
+                  const catStats = key !== 'all' ? stats?.byCategory?.[key] : null;
                   return (
                     <Button
                       key={key}
                       variant={isActive ? "default" : "outline"}
                       size="sm"
                       onClick={() => setHistoryCategoryFilter(key)}
-                      className="flex items-center gap-1.5"
+                      className="flex items-center gap-1.5 shrink-0"
                     >
                       <Icon className="h-3.5 w-3.5" />
                       {label}
@@ -1486,6 +1680,11 @@ export default function AgentPicksPage() {
                         <Badge variant={isActive ? "secondary" : "outline"} className="ml-1 text-[10px] px-1.5">
                           {count}
                         </Badge>
+                      )}
+                      {catStats && catStats.total > 0 && (
+                        <span className={`text-[9px] font-semibold ml-0.5 ${catStats.hitRate >= 50 ? 'text-green-500' : catStats.hitRate >= 25 ? 'text-amber-500' : 'text-muted-foreground'}`}>
+                          {catStats.hitRate}%
+                        </span>
                       )}
                     </Button>
                   );
@@ -2360,12 +2559,24 @@ function PickCard({
                           <span className={`w-2 h-2 rounded-full ${getConfidenceDot(pick.confidenceScore)}`} />
                         </div>
                       </TooltipTrigger>
-                      <TooltipContent>
-                        <p>AI Confidence Score</p>
-                        <p className="text-xs text-muted-foreground">
-                          {pick.confidenceScore >= 80 ? 'High confidence' : 
-                           pick.confidenceScore >= 60 ? 'Moderate confidence' : 'Lower confidence'}
+                      {/* #12 Enhanced confidence tooltip */}
+                      <TooltipContent className="max-w-[220px] space-y-1.5 text-xs p-3">
+                        <p className="font-semibold flex items-center gap-1">
+                          <BrainCircuit className="h-3.5 w-3.5" />
+                          AI Confidence: {pick.confidenceScore}%
                         </p>
+                        <p className="text-muted-foreground">
+                          {pick.confidenceScore >= 80
+                            ? 'High confidence — strong alignment across technical, fundamental, and macro signals.'
+                            : pick.confidenceScore >= 60
+                            ? 'Moderate confidence — most indicators agree; some divergence noted.'
+                            : 'Lower confidence — use position sizing carefully; wider uncertainty.'}
+                        </p>
+                        <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground border-t pt-1.5">
+                          <p>• Scored on 50+ technical & fundamental factors</p>
+                          <p>• ≥80% = High · 60–79% = Moderate · &lt;60% = Lower</p>
+                          <p>• Model: Gemini AI v2.5 Flash</p>
+                        </div>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -2391,7 +2602,28 @@ function PickCard({
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-4 mt-4">
+            {/* #2 Risk/Reward badge */}
+            {parseFloat(upside) > 0 && parseFloat(downside) > 0 && (
+              <div className="flex items-center gap-2 mt-3">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className={`text-[10px] font-bold cursor-help ${parseFloat(upside) / parseFloat(downside) >= 2 ? 'border-green-400 text-green-700 dark:text-green-400' : parseFloat(upside) / parseFloat(downside) >= 1 ? 'border-amber-400 text-amber-700 dark:text-amber-400' : 'border-muted-foreground text-muted-foreground'}`}>
+                        {(parseFloat(upside) / parseFloat(downside)).toFixed(1)}x R/R
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-xs space-y-1">
+                      <p className="font-semibold">Risk / Reward Ratio</p>
+                      <p>Upside potential: <span className="text-green-600 font-medium">+{upside}%</span></p>
+                      <p>Downside risk: <span className="text-red-600 font-medium">-{downside}%</span></p>
+                      <p className="text-muted-foreground pt-1">Ratio ≥2x is generally favourable</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-4 mt-3">
               <div>
                 <div className="text-xs text-muted-foreground">Entry Price</div>
                 <div className="font-medium">{formatPrice(pick.recoPrice, pick.category)}</div>
@@ -2412,6 +2644,41 @@ function PickCard({
               </div>
             </div>
 
+            {/* #4 Visual price level gauge */}
+            {pick.currentPrice && pick.stoplossPrice && pick.targetPrice && (() => {
+              const sl = pick.stoplossPrice;
+              const tgt = pick.targetPrice;
+              const cur = pick.currentPrice;
+              const range = tgt - sl;
+              const pct = range > 0 ? Math.min(100, Math.max(0, ((cur - sl) / range) * 100)) : 50;
+              const entryPct = range > 0 ? Math.min(100, Math.max(0, ((pick.recoPrice - sl) / range) * 100)) : 50;
+              const isProfit = cur >= pick.recoPrice;
+              return (
+                <div className="mt-3">
+                  <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                    <span className="text-red-500">SL {formatPrice(sl, pick.category)}</span>
+                    <span className="font-medium text-xs">{formatPrice(cur, pick.category)}</span>
+                    <span className="text-green-600">TGT {formatPrice(tgt, pick.category)}</span>
+                  </div>
+                  <div className="relative h-2 rounded-full bg-gradient-to-r from-red-200 via-muted to-green-200 dark:from-red-900/50 dark:to-green-900/50">
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-muted-foreground/50 rounded"
+                      style={{ left: `${entryPct}%` }}
+                    />
+                    <div
+                      className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm ${isProfit ? 'bg-green-500' : 'bg-red-500'}`}
+                      style={{ left: `calc(${pct}% - 6px)` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+                    <span>-{downside}%</span>
+                    <span className="text-[9px] text-muted-foreground/60">entry mark ↑</span>
+                    <span>+{upside}%</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {pick.currentPrice && (
               <div className="mt-3 p-2 rounded bg-muted/50">
                 <div className="flex items-center justify-between">
@@ -2426,6 +2693,7 @@ function PickCard({
                       Holding for {pick.daysHeld} days
                     </span>
                   )}
+                  {/* #8 Enhanced freshness indicator */}
                   {pick.priceDataSource && (
                     <TooltipProvider>
                       <Tooltip>
@@ -2439,7 +2707,16 @@ function PickCard({
                                 pick.dataFreshness === 'stale' ? 'bg-red-500' : 'bg-gray-400'
                               }`} />
                             )}
-                            {pick.priceDataSource}
+                            {pick.lastPriceUpdate
+                              ? (() => {
+                                  const diff = Date.now() - new Date(pick.lastPriceUpdate).getTime();
+                                  const m = Math.floor(diff / 60000);
+                                  if (m < 1) return 'Price: just now';
+                                  if (m < 60) return `Price: ${m}m ago`;
+                                  const h = Math.floor(m / 60);
+                                  return h < 24 ? `Price: ${h}h ago` : `Price: ${Math.floor(h/24)}d ago`;
+                                })()
+                              : pick.priceDataSource}
                           </span>
                         </TooltipTrigger>
                         <TooltipContent className="text-xs">
@@ -2457,7 +2734,51 @@ function PickCard({
               </div>
             )}
 
-            <p className="text-sm text-muted-foreground mt-3">{parseRationale(pick.rationale)}</p>
+            {/* #7 Structured Rationale */}
+            {pick.rationale && (() => {
+              const raw = parseRationale(pick.rationale);
+              const sentences = raw
+                .split(/(?<=[.!?])\s+/)
+                .map(s => s.trim())
+                .filter(s => s.length > 10);
+              const whyLike = sentences.filter((_, i) => i < Math.ceil(sentences.length * 0.5));
+              const risks = sentences.filter((_, i) => i >= Math.ceil(sentences.length * 0.5) && i < Math.ceil(sentences.length * 0.75));
+              const exits = sentences.filter((_, i) => i >= Math.ceil(sentences.length * 0.75));
+              return (
+                <div className="mt-3 space-y-2">
+                  {whyLike.length > 0 && (
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-primary flex items-center gap-1 mb-1">
+                        <TrendingUp className="h-3 w-3" /> Why We Like It
+                      </p>
+                      <ul className="text-xs text-foreground/80 space-y-0.5 pl-3">
+                        {whyLike.map((s, i) => <li key={i} className="list-disc list-outside">{s}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {risks.length > 0 && (
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400 flex items-center gap-1 mb-1">
+                        <AlertTriangle className="h-3 w-3" /> Key Risks
+                      </p>
+                      <ul className="text-xs text-foreground/80 space-y-0.5 pl-3">
+                        {risks.map((s, i) => <li key={i} className="list-disc list-outside">{s}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {exits.length > 0 && (
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1 mb-1">
+                        <Target className="h-3 w-3" /> Exit Conditions
+                      </p>
+                      <ul className="text-xs text-foreground/80 space-y-0.5 pl-3">
+                        {exits.map((s, i) => <li key={i} className="list-disc list-outside">{s}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="flex items-center gap-2 mt-3 flex-wrap">
               <Badge variant="outline" className={riskColors[pick.riskLevel] || riskColors.medium}>
@@ -2567,6 +2888,36 @@ function PickCard({
               </div>
               
               <div className="flex items-center gap-1">
+                {/* #9 Quick Copy (WhatsApp-ready) */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const cur = getCurrencySymbol(pick.category);
+                          const msg =
+                            `📊 *${pick.instrumentName}${pick.symbol ? ` (${pick.symbol})` : ''}*\n` +
+                            `Category: ${categoryLabels[pick.category] || pick.category}\n` +
+                            `Entry: ${cur}${pick.recoPrice.toLocaleString()}\n` +
+                            `Target: ${cur}${pick.targetPrice.toLocaleString()} (+${upside}%)\n` +
+                            `Stoploss: ${cur}${pick.stoplossPrice.toLocaleString()} (-${downside}%)\n` +
+                            (pick.timeHorizon ? `Horizon: ${horizonConfig[pick.timeHorizon]?.label || pick.timeHorizon}\n` : '') +
+                            (pick.confidenceScore ? `AI Confidence: ${pick.confidenceScore}%\n` : '') +
+                            `\n_Powered by FintekPro AI_`;
+                          navigator.clipboard.writeText(msg);
+                        }}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Copy WhatsApp message</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
