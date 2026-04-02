@@ -1375,6 +1375,19 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
         `CREATE UNIQUE INDEX IF NOT EXISTS uq_cache_refresh_schedule_type
            ON cache_refresh_schedule (cache_type)`
       );
+
+      // 17. corporate_actions (isin, ex_date, action_type)
+      await dedupAndIndex(
+        'corporate_actions',
+        `DELETE FROM corporate_actions
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (isin, ex_date, action_type) id
+           FROM corporate_actions
+           ORDER BY isin, ex_date, action_type, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_corp_actions_isin_ex_type
+           ON corporate_actions (isin, ex_date, action_type)`
+      );
     });
   } catch (e: any) {
     console.warn('[Migration] ON CONFLICT UNIQUE index skipped:', e?.message);
