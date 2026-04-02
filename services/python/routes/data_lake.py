@@ -44,6 +44,24 @@ def parse_object_path(path: str):
         raise HTTPException(status_code=400, detail="Invalid path: must contain at least a bucket name")
     return parts[0], "/".join(parts[1:])
 
+_NSE_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.nseindia.com/",
+}
+
+def _get_object_storage_bucket() -> Optional[str]:
+    """Return the bucket name from PUBLIC_OBJECT_SEARCH_PATHS, or None if unconfigured."""
+    raw = os.getenv("PUBLIC_OBJECT_SEARCH_PATHS", "").split(",")[0].strip()
+    if not raw:
+        return None
+    try:
+        parts = raw.lstrip("/").split("/")
+        return parts[0] if parts else None
+    except Exception:
+        return None
+
 @router.post("/store-bhavcopy")
 async def store_bhavcopy(_: TokenPayload = Depends(verify_token)):
     now = datetime.now()
@@ -51,44 +69,47 @@ async def store_bhavcopy(_: TokenPayload = Depends(verify_token)):
     month_name = now.strftime("%b").upper()
     month_num = now.strftime("%m")
     day = now.strftime("%d")
-    
-    # NSE historically uses this pattern: cmDDMMMYYYYbhav.csv.zip
-    # However, for simplicity and since we need to store raw files, let's assume we can fetch it.
-    # Note: NSE often blocks direct scripts, but let's implement the logic.
+
     url = f"https://archives.nseindia.com/content/historical/EQUITIES/{year}/{month_name}/cm{day}{month_name}{year}bhav.csv.zip"
-    
-    public_path = os.getenv("PUBLIC_OBJECT_SEARCH_PATHS", "").split(",")[0]
-    if not public_path:
-        raise HTTPException(status_code=500, detail="PUBLIC_OBJECT_SEARCH_PATHS not set")
-    
-    bucket_name, _ = parse_object_path(public_path)
+
+    bucket_name = _get_object_storage_bucket()
+    if not bucket_name:
+        logger.warning("[data-lake] store-bhavcopy skipped: PUBLIC_OBJECT_SEARCH_PATHS not set")
+        return {
+            "stored": False,
+            "skipped": True,
+            "reason": "Object storage not configured (PUBLIC_OBJECT_SEARCH_PATHS missing in this service)",
+            "url": url,
+        }
+
     object_name = f"data-lake/nse/bhavcopy/{year}/{month_num}/{day}/bhavcopy.csv.zip"
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.get(url, follow_redirects=True)
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=_NSE_HEADERS) as client:
+            resp = await client.get(url)
+            if resp.status_code == 403:
+                return {"stored": False, "error": "NSE archives blocked this IP (403)", "url": url}
+            if resp.status_code == 404:
+                return {"stored": False, "error": f"Bhavcopy not yet available for {day}-{month_name}-{year}", "url": url}
             if resp.status_code != 200:
-                logger.error(f"Failed to fetch NSE bhavcopy: {resp.status_code}")
                 return {"stored": False, "error": f"NSE returned {resp.status_code}", "url": url}
-            
+
             content = resp.content
-            # Upload via signed URL
             upload_url = await sign_object_url(bucket_name, object_name, "PUT")
             upload_resp = await client.put(upload_url, content=content, headers={"Content-Type": "application/zip"})
-            
-            if upload_resp.status_code != 200:
-                logger.error(f"Failed to upload to object storage: {upload_resp.text}")
-                raise HTTPException(status_code=500, detail="Failed to upload to object storage")
-                
+            if upload_resp.status_code not in (200, 201):
+                logger.error(f"[data-lake] Object storage upload failed: {upload_resp.status_code}")
+                return {"stored": False, "error": f"Object storage upload failed ({upload_resp.status_code})"}
+
             return {
                 "stored": True,
                 "path": f"/{bucket_name}/{object_name}",
                 "file_size_bytes": len(content),
-                "url_fetched": url
+                "url_fetched": url,
             }
-        except Exception as e:
-            logger.error(f"Error storing bhavcopy: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.error(f"[data-lake] store-bhavcopy error: {e}")
+        return {"stored": False, "error": str(e)}
 
 @router.post("/store-amfi-nav")
 async def store_amfi_nav(_: TokenPayload = Depends(verify_token)):
@@ -97,35 +118,38 @@ async def store_amfi_nav(_: TokenPayload = Depends(verify_token)):
     year = now.strftime("%Y")
     month = now.strftime("%m")
     day = now.strftime("%d")
-    
-    public_path = os.getenv("PUBLIC_OBJECT_SEARCH_PATHS", "").split(",")[0]
-    if not public_path:
-        raise HTTPException(status_code=500, detail="PUBLIC_OBJECT_SEARCH_PATHS not set")
-    
-    bucket_name, _ = parse_object_path(public_path)
+
+    bucket_name = _get_object_storage_bucket()
+    if not bucket_name:
+        logger.warning("[data-lake] store-amfi-nav skipped: PUBLIC_OBJECT_SEARCH_PATHS not set")
+        return {
+            "stored": False,
+            "skipped": True,
+            "reason": "Object storage not configured (PUBLIC_OBJECT_SEARCH_PATHS missing in this service)",
+        }
+
     object_name = f"data-lake/amfi/nav/{year}/{month}/{day}/NAVAll.txt"
-    
-    async with httpx.AsyncClient() as client:
-        try:
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.get(url)
             if resp.status_code != 200:
-                raise HTTPException(status_code=502, detail=f"AMFI returned {resp.status_code}")
-            
+                return {"stored": False, "error": f"AMFI returned {resp.status_code}"}
+
             content = resp.content
             upload_url = await sign_object_url(bucket_name, object_name, "PUT")
             upload_resp = await client.put(upload_url, content=content, headers={"Content-Type": "text/plain"})
-            
-            if upload_resp.status_code != 200:
-                raise HTTPException(status_code=500, detail="Failed to upload to object storage")
-                
+            if upload_resp.status_code not in (200, 201):
+                return {"stored": False, "error": f"Object storage upload failed ({upload_resp.status_code})"}
+
             return {
                 "stored": True,
                 "path": f"/{bucket_name}/{object_name}",
-                "file_size_bytes": len(content)
+                "file_size_bytes": len(content),
             }
-        except Exception as e:
-            logger.error(f"Error storing AMFI NAV: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.error(f"[data-lake] store-amfi-nav error: {e}")
+        return {"stored": False, "error": str(e)}
 
 @router.get("/list")
 async def list_files(

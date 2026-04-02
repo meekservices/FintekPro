@@ -16,6 +16,13 @@ router = APIRouter(prefix="/api/corporate-actions", tags=["corporate-actions"])
 
 NSE_CA_URL = "https://archives.nseindia.com/content/equities/CA.csv"
 
+_NSE_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.nseindia.com/",
+}
+
 class CorporateActionSyncResponse(BaseModel):
     status: str
     synced_count: int
@@ -85,68 +92,87 @@ def map_action_type(purpose: str) -> str:
 async def sync_corporate_actions(_: TokenPayload = Depends(verify_token)):
     """Fetch from NSE corporate actions CSV and upsert into DB."""
     try:
-        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True, headers=_NSE_HEADERS) as client:
             response = await client.get(NSE_CA_URL)
-            if response.status_code != 200:
-                raise HTTPException(status_code=500, detail=f"Failed to fetch NSE CA archive: {response.status_code}")
-            content = response.text
-        
+
+        if response.status_code == 403:
+            logger.warning("[corp-actions] NSE archives returned 403 (datacenter IP blocked)")
+            return {"status": "skipped", "synced_count": 0, "errors": ["NSE archives blocked this IP (403) — will retry next run"]}
+        if response.status_code != 200:
+            logger.warning(f"[corp-actions] NSE returned {response.status_code}")
+            return {"status": "skipped", "synced_count": 0, "errors": [f"NSE returned {response.status_code}"]}
+
+        content = response.text
+        if not content or not content.strip():
+            return {"status": "skipped", "synced_count": 0, "errors": ["NSE returned empty response"]}
+
         df = pd.read_csv(io.StringIO(content))
-        # Columns: SYMBOL, SERIES, FACE VALUE, PURPOSE, EX DATE, RECORD DT, BC STDT, BC ENDDT
         df.columns = [c.strip() for c in df.columns]
-        
+
         synced = 0
         errors = []
-        
+        import re as _re
+
         async with db_conn() as conn:
             for _, row in df.iterrows():
-                symbol = str(row['SYMBOL']).strip()
-                purpose = str(row['PURPOSE']).strip()
-                ex_date_str = str(row['EX DATE']).strip()
-                
+                symbol = str(row.get('SYMBOL', '')).strip()
+                purpose = str(row.get('PURPOSE', '')).strip()
+                ex_date_str = str(row.get('EX DATE', '')).strip()
+
+                if not symbol or not purpose or not ex_date_str:
+                    continue
+
                 try:
                     ex_date = datetime.strptime(ex_date_str, "%d-%b-%Y").date()
-                except:
-                    continue # Skip invalid dates
-                
+                except Exception:
+                    continue
+
                 action_type = map_action_type(purpose)
                 adj_factor = compute_adjustment_factor(purpose)
-                
-                # Derive ISIN
-                stock = await conn.fetchrow("SELECT isin FROM listed_stocks WHERE symbol = $1 LIMIT 1", symbol)
+
+                stock = await conn.fetchrow(
+                    "SELECT isin FROM listed_stocks WHERE symbol = $1 LIMIT 1", symbol
+                )
                 if not stock or not stock['isin']:
-                    continue # Cannot map to ISIN, skip
-                
+                    continue
+
                 isin = stock['isin']
-                
-                # Dividend amount extraction
+
                 dividend_amount = None
                 if action_type == "DIVIDEND":
-                    import re
-                    match = re.search(r"RS\s*(\d+\.?\d*)", purpose.upper())
-                    if match:
-                        dividend_amount = float(match.group(1))
+                    m = _re.search(r"RS\s*(\d+\.?\d*)", purpose.upper())
+                    if m:
+                        dividend_amount = float(m.group(1))
 
-                await conn.execute("""
-                    INSERT INTO corporate_actions (
-                        isin, symbol, action_type, ex_date, record_date, 
-                        purpose, adjustment_factor, dividend_amount, source, updated_at
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'NSE', NOW())
-                    ON CONFLICT (isin, ex_date, action_type) DO UPDATE SET
-                        symbol = EXCLUDED.symbol,
-                        purpose = EXCLUDED.purpose,
-                        adjustment_factor = EXCLUDED.adjustment_factor,
-                        dividend_amount = EXCLUDED.dividend_amount,
-                        updated_at = NOW()
-                """, isin, symbol, action_type, ex_date, 
-                   datetime.strptime(str(row['RECORD DT']).strip(), "%d-%b-%Y").date() if str(row['RECORD DT']).strip() != 'NaN' and str(row['RECORD DT']).strip() != '' else None,
-                   purpose, adj_factor, dividend_amount)
-                synced += 1
-                
-        return {"status": "success", "synced_count": synced, "errors": errors}
+                record_date = None
+                rd_str = str(row.get('RECORD DT', '')).strip()
+                if rd_str and rd_str.lower() not in ('nan', ''):
+                    try:
+                        record_date = datetime.strptime(rd_str, "%d-%b-%Y").date()
+                    except Exception:
+                        pass
+
+                try:
+                    await conn.execute("""
+                        INSERT INTO corporate_actions (
+                            isin, symbol, action_type, ex_date, record_date,
+                            purpose, adjustment_factor, dividend_amount, source, updated_at
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'NSE', NOW())
+                        ON CONFLICT (isin, ex_date, action_type) DO UPDATE SET
+                            symbol = EXCLUDED.symbol,
+                            purpose = EXCLUDED.purpose,
+                            adjustment_factor = EXCLUDED.adjustment_factor,
+                            dividend_amount = EXCLUDED.dividend_amount,
+                            updated_at = NOW()
+                    """, isin, symbol, action_type, ex_date, record_date, purpose, adj_factor, dividend_amount)
+                    synced += 1
+                except Exception as row_err:
+                    errors.append(f"{symbol}/{ex_date_str}: {row_err}")
+
+        return {"status": "success", "synced_count": synced, "errors": errors[:20]}
     except Exception as e:
-        logger.error(f"Sync failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"[corp-actions] Sync error: {e}")
+        return {"status": "error", "synced_count": 0, "errors": [str(e)]}
 
 @router.get("/pending")
 async def get_pending_actions(_: TokenPayload = Depends(verify_token)):
