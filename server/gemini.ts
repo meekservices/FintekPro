@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 
-// the newest Gemini model is "gemini-2.5-flash" which was released August 7, 2025. do not change this unless explicitly requested by the user
+// the newest Gemini model is "gemini-2.0-flash" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 export async function generateMarketInsight(marketData: any): Promise<string> {
@@ -17,7 +17,7 @@ Please provide:
 Keep the response conversational and under 200 words.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-2.0-flash",
     contents: prompt,
   });
 
@@ -78,7 +78,7 @@ Write it like you're explaining to a friend what's been happening with this stoc
 Keep it under 150 words and make it interesting to read.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-2.0-flash",
     contents: prompt,
   });
 
@@ -97,7 +97,7 @@ Include:
 Keep it under 200 words and avoid jargon.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-2.0-flash",
     contents: prompt,
   });
 
