@@ -33,7 +33,7 @@ export type AIProvider = 'openai' | 'openai-direct' | 'gemini' | 'groq';
 export type AIModel = 
   | 'gpt-5' | 'gpt-5.1' | 'gpt-5-mini' | 'gpt-4.1' | 'gpt-4o' 
   | 'gpt-5.2-instant' | 'gpt-5.2-thinking' | 'gpt-5.2-pro'
-  | 'gemini-2.0-flash'
+  | 'gemini-2.5-flash'
   | 'llama-3.3-70b-versatile' | 'llama-3.1-8b-instant';
 
 // GPT-5.2 models require direct OpenAI API (not Replit AI Integrations)
@@ -74,7 +74,7 @@ class AIService {
 
   setDefaultProvider(provider: AIProvider) {
     this._defaultProvider = provider;
-    this._defaultModel = provider === 'gemini' ? 'gemini-2.0-flash' : 'gpt-5';
+    this._defaultModel = provider === 'gemini' ? 'gemini-2.5-flash' : 'gpt-5';
     console.log(`[AIService] Default provider switched to: ${provider} (model: ${this._defaultModel})`);
   }
 
@@ -133,7 +133,7 @@ class AIService {
 
       if (provider === 'groq' && gemini) {
         console.log('[AI Fallback] Groq failed → trying Gemini...');
-        return await this.chatWithGemini(messages, 'gemini-2.0-flash', temperature, maxTokens);
+        return await this.chatWithGemini(messages, 'gemini-2.5-flash', temperature, maxTokens);
       }
 
       if ((provider === 'openai' || provider === 'openai-direct') && groq) {
@@ -143,7 +143,7 @@ class AIService {
 
       if ((provider === 'openai' || provider === 'openai-direct') && gemini) {
         console.log('[AI Fallback] OpenAI failed → trying Gemini...');
-        return await this.chatWithGemini(messages, 'gemini-2.0-flash', temperature, maxTokens);
+        return await this.chatWithGemini(messages, 'gemini-2.5-flash', temperature, maxTokens);
       }
       
       throw error;
@@ -184,7 +184,7 @@ class AIService {
       
       if ((provider === 'openai' || provider === 'openai-direct') && gemini) {
         console.log('[AI Fallback] OpenAI streaming failed, falling back to Gemini...');
-        return await this.streamGemini(messages, 'gemini-2.0-flash', temperature, maxTokens, onChunk);
+        return await this.streamGemini(messages, 'gemini-2.5-flash', temperature, maxTokens, onChunk);
       }
       
       throw error;
@@ -382,7 +382,7 @@ class AIService {
     const prompt = userMessages.map(m => m.content).join('\n\n');
     const fullPrompt = systemMessage ? `${systemMessage}\n\n${prompt}` : prompt;
 
-    const geminiModel = model.includes('gemini') ? model : 'gemini-2.0-flash';
+    const geminiModel = model.includes('gemini') ? model : 'gemini-2.5-flash';
     const maxRetries = 2;
     let lastError: any;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -443,7 +443,7 @@ class AIService {
     const fullPrompt = systemMessage ? `${systemMessage}\n\n${prompt}` : prompt;
 
     const stream = await gemini.models.generateContentStream({
-      model: model.includes('gemini') ? model : 'gemini-2.0-flash',
+      model: model.includes('gemini') ? model : 'gemini-2.5-flash',
       config: {
         temperature,
         maxOutputTokens: maxTokens,
@@ -462,7 +462,7 @@ class AIService {
     }
     const usage: AIUsageMetrics = {
       provider: 'gemini',
-      model: model.includes('gemini') ? model : 'gemini-2.0-flash',
+      model: model.includes('gemini') ? model : 'gemini-2.5-flash',
       promptTokens: finalResponse?.usageMetadata?.promptTokenCount || 0,
       completionTokens: finalResponse?.usageMetadata?.candidatesTokenCount || 0,
       totalTokens: finalResponse?.usageMetadata?.totalTokenCount || 0,
@@ -527,7 +527,7 @@ class AIService {
     if (this.isGpt52Available()) {
       return { provider: 'openai-direct', model: 'gpt-5.2-thinking' };
     }
-    return { provider: 'gemini', model: 'gemini-2.0-flash' };
+    return { provider: 'gemini', model: 'gemini-2.5-flash' };
   }
 }
 

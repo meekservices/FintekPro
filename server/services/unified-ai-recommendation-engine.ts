@@ -520,7 +520,7 @@ class UnifiedAIRecommendationEngine {
     const prompt = this.buildAnalysisPrompt(product, clientProfile);
     
     const model = this.gemini!.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       contents: prompt,
     });
 
@@ -1317,7 +1317,7 @@ Provide analysis as JSON with these fields:
 
     const callGemini = async () => {
       const response = await this.gemini!.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: prompt,
       });
       return response.text || '';
