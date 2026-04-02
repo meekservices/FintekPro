@@ -17,15 +17,24 @@ const openaiDirect = process.env.OPENAI_API_KEY ? new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 }) : null;
 
+// Groq — free-tier OpenAI-compatible fallback (14,400 req/day, ultra-fast Llama 3.3 70B)
+// Get a free key at: https://console.groq.com/keys
+const groq = process.env.GROQ_API_KEY ? new OpenAI({
+  baseURL: 'https://api.groq.com/openai/v1',
+  apiKey: process.env.GROQ_API_KEY,
+}) : null;
+const GROQ_DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+
 // Fallback to Gemini if configured
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const gemini = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
 
-export type AIProvider = 'openai' | 'openai-direct' | 'gemini';
+export type AIProvider = 'openai' | 'openai-direct' | 'gemini' | 'groq';
 export type AIModel = 
   | 'gpt-5' | 'gpt-5.1' | 'gpt-5-mini' | 'gpt-4.1' | 'gpt-4o' 
   | 'gpt-5.2-instant' | 'gpt-5.2-thinking' | 'gpt-5.2-pro'
-  | 'gemini-2.0-flash';
+  | 'gemini-2.0-flash'
+  | 'llama-3.3-70b-versatile' | 'llama-3.1-8b-instant';
 
 // GPT-5.2 models require direct OpenAI API (not Replit AI Integrations)
 const GPT52_MODELS = ['gpt-5.2-instant', 'gpt-5.2-thinking', 'gpt-5.2-pro'];
@@ -102,6 +111,8 @@ class AIService {
       
       if (provider === 'openai' || provider === 'openai-direct') {
         return await this.chatWithOpenAI(messages, model as AIModel, temperature, maxTokens, stream);
+      } else if (provider === 'groq' && groq) {
+        return await this.chatWithGroq(messages, model as AIModel, temperature, maxTokens);
       } else if (provider === 'gemini' && gemini) {
         return await this.chatWithGemini(messages, model as AIModel, temperature, maxTokens);
       } else {
@@ -109,14 +120,29 @@ class AIService {
       }
     } catch (error: any) {
       console.error(`AI Service Error (${provider}):`, error.message);
-      
+
+      // Fallback chain: Gemini → Groq → OpenAI
       if (provider === 'gemini') {
-        console.log('[AI Fallback] Gemini failed, falling back to OpenAI...');
+        if (groq) {
+          console.log('[AI Fallback] Gemini failed → trying Groq (free tier)...');
+          return await this.chatWithGroq(messages, GROQ_DEFAULT_MODEL as AIModel, temperature, maxTokens);
+        }
+        console.log('[AI Fallback] Gemini failed → trying OpenAI...');
         return await this.chatWithOpenAI(messages, 'gpt-5', temperature, maxTokens, stream);
       }
-      
+
+      if (provider === 'groq' && gemini) {
+        console.log('[AI Fallback] Groq failed → trying Gemini...');
+        return await this.chatWithGemini(messages, 'gemini-2.0-flash', temperature, maxTokens);
+      }
+
+      if ((provider === 'openai' || provider === 'openai-direct') && groq) {
+        console.log('[AI Fallback] OpenAI failed → trying Groq (free tier)...');
+        return await this.chatWithGroq(messages, GROQ_DEFAULT_MODEL as AIModel, temperature, maxTokens);
+      }
+
       if ((provider === 'openai' || provider === 'openai-direct') && gemini) {
-        console.log('[AI Fallback] OpenAI failed, falling back to Gemini...');
+        console.log('[AI Fallback] OpenAI failed → trying Gemini...');
         return await this.chatWithGemini(messages, 'gemini-2.0-flash', temperature, maxTokens);
       }
       
@@ -201,6 +227,44 @@ class AIService {
       timestamp: new Date()
     };
 
+    this.usageMetrics.push(usage);
+    return { content, usage };
+  }
+
+  /**
+   * Groq chat completion — free-tier, OpenAI-compatible (Llama 3.3 70B)
+   * Requires GROQ_API_KEY. Get a free key at https://console.groq.com/keys
+   * Free tier: 14,400 req/day, 6,000 tokens/min, no credit card required
+   */
+  private async chatWithGroq(
+    messages: ChatMessage[],
+    model: AIModel,
+    temperature: number,
+    maxTokens: number,
+  ): Promise<{ content: string; usage: AIUsageMetrics }> {
+    if (!groq) {
+      throw new Error('Groq not configured — set GROQ_API_KEY environment variable');
+    }
+    const groqModel = model.startsWith('llama') || model.startsWith('gemma') || model.startsWith('mixtral')
+      ? model
+      : GROQ_DEFAULT_MODEL; // fall back to best Groq model if a non-Groq model was requested
+    const response = await groq.chat.completions.create({
+      model: groqModel,
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+      stream: false,
+    });
+    const content = response.choices[0]?.message?.content || '';
+    const usage: AIUsageMetrics = {
+      provider: 'groq',
+      model: groqModel,
+      promptTokens: response.usage?.prompt_tokens || 0,
+      completionTokens: response.usage?.completion_tokens || 0,
+      totalTokens: response.usage?.total_tokens || 0,
+      requestId: response.id,
+      timestamp: new Date(),
+    };
     this.usageMetrics.push(usage);
     return { content, usage };
   }
