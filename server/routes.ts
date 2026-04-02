@@ -12019,7 +12019,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
               result = {
                 success: true,
                 message: 'API key configured',
-                details: { model: 'gemini-2.5-flash' },
+                details: { model: 'gemini-2.0-flash' },
                 latency: Date.now() - startTime
               };
             } catch (e: any) {
@@ -12216,7 +12216,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         message: `AI provider switched to ${provider === 'openai' ? 'OpenAI' : 'Google Gemini'}`,
         provider: {
           current: provider,
-          model: provider === 'openai' ? 'gpt-5' : 'gemini-2.5-flash',
+          model: provider === 'openai' ? 'gpt-5' : 'gemini-2.0-flash',
         }
       });
     } catch (error: any) {
@@ -20480,7 +20480,7 @@ Provide analysis in JSON format with these sections:
 
       try {
         const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: "gemini-2.0-flash",
           config: {
             responseMimeType: "application/json",
             responseSchema: {

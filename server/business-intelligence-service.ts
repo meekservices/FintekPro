@@ -150,7 +150,7 @@ Format your response as a JSON object.`;
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.0-flash",
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -229,7 +229,7 @@ Format your response as a JSON object.`;
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.0-flash",
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -310,7 +310,7 @@ Format your response as a JSON object with creative, actionable marketing ideas.
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.0-flash",
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -391,7 +391,7 @@ Format your response as a JSON object with actionable operational improvements.`
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.0-flash",
         config: {
           responseMimeType: "application/json",
           responseSchema: {

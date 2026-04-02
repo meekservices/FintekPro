@@ -378,7 +378,7 @@ router.get("/run", async (req: Request, res: Response) => {
 6. Stamp duty on ₹1L MF purchase at 0.005% = ₹5`,
             },
           ],
-          { provider: "gemini", model: "gemini-2.5-flash", temperature: 0.1, maxTokens: 2048 }
+          { provider: "gemini", model: "gemini-2.0-flash", temperature: 0.1, maxTokens: 2048 }
         );
 
         let parsed: any;
@@ -391,7 +391,7 @@ router.get("/run", async (req: Request, res: Response) => {
 
         return {
           aiProvider: "Gemini",
-          model: "gemini-2.5-flash",
+          model: "gemini-2.0-flash",
           tokensUsed: response.usage?.totalTokens || 0,
           verificationResult: parsed,
         };
@@ -499,7 +499,7 @@ Reply as a JSON object with this structure:
           content: `Audit these calculation engines for a SEBI-registered investment advisory platform (Indian market):\n\n${engineList.map((e, i) => `${i + 1}. ${e}`).join("\n")}`,
         },
       ],
-      { provider: "gemini", model: "gemini-2.5-flash", temperature: 0.2, maxTokens: 8192 }
+      { provider: "gemini", model: "gemini-2.0-flash", temperature: 0.2, maxTokens: 8192 }
     );
 
     let parsed: any;
@@ -513,7 +513,7 @@ Reply as a JSON object with this structure:
     res.json({
       success: true,
       auditType: "gemini-deep-audit",
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       tokensUsed: response.usage?.totalTokens || 0,
       timestamp: new Date().toISOString(),
       audit: parsed,
