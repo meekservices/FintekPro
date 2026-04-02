@@ -176,7 +176,7 @@ Return ONLY a valid JSON array, no other text.`;
 
     try {
       const response = await this.genAI!.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: prompt,
       });
       
@@ -238,7 +238,7 @@ Return ONLY a valid JSON array, no other text.`;
           confidence: annotation.confidence.toString(),
           createdByType: 'ai',
           createdByName: 'AI Document Analyzer',
-          aiModel: 'gemini-2.0-flash',
+          aiModel: 'gemini-2.5-flash',
           status: 'open',
         }).returning({ id: esignDocumentAnnotations.id });
         

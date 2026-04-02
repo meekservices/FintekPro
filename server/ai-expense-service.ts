@@ -71,7 +71,7 @@ Provide a primary category with confidence score (0-100), subcategory (optional)
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -141,7 +141,7 @@ Provide budget suggestions following the 50/30/20 rule (50% needs, 30% wants, 20
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -223,7 +223,7 @@ Each insight should have a clear title, description, actionable recommendations,
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -287,7 +287,7 @@ Determine if this is a genuine anomaly or a normal expense (like annual payments
 
       try {
         const response = await ai.models.generateContent({
-          model: "gemini-2.0-flash",
+          model: "gemini-2.5-flash",
           config: {
             responseMimeType: "application/json",
             responseSchema: {

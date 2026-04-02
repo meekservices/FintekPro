@@ -507,7 +507,7 @@ Rules:
 - If regime is bear or high_vol, prefer defensive products`;
 
     const result = await this.genAI.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       config: {
         responseMimeType: 'application/json',
         responseSchema: {
