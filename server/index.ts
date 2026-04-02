@@ -1143,6 +1143,32 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     `);
 
     console.log('✅ [Migration] ON CONFLICT UNIQUE indexes verified/created');
+
+    // ── historical_nav_data (identifier, identifier_type, date) ───────────────
+    // Large table — run dedup + index creation in the background so it doesn't
+    // block route registration. ON CONFLICT fallback in the service handles the
+    // interim period before the index lands.
+    setImmediate(async () => {
+      try {
+        const { db: navDb } = await import('./db');
+        const { sql: navSql } = await import('drizzle-orm');
+        await navDb.execute(navSql`
+          DELETE FROM historical_nav_data
+          WHERE id NOT IN (
+            SELECT DISTINCT ON (identifier, identifier_type, date) id
+            FROM historical_nav_data
+            ORDER BY identifier, identifier_type, date, fetched_at DESC NULLS LAST
+          )
+        `);
+        await navDb.execute(navSql`
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_historical_nav_unique
+            ON historical_nav_data (identifier, identifier_type, date)
+        `);
+        console.log('✅ [Migration] historical_nav_data unique index created (background)');
+      } catch (e: any) {
+        console.warn('[Migration] historical_nav_data index (background):', e?.message);
+      }
+    });
   } catch (e: any) {
     console.warn('[Migration] ON CONFLICT UNIQUE index skipped:', e?.message);
   }
