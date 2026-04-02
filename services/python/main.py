@@ -1,7 +1,52 @@
 import os
+import sys
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+
+# ── yfinance noise suppression (must run before any yfinance import) ───────────
+# Yahoo Finance rate-limits Railway datacenter IPs, causing yfinance 0.2.x to
+# emit messages like "$SPY: possibly delisted; no price data found (period=1y)"
+# via print() / sys.stderr.write() — bypassing Python's logging system entirely.
+# yfinance uses `multitasking` which spawns background threads, so
+# contextlib.redirect_stdout/stderr is not reliable (threads outlive the with-block).
+# Solution: install a global write-level filter on sys.stdout/stderr at startup
+# — thread-safe because all threads share the same sys.stdout/sys.stderr objects
+# and our filter checks patterns at write() time, not at thread-creation time.
+_YF_NOISE_PATTERNS = (
+    "possibly delisted",
+    "no price data found",
+    "Failed to get ticker",
+    "Expecting value: line 1 column 1",
+    "$AAPL", "$MSFT", "$NVDA", "$TSLA", "$GOOGL", "$AMZN", "$META",
+    "$SPY", "$QQQ", "$VOO", "$VTI", "$IVV", "$GLD", "$SLV", "$TLT",
+    "$LQD", "$AGG", "$BND", "$IWM", "$VEA", "$VWO", "$EFA",
+)
+
+class _YfNoiseFilter:
+    """
+    Thread-safe, write-time filter for sys.stdout and sys.stderr.
+    Silently drops lines that match known yfinance rate-limit noise patterns.
+    All other output is passed through unchanged.
+    """
+    def __init__(self, wrapped):
+        self._w = wrapped
+
+    def write(self, s: str):
+        if s and any(p in s for p in _YF_NOISE_PATTERNS):
+            return
+        self._w.write(s)
+
+    def flush(self):
+        self._w.flush()
+
+    def __getattr__(self, name):
+        return getattr(self._w, name)
+
+sys.stdout = _YfNoiseFilter(sys.stdout)  # type: ignore[assignment]
+sys.stderr = _YfNoiseFilter(sys.stderr)  # type: ignore[assignment]
+# ─────────────────────────────────────────────────────────────────────────────
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -23,12 +68,11 @@ from routes.derivatives import router as derivatives_router
 
 load_dotenv()
 
-# yfinance emits noisy WARNING/ERROR messages when Yahoo Finance temporarily
-# rate-limits or returns empty responses (e.g. "possibly delisted", "Expecting
-# value: line 1 column 1").  Our fallback chain (Google Finance JSONP, then
-# Alpha Vantage, then Yahoo Node.js) already handles these gracefully, so we
-# suppress the library's own log output to keep Railway logs clean.
+# Suppress yfinance's logging-based output too (belt-and-suspenders).
 logging.getLogger("yfinance").setLevel(logging.CRITICAL)
+logging.getLogger("yfinance.base").setLevel(logging.CRITICAL)
+logging.getLogger("yfinance.utils").setLevel(logging.CRITICAL)
+logging.getLogger("yfinance.multi").setLevel(logging.CRITICAL)
 logging.getLogger("peewee").setLevel(logging.WARNING)
 
 

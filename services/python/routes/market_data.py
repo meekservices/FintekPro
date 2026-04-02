@@ -630,25 +630,17 @@ def _fetch_quotes_sync(symbols: List[str]) -> dict:
     if not symbols:
         return results
 
-    import io
-    import contextlib
-
     try:
         joined = " ".join(symbols)
-        # Yahoo Finance frequently rate-limits Railway datacenter IPs.
-        # yfinance 0.2.x emits "possibly delisted" and "Failed to get ticker"
-        # messages via print() (not logging), so we suppress stdout/stderr
-        # during the Tickers() call.  Actual errors are still caught below.
-        _sink = io.StringIO()
-        with contextlib.redirect_stdout(_sink), contextlib.redirect_stderr(_sink):
-            tickers = yf.Tickers(joined)
+        # Noise from Yahoo Finance rate-limiting is suppressed globally by the
+        # _YfNoiseFilter installed on sys.stdout/sys.stderr in main.py at startup.
+        tickers = yf.Tickers(joined)
         for sym in symbols:
             try:
                 t = tickers.tickers.get(sym)
                 if not t:
                     continue
-                with contextlib.redirect_stdout(_sink), contextlib.redirect_stderr(_sink):
-                    fi = t.fast_info
+                fi = t.fast_info
                 price = _safe_float(getattr(fi, "last_price", None))
                 prev_close = _safe_float(getattr(fi, "previous_close", None))
                 change = round(price - prev_close, 4) if price is not None and prev_close is not None else None
@@ -670,7 +662,7 @@ def _fetch_quotes_sync(symbols: List[str]) -> dict:
             except Exception as e:
                 logger.debug(f"[yfinance] Quote skip {sym}: {e}")
     except Exception as e:
-        logger.debug(f"[yfinance] Batch quotes suppressed: {e}")
+        logger.debug(f"[yfinance] Batch quotes error: {e}")
 
     # ── Google Finance fallback for symbols yfinance couldn't price ──────────
     # Run concurrently so 20 missing ETFs resolve in ~3-5 s, not 120 s.
