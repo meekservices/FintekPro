@@ -1258,6 +1258,123 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
         `CREATE UNIQUE INDEX IF NOT EXISTS idx_mf_overlap_matrix_pair
            ON mf_overlap_matrix (scheme_code_a, scheme_code_b)`
       );
+
+      // 8. financial_instruments_cache (instrument_type, symbol, exchange)
+      await dedupAndIndex(
+        'financial_instruments_cache',
+        `DELETE FROM financial_instruments_cache
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (instrument_type, symbol, exchange) id
+           FROM financial_instruments_cache
+           ORDER BY instrument_type, symbol, exchange, fetched_at DESC NULLS LAST
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_fin_cache_type_symbol_exchange
+           ON financial_instruments_cache (instrument_type, symbol, exchange)`
+      );
+
+      // 9. instrument_prices (instrument_id, price_date)
+      await dedupAndIndex(
+        'instrument_prices',
+        `DELETE FROM instrument_prices
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (instrument_id, price_date) id
+           FROM instrument_prices
+           ORDER BY instrument_id, price_date, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_instrument_price
+           ON instrument_prices (instrument_id, price_date)`
+      );
+
+      // 10. ai_regime_history (regime_date) — column-level .unique() may not exist on prod
+      await dedupAndIndex(
+        'ai_regime_history',
+        `DELETE FROM ai_regime_history
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (regime_date) id
+           FROM ai_regime_history
+           ORDER BY regime_date, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_ai_regime_history_date
+           ON ai_regime_history (regime_date)`
+      );
+
+      // 11. exchange_filings (exchange, document_url)
+      await dedupAndIndex(
+        'exchange_filings',
+        `DELETE FROM exchange_filings
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (exchange, document_url) id
+           FROM exchange_filings
+           ORDER BY exchange, document_url, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_exchange_filings_url
+           ON exchange_filings (exchange, document_url)`
+      );
+
+      // 12. company_master_cache (cin)
+      await dedupAndIndex(
+        'company_master_cache',
+        `DELETE FROM company_master_cache
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (cin) id
+           FROM company_master_cache
+           ORDER BY cin, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_company_master_cache_cin
+           ON company_master_cache (cin)`
+      );
+
+      // 13. ca_verification_status (user_id)
+      await dedupAndIndex(
+        'ca_verification_status',
+        `DELETE FROM ca_verification_status
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (user_id) id
+           FROM ca_verification_status
+           ORDER BY user_id, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_ca_verification_user_id
+           ON ca_verification_status (user_id)`
+      );
+
+      // 14. user_bank_accounts (user_id, account_number)
+      await dedupAndIndex(
+        'user_bank_accounts',
+        `DELETE FROM user_bank_accounts
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (user_id, account_number) id
+           FROM user_bank_accounts
+           ORDER BY user_id, account_number, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_user_bank_accounts_user_acct
+           ON user_bank_accounts (user_id, account_number)`
+      );
+
+      // 15. agent_empanelments (agent_id)
+      await dedupAndIndex(
+        'agent_empanelments',
+        `DELETE FROM agent_empanelments
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (agent_id) id
+           FROM agent_empanelments
+           ORDER BY agent_id, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_empanelments_agent_id
+           ON agent_empanelments (agent_id)`
+      );
+
+      // 16. cache_refresh_schedule (cache_type)
+      await dedupAndIndex(
+        'cache_refresh_schedule',
+        `DELETE FROM cache_refresh_schedule
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (cache_type) id
+           FROM cache_refresh_schedule
+           ORDER BY cache_type, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_cache_refresh_schedule_type
+           ON cache_refresh_schedule (cache_type)`
+      );
     });
   } catch (e: any) {
     console.warn('[Migration] ON CONFLICT UNIQUE index skipped:', e?.message);
