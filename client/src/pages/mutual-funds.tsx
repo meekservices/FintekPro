@@ -10,7 +10,8 @@ import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, TrendingUp, TrendingDown, Star, Filter, Calculator, RefreshCw, ArrowRight, Shield, Building2, Award, Clock, AlertCircle, Store, ChevronLeft, ChevronRight, ShoppingCart, ClipboardList, Wallet, IndianRupee, ArrowUpRight, ArrowDownRight, Package, FileText, CheckCircle2, AlertTriangle, Banknote } from "lucide-react";
+import { Search, TrendingUp, TrendingDown, Star, Filter, Calculator, RefreshCw, ArrowRight, Shield, Building2, Award, Clock, AlertCircle, Store, ChevronLeft, ChevronRight, ShoppingCart, ClipboardList, Wallet, IndianRupee, ArrowUpRight, ArrowDownRight, Package, FileText, CheckCircle2, AlertTriangle, Banknote, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMutualFunds, usePopularMutualFunds, useSearchMutualFunds, type MutualFundData } from "@/hooks/use-mutual-funds";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useNSEIndices, useMarketMovers, useMarketStatus } from "@/hooks/use-market-data";
@@ -1194,180 +1195,168 @@ export default function MutualFunds() {
           </div>
 
           {/* Market Indices & Stats */}
+          <TooltipProvider>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             {/* NIFTY 50 */}
-            <Card className="border border-border">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">NIFTY 50</p>
-                    {isLoadingNSE ? (
-                      <Skeleton className="h-6 w-24" data-testid="nifty-value-loading" />
-                    ) : nseError || !nseIndices?.data ? (
-                      <div className="flex items-center text-red-500">
-                        <AlertCircle className="w-4 h-4 mr-1" />
-                        <p className="text-lg font-semibold" data-testid="nifty-value-error">24,286.50*</p>
+            {(() => {
+              const niftyData = nseIndices?.data?.find(i => i.symbol === 'NIFTY') || nseIndices?.data?.[0];
+              const isLive = niftyData?.source === 'nse_live';
+              const isUp = (niftyData?.per_chng ?? 0) >= 0;
+              return (
+                <Card className="border border-border">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm text-muted-foreground">NIFTY 50</p>
+                        {isLive && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">LIVE</span>
+                        )}
                       </div>
+                      <span className={`text-xs font-medium flex items-center gap-0.5 ${isUp ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {isLoadingNSE ? <Skeleton className="h-4 w-12" /> : (
+                          <>
+                            {isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                            {isUp ? '+' : ''}{(niftyData?.per_chng ?? 0).toFixed(2)}%
+                          </>
+                        )}
+                      </span>
+                    </div>
+                    {isLoadingNSE ? (
+                      <Skeleton className="h-7 w-28 mb-1" />
                     ) : (
-                      <p className="text-lg font-semibold" data-testid="nifty-value">
-                        {(() => {
-                          const niftyData = nseIndices.data.find(index => 
-                            index.symbol.toUpperCase().includes('NIFTY') || 
-                            index.symbol.toUpperCase().includes('50')
-                          ) || nseIndices.data[0];
-                          return niftyData ? `${niftyData.ltp.toFixed(2)}` : '24,286.50*';
-                        })()}
+                      <p className="text-xl font-bold text-foreground" data-testid="nifty-value">
+                        {niftyData ? niftyData.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
                       </p>
                     )}
-                  </div>
-                  <div className={`flex items-center ${(() => {
-                    if (isLoadingNSE || nseError || !nseIndices?.data) return 'text-green-600';
-                    const niftyData = nseIndices.data.find(index => 
-                      index.symbol.toUpperCase().includes('NIFTY') || 
-                      index.symbol.toUpperCase().includes('50')
-                    ) || nseIndices.data[0];
-                    return niftyData && niftyData.per_chng >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
-                  })()}`}>
-                    {(() => {
-                      if (isLoadingNSE) return <Skeleton className="h-4 w-16" data-testid="nifty-change-loading" />;
-                      if (nseError || !nseIndices?.data) {
-                        return (
-                          <>
-                            <TrendingUp className="w-4 h-4 mr-1" />
-                            <span className="text-sm font-medium" data-testid="nifty-change-error">+0.85%*</span>
-                          </>
-                        );
-                      }
-                      const niftyData = nseIndices.data.find(index => 
-                        index.symbol.toUpperCase().includes('NIFTY') || 
-                        index.symbol.toUpperCase().includes('50')
-                      ) || nseIndices.data[0];
-                      if (!niftyData) return null;
-                      const Icon = niftyData.per_chng >= 0 ? TrendingUp : TrendingDown;
-                      return (
-                        <>
-                          <Icon className="w-4 h-4 mr-1" />
-                          <span className="text-sm font-medium" data-testid="nifty-change">
-                            {niftyData.per_chng >= 0 ? '+' : ''}{niftyData.per_chng.toFixed(2)}%
+                    {!isLoadingNSE && niftyData && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className={`text-xs ${isUp ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {isUp ? '+' : ''}{(niftyData.chng ?? 0).toFixed(2)} pts
+                        </span>
+                        {niftyData.high && niftyData.low && (
+                          <span className="text-xs text-muted-foreground ml-1">
+                            H: {niftyData.high.toLocaleString('en-IN', { maximumFractionDigits: 0 })} / L: {niftyData.low.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                           </span>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
             {/* SENSEX */}
-            <Card className="border border-border">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">SENSEX</p>
-                    {isLoadingNSE ? (
-                      <Skeleton className="h-6 w-24" data-testid="sensex-value-loading" />
-                    ) : nseError || !nseIndices?.data ? (
-                      <div className="flex items-center text-red-500">
-                        <AlertCircle className="w-4 h-4 mr-1" />
-                        <p className="text-lg font-semibold" data-testid="sensex-value-error">79,943.71*</p>
+            {(() => {
+              const sensexData = nseIndices?.data?.find(i => i.symbol === 'SENSEX');
+              const isDerived = sensexData?.derived === true || sensexData?.source === 'nse_derived';
+              const isUp = (sensexData?.per_chng ?? 0) >= 0;
+              return (
+                <Card className="border border-border">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm text-muted-foreground">SENSEX</p>
+                        {isDerived && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 cursor-help">
+                                ~BSE <Info className="w-2.5 h-2.5 ml-0.5" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-[200px] text-xs">
+                              BSE direct API is unavailable. This value is computed from the NIFTY 50 using the historical SENSEX/NIFTY correlation ratio (~3.32).
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                       </div>
+                      <span className={`text-xs font-medium flex items-center gap-0.5 ${isUp ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {isLoadingNSE ? <Skeleton className="h-4 w-12" /> : (
+                          <>
+                            {isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                            {isUp ? '+' : ''}{(sensexData?.per_chng ?? 0).toFixed(2)}%
+                          </>
+                        )}
+                      </span>
+                    </div>
+                    {isLoadingNSE ? (
+                      <Skeleton className="h-7 w-28 mb-1" />
                     ) : (
-                      <p className="text-lg font-semibold" data-testid="sensex-value">
-                        {(() => {
-                          const sensexData = nseIndices.data.find(index => 
-                            index.symbol.toUpperCase().includes('SENSEX') || 
-                            index.symbol.toUpperCase().includes('BSE')
-                          ) || (nseIndices.data.length > 1 ? nseIndices.data[1] : nseIndices.data[0]);
-                          return sensexData ? `${sensexData.ltp.toFixed(2)}` : '79,943.71*';
-                        })()}
+                      <p className="text-xl font-bold text-foreground" data-testid="sensex-value">
+                        {sensexData ? sensexData.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
                       </p>
                     )}
-                  </div>
-                  <div className={`flex items-center ${(() => {
-                    if (isLoadingNSE || nseError || !nseIndices?.data) return 'text-green-600';
-                    const sensexData = nseIndices.data.find(index => 
-                      index.symbol.toUpperCase().includes('SENSEX') || 
-                      index.symbol.toUpperCase().includes('BSE')
-                    ) || (nseIndices.data.length > 1 ? nseIndices.data[1] : nseIndices.data[0]);
-                    return sensexData && sensexData.per_chng >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
-                  })()}`}>
-                    {(() => {
-                      if (isLoadingNSE) return <Skeleton className="h-4 w-16" data-testid="sensex-change-loading" />;
-                      if (nseError || !nseIndices?.data) {
-                        return (
-                          <>
-                            <TrendingUp className="w-4 h-4 mr-1" />
-                            <span className="text-sm font-medium" data-testid="sensex-change-error">+0.72%*</span>
-                          </>
-                        );
-                      }
-                      const sensexData = nseIndices.data.find(index => 
-                        index.symbol.toUpperCase().includes('SENSEX') || 
-                        index.symbol.toUpperCase().includes('BSE')
-                      ) || (nseIndices.data.length > 1 ? nseIndices.data[1] : nseIndices.data[0]);
-                      if (!sensexData) return null;
-                      const Icon = sensexData.per_chng >= 0 ? TrendingUp : TrendingDown;
-                      return (
-                        <>
-                          <Icon className="w-4 h-4 mr-1" />
-                          <span className="text-sm font-medium" data-testid="sensex-change">
-                            {sensexData.per_chng >= 0 ? '+' : ''}{sensexData.per_chng.toFixed(2)}%
+                    {!isLoadingNSE && sensexData && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className={`text-xs ${isUp ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {isUp ? '+' : ''}{(sensexData.chng ?? 0).toFixed(2)} pts
+                        </span>
+                        {sensexData.high && sensexData.low && (
+                          <span className="text-xs text-muted-foreground ml-1">
+                            H: {sensexData.high.toLocaleString('en-IN', { maximumFractionDigits: 0 })} / L: {sensexData.low.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                           </span>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
             {/* Total AUM */}
             <Card className="border border-border">
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total AUM</p>
-                    {isLoadingAll ? (
-                      <Skeleton className="h-6 w-20" data-testid="total-aum-loading" />
-                    ) : (
-                      <p className="text-lg font-semibold" data-testid="total-aum">
-                        {allFunds && allFunds.length > 0 
-                          ? `₹${(allFunds.length * 185.5).toFixed(0)} Cr` 
-                          : '₹41.16 L Cr*'
-                        }
-                      </p>
-                    )}
+                <div className="flex items-start justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm text-muted-foreground">Industry AUM</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-3 h-3 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-[200px] text-xs">
+                        Total Assets Under Management of India's MF industry (AMFI data, as of Mar 2026)
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
                   <div className="flex items-center text-blue-600 dark:text-blue-400">
-                    <Building2 className="w-4 h-4 mr-1" />
-                    <span className="text-sm font-medium">Industry</span>
+                    <Building2 className="w-3.5 h-3.5 mr-1" />
+                    <span className="text-xs font-medium">AMFI</span>
                   </div>
                 </div>
+                {isLoadingAll ? (
+                  <Skeleton className="h-7 w-24 mb-1" />
+                ) : (
+                  <p className="text-xl font-bold text-foreground" data-testid="total-aum">₹68.50 L Cr</p>
+                )}
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {allFunds ? `${allFunds.length.toLocaleString()} schemes in platform` : '1,200+ schemes'}
+                </p>
               </CardContent>
             </Card>
 
             {/* Active Schemes */}
             <Card className="border border-border">
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Active Schemes</p>
-                    {isLoadingAll ? (
-                      <Skeleton className="h-6 w-16" data-testid="active-schemes-loading" />
-                    ) : (
-                      <p className="text-lg font-semibold" data-testid="active-schemes">
-                        {allFunds ? allFunds.length.toLocaleString() : '1,245*'}
-                      </p>
-                    )}
-                  </div>
+                <div className="flex items-start justify-between mb-1">
+                  <p className="text-sm text-muted-foreground">Active Schemes</p>
                   <div className="flex items-center text-finance-blue">
-                    <Award className="w-4 h-4 mr-1" />
-                    <span className="text-sm font-medium">SEBI Reg.</span>
+                    <Award className="w-3.5 h-3.5 mr-1" />
+                    <span className="text-xs font-medium">SEBI Reg.</span>
                   </div>
                 </div>
+                {isLoadingAll ? (
+                  <Skeleton className="h-7 w-16 mb-1" />
+                ) : (
+                  <p className="text-xl font-bold text-foreground" data-testid="active-schemes">
+                    {allFunds ? allFunds.length.toLocaleString() : '1,200+'}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Equity, Debt, Hybrid &amp; more
+                </p>
               </CardContent>
             </Card>
           </div>
+          </TooltipProvider>
 
           {/* Portfolio Overview Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">

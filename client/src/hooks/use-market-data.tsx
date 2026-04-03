@@ -146,6 +146,13 @@ export interface NSEIndex {
   per_chng: number;
   volume: number;
   value: number;
+  open?: number;
+  high?: number;
+  low?: number;
+  previousClose?: number;
+  source?: string;
+  derived?: boolean;
+  timestamp?: string;
 }
 
 export function useNSEIndices() {
