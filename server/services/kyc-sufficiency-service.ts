@@ -19,7 +19,7 @@
 
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { isPoolClosed } from '../db';
 
 // ---------------------------------------------------------------------------
@@ -374,7 +374,67 @@ export interface SufficiencyResult {
 // Sufficiency Service
 // ---------------------------------------------------------------------------
 
+// ── T006: Per-user KYC data cache (3-minute TTL) ────────────────────────────
+// Caches the 4 DB queries that every sufficiency check needs so that
+// checking all 13 products at once costs a single round-trip instead of 13.
+interface CachedKycData {
+  user: any;
+  userProfile: any;
+  vault: any;
+  bankAccountVerified: boolean;
+  cachedAt: number;
+}
+const KYC_DATA_CACHE = new Map<string, CachedKycData>();
+const KYC_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
+
+function getCachedKycData(userId: string): CachedKycData | null {
+  const entry = KYC_DATA_CACHE.get(userId);
+  if (!entry) return null;
+  if (Date.now() - entry.cachedAt > KYC_CACHE_TTL_MS) {
+    KYC_DATA_CACHE.delete(userId);
+    return null;
+  }
+  return entry;
+}
+
+/** Call this after any KYC event to force re-fetch on the next sufficiency check. */
+export function invalidateSufficiencyCache(userId: string): void {
+  KYC_DATA_CACHE.delete(userId);
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 class KycSufficiencyService {
+
+  /**
+   * Fetch and cache the raw KYC data for a user.
+   * Internal helper — keeps DB access to a single Promise.all per user per TTL window.
+   */
+  private async fetchKycData(userId: string): Promise<{ user: any; userProfile: any; vault: any; bankAccountVerified: boolean }> {
+    const cached = getCachedKycData(userId);
+    if (cached) return cached;
+
+    // ── T003 + T006: parallel fetch including bank account ─────────────────
+    const [user, userProfile, vault, bankRows] = await Promise.all([
+      db.query.users.findFirst({ where: eq(schema.users.id, userId) }),
+      db.query.userProfiles.findFirst({ where: eq(schema.userProfiles.userId, userId) }),
+      db.select().from(schema.kycVault).where(eq(schema.kycVault.userId, userId)).limit(1).then(r => r[0] ?? null),
+      // T003: check for at least one verified bank account
+      db.select({ id: schema.userBankAccounts.id })
+        .from(schema.userBankAccounts)
+        .where(
+          and(
+            eq(schema.userBankAccounts.userId, userId),
+            eq(schema.userBankAccounts.verificationStatus, 'verified')
+          )
+        )
+        .limit(1),
+    ]);
+
+    const bankAccountVerified = bankRows.length > 0;
+    const entry: CachedKycData = { user, userProfile, vault, bankAccountVerified, cachedAt: Date.now() };
+    KYC_DATA_CACHE.set(userId, entry);
+    return entry;
+  }
 
   /**
    * Check if a user's existing KYC data satisfies requirements for a specific product.
@@ -390,12 +450,7 @@ class KycSufficiencyService {
       throw new Error(`Unknown product code: ${productCode}`);
     }
 
-    // Fetch all user data in parallel
-    const [user, userProfile, vault] = await Promise.all([
-      db.query.users.findFirst({ where: eq(schema.users.id, userId) }),
-      db.query.userProfiles.findFirst({ where: eq(schema.userProfiles.userId, userId) }),
-      db.select().from(schema.kycVault).where(eq(schema.kycVault.userId, userId)).limit(1).then(r => r[0] ?? null),
-    ]);
+    const { user, userProfile, vault, bankAccountVerified } = await this.fetchKycData(userId);
 
     // -----------------------------------------------------------------------
     // Build the truth table from verified data
@@ -424,6 +479,8 @@ class KycSufficiencyService {
       annual_income: userProfile?.annualIncome || null,
       email: user?.email || null,
       mobile: user?.mobileNumber || null,
+      // T003: bank account verified via penny drop / IMPS
+      bank_account: bankAccountVerified ? 'verified' : null,
     };
 
     // -----------------------------------------------------------------------

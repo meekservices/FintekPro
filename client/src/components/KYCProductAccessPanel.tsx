@@ -28,8 +28,10 @@ import {
   Globe,
   Zap,
   Shield,
+  ArrowRight,
 } from "lucide-react";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
 // ─── Types mirroring server/services/kyc-sufficiency-service.ts ──────────────
@@ -132,6 +134,7 @@ function StatusPill({ canProceed, pct, expired }: { canProceed: boolean; pct: nu
 
 function ProductCard({ product }: { product: SufficiencyResult }) {
   const [expanded, setExpanded] = useState(false);
+  const [, setLocation] = useLocation();
   const meta = PRODUCT_META[product.productCode] ?? { icon: Globe, category: "Other", color: "text-muted-foreground" };
   const Icon = meta.icon;
 
@@ -251,6 +254,31 @@ function ProductCard({ product }: { product: SufficiencyResult }) {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* T005: "Complete requirements" CTA for amber/partial cards */}
+          {!product.canProceed && !product.kycIsExpired && (missingVerifications.length > 0 || missingData.length > 0) && (
+            <div className="pt-1">
+              {/* Only show verifiable-via-KYC-wizard items (exclude manual-only like demat, video KYC) */}
+              {missingVerifications.some(v => v.upgradeAvailable !== false) || missingData.some(f => ['pan_api', 'aadhaar_okyc', 'ckyc', 'user_input'].includes(f.source)) ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full border-amber-300 text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLocation(`/profile?tab=kyc-dashboard&product=${product.productCode}`);
+                  }}
+                >
+                  Complete remaining requirements
+                  <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                </Button>
+              ) : (
+                <p className="text-[11px] text-muted-foreground text-center py-1">
+                  Remaining steps require dedicated verification sessions (e.g., video KYC, demat setup).
+                </p>
+              )}
             </div>
           )}
 
