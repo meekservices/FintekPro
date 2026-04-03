@@ -2,7 +2,35 @@ import { pool } from '../db';
 import yahooFinance from 'yahoo-finance2';
 import axios from 'axios';
 import { executeWithRetry } from '../utils/retry';
-import { callPython } from '../clients/python-client';
+import { callPython, isPythonServiceConfigured } from '../clients/python-client';
+import { fetchGFQuoteUS } from './google-finance-service';
+
+// ─── Exchange map for known US-listed symbols ─────────────────────────────────
+// Google Finance HTML requires SYMBOL:EXCHANGE. This map covers all default
+// global stocks and ETFs. Unknown symbols fall back to NASDAQ then NYSE.
+const GF_US_EXCHANGE_MAP: Record<string, string> = {
+  // US large-cap equities (NYSE)
+  'BRK-B': 'NYSE', 'JPM': 'NYSE', 'V': 'NYSE', 'UNH': 'NYSE', 'MA': 'NYSE',
+  'JNJ': 'NYSE', 'XOM': 'NYSE', 'HD': 'NYSE', 'PG': 'NYSE', 'CVX': 'NYSE',
+  'MRK': 'NYSE', 'ABBV': 'NYSE', 'PFE': 'NYSE', 'BAC': 'NYSE', 'WMT': 'NYSE',
+  'KO': 'NYSE', 'DIS': 'NYSE', 'NKE': 'NYSE', 'MCD': 'NYSE', 'VZ': 'NYSE',
+  'T': 'NYSE', 'PM': 'NYSE', 'IBM': 'NYSE', 'MMM': 'NYSE', 'GE': 'NYSE',
+  'CAT': 'NYSE', 'BA': 'NYSE', 'GS': 'NYSE', 'MS': 'NYSE', 'AXP': 'NYSE',
+  // US large-cap equities (NASDAQ)
+  'AAPL': 'NASDAQ', 'MSFT': 'NASDAQ', 'GOOGL': 'NASDAQ', 'GOOG': 'NASDAQ',
+  'AMZN': 'NASDAQ', 'NVDA': 'NASDAQ', 'META': 'NASDAQ', 'TSLA': 'NASDAQ',
+  'AVGO': 'NASDAQ', 'COST': 'NASDAQ', 'NFLX': 'NASDAQ', 'AMD': 'NASDAQ',
+  'INTC': 'NASDAQ', 'QCOM': 'NASDAQ', 'CSCO': 'NASDAQ', 'TXN': 'NASDAQ',
+  'ADBE': 'NASDAQ', 'AMAT': 'NASDAQ', 'MU': 'NASDAQ', 'LRCX': 'NASDAQ',
+  // ETFs (NYSEARCA)
+  'SPY': 'NYSEARCA', 'IWM': 'NYSEARCA', 'VTI': 'NYSEARCA', 'VOO': 'NYSEARCA',
+  'IVV': 'NYSEARCA', 'VEA': 'NYSEARCA', 'VWO': 'NYSEARCA', 'EFA': 'NYSEARCA',
+  'AGG': 'NYSEARCA', 'LQD': 'NYSEARCA', 'GLD': 'NYSEARCA', 'SLV': 'NYSEARCA',
+  'XLF': 'NYSEARCA', 'XLK': 'NYSEARCA', 'XLE': 'NYSEARCA', 'XLV': 'NYSEARCA',
+  'XLI': 'NYSEARCA', 'IAU': 'NYSEARCA', 'HYG': 'NYSEARCA', 'EMB': 'NYSEARCA',
+  // ETFs (NASDAQ)
+  'QQQ': 'NASDAQ', 'BND': 'NASDAQ', 'TLT': 'NASDAQ', 'IEMG': 'NASDAQ',
+};
 
 const YAHOO_RETRY_OPTIONS = {
   maxAttempts: 2,
@@ -384,6 +412,66 @@ class FinancialDataRepository {
     return results;
   }
 
+  /**
+   * Fetch a batch of US-listed stocks or ETFs via Google Finance HTML.
+   * Uses the GF_US_EXCHANGE_MAP to resolve each symbol's exchange.
+   * Unknown symbols try NASDAQ first then NYSE (covers ~95% of US listings).
+   * Runs up to 6 requests concurrently to balance speed vs. polite usage.
+   */
+  private async fetchBatchFromGoogleFinance(
+    symbols: string[],
+    instrumentType: 'global_stock' | 'etf',
+  ): Promise<Map<string, InstrumentData>> {
+    const results = new Map<string, InstrumentData>();
+    if (!symbols.length) return results;
+
+    const CONCURRENCY = 6;
+
+    const fetchOne = async (sym: string): Promise<[string, InstrumentData] | null> => {
+      const gfExchange = GF_US_EXCHANGE_MAP[sym];
+      let quote = gfExchange ? await fetchGFQuoteUS(sym, gfExchange) : null;
+
+      // For unknown symbols, probe the two most common US exchanges
+      if (!quote && !gfExchange) {
+        quote = await fetchGFQuoteUS(sym, 'NASDAQ');
+        if (!quote) quote = await fetchGFQuoteUS(sym, 'NYSE');
+        if (!quote) quote = await fetchGFQuoteUS(sym, 'NYSEARCA');
+      }
+
+      if (!quote) return null;
+
+      return [sym, {
+        instrumentType,
+        symbol: sym,
+        name: sym,
+        exchange: gfExchange || 'US',
+        currency: 'USD',
+        country: 'US',
+        currentPrice: quote.price,
+        previousClose: quote.previousClose ?? undefined,
+        dayChange: quote.change ?? undefined,
+        dayChangePercent: quote.changePercent ?? undefined,
+        dataSource: 'google_finance',
+        confidenceScore: 82,
+      }];
+    };
+
+    // Run in chunks of CONCURRENCY
+    for (let i = 0; i < symbols.length; i += CONCURRENCY) {
+      const chunk = symbols.slice(i, i + CONCURRENCY);
+      const settled = await Promise.allSettled(chunk.map(fetchOne));
+      for (const r of settled) {
+        if (r.status === 'fulfilled' && r.value) results.set(r.value[0], r.value[1]);
+      }
+    }
+
+    if (results.size > 0) {
+      console.log(`✅ [GF-HTML] Fetched ${results.size}/${symbols.length} ${instrumentType}s via Google Finance HTML`);
+    }
+
+    return results;
+  }
+
   async fetchGlobalStock(symbol: string): Promise<FetchResult> {
     const isIndianSymbol = symbol.includes('.NS') || symbol.includes('.BO');
     
@@ -742,6 +830,10 @@ class FinancialDataRepository {
     const results = new Map<string, InstrumentData>();
     if (!symbols.length) return results;
 
+    // Skip the network call entirely when Python sidecar is not configured —
+    // prevents "fetch failed" log noise on deploys that don't run the sidecar.
+    if (!isPythonServiceConfigured()) return results;
+
     try {
       const resp = await callPython<{ results: Record<string, any>; count: number }>('/market/quotes', 'POST', { symbols });
       if (!resp?.results) return results;
@@ -826,23 +918,31 @@ class FinancialDataRepository {
     }
 
     // ── Tier 2: Python/yfinance for US equities Alpha Vantage missed ───────
-    // Python's /market/quotes now has Google Finance JSONP fallback built in,
-    // so this tier covers both yfinance and Google Finance for US stragglers.
     const usNeeded = usSymbols.filter(s => !saved.has(s));
     if (usNeeded.length) {
-      console.log(`[GlobalStocks] ${usNeeded.length} US symbols after AV → Python/yfinance+GF`);
+      console.log(`[GlobalStocks] ${usNeeded.length} US symbols after AV → Python/yfinance`);
       const pythonResults = await this.fetchBatchFromPython(usNeeded, 'global_stock');
       for (const [sym, data] of pythonResults) await persist(data, sym);
     }
 
-    // ── Tier 3: FMP for any still-missing symbols ──────────────────────────
+    // ── Tier 3: Google Finance HTML for remaining US stocks ────────────────
+    // No API key needed; HTML scraping works from datacenter IPs.
+    // Only applicable to symbols without a suffix (US-listed).
+    const gfUsNeeded = usSymbols.filter(s => !saved.has(s));
+    if (gfUsNeeded.length) {
+      console.log(`[GlobalStocks] ${gfUsNeeded.length} US symbols after Python → Google Finance HTML`);
+      const gfResults = await this.fetchBatchFromGoogleFinance(gfUsNeeded, 'global_stock');
+      for (const [sym, data] of gfResults) await persist(data, sym);
+    }
+
+    // ── Tier 4: FMP for any still-missing symbols ──────────────────────────
     const fmpNeeded = symbols.filter(s => !saved.has(s));
     if (fmpNeeded.length && process.env.FMP_API_KEY) {
       const fmpResults = await this.fetchBatchFromFMP(fmpNeeded, 'global_stock');
       for (const [sym, data] of fmpResults) await persist(data, sym);
     }
 
-    // ── Tier 4: Yahoo Finance — genuine last resort ────────────────────────
+    // ── Tier 5: Yahoo Finance — genuine last resort ────────────────────────
     const yahooNeeded = symbols.filter(s => !saved.has(s));
     failed = yahooNeeded.length;
     if (yahooNeeded.length) {
@@ -884,20 +984,15 @@ class FinancialDataRepository {
       }
     }
 
-    // ── Tier 2: Python/yfinance + Google Finance JSONP ─────────────────────
-    // The Python /market/quotes endpoint now runs GF JSONP concurrently for
-    // any symbols yfinance misses — so this single call covers two sources.
+    // ── Tier 2: Python/yfinance ────────────────────────────────────────────
     const tier2Needed = symbols.filter(s => !saved.has(s));
     if (tier2Needed.length) {
-      console.log(`[ETFs] ${tier2Needed.length} ETFs after FMP → Python/yfinance+GF`);
+      console.log(`[ETFs] ${tier2Needed.length} ETFs after FMP → Python/yfinance`);
       const pythonResults = await this.fetchBatchFromPython(tier2Needed, 'etf');
       for (const [sym, data] of pythonResults) await persist(data, sym);
     }
 
-    // ── Tier 2.5: Alpha Vantage for US ETFs Python couldn't price ─────────
-    // Alpha Vantage GLOBAL_QUOTE endpoint works for all US-listed ETFs and
-    // runs on completely separate infrastructure from Yahoo Finance, so it
-    // resolves gracefully even when Yahoo / yfinance is rate-limited.
+    // ── Tier 3: Alpha Vantage for US ETFs Python couldn't price ───────────
     const avNeeded = symbols.filter(s => !saved.has(s) && !s.includes('.'));
     if (avNeeded.length && process.env.ALPHA_VANTAGE_API_KEY) {
       console.log(`[ETFs] ${avNeeded.length} US ETFs after Python → Alpha Vantage`);
@@ -905,7 +1000,17 @@ class FinancialDataRepository {
       for (const [sym, data] of avResults) await persist(data, sym);
     }
 
-    // ── Tier 3: Yahoo Finance — genuine last resort ────────────────────────
+    // ── Tier 4: Google Finance HTML for remaining US ETFs ─────────────────
+    // No API key needed; HTML scraping works from datacenter IPs.
+    // Only US-listed ETFs (no dot suffix) are in the GF_US_EXCHANGE_MAP.
+    const gfEtfNeeded = symbols.filter(s => !saved.has(s) && !s.includes('.'));
+    if (gfEtfNeeded.length) {
+      console.log(`[ETFs] ${gfEtfNeeded.length} ETFs after AV → Google Finance HTML`);
+      const gfResults = await this.fetchBatchFromGoogleFinance(gfEtfNeeded, 'etf');
+      for (const [sym, data] of gfResults) await persist(data, sym);
+    }
+
+    // ── Tier 5: Yahoo Finance — genuine last resort ────────────────────────
     const yahooNeeded = symbols.filter(s => !saved.has(s));
     failed = yahooNeeded.length;
     if (yahooNeeded.length) {

@@ -159,6 +159,42 @@ export async function fetchGFQuote(
 }
 
 /**
+ * Fetch a live quote from Google Finance for any explicit exchange string.
+ * Used for US stocks/ETFs (NASDAQ, NYSE, NYSEARCA, etc.).
+ * Returns null if the page is unreachable or price cannot be parsed.
+ *
+ * dataQuality = "third_party"
+ */
+export async function fetchGFQuoteUS(
+  symbol: string,
+  gfExchange: string,
+): Promise<GFQuote | null> {
+  const html = await fetchGFPage(symbol, gfExchange);
+  if (!html) return null;
+
+  const attrPriceMatch = html.match(/data-last-price="([0-9.]+)"/);
+  const attrTsMatch    = html.match(/data-last-normal-market-timestamp="([0-9]+)"/);
+  const attrPrice = attrPriceMatch ? parseFloat(attrPriceMatch[1]) : null;
+
+  const price = (attrPrice && attrPrice > 0) ? attrPrice : extractFirst(html, PATTERNS.price);
+  if (!price) return null;
+
+  const change    = extractSigned(html, PATTERNS.change);
+  const changePct = extractSigned(html, PATTERNS.changePct);
+  const tsUnix    = attrTsMatch ? parseInt(attrTsMatch[1], 10) : null;
+
+  return {
+    symbol,
+    price,
+    change,
+    changePercent: changePct,
+    previousClose: (price && change) ? parseFloat((price - change).toFixed(2)) : null,
+    marketTimestampUnix: tsUnix,
+    source: 'google_finance',
+  };
+}
+
+/**
  * Fetch key financial metrics for a stock via Google Finance HTML.
  * PE, PB, market cap, 52-week range, dividend yield, EPS.
  */
