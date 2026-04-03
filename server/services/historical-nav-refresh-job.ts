@@ -1,4 +1,4 @@
-import { db } from "../db";
+import { db, isPoolClosed } from "../db";
 import { historicalNavData, assetMetadataCache } from "@shared/schema";
 import { eq, sql, desc, gte } from "drizzle-orm";
 import { historicalNavService } from "./historical-nav-service";
@@ -137,6 +137,8 @@ class HistoricalNavRefreshJob {
       
       // Refresh each scheme
       for (const scheme of existingSchemes) {
+        if (isPoolClosed()) { console.log('[HistoricalNavRefresh] Pool closing — aborting refresh loop'); break; }
+
         if (Date.now() - batchStart > MAX_RUN_MS) {
           console.warn(`[HistoricalNavRefresh] 45m time cap reached — stopping after ${stats.successfulRefreshes} schemes`);
           break;

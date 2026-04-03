@@ -4,7 +4,7 @@ import { mfBenchmarkMappingService } from "./mf-benchmark-mapping-service";
 import { mfRelativeMetricsEngine } from "./mf-relative-metrics-engine";
 import { historicalNavService } from "./historical-nav-service";
 import { updateLiveReturnsCache } from "./agent-prospect-wizard-service";
-import { db } from "../db";
+import { db, isPoolClosed } from "../db";
 import { mutualFunds } from "@shared/schema";
 import { sql, eq, or, and, isNull, lt } from "drizzle-orm";
 
@@ -222,6 +222,7 @@ class MFReturnsScheduler {
       
       for (const fund of fundsNeedingReturns) {
         if (!fund.schemeCode) continue;
+        if (isPoolClosed()) { console.log('[MFReturnsScheduler] Pool closing — aborting sync loop'); break; }
         
         // Try to calculate from stored historical data first
         const storedReturns = await historicalNavService.calculateReturnsFromStoredData(fund.schemeCode);
@@ -283,7 +284,10 @@ class MFReturnsScheduler {
                 .set({ lastUpdated: new Date() })
                 .where(eq(mutualFunds.schemeCode, fund.schemeCode));
             } catch (tsErr: any) {
-              console.warn('[MFReturnsScheduler] Failed to update timestamp:', tsErr?.message);
+              const msg: string = tsErr?.message || '';
+              if (!msg.includes('end on the pool')) {
+                console.warn('[MFReturnsScheduler] Failed to update timestamp:', msg);
+              }
             }
           }
         }
