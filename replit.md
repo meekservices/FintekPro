@@ -1,5 +1,34 @@
 # FintekPro - Financial Services Platform
 
+## Universal KYC Compliance Gate — All Roles (April 2026)
+
+### What it does
+All authenticated FintekPro users — regardless of role — are now required to complete KYC before accessing any platform feature. This applies to admins, compliance officers, agents, partners, clients, and internal staff.
+
+### Regulatory Basis
+- **PMLA 2002, Section 12** — Reporting entities must maintain KYC records for ALL associated persons (staff + agents + clients)
+- **RBI Master Direction on KYC 2016** — All employees of regulated entities handling financial transactions must be KYC-verified
+- **SEBI KRA Regulations** — All intermediaries and their staff must complete KYC before any regulated activity
+- **AMFI Circular** — ARN/EUIN holders must be KYC-compliant through a KRA before distributing mutual funds
+- **IRDAI Regulations** — All insurance agents must complete KYC before soliciting
+
+### Minimum KYC Level per Role
+| Role | Min Level | Basis |
+|------|-----------|-------|
+| `superadmin`, `admin`, all dept heads/teams | Level 1 (PAN + OVD) | PMLA §12 |
+| `compliance_officer`, `regulatory_auditor` | Level 2 (Full KYC) | SEBI/PMLA compliance function |
+| `master_agent`, `partner` | Level 2 (Full KYC) | SEBI KRA + AMFI ARN requirement |
+| `agent`, `sub_agent`, `associate`, `partner_ops` | Level 1 | AMFI/IRDAI |
+| `client`, `user`, `business_client` | Level 1 | RBI Master Direction |
+| `tester` | Exempt | Internal platform testing |
+
+### Implementation
+- **`server/middleware/universal-kyc-gate.ts`** — Express middleware mounted at `app.use('/api', universalKycGate)` after audit trail. Checks user's role(s) against minimum level. 5-minute per-user cache.
+- **`GET /api/kyc/my-compliance-status`** — New endpoint returning `{ compliant, currentLevel, requiredLevel, missingRequirements, regulatoryBasis, guidanceMessage }`. Always accessible (on exempt list).
+- **`client/src/components/UniversalKYCWall.tsx`** — Full-screen blocking wall shown to any authenticated user whose KYC is below required level. Shows role-specific guidance, pending items, regulatory basis. Links to `/profile?tab=kyc-dashboard`.
+- Exempt paths (never blocked): `/api/auth/*`, `/api/kyc/*`, `/api/user`, `/api/health`, webhooks, `/api/onboarding`, `/api/uploads`, `/api/bbps`, `/api/digilocker`
+- Cache invalidated on: PAN verification success, compliance sign-off
+
 ## KYC "Once and Reuse Everywhere" Infrastructure (April 2026)
 
 ### Architecture

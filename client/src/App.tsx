@@ -85,6 +85,7 @@ import { LayoutResolver } from "@/components/layout/LayoutResolver";
 import { useSubdomain } from "@/hooks/useSubdomain";
 import { useAuth } from "@/hooks/useAuth";
 import { IdleTimeoutManager } from "@/components/IdleTimeoutManager";
+import { UniversalKYCWall } from "@/components/UniversalKYCWall";
 const AdminDashboard = lazyWithRetry(() => import("@/pages/admin/dashboard"));
 const GoldenPricingDashboard = lazyWithRetry(() => import("@/pages/admin/golden-pricing-dashboard"));
 const SystemHealthMonitor = lazyWithRetry(() => import("@/pages/admin/system-health"));
@@ -2521,7 +2522,9 @@ function App() {
               <DSCBackgroundSync />
               <Toaster />
               <GDPRConsent />
-              <Router />
+              <UniversalKYCWall>
+                <Router />
+              </UniversalKYCWall>
             </TooltipProvider>
           </UnifiedCartProvider>
           </UserPreferencesProvider>

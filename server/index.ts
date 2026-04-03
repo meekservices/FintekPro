@@ -82,6 +82,7 @@ import { latencyTrackingMiddleware } from "./services/request-latency-tracker";
 import { sensitiveDataMaskingMiddleware } from "./middleware/sensitive-data-masking";
 import { setupGracefulShutdown } from "./graceful-shutdown";
 import { auditTrailMiddleware } from "./middleware/audit-trail";
+import { universalKycGate } from "./middleware/universal-kyc-gate";
 import { randomBytes } from "crypto";
 import fs from "fs";
 import { symbolMappingService } from "./services/symbol-mapping-service";
@@ -505,6 +506,11 @@ app.use(complianceMiddleware);
 
 // Regulatory audit trail middleware - SEBI/RBI compliance logging
 app.use(auditTrailMiddleware);
+
+// Universal KYC Gate — PMLA/SEBI/RBI compliance for ALL roles
+// Blocks any authenticated user whose KYC level is below the minimum for their role.
+// Exempt paths: /api/auth, /api/kyc, /api/user, health checks, webhooks, onboarding.
+app.use('/api', universalKycGate);
 
 app.use((req, res, next) => {
   const start = Date.now();
