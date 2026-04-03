@@ -13,26 +13,22 @@ import { LoadingState } from "@/components/LoadingState";
 
 export default function IPO() {
   const { data: rawUpcoming, isLoading: upcomingLoading } = useQuery({
-    queryKey: ['/api/ipos', 'upcoming'],
-    queryFn: () => fetch('/api/ipos?status=upcoming').then(res => res.json()),
+    queryKey: ['/api/ipos?status=upcoming'],
   });
   const upcomingIpos = Array.isArray(rawUpcoming) ? rawUpcoming : [];
 
   const { data: rawOngoing, isLoading: ongoingLoading } = useQuery({
-    queryKey: ['/api/ipos', 'ongoing'],
-    queryFn: () => fetch('/api/ipos?status=ongoing').then(res => res.json()),
+    queryKey: ['/api/ipos?status=ongoing'],
   });
   const ongoingIpos = Array.isArray(rawOngoing) ? rawOngoing : [];
 
   const { data: rawListed, isLoading: listedLoading } = useQuery({
-    queryKey: ['/api/ipos', 'listed'],
-    queryFn: () => fetch('/api/ipos?status=listed').then(res => res.json()),
+    queryKey: ['/api/ipos?status=listed'],
   });
   const listedIpos = Array.isArray(rawListed) ? rawListed : [];
 
   const { data: rawIpoNews, isLoading: newsLoading } = useQuery({
     queryKey: ['/api/ipo-news'],
-    queryFn: () => fetch('/api/ipo-news').then(res => res.json()),
   });
   const ipoNews: IpoNews[] = Array.isArray(rawIpoNews) ? rawIpoNews : [];
 

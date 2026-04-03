@@ -97,8 +97,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   // Notification badge: count of active alerts triggered in the last 24 h
   const { data: activeAlerts } = useQuery<UserAlert[]>({
-    queryKey: ['/api/alerts', { status: 'active' }],
-    queryFn: () => fetch('/api/alerts?status=active').then(r => r.ok ? r.json() : []),
+    queryKey: ['/api/alerts?status=active'],
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
   });

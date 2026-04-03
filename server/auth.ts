@@ -3,6 +3,7 @@ import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, randomInt, timingSafeEqual } from "crypto";
+import { logger } from "./logger";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { type User } from "@shared/schema";
@@ -73,7 +74,9 @@ async function getOtpChannelOrder(userId?: string): Promise<string[]> {
     if (adminSetting?.value && Array.isArray(adminSetting.value) && (adminSetting.value as string[]).length > 0) {
       return adminSetting.value as string[];
     }
-  } catch (_) {}
+  } catch (err) {
+    logger.warn('[Auth] Failed to load OTP channel preferences from DB — using defaults', { error: err instanceof Error ? err.message : String(err) });
+  }
   return [...DEFAULT_OTP_CHANNEL_ORDER];
 }
 

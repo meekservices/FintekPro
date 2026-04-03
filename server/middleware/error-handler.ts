@@ -8,6 +8,7 @@ import { AppError, normalizeError } from '../utils/errors';
 import { apiResponse } from '../utils/responses';
 import { ZodError } from 'zod';
 import { logErrorWithTraceId } from '../services/error-tracking-service';
+import { logger } from '../logger';
 
 /**
  * Format Zod validation errors
@@ -37,18 +38,18 @@ async function logError(error: AppError, req: Request, traceId: string): Promise
   };
 
   if (error.status >= 500) {
-    console.error('[ERROR]', JSON.stringify(logData, null, 2));
+    logger.error('[ErrorHandler] Server error', logData);
     if (error.stack) {
-      console.error('[STACK]', error.stack);
+      logger.error('[ErrorHandler] Stack trace', { stack: error.stack });
     }
   } else {
-    console.warn('[WARN]', JSON.stringify(logData, null, 2));
+    logger.warn('[ErrorHandler] Client error', logData);
   }
   
   try {
     await logErrorWithTraceId(error, req, traceId);
   } catch (trackingError) {
-    console.error('[ERROR_TRACKING_FAILED]', trackingError);
+    logger.error('[ErrorHandler] Failed to persist error to tracking service', { error: trackingError instanceof Error ? trackingError.message : String(trackingError) });
   }
 }
 

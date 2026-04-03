@@ -119,7 +119,6 @@ export default function KycRejectionRekyc() {
     } | null;
   }>({
     queryKey: ["/api/kyc/active-session", clientUserId],
-    queryFn: () => fetch(`/api/kyc/active-session/${clientUserId}`).then(r => r.json()),
     enabled: isAgent && !!clientUserId,
   });
 

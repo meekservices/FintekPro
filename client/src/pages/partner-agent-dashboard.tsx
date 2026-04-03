@@ -99,8 +99,7 @@ export default function PartnerAgentDashboard() {
   const [dateRange, setDateRange] = useState("this_month");
 
   const { data: agentsData, isLoading: isLoadingAgents } = useQuery<AgentMetrics[]>({
-    queryKey: ['/api/partner/agents', { period: dateRange }],
-    queryFn: () => fetch(`/api/partner/agents?period=${dateRange}`).then(res => res.json()),
+    queryKey: [`/api/partner/agents?period=${dateRange}`],
   });
 
   const { data: expensesData, isLoading: isLoadingExpenses } = useQuery<ExpenseItem[]>({

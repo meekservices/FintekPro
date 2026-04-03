@@ -327,8 +327,7 @@ export default function PartnerRevenueSheet() {
     success: boolean;
     data: { agentNetwork: AgentNetworkRow[]; summary: PartnerSummary; month: number; year: number };
   }>({
-    queryKey: ["/api/partner/revenue-sheet", month, year],
-    queryFn: () => fetch(`/api/partner/revenue-sheet?month=${month}&year=${year}`).then((r) => r.json()),
+    queryKey: [`/api/partner/revenue-sheet?month=${month}&year=${year}`],
   });
 
   const agentNetwork: AgentNetworkRow[] = data?.data?.agentNetwork || [];

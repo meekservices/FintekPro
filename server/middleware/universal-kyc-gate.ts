@@ -19,6 +19,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getUserKYCLevel } from './kyc-level-gate';
 import type { RoleId } from '@shared/roles';
+import { logger } from '../logger';
 
 // Per-user KYC compliance cache — avoids DB hit on every API call
 // TTL: 5 minutes; invalidated on any KYC write event
@@ -110,6 +111,8 @@ const EXEMPT_PREFIXES = [
   '/api/kyc',         // All KYC completion routes (cannot block these!)
   '/api/user',        // Own profile reads (needed for UI to load)
   '/api/health',      // Infrastructure
+  '/api/admin/kyc',   // Admin KYC management — admin must be able to approve KYC even before their own is done
+  '/api/agent/kyc',   // Agent KYC empanelment flow
   '/api/ready',
   '/api/live',
   '/api/webhooks',    // External webhooks
@@ -277,7 +280,7 @@ export async function universalKycGate(
     });
   } catch (err) {
     // Never crash the request — if KYC check fails, allow through and log
-    console.error('[UniversalKycGate] Error checking compliance, allowing through:', err instanceof Error ? err.message : err);
+    logger.error('[UniversalKycGate] Error checking compliance, allowing through', { error: err instanceof Error ? err.message : String(err) });
     next();
   }
 }

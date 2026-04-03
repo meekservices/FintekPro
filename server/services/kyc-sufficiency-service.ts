@@ -21,6 +21,7 @@ import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { isPoolClosed } from '../db';
+import { logger } from '../logger';
 
 // ---------------------------------------------------------------------------
 // Product KYC Requirement Profiles
@@ -599,7 +600,7 @@ class KycSufficiencyService {
     const productCodes = Object.keys(PRODUCT_PROFILES) as ProductCode[];
     const results = await Promise.all(
       productCodes.map(code => this.checkSufficiency(userId, code).catch(err => {
-        console.error(`[KYCSufficiency] Error checking ${code}:`, err);
+        logger.error(`[KYCSufficiency] Error checking ${code}`, { error: err instanceof Error ? err.message : String(err) });
         return null;
       }))
     );

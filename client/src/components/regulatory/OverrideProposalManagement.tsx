@@ -102,10 +102,7 @@ export function OverrideProposalManagement() {
     success: boolean;
     proposals: OverrideProposal[];
   }>({
-    queryKey: ["/api/regulatory/override-proposals", statusFilter === 'all' ? '' : statusFilter],
-    queryFn: () => fetch(`/api/regulatory/override-proposals${statusFilter !== 'all' ? `?status=${statusFilter}` : ''}`, {
-      credentials: 'include'
-    }).then(r => r.json()),
+    queryKey: [`/api/regulatory/override-proposals${statusFilter !== 'all' ? `?status=${statusFilter}` : ''}`],
   });
 
   const reviewMutation = useMutation({
