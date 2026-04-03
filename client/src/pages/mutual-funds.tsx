@@ -1196,88 +1196,74 @@ export default function MutualFunds() {
 
           {/* Market Indices & Stats */}
           <TooltipProvider>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            {/* NIFTY 50 */}
-            {(() => {
-              const niftyData = nseIndices?.data?.find(i => i.symbol === 'NIFTY') || nseIndices?.data?.[0];
-              const isLive = niftyData?.source === 'nse_live';
-              const isUp = (niftyData?.per_chng ?? 0) >= 0;
-              return (
-                <Card className="border border-border">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-1">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-sm text-muted-foreground">NIFTY 50</p>
-                        {isLive && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">LIVE</span>
-                        )}
-                      </div>
-                      <span className={`text-xs font-medium flex items-center gap-0.5 ${isUp ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {isLoadingNSE ? <Skeleton className="h-4 w-12" /> : (
-                          <>
-                            {isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                            {isUp ? '+' : ''}{(niftyData?.per_chng ?? 0).toFixed(2)}%
-                          </>
-                        )}
-                      </span>
-                    </div>
-                    {isLoadingNSE ? (
-                      <Skeleton className="h-7 w-28 mb-1" />
-                    ) : (
-                      <p className="text-xl font-bold text-foreground" data-testid="nifty-value">
-                        {niftyData ? niftyData.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
-                      </p>
-                    )}
-                    {!isLoadingNSE && niftyData && (
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className={`text-xs ${isUp ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {isUp ? '+' : ''}{(niftyData.chng ?? 0).toFixed(2)} pts
-                        </span>
-                        {niftyData.high && niftyData.low && (
-                          <span className="text-xs text-muted-foreground ml-1">
-                            H: {niftyData.high.toLocaleString('en-IN', { maximumFractionDigits: 0 })} / L: {niftyData.low.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })()}
+          {/* Audit-safe data attribution bar */}
+          {!isLoadingNSE && (
+            <div className="flex items-center gap-3 mb-3 px-1">
+              {nseIndices?.unavailable ? (
+                <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-md border border-amber-200 dark:border-amber-800">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  Market data temporarily unavailable. Displaying no prices — please refresh or visit NSE/BSE directly.
+                </div>
+              ) : nseIndices?.marketDataTimestamp ? (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Clock className="w-3 h-3" />
+                  <span>
+                    Market prices as of{' '}
+                    <span className="font-medium text-foreground">
+                      {new Date(nseIndices.marketDataTimestamp).toLocaleString('en-IN', {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata'
+                      })} IST
+                    </span>
+                    {' · '}NIFTY/Midcap/Smallcap: NSE · SENSEX: BSE via Google Finance
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          )}
 
-            {/* SENSEX */}
-            {(() => {
-              const sensexData = nseIndices?.data?.find(i => i.symbol === 'SENSEX');
-              const isDerived = sensexData?.derived === true || sensexData?.source === 'nse_derived';
-              const isGoogleFinance = sensexData?.source === 'google_finance';
-              const isUp = (sensexData?.per_chng ?? 0) >= 0;
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            {/* Index card helper — renders one index cleanly */}
+            {(nseIndices?.unavailable ? [] : ['NIFTY', 'SENSEX'] as const).map(sym => {
+              const d = nseIndices?.data?.find(i => i.symbol === sym);
+              if (!d) return null;
+              const isUp = (d.per_chng ?? 0) >= 0;
+              const qBadge: Record<string, { label: string; cls: string }> = {
+                exchange:    { label: 'NSE',    cls: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' },
+                third_party: { label: 'BSE·GF', cls: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' },
+                estimated:   { label: '~Est.',  cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400' },
+                unavailable: { label: 'N/A',    cls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' },
+              };
+              const badge = qBadge[d.dataQuality ?? 'unavailable'];
+              const dataTs = d.marketDataTimestamp
+                ? new Date(d.marketDataTimestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })
+                : null;
               return (
-                <Card className="border border-border">
+                <Card key={sym} className="border border-border">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-1">
                       <div className="flex items-center gap-1.5">
-                        <p className="text-sm text-muted-foreground">SENSEX</p>
-                        {isGoogleFinance && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">LIVE</span>
-                        )}
-                        {isDerived && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 cursor-help">
-                                ~Est. <Info className="w-2.5 h-2.5 ml-0.5" />
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="max-w-[200px] text-xs">
-                              Google Finance is unavailable. This value is estimated from the NIFTY 50 using the historical SENSEX/NIFTY correlation ratio (~3.32).
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
+                        <p className="text-sm text-muted-foreground">{sym === 'NIFTY' ? 'NIFTY 50' : 'SENSEX'}</p>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold cursor-help ${badge.cls}`}>
+                              {badge.label}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[220px] text-xs">
+                            {d.dataQuality === 'exchange' && 'Last traded price from NSE (National Stock Exchange of India).'}
+                            {d.dataQuality === 'third_party' && 'Last traded price from BSE via Google Finance.'}
+                            {d.dataQuality === 'estimated' && `Estimated from NIFTY 50 using historical correlation (${d.estimationBasis ?? 'ratio ~3.32'}). BSE/Google Finance unavailable.`}
+                            {d.dataQuality === 'unavailable' && 'No market data available for this index.'}
+                            {dataTs && ` · Data recorded at ${dataTs} IST.`}
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                       <span className={`text-xs font-medium flex items-center gap-0.5 ${isUp ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                         {isLoadingNSE ? <Skeleton className="h-4 w-12" /> : (
                           <>
                             {isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                            {isUp ? '+' : ''}{(sensexData?.per_chng ?? 0).toFixed(2)}%
+                            {isUp ? '+' : ''}{(d.per_chng ?? 0).toFixed(2)}%
                           </>
                         )}
                       </span>
@@ -1285,26 +1271,43 @@ export default function MutualFunds() {
                     {isLoadingNSE ? (
                       <Skeleton className="h-7 w-28 mb-1" />
                     ) : (
-                      <p className="text-xl font-bold text-foreground" data-testid="sensex-value">
-                        {sensexData ? sensexData.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                      <p className="text-xl font-bold text-foreground" data-testid={`${sym.toLowerCase()}-value`}>
+                        {d.ltp ? d.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
                       </p>
                     )}
-                    {!isLoadingNSE && sensexData && (
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className={`text-xs ${isUp ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {isUp ? '+' : ''}{(sensexData.chng ?? 0).toFixed(2)} pts
-                        </span>
-                        {sensexData.high && sensexData.low && (
-                          <span className="text-xs text-muted-foreground ml-1">
-                            H: {sensexData.high.toLocaleString('en-IN', { maximumFractionDigits: 0 })} / L: {sensexData.low.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                          </span>
+                    {!isLoadingNSE && d.ltp > 0 && (
+                      <div className="space-y-0.5 mt-0.5">
+                        <div className={`text-xs ${isUp ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {isUp ? '+' : ''}{(d.chng ?? 0).toFixed(2)} pts
+                        </div>
+                        {d.high && d.low ? (
+                          <div className="text-xs text-muted-foreground">
+                            H: {d.high.toLocaleString('en-IN', { maximumFractionDigits: 0 })} &nbsp;/&nbsp; L: {d.low.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                          </div>
+                        ) : null}
+                        {dataTs && (
+                          <div className="text-[10px] text-muted-foreground/70">Recorded {dataTs} IST</div>
                         )}
                       </div>
                     )}
                   </CardContent>
                 </Card>
               );
-            })()}
+            })}
+
+            {/* Show unavailable placeholder cards when data is down */}
+            {nseIndices?.unavailable && (['NIFTY 50', 'SENSEX'] as const).map(name => (
+              <Card key={name} className="border border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-900/10">
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground mb-2">{name}</p>
+                  <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                    <AlertCircle className="w-4 h-4" />
+                    <span className="text-sm font-medium">Unavailable</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">Visit nseindia.com / bseindia.com</p>
+                </CardContent>
+              </Card>
+            ))}
 
             {/* Total AUM */}
             <Card className="border border-border">
@@ -1316,14 +1319,14 @@ export default function MutualFunds() {
                       <TooltipTrigger asChild>
                         <Info className="w-3 h-3 text-muted-foreground cursor-help" />
                       </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-[200px] text-xs">
-                        Total Assets Under Management of India's MF industry (AMFI data, as of Mar 2026)
+                      <TooltipContent side="bottom" className="max-w-[220px] text-xs">
+                        Total Assets Under Management of India's MF industry. Source: AMFI Monthly Data, March 2026.
                       </TooltipContent>
                     </Tooltip>
                   </div>
                   <div className="flex items-center text-blue-600 dark:text-blue-400">
                     <Building2 className="w-3.5 h-3.5 mr-1" />
-                    <span className="text-xs font-medium">AMFI</span>
+                    <span className="text-xs font-medium">AMFI · Mar 2026</span>
                   </div>
                 </div>
                 {isLoadingAll ? (
@@ -1332,7 +1335,7 @@ export default function MutualFunds() {
                   <p className="text-xl font-bold text-foreground" data-testid="total-aum">₹68.50 L Cr</p>
                 )}
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {allFunds ? `${allFunds.length.toLocaleString()} schemes in platform` : '1,200+ schemes'}
+                  {allFunds ? `${allFunds.length.toLocaleString()} schemes on platform` : '1,200+ schemes'}
                 </p>
               </CardContent>
             </Card>
@@ -1341,7 +1344,7 @@ export default function MutualFunds() {
             <Card className="border border-border">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-1">
-                  <p className="text-sm text-muted-foreground">Active Schemes</p>
+                  <p className="text-sm text-muted-foreground">Platform Schemes</p>
                   <div className="flex items-center text-finance-blue">
                     <Award className="w-3.5 h-3.5 mr-1" />
                     <span className="text-xs font-medium">SEBI Reg.</span>
@@ -1351,7 +1354,7 @@ export default function MutualFunds() {
                   <Skeleton className="h-7 w-16 mb-1" />
                 ) : (
                   <p className="text-xl font-bold text-foreground" data-testid="active-schemes">
-                    {allFunds ? allFunds.length.toLocaleString() : '1,200+'}
+                    {allFunds ? allFunds.length.toLocaleString() : '—'}
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground mt-0.5">

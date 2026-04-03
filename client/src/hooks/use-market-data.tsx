@@ -146,24 +146,35 @@ export interface NSEIndex {
   per_chng: number;
   volume: number;
   value: number;
-  open?: number;
-  high?: number;
-  low?: number;
+  open?: number | null;
+  high?: number | null;
+  low?: number | null;
   previousClose?: number;
   source?: string;
+  dataQuality?: 'exchange' | 'third_party' | 'estimated' | 'unavailable';
+  estimated?: boolean;
+  estimationBasis?: string;
   derived?: boolean;
-  timestamp?: string;
+  marketDataTimestamp?: string | null;
+  fetchedAt?: string;
+}
+
+export interface NSEIndicesResponse {
+  status: string;
+  data: NSEIndex[];
+  marketDataTimestamp?: string | null;
+  fetchedAt?: string;
+  cached?: boolean;
+  unavailable?: boolean;
+  error?: string;
 }
 
 export function useNSEIndices() {
-  return useQuery<{
-    status: string;
-    data: NSEIndex[];
-  }>({
+  return useQuery<NSEIndicesResponse>({
     queryKey: ['/api/nse/indices'],
-    refetchInterval: 30000, // Refetch every 30 seconds for live data
+    refetchInterval: 60000, // Refetch every 60 seconds
     retry: 2,
-    staleTime: 15 * 1000, // 15 seconds
+    staleTime: 30 * 1000,
   });
 }
 

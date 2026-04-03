@@ -62,59 +62,71 @@ export function registerStockExchangeRoutes(app: Express) {
   });
 
   // In-memory cache for NSE indices
-  let indicesCache: { data: any[]; timestamp: number } | null = null;
+  let indicesCache: { data: any[]; fetchedAt: number; marketDataTimestamp: string | null } | null = null;
   const INDICES_CACHE_TTL = 60 * 1000; // 1 minute cache
 
-  // SENSEX/NIFTY50 ratio (historical correlation, highly stable at ~3.31-3.33)
+  // SENSEX/NIFTY50 ratio fallback only — used when Google Finance is also unavailable
   const SENSEX_NIFTY_RATIO = 3.32;
 
-  // Realistic fallback values (updated April 2026)
-  const fallbackData = {
-    'NIFTY': { ltp: 22713.10, chng: 33.70, per_chng: 0.15, open: 22383.40, high: 22782.30, low: 22182.55, prevClose: 22679.40, name: 'NIFTY 50' },
-    'SENSEX': { ltp: 75406.89, chng: 111.88, per_chng: 0.15, open: 74274.89, high: 75664.03, low: 73766.07, prevClose: 75294.99, name: 'SENSEX' },
-    'NIFTYMIDCAP': { ltp: 49871.45, chng: -243.20, per_chng: -0.49, open: 49800.00, high: 50120.00, low: 49650.00, prevClose: 50114.65, name: 'NIFTY MIDCAP 100' },
-    'NIFTYSMALLCAP': { ltp: 15521.30, chng: -88.40, per_chng: -0.57, open: 15420.00, high: 15680.00, low: 15380.00, prevClose: 15609.70, name: 'NIFTY SMALLCAP 100' }
-  };
+  // Parse NSE timestamp string like "02-Apr-2026 15:30" → ISO string
+  function parseNseTimestamp(raw: string | undefined): string | null {
+    if (!raw) return null;
+    try {
+      // NSE format: "02-Apr-2026 15:30" (IST, UTC+5:30)
+      const parsed = new Date(raw.replace(/-/g, ' ') + ':00 GMT+0530');
+      if (!isNaN(parsed.getTime())) return parsed.toISOString();
+    } catch {}
+    return null;
+  }
 
-  // Return cached data if valid
+  // dataQuality: "exchange" = price from exchange, "third_party" = verified third-party,
+  //              "estimated" = mathematically derived, "unavailable" = no live data
   app.get("/api/nse/indices", async (req, res) => {
-    if (indicesCache && (Date.now() - indicesCache.timestamp) < INDICES_CACHE_TTL) {
+    if (indicesCache && (Date.now() - indicesCache.fetchedAt) < INDICES_CACHE_TTL) {
       return res.json({
         status: "success",
         data: indicesCache.data,
-        timestamp: new Date().toISOString(),
+        marketDataTimestamp: indicesCache.marketDataTimestamp,
+        fetchedAt: new Date(indicesCache.fetchedAt).toISOString(),
         cached: true
       });
     }
 
+    const fetchedAt = new Date().toISOString();
+
     try {
-      // Use NSE India library's getAllIndices() — works reliably from datacenter
+      // PRIMARY: NSE India library's getAllIndices() — verified working from datacenter
       const allIndicesData = await nseIndia.getAllIndices();
       const items: any[] = allIndicesData?.data || [];
 
-      const findIndex = (nameMatch: string) =>
-        items.find((d: any) => d.index && d.index.toUpperCase().includes(nameMatch.toUpperCase()));
+      // The NSE API returns a top-level timestamp for when the data was recorded
+      const nseMarketTimestamp = parseNseTimestamp(allIndicesData?.timestamp);
 
-      const nifty50 = findIndex('NIFTY 50');
-      const midcap = findIndex('NIFTY MIDCAP 100');
-      const smallcap = findIndex('NIFTY SMALLCAP 100');
+      const findIdx = (name: string) =>
+        items.find((d: any) => d.index && d.index.toUpperCase().includes(name.toUpperCase()));
 
-      if (!nifty50) throw new Error('NIFTY 50 not found in NSE allIndices response');
+      const nifty50   = findIdx('NIFTY 50');
+      const midcap    = findIdx('NIFTY MIDCAP 100');
+      const smallcap  = findIdx('NIFTY SMALLCAP 100');
 
-      const niftyLtp = nifty50.last || nifty50.lastPrice || fallbackData.NIFTY.ltp;
-      const niftyChng = nifty50.variation || nifty50.change || fallbackData.NIFTY.chng;
-      const niftyPctChng = nifty50.percentChange || nifty50.pChange || fallbackData.NIFTY.per_chng;
-      const niftyPrevClose = nifty50.previousClose || nifty50.prev_close || fallbackData.NIFTY.prevClose;
-      const niftyHigh = nifty50.high || nifty50.dayHigh || fallbackData.NIFTY.high;
-      const niftyLow = nifty50.low || nifty50.dayLow || fallbackData.NIFTY.low;
-      const niftyOpen = nifty50.open || fallbackData.NIFTY.open;
+      if (!nifty50) throw new Error('NIFTY 50 not in NSE allIndices');
 
-      // Fetch SENSEX from Google Finance (works from datacenter via data-last-price attribute)
-      let sensexLtp = parseFloat((niftyLtp * SENSEX_NIFTY_RATIO).toFixed(2));
-      let sensexSource = 'nse_derived';
-      let sensexDerived = true;
+      const niftyLtp      = nifty50.last        ?? 0;
+      const niftyChng     = nifty50.variation   ?? 0;
+      const niftyPctChng  = nifty50.percentChange ?? 0;
+      const niftyPrevClose = nifty50.previousClose ?? 0;
+      const niftyHigh     = nifty50.high        ?? 0;
+      const niftyLow      = nifty50.low         ?? 0;
+      const niftyOpen     = nifty50.open        ?? 0;
+
+      // SENSEX: fetch from Google Finance (BSE index — not in NSE library)
+      let sensexLtp: number | null = null;
+      let sensexSource: string = 'unavailable';
+      let sensexDataTimestamp: string | null = null;
+      let sensexDataQuality: string = 'unavailable';
+
       try {
-        const gfResponse = await fetch('https://www.google.com/finance/quote/SENSEX:INDEXBOM', {
+        const gfRes = await fetch('https://www.google.com/finance/quote/SENSEX:INDEXBOM', {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml',
@@ -122,116 +134,98 @@ export function registerStockExchangeRoutes(app: Express) {
           },
           signal: AbortSignal.timeout(6000)
         });
-        const html = await gfResponse.text();
+        const html = await gfRes.text();
         const priceMatch = html.match(/data-last-price="([0-9.]+)"/);
-        if (priceMatch && priceMatch[1]) {
+        const tsMatch    = html.match(/data-last-normal-market-timestamp="([0-9]+)"/);
+        if (priceMatch?.[1]) {
           const parsed = parseFloat(priceMatch[1]);
-          if (parsed > 10000 && parsed < 200000) { // sanity check for valid SENSEX range
+          if (parsed > 10000 && parsed < 200000) {
             sensexLtp = parsed;
             sensexSource = 'google_finance';
-            sensexDerived = false;
+            sensexDataQuality = 'third_party';
+            if (tsMatch?.[1]) {
+              sensexDataTimestamp = new Date(parseInt(tsMatch[1]) * 1000).toISOString();
+            }
           }
         }
       } catch (gfErr) {
-        console.warn('[NSE Indices] Google Finance SENSEX fetch failed, using NIFTY ratio:', (gfErr as Error).message);
+        console.warn('[NSE Indices] Google Finance unavailable for SENSEX:', (gfErr as Error).message);
       }
 
-      // Compute SENSEX change using live % change (same direction as NIFTY)
-      const sensexChng = parseFloat((sensexLtp * niftyPctChng / 100).toFixed(2));
-      const sensexPrevClose = parseFloat((sensexLtp - sensexChng).toFixed(2));
+      // If Google Finance also failed, derive from NIFTY ratio but mark clearly
+      const sensexIsDerived = sensexLtp === null;
+      if (sensexIsDerived) {
+        sensexLtp = parseFloat((niftyLtp * SENSEX_NIFTY_RATIO).toFixed(2));
+        sensexSource = 'estimated';
+        sensexDataQuality = 'estimated';
+        sensexDataTimestamp = null;
+        console.warn('[NSE Indices] SENSEX: both Google Finance and BSE unavailable — showing ratio estimate');
+      }
+
+      const sensexChng = parseFloat(((sensexLtp ?? 0) * niftyPctChng / 100).toFixed(2));
+      const sensexPrevClose = parseFloat(((sensexLtp ?? 0) - sensexChng).toFixed(2));
+
+      const makeNseEntry = (symbol: string, name: string, item: any) => ({
+        symbol,
+        name,
+        ltp: item?.last ?? 0,
+        chng: item?.variation ?? 0,
+        per_chng: item?.percentChange ?? 0,
+        open: item?.open ?? 0,
+        high: item?.high ?? 0,
+        low: item?.low ?? 0,
+        previousClose: item?.previousClose ?? 0,
+        volume: item?.totalTradedVolume ?? 0,
+        value: item?.totalTradedValue ?? 0,
+        source: item ? 'nse' : 'unavailable',
+        dataQuality: item ? 'exchange' : 'unavailable',
+        marketDataTimestamp: nseMarketTimestamp,
+        fetchedAt
+      });
 
       const indicesData = [
-        {
-          symbol: 'NIFTY',
-          name: 'NIFTY 50',
-          ltp: niftyLtp,
-          chng: niftyChng,
-          per_chng: niftyPctChng,
-          open: niftyOpen,
-          high: niftyHigh,
-          low: niftyLow,
-          previousClose: niftyPrevClose,
-          volume: nifty50.totalTradedVolume || 0,
-          value: nifty50.totalTradedValue || 0,
-          timestamp: new Date().toISOString(),
-          source: 'nse_live'
-        },
+        makeNseEntry('NIFTY', 'NIFTY 50', nifty50),
         {
           symbol: 'SENSEX',
           name: 'SENSEX',
           ltp: sensexLtp,
           chng: sensexChng,
           per_chng: niftyPctChng,
+          open: null,
+          high: null,
+          low: null,
           previousClose: sensexPrevClose,
           volume: 0,
           value: 0,
-          timestamp: new Date().toISOString(),
           source: sensexSource,
-          ...(sensexDerived ? { derived: true } : {})
+          dataQuality: sensexDataQuality,
+          ...(sensexIsDerived ? { estimated: true, estimationBasis: 'NIFTY50 × 3.32 ratio' } : {}),
+          marketDataTimestamp: sensexDataTimestamp ?? nseMarketTimestamp,
+          fetchedAt
         },
-        {
-          symbol: 'NIFTYMIDCAP',
-          name: 'NIFTY MIDCAP 100',
-          ltp: midcap?.last || midcap?.lastPrice || fallbackData.NIFTYMIDCAP.ltp,
-          chng: midcap?.variation || midcap?.change || fallbackData.NIFTYMIDCAP.chng,
-          per_chng: midcap?.percentChange || midcap?.pChange || fallbackData.NIFTYMIDCAP.per_chng,
-          open: midcap?.open || fallbackData.NIFTYMIDCAP.open,
-          high: midcap?.high || midcap?.dayHigh || fallbackData.NIFTYMIDCAP.high,
-          low: midcap?.low || midcap?.dayLow || fallbackData.NIFTYMIDCAP.low,
-          previousClose: midcap?.previousClose || fallbackData.NIFTYMIDCAP.prevClose,
-          volume: midcap?.totalTradedVolume || 0,
-          value: midcap?.totalTradedValue || 0,
-          timestamp: new Date().toISOString(),
-          source: midcap ? 'nse_live' : 'fallback'
-        },
-        {
-          symbol: 'NIFTYSMALLCAP',
-          name: 'NIFTY SMALLCAP 100',
-          ltp: smallcap?.last || smallcap?.lastPrice || fallbackData.NIFTYSMALLCAP.ltp,
-          chng: smallcap?.variation || smallcap?.change || fallbackData.NIFTYSMALLCAP.chng,
-          per_chng: smallcap?.percentChange || smallcap?.pChange || fallbackData.NIFTYSMALLCAP.per_chng,
-          open: smallcap?.open || fallbackData.NIFTYSMALLCAP.open,
-          high: smallcap?.high || smallcap?.dayHigh || fallbackData.NIFTYSMALLCAP.high,
-          low: smallcap?.low || smallcap?.dayLow || fallbackData.NIFTYSMALLCAP.low,
-          previousClose: smallcap?.previousClose || fallbackData.NIFTYSMALLCAP.prevClose,
-          volume: smallcap?.totalTradedVolume || 0,
-          value: smallcap?.totalTradedValue || 0,
-          timestamp: new Date().toISOString(),
-          source: smallcap ? 'nse_live' : 'fallback'
-        }
+        makeNseEntry('NIFTYMIDCAP', 'NIFTY MIDCAP 100', midcap),
+        makeNseEntry('NIFTYSMALLCAP', 'NIFTY SMALLCAP 100', smallcap)
       ];
 
-      indicesCache = { data: indicesData, timestamp: Date.now() };
+      indicesCache = { data: indicesData, fetchedAt: Date.now(), marketDataTimestamp: nseMarketTimestamp };
 
       res.json({
         status: "success",
         data: indicesData,
-        timestamp: new Date().toISOString()
+        marketDataTimestamp: nseMarketTimestamp,
+        fetchedAt
       });
     } catch (error) {
-      console.error("Error fetching NSE indices via getAllIndices():", error);
-      const fallbackIndices = Object.entries(fallbackData).map(([symbol, data]) => ({
-        symbol,
-        name: data.name,
-        ltp: data.ltp,
-        chng: data.chng,
-        per_chng: data.per_chng,
-        open: data.open,
-        high: data.high,
-        low: data.low,
-        previousClose: data.prevClose,
-        volume: 0,
-        value: 0,
-        timestamp: new Date().toISOString(),
-        source: 'fallback',
-        ...(symbol === 'SENSEX' ? { derived: true } : {})
-      }));
+      console.error("[NSE Indices] getAllIndices() failed:", error);
 
+      // Hard failure — return explicit unavailable state, NOT silently stale numbers
       res.json({
-        status: "success",
-        data: fallbackIndices,
-        timestamp: new Date().toISOString(),
-        fallback: true
+        status: "degraded",
+        data: [],
+        marketDataTimestamp: null,
+        fetchedAt,
+        error: "Market data temporarily unavailable. Please refresh or check NSE/BSE directly.",
+        unavailable: true
       });
     }
   });
