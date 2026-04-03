@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { db } from "../db";
+import { logger } from "../logger";
 import { 
   instrumentMaster,
   proposalHoldings,
@@ -1280,7 +1281,9 @@ router.get("/api/instruments/price/:isin", async (req: Request, res: Response) =
           currentPrice = livePrice.price;
           priceSource = livePrice.source === 'BSE' ? "live_bse" : "live_nse";
         }
-      } catch (e) {}
+      } catch (e) {
+        logger.debug('[Instruments] Live price fetch failed — falling back to static data', { error: e instanceof Error ? e.message : String(e) });
+      }
 
       return res.json({
         success: true,

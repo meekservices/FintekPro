@@ -88,8 +88,7 @@ export default function AgentPayoutDashboard() {
   const [dateRange, setDateRange] = useState("this_month");
 
   const { data: earningsData, isLoading: isLoadingEarnings } = useQuery<EarningEntry[]>({
-    queryKey: ['/api/agent/earnings', { period: dateRange }],
-    queryFn: () => fetch(`/api/agent/earnings?period=${dateRange}`).then(res => res.json()),
+    queryKey: [`/api/agent/earnings?period=${dateRange}`],
   });
 
   const { data: payoutRequestsData, isLoading: isLoadingPayouts } = useQuery<PayoutRequest[]>({

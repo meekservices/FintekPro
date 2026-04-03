@@ -365,8 +365,7 @@ export default function AgentRevenueSheet() {
     success: boolean;
     data: { cases: Case[]; summary: Summary; month: number; year: number };
   }>({
-    queryKey: ["/api/agent/revenue-sheet", month, year],
-    queryFn: () => fetch(`/api/agent/revenue-sheet?month=${month}&year=${year}`).then((r) => r.json()),
+    queryKey: [`/api/agent/revenue-sheet?month=${month}&year=${year}`],
   });
 
   const cases: Case[] = data?.data?.cases || [];

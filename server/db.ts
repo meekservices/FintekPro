@@ -2,6 +2,7 @@ import pg from 'pg';
 const { Pool } = pg;
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
+import { logger } from './logger';
 
 // Determine environment first — URL selection depends on it.
 const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
@@ -40,14 +41,19 @@ const dbUrlSource = process.env.PRODUCTION_DATABASE_URL
   ? 'PRODUCTION_DATABASE_URL'
   : 'DATABASE_URL';
 
-console.log(`🔗 [DB] Connected to ${dbUrlSource} (${needsSsl ? 'SSL' : isRailwayInternal ? 'TCP/internal' : 'TCP'})`);
+logger.info(`[DB] Connected to ${dbUrlSource} (${needsSsl ? 'SSL' : isRailwayInternal ? 'TCP/internal' : 'TCP'})`);
 
 const POOL_CONFIG = {
   connectionString: selectedDbUrl,
-  max: 5,
-  min: isProduction ? 1 : 0,
+  // Raised from 5 → 15: 200+ API routes + AI calls + KYC checks compete under load.
+  // Railway Postgres supports 100+ connections; 15 provides headroom with safety margin.
+  max: isProduction ? 15 : 5,
+  min: isProduction ? 2 : 0,
   idleTimeoutMillis: isProduction ? 60000 : 30000,
   connectionTimeoutMillis: 15000,
+  // Prevent runaway queries (complex reports, AI joins) from holding a connection indefinitely.
+  // 30s is generous enough for any legitimate query; catches infinite loops / missing indexes.
+  statement_timeout: isProduction ? 30000 : 60000,
   allowExitOnIdle: false,
   ssl: needsSsl ? true : false,
 };
@@ -66,7 +72,7 @@ pool.on('error', (err) => {
   poolErrorCount++;
   if (now - lastPoolErrorTime > 10000) {
     const suffix = poolErrorCount > 1 ? ` (${poolErrorCount} errors in last batch)` : '';
-    console.warn(`[DB Pool] Connection error (auto-recovering): ${err?.message || err}${suffix}`);
+    logger.warn(`[DB Pool] Connection error (auto-recovering): ${err?.message || err}${suffix}`);
     lastPoolErrorTime = now;
     poolErrorCount = 0;
   }
@@ -76,7 +82,7 @@ let connectCount = 0;
 pool.on('connect', () => {
   connectCount++;
   if (connectCount <= 5 || connectCount % 10 === 0) {
-    console.log(`[DB Pool] Client connected (total: ${connectCount})`);
+    logger.debug(`[DB Pool] Client connected (total: ${connectCount})`);
   }
 });
 
@@ -89,7 +95,7 @@ function checkPoolHealth() {
   if (total > 0 && (total - idle) / maxConnections > 0.8) {
     poolHealthWarnings++;
     if (poolHealthWarnings >= MAX_WARNINGS_BEFORE_LOG) {
-      console.warn(`[DB Pool] ⚠️ Pool health warning: ${total - idle}/${maxConnections} connections in use, ${waiting} waiting, ${idle} idle`);
+      logger.warn(`[DB Pool] Pool health warning: ${total - idle}/${maxConnections} connections in use, ${waiting} waiting, ${idle} idle`);
       poolHealthWarnings = 0;
     }
   } else {
@@ -99,7 +105,7 @@ function checkPoolHealth() {
   if (waiting > 0) {
     waitingWarnings++;
     if (waitingWarnings >= MAX_WARNINGS_BEFORE_LOG) {
-      console.warn(`[DB Pool] ⚠️ ${waiting} clients waiting for connections (pool: ${total - idle}/${maxConnections} active, ${idle} idle)`);
+      logger.warn(`[DB Pool] ${waiting} clients waiting for connections (pool: ${total - idle}/${maxConnections} active, ${idle} idle)`);
       waitingWarnings = 0;
     }
   } else {
@@ -128,10 +134,10 @@ export async function testConnection(): Promise<boolean> {
     const client = await pool.connect();
     await client.query('SELECT 1');
     client.release();
-    console.log('[DB] Database connection verified');
+    logger.info('[DB] Database connection verified');
     return true;
   } catch (err: any) {
-    console.error('[DB] Connection test failed:', err?.message || 'Unknown error');
+    logger.error('[DB] Connection test failed', { error: err?.message || 'Unknown error' });
     return false;
   }
 }
@@ -149,11 +155,11 @@ export async function closePool(): Promise<void> {
   _poolClosing = true;
   try {
     await pool.end();
-    console.log('[DB Pool] Pool closed gracefully');
+    logger.info('[DB Pool] Pool closed gracefully');
   } catch (err: any) {
     // Ignore "pool already ended" errors — can happen on repeated SIGTERM
     if (!(err?.message || '').includes('end on the pool')) {
-      console.error('[DB Pool] Error closing pool:', err?.message || err);
+      logger.error('[DB Pool] Error closing pool', { error: err?.message || String(err) });
     }
   }
 }

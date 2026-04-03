@@ -1,5 +1,6 @@
 import { db } from "../../db";
 import { sql } from "drizzle-orm";
+import { logger } from "../../logger";
 import { formatMarketCap } from "./financialEngine";
 import { fetchFromScreener } from "./dataService";
 import { callPython } from "../../clients/python-client";
@@ -201,7 +202,9 @@ async function ensureNseCookies(): Promise<void> {
       nseCookies = setCookie.split(",").map(c => c.split(";")[0]).join("; ");
       nseCookieExpiry = Date.now() + 5 * 60 * 1000;
     }
-  } catch { }
+  } catch (e) {
+    logger.debug('[OwnershipService] NSE cookie refresh failed — requests will proceed without cookies', { error: e instanceof Error ? e.message : String(e) });
+  }
 }
 
 function formatDate(d: Date): string {

@@ -279,29 +279,28 @@ export default function AgentScreener() {
 
   const { data: dbScreenerData, isLoading: dbLoading } = useQuery<any>({
     queryKey: ['/api/screener/stocks', dbPage, dbSearch, dbSector, dbMarketCap, dbMinPE, dbMaxPE, dbMinROE, dbMaxDE, dbMinRating, dbMinScore, dbSortBy, dbSortOrder],
-    queryFn: () => fetch(`/api/screener/stocks?${buildQueryParams()}`).then(r => r.json()),
+    queryFn: () => fetch(`/api/screener/stocks?${buildQueryParams()}`, { credentials: 'include' }).then(r => {
+      if (!r.ok) throw new Error('Failed to fetch screener data');
+      return r.json();
+    }),
   });
 
   const { data: screenerStats } = useQuery<any>({
     queryKey: ['/api/screener/stats'],
-    queryFn: () => fetch('/api/screener/stats').then(r => r.json()),
   });
 
   const { data: distribution } = useQuery<any>({
     queryKey: ['/api/screener/distribution'],
-    queryFn: () => fetch('/api/screener/distribution').then(r => r.json()),
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: stockDetail, isLoading: detailLoading } = useQuery<any>({
     queryKey: ['/api/screener/stocks', expandedStock],
-    queryFn: () => expandedStock ? fetch(`/api/screener/stocks/${expandedStock}`).then(r => r.json()) : null,
     enabled: !!expandedStock,
   });
 
   const { data: enrichmentProgress, refetch: refetchProgress } = useQuery<any>({
     queryKey: ['/api/screener/admin/extended-progress'],
-    queryFn: () => fetch('/api/screener/admin/extended-progress').then(r => r.json()),
     staleTime: 30000,
   });
 

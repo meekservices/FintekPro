@@ -112,7 +112,6 @@ export default function ExcelAddinPage() {
 
   const { data: expiryData } = useQuery<{ expiryDates: string[] }>({
     queryKey: ["/api/excel/expiry", symbol],
-    queryFn: () => fetch(`/api/excel/expiry/${symbol}`).then(r => r.json()),
     enabled: !!symbol,
   });
 

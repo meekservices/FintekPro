@@ -29,6 +29,36 @@ All authenticated FintekPro users — regardless of role — are now required to
 - Exempt paths (never blocked): `/api/auth/*`, `/api/kyc/*`, `/api/user`, `/api/health`, webhooks, `/api/onboarding`, `/api/uploads`, `/api/bbps`, `/api/digilocker`
 - Cache invalidated on: PAN verification success, compliance sign-off
 
+## Codebase Quality Improvements — April 2026
+
+### T01: DB Connection Pool Hardened
+- **`server/db.ts`**: `max` raised from 5 → 15 in production (2 minimum hot connections); `statement_timeout` 30s production / 60s dev prevents runaway queries locking the pool.
+- Logger imported — all `console.log/warn/error` replaced with structured `logger.*` calls.
+
+### T02: KYC Gate Exempt List Extended
+- **`server/middleware/universal-kyc-gate.ts`**: Added `/api/admin/kyc` and `/api/agent/kyc` to exempt prefixes so admins can approve KYC submissions even before their own KYC is finalized.
+
+### T03: Raw fetch() CSRF/Auth Bypass Fixed (18 occurrences)
+All raw `fetch()` calls in frontend components replaced with TanStack Query's default `getQueryFn` (which sends `credentials: 'include'` and handles 401 via the session expiry handler). Affected files:
+- `app-layout.tsx`, `OverrideProposalManagement.tsx`, `dsa-loan-dashboard.tsx`, `kyc-v2-management.tsx`, `agent/revenue-sheet.tsx`, `partner/revenue-sheet.tsx`, `partner-agent-dashboard.tsx`, `agent-payout-dashboard.tsx`, `ipo.tsx` (4 queries), `kyc-rejection-rekyc.tsx`, `excel-addin.tsx`, `agent-screener.tsx` (5 queries).
+- Dynamic URL queries: full URL (with query params) placed as first `queryKey` element so default fetcher resolves correctly.
+- Screener stocks query (has prefix-based cache invalidation): kept custom queryFn but added `credentials: 'include'`.
+
+### T04: Console.log → Structured Logger in Critical Server Files
+Logger import added and all `console.*` calls replaced in:
+- `server/db.ts`, `server/middleware/universal-kyc-gate.ts`, `server/middleware/kyc-level-gate.ts`, `server/services/kyc-sufficiency-service.ts`, `server/middleware/error-handler.ts`.
+
+### T05: Empty/Silent Catch Blocks Fixed
+Truly silent `catch {}` blocks replaced with contextual `logger.debug/warn` calls in:
+- `server/routes/instruments.ts` — live price fallback
+- `server/modules/research/ownershipService.ts` — NSE cookie refresh
+- `server/auth.ts` — OTP channel preference DB read
+
+### T06: Error Handler Uses Structured Logger
+- `server/middleware/error-handler.ts`: Removed raw `console.error/warn`, now uses `logger.error/warn` for consistent structured output in log aggregators.
+
+---
+
 ## KYC "Once and Reuse Everywhere" Infrastructure (April 2026)
 
 ### Architecture

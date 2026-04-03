@@ -27,6 +27,7 @@ import { db } from '../db';
 import { userProfiles, userBankAccounts } from '../../shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { AppError } from '../utils/errors';
+import { logger } from '../logger';
 
 export interface KYCLevelRequest extends Request {
   user?: any;
@@ -358,7 +359,7 @@ export const injectKYCLevel = async (
     next();
   } catch (error) {
     // Don't block request if KYC level fetch fails
-    console.error('Error fetching KYC level:', error);
+    logger.error('[KycLevelGate] Error fetching KYC level', { error: error instanceof Error ? error.message : String(error) });
     next();
   }
 };

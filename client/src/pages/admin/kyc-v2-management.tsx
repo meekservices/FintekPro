@@ -1450,7 +1450,6 @@ function DirectRejectTab() {
     } | null;
   }>({
     queryKey: ["/api/kyc/active-session", selectedUser?.userId],
-    queryFn: () => fetch(`/api/kyc/active-session/${selectedUser!.userId}`).then(r => r.json()),
     enabled: !!selectedUser?.userId && rejectDialogOpen,
   });
 
