@@ -1515,14 +1515,26 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const profile = await storage.getUserProfile(userId);
       
       if (!profile) {
-        const newProfile = await storage.upsertUserProfile({ userId });
-        return res.json(newProfile);
+        try {
+          const newProfile = await storage.upsertUserProfile({ userId });
+          return res.json(newProfile);
+        } catch (insertErr: any) {
+          // FK violation: user row doesn't exist in `users` table yet (race or orphaned session).
+          // Return a minimal stub so the frontend doesn't crash.
+          const pgCode = insertErr?.code || insertErr?.cause?.code;
+          console.error(`[Profile] upsert failed for userId=${userId} pg=${pgCode}:`, insertErr?.message || insertErr);
+          if (pgCode === '23503') {
+            return res.json({ userId, profileCompleteness: 0, isProfileCompleted: false });
+          }
+          throw insertErr; // re-throw anything else
+        }
       }
       
       res.json(profile);
-    } catch (error) {
-      console.error("Error fetching user profile:", error);
-      res.status(500).json({ error: "Failed to fetch profile" });
+    } catch (error: any) {
+      const pgCode = error?.code || error?.cause?.code;
+      console.error(`[Profile] GET error userId=${(req.user as any)?.id} pg=${pgCode}:`, error?.message || error);
+      res.status(500).json({ error: "Failed to fetch profile", code: pgCode });
     }
   });
 
