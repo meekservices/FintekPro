@@ -917,8 +917,7 @@ export function registerKYCWizardRoutes(app: Express) {
           profileCompletedAt: new Date(),
           kraVerifiedViaProtean: stepStatus.kra_verified || true,
           aadhaarVerifiedViaSmartKyc: stepStatus.aadhaar_verified || session.aadhaarVerified || true,
-          videoKycCompleted: true,
-          faceToFaceVerificationCompleted: true,
+          // NOTE: videoKycCompleted is NOT set here — V-CIP must be completed via actual video session
         })
         .where(eq(schema.userProfiles.userId, userId));
       
@@ -1231,11 +1230,11 @@ export function registerKYCWizardRoutes(app: Express) {
           kraVerifiedViaProtean: stepStatus.kra_verified || true,
           panVerifiedViaSmartKyc: true,
           aadhaarVerifiedViaSmartKyc: aadhaarVerifiedFlag || true,
-          videoKycCompleted: true,
-          faceToFaceVerificationCompleted: true,
+          // NOTE: videoKycCompleted is NOT set here — V-CIP requires an actual video session (SEBI/RBI)
           kycTier: tierResult.kyc_tier,
           kycTierStatus: tierResult.tier_status,
           kycTierUpgradedAt: new Date(),
+          fatcaDeclarationDate: new Date(),
         })
         .where(eq(schema.userProfiles.userId, userId));
 
@@ -1257,6 +1256,8 @@ export function registerKYCWizardRoutes(app: Express) {
           smartKycCompletedAt: new Date(),
           panVerifiedViaSmartKyc: true,
           aadhaarVerifiedViaSmartKyc: aadhaarVerifiedFlag || true,
+          panVerificationDate: session.panVerifiedAt || new Date(),
+          aadhaarVerificationDate: session.aadhaarVerifiedAt || new Date(),
         };
         if (decryptedPan) {
           usersUpdate.panNumber = decryptedPan;
@@ -1305,6 +1306,43 @@ export function registerKYCWizardRoutes(app: Express) {
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
       });
+
+      // Populate kycVault with full verified status and timestamps
+      // This is the single source of truth for KYC reuse across all products
+      try {
+        const kycExpiryDate = new Date();
+        kycExpiryDate.setFullYear(kycExpiryDate.getFullYear() + 2); // SEBI: 2-year KYC validity
+        const kycNextRenewalDate = new Date();
+        kycNextRenewalDate.setFullYear(kycNextRenewalDate.getFullYear() + 1); // Annual review
+
+        const vaultPayload = {
+          userId,
+          kycStatus: 'verified' as const,
+          source: 'smart_kyc_wizard',
+          verificationMethod: 'aadhaar_otp',
+          isReusable: true,
+          panVerifiedAt: session.panVerifiedAt || new Date(),
+          aadhaarVerifiedAt: session.aadhaarVerifiedAt || new Date(),
+          addressVerifiedAt: session.aadhaarVerifiedAt || new Date(),
+          kycVerifiedAt: new Date(),
+          kycExpiryDate,
+          kycNextRenewalDate,
+          isExpired: false,
+          updatedAt: new Date(),
+        };
+
+        const existingVaultFinal = await db.select({ id: schema.kycVault.id })
+          .from(schema.kycVault).where(eq(schema.kycVault.userId, userId)).limit(1);
+
+        if (existingVaultFinal.length > 0) {
+          await db.update(schema.kycVault).set(vaultPayload).where(eq(schema.kycVault.userId, userId));
+        } else {
+          await db.insert(schema.kycVault).values({ ...vaultPayload, createdAt: new Date() });
+        }
+        console.log('[KYC] kycVault populated with verified status for user:', userId);
+      } catch (vaultErr) {
+        console.warn('[KYC] Non-fatal: failed to populate kycVault after compliance signoff:', vaultErr);
+      }
 
       res.json({
         success: true,
@@ -2514,5 +2552,111 @@ export function registerKYCWizardRoutes(app: Express) {
     }
   });
 
-  console.log('✅ KYC Wizard v2 routes registered (Orchestrator + Entity Lock + CKYC Scoring + Agent Blocks + AML + Tier Engine)');
+  // ============================================================================
+  // KYC VAULT STATUS — Full verified data with timestamps
+  // ============================================================================
+  app.get("/api/kyc/vault-status", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+
+      const [user, userProfile, vault] = await Promise.all([
+        db.query.users.findFirst({ where: eq(schema.users.id, userId) }),
+        db.query.userProfiles.findFirst({ where: eq(schema.userProfiles.userId, userId) }),
+        db.select().from(schema.kycVault).where(eq(schema.kycVault.userId, userId)).limit(1).then(r => r[0] ?? null),
+      ]);
+
+      const kycExpired = vault?.isExpired || (vault?.kycExpiryDate ? new Date() > new Date(vault.kycExpiryDate) : false);
+
+      res.json({
+        success: true,
+        vault: {
+          kycStatus: vault?.kycStatus || 'not_started',
+          isReusable: vault?.isReusable || false,
+          kycVerifiedAt: vault?.kycVerifiedAt || null,
+          kycExpiresAt: vault?.kycExpiryDate || null,
+          kycNextRenewalDate: vault?.kycNextRenewalDate || null,
+          isExpired: kycExpired,
+          source: vault?.source || null,
+          verificationMethod: vault?.verificationMethod || null,
+        },
+        verifiedFields: {
+          panVerified: !!(user?.panVerifiedViaSmartKyc),
+          panVerifiedAt: user?.panVerificationDate || null,
+          aadhaarVerified: !!(user?.aadhaarVerifiedViaSmartKyc),
+          aadhaarVerifiedAt: user?.aadhaarVerificationDate || null,
+          addressVerifiedAt: vault?.addressVerifiedAt || null,
+          fatcaDeclared: !!(userProfile?.fatcaDeclarationDate),
+          fatcaDeclaredAt: userProfile?.fatcaDeclarationDate || null,
+          videoKycCompleted: !!(userProfile?.videoKycCompletedAt),
+          videoKycCompletedAt: userProfile?.videoKycCompletedAt || null,
+          smartKycCompletedAt: user?.smartKycCompletedAt || null,
+        },
+        kycTier: userProfile?.kycTier || 'none',
+        kycTierStatus: userProfile?.kycTierStatus || null,
+      });
+    } catch (error) {
+      console.error('[KYC] vault-status error:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch KYC vault status' });
+    }
+  });
+
+  // ============================================================================
+  // KYC SUFFICIENCY — Per-product requirement check with pre-filled data
+  // ============================================================================
+  app.get("/api/kyc/sufficiency/:productCode", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { productCode } = req.params;
+      const { kycSufficiencyService, PRODUCT_PROFILES } = await import('../services/kyc-sufficiency-service');
+
+      if (!PRODUCT_PROFILES[productCode as keyof typeof PRODUCT_PROFILES]) {
+        return res.status(400).json({ success: false, message: `Unknown product code: ${productCode}` });
+      }
+
+      const result = await kycSufficiencyService.checkSufficiency(userId, productCode as any);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error('[KYC] sufficiency check error:', error);
+      res.status(500).json({ success: false, message: 'Failed to check KYC sufficiency' });
+    }
+  });
+
+  // ============================================================================
+  // KYC SUFFICIENCY — All products at once (for dashboard)
+  // ============================================================================
+  app.get("/api/kyc/sufficiency", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { kycSufficiencyService } = await import('../services/kyc-sufficiency-service');
+
+      const results = await kycSufficiencyService.checkAllProducts(userId);
+      res.json({ success: true, products: results });
+    } catch (error) {
+      console.error('[KYC] all-products sufficiency error:', error);
+      res.status(500).json({ success: false, message: 'Failed to check product sufficiency' });
+    }
+  });
+
+  // ============================================================================
+  // KYC INCREMENTAL — What's needed for a specific product beyond what's verified
+  // ============================================================================
+  app.get("/api/kyc/incremental/:productCode", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { productCode } = req.params;
+      const { kycSufficiencyService, PRODUCT_PROFILES } = await import('../services/kyc-sufficiency-service');
+
+      if (!PRODUCT_PROFILES[productCode as keyof typeof PRODUCT_PROFILES]) {
+        return res.status(400).json({ success: false, message: `Unknown product code: ${productCode}` });
+      }
+
+      const result = await kycSufficiencyService.getIncrementalRequirements(userId, productCode as any);
+      res.json({ success: true, productCode, ...result });
+    } catch (error) {
+      console.error('[KYC] incremental requirements error:', error);
+      res.status(500).json({ success: false, message: 'Failed to get incremental requirements' });
+    }
+  });
+
+  console.log('✅ KYC Wizard v2 routes registered (Orchestrator + Entity Lock + CKYC Scoring + Agent Blocks + AML + Tier Engine + Vault Status + Sufficiency)');
 }

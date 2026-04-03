@@ -1,5 +1,34 @@
 # FintekPro - Financial Services Platform
 
+## KYC "Once and Reuse Everywhere" Infrastructure (April 2026)
+
+### Architecture
+KYC verification data completed via the Smart KYC Wizard (PAN + Aadhaar OTP) is stored in a central `kycVault` and reused automatically across all products. Clients are never asked to re-verify data that is already verified and unexpired.
+
+### New Services
+- **`server/services/kyc-sufficiency-service.ts`** — Central engine that checks per-product KYC requirements against verified vault data. Defines requirement profiles for 13 products: Mutual Funds, Equity Trading, F&O, Bonds/NCD, Fixed Deposits, Unlisted Securities, PMS/AIF, Loans (Personal + Business), Insurance (Life + Health), ITR Filing, Crypto. Returns `canProceed`, `missingMandatory`, `prefilledData`, and `completionPercentage`.
+
+### New API Endpoints
+- `GET /api/kyc/vault-status` — Full vault status with all verified timestamps (PAN, Aadhaar, FATCA, video KYC, expiry date)
+- `GET /api/kyc/sufficiency` — All products at once, for dashboard (sorted ready → partial → locked)
+- `GET /api/kyc/sufficiency/:productCode` — Single-product sufficiency check with pre-filled form values
+- `GET /api/kyc/incremental/:productCode` — Exactly what's missing for a product (drives incremental KYC flows)
+
+### New Frontend Component
+- **`client/src/components/KYCProductAccessPanel.tsx`** — Visual product access panel embedded in `KYCVerificationDashboard`. Shows green/amber/red status per product. Expandable cards show verified data (with timestamps) and exactly what's still needed. Category filter tabs (Investments, Fixed Income, Credit, Insurance, Tax, Premium).
+
+### Regulatory Fixes Applied
+- Removed hardcoded `videoKycCompleted: true` and `faceToFaceVerificationCompleted: true` from both wizard/complete and compliance-signoff endpoints — these may only be set after a real V-CIP video session (SEBI/RBI requirement)
+- Added `fatcaDeclarationDate: new Date()` to `userProfiles` in compliance-signoff (was never set despite the column existing)
+- Added `panVerificationDate` and `aadhaarVerificationDate` to `users` in compliance-signoff (exact timestamps from verification step)
+- Compliance-signoff now upserts `kycVault` with `kycStatus: 'verified'`, `kycVerifiedAt`, `kycExpiryDate` (+2 years, per SEBI norms), `kycNextRenewalDate` (+1 year), `isReusable: true`, `panVerifiedAt`, `aadhaarVerifiedAt`, `addressVerifiedAt`, `verificationMethod: 'aadhaar_otp'`, `source: 'smart_kyc_wizard'`
+- UIDAI: Removed code that stored `aadhaarVerificationData.idNumber` into `users.aadharNumber` — full Aadhaar must never be stored; `aadhaarVerifiedViaSmartKyc` flag is sufficient
+
+### KYC Vault Expiry Policy (SEBI)
+- `kycExpiryDate` = verified date + 2 years
+- `kycNextRenewalDate` = verified date + 1 year (annual review trigger)
+- Both written on compliance sign-off; `kyc-annual-refresh-service.ts` handles re-KYC notifications
+
 ## Stability & Security Fixes (March 26, 2026)
 
 ### Data Quality — Daily Picks Feed
