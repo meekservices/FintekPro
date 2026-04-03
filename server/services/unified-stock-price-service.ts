@@ -5,7 +5,12 @@
  * - After every successful API fetch, write price to listed_stocks (async, non-blocking)
  * - If all providers fail, serve last-known price from listed_stocks (stale-serve)
  *
- * Provider priority: NSE → FMP → BSE → Google Finance → Yahoo (most rate-limited, last resort)
+ * Load-sharing strategy (confirmed working from datacenter):
+ *   NSE library  → PRIMARY for all NSE-listed stocks (exchange-direct, best quality)
+ *   Google Finance HTML → SECONDARY for NSE stocks + PRIMARY for BSE stocks
+ *   Yahoo Finance → LAST RESORT only — rate-limited (429) from datacenter; 30-min cooldown after first failure
+ *   BSE API direct → REMOVED — 301-redirect blocked from datacenter
+ *   FMP → Available if FMP_API_KEY is set (optional)
  */
 
 import { requestDedupeService } from './request-deduplication-service';
@@ -319,9 +324,9 @@ class UnifiedStockPriceService {
     return msg.includes('too many requests') || msg.includes('429') || msg.includes('rate limit');
   }
 
-  private async fetchFromGoogleFinance(symbol: string): Promise<StockPrice | null> {
+  private async fetchFromGoogleFinance(symbol: string, exchange: 'NSE' | 'BSE' = 'NSE'): Promise<StockPrice | null> {
     try {
-      const gfQuote = await fetchGFQuote(symbol, 'NSE');
+      const gfQuote = await fetchGFQuote(symbol, exchange);
       if (gfQuote?.price) {
         return {
           symbol,
@@ -329,7 +334,10 @@ class UnifiedStockPriceService {
           previousClose: gfQuote.previousClose ?? undefined,
           change: gfQuote.change ?? undefined,
           changePercent: gfQuote.changePercent ?? undefined,
-          timestamp: Date.now(),
+          // Use exchange-recorded timestamp if available, else now
+          timestamp: gfQuote.marketTimestampUnix
+            ? gfQuote.marketTimestampUnix * 1000
+            : Date.now(),
           source: 'GOOGLE_FINANCE' as const,
         };
       }
@@ -360,7 +368,13 @@ class UnifiedStockPriceService {
       }
     } catch (error: any) {
       if (this.isRateLimitError(error)) {
-        this.recordFailure('yahoo', true);
+        // Yahoo is confirmed rate-limited (429) from datacenter — 30-min cooldown
+        const health = this.providerHealth.get('yahoo') || { consecutiveFailures: 0, lastFailure: 0, cooldownUntil: 0 };
+        health.consecutiveFailures++;
+        health.lastFailure = Date.now();
+        health.cooldownUntil = Date.now() + 30 * 60 * 1000;
+        this.providerHealth.set('yahoo', health);
+        console.warn(`[StockPrice] Yahoo rate-limited (429) — 30-min cooldown applied`);
         throw new Error('RATE_LIMITED:yahoo');
       }
       console.warn(`[StockPrice] Yahoo fetch failed for ${symbol}: ${error.message}`);
@@ -400,34 +414,43 @@ class UnifiedStockPriceService {
   }
 
   /**
-   * Fetch from available sources with fallback
-   * Priority: NSE → FMP → BSE → Yahoo (most rate-limited, last resort)
+   * Fetch from available sources with priority-based fallback.
+   *
+   * Confirmed working from datacenter:
+   *   1. NSE library   — exchange-direct, best data quality
+   *   2. FMP           — optional, requires FMP_API_KEY
+   *   3. Google Finance HTML — works for NSE and BSE stocks
+   *
+   * Last resort (rate-limited from datacenter):
+   *   4. Yahoo Finance — 429 Too Many Requests; 30-min cooldown after first failure
+   *
+   * Removed:
+   *   BSE API direct — 301-redirect blocked from datacenter
    */
   private async fetchFromSource(symbol: string, exchange?: 'NSE' | 'BSE'): Promise<StockPrice | null> {
+    // 1. NSE library (exchange-direct, highest quality)
     if ((exchange === 'NSE' || !exchange) && !this.isProviderCoolingDown('nse')) {
       const nsePrice = await this.fetchFromNSE(symbol);
       if (nsePrice) { this.recordSuccess('nse'); return nsePrice; }
       this.recordFailure('nse');
     }
 
+    // 2. FMP (optional, if API key configured)
     if (!this.isProviderCoolingDown('fmp')) {
       const fmpPrice = await this.fetchFromFMP(symbol);
       if (fmpPrice) { this.recordSuccess('fmp'); return fmpPrice; }
       this.recordFailure('fmp');
     }
 
-    if ((exchange === 'BSE' || !exchange) && !this.isProviderCoolingDown('bse')) {
-      const bsePrice = await this.fetchFromBSE(symbol);
-      if (bsePrice) { this.recordSuccess('bse'); return bsePrice; }
-      this.recordFailure('bse');
-    }
-
+    // 3. Google Finance HTML (works from datacenter — primary for BSE, secondary for NSE)
     if (!this.isProviderCoolingDown('google_finance')) {
-      const gfPrice = await this.fetchFromGoogleFinance(symbol);
+      const gfExchange = exchange || 'NSE';
+      const gfPrice = await this.fetchFromGoogleFinance(symbol, gfExchange);
       if (gfPrice) { this.recordSuccess('google_finance'); return gfPrice; }
       this.recordFailure('google_finance');
     }
 
+    // 4. Yahoo Finance (LAST RESORT — rate-limited from datacenter, 30-min cooldown)
     if (!this.isProviderCoolingDown('yahoo')) {
       try {
         const yahooPrice = await this.fetchFromYahoo(symbol);
@@ -446,7 +469,6 @@ class UnifiedStockPriceService {
   private async fetchFromNSE(symbol: string): Promise<StockPrice | null> {
     try {
       const quote = await this.nseClient.getEquityDetails(symbol);
-      
       if (quote?.priceInfo) {
         return {
           symbol,
@@ -463,38 +485,6 @@ class UnifiedStockPriceService {
       }
     } catch (error: any) {
       console.warn(`[StockPrice] NSE fetch failed for ${symbol}: ${error.message}`);
-    }
-    return null;
-  }
-
-  private async fetchFromBSE(symbol: string): Promise<StockPrice | null> {
-    try {
-      const response = await axios.get(`https://api.bseindia.com/BseIndiaAPI/api/StockReachGraph/w`, {
-        params: { scripcode: symbol, flag: 'P', fromdate: '', todate: '', seression: '' },
-        headers: {
-          'User-Agent': 'Mozilla/5.0',
-          'Accept': 'application/json',
-          'Referer': 'https://www.bseindia.com/',
-        },
-        timeout: 15000,
-      });
-
-      if (response.data && response.data.CurrValue) {
-        return {
-          symbol,
-          price: parseFloat(response.data.CurrValue) || 0,
-          previousClose: parseFloat(response.data.PrevClose) || undefined,
-          change: parseFloat(response.data.Chg) || undefined,
-          changePercent: parseFloat(response.data.ChgPer) || undefined,
-          high: parseFloat(response.data.High) || undefined,
-          low: parseFloat(response.data.Low) || undefined,
-          open: parseFloat(response.data.Open) || undefined,
-          timestamp: Date.now(),
-          source: 'BSE',
-        };
-      }
-    } catch (error: any) {
-      console.warn(`[StockPrice] BSE fetch failed for ${symbol}: ${error.message}`);
     }
     return null;
   }

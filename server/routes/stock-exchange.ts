@@ -231,47 +231,63 @@ export function registerStockExchangeRoutes(app: Express) {
   });
 
   app.get("/api/nse/gainers-losers", async (req, res) => {
+    // Source: NSE library getEquityStockIndices() — exchange-direct, works from datacenter.
+    // Yahoo Finance removed: confirmed rate-limited (429) from datacenter.
     try {
-      const yahooFinance = require('yahoo-finance2').default;
-      
-      const topStocks = [
-        'RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS',
-        'HINDUNILVR.NS', 'SBIN.NS', 'BHARTIARTL.NS', 'BAJFINANCE.NS', 'ITC.NS',
-        'KOTAKBANK.NS', 'LT.NS', 'AXISBANK.NS', 'ASIANPAINT.NS', 'MARUTI.NS',
-        'SUNPHARMA.NS', 'HCLTECH.NS', 'WIPRO.NS', 'TITAN.NS', 'ULTRACEMCO.NS'
-      ];
-      
-      const stocksData = await Promise.all(
-        topStocks.map(async (symbol) => {
-          try {
-            const quote = await yahooFinance.quote(symbol);
-            return {
-              symbol: symbol.replace('.NS', ''),
-              name: quote.longName || quote.shortName || symbol.replace('.NS', ''),
-              price: quote.regularMarketPrice || 0,
-              change: quote.regularMarketChange || 0,
-              changePercent: quote.regularMarketChangePercent || 0,
-              previousClose: quote.regularMarketPreviousClose || 0
-            };
-          } catch {
-            return null;
-          }
-        })
-      );
-      
-      const validStocks = stocksData.filter(s => s !== null) as any[];
-      const gainers = validStocks.filter(s => s.change > 0).sort((a, b) => b.changePercent - a.changePercent).slice(0, 5);
-      const losers = validStocks.filter(s => s.change < 0).sort((a, b) => a.changePercent - b.changePercent).slice(0, 5);
-      
+      const indexData = await nseIndia.getEquityStockIndices('NIFTY 50');
+      const stocks: any[] = indexData?.data || [];
+      const fetchedAt = new Date().toISOString();
+
+      if (stocks.length === 0) {
+        return res.json({
+          gainers: [], losers: [],
+          status: 'unavailable',
+          fetchedAt,
+          error: 'No stock data returned from NSE'
+        });
+      }
+
+      const mapped = stocks.map((s: any) => ({
+        symbol: s.symbol,
+        name: s.symbol,
+        price: s.lastPrice ?? 0,
+        change: s.change ?? 0,
+        changePercent: s.pChange ?? 0,
+        previousClose: s.previousClose ?? 0,
+        high: s.dayHigh ?? null,
+        low: s.dayLow ?? null,
+        open: s.open ?? null,
+        yearHigh: s.yearHigh ?? null,
+        yearLow: s.yearLow ?? null,
+        source: 'nse',
+        dataQuality: 'exchange',
+        lastUpdateTime: s.lastUpdateTime ?? null
+      }));
+
+      const gainers = [...mapped].filter(s => s.change > 0)
+        .sort((a, b) => b.changePercent - a.changePercent)
+        .slice(0, 5);
+
+      const losers = [...mapped].filter(s => s.change < 0)
+        .sort((a, b) => a.changePercent - b.changePercent)
+        .slice(0, 5);
+
       res.json({
         gainers,
-        losers
+        losers,
+        source: 'nse',
+        dataQuality: 'exchange',
+        fetchedAt,
+        indexCoverage: 'NIFTY 50 constituents'
       });
     } catch (error) {
-      console.error("Error fetching gainers/losers:", error);
-      res.status(500).json({
-        status: "error",
-        error: "Failed to fetch gainers and losers"
+      console.error('[Gainers/Losers] NSE fetch failed:', error);
+      res.json({
+        gainers: [],
+        losers: [],
+        status: 'unavailable',
+        fetchedAt: new Date().toISOString(),
+        error: 'Market data temporarily unavailable'
       });
     }
   });
@@ -293,55 +309,81 @@ export function registerStockExchangeRoutes(app: Express) {
   });
 
   app.get("/api/bse/indices", async (req, res) => {
+    // SENSEX: Google Finance HTML — confirmed working from datacenter
+    // BSE 100/200/500: No source available from datacenter (Yahoo blocked, BSE API blocked, GF returns no data)
+    //                  → returned as unavailable (no fake numbers)
+    const fetchedAt = new Date().toISOString();
     try {
-      const yahooFinance = require('yahoo-finance2').default;
-      
-      const bseIndices = [
-        { symbol: '^BSESN', name: 'S&P BSE SENSEX', displaySymbol: 'SENSEX' },
-        { symbol: 'BSE-100.BO', name: 'S&P BSE 100', displaySymbol: 'BSE100' },
-        { symbol: 'BSE-200.BO', name: 'S&P BSE 200', displaySymbol: 'BSE200' },
-        { symbol: 'BSE-500.BO', name: 'S&P BSE 500', displaySymbol: 'BSE500' }
-      ];
-      
-      const indicesData = await Promise.all(
-        bseIndices.map(async (index) => {
-          try {
-            const quote = await yahooFinance.quote(index.symbol);
-            return {
-              symbol: index.displaySymbol,
-              name: index.name,
-              ltp: quote.regularMarketPrice || 0,
-              chng: quote.regularMarketChange || 0,
-              per_chng: quote.regularMarketChangePercent || 0,
-              volume: quote.regularMarketVolume || 0,
-              timestamp: new Date().toISOString(),
-              source: 'yahoo_finance'
-            };
-          } catch {
-            return {
-              symbol: index.displaySymbol,
-              name: index.name,
-              ltp: 82000 + Math.random() * 1000,
-              chng: Math.random() * 800 - 400,
-              per_chng: Math.random() * 2 - 1,
-              volume: Math.floor(Math.random() * 100000000),
-              timestamp: new Date().toISOString(),
-              source: 'fallback'
-            };
-          }
-        })
-      );
-      
+      const gfRes = await fetch('https://www.google.com/finance/quote/SENSEX:INDEXBOM', {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        signal: AbortSignal.timeout(8000)
+      });
+      const html = await gfRes.text();
+
+      const priceMatch = html.match(/data-last-price="([0-9.]+)"/);
+      const tsMatch    = html.match(/data-last-normal-market-timestamp="([0-9]+)"/);
+
+      const sensexPrice = priceMatch ? parseFloat(priceMatch[1]) : null;
+      const sensexTs    = tsMatch ? new Date(parseInt(tsMatch[1]) * 1000).toISOString() : null;
+
+      // Change/pChange — extract from embedded JSON blob
+      const changePct = (() => {
+        const m = html.match(/"CHANGE_PERCENT":\[\d+,(-?[\d,]+(?:\.\d+)?)/);
+        if (m) return parseFloat(m[1].replace(/,/g, ''));
+        return null;
+      })();
+      const changeAbs = (() => {
+        const m = html.match(/"CHANGE":\[\d+,(-?[\d,]+(?:\.\d+)?)/);
+        if (m) return parseFloat(m[1].replace(/,/g, ''));
+        return null;
+      })();
+
+      const sensexData = (sensexPrice && sensexPrice > 10000 && sensexPrice < 200000) ? {
+        symbol: 'SENSEX',
+        name: 'S&P BSE SENSEX',
+        ltp: sensexPrice,
+        chng: changeAbs ?? (changePct && sensexPrice ? parseFloat((sensexPrice * changePct / 100).toFixed(2)) : 0),
+        per_chng: changePct ?? 0,
+        dataQuality: 'third_party',
+        source: 'google_finance',
+        marketDataTimestamp: sensexTs,
+        fetchedAt
+      } : {
+        symbol: 'SENSEX',
+        name: 'S&P BSE SENSEX',
+        dataQuality: 'unavailable',
+        source: 'unavailable',
+        fetchedAt,
+        error: 'Google Finance unavailable — visit bseindia.com for current data'
+      };
+
+      // BSE 100/200/500: No working data source from datacenter
+      const unavailableBseIndices = ['BSE100', 'BSE200', 'BSE500'].map(sym => ({
+        symbol: sym,
+        name: `S&P BSE ${sym.replace('BSE', '')}`,
+        dataQuality: 'unavailable' as const,
+        source: 'unavailable',
+        fetchedAt,
+        note: 'No datacenter-accessible source for BSE sub-indices. Visit bseindia.com.'
+      }));
+
       res.json({
-        status: "success",
-        data: indicesData,
-        timestamp: new Date().toISOString()
+        status: sensexData.dataQuality === 'third_party' ? 'success' : 'partial',
+        data: [sensexData, ...unavailableBseIndices],
+        fetchedAt,
+        note: 'SENSEX via Google Finance · BSE 100/200/500 not available from datacenter'
       });
     } catch (error) {
-      console.error("Error fetching BSE indices:", error);
-      res.status(500).json({
-        status: "error",
-        error: "Failed to fetch BSE indices"
+      console.error('[BSE Indices] Google Finance fetch failed:', error);
+      res.json({
+        status: 'unavailable',
+        data: [],
+        fetchedAt,
+        error: 'BSE market data temporarily unavailable. Visit bseindia.com for current data.'
       });
     }
   });
