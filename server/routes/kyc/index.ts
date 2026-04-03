@@ -1220,6 +1220,8 @@ export function registerKYCWizardRoutes(app: Express) {
         amlRiskLevel: amlRiskLevel,
       });
 
+      const aadhaarVerifiedFlag = !!(stepStatus.aadhaar_verified || session.aadhaarVerified);
+
       await db.update(schema.userProfiles)
         .set({
           kycLevel: '2',
@@ -1227,7 +1229,8 @@ export function registerKYCWizardRoutes(app: Express) {
           isProfileCompleted: true,
           profileCompletedAt: new Date(),
           kraVerifiedViaProtean: stepStatus.kra_verified || true,
-          aadhaarVerifiedViaSmartKyc: stepStatus.aadhaar_verified || session.aadhaarVerified || true,
+          panVerifiedViaSmartKyc: true,
+          aadhaarVerifiedViaSmartKyc: aadhaarVerifiedFlag || true,
           videoKycCompleted: true,
           faceToFaceVerificationCompleted: true,
           kycTier: tierResult.kyc_tier,
@@ -1235,6 +1238,64 @@ export function registerKYCWizardRoutes(app: Express) {
           kycTierUpgradedAt: new Date(),
         })
         .where(eq(schema.userProfiles.userId, userId));
+
+      // Save PAN number, verified flags, and smartKycCompletedAt to users table
+      try {
+        let decryptedPan: string | null = null;
+        if (session.panNumber) {
+          try {
+            decryptedPan = await PANConsentService.decryptPAN(session.panNumber);
+          } catch {
+            decryptedPan = session.panNumber;
+          }
+        }
+
+        const panVerificationData = session.panVerificationData as any;
+        const aadhaarVerificationData = session.aadhaarVerificationData as any;
+
+        const usersUpdate: Record<string, any> = {
+          smartKycCompletedAt: new Date(),
+          panVerifiedViaSmartKyc: true,
+          aadhaarVerifiedViaSmartKyc: aadhaarVerifiedFlag || true,
+        };
+        if (decryptedPan) {
+          usersUpdate.panNumber = decryptedPan;
+        }
+        if (aadhaarVerificationData?.idNumber) {
+          usersUpdate.aadharNumber = aadhaarVerificationData.idNumber;
+        }
+        await db.update(schema.users)
+          .set(usersUpdate)
+          .where(eq(schema.users.id, userId));
+
+        // Save name / DOB from PAN verification data to userProfiles if missing
+        const existingProfile = await db.query.userProfiles.findFirst({
+          where: eq(schema.userProfiles.userId, userId),
+        });
+        const profileUpdate: Record<string, any> = {};
+        if (decryptedPan && !existingProfile?.panNumber) {
+          profileUpdate.panNumber = decryptedPan;
+        }
+        if (!existingProfile?.firstName && panVerificationData?.name) {
+          const nameParts = (panVerificationData.name as string).trim().split(/\s+/);
+          if (nameParts.length >= 2) {
+            profileUpdate.firstName = nameParts[0];
+            profileUpdate.lastName = nameParts.slice(1).join(' ');
+          } else {
+            profileUpdate.firstName = nameParts[0] || '';
+          }
+        }
+        if (!existingProfile?.dateOfBirth && (panVerificationData?.dob || session.panDob)) {
+          profileUpdate.dateOfBirth = panVerificationData?.dob || session.panDob;
+        }
+        if (Object.keys(profileUpdate).length > 0) {
+          await db.update(schema.userProfiles)
+            .set(profileUpdate)
+            .where(eq(schema.userProfiles.userId, userId));
+        }
+      } catch (saveErr) {
+        console.error('[KYC] Non-fatal: failed to save PAN/name to users table after KYC completion:', saveErr);
+      }
 
       await kycOrchestratorService.logAuditEvent({
         userId,

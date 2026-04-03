@@ -60,15 +60,45 @@ export async function getVerifiedKYCProfile(userId: string): Promise<VerifiedKYC
   const rawPan = user.panNumber || profile?.panNumber || null;
   const maskedPan = maskPAN(rawPan);
 
+  // Determine PAN verified: check DB flags, raw PAN, or session
+  const panVerified = !!(
+    rawPan ||
+    user.panVerifiedViaSmartKyc ||
+    profile?.panVerifiedViaSmartKyc ||
+    latestSession?.panVerified
+  );
+
+  // Determine Aadhaar verified: check DB flags or session
+  const aadhaarVerified = !!(
+    user.aadharNumber ||
+    profile?.aadharNumber ||
+    user.aadhaarVerifiedViaSmartKyc ||
+    profile?.aadhaarVerifiedViaSmartKyc ||
+    latestSession?.aadhaarOtpVerified
+  );
+
+  // Determine smartKyc completion using timestamp or flag
+  const smartKycDone = !!(
+    user.smartKycCompletedAt ||
+    user.panVerifiedViaSmartKyc
+  );
+
+  // Best available verification date
+  const verificationDate =
+    user.smartKycCompletedAt ||
+    user.panVerificationDate ||
+    latestSession?.panVerifiedAt ||
+    null;
+
   // Prepare verified data response
   return {
     fullName,
     panNumber: maskedPan, // Masked PAN for security
     kycTier: profile?.kycTier || 'basic',
-    panVerified: !!rawPan || latestSession?.panVerified || false,
-    aadhaarVerified: !!user.aadharNumber || !!profile?.aadharNumber || latestSession?.aadhaarOtpVerified || false,
-    verificationDate: user.panVerificationDate || latestSession?.panVerifiedAt || null,
-    smartKycCompleted: user.smartKycCompletedAt !== null,
+    panVerified,
+    aadhaarVerified,
+    verificationDate,
+    smartKycCompleted: smartKycDone,
     smartKycCompletedAt: user.smartKycCompletedAt || null,
   };
 }
