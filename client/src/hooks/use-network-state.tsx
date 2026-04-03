@@ -170,64 +170,36 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
       
       return status;
     } catch (error: any) {
+      // AbortError = request timed out → treat as slow, retry once
       if (error?.name === 'AbortError') {
-        if (retryCount < MAX_RETRIES) {
-          setState(prev => ({
-            ...prev,
-            status: 'slow',
-            isOnline: true,
-            isOffline: false,
-            isSlow: true,
-            isServerError: false,
-            ...networkInfo,
-            lastChecked: new Date(),
-            retryCount: retryCount + 1,
-          }));
-          
-          retryTimeoutRef.current = setTimeout(() => {
-            checkConnectionWithRetry(retryCount + 1);
-          }, RETRY_DELAY);
-          
+        if (retryCount < 1) {
+          setState(prev => ({ ...prev, status: 'slow', isOnline: true, isOffline: false, isSlow: true, isServerError: false, ...networkInfo, lastChecked: new Date(), retryCount: retryCount + 1 }));
+          retryTimeoutRef.current = setTimeout(() => { checkConnectionWithRetry(retryCount + 1); }, RETRY_DELAY);
           return 'slow';
         }
+        setState(prev => ({ ...prev, status: 'slow', isOnline: true, isOffline: false, isSlow: true, isServerError: false, ...networkInfo, lastChecked: new Date(), retryCount }));
+        return 'slow';
       }
-      
-      if (!navigator.onLine) {
-        const newStatus = 'offline';
+
+      // TypeError with 'Failed to fetch' or 'ERR_NAME_NOT_RESOLVED' = DNS/network error.
+      // Do NOT retry — the domain is genuinely unreachable; retrying only floods the console.
+      if (!navigator.onLine || error?.message?.includes('Failed to fetch') || error?.name === 'TypeError') {
+        const newStatus = navigator.onLine ? 'server-error' : 'offline';
         setState(prev => ({
           ...prev,
           status: newStatus,
-          isOnline: false,
-          isOffline: true,
+          isOnline: navigator.onLine,
+          isOffline: !navigator.onLine,
           isSlow: false,
-          isServerError: false,
+          isServerError: navigator.onLine,
           ...networkInfo,
           lastChecked: new Date(),
           retryCount: 0,
         }));
         return newStatus;
       }
-      
-      if (retryCount < MAX_RETRIES) {
-        setState(prev => ({
-          ...prev,
-          status: 'server-error',
-          isOnline: true,
-          isOffline: false,
-          isSlow: false,
-          isServerError: true,
-          ...networkInfo,
-          lastChecked: new Date(),
-          retryCount: retryCount + 1,
-        }));
-        
-        retryTimeoutRef.current = setTimeout(() => {
-          checkConnectionWithRetry(retryCount + 1);
-        }, RETRY_DELAY);
-        
-        return 'server-error';
-      }
-      
+
+      // Unknown error — mark server-error, no retry
       setState(prev => ({
         ...prev,
         status: 'server-error',
@@ -237,7 +209,7 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
         isServerError: true,
         ...networkInfo,
         lastChecked: new Date(),
-        retryCount: retryCount,
+        retryCount,
       }));
       return 'server-error';
     }
