@@ -24,6 +24,7 @@ import {
   Package
 } from "lucide-react";
 import { ProductVerificationStatus } from "@/components/ProductVerificationStatus";
+import { KYCProductAccessPanel } from "@/components/KYCProductAccessPanel";
 import { Link } from "wouter";
 
 interface KYCStatus {
@@ -279,6 +280,9 @@ export function KYCVerificationDashboard() {
           </AlertDescription>
         </Alert>
       )}
+
+      {/* KYC Product Access Panel — shows what's unlocked and what's still needed */}
+      <KYCProductAccessPanel />
 
       {/* Overall KYC Status */}
       <Card>
