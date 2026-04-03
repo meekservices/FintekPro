@@ -1,7 +1,9 @@
 import { Express, Request, Response } from 'express';
 import { randomInt } from 'crypto';
 import { requireClientOrHigher } from '../../middleware/auth';
+import { requireAuth } from '../../middleware/roleMiddleware';
 import { getAccessibleProducts, getUserKYCLevel } from '../../middleware/kyc-level-gate';
+import { getComplianceStatus, ROLE_KYC_MINIMUM } from '../../middleware/universal-kyc-gate';
 import { storage } from '../../storage';
 import { sandboxPANService } from '../../sandbox-pan-api';
 import { authBridgeCKYCService } from '../../authbridge-ckyc-api';
@@ -19,6 +21,67 @@ import { smsService } from '../../services/sms-service';
 import { emailService } from '../../email-service';
 
 export function registerKYCWizardRoutes(app: Express) {
+  /**
+   * GET /api/kyc/my-compliance-status
+   * Returns the current KYC compliance status for ANY authenticated role.
+   * Used by the Universal KYC Wall on the frontend.
+   *
+   * Regulatory basis: PMLA 2002 §12, RBI Master Direction on KYC 2016,
+   * SEBI KRA Regulations, AMFI Circular on ARN holders.
+   *
+   * This endpoint is on the universal KYC gate exempt list (/api/kyc/*)
+   * so it always responds even when the user has not yet completed KYC.
+   */
+  app.get("/api/kyc/my-compliance-status", requireAuth, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const userRoles: string[] = user.roles || (user.role ? [user.role] : ['user']);
+
+      const status = await getComplianceStatus(user);
+
+      // Build role-specific guidance message
+      let guidanceMessage = 'Complete your KYC verification to access FintekPro.';
+      if (userRoles.some(r => ['master_agent', 'partner'].includes(r))) {
+        guidanceMessage =
+          'As a distribution partner, you must complete Full KYC (Level 2) including ' +
+          'CKYC registration and Video KYC before managing client investments. ' +
+          'Regulatory basis: SEBI KRA Regulations + AMFI Circular on ARN holders.';
+      } else if (userRoles.some(r => ['agent', 'sub_agent', 'associate'].includes(r))) {
+        guidanceMessage =
+          'As a registered agent, AMFI/IRDAI requires Standard KYC (PAN + Address OVD) ' +
+          'before you can solicit or distribute any financial products.';
+      } else if (userRoles.some(r => ['compliance_officer', 'regulatory_auditor'].includes(r))) {
+        guidanceMessage =
+          'Compliance and audit personnel must complete Full KYC under SEBI regulations ' +
+          'to maintain audit trail integrity and regulatory standing.';
+      } else if (userRoles.some(r => ['admin', 'superadmin', 'bd_head', 'finance_head', 'ops_head', 'hr_head', 'tech_head'].includes(r))) {
+        guidanceMessage =
+          'All FintekPro personnel must complete Standard KYC under PMLA 2002, ' +
+          'Section 12, which requires reporting entities to maintain verified ' +
+          'identity records for all associated persons.';
+      } else if (userRoles.some(r => ['client', 'user', 'business_client'].includes(r))) {
+        guidanceMessage =
+          'Standard KYC (PAN verification + Address proof) is required under the ' +
+          'RBI Master Direction on KYC 2016 before accessing any financial products.';
+      }
+
+      res.json({
+        compliant: status.compliant,
+        currentLevel: status.currentLevel,
+        requiredLevel: status.requiredLevel,
+        missingRequirements: status.missingRequirements,
+        regulatoryBasis: status.regulatoryBasis,
+        guidanceMessage,
+        roles: userRoles,
+        redirectTo: '/profile?tab=kyc-dashboard',
+        roleLevelMap: ROLE_KYC_MINIMUM,
+      });
+    } catch (err: any) {
+      console.error('[KYC compliance-status] Error:', err.message);
+      res.status(500).json({ error: 'Failed to check KYC compliance status' });
+    }
+  });
+
   app.get("/api/kyc/sandbox-info", requireClientOrHigher, async (_req: any, res) => {
     const env = getSandboxEnvironment();
     const envInfo = sandboxPANService.getEnvironmentInfo();
@@ -561,6 +624,12 @@ export function registerKYCWizardRoutes(app: Express) {
       } catch (vaultErr) {
         console.warn('[KYC] Failed to update kycVault for PAN:', vaultErr);
       }
+
+      // Invalidate universal KYC compliance cache — PAN verification changes KYC level
+      try {
+        const { invalidateComplianceCache } = await import('../../middleware/universal-kyc-gate');
+        invalidateComplianceCache(userId);
+      } catch { /* non-fatal */ }
 
       await kycOrchestratorService.logAuditEvent({
         userId,
@@ -1413,10 +1482,14 @@ export function registerKYCWizardRoutes(app: Express) {
           await db.insert(schema.kycVault).values({ ...vaultPayload, createdAt: new Date() });
         }
         console.log('[KYC] kycVault populated with verified status for user:', userId);
-        // Invalidate the sufficiency cache so next sufficiency check reflects the new vault state
+        // Invalidate caches so next sufficiency and compliance checks reflect new vault state
         try {
           const { invalidateSufficiencyCache } = await import('../services/kyc-sufficiency-service');
           invalidateSufficiencyCache(userId);
+        } catch { /* non-fatal */ }
+        try {
+          const { invalidateComplianceCache } = await import('../../middleware/universal-kyc-gate');
+          invalidateComplianceCache(userId);
         } catch { /* non-fatal */ }
       } catch (vaultErr) {
         console.warn('[KYC] Non-fatal: failed to populate kycVault after compliance signoff:', vaultErr);
