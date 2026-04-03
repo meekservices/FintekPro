@@ -215,6 +215,14 @@ export default function AuthPage() {
     return () => clearInterval(interval);
   }, [registrationOtpDialogOpen, registrationOtpTimer]);
 
+  // Set page title dynamically per portal
+  useEffect(() => {
+    document.title = portalType === 'main'
+      ? 'FintekPro — Sign In'
+      : `${portalLabel} Portal — Sign In`;
+    return () => { document.title = 'FintekPro - Smart Financial Services Platform'; };
+  }, [portalType, portalLabel]);
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -812,7 +820,7 @@ export default function AuthPage() {
     return (
       <div className="min-h-screen flex flex-col lg:flex-row">
         {/* ── Left Panel – dark navy with network pattern ── */}
-        <div className="lg:w-1/2 flex flex-col justify-between p-10 lg:p-16 relative overflow-hidden min-h-[260px] lg:min-h-screen" style={{ background: '#0d1b2e' }}>
+        <div className="lg:w-5/12 flex flex-col justify-between p-6 sm:p-10 lg:p-16 relative overflow-hidden min-h-[200px] sm:min-h-[260px] lg:min-h-screen" style={{ background: '#0d1b2e' }}>
           {/* Network / constellation SVG background */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
             <g stroke="#3b82f6" strokeOpacity="0.12" strokeWidth="1">
@@ -841,35 +849,36 @@ export default function AuthPage() {
           </svg>
 
           {/* Logo */}
-          <div className="relative z-10">
-            <img src={agentLogoImg} alt="FintekPro Agent Portal" className="h-20 object-contain" />
+          <div className="relative z-10 flex items-center gap-3">
+            <img src={agentLogoImg} alt="FintekPro Agent Portal" className="h-12 sm:h-16 lg:h-20 object-contain" />
+            <span className="lg:hidden text-white font-bold text-base sm:text-lg tracking-tight">FintekPro<br /><span className="text-blue-300 font-normal text-sm">Agent Portal</span></span>
           </div>
 
-          {/* Hero content */}
-          <div className="relative z-10 mt-auto pt-12">
-            <h1 className="text-3xl lg:text-4xl font-bold text-white leading-tight mb-4">
+          {/* Hero content – hidden on very small mobile to keep panel compact */}
+          <div className="relative z-10 mt-auto pt-4 sm:pt-8 lg:pt-12">
+            <h1 className="text-xl sm:text-3xl lg:text-4xl font-bold text-white leading-tight mb-3">
               Empower your<br />advisory business.
             </h1>
-            <p className="text-blue-200/65 text-sm lg:text-base mb-10 leading-relaxed max-w-sm">
+            <p className="hidden sm:block text-blue-200/65 text-sm lg:text-base mb-6 sm:mb-10 leading-relaxed max-w-sm">
               The complete toolkit for SEBI-registered distributors and advisors.
               Manage clients, execute trades, and grow your AUM efficiently.
             </p>
             {/* Stats */}
-            <div className="flex gap-10">
+            <div className="flex gap-6 sm:gap-10">
               <div>
-                <div className="text-white text-2xl font-bold">₹5k+ Cr</div>
-                <div className="text-blue-300/55 text-xs uppercase tracking-widest mt-0.5">AUM Managed</div>
+                <div className="text-white text-lg sm:text-2xl font-bold">₹5k+ Cr</div>
+                <div className="text-blue-300/55 text-[10px] sm:text-xs uppercase tracking-widest mt-0.5">AUM Managed</div>
               </div>
               <div>
-                <div className="text-white text-2xl font-bold">10k+</div>
-                <div className="text-blue-300/55 text-xs uppercase tracking-widest mt-0.5">Active Agents</div>
+                <div className="text-white text-lg sm:text-2xl font-bold">10k+</div>
+                <div className="text-blue-300/55 text-[10px] sm:text-xs uppercase tracking-widest mt-0.5">Active Agents</div>
               </div>
             </div>
           </div>
         </div>
 
         {/* ── Right Panel – white login form ── */}
-        <div className="lg:w-1/2 bg-white flex flex-col items-center justify-center p-8 relative min-h-[500px]">
+        <div className="lg:w-7/12 bg-white flex flex-col items-center justify-center px-4 py-8 sm:px-8 sm:py-10 relative min-h-[500px]">
           {/* SSL badge */}
           <div className="absolute top-4 right-5 flex items-center gap-1.5 text-xs text-green-600 font-medium">
             <Shield className="h-3.5 w-3.5" />
@@ -879,7 +888,7 @@ export default function AuthPage() {
           <div className="w-full max-w-sm">
             {authMode === "login" ? (
               <>
-                <h2 className="text-2xl font-bold text-gray-900 mb-1 text-center">Agent Portal</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 text-center">{portalLabel} Portal</h2>
                 <p className="text-sm text-gray-500 mb-7 text-center">Sign in to manage your practice</p>
 
                 {/* Method toggle */}
@@ -1000,7 +1009,7 @@ export default function AuthPage() {
               </>
             ) : (
               <>
-                <h2 className="text-2xl font-bold text-gray-900 mb-1 text-center">Agent Registration</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 text-center">{portalLabel} — Register</h2>
                 <p className="text-sm text-gray-500 mb-5 text-center">Create your agent account</p>
 
                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-5 text-sm text-blue-700 flex items-start gap-2">
