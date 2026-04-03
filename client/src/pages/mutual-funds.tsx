@@ -1249,6 +1249,7 @@ export default function MutualFunds() {
             {(() => {
               const sensexData = nseIndices?.data?.find(i => i.symbol === 'SENSEX');
               const isDerived = sensexData?.derived === true || sensexData?.source === 'nse_derived';
+              const isGoogleFinance = sensexData?.source === 'google_finance';
               const isUp = (sensexData?.per_chng ?? 0) >= 0;
               return (
                 <Card className="border border-border">
@@ -1256,15 +1257,18 @@ export default function MutualFunds() {
                     <div className="flex items-start justify-between mb-1">
                       <div className="flex items-center gap-1.5">
                         <p className="text-sm text-muted-foreground">SENSEX</p>
+                        {isGoogleFinance && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">LIVE</span>
+                        )}
                         {isDerived && (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 cursor-help">
-                                ~BSE <Info className="w-2.5 h-2.5 ml-0.5" />
+                                ~Est. <Info className="w-2.5 h-2.5 ml-0.5" />
                               </span>
                             </TooltipTrigger>
                             <TooltipContent side="bottom" className="max-w-[200px] text-xs">
-                              BSE direct API is unavailable. This value is computed from the NIFTY 50 using the historical SENSEX/NIFTY correlation ratio (~3.32).
+                              Google Finance is unavailable. This value is estimated from the NIFTY 50 using the historical SENSEX/NIFTY correlation ratio (~3.32).
                             </TooltipContent>
                           </Tooltip>
                         )}
