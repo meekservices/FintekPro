@@ -24,7 +24,6 @@ import {
   Briefcase,
   Home,
   Store,
-  ShoppingCart,
   HelpCircle,
   User as UserIcon,
   LogOut,
