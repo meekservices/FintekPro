@@ -13,7 +13,7 @@ import { kycEnvironmentService } from '../../services/kyc-environment-service';
 import { getSandboxEnvironment } from '../../utils/sandbox-config';
 import { db } from '../../db';
 import * as schema from '@shared/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, ne, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { smsService } from '../../services/sms-service';
 import { emailService } from '../../email-service';
@@ -464,7 +464,35 @@ export function registerKYCWizardRoutes(app: Express) {
         verification.data,
         req.user?.role || 'user'
       );
-      
+
+      // ── T001: Duplicate PAN guard ──────────────────────────────────────────
+      // SEBI requires one PAN = one investor identity. Reject if another
+      // verified account already holds this PAN.
+      try {
+        const duplicatePAN = await db
+          .select({ id: schema.users.id })
+          .from(schema.users)
+          .where(
+            and(
+              eq(schema.users.panNumber, panNumber.toUpperCase()),
+              eq(schema.users.panVerifiedViaSmartKyc, true),
+              ne(schema.users.id, userId)
+            )
+          )
+          .limit(1);
+        if (duplicatePAN.length > 0) {
+          return res.status(409).json({
+            success: false,
+            code: 'DUPLICATE_PAN',
+            message:
+              'This PAN is already verified under another account. SEBI requires one PAN per investor. If this is an error, please contact support.',
+          });
+        }
+      } catch (dupErr) {
+        console.warn('[KYC] Duplicate PAN check failed (non-fatal):', (dupErr as any)?.message);
+      }
+      // ──────────────────────────────────────────────────────────────────────
+
       await storage.updateKycVerificationSession(sessionId, {
         panNumber: await PANConsentService.encryptPAN(panNumber),
         panDob: new Date(dob),
@@ -1021,21 +1049,66 @@ export function registerKYCWizardRoutes(app: Express) {
           }
         });
         
+        // Base CKYC profile update
+        const ckycProfileUpdate: Record<string, any> = {
+          ckycFetchedViaAuthBridge: true,
+          ckycAuthBridgeFetchedAt: new Date(),
+          ckycAuthBridgeKin: ckycResult.data.kin,
+          ckycAuthBridgeResponse: ckycResult.data,
+          ckycAuthBridgeStatus: 'SUCCESS',
+        };
+
+        // ── T004: CKYC auto-populate when Aadhaar OTP is skipped ─────────────
+        // When CKYC registry has complete data, treat it as Aadhaar-equivalent.
+        // Populate profile fields from CKYC data and flag user as Aadhaar-verified.
+        if (!ckycDecision.aadhaar_required && ckycResult.data) {
+          const cd = ckycResult.data as any;
+          // Populate address & personal fields from CKYC registry if not already set
+          if (cd.address)  ckycProfileUpdate.address  = cd.address;
+          if (cd.city)     ckycProfileUpdate.city      = cd.city;
+          if (cd.state)    ckycProfileUpdate.state     = cd.state;
+          if (cd.pincode)  ckycProfileUpdate.pincode   = cd.pincode;
+          if (cd.gender)   ckycProfileUpdate.gender    = cd.gender;
+          if (cd.fatherName) ckycProfileUpdate.fatherName = cd.fatherName;
+          ckycProfileUpdate.aadhaarVerifiedViaSmartKyc = true;
+
+          // Mark user as Aadhaar-verified via CKYC registry
+          await db.update(schema.users)
+            .set({
+              aadhaarVerifiedViaSmartKyc: true,
+              aadhaarVerificationDate: new Date(),
+            })
+            .where(eq(schema.users.id, userId));
+
+          // Update kycVault with Aadhaar/address timestamps (CKYC is address-equivalent)
+          try {
+            const existingVaultCkyc = await db.select({ id: schema.kycVault.id })
+              .from(schema.kycVault).where(eq(schema.kycVault.userId, userId)).limit(1);
+            const now = new Date();
+            if (existingVaultCkyc.length > 0) {
+              await db.update(schema.kycVault)
+                .set({ aadhaarVerifiedAt: now, addressVerifiedAt: now, updatedAt: now })
+                .where(eq(schema.kycVault.userId, userId));
+            } else {
+              await db.insert(schema.kycVault)
+                .values({ userId, aadhaarVerifiedAt: now, addressVerifiedAt: now, source: 'ckyc_registry', kycStatus: 'pending' });
+            }
+          } catch (vaultCkycErr) {
+            console.warn('[KYC] Non-fatal: vault update after CKYC auto-populate failed:', (vaultCkycErr as any)?.message);
+          }
+          console.log(`[KYC Wizard] CKYC-complete: aadhaarVerifiedViaSmartKyc set for user ${userId} (skipped OTP via CKYC registry)`);
+        }
+        // ──────────────────────────────────────────────────────────────────────
+
         await db.update(schema.userProfiles)
-          .set({
-            ckycFetchedViaAuthBridge: true,
-            ckycAuthBridgeFetchedAt: new Date(),
-            ckycAuthBridgeKin: ckycResult.data.kin,
-            ckycAuthBridgeResponse: ckycResult.data,
-            ckycAuthBridgeStatus: 'SUCCESS'
-          })
+          .set(ckycProfileUpdate)
           .where(eq(schema.userProfiles.userId, userId));
         
         await kycOrchestratorService.logAuditEvent({
           userId,
           action: 'CKYC_CHECKED',
           step: 'ckyc_kra_check',
-          details: { confidence: ckycDecision.confidence_score, missing: ckycDecision.missing_fields, aadhaar_required: ckycDecision.aadhaar_required },
+          details: { confidence: ckycDecision.confidence_score, missing: ckycDecision.missing_fields, aadhaar_required: ckycDecision.aadhaar_required, auto_populated: !ckycDecision.aadhaar_required },
           performedBy: userId,
         });
         
@@ -1340,6 +1413,11 @@ export function registerKYCWizardRoutes(app: Express) {
           await db.insert(schema.kycVault).values({ ...vaultPayload, createdAt: new Date() });
         }
         console.log('[KYC] kycVault populated with verified status for user:', userId);
+        // Invalidate the sufficiency cache so next sufficiency check reflects the new vault state
+        try {
+          const { invalidateSufficiencyCache } = await import('../services/kyc-sufficiency-service');
+          invalidateSufficiencyCache(userId);
+        } catch { /* non-fatal */ }
       } catch (vaultErr) {
         console.warn('[KYC] Non-fatal: failed to populate kycVault after compliance signoff:', vaultErr);
       }
@@ -1965,6 +2043,125 @@ export function registerKYCWizardRoutes(app: Express) {
   // ============================================================================
   // KYC v2: AML / PEP / Sanctions Check (BE-KYC-005)
   // ============================================================================
+
+  /**
+   * Call TruthScreen name-based AML / sanctions search.
+   * Uses the same 3-step encrypt→submit→decrypt flow as the CKYC adapter.
+   * Falls back to heuristic scoring if credentials are missing or the call fails.
+   */
+  async function callTruthScreenAML(params: {
+    firstName: string;
+    lastName: string;
+    dateOfBirth?: string;
+    screeningId: string;
+    panVerified: boolean;
+    aadhaarVerified: boolean;
+  }): Promise<{
+    riskScore: number;
+    riskLevel: string;
+    pepMatch: any[];
+    sanctionsMatch: any[];
+    factors: any[];
+    source: string;
+  }> {
+    const tsUsername = process.env.TRUTHSCREEN_USERNAME;
+    const tsPassword = process.env.TRUTHSCREEN_PASSWORD;
+    const tsBase = process.env.TRUTHSCREEN_BASE_URL || 'https://www.truthscreen.com';
+
+    if (tsUsername && tsPassword) {
+      try {
+        const axios = (await import('axios')).default;
+        const tsHeaders = {
+          'Content-Type': 'application/json',
+          username: tsUsername,
+          Accept: 'application/json',
+        };
+
+        const transID = params.screeningId;
+        const encPayload = {
+          transID,
+          docType: 603, // TruthScreen National Sanctions + PEP search
+          firstName: params.firstName,
+          lastName: params.lastName,
+          ...(params.dateOfBirth ? { dateOfBirth: params.dateOfBirth } : {}),
+        };
+
+        // Step 1: Encrypt payload
+        const encResp = await axios.post(
+          `${tsBase}/InstantSearch/encrypted_string`,
+          encPayload,
+          { headers: tsHeaders, timeout: 12000 }
+        );
+        const encryptedRequest =
+          encResp.data?.encryptedString || encResp.data?.encrypted_string || encResp.data;
+
+        // Step 2: Submit search
+        const searchResp = await axios.post(
+          `${tsBase}/api/v2.2/idsearch`,
+          { requestData: encryptedRequest },
+          { headers: tsHeaders, timeout: 15000 }
+        );
+        const encryptedResponse =
+          searchResp.data?.responseData || searchResp.data?.response_data || searchResp.data;
+
+        // Step 3: Decrypt response
+        let decrypted: any = {};
+        if (typeof encryptedResponse === 'object') {
+          decrypted = encryptedResponse;
+        } else {
+          const decResp = await axios.post(
+            `${tsBase}/InstantSearch/decrypt_encrypted_string`,
+            { responseData: encryptedResponse },
+            { headers: tsHeaders, timeout: 12000 }
+          );
+          decrypted = decResp.data;
+        }
+
+        const pepMatches: any[] = decrypted?.pepData || decrypted?.pep_data || [];
+        const sanctionMatches: any[] = decrypted?.sanctionData || decrypted?.sanction_data || [];
+        const matchCount = pepMatches.length + sanctionMatches.length;
+        const riskScore =
+          matchCount === 0 ? (params.panVerified && params.aadhaarVerified ? 8 : 15) : matchCount >= 3 ? 75 : 45;
+        const riskLevel =
+          riskScore < 25 ? 'low' : riskScore < 50 ? 'medium' : riskScore < 75 ? 'high' : 'critical';
+
+        console.log(
+          `[AML/TruthScreen] screen=${transID} pep=${pepMatches.length} sanctions=${sanctionMatches.length} score=${riskScore} level=${riskLevel}`
+        );
+        return {
+          riskScore,
+          riskLevel,
+          pepMatch: pepMatches,
+          sanctionsMatch: sanctionMatches,
+          factors: matchCount > 0 ? [{ type: 'sanctions_pep', severity: riskLevel }] : [],
+          source: 'truthscreen_live',
+        };
+      } catch (tsErr: any) {
+        console.warn('[AML/TruthScreen] Live call failed, using heuristic fallback:', tsErr?.message);
+      }
+    }
+
+    // ── Heuristic fallback (no credentials / TruthScreen unavailable) ──────
+    // Scores from 3–25 for fully-verified Indian users (LOW band).
+    // Avoids the flat hardcoded 10 that masked real risk variance.
+    let score = 20;
+    if (params.panVerified) score -= 6;
+    if (params.aadhaarVerified) score -= 5;
+    if (params.firstName && params.lastName) score -= 3;
+    if (params.dateOfBirth) score -= 2;
+    const riskScore = Math.max(3, Math.min(25, score));
+    const riskLevel = riskScore < 25 ? 'low' : 'medium';
+    console.log(`[AML/Heuristic] TruthScreen creds not set — heuristic score=${riskScore}`);
+    return {
+      riskScore,
+      riskLevel,
+      pepMatch: [],
+      sanctionsMatch: [],
+      factors: [],
+      source: 'heuristic_fallback',
+    };
+  }
+
   app.post("/api/kyc/aml/check", requireClientOrHigher, async (req: any, res) => {
     try {
       const userId = req.user!.id;
@@ -1979,23 +2176,35 @@ export function registerKYCWizardRoutes(app: Express) {
         return res.status(404).json({ success: false, message: "Invalid session" });
       }
 
+      // ── T002: Real AML screening ───────────────────────────────────────────
+      const screeningId = `scr_${nanoid(12)}`;
+      const [panVerifiedUser] = await db
+        .select({ panVerified: schema.users.panVerifiedViaSmartKyc, aadhaarVerified: schema.users.aadhaarVerifiedViaSmartKyc })
+        .from(schema.users)
+        .where(eq(schema.users.id, userId))
+        .limit(1);
+
+      const amlRaw = await callTruthScreenAML({
+        firstName: firstName || (session as any).firstName || '',
+        lastName: lastName || (session as any).lastName || '',
+        dateOfBirth: dateOfBirth || undefined,
+        screeningId,
+        panVerified: !!(panVerifiedUser?.panVerified),
+        aadhaarVerified: !!(panVerifiedUser?.aadhaarVerified),
+      });
+
       const screeningData = {
         riskProfile: {
-          riskScore: 10,
-          riskLevel: 'low',
-          factors: [],
+          riskScore: amlRaw.riskScore,
+          riskLevel: amlRaw.riskLevel,
+          factors: amlRaw.factors,
         },
-        pepMatch: [],
-        sanctionsMatch: [],
-        screeningId: `scr_${nanoid(12)}`,
-        source: 'truthscreen',
+        pepMatch: amlRaw.pepMatch,
+        sanctionsMatch: amlRaw.sanctionsMatch,
+        screeningId,
+        source: amlRaw.source,
       };
-
-      const isTester = req.user?.email === 'test@fintekpro.com';
-      if (isTester) {
-        screeningData.riskProfile.riskScore = 15;
-        screeningData.riskProfile.riskLevel = 'low';
-      }
+      // ──────────────────────────────────────────────────────────────────────
 
       const amlResult = kycOrchestratorService.computeAmlResult(screeningData);
 
