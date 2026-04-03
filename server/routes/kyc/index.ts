@@ -1261,9 +1261,8 @@ export function registerKYCWizardRoutes(app: Express) {
         if (decryptedPan) {
           usersUpdate.panNumber = decryptedPan;
         }
-        if (aadhaarVerificationData?.idNumber) {
-          usersUpdate.aadharNumber = aadhaarVerificationData.idNumber;
-        }
+        // NOTE: Do NOT store full Aadhaar number — UIDAI guidelines prohibit it.
+        // aadhaarVerifiedViaSmartKyc flag already marks Aadhaar as verified.
         await db.update(schema.users)
           .set(usersUpdate)
           .where(eq(schema.users.id, userId));
