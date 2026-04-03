@@ -109,9 +109,36 @@ export function registerStockExchangeRoutes(app: Express) {
       const niftyLow = nifty50.low || nifty50.dayLow || fallbackData.NIFTY.low;
       const niftyOpen = nifty50.open || fallbackData.NIFTY.open;
 
-      // Derive SENSEX from live NIFTY50 using historical correlation ratio
-      const sensexLtp = parseFloat((niftyLtp * SENSEX_NIFTY_RATIO).toFixed(2));
-      const sensexChng = parseFloat((niftyChng * SENSEX_NIFTY_RATIO).toFixed(2));
+      // Fetch SENSEX from Google Finance (works from datacenter via data-last-price attribute)
+      let sensexLtp = parseFloat((niftyLtp * SENSEX_NIFTY_RATIO).toFixed(2));
+      let sensexSource = 'nse_derived';
+      let sensexDerived = true;
+      try {
+        const gfResponse = await fetch('https://www.google.com/finance/quote/SENSEX:INDEXBOM', {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml',
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+          signal: AbortSignal.timeout(6000)
+        });
+        const html = await gfResponse.text();
+        const priceMatch = html.match(/data-last-price="([0-9.]+)"/);
+        if (priceMatch && priceMatch[1]) {
+          const parsed = parseFloat(priceMatch[1]);
+          if (parsed > 10000 && parsed < 200000) { // sanity check for valid SENSEX range
+            sensexLtp = parsed;
+            sensexSource = 'google_finance';
+            sensexDerived = false;
+          }
+        }
+      } catch (gfErr) {
+        console.warn('[NSE Indices] Google Finance SENSEX fetch failed, using NIFTY ratio:', (gfErr as Error).message);
+      }
+
+      // Compute SENSEX change using live % change (same direction as NIFTY)
+      const sensexChng = parseFloat((sensexLtp * niftyPctChng / 100).toFixed(2));
+      const sensexPrevClose = parseFloat((sensexLtp - sensexChng).toFixed(2));
 
       const indicesData = [
         {
@@ -135,15 +162,12 @@ export function registerStockExchangeRoutes(app: Express) {
           ltp: sensexLtp,
           chng: sensexChng,
           per_chng: niftyPctChng,
-          open: parseFloat((niftyOpen * SENSEX_NIFTY_RATIO).toFixed(2)),
-          high: parseFloat((niftyHigh * SENSEX_NIFTY_RATIO).toFixed(2)),
-          low: parseFloat((niftyLow * SENSEX_NIFTY_RATIO).toFixed(2)),
-          previousClose: parseFloat((niftyPrevClose * SENSEX_NIFTY_RATIO).toFixed(2)),
+          previousClose: sensexPrevClose,
           volume: 0,
           value: 0,
           timestamp: new Date().toISOString(),
-          source: 'nse_derived',
-          derived: true
+          source: sensexSource,
+          ...(sensexDerived ? { derived: true } : {})
         },
         {
           symbol: 'NIFTYMIDCAP',
