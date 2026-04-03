@@ -136,11 +136,24 @@ export async function testConnection(): Promise<boolean> {
   }
 }
 
+// Tracks whether pool.end() has been called — background jobs check this
+// before making DB calls during shutdown so they can bail gracefully.
+let _poolClosing = false;
+
+export function isPoolClosed(): boolean {
+  return _poolClosing;
+}
+
 export async function closePool(): Promise<void> {
+  // Set flag BEFORE calling pool.end() so in-flight jobs see it immediately
+  _poolClosing = true;
   try {
     await pool.end();
     console.log('[DB Pool] Pool closed gracefully');
   } catch (err: any) {
-    console.error('[DB Pool] Error closing pool:', err?.message || err);
+    // Ignore "pool already ended" errors — can happen on repeated SIGTERM
+    if (!(err?.message || '').includes('end on the pool')) {
+      console.error('[DB Pool] Error closing pool:', err?.message || err);
+    }
   }
 }

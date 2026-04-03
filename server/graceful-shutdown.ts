@@ -1,5 +1,5 @@
 import { Server, Socket } from "http";
-import { closePool } from "./db";
+import { closePool, isPoolClosed } from "./db";
 
 let isShuttingDown = false;
 
@@ -31,7 +31,12 @@ export function setupGracefulShutdown(server: Server, beforeShutdown?: () => voi
     // 3. Close HTTP server (should return instantly since all sockets are destroyed)
     try { server.close(); } catch (_) { /* best-effort */ }
 
-    // 4. Close DB pool
+    // 4. Give in-flight background jobs a 2-second drain window before
+    //    closing the pool. Railway's SIGTERM → SIGKILL gap is ~30s so this
+    //    is safe even combined with the 8s hard-exit timer above.
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // 5. Close DB pool
     try { await closePool(); } catch (_) { /* best-effort */ }
 
     console.log("[Graceful Shutdown] Shutdown complete");
