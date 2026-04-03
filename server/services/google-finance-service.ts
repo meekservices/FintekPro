@@ -1,26 +1,31 @@
 /**
  * Google Finance Data Service
- * Provides stock price quotes and key metrics for Indian stocks (NSE/BSE)
- * via Google Finance HTML parsing and the legacy JSONP info endpoint.
  *
- * Strategy waterfall (tried in order):
- *   1. finance.google.com/finance/info  — legacy JSONP (fast, low overhead)
- *   2. www.google.com/finance/quote     — HTML parsing with embedded JSON blob
+ * Confirmed working from datacenter:
+ *   www.google.com/finance/quote/SYMBOL:NSE  → stock quotes with timestamp
+ *   www.google.com/finance/quote/SENSEX:INDEXBOM → BSE SENSEX
  *
- * Used as a fallback between BSE and Yahoo Finance in the price waterfall,
- * and between FMP and Yahoo Finance in the metrics waterfall.
+ * Dead / blocked from datacenter:
+ *   finance.google.com/finance/info (JSONP) → 404 (removed)
+ *   BSE API direct → 301 blocked
+ *   Yahoo Finance quote() → 429 Too Many Requests (use as last resort only)
+ *
+ * Load-sharing role:
+ *   PRIMARY for: SENSEX, individual BSE stock quotes
+ *   SECONDARY for: individual NSE stock quotes (after NSE library)
+ *   METRICS: PE, PB, market cap, 52-week H/L, dividend yield, EPS
  */
 
 import * as cheerio from 'cheerio';
 
-const GF_TIMEOUT_MS = 12_000;
-const JSONP_TIMEOUT_MS = 6_000;
+const GF_TIMEOUT_MS = 10_000;
 
-const BROWSER_HEADERS = {
+export const BROWSER_HEADERS = {
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept-Language': 'en-IN,en;q=0.9',
   Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Encoding': 'gzip, deflate, br',
 };
 
 export interface GFQuote {
@@ -29,7 +34,9 @@ export interface GFQuote {
   change?: number | null;
   changePercent?: number | null;
   previousClose?: number | null;
-  source: 'google_finance_jsonp' | 'google_finance_html';
+  /** Unix timestamp in seconds from exchange (data-last-normal-market-timestamp) */
+  marketTimestampUnix?: number | null;
+  source: 'google_finance';
 }
 
 export interface GFMetrics {
@@ -43,6 +50,8 @@ export interface GFMetrics {
   source: 'google_finance';
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 function safeFloat(v: string | number | null | undefined): number | null {
   if (v == null) return null;
   const s = String(v).replace(/[,₹%\s]/g, '').trim();
@@ -50,76 +59,6 @@ function safeFloat(v: string | number | null | undefined): number | null {
   const n = parseFloat(s);
   return isNaN(n) ? null : n;
 }
-
-// ─── Strategy 1: Legacy JSONP endpoint ────────────────────────────────────────
-
-async function tryJsonp(symbol: string, exchange: string): Promise<GFQuote | null> {
-  const url = `https://finance.google.com/finance/info?client=ig&q=${exchange}:${symbol}`;
-  try {
-    const res = await fetch(url, {
-      headers: BROWSER_HEADERS,
-      signal: AbortSignal.timeout(JSONP_TIMEOUT_MS),
-    });
-    if (!res.ok) return null;
-    let text = (await res.text()).trim();
-    if (text.startsWith('//')) text = text.slice(2).trim();
-    const data = JSON.parse(text);
-    if (!Array.isArray(data) || !data[0]) return null;
-    const item = data[0];
-    const price = safeFloat(item.l_fix ?? item.l);
-    if (!price) return null;
-    return {
-      symbol,
-      price,
-      change: safeFloat(item.c_fix ?? item.c),
-      changePercent: safeFloat(item.cp_fix ?? item.cp),
-      previousClose: safeFloat(item.pcls_fix),
-      source: 'google_finance_jsonp',
-    };
-  } catch {
-    return null;
-  }
-}
-
-// ─── Strategy 2: HTML page parsing ────────────────────────────────────────────
-
-const PRICE_PATTERNS = [
-  /"PRICE":\[\d+,([\d,]+(?:\.\d+)?)/,
-  /"LAST_PRICE":\[\d+,([\d,]+(?:\.\d+)?)/,
-];
-
-const CHANGE_PATTERNS = [
-  /"CHANGE":\[\d+,(-?[\d,]+(?:\.\d+)?)/,
-  /"DAY_CHANGE":\[\d+,(-?[\d,]+(?:\.\d+)?)/,
-];
-
-const CHANGE_PCT_PATTERNS = [
-  /"CHANGE_PERCENT":\[\d+,(-?[\d,]+(?:\.\d+)?)/,
-  /"DAY_CHANGE_PERCENT":\[\d+,(-?[\d,]+(?:\.\d+)?)/,
-];
-
-const PE_PATTERNS = [
-  /"PE_RATIO":\[\d+,([\d,]+(?:\.\d+)?)/,
-  /"PRICE_EARNINGS_RATIO":\[\d+,([\d,]+(?:\.\d+)?)/,
-];
-
-const PB_PATTERNS = [
-  /"PRICE_TO_BOOK":\[\d+,([\d,]+(?:\.\d+)?)/,
-  /"PB_RATIO":\[\d+,([\d,]+(?:\.\d+)?)/,
-];
-
-const MKTCAP_PATTERNS = [
-  /"MARKET_CAP":\[\d+,([\d,]+(?:\.\d+)?)/,
-  /"MKTCAP":\[\d+,([\d,]+(?:\.\d+)?)/,
-];
-
-const HIGH52_PATTERNS = [/"HIGH_52_WEEKS":\[\d+,([\d,]+(?:\.\d+)?)/];
-const LOW52_PATTERNS = [/"LOW_52_WEEKS":\[\d+,([\d,]+(?:\.\d+)?)/];
-const DIVYIELD_PATTERNS = [/"DIVIDEND_YIELD":\[\d+,([\d,]+(?:\.\d+)?)/];
-const EPS_PATTERNS = [
-  /"EPS":\[\d+,(-?[\d,]+(?:\.\d+)?)/,
-  /"EARNINGS_PER_SHARE":\[\d+,(-?[\d,]+(?:\.\d+)?)/,
-];
 
 function extractFirst(html: string, patterns: RegExp[]): number | null {
   for (const pat of patterns) {
@@ -143,8 +82,25 @@ function extractSigned(html: string, patterns: RegExp[]): number | null {
   return null;
 }
 
-async function fetchHtml(symbol: string, exchange: string): Promise<string | null> {
-  const url = `https://www.google.com/finance/quote/${symbol}:${exchange}`;
+// ─── HTML patterns (from embedded JSON blob in Google Finance page) ───────────
+
+const PATTERNS = {
+  price: [/"PRICE":\[\d+,([\d,]+(?:\.\d+)?)/, /"LAST_PRICE":\[\d+,([\d,]+(?:\.\d+)?)/],
+  change: [/"CHANGE":\[\d+,(-?[\d,]+(?:\.\d+)?)/, /"DAY_CHANGE":\[\d+,(-?[\d,]+(?:\.\d+)?)/],
+  changePct: [/"CHANGE_PERCENT":\[\d+,(-?[\d,]+(?:\.\d+)?)/, /"DAY_CHANGE_PERCENT":\[\d+,(-?[\d,]+(?:\.\d+)?)/],
+  pe: [/"PE_RATIO":\[\d+,([\d,]+(?:\.\d+)?)/, /"PRICE_EARNINGS_RATIO":\[\d+,([\d,]+(?:\.\d+)?)/],
+  pb: [/"PRICE_TO_BOOK":\[\d+,([\d,]+(?:\.\d+)?)/, /"PB_RATIO":\[\d+,([\d,]+(?:\.\d+)?)/],
+  marketCap: [/"MARKET_CAP":\[\d+,([\d,]+(?:\.\d+)?)/, /"MKTCAP":\[\d+,([\d,]+(?:\.\d+)?)/],
+  high52w: [/"HIGH_52_WEEKS":\[\d+,([\d,]+(?:\.\d+)?)/],
+  low52w: [/"LOW_52_WEEKS":\[\d+,([\d,]+(?:\.\d+)?)/],
+  divYield: [/"DIVIDEND_YIELD":\[\d+,([\d,]+(?:\.\d+)?)/],
+  eps: [/"EPS":\[\d+,(-?[\d,]+(?:\.\d+)?)/, /"EARNINGS_PER_SHARE":\[\d+,(-?[\d,]+(?:\.\d+)?)/],
+};
+
+// ─── Core fetch ───────────────────────────────────────────────────────────────
+
+async function fetchGFPage(gfSymbol: string, gfExchange: string): Promise<string | null> {
+  const url = `https://www.google.com/finance/quote/${gfSymbol}:${gfExchange}`;
   try {
     const res = await fetch(url, {
       headers: BROWSER_HEADERS,
@@ -158,9 +114,11 @@ async function fetchHtml(symbol: string, exchange: string): Promise<string | nul
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
- * Fetch a live price quote for an Indian stock from Google Finance.
- * Tries JSONP first (faster), then falls back to HTML parsing.
- * For NSE symbols, also retries with BOM exchange code if NSE fails.
+ * Fetch a live quote from Google Finance HTML.
+ * For NSE symbols, retries with BOM if NSE returns no price.
+ * Returns null if the page is unreachable or price cannot be parsed.
+ *
+ * dataQuality = "third_party" (BSE/NSE data via Google Finance proxy)
  */
 export async function fetchGFQuote(
   symbol: string,
@@ -168,38 +126,41 @@ export async function fetchGFQuote(
 ): Promise<GFQuote | null> {
   const gfExchange = exchange === 'BSE' ? 'BOM' : 'NSE';
 
-  let result = await tryJsonp(symbol, gfExchange);
-  if (result?.price) return result;
+  let html = await fetchGFPage(symbol, gfExchange);
 
-  if (gfExchange === 'NSE') {
-    result = await tryJsonp(symbol, 'BOM');
-    if (result?.price) return result;
-  }
-
-  let html = await fetchHtml(symbol, gfExchange);
+  // For NSE symbols try BOM if NSE page has no data
   if (!html && gfExchange === 'NSE') {
-    html = await fetchHtml(symbol, 'BOM');
+    html = await fetchGFPage(symbol, 'BOM');
   }
 
-  if (html) {
-    const price = extractFirst(html, PRICE_PATTERNS);
-    if (price) {
-      return {
-        symbol,
-        price,
-        change: extractSigned(html, CHANGE_PATTERNS),
-        changePercent: extractSigned(html, CHANGE_PCT_PATTERNS),
-        source: 'google_finance_html',
-      };
-    }
-  }
+  if (!html) return null;
 
-  return null;
+  // Primary: data-last-price attribute (fast, reliable for indices and stocks)
+  const attrPriceMatch = html.match(/data-last-price="([0-9.]+)"/);
+  const attrTsMatch    = html.match(/data-last-normal-market-timestamp="([0-9]+)"/);
+  const attrPrice = attrPriceMatch ? parseFloat(attrPriceMatch[1]) : null;
+
+  const price = (attrPrice && attrPrice > 0) ? attrPrice : extractFirst(html, PATTERNS.price);
+  if (!price) return null;
+
+  const change    = extractSigned(html, PATTERNS.change);
+  const changePct = extractSigned(html, PATTERNS.changePct);
+  const tsUnix    = attrTsMatch ? parseInt(attrTsMatch[1], 10) : null;
+
+  return {
+    symbol,
+    price,
+    change,
+    changePercent: changePct,
+    previousClose: (price && change) ? parseFloat((price - change).toFixed(2)) : null,
+    marketTimestampUnix: tsUnix,
+    source: 'google_finance',
+  };
 }
 
 /**
- * Fetch key financial metrics for an Indian stock from Google Finance HTML.
- * Returns PE, PB, market cap, 52-week range, dividend yield, EPS.
+ * Fetch key financial metrics for a stock via Google Finance HTML.
+ * PE, PB, market cap, 52-week range, dividend yield, EPS.
  */
 export async function fetchGFMetrics(
   symbol: string,
@@ -207,23 +168,21 @@ export async function fetchGFMetrics(
 ): Promise<GFMetrics | null> {
   const gfExchange = exchange === 'BSE' ? 'BOM' : 'NSE';
 
-  let html = await fetchHtml(symbol, gfExchange);
+  let html = await fetchGFPage(symbol, gfExchange);
   if (!html && gfExchange === 'NSE') {
-    html = await fetchHtml(symbol, 'BOM');
+    html = await fetchGFPage(symbol, 'BOM');
   }
   if (!html) return null;
 
-  const pe = extractFirst(html, PE_PATTERNS);
-  const pb = extractFirst(html, PB_PATTERNS);
-  const marketCap = extractFirst(html, MKTCAP_PATTERNS);
-  const high52w = extractFirst(html, HIGH52_PATTERNS);
-  const low52w = extractFirst(html, LOW52_PATTERNS);
-  const dividendYield = extractFirst(html, DIVYIELD_PATTERNS);
-  const eps = extractSigned(html, EPS_PATTERNS);
+  const pe        = extractFirst(html, PATTERNS.pe);
+  const pb        = extractFirst(html, PATTERNS.pb);
+  const marketCap = extractFirst(html, PATTERNS.marketCap);
+  const high52w   = extractFirst(html, PATTERNS.high52w);
+  const low52w    = extractFirst(html, PATTERNS.low52w);
+  const divYield  = extractFirst(html, PATTERNS.divYield);
+  const eps       = extractSigned(html, PATTERNS.eps);
 
-  if (!pe && !pb && !marketCap && !high52w && !low52w) {
-    return null;
-  }
+  if (!pe && !pb && !marketCap && !high52w && !low52w) return null;
 
   return {
     pe: pe ?? null,
@@ -231,21 +190,20 @@ export async function fetchGFMetrics(
     marketCap: marketCap ?? null,
     high52w: high52w ?? null,
     low52w: low52w ?? null,
-    dividendYield: dividendYield ?? null,
+    dividendYield: divYield ?? null,
     eps: eps ?? null,
     source: 'google_finance',
   };
 }
 
 /**
- * Test connectivity to Google Finance.
- * Returns { ok: boolean, latencyMs: number }.
+ * Test connectivity to Google Finance HTML endpoint.
  */
 export async function testGFConnectivity(): Promise<{ ok: boolean; latencyMs: number }> {
   const start = Date.now();
   try {
     const res = await fetch(
-      'https://finance.google.com/finance/info?client=ig&q=NSE:RELIANCE',
+      'https://www.google.com/finance/quote/RELIANCE:NSE',
       { headers: BROWSER_HEADERS, signal: AbortSignal.timeout(8_000) },
     );
     return { ok: res.ok, latencyMs: Date.now() - start };
