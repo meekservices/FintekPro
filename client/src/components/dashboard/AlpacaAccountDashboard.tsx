@@ -1,0 +1,768 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import {
+  Card, CardContent, CardHeader, CardTitle, CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine,
+} from "recharts";
+import {
+  Wallet, TrendingUp, TrendingDown, Clock, RefreshCw, X, AlertTriangle,
+  DollarSign, BarChart3, Activity, ShieldCheck, XCircle, CheckCircle2,
+  Building2,
+} from "lucide-react";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface AlpacaAccount {
+  id: string;
+  account_number: string;
+  status: string;
+  cash: string;
+  portfolio_value: string;
+  buying_power: string;
+  equity: string;
+  currency: string;
+  long_market_value: string;
+  unrealized_pl: string;
+  unrealized_plpc: string;
+  realized_pl: string;
+  daytrade_count: number;
+  pattern_day_trader: boolean;
+  trading_blocked: boolean;
+  account_blocked: boolean;
+  created_at: string;
+}
+
+interface AlpacaOrder {
+  id: string;
+  client_order_id: string;
+  status: string;
+  symbol: string;
+  qty?: string;
+  notional?: string;
+  filled_qty: string;
+  filled_avg_price: string | null;
+  order_type: string;
+  side: string;
+  time_in_force: string;
+  created_at: string;
+  submitted_at: string;
+  filled_at: string | null;
+}
+
+interface AlpacaPosition {
+  symbol: string;
+  quantity: number;
+  avgPrice: number;
+  currentPrice: number;
+  marketValue: number;
+  gainLoss: number;
+  gainLossPercent: number;
+  side: string;
+  currency: string;
+}
+
+interface MarketClock {
+  timestamp: string;
+  is_open: boolean;
+  next_open: string;
+  next_close: string;
+}
+
+interface PortfolioHistory {
+  timestamp: number[];
+  equity: number[];
+  profit_loss: number[];
+  profit_loss_pct: number[];
+  base_value: number;
+  timeframe: string;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmt(val: number | string, decimals = 2): string {
+  const n = typeof val === "string" ? parseFloat(val) : val;
+  if (isNaN(n)) return "—";
+  return n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function fmtUSD(val: number | string): string {
+  const n = typeof val === "string" ? parseFloat(val) : val;
+  if (isNaN(n)) return "—";
+  return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtPct(val: number | string, multiply = false): string {
+  const n = typeof val === "string" ? parseFloat(val) : val;
+  if (isNaN(n)) return "—";
+  const pct = multiply ? n * 100 : n;
+  return (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%";
+}
+
+const PERIODS = [
+  { value: "1D", label: "1 Day" },
+  { value: "1W", label: "1 Week" },
+  { value: "1M", label: "1 Month" },
+  { value: "3M", label: "3 Months" },
+  { value: "1A", label: "1 Year" },
+];
+
+const PERIOD_TIMEFRAME: Record<string, string> = {
+  "1D": "5Min",
+  "1W": "1H",
+  "1M": "1D",
+  "3M": "1D",
+  "1A": "1D",
+};
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function StatCard({
+  title, value, sub, icon: Icon, positive, loading,
+}: {
+  title: string;
+  value: string;
+  sub?: string;
+  icon: React.ElementType;
+  positive?: boolean;
+  loading?: boolean;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{title}</span>
+          <Icon className="h-4 w-4 text-muted-foreground" />
+        </div>
+        {loading ? (
+          <Skeleton className="h-7 w-28 mb-1" />
+        ) : (
+          <div className="text-2xl font-bold tracking-tight">{value}</div>
+        )}
+        {sub && !loading && (
+          <div className={`text-xs mt-1 font-medium ${positive === undefined ? "text-muted-foreground" : positive ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+            {sub}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function MarketClockBadge({ clock, loading }: { clock?: MarketClock; loading: boolean }) {
+  if (loading) return <Skeleton className="h-6 w-24" />;
+  if (!clock) return null;
+  const nextEvent = clock.is_open
+    ? new Date(clock.next_close).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+    : new Date(clock.next_open).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className={`h-2 w-2 rounded-full ${clock.is_open ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
+      <span className="text-sm font-medium">
+        {clock.is_open ? "Market Open" : "Market Closed"}
+      </span>
+      <span className="text-xs text-muted-foreground">
+        {clock.is_open ? `Closes ${nextEvent}` : `Opens ${nextEvent}`}
+      </span>
+    </div>
+  );
+}
+
+function PortfolioChart({
+  period, setPeriod, isPaper,
+}: {
+  period: string;
+  setPeriod: (p: string) => void;
+  isPaper: boolean;
+}) {
+  const { data, isLoading } = useQuery<{ configured: boolean; history: PortfolioHistory | null }>({
+    queryKey: ["/api/us-trading/alpaca/portfolio/history", period],
+    queryFn: () =>
+      fetch(`/api/us-trading/alpaca/portfolio/history?period=${period}&timeframe=${PERIOD_TIMEFRAME[period]}`).then(r => r.json()),
+    staleTime: 60000,
+  });
+
+  const chartData = (data?.history?.timestamp || []).map((ts, i) => ({
+    time: period === "1D"
+      ? new Date(ts * 1000).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+      : new Date(ts * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    equity: data!.history!.equity[i],
+    pl: data!.history!.profit_loss[i],
+  }));
+
+  const baseValue = data?.history?.base_value ?? 0;
+  const lastEquity = chartData.length > 0 ? chartData[chartData.length - 1].equity : 0;
+  const isPositive = lastEquity >= baseValue;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Portfolio History
+              {isPaper && (
+                <Badge variant="outline" className="text-xs ml-1 border-amber-400 text-amber-600 dark:text-amber-400">
+                  Paper
+                </Badge>
+              )}
+            </CardTitle>
+            {!isLoading && chartData.length > 0 && (
+              <p className={`text-sm font-semibold mt-0.5 ${isPositive ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                {fmtUSD(lastEquity)} &nbsp;
+                <span className="font-normal text-xs">
+                  {isPositive ? "▲" : "▼"} {fmtUSD(Math.abs(lastEquity - baseValue))} ({fmtPct((lastEquity - baseValue) / baseValue * 100)})
+                </span>
+              </p>
+            )}
+          </div>
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-[110px] h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PERIODS.map(p => (
+                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-44 w-full" />
+        ) : chartData.length === 0 ? (
+          <div className="h-44 flex items-center justify-center text-sm text-muted-foreground">
+            No portfolio history data available
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={176}>
+            <LineChart data={chartData} margin={{ left: 0, right: 0, top: 4, bottom: 0 }}>
+              <XAxis
+                dataKey="time"
+                tick={{ fontSize: 10 }}
+                interval="preserveStartEnd"
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 10 }}
+                tickFormatter={v => "$" + (v >= 1000 ? (v / 1000).toFixed(1) + "k" : v.toFixed(0))}
+                axisLine={false}
+                tickLine={false}
+                width={55}
+              />
+              <Tooltip
+                formatter={(val: number) => [fmtUSD(val), "Equity"]}
+                labelStyle={{ fontSize: 11 }}
+                contentStyle={{ fontSize: 12 }}
+              />
+              {baseValue > 0 && (
+                <ReferenceLine y={baseValue} stroke="#6b7280" strokeDasharray="4 2" strokeWidth={1} />
+              )}
+              <Line
+                type="monotone"
+                dataKey="equity"
+                stroke={isPositive ? "#16a34a" : "#ef4444"}
+                dot={false}
+                strokeWidth={2}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PositionsTable({ isPaper }: { isPaper: boolean }) {
+  const { toast } = useToast();
+  const { data, isLoading, refetch } = useQuery<{
+    configured: boolean;
+    positions: AlpacaPosition[];
+    totalValueUSD: number;
+    totalGainLossUSD: number;
+  }>({
+    queryKey: ["/api/us-trading/positions"],
+    staleTime: 30000,
+  });
+
+  const closeMutation = useMutation({
+    mutationFn: (symbol: string) =>
+      apiRequest(`/api/us-trading/alpaca/positions/${symbol}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/us-trading/positions"] });
+      toast({ title: "Position closed", description: "The position has been closed." });
+    },
+    onError: (e: any) => {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const positions = data?.positions ?? [];
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Live Positions
+            {isPaper && (
+              <Badge variant="outline" className="text-xs border-amber-400 text-amber-600 dark:text-amber-400">Paper</Badge>
+            )}
+          </CardTitle>
+          <Button variant="ghost" size="sm" onClick={() => refetch()} className="h-7 px-2">
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        {!isLoading && positions.length > 0 && (
+          <CardDescription>
+            Total: {fmtUSD(data?.totalValueUSD ?? 0)} · P&L: {" "}
+            <span className={(data?.totalGainLossUSD ?? 0) >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}>
+              {fmtUSD(data?.totalGainLossUSD ?? 0)}
+            </span>
+          </CardDescription>
+        )}
+      </CardHeader>
+      <CardContent className="p-0">
+        {isLoading ? (
+          <div className="p-4 space-y-2">
+            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+          </div>
+        ) : positions.length === 0 ? (
+          <div className="p-6 text-center text-sm text-muted-foreground">
+            No open positions
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Symbol</TableHead>
+                <TableHead className="text-right">Qty</TableHead>
+                <TableHead className="text-right">Avg Price</TableHead>
+                <TableHead className="text-right">Current</TableHead>
+                <TableHead className="text-right">Mkt Value</TableHead>
+                <TableHead className="text-right">P&L</TableHead>
+                <TableHead className="text-right">P&L %</TableHead>
+                <TableHead className="w-16"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {positions.map(p => (
+                <TableRow key={p.symbol}>
+                  <TableCell className="font-semibold">{p.symbol}</TableCell>
+                  <TableCell className="text-right">{fmt(p.quantity)}</TableCell>
+                  <TableCell className="text-right">{fmtUSD(p.avgPrice)}</TableCell>
+                  <TableCell className="text-right">{fmtUSD(p.currentPrice)}</TableCell>
+                  <TableCell className="text-right">{fmtUSD(p.marketValue)}</TableCell>
+                  <TableCell className={`text-right ${p.gainLoss >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                    {fmtUSD(p.gainLoss)}
+                  </TableCell>
+                  <TableCell className={`text-right ${p.gainLossPercent >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                    {fmtPct(p.gainLossPercent)}
+                  </TableCell>
+                  <TableCell>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20">
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Close Position: {p.symbol}</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will place a market sell order for {fmt(p.quantity)} shares of {p.symbol} at market price.
+                            {isPaper && " (Paper trading — no real money involved.)"}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-red-500 hover:bg-red-600"
+                            onClick={() => closeMutation.mutate(p.symbol)}
+                          >
+                            Close Position
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function OrdersTable({ isPaper }: { isPaper: boolean }) {
+  const { toast } = useToast();
+  const [statusFilter, setStatusFilter] = useState("open");
+  const { data, isLoading, refetch } = useQuery<{ configured: boolean; orders: AlpacaOrder[] }>({
+    queryKey: ["/api/us-trading/alpaca/orders", statusFilter],
+    queryFn: () =>
+      fetch(`/api/us-trading/alpaca/orders?status=${statusFilter}&limit=50`).then(r => r.json()),
+    staleTime: 15000,
+  });
+
+  const cancelOneMutation = useMutation({
+    mutationFn: (orderId: string) =>
+      apiRequest(`/api/us-trading/alpaca/orders/${orderId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/us-trading/alpaca/orders"] });
+      toast({ title: "Order cancelled" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const cancelAllMutation = useMutation({
+    mutationFn: () => apiRequest("/api/us-trading/alpaca/orders", { method: "DELETE" }),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/us-trading/alpaca/orders"] });
+      toast({ title: `Cancelled ${res.cancelled ?? "all"} orders` });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const orders = data?.orders ?? [];
+  const openOrders = orders.filter(o => ["new", "partially_filled", "pending_new", "accepted", "held"].includes(o.status));
+
+  const statusColor: Record<string, string> = {
+    filled: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    partially_filled: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    new: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    pending_new: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    cancelled: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+    expired: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+    rejected: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Orders
+            {isPaper && (
+              <Badge variant="outline" className="text-xs border-amber-400 text-amber-600 dark:text-amber-400">Paper</Badge>
+            )}
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-8 w-[110px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+                <SelectItem value="all">All</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="ghost" size="sm" onClick={() => refetch()} className="h-8 px-2">
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+            {openOrders.length > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 text-xs border-red-300 text-red-600 dark:text-red-400">
+                    <XCircle className="h-3.5 w-3.5 mr-1" />
+                    Cancel All
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cancel All Open Orders?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will cancel all {openOrders.length} open order{openOrders.length !== 1 ? "s" : ""}.
+                      {isPaper && " (Paper trading — no real money involved.)"}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Keep Orders</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-red-500 hover:bg-red-600"
+                      onClick={() => cancelAllMutation.mutate()}
+                    >
+                      Cancel All
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        {isLoading ? (
+          <div className="p-4 space-y-2">
+            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="p-6 text-center text-sm text-muted-foreground">
+            No {statusFilter} orders
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Symbol</TableHead>
+                <TableHead>Side</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead className="text-right">Qty</TableHead>
+                <TableHead className="text-right">Filled</TableHead>
+                <TableHead className="text-right">Avg Fill</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Submitted</TableHead>
+                <TableHead className="w-12"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {orders.map(o => {
+                const isOpen = ["new", "partially_filled", "pending_new", "accepted", "held"].includes(o.status);
+                return (
+                  <TableRow key={o.id}>
+                    <TableCell className="font-semibold">{o.symbol}</TableCell>
+                    <TableCell>
+                      <Badge className={`text-xs ${o.side === "buy" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"}`} variant="outline">
+                        {o.side.toUpperCase()}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs capitalize">{o.order_type}</TableCell>
+                    <TableCell className="text-right">{o.qty ?? o.notional ? (o.qty ?? "$" + o.notional) : "—"}</TableCell>
+                    <TableCell className="text-right">{o.filled_qty || "0"}</TableCell>
+                    <TableCell className="text-right">{o.filled_avg_price ? fmtUSD(parseFloat(o.filled_avg_price)) : "—"}</TableCell>
+                    <TableCell>
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${statusColor[o.status] ?? "bg-gray-100 text-gray-600"}`}>
+                        {o.status.replace("_", " ")}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date(o.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </TableCell>
+                    <TableCell>
+                      {isOpen && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                          onClick={() => cancelOneMutation.mutate(o.id)}
+                          disabled={cancelOneMutation.isPending}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export default function AlpacaAccountDashboard() {
+  const [chartPeriod, setChartPeriod] = useState("1M");
+  const { toast } = useToast();
+
+  const { data: accountData, isLoading: isLoadingAccount, refetch: refetchAccount } = useQuery<{
+    configured: boolean;
+    isPaper: boolean;
+    account?: AlpacaAccount;
+  }>({
+    queryKey: ["/api/us-trading/alpaca/account"],
+    staleTime: 30000,
+  });
+
+  const { data: clockData, isLoading: isLoadingClock } = useQuery<{
+    configured: boolean;
+    clock?: MarketClock;
+  }>({
+    queryKey: ["/api/us-trading/alpaca/market-clock"],
+    refetchInterval: 60000,
+    staleTime: 30000,
+  });
+
+  const configured = accountData?.configured ?? false;
+  const isPaper = accountData?.isPaper ?? true;
+  const account = accountData?.account;
+
+  const equity = parseFloat(account?.equity ?? "0");
+  const cash = parseFloat(account?.cash ?? "0");
+  const buyingPower = parseFloat(account?.buying_power ?? "0");
+  const unrealizedPL = parseFloat(account?.unrealized_pl ?? "0");
+  const unrealizedPLPC = parseFloat(account?.unrealized_plpc ?? "0");
+  const longMarketValue = parseFloat(account?.long_market_value ?? "0");
+
+  if (!isLoadingAccount && !configured) {
+    return (
+      <div className="space-y-4">
+        <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <AlertDescription className="text-amber-800 dark:text-amber-200">
+            <strong>Alpaca API not configured.</strong> Add your{" "}
+            <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded text-xs">ALPACA_API_KEY</code> and{" "}
+            <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded text-xs">ALPACA_SECRET_KEY</code> to enable live
+            account data, positions, and order management.
+          </AlertDescription>
+        </Alert>
+        <Card className="border-dashed">
+          <CardContent className="p-10 text-center">
+            <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground/40" />
+            <h3 className="font-semibold text-lg mb-1">Connect Your Alpaca Account</h3>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+              Once your API credentials are added, this dashboard will show your live account balance,
+              portfolio history chart, open positions, and order management.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Header row */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          {isPaper && (
+            <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300">
+              Paper Trading
+            </Badge>
+          )}
+          {account && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {account.trading_blocked || account.account_blocked ? (
+                <>
+                  <XCircle className="h-3.5 w-3.5 text-red-500" />
+                  <span className="text-red-500">Trading blocked</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                  <span>Account active · {account.account_number}</span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <MarketClockBadge clock={clockData?.clock} loading={isLoadingClock} />
+          <Button variant="ghost" size="sm" onClick={() => refetchAccount()} className="h-7 px-2">
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard
+          title="Portfolio Equity"
+          value={isLoadingAccount ? "—" : fmtUSD(equity)}
+          sub={account ? `${account.currency} · ${isPaper ? "Paper" : "Live"}` : undefined}
+          icon={Wallet}
+          loading={isLoadingAccount}
+        />
+        <StatCard
+          title="Cash Balance"
+          value={isLoadingAccount ? "—" : fmtUSD(cash)}
+          icon={DollarSign}
+          loading={isLoadingAccount}
+        />
+        <StatCard
+          title="Buying Power"
+          value={isLoadingAccount ? "—" : fmtUSD(buyingPower)}
+          icon={Activity}
+          loading={isLoadingAccount}
+        />
+        <StatCard
+          title="Unrealized P&L"
+          value={isLoadingAccount ? "—" : fmtUSD(unrealizedPL)}
+          sub={isLoadingAccount ? undefined : fmtPct(unrealizedPLPC, true)}
+          positive={unrealizedPL >= 0}
+          icon={unrealizedPL >= 0 ? TrendingUp : TrendingDown}
+          loading={isLoadingAccount}
+        />
+      </div>
+
+      {/* Invested value row */}
+      {account && (
+        <div className="grid grid-cols-3 gap-3">
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-xs text-muted-foreground mb-1">Long Market Value</div>
+              <div className="font-semibold">{fmtUSD(longMarketValue)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-xs text-muted-foreground mb-1">Realized P&L</div>
+              <div className={`font-semibold ${parseFloat(account.realized_pl) >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                {fmtUSD(parseFloat(account.realized_pl))}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-xs text-muted-foreground mb-1">Day Trades (PDT)</div>
+              <div className="font-semibold flex items-center gap-1.5">
+                {account.daytrade_count}
+                {account.pattern_day_trader && (
+                  <Badge variant="destructive" className="text-xs">PDT</Badge>
+                )}
+                {!account.pattern_day_trader && (
+                  <span className="text-xs text-muted-foreground">/ 3 limit</span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Portfolio History Chart */}
+      {configured && (
+        <PortfolioChart period={chartPeriod} setPeriod={setChartPeriod} isPaper={isPaper} />
+      )}
+
+      <Separator />
+
+      {/* Positions */}
+      <PositionsTable isPaper={isPaper} />
+
+      <Separator />
+
+      {/* Orders */}
+      <OrdersTable isPaper={isPaper} />
+    </div>
+  );
+}

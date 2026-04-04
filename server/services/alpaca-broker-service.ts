@@ -42,6 +42,33 @@ interface AlpacaAccount {
   buying_power: string;
   equity: string;
   currency: string;
+  long_market_value: string;
+  short_market_value: string;
+  unrealized_pl: string;
+  unrealized_plpc: string;
+  realized_pl: string;
+  daytrade_count: number;
+  daytrading_buying_power: string;
+  pattern_day_trader: boolean;
+  trading_blocked: boolean;
+  account_blocked: boolean;
+  created_at: string;
+}
+
+export interface AlpacaPortfolioHistory {
+  timestamp: number[];
+  equity: number[];
+  profit_loss: number[];
+  profit_loss_pct: number[];
+  base_value: number;
+  timeframe: string;
+}
+
+export interface AlpacaMarketClock {
+  timestamp: string;
+  is_open: boolean;
+  next_open: string;
+  next_close: string;
 }
 
 interface OrderRequest {
@@ -246,6 +273,63 @@ class AlpacaBrokerService {
       if (error.response?.status !== 404) {
         console.error("Error fetching Alpaca position:", error.message);
       }
+      return null;
+    }
+  }
+
+  async closePosition(symbol: string): Promise<boolean> {
+    if (!this.isConfigured()) {
+      return false;
+    }
+    try {
+      await this.client.delete(`/v2/positions/${symbol}`);
+      return true;
+    } catch (error: any) {
+      console.error("Error closing Alpaca position:", error.message);
+      return false;
+    }
+  }
+
+  async cancelAllOrders(): Promise<number> {
+    if (!this.isConfigured()) {
+      return 0;
+    }
+    try {
+      const response = await this.client.delete("/v2/orders");
+      return Array.isArray(response.data) ? response.data.length : 0;
+    } catch (error: any) {
+      console.error("Error canceling all Alpaca orders:", error.message);
+      return 0;
+    }
+  }
+
+  async getPortfolioHistory(
+    period: string = "1M",
+    timeframe: string = "1D",
+  ): Promise<AlpacaPortfolioHistory | null> {
+    if (!this.isConfigured()) {
+      return null;
+    }
+    try {
+      const response = await this.client.get("/v2/account/portfolio/history", {
+        params: { period, timeframe, extended_hours: false },
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error fetching Alpaca portfolio history:", error.message);
+      return null;
+    }
+  }
+
+  async getMarketClock(): Promise<AlpacaMarketClock | null> {
+    if (!this.isConfigured()) {
+      return null;
+    }
+    try {
+      const response = await this.client.get("/v2/clock");
+      return response.data;
+    } catch (error: any) {
+      console.error("Error fetching Alpaca market clock:", error.message);
       return null;
     }
   }

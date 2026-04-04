@@ -22,6 +22,7 @@ import {
   Bell, Scale, Target, ChevronRight
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import AlpacaAccountDashboard from "@/components/dashboard/AlpacaAccountDashboard";
 
 interface StockQuote {
   symbol: string;
@@ -469,7 +470,7 @@ export default function USTradingPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full max-w-md grid-cols-4">
+          <TabsList className="grid w-full max-w-2xl grid-cols-5">
             <TabsTrigger value="discover" data-testid="tab-discover">
               <Sparkles className="h-4 w-4 mr-1" />
               Discover
@@ -485,6 +486,10 @@ export default function USTradingPage() {
             <TabsTrigger value="orders" data-testid="tab-orders">
               <BarChart3 className="h-4 w-4 mr-1" />
               Orders
+            </TabsTrigger>
+            <TabsTrigger value="account" data-testid="tab-account">
+              <Building2 className="h-4 w-4 mr-1" />
+              Account
             </TabsTrigger>
           </TabsList>
 
@@ -1009,6 +1014,10 @@ export default function USTradingPage() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="account" className="space-y-4">
+            <AlpacaAccountDashboard />
           </TabsContent>
         </Tabs>
 

@@ -24,20 +24,45 @@ const orderSchema = z.object({
   lrsDeclaration: z.boolean(),
 });
 
-// Get user positions
+// Get user positions (live from Alpaca when configured, graceful fallback otherwise)
 router.get("/positions", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.json({
+        configured: false,
+        positions: [],
+        totalValueUSD: 0,
+        totalValueINR: 0,
+        totalGainLossUSD: 0,
+        totalGainLossPercent: 0,
+        message: "Alpaca API not configured",
+      });
+    }
+    const positions = await alpacaBrokerService.getPositions();
+    let fxRate = 84;
+    try {
+      fxRate = await polygonMarketService.getUsdInrRate();
+    } catch {}
+    const totalValueUSD = positions.reduce((sum, p) => sum + parseFloat(p.market_value || "0"), 0);
+    const totalGainLossUSD = positions.reduce((sum, p) => sum + parseFloat(p.unrealized_pl || "0"), 0);
     res.json({
-      positions: [
-        { symbol: 'AAPL', name: 'Apple Inc', quantity: 10, avgPrice: 175.50, currentPrice: 182.30, gainLoss: 68, gainLossPercent: 3.87, currency: 'USD' },
-        { symbol: 'GOOGL', name: 'Alphabet Inc', quantity: 5, avgPrice: 138.20, currentPrice: 141.50, gainLoss: 16.50, gainLossPercent: 2.39, currency: 'USD' },
-        { symbol: 'MSFT', name: 'Microsoft Corp', quantity: 8, avgPrice: 365.00, currentPrice: 378.90, gainLoss: 111.20, gainLossPercent: 3.81, currency: 'USD' }
-      ],
-      totalValueUSD: 5250.80,
-      totalValueINR: 437566.80,
-      totalGainLossUSD: 195.70,
-      totalGainLossPercent: 3.87
+      configured: true,
+      isPaper: alpacaBrokerService.isPaperTrading(),
+      positions: positions.map(p => ({
+        symbol: p.symbol,
+        quantity: parseFloat(p.qty),
+        avgPrice: parseFloat(p.avg_entry_price),
+        currentPrice: parseFloat(p.current_price),
+        marketValue: parseFloat(p.market_value),
+        gainLoss: parseFloat(p.unrealized_pl),
+        gainLossPercent: parseFloat(p.unrealized_plpc) * 100,
+        side: p.side,
+        currency: "USD",
+      })),
+      totalValueUSD,
+      totalValueINR: totalValueUSD * fxRate,
+      totalGainLossUSD,
+      totalGainLossPercent: totalValueUSD > 0 ? (totalGainLossUSD / (totalValueUSD - totalGainLossUSD)) * 100 : 0,
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -593,6 +618,96 @@ router.get("/broker/test-connection", async (req, res) => {
         feedType: wsStatus.feedType,
       },
     });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── Alpaca Account Dashboard Routes ──────────────────────────────────────────
+
+router.get("/alpaca/account", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.json({ configured: false, isPaper: true });
+    }
+    const account = await alpacaBrokerService.getAccount();
+    res.json({ configured: true, isPaper: alpacaBrokerService.isPaperTrading(), account });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/alpaca/market-clock", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.json({ configured: false });
+    }
+    const clock = await alpacaBrokerService.getMarketClock();
+    res.json({ configured: true, clock });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/alpaca/portfolio/history", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.json({ configured: false });
+    }
+    const period = (req.query.period as string) || "1M";
+    const timeframe = (req.query.timeframe as string) || "1D";
+    const history = await alpacaBrokerService.getPortfolioHistory(period, timeframe);
+    res.json({ configured: true, history });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/alpaca/orders", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.json({ configured: false, orders: [] });
+    }
+    const status = (req.query.status as string) || "all";
+    const limit = parseInt((req.query.limit as string) || "50");
+    const orders = await alpacaBrokerService.getOrders(status, limit);
+    res.json({ configured: true, orders });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.delete("/alpaca/orders", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca API not configured" });
+    }
+    const cancelled = await alpacaBrokerService.cancelAllOrders();
+    res.json({ success: true, cancelled });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.delete("/alpaca/orders/:orderId", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca API not configured" });
+    }
+    const ok = await alpacaBrokerService.cancelOrder(req.params.orderId);
+    res.json({ success: ok });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.delete("/alpaca/positions/:symbol", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca API not configured" });
+    }
+    const ok = await alpacaBrokerService.closePosition(req.params.symbol.toUpperCase());
+    res.json({ success: ok });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
