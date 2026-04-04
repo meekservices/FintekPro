@@ -2148,7 +2148,7 @@ export default function SmartKYCOnboarding() {
           <div className="space-y-2">
             <Label>Annual Income</Label>
             <Select value={riskProfileAnswers.incomeLevel} onValueChange={(value) => setRiskProfileAnswers({...riskProfileAnswers, incomeLevel: value})}>
-              <SelectTrigger data-testid="select-income">
+              <SelectTrigger data-testid="select-income" aria-label="Annual income">
                 <SelectValue placeholder="Select your income range" />
               </SelectTrigger>
               <SelectContent>
@@ -2946,7 +2946,7 @@ export default function SmartKYCOnboarding() {
           <div className="space-y-2">
             <Label htmlFor="member-count">Number of Coparceners</Label>
             <Select value={hufMemberCount} onValueChange={setHufMemberCount}>
-              <SelectTrigger data-testid="select-member-count">
+              <SelectTrigger data-testid="select-member-count" aria-label="Number of Coparceners">
                 <SelectValue placeholder="Select member count" />
               </SelectTrigger>
               <SelectContent>
@@ -4108,7 +4108,7 @@ export default function SmartKYCOnboarding() {
                       value={editFormData.occupation || ''} 
                       onValueChange={(val) => setEditFormData({...editFormData, occupation: val})}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger aria-label="Occupation">
                         <SelectValue placeholder="Select occupation" />
                       </SelectTrigger>
                       <SelectContent>
@@ -4128,7 +4128,7 @@ export default function SmartKYCOnboarding() {
                       value={editFormData.annualIncome || ''} 
                       onValueChange={(val) => setEditFormData({...editFormData, annualIncome: val})}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger aria-label="Annual income">
                         <SelectValue placeholder="Select income range" />
                       </SelectTrigger>
                       <SelectContent>
@@ -4149,7 +4149,7 @@ export default function SmartKYCOnboarding() {
                       value={editFormData.maritalStatus || ''} 
                       onValueChange={(val) => setEditFormData({...editFormData, maritalStatus: val})}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger aria-label="Marital status">
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -4166,7 +4166,7 @@ export default function SmartKYCOnboarding() {
                       value={editFormData.investmentExperience || ''} 
                       onValueChange={(val) => setEditFormData({...editFormData, investmentExperience: val})}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger aria-label="Investment experience">
                         <SelectValue placeholder="Select experience" />
                       </SelectTrigger>
                       <SelectContent>
@@ -4184,7 +4184,7 @@ export default function SmartKYCOnboarding() {
                     value={editFormData.sourceOfFunds || ''} 
                     onValueChange={(val) => setEditFormData({...editFormData, sourceOfFunds: val})}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger aria-label="Source of funds">
                       <SelectValue placeholder="Select source" />
                     </SelectTrigger>
                     <SelectContent>
@@ -4412,7 +4412,7 @@ export default function SmartKYCOnboarding() {
                         value={editDocumentType} 
                         onValueChange={setEditDocumentType}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger aria-label="Document type">
                           <SelectValue placeholder="Select document type" />
                         </SelectTrigger>
                         <SelectContent>
