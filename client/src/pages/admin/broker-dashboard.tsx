@@ -23,6 +23,7 @@ import {
   RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle,
   Search, Plus, Download, BarChart3, Activity, ChevronRight,
   Landmark, Building2, Wallet, BookOpen, Calendar,
+  Globe, KeyRound, ExternalLink, Server, Info, Copy, Lock,
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -743,6 +744,217 @@ function CorporateActionsTab() {
   );
 }
 
+// ─── App Registration & Setup Tab ──────────────────────────────────────────────
+
+function AppRegistrationTab() {
+  const { data: configData } = useQuery<{ configured: boolean; isBrokerApi: boolean; baseUrl: string }>({
+    queryKey: ["/api/us-trading/alpaca/config"],
+    staleTime: 60000,
+  });
+
+  const isSandbox = configData?.baseUrl?.includes("sandbox");
+  const configured = configData?.configured ?? false;
+
+  const setupSteps = [
+    {
+      step: 1,
+      title: "Apply for Broker API Access",
+      description: "Submit your application to Alpaca to become a Fully-Disclosed Broker-Dealer (FD BD). This grants you access to the Broker API to manage sub-accounts.",
+      status: configured ? "done" : "pending",
+      action: { label: "Alpaca Broker Application", url: "https://alpaca.markets/broker" },
+    },
+    {
+      step: 2,
+      title: "Configure API Credentials",
+      description: "Once approved, add your ALPACA_API_KEY and ALPACA_SECRET_KEY to the environment. These are your Broker API keys — not trading API keys.",
+      status: configured ? "done" : "pending",
+      action: null,
+    },
+    {
+      step: 3,
+      title: "Switch to Broker API Base URL",
+      description: "Sandbox: broker-api.sandbox.alpaca.markets — Production: broker-api.alpaca.markets. Set ALPACA_BASE_URL accordingly.",
+      status: configData?.isBrokerApi ? "done" : "pending",
+      action: null,
+    },
+    {
+      step: 4,
+      title: "Run Account Opening Wizard",
+      description: "Clients submit KYC → you call POST /v1/accounts → Alpaca approves → call POST /v1/accounts/{id}/cip to submit CIP result. The wizard handles all of this.",
+      status: "info",
+      action: null,
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Architecture overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Globe className="h-4 w-4 text-primary" />
+            Fully-Disclosed Broker-Dealer Architecture
+          </CardTitle>
+          <CardDescription>
+            FintekPro operates as an FD BD via Alpaca — you run KYC, Alpaca provides custody and clearing.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              {
+                icon: Shield,
+                color: "text-blue-500",
+                bg: "bg-blue-50 dark:bg-blue-950/20",
+                title: "FintekPro (You)",
+                items: ["Run SEBI/RBI KYC", "Onboard clients", "Place orders", "Manage LRS/FEMA"],
+              },
+              {
+                icon: ArrowRightLeft,
+                color: "text-purple-500",
+                bg: "bg-purple-50 dark:bg-purple-950/20",
+                title: "Alpaca Broker API",
+                items: ["Sub-account creation", "Order routing", "Trade settlement", "CIP / AML"],
+              },
+              {
+                icon: Landmark,
+                color: "text-green-500",
+                bg: "bg-green-50 dark:bg-green-950/20",
+                title: "Clearing & Custody",
+                items: ["FINRA member", "SIPC protected", "US equities", "Real-time settlement"],
+              },
+            ].map(({ icon: Icon, color, bg, title, items }) => (
+              <div key={title} className={`rounded-lg p-4 ${bg}`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <Icon className={`h-4 w-4 ${color}`} />
+                  <span className="font-medium text-sm">{title}</span>
+                </div>
+                <ul className="space-y-1">
+                  {items.map(item => (
+                    <li key={item} className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <ChevronRight className="h-3 w-3 shrink-0" /> {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 py-3">
+            <Info className="h-3.5 w-3.5 text-blue-500" />
+            <AlertDescription className="text-xs text-blue-700 dark:text-blue-300">
+              <strong>Note on "App Registration":</strong> The OAuth App Registration at <code>app.alpaca.markets/connect</code> is for <em>consumer-facing apps</em> that use Alpaca's OAuth to connect retail users' personal Alpaca accounts (revenue sharing model). As a Fully-Disclosed Broker-Dealer, FintekPro does NOT need OAuth app registration — you already have direct Broker API access via your API key/secret.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+
+      {/* Setup checklist */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-primary" />
+            Broker API Setup Checklist
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {setupSteps.map(s => (
+            <div key={s.step} className="flex items-start gap-4 p-3 rounded-lg border">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm font-bold ${
+                s.status === "done" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+                s.status === "info" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
+                "bg-muted text-muted-foreground"
+              }`}>
+                {s.status === "done" ? <CheckCircle2 className="h-4 w-4" /> : s.step}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm">{s.title}</span>
+                  {s.status === "done" && <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs">Done</Badge>}
+                  {s.status === "info" && <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs">Auto</Badge>}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">{s.description}</p>
+                {s.action && (
+                  <a
+                    href={s.action.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1.5"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    {s.action.label}
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Environment & API info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Server className="h-4 w-4 text-primary" />
+            Current Configuration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">API Status</p>
+              <p className="font-semibold text-sm flex items-center gap-1.5 mt-0.5">
+                {configured ? <><CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> Connected</> : <><XCircle className="h-3.5 w-3.5 text-red-500" /> Not configured</>}
+              </p>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">API Type</p>
+              <p className="font-semibold text-sm flex items-center gap-1.5 mt-0.5">
+                {configData?.isBrokerApi ? <><Lock className="h-3.5 w-3.5 text-primary" /> Broker API</> : "Trading API (basic)"}
+              </p>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Environment</p>
+              <p className="font-semibold text-sm flex items-center gap-1.5 mt-0.5">
+                {isSandbox ? (
+                  <><Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Sandbox</Badge></>
+                ) : (
+                  <><Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Production</Badge></>
+                )}
+              </p>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">Base URL</p>
+              <p className="font-mono text-xs mt-0.5 break-all">{configData?.baseUrl || "Not set"}</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Quick Links</p>
+            {[
+              { label: "Broker API Docs", url: "https://docs.alpaca.markets/reference/getallaccounts" },
+              { label: "Sandbox Broker Portal", url: "https://broker-app.sandbox.alpaca.markets" },
+              { label: "Production Broker Portal", url: "https://broker-app.alpaca.markets" },
+              { label: "FINRA BrokerCheck", url: "https://brokercheck.finra.org" },
+            ].map(link => (
+              <a
+                key={link.url}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-primary hover:underline"
+              >
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                {link.label}
+              </a>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function BrokerDashboard() {
@@ -819,6 +1031,7 @@ export default function BrokerDashboard() {
           <TabsTrigger value="journals" className="gap-1.5"><ArrowRightLeft className="h-3.5 w-3.5" /> Journals</TabsTrigger>
           <TabsTrigger value="reports" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> Reports</TabsTrigger>
           <TabsTrigger value="corporate-actions" className="gap-1.5"><BarChart3 className="h-3.5 w-3.5" /> Corp Actions</TabsTrigger>
+          <TabsTrigger value="app-registration" className="gap-1.5"><Globe className="h-3.5 w-3.5" /> Setup & BD Model</TabsTrigger>
         </TabsList>
 
         <TabsContent value="accounts" className="mt-4"><AccountsTab /></TabsContent>
@@ -826,6 +1039,7 @@ export default function BrokerDashboard() {
         <TabsContent value="journals" className="mt-4"><JournalsTab /></TabsContent>
         <TabsContent value="reports" className="mt-4"><ReportsTab /></TabsContent>
         <TabsContent value="corporate-actions" className="mt-4"><CorporateActionsTab /></TabsContent>
+        <TabsContent value="app-registration" className="mt-4"><AppRegistrationTab /></TabsContent>
       </Tabs>
     </div>
   );

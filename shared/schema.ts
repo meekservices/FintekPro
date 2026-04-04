@@ -24502,8 +24502,18 @@ export const usBrokerAccounts = pgTable("us_broker_accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   clientId: varchar("client_id").references(() => users.id).notNull(),
   alpacaAccountId: varchar("alpaca_account_id"),
+  alpacaAccountNumber: varchar("alpaca_account_number"),
+  alpacaStatus: varchar("alpaca_status").default("not_applied"), // not_applied, SUBMITTED, APPROVED, ACTIVE, REJECTED, ACTION_REQUIRED, APPROVAL_PENDING
+  actionRequired: text("action_required"), // reason if ACTION_REQUIRED
   status: varchar("status").default("pending").notNull(), // pending, paper, live, suspended, closed
-  
+
+  // Application Wizard Tracking
+  applicationStep: varchar("application_step").default("identity"), // identity, financial, disclosures, agreements, submitted
+  applicationData: text("application_data"), // Full submitted application snapshot (JSON string)
+  agreementsSignedAt: timestamp("agreements_signed_at"),
+  cipSubmittedAt: timestamp("cip_submitted_at"),
+  accountApprovedAt: timestamp("account_approved_at"),
+
   // LRS Tracking (USD 250k/year limit)
   lrsUsedUsd: decimal("lrs_used_usd", { precision: 15, scale: 2 }).default("0"),
   lrsFinancialYear: varchar("lrs_financial_year"), // e.g., "2024-25"

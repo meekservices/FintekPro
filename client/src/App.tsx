@@ -363,6 +363,7 @@ const AdminAIInsights = lazyWithRetry(() => import("@/pages/admin/ai-insights"))
 const AdminAgentOversightPage = lazyWithRetry(() => import("@/pages/admin/agent-oversight"));
 const AdminAppointmentsDashboard = lazyWithRetry(() => import("@/pages/admin/appointments-dashboard"));
 const AdminBrokerDashboard = lazyWithRetry(() => import("@/pages/admin/broker-dashboard"));
+const OpenAccountPage = lazyWithRetry(() => import("@/pages/us-trading/open-account"));
 const ClientTasks = lazyWithRetry(() => import("@/pages/client-tasks"));
 const ClientAIRecommendations = lazyWithRetry(() => import("@/pages/client-ai-recommendations"));
 const ClientReports = lazyWithRetry(() => import("@/pages/client-reports"));
@@ -549,6 +550,7 @@ function UserProtectedRoutes() {
         <Route path="/global-trading" component={GlobalTrading} />
         <Route path="/global-advisory" component={GlobalAdvisoryPage} />
         <Route path="/us-trading" component={USTrading} />
+        <Route path="/us-trading/open-account" component={OpenAccountPage} />
         <Route path="/cart" component={Cart} />
         <Route path="/unified-cart" component={UnifiedCart} />
         <Route path="/investment-cart" component={UnifiedCart} />
