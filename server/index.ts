@@ -1536,6 +1536,45 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     console.warn('[Migration] us_broker_accounts account opening columns skipped:', e?.message);
   }
 
+  // FintekPro Subscription / Monetization columns on users table
+  try {
+    const { db: subDb } = await import('./db');
+    const { sql: subSql } = await import('drizzle-orm');
+    await subDb.execute(subSql`
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS plan_tier VARCHAR DEFAULT 'free',
+        ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS cashfree_subscription_id VARCHAR
+    `);
+    await subDb.execute(subSql`
+      CREATE TABLE IF NOT EXISTS platform_subscriptions (
+        id                        VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id                   VARCHAR NOT NULL REFERENCES users(id),
+        plan_tier                 VARCHAR NOT NULL,
+        billing_cycle             VARCHAR NOT NULL,
+        amount_paise              INTEGER NOT NULL,
+        currency                  VARCHAR DEFAULT 'INR' NOT NULL,
+        cashfree_order_id         VARCHAR,
+        cashfree_payment_id       VARCHAR,
+        cashfree_payment_session_id VARCHAR,
+        status                    VARCHAR DEFAULT 'pending' NOT NULL,
+        starts_at                 TIMESTAMPTZ,
+        expires_at                TIMESTAMPTZ,
+        metadata                  JSONB,
+        created_at                TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+        updated_at                TIMESTAMPTZ DEFAULT NOW() NOT NULL
+      )
+    `);
+    await subDb.execute(subSql`
+      CREATE INDEX IF NOT EXISTS idx_platform_subs_user   ON platform_subscriptions(user_id);
+      CREATE INDEX IF NOT EXISTS idx_platform_subs_status ON platform_subscriptions(status);
+      CREATE INDEX IF NOT EXISTS idx_platform_subs_tier   ON platform_subscriptions(plan_tier);
+    `);
+    console.log('✅ [Migration] Subscription monetization schema verified/created');
+  } catch (e: any) {
+    console.warn('[Migration] Subscription monetization schema skipped:', e?.message);
+  }
+
   // Boot-time: create audit_trail table if missing (used by audit-trail middleware)
   try {
     const { db: auditDb } = await import('./db');

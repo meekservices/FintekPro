@@ -36,6 +36,7 @@ import {
   DollarSign, BarChart3, Activity, XCircle, CheckCircle2,
   Building2, KeyRound, Eye, EyeOff, Link2, FileText, Banknote, Trash2,
   ArrowUpCircle, ArrowDownCircle, Plus, Download, Globe, ChevronRight,
+  Zap, Crown, Lock,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1320,6 +1321,14 @@ export default function AlpacaAccountDashboard() {
   const brokerAccount = prefillData?.brokerAccount;
   const hasBrokerAccount = Boolean(brokerAccount?.alpacaAccountId);
 
+  // Subscription plan gate
+  const { data: subData } = useQuery<{ planTier: string; isActive: boolean }>({
+    queryKey: ["/api/subscriptions/status"],
+    staleTime: 60000,
+  });
+  const planTier = subData?.planTier ?? "free";
+  const isPaidPlan = planTier === "pro" || planTier === "elite";
+
   const configured = accountData?.configured ?? false;
   const isPaper = accountData?.isPaper ?? true;
   const account = accountData?.account;
@@ -1344,8 +1353,34 @@ export default function AlpacaAccountDashboard() {
 
   return (
     <div className="space-y-5">
+      {/* Plan tier badge */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {planTier === "elite" && (
+            <Badge className="gap-1 bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-300">
+              <Crown className="h-3 w-3" /> Elite
+            </Badge>
+          )}
+          {planTier === "pro" && (
+            <Badge className="gap-1 bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300">
+              <Zap className="h-3 w-3" /> Pro
+            </Badge>
+          )}
+          {planTier === "free" && (
+            <Badge variant="outline" className="gap-1 text-muted-foreground">
+              Free Plan
+            </Badge>
+          )}
+        </div>
+        {planTier === "free" && (
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => navigate("/pricing")}>
+            <Zap className="h-3 w-3 text-blue-500" /> Upgrade to Pro
+          </Button>
+        )}
+      </div>
+
       {/* Broker account CTA — FD BD model */}
-      {!hasBrokerAccount && (
+      {!hasBrokerAccount && isPaidPlan && (
         <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-blue-500/5">
           <CardContent className="p-5">
             <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -1373,6 +1408,35 @@ export default function AlpacaAccountDashboard() {
                 Open Account
                 <ChevronRight className="h-4 w-4" />
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Upgrade gate — free users cannot open US account */}
+      {!hasBrokerAccount && !isPaidPlan && (
+        <Card className="border-dashed border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-950/20 dark:to-purple-950/20">
+          <CardContent className="p-6 text-center">
+            <div className="w-14 h-14 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center mx-auto mb-4">
+              <Lock className="h-7 w-7 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h3 className="font-semibold text-lg mb-1">US Trading — Pro & Elite Feature</h3>
+            <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
+              Direct US stock trading via Alpaca's FINRA/SEC licensed infrastructure is available on Pro (₹999/mo) and Elite (₹25K/yr) plans. Upgrade to unlock unlimited trades at 0.5% FX spread.
+            </p>
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <Button onClick={() => navigate("/pricing")} className="gap-2">
+                <Zap className="h-4 w-4" /> View Plans & Upgrade
+              </Button>
+              <Button variant="outline" onClick={() => navigate("/pricing")} className="gap-2 text-yellow-700 border-yellow-300 hover:bg-yellow-50">
+                <Crown className="h-4 w-4" /> Elite — ₹25,000/yr
+              </Button>
+            </div>
+            <div className="mt-4 flex items-center justify-center gap-6 text-xs text-muted-foreground">
+              <span>✓ Unlimited US trades</span>
+              <span>✓ 0.5% FX spread</span>
+              <span>✓ Real-time market data</span>
+              <span>✓ Portfolio analytics</span>
             </div>
           </CardContent>
         </Card>
@@ -1500,6 +1564,39 @@ export default function AlpacaAccountDashboard() {
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* FX Spread + Trade Fee disclosure */}
+      {account && (
+        <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-4 py-2.5 text-xs text-muted-foreground flex-wrap">
+          <span className="font-medium text-foreground">Your fee structure:</span>
+          <span className="flex items-center gap-1">
+            <DollarSign className="h-3 w-3 text-green-500" />
+            FX Spread:
+            <strong className="text-foreground ml-1">
+              {planTier === "elite" ? "0.3%" : planTier === "pro" ? "0.5%" : "1.0%"}
+            </strong>
+            on USD remittances
+          </span>
+          <span className="text-muted-foreground/50">·</span>
+          <span className="flex items-center gap-1">
+            <Activity className="h-3 w-3 text-blue-500" />
+            Per trade:
+            <strong className="text-foreground ml-1">
+              {planTier === "elite" ? "₹0" : planTier === "pro" ? "₹10" : "₹10"}
+            </strong>
+          </span>
+          {planTier === "free" && (
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-xs text-primary"
+              onClick={() => navigate("/pricing")}
+            >
+              Upgrade to reduce fees →
+            </Button>
+          )}
         </div>
       )}
 

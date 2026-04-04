@@ -60,6 +60,7 @@ const ClientAutoPopulate = lazyWithRetry(() => import("@/pages/client-auto-popul
 const Privacy = lazyWithRetry(() => import("@/pages/privacy"));
 const Terms = lazyWithRetry(() => import("@/pages/terms"));
 const RefundPolicy = lazyWithRetry(() => import("@/pages/refund-policy"));
+const PricingPage = lazyWithRetry(() => import("@/pages/pricing"));
 const InvestmentDisclaimer = lazyWithRetry(() => import("@/pages/disclaimer"));
 const ExcelAddin = lazyWithRetry(() => import("@/pages/excel-addin"));
 const AIF = lazyWithRetry(() => import("@/pages/aif"));
@@ -2483,6 +2484,7 @@ function Router() {
         <Route path="/video-kyc" component={VideoKYC} />
         <Route path="/kyc-rejections" component={KycRejectionRekyc} />
         <Route path="/net-worth" component={NetWorthPage} />
+        <Route path="/pricing" component={PricingPage} />
         <Route path="/privacy" component={Privacy} />
         <Route path="/terms" component={Terms} />
         <Route path="/refund-policy" component={RefundPolicy} />
