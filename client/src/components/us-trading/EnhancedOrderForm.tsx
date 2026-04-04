@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   TrendingUp, TrendingDown, Clock, Moon, AlertTriangle, RefreshCw,
-  BadgeIndianRupee, DollarSign, ChevronDown, ChevronUp,
+  BadgeIndianRupee, DollarSign, ChevronDown, ChevronUp, Info,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -316,6 +316,24 @@ export default function EnhancedOrderForm({ defaultSymbol = "", onSuccess }: Enh
             )}
           </div>
         )}
+
+        {/* Wash Sale Warning (US IRC §1091) */}
+        {side === "buy" && (
+          <Alert className="border-blue-200 bg-blue-50/50 py-2">
+            <Info className="h-3.5 w-3.5 text-blue-600" />
+            <AlertDescription className="text-xs text-blue-700">
+              <strong>Wash Sale Rule (US IRC §1091):</strong> Buying a substantially identical security within 30 days before/after a loss sale disallows the capital loss. Consult your tax advisor before placing this order. As an Indian resident, corresponding DTAA treatment may apply.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Schedule FA Reminder */}
+        <Alert className="border-violet-200 bg-violet-50/50 py-2">
+          <Info className="h-3.5 w-3.5 text-violet-600" />
+          <AlertDescription className="text-xs text-violet-700">
+            <strong>ITR Disclosure:</strong> Gains/losses from US equities are taxable in India as capital gains. Report foreign assets in <strong>Schedule FA</strong> and foreign income in <strong>Schedule FSI</strong> of ITR-2/ITR-3. TCS deducted by your AD bank (20% above ₹7 lakh/FY) is creditable against tax liability.
+          </AlertDescription>
+        </Alert>
 
         <Button
           className="w-full"

@@ -4,15 +4,21 @@
  * Implements comprehensive Foreign Exchange Management Act (FEMA) 1999 compliance for:
  * - RBI Purpose Code validation for outward remittances
  * - Liberalized Remittance Scheme (LRS) limit tracking ($250,000/FY)
- * - Tax Collected at Source (TCS) on foreign remittance (5%/10% thresholds)
+ * - Tax Collected at Source (TCS) on foreign remittance per Finance Act 2023
  * - Authorized Dealer (AD) Bank integration and certificate generation
  * - RBI A2 Form generation for current account transactions
  * 
  * Regulatory References:
  * - FEMA 1999 (Act No. 42 of 1999)
  * - RBI Master Direction on LRS (RBI/2015-16/267)
- * - Finance Act 2020 (TCS provisions under Section 206C(1G))
+ * - Finance Act 2023 — Section 206C(1G) TCS rates effective October 1, 2023:
+ *     • Investment-purpose LRS (portfolio, ODI, etc.): 20% above ₹7 lakh/FY
+ *     • Education (own funds): 5% above ₹7 lakh/FY
+ *     • Education (bank loan): 0.5% above ₹7 lakh/FY
+ *     • Medical treatment: 5% above ₹7 lakh/FY
+ *     • Tour packages: 5% below ₹7 lakh; 20% above ₹7 lakh/FY
  * - RBI A2 Form requirements for current account transactions
+ * - CBDT Circular 10/2023 (TCS on LRS — IT Section 206C(1G) amendment)
  */
 
 import { db } from '../db';
@@ -55,7 +61,7 @@ const RBI_PURPOSE_CODES: Map<string, PurposeCode> = new Map([
   }],
   ['S0002', {
     code: 'S0002',
-    description: 'Investment in debt securities abroad',
+    description: 'Investment in equity/debt securities abroad (Portfolio Investment under LRS)',
     category: 'capital_account',
     subCategory: 'Portfolio Investment',
     lrsApplicable: true,
@@ -63,9 +69,9 @@ const RBI_PURPOSE_CODES: Map<string, PurposeCode> = new Map([
     form15caRequired: true,
     form15cbRequired: false,
     a2FormRequired: true,
-    documentsRequired: ['Investment details', 'PAN Card', 'Address Proof'],
+    documentsRequired: ['Investment details', 'PAN Card', 'Address Proof', 'LRS Declaration', 'Form A2'],
     tcsApplicable: true,
-    tcsRate: 5
+    tcsRate: 20  // Finance Act 2023: 20% TCS above ₹7L for investment-purpose LRS (effective Oct 1, 2023)
   }],
   ['S0003', {
     code: 'S0003',
@@ -79,7 +85,7 @@ const RBI_PURPOSE_CODES: Map<string, PurposeCode> = new Map([
     a2FormRequired: true,
     documentsRequired: ['Property Agreement', 'Valuation Report', 'PAN Card'],
     tcsApplicable: true,
-    tcsRate: 5
+    tcsRate: 20  // Finance Act 2023: 20% TCS above ₹7L
   }],
   
   // LRS - Personal Purposes
@@ -95,7 +101,7 @@ const RBI_PURPOSE_CODES: Map<string, PurposeCode> = new Map([
     a2FormRequired: true,
     documentsRequired: ['Relationship proof', 'Recipient details', 'PAN Card'],
     tcsApplicable: true,
-    tcsRate: 5
+    tcsRate: 20  // Finance Act 2023: 20% TCS above ₹7L
   }],
   ['S0005', {
     code: 'S0005',
@@ -109,13 +115,13 @@ const RBI_PURPOSE_CODES: Map<string, PurposeCode> = new Map([
     a2FormRequired: true,
     documentsRequired: ['Institution registration', 'Donation purpose'],
     tcsApplicable: true,
-    tcsRate: 5
+    tcsRate: 20  // Finance Act 2023: 20% TCS above ₹7L
   }],
   
   // Education
   ['S0301', {
     code: 'S0301',
-    description: 'Education - fees, hostel, living expenses',
+    description: 'Education - fees, hostel, living expenses (from own funds)',
     category: 'current_account',
     subCategory: 'Education',
     lrsApplicable: true,
@@ -125,7 +131,7 @@ const RBI_PURPOSE_CODES: Map<string, PurposeCode> = new Map([
     a2FormRequired: true,
     documentsRequired: ['Admission letter', 'Fee structure', 'Visa', 'PAN Card'],
     tcsApplicable: true,
-    tcsRate: 0.5
+    tcsRate: 5  // Finance Act 2023: 5% TCS above ₹7L for education from own funds (not loan-funded)
   }],
   ['S0302', {
     code: 'S0302',
@@ -155,7 +161,7 @@ const RBI_PURPOSE_CODES: Map<string, PurposeCode> = new Map([
     a2FormRequired: true,
     documentsRequired: ['Medical visa', 'Hospital estimate', 'Doctor recommendation'],
     tcsApplicable: true,
-    tcsRate: 0.5
+    tcsRate: 5  // Finance Act 2023: 5% TCS above ₹7L for medical treatment
   }],
   
   // Travel
@@ -171,7 +177,7 @@ const RBI_PURPOSE_CODES: Map<string, PurposeCode> = new Map([
     a2FormRequired: true,
     documentsRequired: ['Passport', 'Visa', 'Travel itinerary'],
     tcsApplicable: true,
-    tcsRate: 5
+    tcsRate: 20  // Finance Act 2023: 20% TCS above ₹7L (general travel, not tour package)
   }],
   ['S0306', {
     code: 'S0306',
@@ -185,7 +191,7 @@ const RBI_PURPOSE_CODES: Map<string, PurposeCode> = new Map([
     a2FormRequired: true,
     documentsRequired: ['Passport', 'Visa', 'Travel tickets'],
     tcsApplicable: true,
-    tcsRate: 5
+    tcsRate: 20  // Finance Act 2023: 20% TCS above ₹7L
   }],
   
   // Employment & Emigration
@@ -201,7 +207,7 @@ const RBI_PURPOSE_CODES: Map<string, PurposeCode> = new Map([
     a2FormRequired: true,
     documentsRequired: ['Employment contract', 'Work visa', 'PAN Card'],
     tcsApplicable: true,
-    tcsRate: 5
+    tcsRate: 20  // Finance Act 2023: 20% TCS above ₹7L
   }],
   ['S0308', {
     code: 'S0308',
@@ -215,7 +221,7 @@ const RBI_PURPOSE_CODES: Map<string, PurposeCode> = new Map([
     a2FormRequired: true,
     documentsRequired: ['PR visa', 'Emigration approval'],
     tcsApplicable: true,
-    tcsRate: 5
+    tcsRate: 20  // Finance Act 2023: 20% TCS above ₹7L
   }],
   
   // Maintenance of Relatives
@@ -231,7 +237,7 @@ const RBI_PURPOSE_CODES: Map<string, PurposeCode> = new Map([
     a2FormRequired: true,
     documentsRequired: ['Relationship proof', 'Dependent details', 'Purpose declaration'],
     tcsApplicable: true,
-    tcsRate: 5
+    tcsRate: 20  // Finance Act 2023: 20% TCS above ₹7L
   }],
   
   // Business/Trade Services
@@ -434,11 +440,15 @@ export interface ADCertificate {
 class FEMAComplianceService {
   private readonly LRS_LIMIT_USD = 250000;
   private readonly TCS_THRESHOLD_INR = 700000;
-  private readonly TCS_RATE_STANDARD = 5;
-  private readonly TCS_RATE_ABOVE_THRESHOLD = 10;
-  private readonly TCS_RATE_EDUCATION_MEDICAL = 0.5;
-  private readonly TCS_RATE_TOUR_PACKAGE = 5;
-  private readonly TCS_RATE_TOUR_ABOVE_THRESHOLD = 20;
+  // Finance Act 2023 — Section 206C(1G) rates (effective October 1, 2023)
+  private readonly TCS_RATE_STANDARD = 5;           // below ₹7L threshold (generally 0 for investments — AD bank collects)
+  private readonly TCS_RATE_ABOVE_THRESHOLD = 20;   // FIXED: was 10%; Finance Act 2023 raised to 20% for investment-purpose LRS
+  private readonly TCS_RATE_EDUCATION_LOAN = 0.5;   // education via bank loan: 0.5% above ₹7L
+  private readonly TCS_RATE_EDUCATION_SELF = 5;     // education via own funds: 5% above ₹7L
+  private readonly TCS_RATE_MEDICAL = 5;            // medical treatment: 5% above ₹7L
+  private readonly TCS_RATE_EDUCATION_MEDICAL = 0.5; // legacy alias (loan-funded education)
+  private readonly TCS_RATE_TOUR_PACKAGE = 5;       // tour packages: 5% below ₹7L
+  private readonly TCS_RATE_TOUR_ABOVE_THRESHOLD = 20; // tour packages: 20% above ₹7L
 
   private transactions: Map<string, LRSTransaction[]> = new Map();
   private a2Forms: Map<string, A2FormData> = new Map();
@@ -582,35 +592,49 @@ class FEMAComplianceService {
     isEducationLoanFunded: boolean = false
   ): TCSCalculation {
     const purpose = this.getPurposeCode(purposeCode);
-    const isMedicalOrEducation = purpose?.subCategory === 'Medical' || 
-                                  purpose?.subCategory === 'Education' ||
-                                  purpose?.subCategory === 'Education (Loan Funded)';
-    const isTourPackage = purpose?.subCategory === 'Tour Package';
+    const subCat = purpose?.subCategory ?? '';
 
-    const totalUtilization = fyUtilizationINR + remittanceAmountINR;
+    // Finance Act 2023 — Section 206C(1G) — Classify remittance purpose
+    const isEducationLoanFundedPurpose = subCat === 'Education (Loan Funded)' || isEducationLoanFunded;
+    const isEducationSelfFunded = subCat === 'Education' && !isEducationLoanFundedPurpose;
+    const isMedical = subCat === 'Medical';
+    const isTourPackage = subCat === 'Tour Package';
+    // Any other purpose (portfolio investment, ODI, gifts, etc.) → 20% above ₹7L
+    const isInvestmentPurpose = !isEducationLoanFundedPurpose && !isEducationSelfFunded && !isMedical && !isTourPackage;
+
     const belowThreshold = Math.max(0, Math.min(remittanceAmountINR, this.TCS_THRESHOLD_INR - fyUtilizationINR));
     const aboveThreshold = Math.max(0, remittanceAmountINR - belowThreshold);
 
     let rateBelow = 0;
-    let rateAbove = this.TCS_RATE_ABOVE_THRESHOLD;
+    let rateAbove = this.TCS_RATE_ABOVE_THRESHOLD; // default 20% for investment
 
-    if (isEducationLoanFunded) {
+    if (isEducationLoanFundedPurpose) {
+      // Education via bank loan: 0.5% only above ₹7L threshold
       rateBelow = 0;
-      rateAbove = this.TCS_RATE_EDUCATION_MEDICAL;
-    } else if (isMedicalOrEducation) {
+      rateAbove = this.TCS_RATE_EDUCATION_LOAN; // 0.5%
+    } else if (isEducationSelfFunded) {
+      // Education from own funds: 5% above ₹7L (Finance Act 2023)
       rateBelow = 0;
-      rateAbove = this.TCS_RATE_EDUCATION_MEDICAL;
+      rateAbove = this.TCS_RATE_EDUCATION_SELF; // 5%
+    } else if (isMedical) {
+      // Medical treatment abroad: 5% above ₹7L
+      rateBelow = 0;
+      rateAbove = this.TCS_RATE_MEDICAL; // 5%
     } else if (isTourPackage) {
-      rateBelow = this.TCS_RATE_TOUR_PACKAGE;
-      rateAbove = this.TCS_RATE_TOUR_ABOVE_THRESHOLD;
+      // Tour packages: 5% below ₹7L, 20% above ₹7L
+      rateBelow = this.TCS_RATE_TOUR_PACKAGE; // 5%
+      rateAbove = this.TCS_RATE_TOUR_ABOVE_THRESHOLD; // 20%
     } else {
-      rateBelow = this.TCS_RATE_STANDARD;
-      rateAbove = this.TCS_RATE_ABOVE_THRESHOLD;
+      // Investment purposes (portfolio, ODI, gifts, maintenance): 20% above ₹7L
+      // Finance Act 2023 — no TCS below ₹7L per FY for investment purposes
+      rateBelow = 0;
+      rateAbove = this.TCS_RATE_ABOVE_THRESHOLD; // 20%
     }
 
     const tcsBelow = (belowThreshold * rateBelow) / 100;
     const tcsAbove = (aboveThreshold * rateAbove) / 100;
     const totalTCS = tcsBelow + tcsAbove;
+    const medicalOrEducation = isMedical || isEducationSelfFunded || isEducationLoanFundedPurpose;
 
     return {
       remittanceAmountINR,
@@ -625,8 +649,8 @@ class FEMAComplianceService {
         rateBelow,
         rateAbove
       },
-      educationLoanFunded: isEducationLoanFunded,
-      medicalOrEducation: isMedicalOrEducation
+      educationLoanFunded: isEducationLoanFundedPurpose,
+      medicalOrEducation
     };
   }
 

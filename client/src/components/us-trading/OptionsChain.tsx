@@ -109,7 +109,12 @@ export default function OptionsChain({ defaultSymbol = "AAPL" }: OptionsChainPro
       <Alert className="border-purple-200 bg-purple-50 dark:bg-purple-950/20">
         <AlertTriangle className="h-4 w-4 text-purple-600" />
         <AlertDescription className="text-sm text-purple-700 dark:text-purple-300">
-          <strong>Options Risk Disclosure:</strong> Options trading involves significant risk. Options may expire worthless. Ensure your account has been approved for options trading (Level 1–3). Per FINRA Rule 2360.
+          <strong>Options Disclosure Document (ODD) — FINRA Rule 2360 / SEC Rule 9b-1:</strong> Before trading options, you must read the <a href="https://www.theocc.com/Company-Information/Documents-and-Archives/Options-Disclosure-Document" target="_blank" rel="noopener noreferrer" className="underline font-medium">Characteristics and Risks of Standardized Options (ODD)</a> published by OCC. Options trading involves substantial risk of loss. Options may expire worthless. Each options contract represents 100 shares. Your account must be approved for the appropriate options level (1–3) and you must have received and read the ODD prior to trading.
+        </AlertDescription>
+      </Alert>
+      <Alert className="border-blue-100 bg-blue-50/60 dark:bg-blue-950/10 py-2">
+        <AlertDescription className="text-xs text-blue-700 dark:text-blue-300">
+          <strong>Indian Resident Notice:</strong> Gains from US options are treated as capital gains in India (STCG/LTCG based on holding period of the underlying). Report in Schedule FA and Schedule FSI of your ITR. FEMA/LRS limits apply to the premium paid.
         </AlertDescription>
       </Alert>
 

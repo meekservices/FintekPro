@@ -88,7 +88,15 @@ export default function FundingWalletPanel({ alpacaAccountId, isSandbox }: Fundi
       <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
         <BadgeIndianRupee className="h-4 w-4 text-blue-600" />
         <AlertDescription className="text-sm text-blue-700 dark:text-blue-300">
-          <strong>LRS (Liberalised Remittance Scheme):</strong> RBI allows up to USD 250,000 per financial year for overseas investment. Wire your INR to the account below — your bank handles the SWIFT transfer and TCS deduction.
+          <strong>LRS (Liberalised Remittance Scheme) — RBI Master Direction:</strong> RBI allows up to USD 250,000 per financial year for overseas portfolio investment. Wire your INR to the account below — your bank (AD Category-I) handles the SWIFT transfer, collects Form A2, and deducts TCS.
+        </AlertDescription>
+      </Alert>
+
+      {/* TCS Disclosure Banner — Finance Act 2023 */}
+      <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+        <AlertTriangle className="h-4 w-4 text-amber-600" />
+        <AlertDescription className="text-sm text-amber-700 dark:text-amber-300">
+          <strong>TCS Notice (Finance Act 2023 — Section 206C(1G)):</strong> Your AD bank will collect <strong>20% Tax at Source (TCS)</strong> on the portion of your LRS remittance exceeding ₹7 lakh per financial year (effective October 1, 2023). This TCS is creditable against your income tax liability when you file ITR. Keep Form 26AS updated. No TCS is collected below the ₹7 lakh/FY threshold.
         </AlertDescription>
       </Alert>
 
