@@ -155,6 +155,7 @@ const agentNavCategories: NavCategory[] = [
     items: [
       { title: "Revenue", href: "/agent/revenue", icon: Wallet, description: "AUM and commissions" },
       { title: "My Payouts", href: "/agent/payouts", icon: DollarSign, description: "Earnings & payouts" },
+      { title: "US Client Accounts", href: "/agent/us-client-accounts", icon: Wallet, description: "Alpaca broker-managed US trading accounts" },
       { title: "Reports", href: "/agent/reports", icon: BarChart3, description: "Client reports" },
       { title: "AI Advisory", href: "/agent/investment-advisory", icon: Brain, description: "AI recommendations" },
       { title: "ITR Services", href: "/agent/tax-cases", icon: FileText, description: "ITR filing & tax services" },
