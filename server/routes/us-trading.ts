@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { users, kycVault } from "@shared/schema";
 import { usTradingService } from "../services/us-trading-service";
-import { polygonMarketService } from "../services/polygon-market-service";
+import { alpacaMarketDataService } from "../services/alpaca-market-data-service";
 import { alpacaBrokerService } from "../services/alpaca-broker-service";
 import { alpacaSseService } from "../services/alpaca-sse-service";
 import { massiveWebSocketService } from "../services/massive-websocket-service";
@@ -46,7 +46,7 @@ router.get("/positions", async (req, res) => {
     const positions = await alpacaBrokerService.getPositions();
     let fxRate = 84;
     try {
-      fxRate = await polygonMarketService.getUsdInrRate();
+      fxRate = await alpacaMarketDataService.getUsdInrRate();
     } catch {}
     const totalValueUSD = positions.reduce((sum, p) => sum + parseFloat(p.market_value || "0"), 0);
     const totalGainLossUSD = positions.reduce((sum, p) => sum + parseFloat(p.unrealized_pl || "0"), 0);
@@ -479,13 +479,13 @@ router.get("/account/status", async (req, res) => {
 router.get("/market/quote/:symbol", async (req, res) => {
   try {
     const { symbol } = req.params;
-    const quote = await polygonMarketService.getQuote(symbol);
+    const quote = await alpacaMarketDataService.getQuote(symbol);
     
     if (!quote) {
       return res.status(404).json({ success: false, error: "Quote not found" });
     }
 
-    const fxRate = await polygonMarketService.getUsdInrRate();
+    const fxRate = await alpacaMarketDataService.getUsdInrRate();
     res.json({ 
       success: true, 
       quote,
@@ -505,8 +505,8 @@ router.get("/market/quotes", async (req, res) => {
     }
 
     const symbolList = (symbols as string).split(",").map(s => s.trim().toUpperCase());
-    const quotes = await polygonMarketService.getMultipleQuotes(symbolList);
-    const fxRate = await polygonMarketService.getUsdInrRate();
+    const quotes = await alpacaMarketDataService.getMultipleQuotes(symbolList);
+    const fxRate = await alpacaMarketDataService.getUsdInrRate();
 
     const result: any[] = [];
     quotes.forEach((quote, symbol) => {
@@ -525,8 +525,8 @@ router.get("/market/quotes", async (req, res) => {
 router.get("/market/details/:symbol", async (req, res) => {
   try {
     const { symbol } = req.params;
-    const details = await polygonMarketService.getStockDetails(symbol);
-    const quote = await polygonMarketService.getQuote(symbol);
+    const details = await alpacaMarketDataService.getStockDetails(symbol);
+    const quote = await alpacaMarketDataService.getQuote(symbol);
     
     res.json({ success: true, details, quote });
   } catch (error: any) {
@@ -541,7 +541,7 @@ router.get("/market/search", async (req, res) => {
       return res.status(400).json({ success: false, error: "Query required" });
     }
 
-    const results = await polygonMarketService.searchSymbols(
+    const results = await alpacaMarketDataService.searchSymbols(
       query as string, 
       parseInt(limit as string) || 10
     );
@@ -553,8 +553,8 @@ router.get("/market/search", async (req, res) => {
 
 router.get("/market/stocks", async (req, res) => {
   try {
-    const stocks = await polygonMarketService.getPopularStocks();
-    const fxRate = await polygonMarketService.getUsdInrRate();
+    const stocks = await alpacaMarketDataService.getPopularStocks();
+    const fxRate = await alpacaMarketDataService.getUsdInrRate();
     res.json({ success: true, stocks, fxRate });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -563,8 +563,8 @@ router.get("/market/stocks", async (req, res) => {
 
 router.get("/market/etfs", async (req, res) => {
   try {
-    const etfs = await polygonMarketService.getPopularETFs();
-    const fxRate = await polygonMarketService.getUsdInrRate();
+    const etfs = await alpacaMarketDataService.getPopularETFs();
+    const fxRate = await alpacaMarketDataService.getUsdInrRate();
     res.json({ success: true, etfs, fxRate });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -573,7 +573,7 @@ router.get("/market/etfs", async (req, res) => {
 
 router.get("/market/sp500", async (req, res) => {
   try {
-    const constituents = await polygonMarketService.getSP500Constituents();
+    const constituents = await alpacaMarketDataService.getSP500Constituents();
     res.json({ success: true, constituents });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -582,11 +582,124 @@ router.get("/market/sp500", async (req, res) => {
 
 router.get("/market/fx-rate", async (req, res) => {
   try {
-    const rate = await polygonMarketService.getUsdInrRate();
+    const rate = await alpacaMarketDataService.getUsdInrRate();
     res.json({ success: true, usdInr: rate });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+// ── Alpaca Market Data — Snapshot (full: trade + quote + daily bar) ──────────
+router.get("/market/snapshot/:symbol", async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    const snapshot = await alpacaMarketDataService.getSnapshot(symbol.toUpperCase());
+    if (!snapshot) {
+      return res.status(404).json({ success: false, error: "Symbol not found or no data available" });
+    }
+    const fxRate = await alpacaMarketDataService.getUsdInrRate();
+    res.json({ success: true, snapshot, fxRate });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Batch snapshots: GET /market/snapshots?symbols=AAPL,MSFT,TSLA
+router.get("/market/snapshots", async (req, res) => {
+  try {
+    const { symbols } = req.query;
+    if (!symbols) return res.status(400).json({ success: false, error: "symbols query param required" });
+
+    const symbolList = (symbols as string).split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+    if (symbolList.length > 100) return res.status(400).json({ success: false, error: "Max 100 symbols per request" });
+
+    const [snapshotMap, fxRate] = await Promise.all([
+      alpacaMarketDataService.getSnapshots(symbolList),
+      alpacaMarketDataService.getUsdInrRate(),
+    ]);
+
+    const snapshots: Record<string, any> = {};
+    snapshotMap.forEach((snap, sym) => { snapshots[sym] = snap; });
+
+    res.json({ success: true, snapshots, fxRate, feed: process.env.ALPACA_DATA_FEED || "iex" });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ── Alpaca Market Data — Historical Bars ─────────────────────────────────────
+
+// GET /market/bars/latest?symbols=AAPL,MSFT  (MUST be before /:symbol)
+router.get("/market/bars/latest", async (req, res) => {
+  try {
+    const { symbols } = req.query;
+    if (!symbols) return res.status(400).json({ success: false, error: "symbols query param required" });
+
+    const symbolList = (symbols as string).split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+    const barsMap    = await alpacaMarketDataService.getLatestBars(symbolList);
+
+    const bars: Record<string, any> = {};
+    barsMap.forEach((bar, sym) => { bars[sym] = bar; });
+
+    res.json({ success: true, bars });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /market/bars/:symbol?timeframe=1Day&start=2024-01-01&end=2024-12-31&limit=365
+router.get("/market/bars/:symbol", async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    const {
+      timeframe = "1Day",
+      start,
+      end,
+      limit = "365",
+    } = req.query as Record<string, string>;
+
+    const validTimeframes = ["1Min", "5Min", "15Min", "30Min", "1Hour", "4Hour", "1Day", "1Week", "1Month"];
+    if (!validTimeframes.includes(timeframe)) {
+      return res.status(400).json({ success: false, error: `Invalid timeframe. Use one of: ${validTimeframes.join(", ")}` });
+    }
+
+    const barsMap = await alpacaMarketDataService.getBars(
+      symbol.toUpperCase(),
+      timeframe as any,
+      start,
+      end,
+      Math.min(parseInt(limit) || 365, 10000),
+    );
+
+    const bars = barsMap.get(symbol.toUpperCase()) || [];
+    res.json({ success: true, symbol: symbol.toUpperCase(), timeframe, bars, count: bars.length });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /market/quotes/latest?symbols=AAPL,MSFT  — bid/ask spread
+router.get("/market/quotes/latest", async (req, res) => {
+  try {
+    const { symbols } = req.query;
+    if (!symbols) return res.status(400).json({ success: false, error: "symbols query param required" });
+
+    const symbolList = (symbols as string).split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+    const quotesMap  = await alpacaMarketDataService.getLatestQuotes(symbolList);
+
+    const quotes: Record<string, any> = {};
+    quotesMap.forEach((q, sym) => { quotes[sym] = q; });
+
+    res.json({ success: true, quotes });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /market/status — connection test for Alpaca Market Data
+router.get("/market/status", async (req, res) => {
+  const status = alpacaMarketDataService.testConnection();
+  res.json({ success: true, marketData: status });
 });
 
 router.post("/orders", async (req, res) => {
@@ -621,7 +734,7 @@ router.post("/orders", async (req, res) => {
       });
     }
 
-    const fxRate = await polygonMarketService.getUsdInrRate();
+    const fxRate = await alpacaMarketDataService.getUsdInrRate();
     
     const order = await usTradingService.createOrder({
       clientId: userId,
@@ -782,11 +895,11 @@ router.get("/holdings", async (req, res) => {
     }
 
     const holdings = await usTradingService.getHoldings(userId);
-    const fxRate = await polygonMarketService.getUsdInrRate();
+    const fxRate = await alpacaMarketDataService.getUsdInrRate();
 
     const enrichedHoldings = await Promise.all(
       holdings.map(async (holding) => {
-        const quote = await polygonMarketService.getQuote(holding.symbol);
+        const quote = await alpacaMarketDataService.getQuote(holding.symbol);
         return {
           ...holding,
           currentPriceUsd: quote?.price || holding.currentPriceUsd,
@@ -824,11 +937,11 @@ router.get("/watchlist", async (req, res) => {
     }
 
     const watchlist = await usTradingService.getWatchlist(userId);
-    const fxRate = await polygonMarketService.getUsdInrRate();
+    const fxRate = await alpacaMarketDataService.getUsdInrRate();
 
     const enriched = await Promise.all(
       watchlist.map(async (item) => {
-        const quote = await polygonMarketService.getQuote(item.symbol);
+        const quote = await alpacaMarketDataService.getQuote(item.symbol);
         return { ...item, quote, fxRate };
       })
     );
@@ -879,7 +992,7 @@ router.delete("/watchlist/:symbol", async (req, res) => {
 router.get("/broker/test-connection", async (req, res) => {
   try {
     const alpacaResult = await alpacaBrokerService.testConnection();
-    const polygonResult = polygonMarketService.testConnection();
+    const polygonResult = alpacaMarketDataService.testConnection();
     const wsStatus = massiveWebSocketService.getStatus();
 
     res.json({
@@ -1041,38 +1154,66 @@ router.delete("/alpaca/positions/:symbol", async (req, res) => {
 
 router.get("/market-data", async (req, res) => {
   try {
-    const popularSymbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA", "META", "JPM", "V", "JNJ"];
-    const etfSymbols = ["SPY", "QQQ", "VTI", "VOO", "IWM", "VUG"];
-    
-    const [stockQuotes, etfQuotes, exchangeRate] = await Promise.all([
-      Promise.all(popularSymbols.map(async (symbol) => {
-        const quote = await polygonMarketService.getQuote(symbol);
-        return quote;
-      })),
-      Promise.all(etfSymbols.map(async (symbol) => {
-        const quote = await polygonMarketService.getQuote(symbol);
-        return quote;
-      })),
-      polygonMarketService.getUsdInrRate(),
+    // All symbols fetched in one batch snapshot call — much faster than individual quotes
+    const allSymbols = [
+      "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA", "META", "JPM", "V", "JNJ", // popular stocks
+      "SPY", "QQQ", "VTI", "VOO", "IWM", "VUG",                                    // ETFs
+      "DIA",                                                                          // Dow proxy
+    ];
+
+    const [snapshotMap, exchangeRate, clock] = await Promise.all([
+      alpacaMarketDataService.getSnapshots(allSymbols),
+      alpacaMarketDataService.getUsdInrRate(),
+      alpacaBrokerService.getMarketClock().catch(() => null),
     ]);
-    
-    const now = new Date();
-    const nyHour = parseInt(now.toLocaleString("en-US", { timeZone: "America/New_York", hour: "numeric", hour12: false }));
-    const isWeekend = now.getDay() === 0 || now.getDay() === 6;
-    const marketStatus = isWeekend ? "closed" : (nyHour >= 9 && nyHour < 16) ? "open" : "closed";
-    
+
+    const toQuote = (sym: string) => {
+      const snap = snapshotMap.get(sym);
+      if (!snap) return null;
+      const price     = snap.latestTrade.price || snap.dailyBar.close;
+      const prevClose = snap.prevDailyBar.close || snap.dailyBar.open || price;
+      const change    = price - prevClose;
+      const pct       = prevClose > 0 ? (change / prevClose) * 100 : 0;
+      return { symbol: sym, price, change, changePercent: pct, open: snap.dailyBar.open, high: snap.dailyBar.high, low: snap.dailyBar.low, close: snap.dailyBar.close, volume: snap.dailyBar.volume, vwap: snap.dailyBar.vwap };
+    };
+
+    // ETF-based index proxies (Alpaca does not provide index feeds)
+    const spySnap = snapshotMap.get("SPY");
+    const qqqSnap = snapshotMap.get("QQQ");
+    const diaSnap = snapshotMap.get("DIA");
+
+    const makeIndexProxy = (sym: string, name: string, snap: typeof spySnap) => {
+      if (!snap) return { symbol: sym, name, price: 0, change: 0, changePercent: 0, source: "ETF proxy" };
+      const price     = snap.latestTrade.price || snap.dailyBar.close;
+      const prevClose = snap.prevDailyBar.close || snap.dailyBar.open || price;
+      const change    = price - prevClose;
+      const pct       = prevClose > 0 ? (change / prevClose) * 100 : 0;
+      return { symbol: sym, name, price, change, changePercent: pct, etfProxy: sym, source: "Alpaca IEX" };
+    };
+
+    const marketStatus = clock ? (clock.is_open ? "open" : "closed") : (() => {
+      const now    = new Date();
+      const nyHour = parseInt(now.toLocaleString("en-US", { timeZone: "America/New_York", hour: "numeric", hour12: false }));
+      return (now.getDay() !== 0 && now.getDay() !== 6 && nyHour >= 9 && nyHour < 16) ? "open" : "closed";
+    })();
+
+    const stockSymbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA", "META", "JPM", "V", "JNJ"];
+    const etfSymbols   = ["SPY", "QQQ", "VTI", "VOO", "IWM", "VUG"];
+
     res.json({
       indices: [
-        { symbol: "^GSPC", name: "S&P 500", price: 5998.74, change: 23.45, changePercent: 0.39 },
-        { symbol: "^IXIC", name: "NASDAQ", price: 19764.88, change: -45.32, changePercent: -0.23 },
-        { symbol: "^DJI", name: "Dow Jones", price: 42992.21, change: 168.53, changePercent: 0.39 },
-        { symbol: "^VIX", name: "VIX", price: 14.58, change: -0.87, changePercent: -5.63 },
+        makeIndexProxy("^GSPC", "S&P 500 (via SPY)", spySnap),
+        makeIndexProxy("^IXIC", "NASDAQ 100 (via QQQ)", qqqSnap),
+        makeIndexProxy("^DJI",  "Dow Jones (via DIA)", diaSnap),
       ],
-      stocks: stockQuotes.filter(Boolean),
-      etfs: etfQuotes.filter(Boolean),
+      stocks:       stockSymbols.map(toQuote).filter(Boolean),
+      etfs:         etfSymbols.map(toQuote).filter(Boolean),
       exchangeRate: { rate: exchangeRate, currency: "INR" },
       marketStatus,
-      lastUpdated: new Date().toISOString(),
+      dataSource:   "Alpaca Market Data (IEX feed)",
+      lastUpdated:  new Date().toISOString(),
+      nextOpen:     clock?.next_open,
+      nextClose:    clock?.next_close,
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -1093,7 +1234,7 @@ router.get("/holdings", async (req, res) => {
     }
 
     const holdings = await usTradingService.getHoldings(userId);
-    const fxRate = await polygonMarketService.getUsdInrRate();
+    const fxRate = await alpacaMarketDataService.getUsdInrRate();
     
     let totalValue = 0;
     let totalCost = 0;
@@ -1185,7 +1326,7 @@ router.post("/holdings/sync", async (req, res) => {
     }
 
     const positions = await alpacaBrokerService.getPositions();
-    const fxRate = await polygonMarketService.getUsdInrRate();
+    const fxRate = await alpacaMarketDataService.getUsdInrRate();
 
     for (const position of positions) {
       await usTradingService.upsertHolding(userId, position.symbol, {
@@ -1215,10 +1356,10 @@ router.post("/holdings/sync", async (req, res) => {
 router.get("/ai/recommendations", async (req, res) => {
   try {
     const riskProfile = req.query.riskProfile as string || "moderate";
-    const fxRate = await polygonMarketService.getUsdInrRate();
+    const fxRate = await alpacaMarketDataService.getUsdInrRate();
     
     const stockSymbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "JPM", "V", "JNJ"];
-    const quotes = await polygonMarketService.getMultipleQuotes(stockSymbols);
+    const quotes = await alpacaMarketDataService.getMultipleQuotes(stockSymbols);
     
     const recommendations = stockSymbols.map(symbol => {
       const quote = quotes.get(symbol);
@@ -1541,7 +1682,7 @@ router.get("/ws/latest", async (req, res) => {
 
 router.get("/flatfiles/datasets", async (req, res) => {
   try {
-    const datasets = await polygonMarketService.getAvailableDatasets();
+    const datasets = await alpacaMarketDataService.getAvailableDatasets();
     res.json({ success: true, datasets });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -1552,7 +1693,7 @@ router.get("/flatfiles/list", async (req, res) => {
   try {
     const prefix = (req.query.prefix as string) || "us_stocks_sip";
     const maxKeys = parseInt(req.query.maxKeys as string) || 50;
-    const files = await polygonMarketService.listFlatFiles(prefix, maxKeys);
+    const files = await alpacaMarketDataService.listFlatFiles(prefix, maxKeys);
     res.json({ success: true, files });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -1561,7 +1702,7 @@ router.get("/flatfiles/list", async (req, res) => {
 
 router.get("/flatfiles/day-aggs/:date", async (req, res) => {
   try {
-    const data = await polygonMarketService.getHistoricalDayAggs(req.params.date);
+    const data = await alpacaMarketDataService.getHistoricalDayAggs(req.params.date);
     res.json({
       success: true,
       date: req.params.date,

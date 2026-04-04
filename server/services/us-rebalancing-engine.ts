@@ -1,7 +1,7 @@
 import { db } from '../db';
 import { usHoldings, riskProfiles, rebalancingSuggestions, users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
-import { polygonMarketService } from './polygon-market-service';
+import { alpacaMarketDataService as polygonMarketService } from './alpaca-market-data-service';
 import { usOrderNotificationService } from './us-order-notification-service';
 
 interface AllocationTarget {
