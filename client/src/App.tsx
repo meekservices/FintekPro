@@ -1597,6 +1597,11 @@ function AdminRoutes() {
       {/* Generic admin root - must be after all specific /admin/* routes */}
       <Route path="/admin" component={AdminRoot} />
       <Route path="/" component={AdminRoot} />
+      {/* Profile page - admin users need access for KYC dashboard tab */}
+      <Route path="/profile" component={Profile} />
+      <Route path="/kyc-dashboard">
+        <Redirect to="/profile?tab=kyc-dashboard" />
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
