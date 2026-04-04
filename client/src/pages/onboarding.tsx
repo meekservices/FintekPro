@@ -3903,7 +3903,7 @@ export default function SmartKYCOnboarding() {
                         <SelectTrigger className="mt-1">
                           <SelectValue placeholder="Select reason..." />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="z-[200]">
                           <SelectItem value="DATA_ENTRY_ERROR">Data entry error during original KYC</SelectItem>
                           <SelectItem value="DOB_CORRECTION">Date of birth correction (e.g., wrong year entered)</SelectItem>
                           <SelectItem value="PAN_CORRECTION">PAN card correction / replacement by Income Tax Dept</SelectItem>
