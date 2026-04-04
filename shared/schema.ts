@@ -649,6 +649,11 @@ export const users = pgTable("users", {
   
   // UI Preferences
   navPosition: varchar("nav_position").default("left"), // left, top, bottom
+
+  // FintekPro Subscription / Monetization
+  planTier: varchar("plan_tier").default("free").notNull(), // free | pro | elite
+  planExpiresAt: timestamp("plan_expires_at"),              // null = never for free
+  cashfreeSubscriptionId: varchar("cashfree_subscription_id"), // latest subscription order id
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -657,6 +662,47 @@ export const users = pgTable("users", {
   index("idx_users_mobile").on(table.mobile),
   index("idx_users_pan_number").on(table.panNumber),
 ]);
+
+// ── Platform Subscriptions — tracks every subscription payment ───────────────
+export const platformSubscriptions = pgTable("platform_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+
+  // Plan details
+  planTier: varchar("plan_tier").notNull(), // pro | elite
+  billingCycle: varchar("billing_cycle").notNull(), // monthly | annual
+
+  // Pricing (in INR paise for precision)
+  amountPaise: integer("amount_paise").notNull(), // e.g. 99900 = ₹999
+  currency: varchar("currency").default("INR").notNull(),
+
+  // Cashfree payment tracking
+  cashfreeOrderId: varchar("cashfree_order_id"),
+  cashfreePaymentId: varchar("cashfree_payment_id"),
+  cashfreePaymentSessionId: varchar("cashfree_payment_session_id"),
+
+  // Status lifecycle: pending → active | failed | expired | cancelled
+  status: varchar("status").default("pending").notNull(),
+
+  // Validity window
+  startsAt: timestamp("starts_at"),
+  expiresAt: timestamp("expires_at"),
+
+  // Audit
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_platform_subs_user").on(table.userId),
+  index("idx_platform_subs_status").on(table.status),
+  index("idx_platform_subs_tier").on(table.planTier),
+]);
+
+export type PlatformSubscription = typeof platformSubscriptions.$inferSelect;
+export type InsertPlatformSubscription = typeof platformSubscriptions.$inferInsert;
+export const insertPlatformSubscriptionSchema = createInsertSchema(platformSubscriptions).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
 
 // KYC Verification Sessions table for tracking step-by-step Smart KYC wizard flow
 export const kycVerificationSessions = pgTable("kyc_verification_sessions", {

@@ -24,6 +24,7 @@ import {
   Search, Plus, Download, BarChart3, Activity, ChevronRight,
   Landmark, Building2, Wallet, BookOpen, Calendar,
   Globe, KeyRound, ExternalLink, Server, Info, Copy, Lock,
+  DollarSign, Zap, Crown, BadgeIndianRupee,
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -79,6 +80,181 @@ function ConfigBanner({ configured }: { configured: boolean }) {
         to configure your broker API key.
       </AlertDescription>
     </Alert>
+  );
+}
+
+// ─── Revenue & Monetization Tab ──────────────────────────────────────────────
+
+function RevenueTab() {
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ["/api/subscriptions/admin/revenue"],
+    staleTime: 30_000,
+  });
+
+  function formatInr(paise: number | string) {
+    const n = typeof paise === "string" ? parseInt(paise, 10) : paise;
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n / 100);
+  }
+
+  const stats = data?.stats?.[0] ?? {};
+  const tierBreakdown: { plan_tier: string; cnt: string }[] = data?.tierBreakdown ?? [];
+  const recent: any[] = data?.recent ?? [];
+
+  const kpis = [
+    { icon: BadgeIndianRupee, label: "MRR", value: isLoading ? "…" : formatInr(stats.mrr_paise || 0), sub: "This month", color: "text-blue-600" },
+    { icon: TrendingUp, label: "ARR (run-rate)", value: isLoading ? "…" : formatInr((parseInt(stats.mrr_paise || "0") * 12).toString()), sub: "Annualised", color: "text-green-600" },
+    { icon: Users, label: "Active Subscribers", value: isLoading ? "…" : (stats.active_subscriptions || 0), sub: `${stats.pro_count || 0} Pro · ${stats.elite_count || 0} Elite`, color: "text-purple-600" },
+    { icon: DollarSign, label: "Total Revenue", value: isLoading ? "…" : formatInr(stats.total_revenue_paise || 0), sub: "All time", color: "text-amber-600" },
+  ];
+
+  const tierMeta: Record<string, { icon: typeof Zap; label: string; color: string }> = {
+    pro: { icon: Zap, label: "Pro", color: "text-blue-600" },
+    elite: { icon: Crown, label: "Elite", color: "text-yellow-600" },
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpis.map(({ icon: Icon, label, value, sub, color }) => (
+          <Card key={label}>
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`rounded-lg bg-muted p-1.5`}>
+                  <Icon className={`h-4 w-4 ${color}`} />
+                </div>
+                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{label}</span>
+              </div>
+              <div className="text-2xl font-bold">{value}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Tier Breakdown */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" /> Plan Distribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => <div key={i} className="h-8 bg-muted animate-pulse rounded" />)}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Free users (all users minus active paid subs) */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-slate-500" />
+                    <span className="font-medium text-sm">Free</span>
+                  </div>
+                  <Badge variant="outline">Active</Badge>
+                </div>
+                {tierBreakdown.length === 0 ? (
+                  <div className="text-center py-4 text-sm text-muted-foreground">No paid subscriptions yet</div>
+                ) : (
+                  tierBreakdown.map(({ plan_tier, cnt }) => {
+                    const m = tierMeta[plan_tier];
+                    if (!m) return null;
+                    return (
+                      <div key={plan_tier} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <m.icon className={`h-4 w-4 ${m.color}`} />
+                          <span className="font-medium text-sm">{m.label}</span>
+                        </div>
+                        <Badge>{cnt} users</Badge>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Revenue Streams Guide */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <DollarSign className="h-4 w-4" /> Revenue Streams
+            </CardTitle>
+            <CardDescription className="text-xs">India-optimized monetization model</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 text-sm">
+              {[
+                { label: "Subscription (SaaS)", value: "₹999–₹1L/yr per user", color: "bg-blue-100 text-blue-800" },
+                { label: "FX Spread (LRS/USD)", value: "0.25%–1% per remittance", color: "bg-green-100 text-green-800" },
+                { label: "Per-trade fee", value: "₹0–₹10 per order", color: "bg-purple-100 text-purple-800" },
+                { label: "Idle Cash Yield", value: "1–1.5% of uninvested cash", color: "bg-amber-100 text-amber-800" },
+                { label: "Securities Lending", value: "30–50% of lending income", color: "bg-red-100 text-red-800" },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="flex items-center justify-between">
+                  <span className="text-muted-foreground">{label}</span>
+                  <Badge className={`text-xs ${color} border-0`}>{value}</Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Subscriptions */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Clock className="h-4 w-4" /> Recent Subscriptions
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-2">{[1, 2, 3].map((i) => <div key={i} className="h-10 bg-muted animate-pulse rounded" />)}</div>
+          ) : recent.length === 0 ? (
+            <div className="text-center py-8 text-sm text-muted-foreground">
+              No subscriptions yet. Share the <a href="/pricing" className="text-primary underline">/pricing</a> page to get started.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Plan</TableHead>
+                  <TableHead>Cycle</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recent.map((sub: any) => (
+                  <TableRow key={sub.id}>
+                    <TableCell className="font-mono text-xs">{sub.userId?.slice(0, 12)}…</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={sub.planTier === "elite" ? "text-yellow-700 border-yellow-300" : "text-blue-700 border-blue-300"}>
+                        {sub.planTier}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs capitalize">{sub.billingCycle}</TableCell>
+                    <TableCell className="font-medium">
+                      ₹{((sub.amountPaise || 0) / 100).toLocaleString("en-IN")}
+                    </TableCell>
+                    <TableCell>{statusBadge(sub.status?.toUpperCase())}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {sub.createdAt ? fmtDate(sub.createdAt) : "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -1032,6 +1208,7 @@ export default function BrokerDashboard() {
           <TabsTrigger value="reports" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> Reports</TabsTrigger>
           <TabsTrigger value="corporate-actions" className="gap-1.5"><BarChart3 className="h-3.5 w-3.5" /> Corp Actions</TabsTrigger>
           <TabsTrigger value="app-registration" className="gap-1.5"><Globe className="h-3.5 w-3.5" /> Setup & BD Model</TabsTrigger>
+          <TabsTrigger value="revenue" className="gap-1.5"><BadgeIndianRupee className="h-3.5 w-3.5" /> Revenue</TabsTrigger>
         </TabsList>
 
         <TabsContent value="accounts" className="mt-4"><AccountsTab /></TabsContent>
@@ -1040,6 +1217,7 @@ export default function BrokerDashboard() {
         <TabsContent value="reports" className="mt-4"><ReportsTab /></TabsContent>
         <TabsContent value="corporate-actions" className="mt-4"><CorporateActionsTab /></TabsContent>
         <TabsContent value="app-registration" className="mt-4"><AppRegistrationTab /></TabsContent>
+        <TabsContent value="revenue" className="mt-4"><RevenueTab /></TabsContent>
       </Tabs>
     </div>
   );

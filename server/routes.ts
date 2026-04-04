@@ -177,6 +177,7 @@ import instrumentsRoutes from "./routes/instruments";
 import storeAifPmsRoutes from "./routes/store-aif-pms";
 import itrPricingRoutes from "./routes/itr-pricing";
 import platformFeesRoutes from "./routes/platform-fees";
+import subscriptionRoutes from "./routes/subscription";
 import storeMldRoutes from "./routes/store-mld";
 import giftCityRoutes from "./routes/gift-city-routes";
 import aiInvestmentRoutes from "./routes/ai-investment-routes";
@@ -1242,6 +1243,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Client Fee Mode Routes (Advisory + Platform vs Platform-Only)
   app.use("/api/fee-mode", feeModeRoutes);
   console.log("✅ Client Fee Mode routes registered");
+
+  // Subscription & Monetization Routes (Cashfree-powered)
+  app.use("/api/subscriptions", subscriptionRoutes);
+  console.log("✅ Subscription & Monetization routes registered");
 
   // Improvement Features Routes (Dashboard, Referral, Reports, Alerts, Theme)
   const improvementFeaturesRoutes = (await import("./routes/improvement-features")).default;
