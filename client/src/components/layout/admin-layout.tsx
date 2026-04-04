@@ -168,6 +168,15 @@ const navCategories: NavCategory[] = [
       { title: "Duplicate Detection", href: "/admin/duplicates", icon: AlertCircle, description: "Detect & resolve duplicates" },
       { title: "MF Data Enrichment", href: "/admin/mf-enrichment", icon: Database, description: "MF returns sync status" },
       { title: "MF Analytics Ops", href: "/admin/mf-analytics-ops", icon: Database, description: "Run bulk analytics jobs" },
+      {
+        title: "US Broker (Alpaca)",
+        href: "/admin/broker-dashboard",
+        icon: Wallet,
+        description: "Fully-disclosed broker-dealer",
+        children: [
+          { title: "Broker Dashboard", href: "/admin/broker-dashboard", icon: Wallet, description: "Accounts, journals, reports" },
+        ]
+      },
     ]
   },
   {

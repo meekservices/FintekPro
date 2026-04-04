@@ -21,6 +21,10 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
   AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
@@ -29,7 +33,8 @@ import {
 import {
   Wallet, TrendingUp, TrendingDown, Clock, RefreshCw, X, AlertTriangle,
   DollarSign, BarChart3, Activity, XCircle, CheckCircle2,
-  Building2, KeyRound, Eye, EyeOff, Link2,
+  Building2, KeyRound, Eye, EyeOff, Link2, FileText, Banknote, Trash2,
+  ArrowUpCircle, ArrowDownCircle, Plus, Download,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -591,6 +596,506 @@ function OrdersTable({ isPaper }: { isPaper: boolean }) {
   );
 }
 
+// ─── Wallet Tab ───────────────────────────────────────────────────────────────
+
+interface AchRelationship {
+  id: string;
+  account_id: string;
+  created_at: string;
+  updated_at: string;
+  status: string;
+  account_owner_name: string;
+  bank_account_type: string;
+  bank_account_number: string;
+  bank_routing_number: string;
+  nickname: string;
+}
+
+interface Transfer {
+  id: string;
+  relationship_id?: string;
+  account_id: string;
+  type: string;
+  status: string;
+  amount: string;
+  direction: string;
+  created_at: string;
+  updated_at: string;
+  requested_amount?: string;
+  fee?: string;
+  reason?: string;
+}
+
+function WalletTab({ accountId }: { accountId: string }) {
+  const { toast } = useToast();
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [direction, setDirection] = useState<"INCOMING" | "OUTGOING">("INCOMING");
+  const [amount, setAmount] = useState("");
+  const [relId, setRelId] = useState("");
+
+  const { data: achData, isLoading: achLoading, refetch: refetchAch } = useQuery<{ relationships: AchRelationship[] }>({
+    queryKey: ["/api/us-trading/broker/accounts", accountId, "ach-relationships"],
+    queryFn: () => fetch(`/api/us-trading/broker/accounts/${accountId}/ach-relationships`).then(r => r.json()),
+    staleTime: 60000,
+  });
+
+  const { data: transferData, isLoading: transferLoading, refetch: refetchTransfers } = useQuery<{ transfers: Transfer[] }>({
+    queryKey: ["/api/us-trading/broker/accounts", accountId, "transfers"],
+    queryFn: () => fetch(`/api/us-trading/broker/accounts/${accountId}/transfers`).then(r => r.json()),
+    staleTime: 30000,
+  });
+
+  const deleteAchMutation = useMutation({
+    mutationFn: (relId: string) =>
+      apiRequest(`/api/us-trading/broker/accounts/${accountId}/ach-relationships/${relId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/us-trading/broker/accounts", accountId, "ach-relationships"] });
+      toast({ title: "ACH relationship removed" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const transferMutation = useMutation({
+    mutationFn: () =>
+      apiRequest(`/api/us-trading/broker/accounts/${accountId}/transfers`, {
+        method: "POST",
+        body: JSON.stringify({ relationship_id: relId, type: "ach", direction, amount: parseFloat(amount) }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/us-trading/broker/accounts", accountId, "transfers"] });
+      toast({ title: "Transfer initiated", description: `$${amount} ${direction === "INCOMING" ? "deposit" : "withdrawal"} submitted.` });
+      setTransferOpen(false);
+      setAmount("");
+    },
+    onError: (e: any) => toast({ title: "Transfer failed", description: e.message, variant: "destructive" }),
+  });
+
+  const relationships = achData?.relationships ?? [];
+  const transfers = transferData?.transfers ?? [];
+
+  const statusColors: Record<string, string> = {
+    APPROVED: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    PENDING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    CANCELED: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
+    COMPLETE: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    RETURNED: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+    FAILED: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* ACH Relationships */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Banknote className="h-4 w-4" />
+              ACH Bank Relationships
+            </CardTitle>
+            <Button variant="ghost" size="sm" onClick={() => refetchAch()} className="h-7 px-2">
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {achLoading ? (
+            <div className="p-4 space-y-2">{[...Array(2)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : relationships.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">No ACH relationships found</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nickname</TableHead>
+                  <TableHead>Bank Account</TableHead>
+                  <TableHead>Routing</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-12"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {relationships.map(r => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium">{r.nickname || r.account_owner_name}</TableCell>
+                    <TableCell className="font-mono text-xs">****{r.bank_account_number.slice(-4)}</TableCell>
+                    <TableCell className="font-mono text-xs">{r.bank_routing_number}</TableCell>
+                    <TableCell className="capitalize text-xs">{r.bank_account_type}</TableCell>
+                    <TableCell>
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${statusColors[r.status] ?? "bg-gray-100 text-gray-600"}`}>
+                        {r.status}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-red-500 hover:text-red-600"
+                        onClick={() => deleteAchMutation.mutate(r.id)}
+                        disabled={deleteAchMutation.isPending}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Transfers */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ArrowUpCircle className="h-4 w-4" />
+              Transfers
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => refetchTransfers()} className="h-7 px-2">
+                <RefreshCw className="h-3.5 w-3.5" />
+              </Button>
+              {relationships.some(r => r.status === "APPROVED") && (
+                <Button size="sm" className="h-7 text-xs" onClick={() => setTransferOpen(true)}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  New Transfer
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {transferLoading ? (
+            <div className="p-4 space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : transfers.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">No transfers found</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Direction</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {transfers.map(t => (
+                  <TableRow key={t.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        {t.direction === "INCOMING"
+                          ? <ArrowDownCircle className="h-3.5 w-3.5 text-green-500" />
+                          : <ArrowUpCircle className="h-3.5 w-3.5 text-blue-500" />
+                        }
+                        <span className="text-xs">{t.direction === "INCOMING" ? "Deposit" : "Withdrawal"}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">{fmtUSD(parseFloat(t.amount))}</TableCell>
+                    <TableCell className="text-xs capitalize">{t.type}</TableCell>
+                    <TableCell>
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${statusColors[t.status] ?? "bg-gray-100 text-gray-600"}`}>
+                        {t.status}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date(t.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* New Transfer Dialog */}
+      <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>New ACH Transfer</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Direction</Label>
+              <Select value={direction} onValueChange={v => setDirection(v as any)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="INCOMING">Deposit (Bank → Account)</SelectItem>
+                  <SelectItem value="OUTGOING">Withdrawal (Account → Bank)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>ACH Relationship</Label>
+              <Select value={relId} onValueChange={setRelId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select bank account" />
+                </SelectTrigger>
+                <SelectContent>
+                  {relationships.filter(r => r.status === "APPROVED").map(r => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.nickname || r.account_owner_name} (****{r.bank_account_number.slice(-4)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Amount (USD)</Label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="0.00"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTransferOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => transferMutation.mutate()}
+              disabled={!relId || !amount || parseFloat(amount) <= 0 || transferMutation.isPending}
+            >
+              {transferMutation.isPending ? "Submitting…" : "Submit Transfer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ─── Activities Tab ────────────────────────────────────────────────────────────
+
+interface AccountActivity {
+  id: string;
+  activity_type: string;
+  date?: string;
+  net_amount?: string;
+  symbol?: string;
+  qty?: string;
+  price?: string;
+  per_share_amount?: string;
+  description?: string;
+  status?: string;
+  side?: string;
+  type?: string;
+  leaves_qty?: string;
+  cum_qty?: string;
+  transaction_time?: string;
+}
+
+function ActivitiesTab({ accountId }: { accountId: string }) {
+  const [activityType, setActivityType] = useState("all");
+  const { data, isLoading, refetch } = useQuery<{ activities: AccountActivity[] }>({
+    queryKey: ["/api/us-trading/broker/accounts", accountId, "activities", activityType],
+    queryFn: () => {
+      const params = activityType !== "all" ? `?activity_type=${activityType}` : "";
+      return fetch(`/api/us-trading/broker/accounts/${accountId}/activities${params}`).then(r => r.json());
+    },
+    staleTime: 30000,
+  });
+
+  const activities = data?.activities ?? [];
+
+  const activityTypeColor: Record<string, string> = {
+    FILL: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    ACATC: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    ACATS: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    DIV: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    DIVNRA: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    CSD: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+    CSW: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+    JNLC: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+    JNLS: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Account Activities
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Select value={activityType} onValueChange={setActivityType}>
+              <SelectTrigger className="h-8 w-[120px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="FILL">Fills</SelectItem>
+                <SelectItem value="DIV">Dividends</SelectItem>
+                <SelectItem value="CSD">Cash Deposits</SelectItem>
+                <SelectItem value="CSW">Cash Withdrawals</SelectItem>
+                <SelectItem value="JNLC">Journal Cash</SelectItem>
+                <SelectItem value="JNLS">Journal Securities</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="ghost" size="sm" onClick={() => refetch()} className="h-7 px-2">
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        {isLoading ? (
+          <div className="p-4 space-y-2">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+        ) : activities.length === 0 ? (
+          <div className="p-6 text-center text-sm text-muted-foreground">No activities found</div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Type</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Symbol</TableHead>
+                <TableHead className="text-right">Qty</TableHead>
+                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="text-right">Net Amount</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {activities.slice(0, 50).map(a => (
+                <TableRow key={a.id}>
+                  <TableCell>
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${activityTypeColor[a.activity_type] ?? "bg-gray-100 text-gray-600"}`}>
+                      {a.activity_type}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {a.date ?? (a.transaction_time ? new Date(a.transaction_time).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—")}
+                  </TableCell>
+                  <TableCell className="font-medium">{a.symbol ?? "—"}</TableCell>
+                  <TableCell className="text-right text-xs">{a.qty ?? a.cum_qty ?? "—"}</TableCell>
+                  <TableCell className="text-right text-xs">
+                    {a.price ? fmtUSD(parseFloat(a.price)) : a.per_share_amount ? fmtUSD(parseFloat(a.per_share_amount)) : "—"}
+                  </TableCell>
+                  <TableCell className={`text-right font-semibold text-sm ${parseFloat(a.net_amount ?? "0") >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                    {a.net_amount ? fmtUSD(parseFloat(a.net_amount)) : "—"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Documents Tab ─────────────────────────────────────────────────────────────
+
+interface BrokerDocument {
+  id: string;
+  document_type: string;
+  document_sub_type?: string;
+  date?: string;
+  content?: string;
+}
+
+function DocumentsTab({ accountId }: { accountId: string }) {
+  const { toast } = useToast();
+  const { data, isLoading, refetch } = useQuery<{ documents: BrokerDocument[] }>({
+    queryKey: ["/api/us-trading/broker/accounts", accountId, "documents"],
+    queryFn: () => fetch(`/api/us-trading/broker/accounts/${accountId}/documents`).then(r => r.json()),
+    staleTime: 120000,
+  });
+
+  const downloadMutation = useMutation({
+    mutationFn: (docId: string) =>
+      fetch(`/api/us-trading/broker/accounts/${accountId}/documents/${docId}/download`)
+        .then(r => r.json()),
+    onSuccess: (data: any) => {
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      } else {
+        toast({ title: "Download ready", description: "Document URL opened in new tab." });
+      }
+    },
+    onError: (e: any) => toast({ title: "Download failed", description: e.message, variant: "destructive" }),
+  });
+
+  const docTypeLabel: Record<string, string> = {
+    account_statement: "Account Statement",
+    trade_confirmation: "Trade Confirmation",
+    tax_statement: "Tax Statement",
+    1099: "1099",
+    identity_verification: "Identity Verification",
+    cip_result: "CIP Result",
+  };
+
+  const documents = data?.documents ?? [];
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Account Documents
+          </CardTitle>
+          <Button variant="ghost" size="sm" onClick={() => refetch()} className="h-7 px-2">
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        {isLoading ? (
+          <div className="p-4 space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+        ) : documents.length === 0 ? (
+          <div className="p-6 text-center text-sm text-muted-foreground">No documents available</div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Document Type</TableHead>
+                <TableHead>Sub Type</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead className="w-16"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {documents.map(d => (
+                <TableRow key={d.id}>
+                  <TableCell className="font-medium">
+                    {docTypeLabel[d.document_type] ?? d.document_type.replace(/_/g, " ")}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground capitalize">
+                    {d.document_sub_type?.replace(/_/g, " ") ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {d.date ? new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2"
+                      onClick={() => downloadMutation.mutate(d.id)}
+                      disabled={downloadMutation.isPending}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Credentials Form ─────────────────────────────────────────────────────────
 
 const DEFAULT_BASE_URL = "https://broker-api.sandbox.alpaca.markets";
@@ -866,7 +1371,7 @@ export default function AlpacaAccountDashboard() {
         </div>
       </div>
 
-      {/* Stats row */}
+      {/* Stats row — always visible */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           title="Portfolio Equity"
@@ -897,7 +1402,7 @@ export default function AlpacaAccountDashboard() {
         />
       </div>
 
-      {/* Invested value row */}
+      {/* Secondary stats row */}
       {account && (
         <div className="grid grid-cols-3 gap-3">
           <Card>
@@ -931,20 +1436,67 @@ export default function AlpacaAccountDashboard() {
         </div>
       )}
 
-      {/* Portfolio History Chart */}
-      {configured && (
-        <PortfolioChart period={chartPeriod} setPeriod={setChartPeriod} isPaper={isPaper} />
-      )}
+      {/* Tabbed sections */}
+      <Tabs defaultValue="overview" className="mt-2">
+        <TabsList className="mb-4">
+          <TabsTrigger value="overview" className="flex items-center gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="trading" className="flex items-center gap-1.5">
+            <TrendingUp className="h-3.5 w-3.5" />
+            Positions &amp; Orders
+          </TabsTrigger>
+          <TabsTrigger value="wallet" className="flex items-center gap-1.5">
+            <Banknote className="h-3.5 w-3.5" />
+            Wallet
+          </TabsTrigger>
+          <TabsTrigger value="activities" className="flex items-center gap-1.5">
+            <Activity className="h-3.5 w-3.5" />
+            Activities
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="flex items-center gap-1.5">
+            <FileText className="h-3.5 w-3.5" />
+            Documents
+          </TabsTrigger>
+        </TabsList>
 
-      <Separator />
+        <TabsContent value="overview" className="space-y-5 mt-0">
+          {configured && (
+            <PortfolioChart period={chartPeriod} setPeriod={setChartPeriod} isPaper={isPaper} />
+          )}
+        </TabsContent>
 
-      {/* Positions */}
-      <PositionsTable isPaper={isPaper} />
+        <TabsContent value="trading" className="space-y-5 mt-0">
+          <PositionsTable isPaper={isPaper} />
+          <Separator />
+          <OrdersTable isPaper={isPaper} />
+        </TabsContent>
 
-      <Separator />
+        <TabsContent value="wallet" className="mt-0">
+          {account ? (
+            <WalletTab accountId={account.id} />
+          ) : (
+            <div className="py-8 text-center text-sm text-muted-foreground">Account data not loaded</div>
+          )}
+        </TabsContent>
 
-      {/* Orders */}
-      <OrdersTable isPaper={isPaper} />
+        <TabsContent value="activities" className="mt-0">
+          {account ? (
+            <ActivitiesTab accountId={account.id} />
+          ) : (
+            <div className="py-8 text-center text-sm text-muted-foreground">Account data not loaded</div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-0">
+          {account ? (
+            <DocumentsTab accountId={account.id} />
+          ) : (
+            <div className="py-8 text-center text-sm text-muted-foreground">Account data not loaded</div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

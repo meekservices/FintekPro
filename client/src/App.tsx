@@ -155,6 +155,7 @@ const AgentPortal = lazyWithRetry(() => import("@/pages/agent-portal"));
 const DistributionPartnerPortal = lazyWithRetry(() => import("@/pages/distribution-partner-portal"));
 const FieldAgentPortal = lazyWithRetry(() => import("@/pages/field-agent-portal"));
 const AgentClientsPage = lazyWithRetry(() => import("@/pages/agent-clients"));
+const AgentUsClientAccounts = lazyWithRetry(() => import("@/pages/agent/us-client-accounts"));
 const AgentCrmClient360 = lazyWithRetry(() => import("@/pages/agent-crm-client-360"));
 const AgentCrmPipeline = lazyWithRetry(() => import("@/pages/agent-crm-pipeline"));
 const AgentCrmTasks = lazyWithRetry(() => import("@/pages/agent-crm-tasks"));
@@ -361,6 +362,7 @@ const AdminReportsHub = lazyWithRetry(() => import("@/pages/admin/reports-hub"))
 const AdminAIInsights = lazyWithRetry(() => import("@/pages/admin/ai-insights"));
 const AdminAgentOversightPage = lazyWithRetry(() => import("@/pages/admin/agent-oversight"));
 const AdminAppointmentsDashboard = lazyWithRetry(() => import("@/pages/admin/appointments-dashboard"));
+const AdminBrokerDashboard = lazyWithRetry(() => import("@/pages/admin/broker-dashboard"));
 const ClientTasks = lazyWithRetry(() => import("@/pages/client-tasks"));
 const ClientAIRecommendations = lazyWithRetry(() => import("@/pages/client-ai-recommendations"));
 const ClientReports = lazyWithRetry(() => import("@/pages/client-reports"));
@@ -1233,6 +1235,15 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <FixedIncomeAdmin />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/broker-dashboard">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <AdminBrokerDashboard />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
@@ -2114,6 +2125,15 @@ function AgentRoutes() {
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
               <AgentRevenueCockpit />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/us-client-accounts">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentUsClientAccounts />
             </Suspense>
           </AgentLayout>
         )}
