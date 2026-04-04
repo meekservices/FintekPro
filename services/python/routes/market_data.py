@@ -9,7 +9,8 @@ Endpoints:
   GET  /market/health          — provider health check
 
 Source waterfall for batch quotes (/market/quotes):
-  yfinance fast_info batch (primary) → Google Finance JSONP concurrent fallback
+  Futures/commodities: Quandl CHRIS (primary) → yfinance fast_info (fallback)
+  Stocks/ETFs:         yfinance fast_info (primary) → Google Finance JSONP (fallback)
 
 Source waterfall for peer enrichment:
   yfinance (primary) → Google Finance (fallback for symbols yfinance misses)
@@ -40,6 +41,18 @@ except Exception as _gf_err:
         return {}
     def fetch_gf_batch_quotes(symbols):  # type: ignore
         return {}
+
+try:
+    from .quandl_data import fetch_quandl_futures, is_futures_symbol
+    _QUANDL_AVAILABLE = True
+except Exception as _ql_err:
+    import logging as _log
+    _log.getLogger(__name__).warning(f"[market_data] quandl_data unavailable: {_ql_err}")
+    _QUANDL_AVAILABLE = False
+    def fetch_quandl_futures(symbols, **kw):  # type: ignore
+        return {}
+    def is_futures_symbol(sym):              # type: ignore
+        return False
 
 logger = logging.getLogger(__name__)
 
@@ -621,60 +634,82 @@ def _fetch_peer_enrich_sync(symbols: List[str]) -> dict:
 
 
 def _fetch_quotes_sync(symbols: List[str]) -> dict:
+    """
+    Batch price quotes.  Source waterfall per symbol type:
+
+    Futures / commodities (GC=F, CL=F, ZW=F …):
+      1. Quandl CHRIS (primary — reliable EOD settlement, no Yahoo rate-limiting)
+      2. yfinance fast_info (fallback — live intraday when Quandl misses)
+
+    Stocks / ETFs (AAPL, SPY, RELIANCE.NS …):
+      1. yfinance fast_info (primary — live intraday)
+      2. Google Finance JSONP (fallback)
+    """
     try:
         import yfinance as yf
     except ImportError:
         return {}
 
-    results = {}
     if not symbols:
-        return results
+        return {}
 
-    try:
-        joined = " ".join(symbols)
-        # Noise from Yahoo Finance rate-limiting is suppressed globally by the
-        # _YfNoiseFilter installed on sys.stdout/sys.stderr in main.py at startup.
-        tickers = yf.Tickers(joined)
-        for sym in symbols:
-            try:
-                t = tickers.tickers.get(sym)
-                if not t:
-                    continue
-                fi = t.fast_info
-                price = _safe_float(getattr(fi, "last_price", None))
-                prev_close = _safe_float(getattr(fi, "previous_close", None))
-                change = round(price - prev_close, 4) if price is not None and prev_close is not None else None
-                change_pct = round((change / prev_close) * 100, 4) if change is not None and prev_close else None
-                results[sym] = {
-                    "symbol": sym,
-                    "price": price,
-                    "previousClose": prev_close,
-                    "change": change,
-                    "changePercent": change_pct,
-                    "dayHigh": _safe_float(getattr(fi, "day_high", None)),
-                    "dayLow": _safe_float(getattr(fi, "day_low", None)),
-                    "volume": _safe_float(getattr(fi, "three_month_average_volume", None)),
-                    "marketCap": _safe_float(getattr(fi, "market_cap", None)),
-                    "currency": getattr(fi, "currency", None),
-                    "exchange": getattr(fi, "exchange", None),
-                    "source": "yfinance",
-                }
-            except Exception as e:
-                logger.debug(f"[yfinance] Quote skip {sym}: {e}")
-    except Exception as e:
-        logger.debug(f"[yfinance] Batch quotes error: {e}")
+    results: dict = {}
 
-    # ── Google Finance fallback for symbols yfinance couldn't price ──────────
-    # Run concurrently so 20 missing ETFs resolve in ~3-5 s, not 120 s.
+    # ── Step 1: Quandl CHRIS for all known futures symbols ────────────────────
+    futures_syms = [s for s in symbols if is_futures_symbol(s)] if _QUANDL_AVAILABLE else []
+    if futures_syms:
+        ql_results = fetch_quandl_futures(futures_syms)
+        results.update(ql_results)
+        if ql_results:
+            logger.info(f"[market_data] Quandl priced {len(ql_results)}/{len(futures_syms)} futures")
+
+    # ── Step 2: yfinance for non-futures + any futures Quandl missed ──────────
+    yf_needed = [s for s in symbols if s not in results or not results[s].get("price")]
+    if yf_needed:
+        try:
+            joined  = " ".join(yf_needed)
+            tickers = yf.Tickers(joined)
+            for sym in yf_needed:
+                try:
+                    t = tickers.tickers.get(sym)
+                    if not t:
+                        continue
+                    fi         = t.fast_info
+                    price      = _safe_float(getattr(fi, "last_price", None))
+                    prev_close = _safe_float(getattr(fi, "previous_close", None))
+                    change     = round(price - prev_close, 4) if price is not None and prev_close is not None else None
+                    change_pct = round((change / prev_close) * 100, 4) if change is not None and prev_close else None
+                    results[sym] = {
+                        "symbol":        sym,
+                        "price":         price,
+                        "previousClose": prev_close,
+                        "change":        change,
+                        "changePercent": change_pct,
+                        "dayHigh":       _safe_float(getattr(fi, "day_high", None)),
+                        "dayLow":        _safe_float(getattr(fi, "day_low", None)),
+                        "volume":        _safe_float(getattr(fi, "three_month_average_volume", None)),
+                        "marketCap":     _safe_float(getattr(fi, "market_cap", None)),
+                        "currency":      getattr(fi, "currency", None),
+                        "exchange":      getattr(fi, "exchange", None),
+                        "source":        "yfinance",
+                    }
+                except Exception as e:
+                    logger.debug(f"[yfinance] Quote skip {sym}: {e}")
+        except Exception as e:
+            logger.debug(f"[yfinance] Batch quotes error: {e}")
+
+    # ── Step 3: Google Finance fallback for stocks/ETFs yfinance missed ───────
     if _GF_AVAILABLE:
-        missing = [s for s in symbols if s not in results or not results[s].get("price")]
-        if missing:
-            logger.info(f"[market_data] yfinance missed {len(missing)} symbols — trying Google Finance: {missing}")
-            gf_results = fetch_gf_batch_quotes(missing)
-            for sym, data in gf_results.items():
-                results[sym] = data
+        gf_needed = [
+            s for s in symbols
+            if (s not in results or not results[s].get("price")) and not is_futures_symbol(s)
+        ]
+        if gf_needed:
+            logger.info(f"[market_data] yfinance missed {len(gf_needed)} symbols — trying Google Finance: {gf_needed}")
+            gf_results = fetch_gf_batch_quotes(gf_needed)
+            results.update(gf_results)
             if gf_results:
-                logger.info(f"[market_data] Google Finance filled {len(gf_results)}/{len(missing)} missing quotes")
+                logger.info(f"[market_data] Google Finance filled {len(gf_results)}/{len(gf_needed)}")
 
     return results
 

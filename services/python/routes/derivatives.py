@@ -2,8 +2,9 @@
 Derivatives data routes for FintekPro Python Analytics Service.
 
 Covers:
-  GET  /derivatives/global-futures  — 20+ global futures via yfinance (equity indices,
-                                      commodities, bonds, FX, volatility, agricultural)
+  GET  /derivatives/global-futures  — 20+ global futures across equity indices,
+                                      commodities, bonds, FX, volatility, agricultural.
+                                      Source waterfall: yfinance → Quandl CHRIS
   POST /derivatives/nse-spot        — Real spot prices for NSE indices + equities via yfinance
 """
 
@@ -14,6 +15,16 @@ from typing import Any, Dict, Optional
 
 import yfinance as yf
 from fastapi import APIRouter
+
+try:
+    from .quandl_data import fetch_quandl_futures, is_futures_symbol
+    _QUANDL_AVAILABLE = True
+except Exception as _qe:
+    import logging as _log
+    _log.getLogger(__name__).warning("[derivatives] quandl_data unavailable: %s", _qe)
+    _QUANDL_AVAILABLE = False
+    def fetch_quandl_futures(symbols, **kw): return {}  # type: ignore
+    def is_futures_symbol(sym): return False            # type: ignore
 
 router = APIRouter()
 
@@ -120,25 +131,47 @@ def _fetch_nse_spot(internal: str) -> Optional[Dict[str, Any]]:
 @router.get("/derivatives/global-futures")
 async def get_global_futures():
     """
-    Returns live quotes for ~30 global futures across equity indices, commodities,
-    bonds, FX, and agricultural markets.  Uses yfinance fast_info in parallel threads.
+    Returns latest quotes for ~30 global futures across equity indices, commodities,
+    bonds, FX, and agricultural markets.
+
+    Source waterfall:
+      1. Quandl CHRIS (primary — end-of-day settlement, no rate-limiting)
+         Covers commodities, metals, energy, agricultural, FX, bond futures.
+      2. yfinance fast_info (fallback / live intraday)
+         Covers equity index futures (ES=F, NQ=F…) not in Quandl CHRIS,
+         and any symbols Quandl couldn't price.
     """
     symbols = list(GLOBAL_FUTURES.keys())
-    loop = asyncio.get_event_loop()
+    loop    = asyncio.get_event_loop()
+    output  = []
+    priced: set = set()
 
-    with ThreadPoolExecutor(max_workers=12) as ex:
-        tasks = [loop.run_in_executor(ex, _fetch_futures_quote, s) for s in symbols]
-        raw = await asyncio.gather(*tasks, return_exceptions=True)
+    # ── Step 1: Quandl CHRIS (primary for all mapped futures) ─────────────────
+    if _QUANDL_AVAILABLE:
+        quandl_syms = [s for s in symbols if is_futures_symbol(s)]
+        if quandl_syms:
+            quandl_results = await loop.run_in_executor(
+                None, lambda: fetch_quandl_futures(quandl_syms)
+            )
+            for sym, data in quandl_results.items():
+                meta = GLOBAL_FUTURES[sym]
+                output.append({"symbol": sym, **meta, **data})
+                priced.add(sym)
 
-    output = []
-    failed = []
-    for sym, result in zip(symbols, raw):
-        if isinstance(result, Exception) or result is None:
-            failed.append(sym)
-            continue
-        meta = GLOBAL_FUTURES[sym]
-        output.append({"symbol": sym, **meta, **result})
+    # ── Step 2: yfinance for equity indices + anything Quandl missed ──────────
+    yf_needed = [s for s in symbols if s not in priced]
+    if yf_needed:
+        with ThreadPoolExecutor(max_workers=12) as ex:
+            tasks = [loop.run_in_executor(ex, _fetch_futures_quote, s) for s in yf_needed]
+            raw   = await asyncio.gather(*tasks, return_exceptions=True)
+        for sym, result in zip(yf_needed, raw):
+            if isinstance(result, Exception) or result is None:
+                continue
+            meta = GLOBAL_FUTURES[sym]
+            output.append({"symbol": sym, **meta, **result, "source": "yfinance"})
+            priced.add(sym)
 
+    failed = [s for s in symbols if s not in priced]
     return {
         "futures":   output,
         "count":     len(output),
