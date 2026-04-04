@@ -100,15 +100,27 @@ class AlpacaBrokerService {
     this.client = this._buildClient();
   }
 
+  private _isBrokerApi(): boolean {
+    return this.baseUrl.includes("broker-api");
+  }
+
   private _buildClient(): AxiosInstance {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+
+    if (this._isBrokerApi()) {
+      // Broker API uses HTTP Basic auth: Authorization: Basic base64(key:secret)
+      const encoded = Buffer.from(`${this.apiKey}:${this.secretKey}`).toString("base64");
+      headers["Authorization"] = `Basic ${encoded}`;
+    } else {
+      // Trading API uses APCA header auth
+      headers["APCA-API-KEY-ID"] = this.apiKey;
+      headers["APCA-API-SECRET-KEY"] = this.secretKey;
+    }
+
     return axios.create({
       baseURL: this.baseUrl,
       timeout: 15000,
-      headers: {
-        "APCA-API-KEY-ID": this.apiKey,
-        "APCA-API-SECRET-KEY": this.secretKey,
-        "Content-Type": "application/json",
-      },
+      headers,
     });
   }
 
@@ -135,38 +147,86 @@ class AlpacaBrokerService {
     return this.isPaper;
   }
 
+  isBrokerApi(): boolean {
+    return this._isBrokerApi();
+  }
+
+  private _accountPath(): string {
+    return this._isBrokerApi() ? "/v1/accounts" : "/v2/account";
+  }
+
+  private _ordersPath(accountId?: string): string {
+    return this._isBrokerApi() && accountId
+      ? `/v1/trading/accounts/${accountId}/orders`
+      : "/v2/orders";
+  }
+
+  private _positionsPath(accountId?: string): string {
+    return this._isBrokerApi() && accountId
+      ? `/v1/trading/accounts/${accountId}/positions`
+      : "/v2/positions";
+  }
+
+  private _portfolioHistoryPath(accountId?: string): string {
+    return this._isBrokerApi() && accountId
+      ? `/v1/trading/accounts/${accountId}/account/portfolio/history`
+      : "/v2/account/portfolio/history";
+  }
+
   async testConnection(): Promise<{ success: boolean; message: string; account?: AlpacaAccount }> {
     if (!this.isConfigured()) {
       return { success: false, message: "Alpaca API credentials not configured" };
     }
 
     try {
-      const response = await this.client.get("/v2/account");
-      return { 
-        success: true, 
-        message: `Connected to Alpaca (${this.isPaper ? "Paper" : "Live"})`,
-        account: response.data,
+      const response = await this.client.get(this._accountPath());
+      // Broker API returns an array of accounts; trading API returns a single object
+      const accountData = Array.isArray(response.data) ? response.data[0] : response.data;
+      return {
+        success: true,
+        message: `Connected to Alpaca (${this._isBrokerApi() ? "Broker" : "Trading"} · ${this.isPaper ? "Sandbox" : "Live"})`,
+        account: accountData,
       };
     } catch (error: any) {
       console.error("Alpaca connection test failed:", error.response?.data || error.message);
-      return { 
-        success: false, 
-        message: error.response?.data?.message || "Failed to connect to Alpaca",
+      return {
+        success: false,
+        message: error.response?.data?.message || error.response?.data?.code || "Failed to connect to Alpaca",
       };
     }
   }
 
-  async getAccount(): Promise<AlpacaAccount | null> {
+  async getAccount(accountId?: string): Promise<AlpacaAccount | null> {
     if (!this.isConfigured()) {
       throw new Error('Alpaca API not configured. Set ALPACA_API_KEY and ALPACA_API_SECRET for US trading.');
     }
 
     try {
-      const response = await this.client.get("/v2/account");
-      return response.data;
+      if (this._isBrokerApi() && accountId) {
+        const response = await this.client.get(`/v1/accounts/${accountId}`);
+        return response.data;
+      } else if (this._isBrokerApi()) {
+        // Return list of accounts for broker dashboard
+        const response = await this.client.get("/v1/accounts");
+        return Array.isArray(response.data) ? response.data[0] : response.data;
+      } else {
+        const response = await this.client.get("/v2/account");
+        return response.data;
+      }
     } catch (error: any) {
       console.error("Error fetching Alpaca account:", error.message);
       throw new Error(`Alpaca API call failed: ${error.message}`);
+    }
+  }
+
+  async listBrokerAccounts(): Promise<AlpacaAccount[]> {
+    if (!this.isConfigured() || !this._isBrokerApi()) return [];
+    try {
+      const response = await this.client.get("/v1/accounts");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error: any) {
+      console.error("Error listing broker accounts:", error.message);
+      return [];
     }
   }
 
@@ -237,15 +297,15 @@ class AlpacaBrokerService {
     }
   }
 
-  async getOrders(status?: string, limit = 50): Promise<AlpacaOrder[]> {
+  async getOrders(status?: string, limit = 50, accountId?: string): Promise<AlpacaOrder[]> {
     if (!this.isConfigured()) {
       return [];
     }
-
     try {
-      const response = await this.client.get("/v2/orders", {
-        params: { status, limit },
-      });
+      const path = this._isBrokerApi() && accountId
+        ? `/v1/trading/accounts/${accountId}/orders`
+        : "/v2/orders";
+      const response = await this.client.get(path, { params: { status, limit } });
       return response.data;
     } catch (error: any) {
       console.error("Error fetching Alpaca orders:", error.message);
@@ -253,13 +313,15 @@ class AlpacaBrokerService {
     }
   }
 
-  async cancelOrder(orderId: string): Promise<boolean> {
+  async cancelOrder(orderId: string, accountId?: string): Promise<boolean> {
     if (!this.isConfigured()) {
       return true;
     }
-
     try {
-      await this.client.delete(`/v2/orders/${orderId}`);
+      const path = this._isBrokerApi() && accountId
+        ? `/v1/trading/accounts/${accountId}/orders/${orderId}`
+        : `/v2/orders/${orderId}`;
+      await this.client.delete(path);
       return true;
     } catch (error: any) {
       console.error("Error canceling Alpaca order:", error.message);
@@ -267,13 +329,15 @@ class AlpacaBrokerService {
     }
   }
 
-  async getPositions(): Promise<AlpacaPosition[]> {
+  async getPositions(accountId?: string): Promise<AlpacaPosition[]> {
     if (!this.isConfigured()) {
       throw new Error('Alpaca API not configured. Set ALPACA_API_KEY and ALPACA_API_SECRET for US trading.');
     }
-
     try {
-      const response = await this.client.get("/v2/positions");
+      const path = this._isBrokerApi() && accountId
+        ? `/v1/trading/accounts/${accountId}/positions`
+        : "/v2/positions";
+      const response = await this.client.get(path);
       return response.data;
     } catch (error: any) {
       console.error("Error fetching Alpaca positions:", error.message);
@@ -281,13 +345,15 @@ class AlpacaBrokerService {
     }
   }
 
-  async getPosition(symbol: string): Promise<AlpacaPosition | null> {
+  async getPosition(symbol: string, accountId?: string): Promise<AlpacaPosition | null> {
     if (!this.isConfigured()) {
       return null;
     }
-
     try {
-      const response = await this.client.get(`/v2/positions/${symbol}`);
+      const path = this._isBrokerApi() && accountId
+        ? `/v1/trading/accounts/${accountId}/positions/${symbol}`
+        : `/v2/positions/${symbol}`;
+      const response = await this.client.get(path);
       return response.data;
     } catch (error: any) {
       if (error.response?.status !== 404) {
@@ -297,12 +363,15 @@ class AlpacaBrokerService {
     }
   }
 
-  async closePosition(symbol: string): Promise<boolean> {
+  async closePosition(symbol: string, accountId?: string): Promise<boolean> {
     if (!this.isConfigured()) {
       return false;
     }
     try {
-      await this.client.delete(`/v2/positions/${symbol}`);
+      const path = this._isBrokerApi() && accountId
+        ? `/v1/trading/accounts/${accountId}/positions/${symbol}`
+        : `/v2/positions/${symbol}`;
+      await this.client.delete(path);
       return true;
     } catch (error: any) {
       console.error("Error closing Alpaca position:", error.message);
@@ -310,12 +379,15 @@ class AlpacaBrokerService {
     }
   }
 
-  async cancelAllOrders(): Promise<number> {
+  async cancelAllOrders(accountId?: string): Promise<number> {
     if (!this.isConfigured()) {
       return 0;
     }
     try {
-      const response = await this.client.delete("/v2/orders");
+      const path = this._isBrokerApi() && accountId
+        ? `/v1/trading/accounts/${accountId}/orders`
+        : "/v2/orders";
+      const response = await this.client.delete(path);
       return Array.isArray(response.data) ? response.data.length : 0;
     } catch (error: any) {
       console.error("Error canceling all Alpaca orders:", error.message);
@@ -326,12 +398,16 @@ class AlpacaBrokerService {
   async getPortfolioHistory(
     period: string = "1M",
     timeframe: string = "1D",
+    accountId?: string,
   ): Promise<AlpacaPortfolioHistory | null> {
     if (!this.isConfigured()) {
       return null;
     }
     try {
-      const response = await this.client.get("/v2/account/portfolio/history", {
+      const path = this._isBrokerApi() && accountId
+        ? `/v1/trading/accounts/${accountId}/account/portfolio/history`
+        : "/v2/account/portfolio/history";
+      const response = await this.client.get(path, {
         params: { period, timeframe, extended_hours: false },
       });
       return response.data;
@@ -346,7 +422,9 @@ class AlpacaBrokerService {
       return null;
     }
     try {
-      const response = await this.client.get("/v2/clock");
+      // Market clock is at /v1/clock for broker API, /v2/clock for trading API
+      const path = this._isBrokerApi() ? "/v1/clock" : "/v2/clock";
+      const response = await this.client.get(path);
       return response.data;
     } catch (error: any) {
       console.error("Error fetching Alpaca market clock:", error.message);

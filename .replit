@@ -80,7 +80,6 @@ ZOHO_DATACENTER = "in"
 TRUTHSCREEN_BASE_URL = "https://www.truthscreen.com"
 PYTHON_SERVICE_SECRET = "SwoGkTwLExnmEeAYisQSuz80MX2JArpEiUGdY/uqJgOu+6B/OLZxpV+WQkw3+8Cr"
 QUANDL_API_KEY = "mzgr8gFUKsPMrdS2DpTp"
-ALPACA_BASE_URL = "https://broker-api.sandbox.alpaca.markets"
 
 [userenv.production]
 CASHFREE_ENVIRONMENT = "PRODUCTION"
@@ -90,6 +89,7 @@ NODE_ENV = "production"
 KYC_ENVIRONMENT = "production"
 ENRICHMENT_WORKER_URL = "https://enrich.fintekpro.com"
 PYTHON_SERVICE_URL = "https://python.fintekpro.com"
+ALPACA_BASE_URL = "https://broker-api.alpaca.markets"
 
 [userenv.development]
 KYC_ENVIRONMENT = "sandbox"
@@ -97,6 +97,7 @@ SANDBOX_API_KEY = "key_test_30cdf12be1bb430cbefe492a20a8d136"
 SANDBOX_API_SECRET = "secret_test_5d8968b4e4e4416fa39b4219f0f16509"
 CASHFREE_APP_ID = "TEST10836060d3a217bef4c834c4306906063801"
 CASHFREE_SECRET_KEY = "cfsk_ma_test_421d55af23ebab1dc06a350475c8b8ae_6d955f65"
+ALPACA_BASE_URL = "https://broker-api.sandbox.alpaca.markets"
 
 [postMerge]
 path = "scripts/post-merge.sh"
