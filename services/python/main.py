@@ -6,34 +6,45 @@ from contextlib import asynccontextmanager
 
 # ── yfinance noise suppression (must run before any yfinance import) ───────────
 # Yahoo Finance rate-limits Railway datacenter IPs, causing yfinance 0.2.x to
-# emit messages like "$SPY: possibly delisted; no price data found (period=1y)"
-# via print() / sys.stderr.write() — bypassing Python's logging system entirely.
-# yfinance uses `multitasking` which spawns background threads, so
-# contextlib.redirect_stdout/stderr is not reliable (threads outlive the with-block).
-# Solution: install a global write-level filter on sys.stdout/stderr at startup
-# — thread-safe because all threads share the same sys.stdout/sys.stderr objects
-# and our filter checks patterns at write() time, not at thread-creation time.
+# emit messages like "$SPY: possibly delisted; no price data found (period=1y)".
+#
+# Two-layer suppression (belt + suspenders):
+#
+# Layer 1 — Python sys.stderr/stdout wrapper: intercepts print() calls from
+#   yfinance's multitasking background threads at the Python object level.
+#
+# Layer 2 — logging.Filter on root logger: intercepts any yfinance noise that
+#   enters Python's logging system (e.g. via warnings.warn → logging bridge).
+# ─────────────────────────────────────────────────────────────────────────────
 _YF_NOISE_PATTERNS = (
     "possibly delisted",
     "no price data found",
     "Failed to get ticker",
     "Expecting value: line 1 column 1",
+    # Commodity/futures tickers (yfinance prefixes bare symbol with '$')
+    "$GC=F", "$CL=F", "$SI=F", "$BZ=F", "$NG=F", "$HG=F",
+    "$ZW=F", "$ZS=F", "$CT=F", "$PA=F", "$PL=F", "$ALI=F",
+    # US large-cap stocks
     "$AAPL", "$MSFT", "$NVDA", "$TSLA", "$GOOGL", "$AMZN", "$META",
+    "$JPM", "$V", "$MA", "$UNH", "$JNJ", "$XOM", "$CVX", "$PG",
+    "$HD", "$MRK", "$ABBV", "$PFE", "$BRK-B",
+    # ETFs
     "$SPY", "$QQQ", "$VOO", "$VTI", "$IVV", "$GLD", "$SLV", "$TLT",
     "$LQD", "$AGG", "$BND", "$IWM", "$VEA", "$VWO", "$EFA",
+    "$XLK", "$XLF", "$XLV", "$XLE", "$XLI",
 )
 
+# Layer 1: Python sys.stderr/stdout object wrapper
 class _YfNoiseFilter:
     """
-    Thread-safe, write-time filter for sys.stdout and sys.stderr.
-    Silently drops lines that match known yfinance rate-limit noise patterns.
-    All other output is passed through unchanged.
+    Thread-safe write-time filter for sys.stdout and sys.stderr.
+    Silently drops lines matching known yfinance rate-limit noise patterns.
     """
     def __init__(self, wrapped):
         self._w = wrapped
 
     def write(self, s: str):
-        if s and any(p in s for p in _YF_NOISE_PATTERNS):
+        if s and s.strip() and any(p in s for p in _YF_NOISE_PATTERNS):
             return
         self._w.write(s)
 
@@ -45,6 +56,15 @@ class _YfNoiseFilter:
 
 sys.stdout = _YfNoiseFilter(sys.stdout)  # type: ignore[assignment]
 sys.stderr = _YfNoiseFilter(sys.stderr)  # type: ignore[assignment]
+
+# Layer 2: Python logging.Filter — catches yfinance noise that enters via the
+# logging system (warnings bridge, direct logger calls, etc.)
+class _YfNoiseLogFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        return not any(p in msg for p in _YF_NOISE_PATTERNS)
+
+logging.getLogger().addFilter(_YfNoiseLogFilter())
 # ─────────────────────────────────────────────────────────────────────────────
 
 from fastapi import FastAPI
