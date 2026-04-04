@@ -653,7 +653,21 @@ router.get("/alpaca/config", async (req, res) => {
     isPaper: alpacaBrokerService.isPaperTrading(),
     baseUrl: alpacaBrokerService.getBaseUrl(),
     defaultBaseUrl: "https://broker-api.sandbox.alpaca.markets",
+    isBrokerApi: alpacaBrokerService.isBrokerApi(),
   });
+});
+
+// List all broker-managed accounts (broker API only)
+router.get("/alpaca/broker/accounts", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.json({ configured: false, accounts: [] });
+    }
+    const accounts = await alpacaBrokerService.listBrokerAccounts();
+    res.json({ configured: true, accounts });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 router.get("/alpaca/account", async (req, res) => {
@@ -661,7 +675,8 @@ router.get("/alpaca/account", async (req, res) => {
     if (!alpacaBrokerService.isConfigured()) {
       return res.json({ configured: false, isPaper: true });
     }
-    const account = await alpacaBrokerService.getAccount();
+    const accountId = req.query.accountId as string | undefined;
+    const account = await alpacaBrokerService.getAccount(accountId);
     res.json({ configured: true, isPaper: alpacaBrokerService.isPaperTrading(), account });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -687,7 +702,8 @@ router.get("/alpaca/portfolio/history", async (req, res) => {
     }
     const period = (req.query.period as string) || "1M";
     const timeframe = (req.query.timeframe as string) || "1D";
-    const history = await alpacaBrokerService.getPortfolioHistory(period, timeframe);
+    const accountId = req.query.accountId as string | undefined;
+    const history = await alpacaBrokerService.getPortfolioHistory(period, timeframe, accountId);
     res.json({ configured: true, history });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -701,7 +717,8 @@ router.get("/alpaca/orders", async (req, res) => {
     }
     const status = (req.query.status as string) || "all";
     const limit = parseInt((req.query.limit as string) || "50");
-    const orders = await alpacaBrokerService.getOrders(status, limit);
+    const accountId = req.query.accountId as string | undefined;
+    const orders = await alpacaBrokerService.getOrders(status, limit, accountId);
     res.json({ configured: true, orders });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -713,7 +730,8 @@ router.delete("/alpaca/orders", async (req, res) => {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca API not configured" });
     }
-    const cancelled = await alpacaBrokerService.cancelAllOrders();
+    const accountId = req.query.accountId as string | undefined;
+    const cancelled = await alpacaBrokerService.cancelAllOrders(accountId);
     res.json({ success: true, cancelled });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -725,7 +743,8 @@ router.delete("/alpaca/orders/:orderId", async (req, res) => {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca API not configured" });
     }
-    const ok = await alpacaBrokerService.cancelOrder(req.params.orderId);
+    const accountId = req.query.accountId as string | undefined;
+    const ok = await alpacaBrokerService.cancelOrder(req.params.orderId, accountId);
     res.json({ success: ok });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -737,7 +756,8 @@ router.delete("/alpaca/positions/:symbol", async (req, res) => {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca API not configured" });
     }
-    const ok = await alpacaBrokerService.closePosition(req.params.symbol.toUpperCase());
+    const accountId = req.query.accountId as string | undefined;
+    const ok = await alpacaBrokerService.closePosition(req.params.symbol.toUpperCase(), accountId);
     res.json({ success: ok });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });

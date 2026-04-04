@@ -671,10 +671,13 @@ function CredentialsForm({ onSuccess }: { onSuccess: () => void }) {
             <Input
               value={apiKey}
               onChange={e => setApiKey(e.target.value)}
-              placeholder="PKXXXXXXXXXXXXXXXXXXXXXXXX"
+              placeholder="CK7IOXXXXXXXXXXXXXXXXXXXXXXXX"
               className="font-mono text-sm"
               autoComplete="off"
             />
+            <p className="text-xs text-muted-foreground">
+              Broker API keys start with <code className="bg-muted px-1 rounded">CK</code> (e.g. <code className="bg-muted px-1 rounded">CK7IO…</code>)
+            </p>
           </div>
 
           {/* Secret Key */}
@@ -704,13 +707,38 @@ function CredentialsForm({ onSuccess }: { onSuccess: () => void }) {
 
           <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 py-3">
             <AlertTriangle className="h-3.5 w-3.5 text-blue-500" />
-            <AlertDescription className="text-xs text-blue-700 dark:text-blue-300">
-              These credentials are stored in memory for the current session. For persistence across restarts,
-              set <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">ALPACA_API_KEY</code>,{" "}
-              <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">ALPACA_SECRET_KEY</code>, and{" "}
-              <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">ALPACA_BASE_URL</code> as environment secrets.
+            <AlertDescription className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+              <p>
+                <strong>Broker API</strong> credentials (keys starting with <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">CK</code>) are required for{" "}
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">broker-api.sandbox.alpaca.markets</code>.
+                These are different from regular paper/live trading keys.
+              </p>
+              <p>
+                For persistence across restarts, save{" "}
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">ALPACA_API_KEY</code>,{" "}
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">ALPACA_SECRET_KEY</code>, and{" "}
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">ALPACA_BASE_URL</code> as environment secrets.
+              </p>
             </AlertDescription>
           </Alert>
+
+          {saveMutation.isError && (
+            <Alert className="border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 py-3">
+              <XCircle className="h-3.5 w-3.5 text-red-500" />
+              <AlertDescription className="text-xs text-red-700 dark:text-red-300">
+                <strong>Connection failed:</strong>{" "}
+                {(saveMutation.error as any)?.message ?? "Check that your Broker API credentials are correct and the sandbox account is active."}{" "}
+                <a
+                  href="https://broker-app.sandbox.alpaca.markets"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  Open Broker Sandbox →
+                </a>
+              </AlertDescription>
+            </Alert>
+          )}
 
           <Button
             className="w-full"
@@ -733,14 +761,14 @@ function CredentialsForm({ onSuccess }: { onSuccess: () => void }) {
       </Card>
 
       <p className="text-center text-xs text-muted-foreground">
-        Get your API keys from{" "}
+        Get Broker API credentials from{" "}
         <a
-          href="https://app.alpaca.markets/paper-account/overview"
+          href="https://broker-app.sandbox.alpaca.markets"
           target="_blank"
           rel="noopener noreferrer"
           className="underline hover:text-foreground"
         >
-          Alpaca Dashboard
+          Alpaca Broker Sandbox
         </a>
         {" "}→ API Keys section.
       </p>
