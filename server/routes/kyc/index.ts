@@ -745,7 +745,7 @@ export function registerKYCWizardRoutes(app: Express) {
       
       await storage.updateKycVerificationSession(sessionId, {
         aadhaarNumber: await PANConsentService.encryptPAN(last4Digits),
-        currentStep: "aadhaar_verification",
+        currentStep: "aadhaar_otp_verify",
         stepStatus: {
           ...session.stepStatus as any,
           aadhaar_otp_sent: true,
@@ -899,10 +899,11 @@ export function registerKYCWizardRoutes(app: Express) {
         aadhaarVerified: true,
         aadhaarVerifiedAt: new Date(),
         aadhaarVerificationData: verificationData,
-        currentStep: "data_collection",
+        currentStep: "risk_profiling",
         stepStatus: {
           ...stepStatus,
           aadhaar_verified: true,
+          aadhaar_otp_sent: true,
           aadhaar_reference_id: null,
         }
       });
@@ -1115,6 +1116,10 @@ export function registerKYCWizardRoutes(app: Express) {
             ckyc_confidence: ckycDecision.confidence_score,
             ckyc_missing_fields: ckycDecision.missing_fields,
             aadhaar_required: ckycDecision.aadhaar_required,
+            // Bug 5 fix (part 1): when CKYC is complete and Aadhaar OTP is skipped,
+            // mark aadhaar_verified true in stepStatus so compliance signoff
+            // doesn't accidentally reset aadhaarVerifiedViaSmartKyc to false.
+            aadhaar_verified: !ckycDecision.aadhaar_required,
           }
         });
         
@@ -1124,7 +1129,7 @@ export function registerKYCWizardRoutes(app: Express) {
           ckycAuthBridgeFetchedAt: new Date(),
           ckycAuthBridgeKin: ckycResult.data.kin,
           ckycAuthBridgeResponse: ckycResult.data,
-          ckycAuthBridgeStatus: 'SUCCESS',
+          ckycAuthBridgeStatus: 'found',   // Bug 3 fix: reconciliation checks for 'found', not 'SUCCESS'
         };
 
         // ── T004: CKYC auto-populate when Aadhaar OTP is skipped ─────────────
@@ -1140,6 +1145,14 @@ export function registerKYCWizardRoutes(app: Express) {
           if (cd.gender)   ckycProfileUpdate.gender    = cd.gender;
           if (cd.fatherName) ckycProfileUpdate.fatherName = cd.fatherName;
           ckycProfileUpdate.aadhaarVerifiedViaSmartKyc = true;
+
+          // Bug 5 fix: also mark aadhaar_verified in the session so compliance signoff
+          // can read it correctly from stepStatus — without this, signoff would reset
+          // aadhaarVerifiedViaSmartKyc back to false for the CKYC-only path.
+          await storage.updateKycVerificationSession(sessionId, {
+            aadhaarVerified: true,
+            aadhaarVerifiedAt: new Date(),
+          });
 
           // Mark user as Aadhaar-verified via CKYC registry
           await db.update(schema.users)
