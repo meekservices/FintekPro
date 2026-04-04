@@ -1012,8 +1012,8 @@ export function registerKYCWizardRoutes(app: Express) {
           kycLevelUpgradedAt: new Date(),
           isProfileCompleted: true,
           profileCompletedAt: new Date(),
-          kraVerifiedViaProtean: stepStatus.kra_verified || true,
-          aadhaarVerifiedViaSmartKyc: stepStatus.aadhaar_verified || session.aadhaarVerified || true,
+          kraVerifiedViaProtean: !!stepStatus.kra_verified,
+          aadhaarVerifiedViaSmartKyc: !!(stepStatus.aadhaar_verified || session.aadhaarVerified),
           // NOTE: videoKycCompleted is NOT set here — V-CIP must be completed via actual video session
         })
         .where(eq(schema.userProfiles.userId, userId));
@@ -1255,6 +1255,14 @@ export function registerKYCWizardRoutes(app: Express) {
           message: "Invalid session"
         });
       }
+
+      if (!session.isActive || (session.expiresAt && new Date() > new Date(session.expiresAt))) {
+        return res.status(410).json({
+          success: false,
+          code: 'SESSION_EXPIRED',
+          message: "Your KYC session has expired. Please start a new session."
+        });
+      }
       
       await storage.updateKycVerificationSession(sessionId, {
         riskProfileData: riskData,
@@ -1314,6 +1322,14 @@ export function registerKYCWizardRoutes(app: Express) {
         });
       }
 
+      if (!session.isActive || (session.expiresAt && new Date() > new Date(session.expiresAt))) {
+        return res.status(410).json({
+          success: false,
+          code: 'SESSION_EXPIRED',
+          message: "Your KYC session has expired. Please start a new session."
+        });
+      }
+
       const initiatedBy = (session as any).initiatedBy || 'customer';
       if (kycOrchestratorService.isAgentBlocked('compliance_signoff', initiatedBy)) {
         return res.status(403).json({
@@ -1369,9 +1385,9 @@ export function registerKYCWizardRoutes(app: Express) {
           kycLevelUpgradedAt: new Date(),
           isProfileCompleted: true,
           profileCompletedAt: new Date(),
-          kraVerifiedViaProtean: stepStatus.kra_verified || true,
+          kraVerifiedViaProtean: !!stepStatus.kra_verified,
           panVerifiedViaSmartKyc: true,
-          aadhaarVerifiedViaSmartKyc: aadhaarVerifiedFlag || true,
+          aadhaarVerifiedViaSmartKyc: aadhaarVerifiedFlag,
           // NOTE: videoKycCompleted is NOT set here — V-CIP requires an actual video session (SEBI/RBI)
           kycTier: tierResult.kyc_tier,
           kycTierStatus: tierResult.tier_status,
@@ -1397,9 +1413,9 @@ export function registerKYCWizardRoutes(app: Express) {
         const usersUpdate: Record<string, any> = {
           smartKycCompletedAt: new Date(),
           panVerifiedViaSmartKyc: true,
-          aadhaarVerifiedViaSmartKyc: aadhaarVerifiedFlag || true,
+          aadhaarVerifiedViaSmartKyc: aadhaarVerifiedFlag,
           panVerificationDate: session.panVerifiedAt || new Date(),
-          aadhaarVerificationDate: session.aadhaarVerifiedAt || new Date(),
+          aadhaarVerificationDate: aadhaarVerifiedFlag ? (session.aadhaarVerifiedAt || new Date()) : null,
         };
         if (decryptedPan) {
           usersUpdate.panNumber = decryptedPan;

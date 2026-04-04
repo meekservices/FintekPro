@@ -286,7 +286,6 @@ export function registerKycV2ExtensionRoutes(app: Express) {
       }
 
       const trackingId = `RKC-${Date.now().toString(36).toUpperCase()}-${userId.slice(-4).toUpperCase()}`;
-      const sanitizedValue = field === 'panNumber' ? newValue.toUpperCase().trim() : newValue.trim();
 
       await db.insert(kycAuditLogs).values({
         userId,

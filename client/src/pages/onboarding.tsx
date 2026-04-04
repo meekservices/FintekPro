@@ -3949,13 +3949,14 @@ export default function SmartKYCOnboarding() {
                         onClick={async () => {
                           setRekycSubmitting(true);
                           try {
-                            const res = await apiRequest('POST', '/api/kyc/request-document-change', {
-                              field: rekycField,
-                              newValue: rekycNewValue.trim(),
-                              reason: rekycReason,
-                              notes: rekycNotes.trim(),
+                            const data = await apiRequest('/api/kyc/request-document-change', 'POST', {
+                              body: {
+                                field: rekycField,
+                                newValue: rekycNewValue.trim(),
+                                reason: rekycReason,
+                                notes: rekycNotes.trim(),
+                              }
                             });
-                            const data = await res.json();
                             if (data.success) {
                               setRekycSuccess({
                                 trackingId: data.trackingId,
