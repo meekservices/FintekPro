@@ -6,6 +6,7 @@ import { users, kycVault } from "@shared/schema";
 import { usTradingService } from "../services/us-trading-service";
 import { polygonMarketService } from "../services/polygon-market-service";
 import { alpacaBrokerService } from "../services/alpaca-broker-service";
+import { alpacaSseService } from "../services/alpaca-sse-service";
 import { massiveWebSocketService } from "../services/massive-websocket-service";
 import { usOrderNotificationService } from "../services/us-order-notification-service";
 import { usRebalancingEngine } from "../services/us-rebalancing-engine";
@@ -2225,6 +2226,366 @@ router.get("/broker/calendar", async (req, res) => {
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+// ─── Funding Wallets ──────────────────────────────────────────────────────────
+
+router.get("/broker/accounts/:accountId/funding-wallet", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const { accountId } = req.params;
+    let wallet = await alpacaBrokerService.getFundingWallet(accountId);
+    if (!wallet) {
+      wallet = await alpacaBrokerService.createFundingWallet(accountId);
+    }
+    const details = wallet
+      ? await alpacaBrokerService.getFundingWalletDetails(accountId, wallet.id)
+      : [];
+    const transfers = wallet
+      ? await alpacaBrokerService.getFundingWalletTransfers(accountId, wallet.id)
+      : [];
+    res.json({ success: true, wallet, details, transfers });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/broker/accounts/:accountId/funding-wallet/deposit-simulation", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const { accountId } = req.params;
+    const { amount_usd } = req.body;
+    if (!amount_usd || amount_usd <= 0) return res.status(400).json({ error: "Invalid amount" });
+    const wallet = await alpacaBrokerService.getFundingWallet(accountId);
+    if (!wallet) return res.status(404).json({ error: "No funding wallet — create it first" });
+    const result = await alpacaBrokerService.simulateFundingDeposit(accountId, wallet.id, parseFloat(amount_usd));
+    res.json({ success: true, result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── Recipient Banks ──────────────────────────────────────────────────────────
+
+router.get("/broker/accounts/:accountId/recipient-banks", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const banks = await alpacaBrokerService.listRecipientBanks(req.params.accountId);
+    res.json({ success: true, banks });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/broker/accounts/:accountId/recipient-banks", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const schema = z.object({
+      name: z.string().min(1),
+      bank_name: z.string().min(1),
+      bank_account_number: z.string().min(1),
+      bank_account_type: z.enum(["CHECKING", "SAVINGS", "INTERNATIONAL"]),
+      bank_routing_number: z.string().optional(),
+      bank_swift_code: z.string().optional(),
+      bank_iban: z.string().optional(),
+      country: z.string().min(2).max(3),
+      currency: z.string().min(3).max(3),
+      bank_address: z.string().optional(),
+      beneficiary_address: z.string().optional(),
+    });
+    const data = schema.parse(req.body);
+    const bank = await alpacaBrokerService.createRecipientBank(req.params.accountId, data);
+    res.json({ success: true, bank });
+  } catch (error: any) {
+    res.status(error.name === "ZodError" ? 400 : 500).json({ success: false, error: error.message });
+  }
+});
+
+router.delete("/broker/accounts/:accountId/recipient-banks/:bankId", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    await alpacaBrokerService.deleteRecipientBank(req.params.accountId, req.params.bankId);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/broker/accounts/:accountId/wire-withdrawal", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const { amount, currency = "USD", recipient_bank_id, memo } = req.body;
+    if (!amount || !recipient_bank_id) return res.status(400).json({ error: "amount and recipient_bank_id required" });
+    const result = await alpacaBrokerService.createWireWithdrawal(req.params.accountId, {
+      amount: parseFloat(amount), currency, recipient_bank_id, memo,
+    });
+    res.json({ success: true, result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── Options Contracts ────────────────────────────────────────────────────────
+
+router.get("/options/contracts", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const contracts = await alpacaBrokerService.listOptionContracts({
+      underlying_symbols: req.query.symbol as string || "",
+      expiration_date_gte: req.query.expiry_from as string,
+      expiration_date_lte: req.query.expiry_to as string,
+      type: req.query.type as "call" | "put" | undefined,
+      strike_price_gte: req.query.strike_min as string,
+      strike_price_lte: req.query.strike_max as string,
+      limit: req.query.limit ? parseInt(req.query.limit as string) : 100,
+    });
+    res.json({ success: true, contracts });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/options/contracts/:symbolOrId", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const contract = await alpacaBrokerService.getOptionContract(req.params.symbolOrId);
+    if (!contract) return res.status(404).json({ error: "Contract not found" });
+    res.json({ success: true, contract });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/options/positions", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const accountId = req.query.account_id as string | undefined;
+    const positions = await alpacaBrokerService.getOptionsPositions(accountId);
+    res.json({ success: true, positions });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── Account Configuration ────────────────────────────────────────────────────
+
+router.get("/account/config", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const accountId = (req as any).user?.alpacaAccountId;
+    const config = await alpacaBrokerService.getAccountConfig(accountId);
+    if (!config) return res.status(404).json({ error: "Config not found" });
+    res.json({ success: true, config });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.patch("/account/config", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const accountId = (req as any).user?.alpacaAccountId;
+    const config = await alpacaBrokerService.updateAccountConfig(req.body, accountId);
+    res.json({ success: true, config });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/broker/accounts/:accountId/config", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const config = await alpacaBrokerService.getAccountConfig(req.params.accountId);
+    res.json({ success: true, config });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.patch("/broker/accounts/:accountId/config", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const config = await alpacaBrokerService.updateAccountConfig(req.body, req.params.accountId);
+    res.json({ success: true, config });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── Batch Journals ───────────────────────────────────────────────────────────
+
+router.post("/broker/journals/batch", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const { journals } = req.body;
+    if (!Array.isArray(journals) || journals.length === 0) {
+      return res.status(400).json({ error: "journals array is required" });
+    }
+    const result = await alpacaBrokerService.createBatchJournals(journals);
+    res.json({ success: true, ...result, total: journals.length });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── Alpaca Rebalancing Portfolios ────────────────────────────────────────────
+
+router.get("/broker/rebalancing/portfolios", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const portfolios = await alpacaBrokerService.listRebalancingPortfolios();
+    res.json({ success: true, portfolios });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/broker/rebalancing/portfolios", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const portfolio = await alpacaBrokerService.createRebalancingPortfolio(req.body);
+    res.json({ success: true, portfolio });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/broker/rebalancing/portfolios/:portfolioId", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const portfolio = await alpacaBrokerService.getRebalancingPortfolio(req.params.portfolioId);
+    if (!portfolio) return res.status(404).json({ error: "Portfolio not found" });
+    res.json({ success: true, portfolio });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.patch("/broker/rebalancing/portfolios/:portfolioId", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const portfolio = await alpacaBrokerService.updateRebalancingPortfolio(req.params.portfolioId, req.body);
+    res.json({ success: true, portfolio });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/broker/rebalancing/portfolios/:portfolioId/subscriptions", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const subs = await alpacaBrokerService.listPortfolioSubscriptions(req.params.portfolioId);
+    res.json({ success: true, subscriptions: subs });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/broker/rebalancing/portfolios/:portfolioId/subscriptions", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const { account_id } = req.body;
+    if (!account_id) return res.status(400).json({ error: "account_id required" });
+    const sub = await alpacaBrokerService.subscribeAccountToPortfolio(req.params.portfolioId, account_id);
+    res.json({ success: true, subscription: sub });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.delete("/broker/rebalancing/portfolios/:portfolioId/subscriptions/:subscriptionId", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    await alpacaBrokerService.unsubscribeAccountFromPortfolio(req.params.portfolioId, req.params.subscriptionId);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/broker/rebalancing/portfolios/:portfolioId/runs", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const runs = await alpacaBrokerService.listRebalancingRuns(req.params.portfolioId);
+    res.json({ success: true, runs });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/broker/rebalancing/portfolios/:portfolioId/runs", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const { type = "full_rebalance" } = req.body;
+    const run = await alpacaBrokerService.createRebalancingRun(req.params.portfolioId, type);
+    res.json({ success: true, run });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── Corporate Actions (updated endpoint) ─────────────────────────────────────
+
+router.get("/broker/corporate-actions/announcements", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const actions = await alpacaBrokerService.getCorporateActionsNew({
+      symbol: req.query.symbol as string,
+      types: req.query.types as string,
+      date_from: req.query.date_from as string,
+      date_to: req.query.date_to as string,
+      limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
+    });
+    res.json({ success: true, announcements: actions, total: actions.length });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── SSE Event Stream Proxy ────────────────────────────────────────────────────
+// Relays Alpaca SSE events to the browser client over a persistent connection.
+
+router.get("/events/stream", async (req, res) => {
+  const userId = (req as any).user?.id;
+  const alpacaAccountId = req.query.account_id as string | undefined;
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  const subscriberId = crypto.randomUUID();
+
+  // Send a hello heartbeat
+  res.write(`event: connected\ndata: ${JSON.stringify({ subscriberId, ts: new Date().toISOString() })}\n\n`);
+
+  // Heartbeat every 25s to keep connection alive through proxies
+  const heartbeat = setInterval(() => {
+    res.write(": heartbeat\n\n");
+  }, 25_000);
+
+  // Subscribe to Alpaca events
+  alpacaSseService.subscribe(subscriberId, userId, alpacaAccountId, (event) => {
+    try {
+      res.write(`event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`);
+    } catch {
+      // client disconnected
+    }
+  });
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    alpacaSseService.unsubscribe(subscriberId);
+  });
+});
+
+// GET recent cached events (non-streaming)
+router.get("/events/recent", async (req, res) => {
+  const accountId = req.query.account_id as string | undefined;
+  const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+  const events = alpacaSseService.getRecentEvents(accountId, limit);
+  res.json({ success: true, events, total: events.length });
 });
 
 export default router;

@@ -36,8 +36,16 @@ import {
   DollarSign, BarChart3, Activity, XCircle, CheckCircle2,
   Building2, KeyRound, Eye, EyeOff, Link2, FileText, Banknote, Trash2,
   ArrowUpCircle, ArrowDownCircle, Plus, Download, Globe, ChevronRight,
-  Zap, Crown, Lock,
+  Zap, Crown, Lock, Landmark, Send, Settings2, CalendarDays, Radio,
+  ListOrdered, ShieldCheck,
 } from "lucide-react";
+import FundingWalletPanel from "@/components/us-trading/FundingWalletPanel";
+import RecipientBanksPanel from "@/components/us-trading/RecipientBanksPanel";
+import EnhancedOrderForm from "@/components/us-trading/EnhancedOrderForm";
+import OptionsChain from "@/components/us-trading/OptionsChain";
+import AccountConfigPanel from "@/components/us-trading/AccountConfigPanel";
+import AlpacaEventFeed from "@/components/us-trading/AlpacaEventFeed";
+import MarketCalendarPanel from "@/components/us-trading/MarketCalendarPanel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1602,22 +1610,46 @@ export default function AlpacaAccountDashboard() {
 
       {/* Tabbed sections */}
       <Tabs defaultValue="overview" className="mt-2">
-        <TabsList className="mb-4">
+        <TabsList className="mb-4 flex-wrap h-auto gap-y-1">
           <TabsTrigger value="overview" className="flex items-center gap-1.5">
             <BarChart3 className="h-3.5 w-3.5" />
             Overview
           </TabsTrigger>
           <TabsTrigger value="trading" className="flex items-center gap-1.5">
             <TrendingUp className="h-3.5 w-3.5" />
-            Positions &amp; Orders
+            Trade
           </TabsTrigger>
           <TabsTrigger value="wallet" className="flex items-center gap-1.5">
             <Banknote className="h-3.5 w-3.5" />
             Wallet
           </TabsTrigger>
+          <TabsTrigger value="deposit" className="flex items-center gap-1.5">
+            <Landmark className="h-3.5 w-3.5" />
+            Deposit
+          </TabsTrigger>
+          <TabsTrigger value="withdraw" className="flex items-center gap-1.5">
+            <Send className="h-3.5 w-3.5" />
+            Withdraw
+          </TabsTrigger>
+          <TabsTrigger value="options" className="flex items-center gap-1.5">
+            <ListOrdered className="h-3.5 w-3.5" />
+            Options
+          </TabsTrigger>
           <TabsTrigger value="activities" className="flex items-center gap-1.5">
             <Activity className="h-3.5 w-3.5" />
             Activities
+          </TabsTrigger>
+          <TabsTrigger value="calendar" className="flex items-center gap-1.5">
+            <CalendarDays className="h-3.5 w-3.5" />
+            Calendar
+          </TabsTrigger>
+          <TabsTrigger value="config" className="flex items-center gap-1.5">
+            <Settings2 className="h-3.5 w-3.5" />
+            Config
+          </TabsTrigger>
+          <TabsTrigger value="events" className="flex items-center gap-1.5">
+            <Radio className="h-3.5 w-3.5" />
+            Live Events
           </TabsTrigger>
           <TabsTrigger value="documents" className="flex items-center gap-1.5">
             <FileText className="h-3.5 w-3.5" />
@@ -1632,6 +1664,8 @@ export default function AlpacaAccountDashboard() {
         </TabsContent>
 
         <TabsContent value="trading" className="space-y-5 mt-0">
+          <EnhancedOrderForm />
+          <Separator />
           <PositionsTable isPaper={isPaper} />
           <Separator />
           <OrdersTable isPaper={isPaper} />
@@ -1645,12 +1679,44 @@ export default function AlpacaAccountDashboard() {
           )}
         </TabsContent>
 
+        <TabsContent value="deposit" className="mt-0">
+          {account ? (
+            <FundingWalletPanel alpacaAccountId={account.id} isSandbox={isPaper} />
+          ) : (
+            <div className="py-8 text-center text-sm text-muted-foreground">Account data not loaded</div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="withdraw" className="mt-0">
+          {account ? (
+            <RecipientBanksPanel alpacaAccountId={account.id} />
+          ) : (
+            <div className="py-8 text-center text-sm text-muted-foreground">Account data not loaded</div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="options" className="mt-0">
+          <OptionsChain />
+        </TabsContent>
+
         <TabsContent value="activities" className="mt-0">
           {account ? (
             <ActivitiesTab accountId={account.id} />
           ) : (
             <div className="py-8 text-center text-sm text-muted-foreground">Account data not loaded</div>
           )}
+        </TabsContent>
+
+        <TabsContent value="calendar" className="mt-0">
+          <MarketCalendarPanel />
+        </TabsContent>
+
+        <TabsContent value="config" className="mt-0">
+          <AccountConfigPanel accountId={account?.id} />
+        </TabsContent>
+
+        <TabsContent value="events" className="mt-0">
+          <AlpacaEventFeed alpacaAccountId={account?.id} />
         </TabsContent>
 
         <TabsContent value="documents" className="mt-0">

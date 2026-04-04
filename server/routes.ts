@@ -354,6 +354,7 @@ const taxReminderSubscriptionSchema = z.object({
 
 import { symbolMappingService } from './services/symbol-mapping-service';
 import { creditRatingsService } from './services/credit-ratings-service';
+import { alpacaSseService } from './services/alpaca-sse-service';
 import { insertCreditRatingSchema, insertSymbolMappingSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express, existingServer?: Server): Promise<Server> {
@@ -1199,6 +1200,13 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.use("/api/proposal-builder", proposalBuilderRoutes);
   console.log("✅ Proposal Builder routes registered");
   console.log("✅ US Trading routes registered");
+  // Start Alpaca SSE event streams (trade fills, account/journal/transfer status)
+  if (process.env.ALPACA_API_KEY) {
+    alpacaSseService.start(["trade_updates", "account_updates", "journal_updates", "transfer_updates"]);
+    console.log("✅ Alpaca SSE event streams started");
+  } else {
+    console.log("⏭️ [AlpacaSSE] Skipped — ALPACA_API_KEY not configured");
+  }
   console.log("✅ Unified Portfolio routes registered");
   console.log("✅ AI Rebalancing routes registered");
   console.log("✅ Unified Proposals routes registered");

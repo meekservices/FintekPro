@@ -270,13 +270,114 @@ interface OrderRequest {
   symbol: string;
   qty?: number;
   notional?: number;
-  side: "buy" | "sell";
-  type: "market" | "limit" | "stop" | "stop_limit";
-  time_in_force: "day" | "gtc" | "ioc" | "fok";
+  side: "buy" | "sell" | "sell_short" | "buy_to_cover";
+  type: "market" | "limit" | "stop" | "stop_limit" | "trailing_stop";
+  time_in_force: "day" | "gtc" | "ioc" | "fok" | "opg" | "cls";
   limit_price?: number;
   stop_price?: number;
+  trail_price?: number;
+  trail_percent?: number;
+  extended_hours?: boolean;
   client_order_id?: string;
   account_id?: string;
+  // Options
+  order_class?: "simple" | "bracket" | "oco" | "oto";
+  take_profit?: { limit_price: number };
+  stop_loss?: { stop_price: number; limit_price?: number };
+}
+
+// ─── Funding Wallet ────────────────────────────────────────────────────────────
+export interface AlpacaFundingWallet {
+  id: string;
+  account_id: string;
+  status: string;
+  currency: string;
+  created_at: string;
+}
+
+export interface AlpacaFundingDetail {
+  id: string;
+  wallet_id: string;
+  currency: string;
+  bank_name: string;
+  account_name: string;
+  account_number: string;
+  routing_number?: string;
+  swift_code?: string;
+  bank_address?: string;
+  reference?: string;
+}
+
+// ─── Recipient Bank ────────────────────────────────────────────────────────────
+export interface AlpacaRecipientBank {
+  id: string;
+  account_id: string;
+  name: string;
+  status: string;
+  country: string;
+  currency: string;
+  bank_name: string;
+  bank_account_type: string;
+  bank_account_number: string;
+  bank_routing_number?: string;
+  bank_swift_code?: string;
+  bank_iban?: string;
+  created_at: string;
+}
+
+// ─── Options ──────────────────────────────────────────────────────────────────
+export interface AlpacaOptionContract {
+  id: string;
+  symbol: string;
+  name: string;
+  status: string;
+  tradable: boolean;
+  expiration_date: string;
+  strike_price: string;
+  type: "call" | "put";
+  style: "american" | "european";
+  underlying_symbol: string;
+  underlying_asset_id: string;
+  open_interest?: string;
+  close_price?: string;
+  open_price?: string;
+}
+
+// ─── Account Config ────────────────────────────────────────────────────────────
+export interface AlpacaAccountConfig {
+  dtbp_check: "both" | "entry" | "exit";
+  trade_confirm_email: "all" | "none";
+  suspend_trade: boolean;
+  no_shorting: boolean;
+  fractional_trading: boolean;
+  max_margin_multiplier: string;
+  pdt_check: "both" | "entry" | "exit" | "none";
+  ptp_no_exception_entry: boolean;
+  max_options_trading_level: number | null;
+}
+
+// ─── Rebalancing ───────────────────────────────────────────────────────────────
+export interface AlpacaRebalancingPortfolio {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+  cooldown_days: number;
+  market_conditions_look_back_days: number;
+  weights: Array<{ symbol: string; percent: string; asset_id?: string }>;
+  rebalance_conditions: Array<{ type: string; sub_type: string; percent?: string }>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AlpacaRebalancingRun {
+  id: string;
+  portfolio_id: string;
+  status: string;
+  reason: string;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
 }
 
 // ─── Service ───────────────────────────────────────────────────────────────────
@@ -863,6 +964,19 @@ class AlpacaBrokerService {
     if (request.type === "stop" || request.type === "stop_limit") {
       orderPayload.stop_price = request.stop_price?.toString();
     }
+    if (request.type === "trailing_stop") {
+      if (request.trail_price) orderPayload.trail_price = request.trail_price.toString();
+      else if (request.trail_percent) orderPayload.trail_percent = request.trail_percent.toString();
+    }
+    if (request.extended_hours) orderPayload.extended_hours = true;
+    if (request.order_class && request.order_class !== "simple") {
+      orderPayload.order_class = request.order_class;
+      if (request.take_profit) orderPayload.take_profit = { limit_price: request.take_profit.limit_price.toString() };
+      if (request.stop_loss) orderPayload.stop_loss = {
+        stop_price: request.stop_loss.stop_price.toString(),
+        ...(request.stop_loss.limit_price && { limit_price: request.stop_loss.limit_price.toString() }),
+      };
+    }
     const path = this._isBrokerApi() && request.account_id
       ? `/v1/trading/accounts/${request.account_id}/orders`
       : "/v2/orders";
@@ -1040,6 +1154,292 @@ class AlpacaBrokerService {
       return Array.isArray(response.data) ? response.data : [];
     } catch (error: any) {
       console.error("Error fetching market calendar:", error.message);
+      return [];
+    }
+  }
+
+  // ─── Funding Wallets ─────────────────────────────────────────────────────────
+
+  async createFundingWallet(accountId: string): Promise<AlpacaFundingWallet> {
+    const response = await this.client.post(`/v1beta/accounts/${accountId}/funding_wallet`);
+    return response.data;
+  }
+
+  async getFundingWallet(accountId: string): Promise<AlpacaFundingWallet | null> {
+    try {
+      const response = await this.client.get(`/v1beta/accounts/${accountId}/funding_wallet`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) return null;
+      throw error;
+    }
+  }
+
+  async getFundingWalletDetails(accountId: string, walletId: string): Promise<AlpacaFundingDetail[]> {
+    try {
+      const response = await this.client.get(`/v1beta/accounts/${accountId}/funding_wallet/${walletId}/details`);
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error: any) {
+      console.error("Error fetching funding wallet details:", error.message);
+      return [];
+    }
+  }
+
+  async getFundingWalletTransfers(accountId: string, walletId: string): Promise<any[]> {
+    try {
+      const response = await this.client.get(`/v1beta/accounts/${accountId}/funding_wallet/${walletId}/transfers`);
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error: any) {
+      console.error("Error fetching wallet transfers:", error.message);
+      return [];
+    }
+  }
+
+  /** Sandbox only — simulate a deposit to the funding wallet */
+  async simulateFundingDeposit(accountId: string, walletId: string, amountUsd: number): Promise<any> {
+    const response = await this.client.post(
+      `/v1beta/accounts/${accountId}/funding_wallet/${walletId}/transfers/demo_deposit`,
+      { amount: amountUsd.toString(), currency: "USD" },
+    );
+    return response.data;
+  }
+
+  // ─── Recipient Banks ─────────────────────────────────────────────────────────
+
+  async listRecipientBanks(accountId: string): Promise<AlpacaRecipientBank[]> {
+    try {
+      const response = await this.client.get(`/v1beta/accounts/${accountId}/recipient_banks`);
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error: any) {
+      console.error("Error listing recipient banks:", error.message);
+      return [];
+    }
+  }
+
+  async createRecipientBank(accountId: string, data: {
+    name: string;
+    bank_account_type: "CHECKING" | "SAVINGS" | "INTERNATIONAL";
+    bank_account_number: string;
+    bank_routing_number?: string;
+    bank_name: string;
+    bank_swift_code?: string;
+    bank_iban?: string;
+    country: string;
+    currency: string;
+    bank_address?: string;
+    beneficiary_address?: string;
+  }): Promise<AlpacaRecipientBank> {
+    const response = await this.client.post(`/v1beta/accounts/${accountId}/recipient_banks`, data);
+    return response.data;
+  }
+
+  async deleteRecipientBank(accountId: string, bankId: string): Promise<void> {
+    await this.client.delete(`/v1beta/accounts/${accountId}/recipient_banks/${bankId}`);
+  }
+
+  async createWireWithdrawal(accountId: string, data: {
+    amount: number;
+    currency: string;
+    recipient_bank_id: string;
+    memo?: string;
+  }): Promise<any> {
+    const response = await this.client.post(`/v1beta/accounts/${accountId}/funding_wallet/withdrawals`, {
+      amount: data.amount.toString(),
+      currency: data.currency,
+      recipient_bank_id: data.recipient_bank_id,
+      memo: data.memo,
+    });
+    return response.data;
+  }
+
+  // ─── Options ─────────────────────────────────────────────────────────────────
+
+  async listOptionContracts(params: {
+    underlying_symbols: string;
+    expiration_date?: string;
+    expiration_date_gte?: string;
+    expiration_date_lte?: string;
+    type?: "call" | "put";
+    strike_price_gte?: string;
+    strike_price_lte?: string;
+    limit?: number;
+  }): Promise<AlpacaOptionContract[]> {
+    try {
+      const path = this._isBrokerApi() ? "/v1/options/contracts" : "/v2/options/contracts";
+      const response = await this.client.get(path, { params });
+      const data = response.data;
+      return Array.isArray(data) ? data : (data?.option_contracts ?? []);
+    } catch (error: any) {
+      console.error("Error listing option contracts:", error.message);
+      return [];
+    }
+  }
+
+  async getOptionContract(symbolOrId: string): Promise<AlpacaOptionContract | null> {
+    try {
+      const path = this._isBrokerApi()
+        ? `/v1/options/contracts/${symbolOrId}`
+        : `/v2/options/contracts/${symbolOrId}`;
+      const response = await this.client.get(path);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status !== 404) console.error("Error fetching option contract:", error.message);
+      return null;
+    }
+  }
+
+  async getOptionsPositions(accountId?: string): Promise<any[]> {
+    try {
+      const path = this._isBrokerApi() && accountId
+        ? `/v1/trading/accounts/${accountId}/positions`
+        : "/v2/positions";
+      const response = await this.client.get(path, { params: { asset_class: "us_option" } });
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error: any) {
+      console.error("Error fetching options positions:", error.message);
+      return [];
+    }
+  }
+
+  // ─── Account Configuration ───────────────────────────────────────────────────
+
+  async getAccountConfig(accountId?: string): Promise<AlpacaAccountConfig | null> {
+    try {
+      const path = this._isBrokerApi() && accountId
+        ? `/v1/trading/accounts/${accountId}/account/configurations`
+        : "/v2/account/configurations";
+      const response = await this.client.get(path);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error fetching account config:", error.message);
+      return null;
+    }
+  }
+
+  async updateAccountConfig(updates: Partial<AlpacaAccountConfig>, accountId?: string): Promise<AlpacaAccountConfig> {
+    const path = this._isBrokerApi() && accountId
+      ? `/v1/trading/accounts/${accountId}/account/configurations`
+      : "/v2/account/configurations";
+    const response = await this.client.patch(path, updates);
+    return response.data;
+  }
+
+  // ─── Batch Journals ───────────────────────────────────────────────────────────
+
+  async createBatchJournals(journals: Array<{
+    from_account: string;
+    to_account: string;
+    entry_type: "JNLC" | "JNLS";
+    amount?: string;
+    symbol?: string;
+    qty?: string;
+    description?: string;
+  }>): Promise<{ success: any[]; failed: any[] }> {
+    try {
+      const response = await this.client.post("/v1/journals:batch", { journals });
+      const results = Array.isArray(response.data) ? response.data : [];
+      return {
+        success: results.filter((r: any) => !r.error),
+        failed: results.filter((r: any) => r.error),
+      };
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || "Batch journal failed");
+    }
+  }
+
+  // ─── Alpaca Native Rebalancing ────────────────────────────────────────────────
+
+  async listRebalancingPortfolios(): Promise<AlpacaRebalancingPortfolio[]> {
+    try {
+      const response = await this.client.get("/v1/rebalancing/portfolios");
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error: any) {
+      console.error("Error listing rebalancing portfolios:", error.message);
+      return [];
+    }
+  }
+
+  async createRebalancingPortfolio(data: {
+    name: string;
+    description?: string;
+    weights: Array<{ symbol: string; percent: string }>;
+    rebalance_conditions: Array<{ type: "drift_band" | "calendar"; sub_type: string; percent?: string }>;
+    cooldown_days?: number;
+  }): Promise<AlpacaRebalancingPortfolio> {
+    const response = await this.client.post("/v1/rebalancing/portfolios", data);
+    return response.data;
+  }
+
+  async getRebalancingPortfolio(portfolioId: string): Promise<AlpacaRebalancingPortfolio | null> {
+    try {
+      const response = await this.client.get(`/v1/rebalancing/portfolios/${portfolioId}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status !== 404) console.error("Error fetching portfolio:", error.message);
+      return null;
+    }
+  }
+
+  async updateRebalancingPortfolio(portfolioId: string, data: Partial<{
+    name: string;
+    description: string;
+    weights: Array<{ symbol: string; percent: string }>;
+    rebalance_conditions: Array<{ type: string; sub_type: string; percent?: string }>;
+    cooldown_days: number;
+  }>): Promise<AlpacaRebalancingPortfolio> {
+    const response = await this.client.patch(`/v1/rebalancing/portfolios/${portfolioId}`, data);
+    return response.data;
+  }
+
+  async listPortfolioSubscriptions(portfolioId: string): Promise<any[]> {
+    try {
+      const response = await this.client.get(`/v1/rebalancing/portfolios/${portfolioId}/subscriptions`);
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error: any) {
+      return [];
+    }
+  }
+
+  async subscribeAccountToPortfolio(portfolioId: string, accountId: string): Promise<any> {
+    const response = await this.client.post(`/v1/rebalancing/portfolios/${portfolioId}/subscriptions`, {
+      account_id: accountId,
+    });
+    return response.data;
+  }
+
+  async unsubscribeAccountFromPortfolio(portfolioId: string, subscriptionId: string): Promise<void> {
+    await this.client.delete(`/v1/rebalancing/portfolios/${portfolioId}/subscriptions/${subscriptionId}`);
+  }
+
+  async createRebalancingRun(portfolioId: string, type: "full_rebalance" | "partial_rebalance" | "liquidation" = "full_rebalance"): Promise<AlpacaRebalancingRun> {
+    const response = await this.client.post(`/v1/rebalancing/portfolios/${portfolioId}/runs`, { type });
+    return response.data;
+  }
+
+  async listRebalancingRuns(portfolioId: string): Promise<AlpacaRebalancingRun[]> {
+    try {
+      const response = await this.client.get(`/v1/rebalancing/portfolios/${portfolioId}/runs`);
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error: any) {
+      return [];
+    }
+  }
+
+  // ─── Corporate Actions (new endpoint) ────────────────────────────────────────
+
+  async getCorporateActionsNew(params?: {
+    symbol?: string;
+    types?: string;
+    date_from?: string;
+    date_to?: string;
+    limit?: number;
+  }): Promise<any[]> {
+    try {
+      const response = await this.client.get("/v1/corporate_actions/announcements", { params });
+      const data = response.data;
+      return Array.isArray(data) ? data : (data?.announcements ?? []);
+    } catch (error: any) {
+      console.error("Error fetching corporate actions:", error.message);
       return [];
     }
   }
