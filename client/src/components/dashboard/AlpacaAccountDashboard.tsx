@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -26,8 +28,8 @@ import {
 } from "recharts";
 import {
   Wallet, TrendingUp, TrendingDown, Clock, RefreshCw, X, AlertTriangle,
-  DollarSign, BarChart3, Activity, ShieldCheck, XCircle, CheckCircle2,
-  Building2,
+  DollarSign, BarChart3, Activity, XCircle, CheckCircle2,
+  Building2, KeyRound, Eye, EyeOff, Link2,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -589,10 +591,168 @@ function OrdersTable({ isPaper }: { isPaper: boolean }) {
   );
 }
 
+// ─── Credentials Form ─────────────────────────────────────────────────────────
+
+const DEFAULT_BASE_URL = "https://broker-api.sandbox.alpaca.markets";
+
+function CredentialsForm({ onSuccess }: { onSuccess: () => void }) {
+  const [apiKey, setApiKey] = useState("");
+  const [secretKey, setSecretKey] = useState("");
+  const [baseUrl, setBaseUrl] = useState(DEFAULT_BASE_URL);
+  const [showSecret, setShowSecret] = useState(false);
+  const { toast } = useToast();
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("/api/us-trading/alpaca/credentials", {
+        method: "POST",
+        body: JSON.stringify({ apiKey, secretKey, baseUrl }),
+      }),
+    onSuccess: (data: any) => {
+      toast({
+        title: "Connected to Alpaca",
+        description: data.message ?? "Credentials saved and verified.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/us-trading/alpaca/account"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/us-trading/alpaca/market-clock"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/us-trading/positions"] });
+      onSuccess();
+    },
+    onError: (e: any) => {
+      toast({
+        title: "Connection failed",
+        description: e.message ?? "Check your API key and secret.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const canSubmit = apiKey.trim().length > 0 && secretKey.trim().length > 0;
+
+  return (
+    <div className="max-w-xl mx-auto space-y-5">
+      <div className="text-center mb-2">
+        <div className="flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mx-auto mb-3">
+          <Building2 className="h-7 w-7 text-primary" />
+        </div>
+        <h2 className="text-xl font-semibold">Connect Alpaca Account</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Enter your Alpaca API credentials to enable live account data, positions, and order management.
+        </p>
+      </div>
+
+      <Card>
+        <CardContent className="p-6 space-y-5">
+          {/* Base URL */}
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5">
+              <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+              API Base URL
+            </Label>
+            <Input
+              value={baseUrl}
+              onChange={e => setBaseUrl(e.target.value)}
+              placeholder={DEFAULT_BASE_URL}
+              className="font-mono text-sm"
+            />
+            <p className="text-xs text-muted-foreground">
+              Broker Sandbox: <code className="bg-muted px-1 rounded">{DEFAULT_BASE_URL}</code>
+            </p>
+          </div>
+
+          <Separator />
+
+          {/* API Key */}
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5">
+              <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
+              API Key ID
+            </Label>
+            <Input
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              placeholder="PKXXXXXXXXXXXXXXXXXXXXXXXX"
+              className="font-mono text-sm"
+              autoComplete="off"
+            />
+          </div>
+
+          {/* Secret Key */}
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5">
+              <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
+              Secret Key
+            </Label>
+            <div className="relative">
+              <Input
+                type={showSecret ? "text" : "password"}
+                value={secretKey}
+                onChange={e => setSecretKey(e.target.value)}
+                placeholder="••••••••••••••••••••••••••••••••"
+                className="font-mono text-sm pr-10"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowSecret(s => !s)}
+              >
+                {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 py-3">
+            <AlertTriangle className="h-3.5 w-3.5 text-blue-500" />
+            <AlertDescription className="text-xs text-blue-700 dark:text-blue-300">
+              These credentials are stored in memory for the current session. For persistence across restarts,
+              set <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">ALPACA_API_KEY</code>,{" "}
+              <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">ALPACA_SECRET_KEY</code>, and{" "}
+              <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">ALPACA_BASE_URL</code> as environment secrets.
+            </AlertDescription>
+          </Alert>
+
+          <Button
+            className="w-full"
+            onClick={() => saveMutation.mutate()}
+            disabled={!canSubmit || saveMutation.isPending}
+          >
+            {saveMutation.isPending ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Verifying connection…
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Connect & Verify
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <p className="text-center text-xs text-muted-foreground">
+        Get your API keys from{" "}
+        <a
+          href="https://app.alpaca.markets/paper-account/overview"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-foreground"
+        >
+          Alpaca Dashboard
+        </a>
+        {" "}→ API Keys section.
+      </p>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AlpacaAccountDashboard() {
   const [chartPeriod, setChartPeriod] = useState("1M");
+  const [showCredentials, setShowCredentials] = useState(false);
   const { toast } = useToast();
 
   const { data: accountData, isLoading: isLoadingAccount, refetch: refetchAccount } = useQuery<{
@@ -624,28 +784,13 @@ export default function AlpacaAccountDashboard() {
   const unrealizedPLPC = parseFloat(account?.unrealized_plpc ?? "0");
   const longMarketValue = parseFloat(account?.long_market_value ?? "0");
 
-  if (!isLoadingAccount && !configured) {
+  if (!isLoadingAccount && (!configured || showCredentials)) {
     return (
-      <div className="space-y-4">
-        <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
-          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-          <AlertDescription className="text-amber-800 dark:text-amber-200">
-            <strong>Alpaca API not configured.</strong> Add your{" "}
-            <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded text-xs">ALPACA_API_KEY</code> and{" "}
-            <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded text-xs">ALPACA_SECRET_KEY</code> to enable live
-            account data, positions, and order management.
-          </AlertDescription>
-        </Alert>
-        <Card className="border-dashed">
-          <CardContent className="p-10 text-center">
-            <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground/40" />
-            <h3 className="font-semibold text-lg mb-1">Connect Your Alpaca Account</h3>
-            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-              Once your API credentials are added, this dashboard will show your live account balance,
-              portfolio history chart, open positions, and order management.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="py-4">
+        <CredentialsForm onSuccess={() => {
+          setShowCredentials(false);
+          refetchAccount();
+        }} />
       </div>
     );
   }
@@ -676,10 +821,19 @@ export default function AlpacaAccountDashboard() {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <MarketClockBadge clock={clockData?.clock} loading={isLoadingClock} />
           <Button variant="ghost" size="sm" onClick={() => refetchAccount()} className="h-7 px-2">
             <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 text-xs gap-1"
+            onClick={() => setShowCredentials(true)}
+          >
+            <KeyRound className="h-3 w-3" />
+            Change Keys
           </Button>
         </div>
       </div>
