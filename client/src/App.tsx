@@ -1597,9 +1597,19 @@ function AdminRoutes() {
       {/* Generic admin root - must be after all specific /admin/* routes */}
       <Route path="/admin" component={AdminRoot} />
       <Route path="/" component={AdminRoot} />
-      {/* Profile page - admin users need access for KYC dashboard tab */}
+      {/* KYC & onboarding flow - admin users go through the same flow as clients */}
       <Route path="/profile" component={Profile} />
+      <Route path="/onboarding" component={OnboardingPage} />
+      <Route path="/manual-kyc" component={ManualKYCPage} />
+      <Route path="/video-kyc" component={VideoKYC} />
+      <Route path="/kyc-rejections" component={KycRejectionRekyc} />
+      <Route path="/product-eligibility" component={KYCProductEligibility} />
+      <Route path="/ca-registration" component={CARegistration} />
+      <Route path="/net-worth" component={NetWorthPage} />
       <Route path="/kyc-dashboard">
+        <Redirect to="/profile?tab=kyc-dashboard" />
+      </Route>
+      <Route path="/kyc/complete">
         <Redirect to="/profile?tab=kyc-dashboard" />
       </Route>
       <Route component={NotFound} />
