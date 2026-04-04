@@ -1566,16 +1566,21 @@ export function registerKYCWizardRoutes(app: Express) {
       const lockedFields: string[] = [];
       const lockReasons: Record<string, string> = {};
       
-      // PAN is locked if verified
-      if (userProfile?.panVerifiedViaSandbox || userProfile?.panSandboxStatus === 'VALID') {
+      // PAN is locked if verified via any method (Sandbox API, Smart KYC wizard, or manual KYC)
+      const panIsVerified = !!(
+        userProfile?.panVerifiedViaSandbox ||
+        userProfile?.panSandboxStatus === 'VALID' ||
+        userProfile?.panVerifiedViaSmartKyc
+      );
+      if (panIsVerified) {
         lockedFields.push('panNumber');
-        lockReasons['panNumber'] = 'PAN verified via Sandbox API - cannot be changed. Contact support for assistance.';
+        lockReasons['panNumber'] = 'PAN verified — locked per SEBI guidelines. Use the Re-KYC request form to request a correction.';
       }
       
       // DOB is locked only if PAN is verified AND DOB already has a value
-      if (userProfile?.panVerifiedViaSandbox && userProfile?.dateOfBirth) {
+      if (panIsVerified && userProfile?.dateOfBirth) {
         lockedFields.push('dateOfBirth');
-        lockReasons['dateOfBirth'] = 'Date of birth verified via PAN - cannot be changed.';
+        lockReasons['dateOfBirth'] = 'Date of birth verified via PAN — locked per SEBI guidelines. Use the Re-KYC request form to request a correction.';
       }
       
       res.json({
