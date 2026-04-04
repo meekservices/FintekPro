@@ -625,6 +625,37 @@ router.get("/broker/test-connection", async (req, res) => {
 
 // ─── Alpaca Account Dashboard Routes ──────────────────────────────────────────
 
+router.post("/alpaca/credentials", async (req, res) => {
+  try {
+    const { apiKey, secretKey, baseUrl } = req.body;
+    if (!apiKey || !secretKey) {
+      return res.status(400).json({ success: false, error: "apiKey and secretKey are required" });
+    }
+    alpacaBrokerService.configure(apiKey.trim(), secretKey.trim(), baseUrl?.trim() || undefined);
+    const test = await alpacaBrokerService.testConnection();
+    if (!test.success) {
+      return res.status(400).json({ success: false, error: test.message });
+    }
+    res.json({
+      success: true,
+      message: `Connected to Alpaca (${alpacaBrokerService.isPaperTrading() ? "Sandbox" : "Live"})`,
+      isPaper: alpacaBrokerService.isPaperTrading(),
+      baseUrl: alpacaBrokerService.getBaseUrl(),
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/alpaca/config", async (req, res) => {
+  res.json({
+    configured: alpacaBrokerService.isConfigured(),
+    isPaper: alpacaBrokerService.isPaperTrading(),
+    baseUrl: alpacaBrokerService.getBaseUrl(),
+    defaultBaseUrl: "https://broker-api.sandbox.alpaca.markets",
+  });
+});
+
 router.get("/alpaca/account", async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {

@@ -1,6 +1,8 @@
 import axios, { AxiosInstance } from "axios";
 import { v4 as uuidv4 } from "uuid";
 
+const ALPACA_BROKER_SANDBOX_URL = "https://broker-api.sandbox.alpaca.markets";
+const ALPACA_BROKER_LIVE_URL = "https://broker-api.alpaca.markets";
 const ALPACA_PAPER_URL = "https://paper-api.alpaca.markets";
 const ALPACA_LIVE_URL = "https://api.alpaca.markets";
 
@@ -93,18 +95,36 @@ class AlpacaBrokerService {
   constructor() {
     this.apiKey = process.env.ALPACA_API_KEY || "";
     this.secretKey = process.env.ALPACA_SECRET_KEY || "";
-    this.baseUrl = process.env.ALPACA_BASE_URL || ALPACA_PAPER_URL;
-    this.isPaper = this.baseUrl.includes("paper");
+    this.baseUrl = process.env.ALPACA_BASE_URL || ALPACA_BROKER_SANDBOX_URL;
+    this.isPaper = this.baseUrl.includes("sandbox") || this.baseUrl.includes("paper");
+    this.client = this._buildClient();
+  }
 
-    this.client = axios.create({
+  private _buildClient(): AxiosInstance {
+    return axios.create({
       baseURL: this.baseUrl,
-      timeout: 10000,
+      timeout: 15000,
       headers: {
         "APCA-API-KEY-ID": this.apiKey,
         "APCA-API-SECRET-KEY": this.secretKey,
         "Content-Type": "application/json",
       },
     });
+  }
+
+  configure(apiKey: string, secretKey: string, baseUrl?: string): void {
+    this.apiKey = apiKey;
+    this.secretKey = secretKey;
+    this.baseUrl = baseUrl || ALPACA_BROKER_SANDBOX_URL;
+    this.isPaper = this.baseUrl.includes("sandbox") || this.baseUrl.includes("paper");
+    this.client = this._buildClient();
+    process.env.ALPACA_API_KEY = apiKey;
+    process.env.ALPACA_SECRET_KEY = secretKey;
+    process.env.ALPACA_BASE_URL = this.baseUrl;
+  }
+
+  getBaseUrl(): string {
+    return this.baseUrl;
   }
 
   isConfigured(): boolean {
