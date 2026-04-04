@@ -983,14 +983,30 @@ export default function ProfilePage() {
                     const aadhaarLast4 = kycProfileData?.aadhaarLast4 || '';
                     const ckycId = kycProfileData?.ckycNumber || kycProfileData?.ckycId || '';
                     const kraRef = kycProfileData?.kraRefNumber || '';
-                    const address = [
-                      form.getValues('presentAddress'),
-                      form.getValues('presentCity'),
-                      form.getValues('presentState'),
-                      form.getValues('presentPincode')
-                    ].filter(Boolean).join(', ') || kycProfileData?.address || '';
+                    const dob = form.getValues('dateOfBirth') || kycProfileData?.dateOfBirth || '';
+                    const gender = form.getValues('gender') || kycProfileData?.gender || '';
+                    const fatherName = form.getValues('fatherName') || kycProfileData?.fatherName || '';
+                    const occupation = form.getValues('occupation') || kycProfileData?.occupation || '';
+                    const fatcaStatus = form.getValues('fatcaStatus') || kycProfileData?.fatcaStatus || '';
+                    const pepStatus = form.getValues('pepStatus') || kycProfileData?.pepStatus || '';
+                    const riskTolerance = form.getValues('riskTolerance') || kycProfileData?.riskTolerance || '';
+                    const annualIncome = form.getValues('annualIncome') || kycProfileData?.annualIncome || '';
+                    const presentAddress = form.getValues('presentAddress') || '';
+                    const presentCity = form.getValues('presentCity') || '';
+                    const presentState = form.getValues('presentState') || '';
+                    const presentPincode = form.getValues('presentPincode') || '';
+                    const address = [presentAddress, presentCity, presentState, presentPincode]
+                      .filter(Boolean).join(', ') || kycProfileData?.address || '';
+                    const permanentAddress = [
+                      form.getValues('permanentAddress'),
+                      form.getValues('permanentCity'),
+                      form.getValues('permanentState'),
+                      form.getValues('permanentPincode')
+                    ].filter(Boolean).join(', ');
                     const amlRisk = kycProfileData?.amlRiskLevel || 'LOW';
                     const riskCategory = kycProfileData?.riskCategory || 'low';
+                    // Update URLs — all go through self-service wizard, no manual re-KYC
+                    const wizardStep = (step: string) => `/onboarding?mode=edit&step=${step}`;
 
                     return (
                       <>
@@ -1030,12 +1046,53 @@ export default function ProfilePage() {
                             </div>
                           </CardHeader>
                           <CardContent className="px-6 pb-6">
+                            {/* Section header */}
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Identity & Contact</p>
+                              <button onClick={() => setLocation(wizardStep('profile_completion'))}
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium flex items-center gap-1">
+                                <Edit className="h-3 w-3" /> Edit All
+                              </button>
+                            </div>
                             <div className="divide-y divide-gray-100 dark:divide-gray-800">
+
+                              {/* Full Name */}
+                              <ProfileDetailRow
+                                label="Full Name"
+                                value={fullName || '—'}
+                                icon={<User className="h-4 w-4" />}
+                                action={{ label: 'Update', onClick: () => setLocation(wizardStep('profile_completion')) }}
+                              />
+
+                              {/* Date of Birth */}
+                              <ProfileDetailRow
+                                label="Date of Birth"
+                                value={dob ? new Date(dob).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                                icon={<Calendar className="h-4 w-4" />}
+                                action={{ label: 'Update', onClick: () => setLocation(wizardStep('profile_completion')) }}
+                              />
+
+                              {/* Gender */}
+                              <ProfileDetailRow
+                                label="Gender"
+                                value={gender ? gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase() : '—'}
+                                icon={<User className="h-4 w-4" />}
+                                action={{ label: 'Update', onClick: () => setLocation(wizardStep('profile_completion')) }}
+                              />
+
+                              {/* Father's Name */}
+                              <ProfileDetailRow
+                                label="Father / Guardian Name"
+                                value={fatherName || '—'}
+                                icon={<Users className="h-4 w-4" />}
+                                action={{ label: 'Update', onClick: () => setLocation(wizardStep('profile_completion')) }}
+                              />
+
                               {/* Primary Account / UID */}
                               <ProfileDetailRow
-                                label="Primary Account"
+                                label="Primary Account (UID)"
                                 value={(user as any)?.id?.toString() || '—'}
-                                icon={<User className="h-4 w-4" />}
+                                icon={<Globe className="h-4 w-4" />}
                               />
 
                               {/* CKYC ID — prominent */}
@@ -1044,17 +1101,20 @@ export default function ProfilePage() {
                                 value={ckycId || 'Not yet fetched'}
                                 icon={<Award className="h-4 w-4" />}
                                 highlight={!!ckycId}
-                                action={ckycId ? { label: 'Know More', onClick: () => setActiveTab('kyc-dashboard') } : undefined}
+                                action={ckycId
+                                  ? { label: 'Know More', onClick: () => setActiveTab('kyc-dashboard') }
+                                  : { label: 'Fetch CKYC', onClick: () => setLocation('/onboarding?step=ckyc_kra_check') }}
                               />
 
                               {/* KRA Reference */}
-                              {kraRef && (
-                                <ProfileDetailRow
-                                  label="KRA Reference"
-                                  value={kraRef}
-                                  icon={<FileText className="h-4 w-4" />}
-                                />
-                              )}
+                              <ProfileDetailRow
+                                label="KRA Reference"
+                                value={kraRef || 'Not registered'}
+                                icon={<FileText className="h-4 w-4" />}
+                                action={kraRef
+                                  ? { label: 'Know More', onClick: () => setActiveTab('kyc-dashboard') }
+                                  : { label: 'Register', onClick: () => setLocation('/onboarding?step=ckyc_kra_check') }}
+                              />
 
                               {/* PAN Number — masked */}
                               <ProfileDetailRow
@@ -1062,7 +1122,9 @@ export default function ProfilePage() {
                                 value={panNum ? maskPan(panNum) : 'Not verified'}
                                 icon={<CreditCard className="h-4 w-4" />}
                                 verified={isPanVerified}
-                                action={!isPanVerified ? { label: 'Verify', onClick: () => setActiveTab('kyc-verification') } : { label: 'Update', onClick: () => setLocation('/kyc-rejections?reason=PAN_CORRECTION') }}
+                                action={!isPanVerified
+                                  ? { label: 'Verify Now', onClick: () => setLocation('/onboarding?step=pan_verification') }
+                                  : { label: 'Update', onClick: () => setLocation('/onboarding?mode=edit&step=pan_verification') }}
                               />
 
                               {/* Aadhaar — masked */}
@@ -1071,7 +1133,9 @@ export default function ProfilePage() {
                                 value={aadhaarLast4 ? maskAadhaar(aadhaarLast4) : 'Not verified'}
                                 icon={<Shield className="h-4 w-4" />}
                                 verified={kycProfileData?.aadhaarVerified}
-                                action={!kycProfileData?.aadhaarVerified ? { label: 'Verify', onClick: () => setActiveTab('kyc-verification') } : undefined}
+                                action={!kycProfileData?.aadhaarVerified
+                                  ? { label: 'Verify Now', onClick: () => setLocation('/onboarding?step=aadhaar_otp') }
+                                  : { label: 'Re-verify', onClick: () => setLocation('/onboarding?mode=edit&step=aadhaar_otp') }}
                               />
 
                               {/* Mobile Number — masked */}
@@ -1080,7 +1144,7 @@ export default function ProfilePage() {
                                 value={mobileNum ? maskMobile(mobileNum) : '—'}
                                 icon={<Phone className="h-4 w-4" />}
                                 verified={isMobileVerified}
-                                action={{ label: 'Update', onClick: () => setLocation('/onboarding?mode=edit&step=profile_completion') }}
+                                action={{ label: 'Update', onClick: () => setLocation(wizardStep('profile_completion')) }}
                               />
 
                               {/* Email — masked */}
@@ -1089,52 +1153,125 @@ export default function ProfilePage() {
                                 value={emailAddr ? maskEmail(emailAddr) : '—'}
                                 icon={<Mail className="h-4 w-4" />}
                                 verified={isEmailVerified}
-                                action={{ label: 'Update', onClick: () => setLocation('/onboarding?mode=edit&step=profile_completion') }}
+                                action={{ label: 'Update', onClick: () => setLocation(wizardStep('profile_completion')) }}
+                              />
+                            </div>
+
+                            {/* Section: Financial & Compliance */}
+                            <div className="flex items-center justify-between mt-5 mb-3">
+                              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Financial & Compliance</p>
+                            </div>
+                            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+
+                              {/* Occupation */}
+                              <ProfileDetailRow
+                                label="Occupation"
+                                value={occupation ? occupation.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : '—'}
+                                icon={<Briefcase className="h-4 w-4" />}
+                                action={{ label: 'Update', onClick: () => setLocation(wizardStep('profile_completion')) }}
                               />
 
-                              {/* KYC & AML Status */}
-                              <div className="py-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+                              {/* Annual Income */}
+                              <ProfileDetailRow
+                                label="Annual Income Band"
+                                value={annualIncome ? annualIncome.replace(/_/g, ' ') : '—'}
+                                icon={<IndianRupee className="h-4 w-4" />}
+                                action={{ label: 'Update', onClick: () => setLocation(wizardStep('profile_completion')) }}
+                              />
+
+                              {/* Risk Profile */}
+                              <ProfileDetailRow
+                                label="Risk Profile"
+                                value={riskTolerance ? riskTolerance.charAt(0).toUpperCase() + riskTolerance.slice(1).toLowerCase() : riskCategory.charAt(0).toUpperCase() + riskCategory.slice(1)}
+                                icon={<Activity className="h-4 w-4" />}
+                                action={{ label: 'Update', onClick: () => setLocation(wizardStep('risk_profiling')) }}
+                              />
+
+                              {/* FATCA Status */}
+                              <ProfileDetailRow
+                                label="FATCA Declaration"
+                                value={fatcaStatus === 'Y' ? 'US Person / Reportable' : fatcaStatus === 'N' ? 'Non-US (Not Reportable)' : '— Not declared'}
+                                icon={<Globe className="h-4 w-4" />}
+                                action={{ label: 'Update', onClick: () => setLocation(wizardStep('fatca_signature')) }}
+                              />
+
+                              {/* PEP Status */}
+                              <ProfileDetailRow
+                                label="PEP Status"
+                                value={pepStatus === 'Y' ? 'Politically Exposed Person' : pepStatus === 'N' ? 'Not a PEP' : '— Not declared'}
+                                icon={<Star className="h-4 w-4" />}
+                                action={{ label: 'Update', onClick: () => setLocation(wizardStep('profile_completion')) }}
+                              />
+
+                              {/* KYC Status */}
+                              <div className="py-3 flex items-center gap-3">
+                                <span className="text-gray-400 dark:text-gray-500 w-5 flex-shrink-0"><ShieldCheck className="h-4 w-4" /></span>
                                 <div className="flex-1">
-                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">KYC Status</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">KYC Status</p>
                                   <span className={`inline-flex items-center gap-1.5 text-sm font-semibold ${
                                     isKycComplete ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'
                                   }`}>
                                     <span className={`h-2 w-2 rounded-full ${isKycComplete ? 'bg-green-500' : 'bg-amber-500'}`}></span>
-                                    {kycProfileData?.kycStatus === 'approved' ? 'Verified' : kycProfileData?.kycStatus === 'in_progress' ? 'In Progress' : 'Pending'}
+                                    {kycProfileData?.kycStatus === 'approved' ? 'Verified & Approved' : kycProfileData?.kycStatus === 'in_progress' ? 'In Progress' : 'Pending'}
                                   </span>
                                 </div>
+                                <button
+                                  onClick={() => isKycComplete ? setActiveTab('kyc-dashboard') : setLocation('/onboarding')}
+                                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium flex-shrink-0">
+                                  {isKycComplete ? 'View Report' : 'Complete KYC'}
+                                </button>
+                              </div>
+
+                              {/* AML Risk */}
+                              <div className="py-3 flex items-center gap-3">
+                                <span className="text-gray-400 dark:text-gray-500 w-5 flex-shrink-0"><AlertTriangle className="h-4 w-4" /></span>
                                 <div className="flex-1">
-                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">AML Risk</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">AML Risk Level</p>
                                   <span className={`inline-flex items-center gap-1.5 text-sm font-semibold ${
                                     amlRisk === 'LOW' ? 'text-green-600 dark:text-green-400' : amlRisk === 'MEDIUM' ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
                                   }`}>
                                     <span className={`h-2 w-2 rounded-full ${amlRisk === 'LOW' ? 'bg-green-500' : amlRisk === 'MEDIUM' ? 'bg-amber-500' : 'bg-red-500'}`}></span>
-                                    {amlRisk}
+                                    {amlRisk} Risk
                                   </span>
                                 </div>
-                                <div className="flex-1">
-                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Risk Profile</p>
-                                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 capitalize">{riskCategory}</span>
-                                </div>
-                                <div className="flex-1">
-                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Date Format</p>
-                                  <span className="text-sm text-gray-600 dark:text-gray-400">dd/MM/yyyy</span>
-                                </div>
+                                {amlRisk !== 'LOW' && (
+                                  <button onClick={() => setActiveTab('kyc-verification')}
+                                    className="text-xs text-amber-600 dark:text-amber-400 hover:underline font-medium flex-shrink-0">
+                                    Re-Screen
+                                  </button>
+                                )}
                               </div>
+                            </div>
 
+                            {/* Section: Addresses */}
+                            <div className="flex items-center justify-between mt-5 mb-3">
+                              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Addresses</p>
+                            </div>
+                            <div className="divide-y divide-gray-100 dark:divide-gray-800">
                               {/* Communication Address */}
                               <div className="py-3 flex items-start gap-3">
-                                <MapPin className="h-4 w-4 text-gray-400 dark:text-gray-500 mt-1 flex-shrink-0" />
+                                <MapPin className="h-4 w-4 text-gray-400 dark:text-gray-500 mt-0.5 flex-shrink-0 w-5" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Communication Address</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Communication Address</p>
                                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-relaxed">
-                                    {address || <span className="text-gray-400 italic">Not provided</span>}
+                                    {address || <span className="text-gray-400 dark:text-gray-500 italic">Not provided</span>}
                                   </p>
                                 </div>
-                                <button
-                                  onClick={() => setLocation('/onboarding?mode=edit&step=profile_completion')}
-                                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium flex-shrink-0"
-                                >Update</button>
+                                <button onClick={() => setLocation(wizardStep('profile_completion'))}
+                                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium flex-shrink-0">Update</button>
+                              </div>
+
+                              {/* Permanent Address */}
+                              <div className="py-3 flex items-start gap-3">
+                                <MapPin className="h-4 w-4 text-gray-400 dark:text-gray-500 mt-0.5 flex-shrink-0 w-5" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Permanent Address</p>
+                                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-relaxed">
+                                    {permanentAddress || <span className="text-gray-400 dark:text-gray-500 italic">Same as communication address</span>}
+                                  </p>
+                                </div>
+                                <button onClick={() => setLocation(wizardStep('profile_completion'))}
+                                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium flex-shrink-0">Update</button>
                               </div>
                             </div>
                           </CardContent>
