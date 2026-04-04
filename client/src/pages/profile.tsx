@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar, RefreshCw, ShieldCheck, Crown, CheckCircle2, XCircle, Edit, ArrowRight, Unlock, TrendingUp, Clock, AlertCircle, Sparkles, Home, BarChart3, Briefcase, IndianRupee, LineChart, Receipt, ExternalLink, ChevronRight, Package, ShoppingCart } from "lucide-react";
+import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar, RefreshCw, ShieldCheck, Crown, CheckCircle2, XCircle, Edit, ArrowRight, Unlock, TrendingUp, Clock, AlertCircle, Sparkles, Home, BarChart3, Briefcase, IndianRupee, LineChart, Receipt, ExternalLink, ChevronRight, Package, ShoppingCart, Info, Settings, Activity, Copy, Eye, EyeOff, LogOut, ChevronDown } from "lucide-react";
 import { useLocation } from 'wouter';
 import { BankingTab } from "@/components/BankingDematTab";
 import { DematTab } from "@/components/DematTab";
@@ -324,9 +324,28 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState(getInitialTab());
   const [profileCompleteness, setProfileCompleteness] = useState(0);
   const [isAmlScreening, setIsAmlScreening] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
+
+  // Role detection
+  const userRole = (user as any)?.role || (user as any)?.roles?.[0] || 'user';
+  const isAdmin = ['admin', 'superadmin'].includes(userRole);
+  const isAgent = ['agent', 'sub_agent', 'associate'].includes(userRole);
+  const isPartner = ['partner', 'master_agent', 'distributor'].includes(userRole);
+  const isCompliance = ['compliance_officer', 'regulatory_auditor'].includes(userRole);
+  const isClient = !isAdmin && !isAgent && !isPartner && !isCompliance;
+
+  // Masking helpers
+  const maskPan = (pan: string) => pan ? pan.substring(0, 2) + 'XXXXX' + pan.slice(-2) : '—';
+  const maskMobile = (mobile: string) => mobile ? 'XXXXX' + mobile.slice(-4) : '—';
+  const maskEmail = (email: string) => {
+    if (!email) return '—';
+    const [local, domain] = email.split('@');
+    return local.charAt(0) + 'XXXXX' + local.slice(-1) + '@' + domain;
+  };
+  const maskAadhaar = (a: string) => a ? 'XXXX-XXXX-' + a.slice(-4) : '—';
 
   // Fetch existing profile data
   const { data: profile, isLoading: profileLoading } = useQuery({
@@ -725,61 +744,226 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <User className="h-8 w-8" />
-            Client Profile & KYC Onboarding
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Complete your profile for regulatory compliance and enhanced services
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <p className="text-sm text-muted-foreground">Profile Completeness</p>
-            <div className="flex items-center gap-2 mt-1">
-              <Progress value={profileCompleteness} className="w-32" />
-              <span className="text-sm font-medium">{profileCompleteness}%</span>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      {/* Top Header Bar */}
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 md:px-6 py-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              className="lg:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+            >
+              <ChevronDown className={`h-5 w-5 transition-transform ${sidebarOpen ? 'rotate-180' : ''}`} />
+            </button>
+            <div>
+              <h1 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                {isAdmin ? 'Admin Profile & KYC' : isAgent ? 'Agent Profile' : isPartner ? 'Partner Profile' : 'My Profile & KYC'}
+              </h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">
+                {isAdmin ? 'PMLA-compliant admin identity management' : isAgent ? 'ARN-linked agent profile & compliance' : 'Manage your identity, accounts & investments'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2 text-sm text-gray-500">
+              <span>Profile</span>
+              <Progress value={profileCompleteness} className="w-20 h-2" />
+              <span className="font-semibold text-gray-700 dark:text-gray-300">{profileCompleteness}%</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Pre-Approved Loan Offers */}
-      <LoanOffersCard />
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
+        {/* Pre-Approved Loan Offers — client only */}
+        {isClient && <div className="mb-4"><LoanOffersCard /></div>}
 
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* ── LEFT SIDEBAR ── */}
+          <aside className={`lg:w-72 flex-shrink-0 space-y-4 ${sidebarOpen ? 'block' : 'hidden lg:block'}`}>
+            {/* Identity Card */}
+            {(() => {
+              const kycProfileData = (kycProfile as any)?.data;
+              const fullName = kycProfileData?.fullName || (user as any)?.username || 'User';
+              const kycStatus = kycProfileData?.kycStatus;
+              const kycTier = kycProfileData?.kycTier;
+              const isVerified = kycStatus === 'approved';
+              const initials = fullName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
+
+              return (
+                <Card className="overflow-hidden border-0 shadow-sm">
+                  {/* Avatar Banner */}
+                  <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-5 text-white">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="h-16 w-16 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-2xl font-bold border-2 border-white/40">
+                        {initials}
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        {isVerified ? (
+                          <span className="flex items-center gap-1 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                            <CheckCircle2 className="h-3 w-3" /> KYC Verified
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                            <Clock className="h-3 w-3" /> KYC Pending
+                          </span>
+                        )}
+                        {kycTier && (
+                          <span className="flex items-center gap-1 bg-white/20 text-white text-xs px-2 py-0.5 rounded-full">
+                            {kycTier === 'accredited_investor' ? <Crown className="h-3 w-3" /> : kycTier === 'enhanced' ? <ShieldCheck className="h-3 w-3" /> : <Shield className="h-3 w-3" />}
+                            {kycTier === 'accredited_investor' ? 'Accredited' : kycTier === 'enhanced' ? 'Enhanced' : 'Standard'} KYC
+                          </span>
+                        )}
+                        {/* Role badge */}
+                        <span className="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full capitalize">
+                          {isAdmin ? '⚙ Admin' : isAgent ? '🤝 Agent' : isPartner ? '🏢 Partner' : isCompliance ? '⚖ Compliance' : '👤 Client'}
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-bold text-lg leading-tight">{fullName}</p>
+                      <p className="text-blue-200 text-xs mt-0.5">UID: {kycProfileData?.userId || (user as any)?.id || '—'}</p>
+                      {(user as any)?.createdAt && (
+                        <p className="text-blue-200 text-xs mt-0.5">Member since {new Date((user as any).createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</p>
+                      )}
+                    </div>
+                  </div>
+                  {/* Completeness */}
+                  <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700">
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Profile Completeness</span>
+                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{profileCompleteness}%</span>
+                    </div>
+                    <Progress value={profileCompleteness} className="h-1.5" />
+                  </div>
+                </Card>
+              );
+            })()}
+
+            {/* Sidebar Navigation */}
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-2">
+                {[
+                  { id: 'overview', icon: <Home className="h-4 w-4" />, label: 'Personal Details', testId: 'tab-overview' },
+                  { id: 'kyc-dashboard', icon: <Award className="h-4 w-4" />, label: 'KYC Dashboard', testId: 'tab-kyc-dashboard' },
+                  { id: 'kyc-verification', icon: <Shield className="h-4 w-4" />, label: 'Verifications', testId: 'tab-kyc-verification' },
+                  { id: 'accounts', icon: <CreditCard className="h-4 w-4" />, label: 'Bank & Demat', testId: 'tab-accounts' },
+                  { id: 'compliance', icon: <FileText className="h-4 w-4" />, label: 'Compliance', testId: 'tab-compliance' },
+                ].map(nav => (
+                  <button
+                    key={nav.id}
+                    data-testid={nav.testId}
+                    onClick={() => { setActiveTab(nav.id); setSidebarOpen(false); }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors text-left ${
+                      activeTab === nav.id
+                        ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    <span className={activeTab === nav.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}>{nav.icon}</span>
+                    {nav.label}
+                    {activeTab === nav.id && <ChevronRight className="h-3 w-3 ml-auto text-blue-500" />}
+                  </button>
+                ))}
+
+                <Separator className="my-2" />
+
+                {/* Role-specific quick links */}
+                {isClient && (
+                  <>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 px-3 py-1">Quick Access</p>
+                    {[
+                      { label: 'My Portfolio', icon: <LineChart className="h-4 w-4" />, path: '/portfolio' },
+                      { label: 'Trade US Stocks', icon: <TrendingUp className="h-4 w-4" />, path: '/domestic-trading' },
+                      { label: 'Mutual Funds', icon: <BarChart3 className="h-4 w-4" />, path: '/mutual-funds' },
+                      { label: 'Tax Filing', icon: <Receipt className="h-4 w-4" />, path: '/tax-itr-self' },
+                    ].map(link => (
+                      <button key={link.path} onClick={() => setLocation(link.path)}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left">
+                        <span className="text-gray-400">{link.icon}</span>{link.label}
+                      </button>
+                    ))}
+                  </>
+                )}
+                {isAdmin && (
+                  <>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 px-3 py-1">Admin Tools</p>
+                    {[
+                      { label: 'KYC Management', icon: <Shield className="h-4 w-4" />, path: '/kyc-dashboard' },
+                      { label: 'User Management', icon: <Users className="h-4 w-4" />, path: '/users' },
+                      { label: 'Audit Logs', icon: <FileText className="h-4 w-4" />, path: '/audit-logs' },
+                      { label: 'System Settings', icon: <Settings className="h-4 w-4" />, path: '/settings' },
+                    ].map(link => (
+                      <button key={link.path} onClick={() => setLocation(link.path)}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left">
+                        <span className="text-gray-400">{link.icon}</span>{link.label}
+                      </button>
+                    ))}
+                  </>
+                )}
+                {isAgent && (
+                  <>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 px-3 py-1">Agent Tools</p>
+                    {[
+                      { label: 'My Clients', icon: <Users className="h-4 w-4" />, path: '/clients' },
+                      { label: 'Onboard Client', icon: <ShieldCheck className="h-4 w-4" />, path: '/onboarding' },
+                      { label: 'Commission Report', icon: <IndianRupee className="h-4 w-4" />, path: '/commissions' },
+                    ].map(link => (
+                      <button key={link.path} onClick={() => setLocation(link.path)}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left">
+                        <span className="text-gray-400">{link.icon}</span>{link.label}
+                      </button>
+                    ))}
+                  </>
+                )}
+                {isPartner && (
+                  <>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 px-3 py-1">Partner Tools</p>
+                    {[
+                      { label: 'Distribution Metrics', icon: <BarChart3 className="h-4 w-4" />, path: '/partner-dashboard' },
+                      { label: 'Sub-Agents', icon: <Users className="h-4 w-4" />, path: '/sub-agents' },
+                      { label: 'Revenue', icon: <IndianRupee className="h-4 w-4" />, path: '/revenue' },
+                    ].map(link => (
+                      <button key={link.path} onClick={() => setLocation(link.path)}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left">
+                        <span className="text-gray-400">{link.icon}</span>{link.label}
+                      </button>
+                    ))}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </aside>
+
+          {/* ── RIGHT MAIN CONTENT ── */}
+          <div className="flex-1 min-w-0">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <ScrollableTabsList>
-              <TabsTrigger value="overview" data-testid="tab-overview" className="flex-shrink-0">
-                <Home className="h-4 w-4 mr-2" />
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="kyc-dashboard" data-testid="tab-kyc-dashboard" className="flex-shrink-0">
-                <Award className="h-4 w-4 mr-2" />
-                Dashboard
-              </TabsTrigger>
-              <TabsTrigger value="kyc-verification" data-testid="tab-kyc-verification" className="flex-shrink-0">
-                <Shield className="h-4 w-4 mr-2" />
-                Verifications
-              </TabsTrigger>
-              <TabsTrigger value="accounts" data-testid="tab-accounts" className="flex-shrink-0">
-                <CreditCard className="h-4 w-4 mr-2" />
-                Accounts
-              </TabsTrigger>
-              <TabsTrigger value="compliance" data-testid="tab-compliance" className="flex-shrink-0">
-                <FileText className="h-4 w-4 mr-2" />
-                Compliance
-              </TabsTrigger>
-            </ScrollableTabsList>
+            {/* Mobile scrollable tab bar — visible on mobile only */}
+            <div className="lg:hidden">
+              <ScrollableTabsList>
+                <TabsTrigger value="overview" data-testid="tab-overview-mobile" className="flex-shrink-0">
+                  <Home className="h-4 w-4 mr-1" />Overview
+                </TabsTrigger>
+                <TabsTrigger value="kyc-dashboard" data-testid="tab-kyc-dashboard-mobile" className="flex-shrink-0">
+                  <Award className="h-4 w-4 mr-1" />Dashboard
+                </TabsTrigger>
+                <TabsTrigger value="kyc-verification" data-testid="tab-kyc-verification-mobile" className="flex-shrink-0">
+                  <Shield className="h-4 w-4 mr-1" />Verify
+                </TabsTrigger>
+                <TabsTrigger value="accounts" data-testid="tab-accounts-mobile" className="flex-shrink-0">
+                  <CreditCard className="h-4 w-4 mr-1" />Accounts
+                </TabsTrigger>
+                <TabsTrigger value="compliance" data-testid="tab-compliance-mobile" className="flex-shrink-0">
+                  <FileText className="h-4 w-4 mr-1" />Compliance
+                </TabsTrigger>
+              </ScrollableTabsList>
+            </div>
 
-            {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-6">
+            {/* Overview Tab — ICICI-inspired Personal Details */}
+            <TabsContent value="overview" className="space-y-4">
               {!user ? (
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
@@ -792,329 +976,399 @@ export default function ProfilePage() {
                     const stats = (orderStats as any)?.stats;
                     const orders = (recentOrders as any)?.orders || [];
                     const isKycComplete = kycProfileData?.kycStatus === 'approved';
+                    const fullName = kycProfileData?.fullName || (user as any)?.username || '';
+                    const panNum = kycProfileData?.panNumber || form.getValues('panNumber') || '';
+                    const mobileNum = kycProfileData?.mobile || form.getValues('mobile') || '';
+                    const emailAddr = kycProfileData?.email || form.getValues('email') || '';
+                    const aadhaarLast4 = kycProfileData?.aadhaarLast4 || '';
+                    const ckycId = kycProfileData?.ckycNumber || kycProfileData?.ckycId || '';
+                    const kraRef = kycProfileData?.kraRefNumber || '';
+                    const address = [
+                      form.getValues('presentAddress'),
+                      form.getValues('presentCity'),
+                      form.getValues('presentState'),
+                      form.getValues('presentPincode')
+                    ].filter(Boolean).join(', ') || kycProfileData?.address || '';
+                    const amlRisk = kycProfileData?.amlRiskLevel || 'LOW';
+                    const riskCategory = kycProfileData?.riskCategory || 'low';
 
                     return (
                       <>
-                        {/* 1. Account Summary Hero Card */}
-                        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border-blue-200 dark:border-blue-800">
-                          <CardContent className="p-6">
-                            {kycProfileLoading ? (
-                              <div className="animate-pulse flex items-center gap-4">
-                                <div className="h-16 w-16 rounded-full bg-muted"></div>
-                                <div className="space-y-2 flex-1">
-                                  <div className="h-6 bg-muted rounded w-48"></div>
-                                  <div className="h-4 bg-muted rounded w-32"></div>
-                                </div>
+                        {/* RBI/SEBI Regulatory Notice */}
+                        <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/40">
+                          <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                          <AlertDescription className="text-amber-800 dark:text-amber-300 text-sm">
+                            As per <strong>RBI/SEBI guidelines</strong>, you are required to keep your profile details accurate and up to date.
+                            {!isKycComplete && <> Please <button className="underline font-semibold ml-1" onClick={() => setLocation('/onboarding')}>complete your KYC</button> to unlock all services.</>}
+                          </AlertDescription>
+                        </Alert>
+
+                        {/* ── PERSONAL DETAILS CARD (ICICI-style) ── */}
+                        <Card className="border-0 shadow-sm">
+                          <CardHeader className="pb-2 pt-5 px-6">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <CardTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">{fullName || 'Your Name'}</CardTitle>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                  {isAdmin ? 'Administrator Account' : isAgent ? 'Agent Account' : isPartner ? 'Partner Account' : 'Individual Investor'}
+                                </p>
                               </div>
-                            ) : (
-                              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                                <div className="flex items-center gap-4">
-                                  <div className="h-16 w-16 rounded-full bg-blue-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
-                                    {(kycProfileData?.fullName || user?.username || 'U').charAt(0).toUpperCase()}
-                                  </div>
-                                  <div>
-                                    <h2 className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                                      {kycProfileData?.fullName || user?.username || 'User'}
-                                    </h2>
-                                    <p className="text-blue-700 dark:text-blue-300 text-sm">
-                                      UID: {kycProfileData?.userId || user?.id || '—'}
-                                    </p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                      <Badge variant={clientType === 'non_individual' ? 'secondary' : 'outline'} className="text-xs">
-                                        <Building2 className="h-3 w-3 mr-1" />
-                                        {clientType === 'non_individual' ? 'Corporate' : 'Individual'}
-                                      </Badge>
-                                      {user?.createdAt && (
-                                        <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                                          <Calendar className="h-3 w-3" />
-                                          Member since {new Date(user.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <Badge
-                                    variant={isKycComplete ? 'default' : 'secondary'}
-                                    className={`px-3 py-1 ${isKycComplete ? 'bg-green-500 hover:bg-green-600' : 'bg-yellow-500 hover:bg-yellow-600'} text-white`}
-                                  >
-                                    {isKycComplete ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1" />}
+                              <div className="flex items-center gap-2">
+                                {isKycComplete ? (
+                                  <span className="flex items-center gap-1.5 bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-400 text-xs font-semibold px-3 py-1 rounded-full border border-green-200 dark:border-green-800">
+                                    <CheckCircle2 className="h-3.5 w-3.5" /> KYC Verified
+                                  </span>
+                                ) : (
+                                  <Button size="sm" onClick={() => setLocation('/onboarding')} className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-7 px-3">
+                                    Complete KYC
+                                  </Button>
+                                )}
+                                <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => setLocation('/onboarding?mode=edit')}>
+                                  <Edit className="h-3 w-3 mr-1" /> Edit KYC
+                                </Button>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="px-6 pb-6">
+                            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                              {/* Primary Account / UID */}
+                              <ProfileDetailRow
+                                label="Primary Account"
+                                value={(user as any)?.id?.toString() || '—'}
+                                icon={<User className="h-4 w-4" />}
+                              />
+
+                              {/* CKYC ID — prominent */}
+                              <ProfileDetailRow
+                                label="CKYC ID"
+                                value={ckycId || 'Not yet fetched'}
+                                icon={<Award className="h-4 w-4" />}
+                                highlight={!!ckycId}
+                                action={ckycId ? { label: 'Know More', onClick: () => setActiveTab('kyc-dashboard') } : undefined}
+                              />
+
+                              {/* KRA Reference */}
+                              {kraRef && (
+                                <ProfileDetailRow
+                                  label="KRA Reference"
+                                  value={kraRef}
+                                  icon={<FileText className="h-4 w-4" />}
+                                />
+                              )}
+
+                              {/* PAN Number — masked */}
+                              <ProfileDetailRow
+                                label="PAN Number"
+                                value={panNum ? maskPan(panNum) : 'Not verified'}
+                                icon={<CreditCard className="h-4 w-4" />}
+                                verified={isPanVerified}
+                                action={!isPanVerified ? { label: 'Verify', onClick: () => setActiveTab('kyc-verification') } : { label: 'Update', onClick: () => setLocation('/kyc-rejections?reason=PAN_CORRECTION') }}
+                              />
+
+                              {/* Aadhaar — masked */}
+                              <ProfileDetailRow
+                                label="Aadhaar Number"
+                                value={aadhaarLast4 ? maskAadhaar(aadhaarLast4) : 'Not verified'}
+                                icon={<Shield className="h-4 w-4" />}
+                                verified={kycProfileData?.aadhaarVerified}
+                                action={!kycProfileData?.aadhaarVerified ? { label: 'Verify', onClick: () => setActiveTab('kyc-verification') } : undefined}
+                              />
+
+                              {/* Mobile Number — masked */}
+                              <ProfileDetailRow
+                                label="Mobile Number"
+                                value={mobileNum ? maskMobile(mobileNum) : '—'}
+                                icon={<Phone className="h-4 w-4" />}
+                                verified={isMobileVerified}
+                                action={{ label: 'Update', onClick: () => setLocation('/onboarding?mode=edit&step=profile_completion') }}
+                              />
+
+                              {/* Email — masked */}
+                              <ProfileDetailRow
+                                label="Email ID"
+                                value={emailAddr ? maskEmail(emailAddr) : '—'}
+                                icon={<Mail className="h-4 w-4" />}
+                                verified={isEmailVerified}
+                                action={{ label: 'Update', onClick: () => setLocation('/onboarding?mode=edit&step=profile_completion') }}
+                              />
+
+                              {/* KYC & AML Status */}
+                              <div className="py-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+                                <div className="flex-1">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">KYC Status</p>
+                                  <span className={`inline-flex items-center gap-1.5 text-sm font-semibold ${
+                                    isKycComplete ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'
+                                  }`}>
+                                    <span className={`h-2 w-2 rounded-full ${isKycComplete ? 'bg-green-500' : 'bg-amber-500'}`}></span>
                                     {kycProfileData?.kycStatus === 'approved' ? 'Verified' : kycProfileData?.kycStatus === 'in_progress' ? 'In Progress' : 'Pending'}
-                                  </Badge>
-                                  {kycProfileData?.kycTier && (
-                                    <Badge variant="outline" className="px-3 py-1">
-                                      {getTierIcon(kycProfileData.kycTier)}
-                                      <span className="ml-1">{formatTierName(kycProfileData.kycTier)}</span>
-                                    </Badge>
-                                  )}
+                                  </span>
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">AML Risk</p>
+                                  <span className={`inline-flex items-center gap-1.5 text-sm font-semibold ${
+                                    amlRisk === 'LOW' ? 'text-green-600 dark:text-green-400' : amlRisk === 'MEDIUM' ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
+                                  }`}>
+                                    <span className={`h-2 w-2 rounded-full ${amlRisk === 'LOW' ? 'bg-green-500' : amlRisk === 'MEDIUM' ? 'bg-amber-500' : 'bg-red-500'}`}></span>
+                                    {amlRisk}
+                                  </span>
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Risk Profile</p>
+                                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 capitalize">{riskCategory}</span>
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Date Format</p>
+                                  <span className="text-sm text-gray-600 dark:text-gray-400">dd/MM/yyyy</span>
                                 </div>
                               </div>
-                            )}
+
+                              {/* Communication Address */}
+                              <div className="py-3 flex items-start gap-3">
+                                <MapPin className="h-4 w-4 text-gray-400 dark:text-gray-500 mt-1 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Communication Address</p>
+                                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-relaxed">
+                                    {address || <span className="text-gray-400 italic">Not provided</span>}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={() => setLocation('/onboarding?mode=edit&step=profile_completion')}
+                                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium flex-shrink-0"
+                                >Update</button>
+                              </div>
+                            </div>
                           </CardContent>
                         </Card>
 
-                        {/* 2. Portfolio Summary Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                          {orderStatsLoading ? (
-                            <>
-                              {[1, 2, 3, 4].map((i) => (
-                                <Card key={i} className="animate-pulse">
-                                  <CardContent className="p-6">
-                                    <div className="h-4 bg-muted rounded w-24 mb-2"></div>
-                                    <div className="h-8 bg-muted rounded w-32"></div>
+                        {/* ── CLIENT: Portfolio Stats + Quick Actions ── */}
+                        {isClient && (
+                          <>
+                            {/* Portfolio Stats */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              {[
+                                { label: 'Total Invested', value: `₹${((stats?.totalAmount || 0) / 100000).toFixed(2)}L`, icon: <IndianRupee className="h-4 w-4" />, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/30' },
+                                { label: 'Holdings Value', value: `₹${((stats?.completedAmount || stats?.totalAmount || 0) / 100000).toFixed(2)}L`, icon: <LineChart className="h-4 w-4" />, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-950/30' },
+                                { label: 'Total Orders', value: String(stats?.totalOrders || 0), icon: <Package className="h-4 w-4" />, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-950/30' },
+                                { label: 'Pending', value: String(stats?.pendingOrders || 0), icon: <Clock className="h-4 w-4" />, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-950/30' },
+                              ].map(stat => (
+                                <Card key={stat.label} className="border-0 shadow-sm">
+                                  <CardContent className="p-4">
+                                    <div className={`h-8 w-8 rounded-lg ${stat.bg} flex items-center justify-center ${stat.color} mb-2`}>
+                                      {stat.icon}
+                                    </div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">{stat.label}</p>
+                                    <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{stat.value}</p>
                                   </CardContent>
                                 </Card>
                               ))}
-                            </>
-                          ) : (
-                            <>
-                              <Card className="border-l-4 border-l-blue-500">
-                                <CardContent className="p-6">
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <p className="text-sm text-muted-foreground">Total Investment</p>
-                                      <p className="text-2xl font-bold">₹{((stats?.totalAmount || 0) / 100000).toFixed(2)}L</p>
-                                    </div>
-                                    <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                                      <IndianRupee className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                                    </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-
-                              <Card className="border-l-4 border-l-green-500">
-                                <CardContent className="p-6">
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <p className="text-sm text-muted-foreground">Holdings Value</p>
-                                      <p className="text-2xl font-bold">₹{((stats?.completedAmount || stats?.totalAmount || 0) / 100000).toFixed(2)}L</p>
-                                    </div>
-                                    <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
-                                      <LineChart className="h-5 w-5 text-green-600 dark:text-green-400" />
-                                    </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-
-                              <Card className="border-l-4 border-l-purple-500">
-                                <CardContent className="p-6">
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <p className="text-sm text-muted-foreground">Total Orders</p>
-                                      <p className="text-2xl font-bold">{stats?.totalOrders || 0}</p>
-                                    </div>
-                                    <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
-                                      <ShoppingCart className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                                    </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-
-                              <Card className="border-l-4 border-l-orange-500">
-                                <CardContent className="p-6">
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <p className="text-sm text-muted-foreground">Pending Actions</p>
-                                      <p className="text-2xl font-bold">{stats?.pendingOrders || 0}</p>
-                                    </div>
-                                    <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
-                                      <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                                    </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            </>
-                          )}
-                        </div>
-
-                        {/* 3. Quick Actions Grid */}
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-lg">
-                              <Sparkles className="h-5 w-5" />
-                              Quick Actions
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="flex gap-3 overflow-x-auto pb-2">
-                              {!isKycComplete && (
-                                <Button
-                                  variant="outline"
-                                  className="flex-shrink-0 h-auto py-3 px-4 flex flex-col items-center gap-2 min-w-[100px] border-dashed border-yellow-400 dark:border-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-950"
-                                  onClick={() => setLocation('/onboarding')}
-                                >
-                                  <ShieldCheck className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-                                  <span className="text-xs font-medium">Complete KYC</span>
-                                </Button>
-                              )}
-                              <Button variant="outline" className="flex-shrink-0 h-auto py-3 px-4 flex flex-col items-center gap-2 min-w-[100px]" onClick={() => setLocation('/domestic-trading')}>
-                                <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                                <span className="text-xs font-medium">Start Trading</span>
-                              </Button>
-                              <Button variant="outline" className="flex-shrink-0 h-auto py-3 px-4 flex flex-col items-center gap-2 min-w-[100px]" onClick={() => setLocation('/mutual-funds')}>
-                                <BarChart3 className="h-5 w-5 text-green-600 dark:text-green-400" />
-                                <span className="text-xs font-medium">Mutual Funds</span>
-                              </Button>
-                              <Button variant="outline" className="flex-shrink-0 h-auto py-3 px-4 flex flex-col items-center gap-2 min-w-[100px]" onClick={() => setLocation('/ipo')}>
-                                <Briefcase className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                                <span className="text-xs font-medium">IPO</span>
-                              </Button>
-                              <Button variant="outline" className="flex-shrink-0 h-auto py-3 px-4 flex flex-col items-center gap-2 min-w-[100px]" onClick={() => setLocation('/bonds')}>
-                                <Receipt className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                                <span className="text-xs font-medium">Bonds</span>
-                              </Button>
-                              <Button variant="outline" className="flex-shrink-0 h-auto py-3 px-4 flex flex-col items-center gap-2 min-w-[100px]" onClick={() => setLocation('/tax-itr-self')}>
-                                <FileText className="h-5 w-5 text-red-600 dark:text-red-400" />
-                                <span className="text-xs font-medium">Tax Filing</span>
-                              </Button>
-                              <Button variant="outline" className="flex-shrink-0 h-auto py-3 px-4 flex flex-col items-center gap-2 min-w-[100px]" onClick={() => setLocation('/portfolio')}>
-                                <LineChart className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-                                <span className="text-xs font-medium">Portfolio</span>
-                              </Button>
-                              <Button variant="outline" className="flex-shrink-0 h-auto py-3 px-4 flex flex-col items-center gap-2 min-w-[100px]" onClick={() => setLocation('/family-dashboard')}>
-                                <Users className="h-5 w-5 text-pink-600 dark:text-pink-400" />
-                                <span className="text-xs font-medium">Family</span>
-                              </Button>
                             </div>
-                          </CardContent>
-                        </Card>
 
-                        {/* 4. Recent Orders Card */}
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-lg">
-                              <Package className="h-5 w-5" />
-                              Recent Orders
-                            </CardTitle>
-                            <CardDescription>Your latest transactions</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            {recentOrdersLoading ? (
-                              <div className="animate-pulse space-y-3">
-                                {[1, 2, 3].map((i) => (
-                                  <div key={i} className="flex justify-between items-center p-3 rounded-lg bg-muted/50">
-                                    <div className="space-y-1">
-                                      <div className="h-4 bg-muted rounded w-40"></div>
-                                      <div className="h-3 bg-muted rounded w-24"></div>
-                                    </div>
-                                    <div className="h-6 bg-muted rounded w-20"></div>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : orders.length === 0 ? (
-                              <div className="text-center py-8">
-                                <Package className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-                                <p className="text-muted-foreground">No orders yet</p>
-                                <p className="text-sm text-muted-foreground mt-1">Start investing to see your orders here</p>
-                                <Button variant="outline" className="mt-4" onClick={() => setLocation('/mutual-funds')}>
-                                  Explore Products
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="space-y-2">
-                                {orders.slice(0, 5).map((order: any, idx: number) => (
-                                  <div key={order.id || idx} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                                    <div className="flex items-center gap-3">
-                                      <div className={`h-8 w-8 rounded-full flex items-center justify-center ${order.orderType === 'sell' || order.orderType === 'redemption' ? 'bg-red-100 dark:bg-red-900' : 'bg-green-100 dark:bg-green-900'}`}>
-                                        {order.orderType === 'sell' || order.orderType === 'redemption' ? (
-                                          <ArrowRight className="h-4 w-4 text-red-600 dark:text-red-400 rotate-45" />
-                                        ) : (
-                                          <ArrowRight className="h-4 w-4 text-green-600 dark:text-green-400 -rotate-45" />
-                                        )}
-                                      </div>
-                                      <div>
-                                        <p className="font-medium text-sm">{order.productName || 'Order'}</p>
-                                        <p className="text-xs text-muted-foreground capitalize">
-                                          {order.orderType} · {order.productType?.replace(/_/g, ' ')} · {order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : '—'}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <div className="text-right flex items-center gap-3">
-                                      <span className="font-semibold text-sm">₹{(order.amount || 0).toLocaleString('en-IN')}</span>
-                                      <Badge
-                                        variant={order.status === 'completed' || order.status === 'executed' ? 'default' : order.status === 'cancelled' || order.status === 'failed' ? 'destructive' : 'secondary'}
-                                        className="text-xs capitalize"
-                                      >
-                                        {order.status || 'pending'}
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                ))}
-                                <Separator className="my-2" />
-                                <Button variant="ghost" className="w-full text-sm" onClick={() => setActiveTab('kyc-dashboard')}>
-                                  View All Orders
-                                  <ChevronRight className="h-4 w-4 ml-1" />
-                                </Button>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-
-                        {/* 5. Account Details Snapshot Card */}
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-lg">
-                              <CreditCard className="h-5 w-5" />
-                              Account Details
-                            </CardTitle>
-                            <CardDescription>Linked accounts and verification status</CardDescription>
-                          </CardHeader>
-                          <CardContent>
+                            {/* Favourite Activities (Quick Actions) */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                                <div className="flex items-center gap-3">
-                                  <Banknote className="h-5 w-5 text-blue-500" />
-                                  <div>
-                                    <p className="text-sm font-medium">Bank Account</p>
-                                    <p className="text-xs text-muted-foreground">{kycProfileData?.bankVerified ? 'Linked & Verified' : 'Not Linked'}</p>
-                                  </div>
-                                </div>
-                                <Button variant="ghost" size="sm" onClick={() => setActiveTab('accounts')}>
-                                  {kycProfileData?.bankVerified ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <ExternalLink className="h-4 w-4" />}
-                                </Button>
-                              </div>
+                              <Card className="border-0 shadow-sm">
+                                <CardHeader className="pb-2">
+                                  <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300">Your Favourite Activities</CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-0 space-y-1">
+                                  {[
+                                    { label: 'Trade US Stocks', icon: <TrendingUp className="h-4 w-4 text-blue-500" />, path: '/domestic-trading' },
+                                    { label: 'Mutual Funds', icon: <BarChart3 className="h-4 w-4 text-green-500" />, path: '/mutual-funds' },
+                                    { label: 'IPO Applications', icon: <Briefcase className="h-4 w-4 text-purple-500" />, path: '/ipo' },
+                                    { label: 'Bonds & Fixed Income', icon: <Receipt className="h-4 w-4 text-indigo-500" />, path: '/bonds' },
+                                    { label: 'Tax Filing (ITR)', icon: <FileText className="h-4 w-4 text-red-500" />, path: '/tax-itr-self' },
+                                    { label: 'Family Dashboard', icon: <Users className="h-4 w-4 text-pink-500" />, path: '/family-dashboard' },
+                                  ].map(item => (
+                                    <button key={item.path} onClick={() => setLocation(item.path)}
+                                      className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm text-gray-700 dark:text-gray-300 text-left group">
+                                      {item.icon}
+                                      {item.label}
+                                      <ChevronRight className="h-3 w-3 ml-auto text-gray-300 group-hover:text-gray-500 transition-colors" />
+                                    </button>
+                                  ))}
+                                </CardContent>
+                              </Card>
 
-                              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                                <div className="flex items-center gap-3">
-                                  <Building2 className="h-5 w-5 text-purple-500" />
-                                  <div>
-                                    <p className="text-sm font-medium">Demat Account</p>
-                                    <p className="text-xs text-muted-foreground">{kycProfileData?.dematLinked ? 'Linked' : 'Not Linked'}</p>
-                                  </div>
-                                </div>
-                                <Button variant="ghost" size="sm" onClick={() => setActiveTab('accounts')}>
-                                  {kycProfileData?.dematLinked ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <ExternalLink className="h-4 w-4" />}
-                                </Button>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                                <div className="flex items-center gap-3">
-                                  <CreditCard className="h-5 w-5 text-green-500" />
-                                  <div>
-                                    <p className="text-sm font-medium">PAN</p>
-                                    <p className="text-xs text-muted-foreground">{isPanVerified ? 'Verified' : 'Not Verified'}</p>
-                                  </div>
-                                </div>
-                                <Button variant="ghost" size="sm" onClick={() => setActiveTab('kyc-verification')}>
-                                  {isPanVerified ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <ExternalLink className="h-4 w-4" />}
-                                </Button>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                                <div className="flex items-center gap-3">
-                                  <Shield className="h-5 w-5 text-orange-500" />
-                                  <div>
-                                    <p className="text-sm font-medium">Aadhaar</p>
-                                    <p className="text-xs text-muted-foreground">{kycProfileData?.aadhaarVerified ? 'Verified' : 'Not Verified'}</p>
-                                  </div>
-                                </div>
-                                <Button variant="ghost" size="sm" onClick={() => setActiveTab('kyc-verification')}>
-                                  {kycProfileData?.aadhaarVerified ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <ExternalLink className="h-4 w-4" />}
-                                </Button>
-                              </div>
+                              {/* Linked Accounts */}
+                              <Card className="border-0 shadow-sm">
+                                <CardHeader className="pb-2">
+                                  <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300">Your Linked Accounts</CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-0 space-y-2">
+                                  {[
+                                    { label: 'Bank Account', verified: kycProfileData?.bankVerified, icon: <Banknote className="h-4 w-4" />, action: () => setActiveTab('accounts') },
+                                    { label: 'Demat Account', verified: kycProfileData?.dematLinked, icon: <Building2 className="h-4 w-4" />, action: () => setActiveTab('accounts') },
+                                    { label: 'PAN', verified: isPanVerified, icon: <CreditCard className="h-4 w-4" />, action: () => setActiveTab('kyc-verification') },
+                                    { label: 'Aadhaar OTP', verified: kycProfileData?.aadhaarVerified, icon: <Shield className="h-4 w-4" />, action: () => setActiveTab('kyc-verification') },
+                                  ].map(acc => (
+                                    <div key={acc.label} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                                      <div className="flex items-center gap-3">
+                                        <span className={`${acc.verified ? 'text-blue-500' : 'text-gray-400'}`}>{acc.icon}</span>
+                                        <div>
+                                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{acc.label}</p>
+                                          <p className="text-xs text-gray-400">{acc.verified ? 'Linked & Verified' : 'Not Linked'}</p>
+                                        </div>
+                                      </div>
+                                      <button onClick={acc.action}>
+                                        {acc.verified
+                                          ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                          : <ExternalLink className="h-4 w-4 text-gray-400 hover:text-blue-500" />}
+                                      </button>
+                                    </div>
+                                  ))}
+                                  <Button variant="outline" className="w-full mt-2 text-sm h-8" onClick={() => setActiveTab('accounts')}>
+                                    Manage Accounts <ChevronRight className="h-3 w-3 ml-1" />
+                                  </Button>
+                                </CardContent>
+                              </Card>
                             </div>
-                          </CardContent>
-                        </Card>
+
+                            {/* Recent Orders */}
+                            <Card className="border-0 shadow-sm">
+                              <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                  <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                                    <Package className="h-4 w-4" /> Recent Orders
+                                  </CardTitle>
+                                  <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setActiveTab('kyc-dashboard')}>
+                                    View All <ChevronRight className="h-3 w-3 ml-1" />
+                                  </Button>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="pt-0">
+                                {recentOrdersLoading ? (
+                                  <div className="space-y-2 animate-pulse">
+                                    {[1,2,3].map(i => <div key={i} className="h-10 bg-muted rounded" />)}
+                                  </div>
+                                ) : orders.length === 0 ? (
+                                  <div className="text-center py-6">
+                                    <Package className="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+                                    <p className="text-sm text-gray-500">No orders yet. Start investing!</p>
+                                    <Button variant="outline" size="sm" className="mt-3" onClick={() => setLocation('/mutual-funds')}>Explore Products</Button>
+                                  </div>
+                                ) : (
+                                  <div className="divide-y divide-gray-50 dark:divide-gray-800">
+                                    {orders.slice(0, 5).map((order: any, idx: number) => (
+                                      <div key={order.id || idx} className="flex items-center justify-between py-2.5">
+                                        <div className="flex items-center gap-3">
+                                          <div className={`h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 ${order.orderType === 'sell' || order.orderType === 'redemption' ? 'bg-red-100 dark:bg-red-950/50' : 'bg-green-100 dark:bg-green-950/50'}`}>
+                                            <ArrowRight className={`h-3.5 w-3.5 ${order.orderType === 'sell' ? 'text-red-500 rotate-45' : 'text-green-500 -rotate-45'}`} />
+                                          </div>
+                                          <div>
+                                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{order.productName || 'Order'}</p>
+                                            <p className="text-xs text-gray-400 capitalize">{order.orderType} · {order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : '—'}</p>
+                                          </div>
+                                        </div>
+                                        <div className="text-right">
+                                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">₹{(order.amount || 0).toLocaleString('en-IN')}</p>
+                                          <Badge variant={order.status === 'completed' || order.status === 'executed' ? 'default' : order.status === 'cancelled' ? 'destructive' : 'secondary'} className="text-xs capitalize">
+                                            {order.status || 'pending'}
+                                          </Badge>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </>
+                        )}
+
+                        {/* ── ADMIN: Admin-specific overview ── */}
+                        {isAdmin && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Card className="border-0 shadow-sm">
+                              <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300">Admin Tools</CardTitle>
+                              </CardHeader>
+                              <CardContent className="pt-0 space-y-1">
+                                {[
+                                  { label: 'KYC Management', icon: <Shield className="h-4 w-4 text-blue-500" />, path: '/kyc-dashboard' },
+                                  { label: 'User Management', icon: <Users className="h-4 w-4 text-purple-500" />, path: '/users' },
+                                  { label: 'Audit Logs', icon: <Activity className="h-4 w-4 text-green-500" />, path: '/audit-logs' },
+                                  { label: 'Rejections & Re-KYC', icon: <XCircle className="h-4 w-4 text-red-500" />, path: '/kyc-rejections' },
+                                  { label: 'AML Screening', icon: <AlertTriangle className="h-4 w-4 text-orange-500" />, path: '/aml-screening' },
+                                ].map(item => (
+                                  <button key={item.path} onClick={() => setLocation(item.path)}
+                                    className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm text-gray-700 dark:text-gray-300 text-left group">
+                                    {item.icon}{item.label}
+                                    <ChevronRight className="h-3 w-3 ml-auto text-gray-300 group-hover:text-gray-500" />
+                                  </button>
+                                ))}
+                              </CardContent>
+                            </Card>
+                            <Card className="border-0 shadow-sm">
+                              <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300">Your Identity Verification</CardTitle>
+                              </CardHeader>
+                              <CardContent className="pt-0 space-y-2">
+                                {[
+                                  { label: 'PAN', verified: isPanVerified, note: 'PMLA §12 required' },
+                                  { label: 'Aadhaar OTP', verified: kycProfileData?.aadhaarVerified, note: 'Digital identity' },
+                                  { label: 'CKYC', verified: kycProfileData?.ckycVerified, note: 'CERSAI record' },
+                                  { label: 'AML Clear', verified: kycProfileData?.amlStatus === 'clear', note: 'PMLA screening' },
+                                ].map(item => (
+                                  <div key={item.label} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{item.label}</p>
+                                      <p className="text-xs text-gray-400">{item.note}</p>
+                                    </div>
+                                    {item.verified ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-gray-300 dark:text-gray-600" />}
+                                  </div>
+                                ))}
+                              </CardContent>
+                            </Card>
+                          </div>
+                        )}
+
+                        {/* ── AGENT: Agent-specific overview ── */}
+                        {isAgent && (
+                          <Card className="border-0 shadow-sm">
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300">Agent Quick Actions</CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                {[
+                                  { label: 'Onboard Client', icon: <ShieldCheck className="h-5 w-5 text-blue-500" />, path: '/onboarding' },
+                                  { label: 'My Clients', icon: <Users className="h-5 w-5 text-purple-500" />, path: '/clients' },
+                                  { label: 'Commission Report', icon: <IndianRupee className="h-5 w-5 text-green-500" />, path: '/commissions' },
+                                  { label: 'Pending KYCs', icon: <Clock className="h-5 w-5 text-amber-500" />, path: '/kyc-dashboard' },
+                                  { label: 'SEBI Compliance', icon: <FileText className="h-5 w-5 text-indigo-500" />, path: '/compliance' },
+                                ].map(item => (
+                                  <button key={item.path} onClick={() => setLocation(item.path)}
+                                    className="flex flex-col items-center gap-2 p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors text-sm text-gray-700 dark:text-gray-300">
+                                    {item.icon}<span>{item.label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {/* ── PARTNER: Partner-specific overview ── */}
+                        {isPartner && (
+                          <Card className="border-0 shadow-sm">
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-300">Partner Dashboard</CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                {[
+                                  { label: 'Distribution Metrics', icon: <BarChart3 className="h-5 w-5 text-blue-500" />, path: '/partner-dashboard' },
+                                  { label: 'Sub-Agents', icon: <Users className="h-5 w-5 text-purple-500" />, path: '/sub-agents' },
+                                  { label: 'Revenue Report', icon: <IndianRupee className="h-5 w-5 text-green-500" />, path: '/revenue' },
+                                  { label: 'Compliance', icon: <FileText className="h-5 w-5 text-indigo-500" />, path: '/compliance' },
+                                ].map(item => (
+                                  <button key={item.path} onClick={() => setLocation(item.path)}
+                                    className="flex flex-col items-center gap-2 p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors text-sm text-gray-700 dark:text-gray-300">
+                                    {item.icon}<span>{item.label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+
                       </>
                     );
                   })()}
@@ -1143,35 +1397,26 @@ export default function ProfilePage() {
 
                     return (
                       <>
-                        {/* Personalized Greeting */}
-                        {kycProfileData?.fullName && (
-                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 rounded-lg p-4 mb-2">
-                            <div className="flex items-center gap-3">
-                              <div className="h-12 w-12 rounded-full bg-blue-500 flex items-center justify-center text-white text-xl font-bold">
-                                {kycProfileData.fullName.charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <h2 className="text-2xl font-bold text-blue-900 dark:text-blue-100" data-testid="greeting-message">
-                                  Welcome, {kycProfileData.fullName}!
-                                </h2>
-                                <p className="text-blue-700 dark:text-blue-300 text-sm">
-                                  UID: {kycProfileData?.userId} | PAN Verified Account
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Header Section */}
-                        <div className="flex justify-between items-center">
+                        {/* KYC Dashboard Header */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                           <div>
-                            <h1 className="text-3xl font-bold" data-testid="heading-kyc-dashboard">My KYC Dashboard</h1>
-                            <p className="text-muted-foreground">Manage your verification and access</p>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100" data-testid="heading-kyc-dashboard">KYC Dashboard</h1>
+                              {kycProfileData?.fullName && (
+                                <span className="text-lg text-gray-500 dark:text-gray-400" data-testid="greeting-message">— {kycProfileData.fullName}</span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">UID: {kycProfileData?.userId || '—'} · Manage your verification, tier, and product access</p>
                           </div>
-                          <Badge className={`${getTierColor(kycProfileData?.kycTier || 'basic')} text-foreground px-4 py-2 text-lg`} data-testid="badge-kyc-tier">
-                            {getTierIcon(kycProfileData?.kycTier || 'basic')}
-                            <span className="ml-2">{formatTierName(kycProfileData?.kycTier || 'basic')}</span>
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge className={`${getTierColor(kycProfileData?.kycTier || 'basic')} text-white px-3 py-1.5 text-sm font-semibold`} data-testid="badge-kyc-tier">
+                              {getTierIcon(kycProfileData?.kycTier || 'basic')}
+                              <span className="ml-1.5">{formatTierName(kycProfileData?.kycTier || 'basic')}</span>
+                            </Badge>
+                            <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => setLocation('/onboarding?mode=edit')}>
+                              <Edit className="h-3 w-3 mr-1" /> Edit KYC
+                            </Button>
+                          </div>
                         </div>
 
                         {/* KYC Profile Overview */}
@@ -1188,19 +1433,19 @@ export default function ProfilePage() {
                               {/* Email */}
                               <div>
                                 <p className="text-sm text-muted-foreground">Email</p>
-                                <p className="font-semibold" data-testid="text-email">{kycProfileData?.email}</p>
+                                <p className="font-semibold font-mono" data-testid="text-email">{maskEmail(kycProfileData?.email || '')}</p>
                               </div>
 
                               {/* Mobile */}
                               <div>
                                 <p className="text-sm text-muted-foreground">Mobile</p>
-                                <p className="font-semibold" data-testid="text-mobile">{kycProfileData?.mobile}</p>
+                                <p className="font-semibold font-mono" data-testid="text-mobile">{maskMobile(kycProfileData?.mobile || '')}</p>
                               </div>
 
                               {/* PAN Number */}
                               <div>
                                 <p className="text-sm text-muted-foreground">PAN Number</p>
-                                <p className="font-semibold" data-testid="text-pan">{kycProfileData?.panNumber || 'Not verified'}</p>
+                                <p className="font-semibold font-mono" data-testid="text-pan">{kycProfileData?.panNumber ? maskPan(kycProfileData.panNumber) : 'Not verified'}</p>
                               </div>
 
                               {/* KYC Status */}
@@ -2487,6 +2732,50 @@ export default function ProfilePage() {
           </div>
         </form>
       </Form>
+          </div>{/* end flex-1 right content */}
+        </div>{/* end flex row */}
+      </div>{/* end max-w-7xl */}
+    </div>{/* end min-h-screen */}
+  );
+}
+
+// ── PROFILE DETAIL ROW (ICICI-style) ──
+interface ProfileDetailRowProps {
+  label: string;
+  value: string;
+  icon?: JSX.Element;
+  verified?: boolean;
+  highlight?: boolean;
+  multiline?: boolean;
+  action?: { label: string; onClick: () => void };
+}
+
+function ProfileDetailRow({ label, value, icon, verified, highlight, action }: ProfileDetailRowProps) {
+  return (
+    <div className="py-3 flex items-center gap-3">
+      {icon && (
+        <span className="text-gray-400 dark:text-gray-500 flex-shrink-0 w-5">{icon}</span>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{label}</p>
+        <p className={`text-sm font-semibold truncate ${
+          highlight ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-gray-100'
+        }`}>
+          {value}
+        </p>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {verified === true && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+        {verified === false && <XCircle className="h-4 w-4 text-gray-300 dark:text-gray-600" />}
+        {action && (
+          <button
+            onClick={action.onClick}
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
+          >
+            {action.label}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
