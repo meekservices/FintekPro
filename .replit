@@ -80,6 +80,7 @@ ZOHO_DATACENTER = "in"
 TRUTHSCREEN_BASE_URL = "https://www.truthscreen.com"
 PYTHON_SERVICE_SECRET = "SwoGkTwLExnmEeAYisQSuz80MX2JArpEiUGdY/uqJgOu+6B/OLZxpV+WQkw3+8Cr"
 QUANDL_API_KEY = "mzgr8gFUKsPMrdS2DpTp"
+ALPACA_BASE_URL = "https://broker-api.sandbox.alpaca.markets"
 
 [userenv.production]
 CASHFREE_ENVIRONMENT = "PRODUCTION"
