@@ -2869,10 +2869,10 @@ export default function ProfilePage() {
           </div>
         </form>
       </Form>
-          </div>{/* end flex-1 right content */}
-        </div>{/* end flex row */}
-      </div>{/* end max-w-7xl */}
-    </div>{/* end min-h-screen */}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
