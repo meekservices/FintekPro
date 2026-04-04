@@ -62,6 +62,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem} from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   validatePanFormat, 
   getPanTypeInfo, 
@@ -197,6 +199,15 @@ export default function SmartKYCOnboarding() {
   const [editDocumentUploading, setEditDocumentUploading] = useState(false);
   const [saveAttempted, setSaveAttempted] = useState(false);
   const [nameChanged, setNameChanged] = useState(false);
+
+  // Re-KYC document change request dialog state
+  const [rekycDialogOpen, setRekycDialogOpen] = useState(false);
+  const [rekycField, setRekycField] = useState<'panNumber' | 'dateOfBirth' | null>(null);
+  const [rekycNewValue, setRekycNewValue] = useState('');
+  const [rekycReason, setRekycReason] = useState('');
+  const [rekycNotes, setRekycNotes] = useState('');
+  const [rekycSubmitting, setRekycSubmitting] = useState(false);
+  const [rekycSuccess, setRekycSuccess] = useState<{ trackingId: string; message: string; nextSteps: string[] } | null>(null);
   const [addressChanged, setAddressChanged] = useState(false);
   
   // Pan Verification State
@@ -3699,51 +3710,288 @@ export default function SmartKYCOnboarding() {
               </Alert>
             )}
 
-            {/* Locked Fields Section */}
-            <Card>
+            {/* Verified / Locked Fields — Re-KYC Request Section */}
+            <Card className="border-amber-200 dark:border-amber-800">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Shield className="h-5 w-5 text-amber-500" />
-                  Verified Information (Cannot be Changed)
+                  Verified Identity Information
                 </CardTitle>
                 <CardDescription>
-                  These fields are locked because they have been verified. Contact support for corrections.
+                  These fields are locked after verification as required by SEBI/RBI KYC regulations.
+                  If any of these details are incorrect, you can request a correction — this will
+                  trigger a Re-KYC process as mandated by SEBI KYC Master Circular 2024.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground">PAN Number</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Input 
-                        value={editFieldRules.currentValues?.panNumber || 'Not provided'} 
-                        disabled 
-                        className="bg-muted"
+                <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+                  <Shield className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-800 dark:text-amber-300 text-xs">
+                    <strong>Regulatory Note:</strong> As per SEBI KYC Master Circular 2024 &amp; PMLA Rules 2005,
+                    changes to PAN or Date of Birth on a verified KYC require a fresh Re-KYC verification.
+                    Your existing services will remain uninterrupted while the request is being processed
+                    (expected: 5–10 business days).
+                  </AlertDescription>
+                </Alert>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* PAN Number */}
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground text-sm font-medium">PAN Number</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={editFieldRules.currentValues?.panNumber || 'Not provided'}
+                        disabled
+                        className="bg-muted font-mono tracking-widest"
                       />
-                      {editFieldRules.lockedFields?.includes('panNumber') && (
-                        <Badge variant="secondary" className="text-xs">Verified</Badge>
-                      )}
+                      <Badge variant="secondary" className="shrink-0 text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                        ✓ Verified
+                      </Badge>
                     </div>
-                    {editFieldRules.lockReasons?.panNumber && (
-                      <p className="text-xs text-muted-foreground mt-1">{editFieldRules.lockReasons.panNumber}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Verified via PAN API — locked per SEBI guidelines.
+                    </p>
+                    {editFieldRules.lockedFields?.includes('panNumber') && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full mt-1 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
+                        onClick={() => {
+                          setRekycField('panNumber');
+                          setRekycNewValue('');
+                          setRekycReason('');
+                          setRekycNotes('');
+                          setRekycSuccess(null);
+                          setRekycDialogOpen(true);
+                        }}
+                      >
+                        <Shield className="h-3 w-3 mr-2" />
+                        Request PAN Correction (Triggers Re-KYC)
+                      </Button>
                     )}
                   </div>
-                  <div>
-                    <Label className="text-muted-foreground">Date of Birth</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Input 
-                        value={editFieldRules.currentValues?.dateOfBirth || 'Not provided'} 
-                        disabled 
+
+                  {/* Date of Birth */}
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground text-sm font-medium">Date of Birth</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={editFieldRules.currentValues?.dateOfBirth || 'Not provided'}
+                        disabled
                         className="bg-muted"
                       />
-                      {editFieldRules.lockedFields?.includes('dateOfBirth') && (
-                        <Badge variant="secondary" className="text-xs">Verified</Badge>
-                      )}
+                      <Badge variant="secondary" className="shrink-0 text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                        ✓ Verified
+                      </Badge>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      Verified against PAN records — locked per SEBI guidelines.
+                    </p>
+                    {editFieldRules.lockedFields?.includes('dateOfBirth') && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full mt-1 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
+                        onClick={() => {
+                          setRekycField('dateOfBirth');
+                          setRekycNewValue('');
+                          setRekycReason('');
+                          setRekycNotes('');
+                          setRekycSuccess(null);
+                          setRekycDialogOpen(true);
+                        }}
+                      >
+                        <Shield className="h-3 w-3 mr-2" />
+                        Request DOB Correction (Triggers Re-KYC)
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Re-KYC Document Change Request Dialog */}
+            <Dialog open={rekycDialogOpen} onOpenChange={(open) => {
+              if (!rekycSubmitting) {
+                setRekycDialogOpen(open);
+                if (!open) setRekycSuccess(null);
+              }
+            }}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-amber-500" />
+                    Request {rekycField === 'panNumber' ? 'PAN Number' : 'Date of Birth'} Correction
+                  </DialogTitle>
+                  <DialogDescription>
+                    This action will trigger a <strong>Re-KYC verification</strong> as required by SEBI/RBI regulations.
+                    Your current KYC status and all services remain active throughout this process.
+                  </DialogDescription>
+                </DialogHeader>
+
+                {rekycSuccess ? (
+                  <div className="space-y-4 py-2">
+                    <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-3">
+                      <div className="flex items-center gap-2 text-green-700 dark:text-green-400 font-medium">
+                        <CheckCircle className="h-5 w-5" />
+                        Request Submitted Successfully
+                      </div>
+                      <p className="text-sm text-green-800 dark:text-green-300">{rekycSuccess.message}</p>
+                      <div className="bg-white dark:bg-green-950/50 rounded p-2">
+                        <p className="text-xs text-muted-foreground">Tracking Reference</p>
+                        <p className="font-mono font-semibold text-sm">{rekycSuccess.trackingId}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">What happens next:</p>
+                      <ul className="text-sm text-muted-foreground space-y-1">
+                        {rekycSuccess.nextSteps.map((step, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="text-primary font-medium shrink-0">{i + 1}.</span>
+                            {step}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <DialogFooter>
+                      <Button onClick={() => { setRekycDialogOpen(false); setRekycSuccess(null); }}>
+                        Close
+                      </Button>
+                    </DialogFooter>
+                  </div>
+                ) : (
+                  <div className="space-y-4 py-2">
+                    {/* Current Value */}
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Current Verified Value</Label>
+                      <Input
+                        value={
+                          rekycField === 'panNumber'
+                            ? editFieldRules?.currentValues?.panNumber || 'Not on record'
+                            : editFieldRules?.currentValues?.dateOfBirth || 'Not on record'
+                        }
+                        disabled
+                        className="mt-1 bg-muted font-mono"
+                      />
+                    </div>
+
+                    {/* New Value */}
+                    <div>
+                      <Label htmlFor="rekycNewValue" className="text-sm font-medium">
+                        Correct {rekycField === 'panNumber' ? 'PAN Number' : 'Date of Birth'} <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="rekycNewValue"
+                        value={rekycNewValue}
+                        onChange={(e) => setRekycNewValue(rekycField === 'panNumber' ? e.target.value.toUpperCase() : e.target.value)}
+                        placeholder={rekycField === 'panNumber' ? 'e.g. ABCDE1234F' : 'e.g. 1990-05-15'}
+                        type={rekycField === 'dateOfBirth' ? 'date' : 'text'}
+                        className={`mt-1 ${rekycField === 'panNumber' ? 'font-mono uppercase tracking-widest' : ''}`}
+                        maxLength={rekycField === 'panNumber' ? 10 : undefined}
+                      />
+                      {rekycField === 'panNumber' && (
+                        <p className="text-xs text-muted-foreground mt-1">Format: 5 letters + 4 digits + 1 letter (e.g. ABCDE1234F)</p>
+                      )}
+                    </div>
+
+                    {/* Reason */}
+                    <div>
+                      <Label className="text-sm font-medium">
+                        Reason for Correction <span className="text-destructive">*</span>
+                      </Label>
+                      <Select value={rekycReason} onValueChange={setRekycReason}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Select reason..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="DATA_ENTRY_ERROR">Data entry error during original KYC</SelectItem>
+                          <SelectItem value="DOB_CORRECTION">Date of birth correction (e.g., wrong year entered)</SelectItem>
+                          <SelectItem value="PAN_CORRECTION">PAN card correction / replacement by Income Tax Dept</SelectItem>
+                          <SelectItem value="MARRIAGE_NAME">Name change due to marriage (linked to PAN)</SelectItem>
+                          <SelectItem value="LEGAL_NAME_CHANGE">Legal name/DOB change (court order)</SelectItem>
+                          <SelectItem value="OTHER">Other (explain in notes below)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Notes */}
+                    <div>
+                      <Label htmlFor="rekycNotes" className="text-sm font-medium">Additional Notes (optional)</Label>
+                      <Textarea
+                        id="rekycNotes"
+                        value={rekycNotes}
+                        onChange={(e) => setRekycNotes(e.target.value)}
+                        placeholder="Any additional context for the compliance team..."
+                        className="mt-1 resize-none"
+                        rows={3}
+                      />
+                    </div>
+
+                    {/* Warning */}
+                    <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800">
+                      <AlertCircle className="h-4 w-4 text-amber-600" />
+                      <AlertDescription className="text-amber-800 dark:text-amber-300 text-xs">
+                        Submitting this request will notify our compliance team. A Re-KYC session
+                        will be initiated within 2 business days. Expected resolution: <strong>5–10 business days</strong>.
+                      </AlertDescription>
+                    </Alert>
+
+                    <DialogFooter className="gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setRekycDialogOpen(false)}
+                        disabled={rekycSubmitting}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        disabled={rekycSubmitting || !rekycNewValue.trim() || !rekycReason}
+                        onClick={async () => {
+                          setRekycSubmitting(true);
+                          try {
+                            const res = await apiRequest('POST', '/api/kyc/request-document-change', {
+                              field: rekycField,
+                              newValue: rekycNewValue.trim(),
+                              reason: rekycReason,
+                              notes: rekycNotes.trim(),
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                              setRekycSuccess({
+                                trackingId: data.trackingId,
+                                message:    data.message,
+                                nextSteps:  data.nextSteps,
+                              });
+                            } else {
+                              toast({
+                                title:       'Request Failed',
+                                description: data.error || 'Could not submit request. Please try again.',
+                                variant:     'destructive',
+                              });
+                            }
+                          } catch (err: any) {
+                            toast({
+                              title:       'Request Failed',
+                              description: 'Network error. Please try again.',
+                              variant:     'destructive',
+                            });
+                          } finally {
+                            setRekycSubmitting(false);
+                          }
+                        }}
+                        className="bg-amber-600 hover:bg-amber-700 text-white"
+                      >
+                        {rekycSubmitting ? (
+                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting...</>
+                        ) : (
+                          <><Shield className="h-4 w-4 mr-2" />Submit Re-KYC Request</>
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
 
             {/* Document Required Fields */}
             <Card>

@@ -248,6 +248,80 @@ export function registerKycV2ExtensionRoutes(app: Express) {
     }
   });
 
+  // ============================================================
+  // USER-INITIATED RE-KYC: Verified Document Change Request
+  // Regulatory basis: SEBI KYC Master Circular 2024 —
+  // changes to PAN/DOB on a verified KYC require fresh re-verification.
+  // ============================================================
+
+  app.post("/api/kyc/request-document-change", requireAuth, async (req: any, res) => {
+    try {
+      const { field, newValue, reason, notes } = req.body;
+      const userId = req.user.id;
+
+      const validFields: Record<string, string> = {
+        panNumber:   'PAN Number',
+        dateOfBirth: 'Date of Birth',
+      };
+      const validReasons: Record<string, string> = {
+        DATA_ENTRY_ERROR:   'Data entry error during original KYC',
+        DOB_CORRECTION:     'Date of birth correction (e.g., wrong year entered)',
+        PAN_CORRECTION:     'PAN card correction / replacement by IT Dept',
+        MARRIAGE_NAME:      'Name change due to marriage (linked to PAN)',
+        LEGAL_NAME_CHANGE:  'Legal name/DOB change (court order)',
+        OTHER:              'Other (describe in notes)',
+      };
+
+      if (!field || !validFields[field]) {
+        return res.status(400).json({ success: false, error: 'Invalid field. Only panNumber and dateOfBirth changes require Re-KYC.' });
+      }
+      if (!reason || !validReasons[reason]) {
+        return res.status(400).json({ success: false, error: 'A valid reason is required.' });
+      }
+      if (!newValue || !newValue.trim()) {
+        return res.status(400).json({ success: false, error: 'New value is required.' });
+      }
+      if (field === 'panNumber' && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(newValue.toUpperCase())) {
+        return res.status(400).json({ success: false, error: 'Invalid PAN format. Must be like ABCDE1234F.' });
+      }
+
+      const trackingId = `RKC-${Date.now().toString(36).toUpperCase()}-${userId.slice(-4).toUpperCase()}`;
+      const sanitizedValue = field === 'panNumber' ? newValue.toUpperCase().trim() : newValue.trim();
+
+      await db.insert(kycAuditLogs).values({
+        userId,
+        accessedBy:        userId,
+        accessType:        'document_change_request',
+        dataFieldsAccessed: [field],
+        purpose: `Re-KYC request — ${validFields[field]} change: ${validReasons[reason]}`,
+        apiEndpoint:       '/api/kyc/request-document-change',
+        ipAddress:         (req.ip || req.socket?.remoteAddress || 'unknown').toString(),
+        userAgent:         req.headers['user-agent'] || 'unknown',
+        requestId:         trackingId,
+        regulatoryPurpose: 'KYC',
+        accessStatus:      'pending',
+        complianceCheckPassed: false,
+      } as any);
+
+      return res.json({
+        success:          true,
+        trackingId,
+        message:          `Your request to update ${validFields[field]} has been received and logged.`,
+        expectedTimeline: '5–10 business days',
+        nextSteps: [
+          'Our compliance team will review your request within 2 business days.',
+          'You will receive an email/SMS with a link to complete the Re-KYC process.',
+          'Your existing KYC status and all services remain active during this process.',
+          'If the change is approved, a fresh KYC verification session will be initiated.',
+        ],
+        regulatoryNote: 'As per SEBI KYC Master Circular 2024 and PMLA Rules 2005, any change to PAN or Date of Birth on a verified KYC record requires a fresh KYC verification (Re-KYC).',
+      });
+    } catch (error: any) {
+      console.error('[KYC Document Change Request]', error);
+      res.status(500).json({ success: false, error: 'Failed to submit document change request. Please try again.' });
+    }
+  });
+
   app.post("/api/kyc/dispute", requireAuth, async (req: any, res) => {
     try {
       const { rejectionId, disputeNotes } = req.body;
