@@ -292,7 +292,7 @@ export function registerKycV2ExtensionRoutes(app: Express) {
         accessedBy:        userId,
         accessType:        'document_change_request',
         dataFieldsAccessed: [field],
-        purpose: `Re-KYC request — ${validFields[field]} change: ${validReasons[reason]}`,
+        purpose: `Re-KYC request — ${validFields[field]} change: ${validReasons[reason]}${notes ? ` | Notes: ${notes.trim().substring(0, 500)}` : ''}`,
         apiEndpoint:       '/api/kyc/request-document-change',
         ipAddress:         (req.ip || req.socket?.remoteAddress || 'unknown').toString(),
         userAgent:         req.headers['user-agent'] || 'unknown',
