@@ -1516,6 +1516,26 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     console.error('[Migration] mutual_funds columns error:', e?.message);
   }
 
+  // Boot-time: add new Alpaca account opening columns to us_broker_accounts
+  try {
+    const { db: migDb } = await import('./db');
+    const { sql: migSql } = await import('drizzle-orm');
+    await migDb.execute(migSql`
+      ALTER TABLE us_broker_accounts
+        ADD COLUMN IF NOT EXISTS alpaca_account_number VARCHAR,
+        ADD COLUMN IF NOT EXISTS alpaca_status VARCHAR DEFAULT 'not_applied',
+        ADD COLUMN IF NOT EXISTS action_required TEXT,
+        ADD COLUMN IF NOT EXISTS application_step VARCHAR DEFAULT 'identity',
+        ADD COLUMN IF NOT EXISTS application_data TEXT,
+        ADD COLUMN IF NOT EXISTS agreements_signed_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS cip_submitted_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS account_approved_at TIMESTAMPTZ
+    `);
+    console.log('✅ [Migration] us_broker_accounts account opening columns verified/added');
+  } catch (e: any) {
+    console.warn('[Migration] us_broker_accounts account opening columns skipped:', e?.message);
+  }
+
   // Boot-time: create audit_trail table if missing (used by audit-trail middleware)
   try {
     const { db: auditDb } = await import('./db');

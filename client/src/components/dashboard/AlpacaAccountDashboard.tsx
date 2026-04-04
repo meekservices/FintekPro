@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import {
   Card, CardContent, CardHeader, CardTitle, CardDescription,
 } from "@/components/ui/card";
@@ -34,7 +35,7 @@ import {
   Wallet, TrendingUp, TrendingDown, Clock, RefreshCw, X, AlertTriangle,
   DollarSign, BarChart3, Activity, XCircle, CheckCircle2,
   Building2, KeyRound, Eye, EyeOff, Link2, FileText, Banknote, Trash2,
-  ArrowUpCircle, ArrowDownCircle, Plus, Download,
+  ArrowUpCircle, ArrowDownCircle, Plus, Download, Globe, ChevronRight,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1287,6 +1288,7 @@ export default function AlpacaAccountDashboard() {
   const [chartPeriod, setChartPeriod] = useState("1M");
   const [showCredentials, setShowCredentials] = useState(false);
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const { data: accountData, isLoading: isLoadingAccount, refetch: refetchAccount } = useQuery<{
     configured: boolean;
@@ -1305,6 +1307,18 @@ export default function AlpacaAccountDashboard() {
     refetchInterval: 60000,
     staleTime: 30000,
   });
+
+  // Broker account status (FD BD model)
+  const { data: prefillData } = useQuery<{
+    success: boolean;
+    brokerAccount: any;
+    compliance: { eligible: boolean; blockers: string[] };
+  }>({
+    queryKey: ["/api/us-trading/account/prefill"],
+    staleTime: 60000,
+  });
+  const brokerAccount = prefillData?.brokerAccount;
+  const hasBrokerAccount = Boolean(brokerAccount?.alpacaAccountId);
 
   const configured = accountData?.configured ?? false;
   const isPaper = accountData?.isPaper ?? true;
@@ -1330,6 +1344,59 @@ export default function AlpacaAccountDashboard() {
 
   return (
     <div className="space-y-5">
+      {/* Broker account CTA — FD BD model */}
+      {!hasBrokerAccount && (
+        <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-blue-500/5">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Globe className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base">Open Your US Brokerage Account</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Trade US stocks directly via our Alpaca FINRA/SEC licensed broker-dealer. Complete the 5-step application — takes under 3 minutes.
+                  </p>
+                  {prefillData?.compliance && !prefillData.compliance.eligible && (
+                    <p className="text-xs text-red-500 mt-1">
+                      ⚠ {prefillData.compliance.blockers?.[0] || "Complete KYC to proceed"}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <Button
+                onClick={() => navigate("/us-trading/open-account")}
+                disabled={prefillData?.compliance && !prefillData.compliance.eligible}
+                className="gap-2 shrink-0"
+              >
+                Open Account
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Existing broker account status banner */}
+      {hasBrokerAccount && brokerAccount.alpacaStatus && brokerAccount.alpacaStatus !== "ACTIVE" && (
+        <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm ${
+          brokerAccount.alpacaStatus === "SUBMITTED" ? "border-blue-200 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300" :
+          brokerAccount.alpacaStatus === "ACTION_REQUIRED" ? "border-orange-200 bg-orange-50 dark:bg-orange-950/20 text-orange-700 dark:text-orange-300" :
+          brokerAccount.alpacaStatus === "REJECTED" ? "border-red-200 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300" :
+          "border-amber-200 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300"
+        }`}>
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>Broker account status: <strong>{brokerAccount.alpacaStatus?.replace(/_/g, " ")}</strong>
+            {brokerAccount.alpacaStatus === "SUBMITTED" && " — Alpaca is reviewing your application (1-2 business days)."}
+            {brokerAccount.alpacaStatus === "ACTION_REQUIRED" && " — Additional documents needed. Check your email."}
+          </span>
+          <Button variant="link" size="sm" className="ml-auto h-auto p-0 text-xs" onClick={() => navigate("/us-trading/open-account")}>
+            View Status →
+          </Button>
+        </div>
+      )}
+
       {/* Header row */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
