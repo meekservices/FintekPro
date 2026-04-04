@@ -409,7 +409,11 @@ class KycOrchestratorService {
       productsUnlocked.push('mutual_funds_basic', 'insurance', 'loans');
     }
 
-    if (params.ckycFetched && (params.aadhaarVerified || params.kycLevel >= 2)) {
+    // Bug 4 fix: level-2 is reached via EITHER ckyc OR aadhaar (not both).
+    // Previous condition `ckycFetched && (aadhaarVerified || kycLevel>=2)` incorrectly
+    // kept the Aadhaar-OTP path at level=1/tier='basic' because ckycFetched=false
+    // short-circuited the whole expression even when aadhaarVerified=true & kycLevel=2.
+    if ((params.ckycFetched || params.aadhaarVerified) && params.kycLevel >= 2) {
       level = 2;
       tier = 'enhanced';
       productsUnlocked.push('stocks', 'bonds', 'mutual_funds_full', 'unlisted_shares');
