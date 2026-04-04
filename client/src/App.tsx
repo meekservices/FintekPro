@@ -2426,6 +2426,15 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
+      <Route path="/kyc-rejections">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <KycRejectionRekyc />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
       <Route>
         {() => (
           <AgentLayout>
