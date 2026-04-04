@@ -123,7 +123,7 @@ export default function KycRejectionRekyc() {
   });
 
   const agentRejectMutation = useMutation({
-    mutationFn: async (params: { sessionId: string; userId: string; reasonCode: string; notes: string; requireReKyc: boolean }) => {
+    mutationFn: async (params: { sessionId: string; userId: string; reasonCode: string; reasonDescription: string; rekycRequired: boolean }) => {
       return await apiRequest("/api/kyc/reject", {
         method: "POST",
         body: JSON.stringify(params),
@@ -158,8 +158,8 @@ export default function KycRejectionRekyc() {
       sessionId: session.sessionId,
       userId: clientUserId,
       reasonCode: agentRejectReasonCode,
-      notes: agentRejectNotes.trim(),
-      requireReKyc: agentRequireReKyc,
+      reasonDescription: agentRejectNotes.trim(),
+      rekycRequired: agentRequireReKyc,
     });
   };
 

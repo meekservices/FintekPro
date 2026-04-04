@@ -10,7 +10,7 @@ import { kycRateLimiterService } from '../../services/kyc-rate-limiter-service';
 import { kycEncryptionService } from '../../services/kyc-encryption-service';
 import { db } from '../../db';
 import { kycVerificationSessions, kycStepResets, kycAuditLogs, users } from '@shared/schema';
-import { eq, desc, sql as drizzleSql } from 'drizzle-orm';
+import { eq, desc, and, sql as drizzleSql } from 'drizzle-orm';
 
 function hasRole(user: any, requiredRoles: string[]): boolean {
   if (!user) return false;
@@ -352,7 +352,13 @@ export function registerKycV2ExtensionRoutes(app: Express) {
 
   app.get("/api/kyc/rejections/user/:userId", requireAuth, async (req: any, res) => {
     try {
-      const rejections = await kycRejectionService.getRejectionsByUser(req.params.userId);
+      const targetUserId = req.params.userId;
+      const requester = req.user;
+      const isPrivileged = requester.role === 'admin' || requester.role === 'agent' || requester.role === 'superadmin';
+      if (!isPrivileged && requester.id !== targetUserId) {
+        return res.status(403).json({ success: false, error: 'Forbidden: you may only view your own rejection records' });
+      }
+      const rejections = await kycRejectionService.getRejectionsByUser(targetUserId);
       res.json({ success: true, rejections });
     } catch (error) {
       res.status(500).json({ success: false, error: 'Failed to get rejections' });
@@ -759,7 +765,10 @@ export function registerKycV2ExtensionRoutes(app: Express) {
           userId: kycVerificationSessions.userId,
         })
         .from(kycVerificationSessions)
-        .where(eq(kycVerificationSessions.userId, userId))
+        .where(and(
+          eq(kycVerificationSessions.userId, userId),
+          eq(kycVerificationSessions.isActive, true),
+        ))
         .orderBy(desc(kycVerificationSessions.createdAt))
         .limit(1);
 
