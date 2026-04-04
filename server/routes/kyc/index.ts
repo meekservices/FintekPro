@@ -1369,9 +1369,9 @@ export function registerKYCWizardRoutes(app: Express) {
       const tierResult = kycOrchestratorService.computeTierResult({
         kycLevel: 2,
         panVerified: true,
-        ckycFetched: stepStatus.ckyc_fetched || true,
-        aadhaarVerified: stepStatus.aadhaar_verified || session.aadhaarVerified || true,
-        riskProfilingDone: stepStatus.risk_profiling || true,
+        ckycFetched: !!(stepStatus.ckyc_fetched || (session as any).ckycFetched),
+        aadhaarVerified: !!(stepStatus.aadhaar_verified || session.aadhaarVerified),
+        riskProfilingDone: !!stepStatus.risk_profiling,
         complianceSigned: true,
         amlScreened: !!amlRiskLevel,
         amlRiskLevel: amlRiskLevel,
