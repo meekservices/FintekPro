@@ -3753,6 +3753,7 @@ export default function SmartKYCOnboarding() {
                     </p>
                     {editFieldRules.lockedFields?.includes('panNumber') && (
                       <Button
+                        type="button"
                         variant="outline"
                         size="sm"
                         className="w-full mt-1 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
@@ -3789,6 +3790,7 @@ export default function SmartKYCOnboarding() {
                     </p>
                     {editFieldRules.lockedFields?.includes('dateOfBirth') && (
                       <Button
+                        type="button"
                         variant="outline"
                         size="sm"
                         className="w-full mt-1 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
@@ -3899,19 +3901,19 @@ export default function SmartKYCOnboarding() {
                       <Label className="text-sm font-medium">
                         Reason for Correction <span className="text-destructive">*</span>
                       </Label>
-                      <Select value={rekycReason} onValueChange={setRekycReason}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="Select reason..." />
-                        </SelectTrigger>
-                        <SelectContent className="z-[200]">
-                          <SelectItem value="DATA_ENTRY_ERROR">Data entry error during original KYC</SelectItem>
-                          <SelectItem value="DOB_CORRECTION">Date of birth correction (e.g., wrong year entered)</SelectItem>
-                          <SelectItem value="PAN_CORRECTION">PAN card correction / replacement by Income Tax Dept</SelectItem>
-                          <SelectItem value="MARRIAGE_NAME">Name change due to marriage (linked to PAN)</SelectItem>
-                          <SelectItem value="LEGAL_NAME_CHANGE">Legal name/DOB change (court order)</SelectItem>
-                          <SelectItem value="OTHER">Other (explain in notes below)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <select
+                        value={rekycReason}
+                        onChange={(e) => setRekycReason(e.target.value)}
+                        className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="">Select reason...</option>
+                        <option value="DATA_ENTRY_ERROR">Data entry error during original KYC</option>
+                        <option value="DOB_CORRECTION">Date of birth correction (e.g., wrong year entered)</option>
+                        <option value="PAN_CORRECTION">PAN card correction / replacement by Income Tax Dept</option>
+                        <option value="MARRIAGE_NAME">Name change due to marriage (linked to PAN)</option>
+                        <option value="LEGAL_NAME_CHANGE">Legal name/DOB change (court order)</option>
+                        <option value="OTHER">Other (explain in notes below)</option>
+                      </select>
                     </div>
 
                     {/* Notes */}
@@ -3938,6 +3940,7 @@ export default function SmartKYCOnboarding() {
 
                     <DialogFooter className="gap-2">
                       <Button
+                        type="button"
                         variant="outline"
                         onClick={() => setRekycDialogOpen(false)}
                         disabled={rekycSubmitting}
@@ -3945,6 +3948,7 @@ export default function SmartKYCOnboarding() {
                         Cancel
                       </Button>
                       <Button
+                        type="button"
                         disabled={rekycSubmitting || !rekycNewValue.trim() || !rekycReason}
                         onClick={async () => {
                           setRekycSubmitting(true);
