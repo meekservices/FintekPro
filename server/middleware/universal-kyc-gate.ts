@@ -62,32 +62,37 @@ const COMPLIANCE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
  *  tester          → L0  Internal — exempt for platform testing
  */
 export const ROLE_KYC_MINIMUM: Record<string, '0' | '1' | '2'> = {
-  // Top level
-  superadmin: '1',
-  master_agent: '2',
+  // ── Internal staff — KYC gate NEVER blocks the admin portal ──────────────
+  // These are company employees who operate the platform. They must complete
+  // their own KYC separately (for personal investing), but the portal itself
+  // must remain fully operational regardless of their own KYC status.
+  superadmin: '0',
+  master_agent: '0',
 
   // Admin department heads
-  admin: '1',
-  bd_head: '1',
-  compliance_officer: '2',
-  finance_head: '1',
-  ops_head: '1',
-  hr_head: '1',
-  tech_head: '1',
-  regulatory_auditor: '2',
+  admin: '0',
+  bd_head: '0',
+  compliance_officer: '0',
+  finance_head: '0',
+  ops_head: '0',
+  hr_head: '0',
+  tech_head: '0',
+  regulatory_auditor: '0',
 
   // Admin team members
-  bd_team: '1',
-  compliance_team: '1',
-  finance_team: '1',
-  ops_team: '1',
-  hr_team: '1',
-  tech_backend: '1',
-  tech_frontend: '1',
-  tech_devops: '1',
+  bd_team: '0',
+  compliance_team: '0',
+  finance_team: '0',
+  ops_team: '0',
+  hr_team: '0',
+  tech_backend: '0',
+  tech_frontend: '0',
+  tech_devops: '0',
 
-  // External distribution
-  partner: '2',
+  // External distribution — regulatory KYC still required (AMFI/SEBI rules)
+  // They distribute products to clients and handle client money; they must
+  // complete KYC before these regulated activities, but not to log in.
+  partner: '1',
   partner_ops: '1',
   agent: '1',
   sub_agent: '1',
@@ -156,10 +161,10 @@ function isClientTransactionPath(path: string): boolean {
  */
 const EXEMPT_PREFIXES = [
   '/api/auth',        // Login / register / OAuth
-  '/api/kyc',         // All KYC completion routes (cannot block these!)
+  '/api/kyc',         // All KYC completion and re-KYC routes (cannot block these!)
   '/api/user',        // Own profile reads (needed for UI to load)
   '/api/health',      // Infrastructure
-  '/api/admin/kyc',   // Admin KYC management — admin must be able to approve KYC even before their own is done
+  '/api/admin',       // ENTIRE admin portal — must be fully operational at all times
   '/api/agent/kyc',   // Agent KYC empanelment flow
   '/api/ready',
   '/api/live',
@@ -174,7 +179,6 @@ const EXEMPT_PREFIXES = [
   '/api/bbps',        // DigiLocker / BBPS (used during Aadhaar OTP)
   '/api/digilocker',
   '/api/agent-empanelment', // Agent KYC empanelment flow
-  '/api/admin/kyc',   // Admin KYC management
 ];
 
 const EXEMPT_EXACT = new Set([
