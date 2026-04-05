@@ -894,11 +894,12 @@ export function registerKycV2ExtensionRoutes(app: Express) {
       WHERE id = ${userId}
     `);
 
-    // 3. Close any active KYC sessions
+    // 3. Close only ACTIVE KYC sessions — preserve historical completed/failed records
     await db.execute(drizzleSql`
       UPDATE kyc_verification_sessions
       SET session_outcome = 'reset_by_admin', is_active = false
       WHERE user_id = ${userId}
+        AND is_active = true
     `);
 
     // 4. Un-verify bank accounts so they redo penny-drop
