@@ -1,3 +1,0 @@
-ID,Error Code,Severity,Status,Module,Source,Message,Transaction ID,PAN (Masked),Occurrences,First Occurrence,Last Occurrence,Created At
-"e20cfa36-136c-4aba-bd98-74b1651efe7c","UNKNOWN_ERROR","error","open","system","frontend","p.reduce is not a function","","",1,"Wed Jan 07 2026 03:26:09 GMT+0000 (Coordinated Universal Time)","Wed Jan 07 2026 03:26:09 GMT+0000 (Coordinated Universal Time)","Wed Jan 07 2026 03:26:09 GMT+0000 (Coordinated Universal Time)"
-"a091396f-b4d9-4229-8ce7-fd1af7a25250","AppError","error","open","index-CwXQiXSa.js","server","Not allowed by CORS","","",1,"Mon Jan 05 2026 14:32:24 GMT+0000 (Coordinated Universal Time)","Mon Jan 05 2026 14:32:24 GMT+0000 (Coordinated Universal Time)","Mon Jan 05 2026 14:32:24 GMT+0000 (Coordinated Universal Time)"
