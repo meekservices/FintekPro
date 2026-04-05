@@ -20,18 +20,10 @@ import { Request, Response, NextFunction } from 'express';
 import { getUserKYCLevel } from './kyc-level-gate';
 import type { RoleId } from '@shared/roles';
 import { logger } from '../logger';
+import { distributedCache } from '../utils/distributed-cache';
 
-// Per-user KYC compliance cache — avoids DB hit on every API call
-// TTL: 5 minutes; invalidated on any KYC write event
-const COMPLIANCE_CACHE = new Map<string, {
-  compliant: boolean;
-  currentLevel: '0' | '1' | '2';
-  requiredLevel: '0' | '1' | '2';
-  missingRequirements: string[];
-  cachedAt: number;
-}>();
-
-const COMPLIANCE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const COMPLIANCE_CACHE_TTL_S = 5 * 60; // 5 minutes (Redis TTL in seconds)
+const COMPLIANCE_CACHE_KEY = (userId: string) => `kyc:compliance:${userId}`;
 
 /**
  * Minimum KYC level required per role.
@@ -214,14 +206,21 @@ function hasRequiredLevel(current: '0' | '1' | '2', required: '0' | '1' | '2'): 
 
 /**
  * Invalidate the cached compliance status for a user.
- * Call this after any KYC write event.
+ * Works across pods (Redis) or locally (LRU fallback).
  */
 export function invalidateComplianceCache(userId: string): void {
-  COMPLIANCE_CACHE.delete(userId);
+  distributedCache.del(COMPLIANCE_CACHE_KEY(userId)).catch(() => {});
+}
+
+interface CachedCompliance {
+  compliant: boolean;
+  currentLevel: '0' | '1' | '2';
+  requiredLevel: '0' | '1' | '2';
+  missingRequirements: string[];
 }
 
 /**
- * Get the compliance status for a user (with caching).
+ * Get the compliance status for a user (with distributed caching).
  */
 export async function getComplianceStatus(user: any): Promise<{
   compliant: boolean;
@@ -245,16 +244,12 @@ export async function getComplianceStatus(user: any): Promise<{
     };
   }
 
-  // Check cache
-  const cached = COMPLIANCE_CACHE.get(userId);
-  if (cached && Date.now() - cached.cachedAt < COMPLIANCE_CACHE_TTL_MS) {
-    const regulatoryBasis = buildRegulatoryBasis(userRoles, requiredLevel);
+  // Check distributed cache (Redis in prod, LRU Map in dev/single-pod)
+  const cached = await distributedCache.getJson<CachedCompliance>(COMPLIANCE_CACHE_KEY(userId));
+  if (cached) {
     return {
-      compliant: cached.compliant,
-      currentLevel: cached.currentLevel,
-      requiredLevel: cached.requiredLevel,
-      missingRequirements: cached.missingRequirements,
-      regulatoryBasis,
+      ...cached,
+      regulatoryBasis: buildRegulatoryBasis(userRoles, requiredLevel),
     };
   }
 
@@ -262,14 +257,13 @@ export async function getComplianceStatus(user: any): Promise<{
   const { level: currentLevel, complianceDetails } = await getUserKYCLevel(userId);
   const compliant = hasRequiredLevel(currentLevel, requiredLevel);
 
-  const entry = {
+  const entry: CachedCompliance = {
     compliant,
     currentLevel,
     requiredLevel,
     missingRequirements: complianceDetails.missingRequirements,
-    cachedAt: Date.now(),
   };
-  COMPLIANCE_CACHE.set(userId, entry);
+  await distributedCache.setJson(COMPLIANCE_CACHE_KEY(userId), entry, COMPLIANCE_CACHE_TTL_S);
 
   return {
     ...entry,

@@ -922,6 +922,76 @@ function CorporateActionsTab() {
 
 // ─── App Registration & Setup Tab ──────────────────────────────────────────────
 
+function GatewayHealthCard() {
+  const { data, isLoading, refetch, isFetching } = useQuery<{
+    summary: { total: number; healthy: number; degraded: number; down: number };
+    services: Record<string, { state: string; failures: number; category: string }>;
+  }>({
+    queryKey: ["/api/admin/system/external-api-health"],
+    staleTime: 30000,
+  });
+
+  const paymentCategories = ["payment", "broking"];
+  const paymentKeywords = ["cashfree", "phonepe", "razorpay", "stripe", "alpaca"];
+
+  const allServices = Object.entries(data?.services ?? {}).map(([name, info]) => ({ name, ...info }));
+  const filtered = allServices.filter(s =>
+    paymentCategories.includes(s.category) ||
+    paymentKeywords.some(k => s.name.toLowerCase().includes(k))
+  );
+
+  const stateColor = (state: string) => {
+    if (state === "CLOSED") return "text-green-600 bg-green-50 dark:bg-green-950/20 dark:text-green-400";
+    if (state === "HALF_OPEN") return "text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400";
+    return "text-red-600 bg-red-50 dark:bg-red-950/20 dark:text-red-400";
+  };
+
+  const { healthy = 0, degraded = 0, down = 0 } = data?.summary ?? {};
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary" />
+            Payment Gateway Health
+          </CardTitle>
+          <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+        <CardDescription>
+          Circuit breaker status — {healthy} healthy, {degraded} degraded, {down} down
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="text-sm text-muted-foreground">Loading...</div>
+        ) : filtered.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No payment gateway circuit breakers registered.</div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {filtered.map(svc => (
+              <div key={svc.name} className="rounded-lg border p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-sm capitalize">{svc.name}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded font-medium ${stateColor(svc.state)}`}>
+                    {svc.state}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  <div>Failures: <span className="text-foreground font-medium">{svc.failures}</span></div>
+                  <div>Category: <span className="text-foreground font-medium capitalize">{svc.category}</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function AppRegistrationTab() {
   const { toast } = useToast();
   const [apiKey, setApiKey] = useState("");
@@ -1089,6 +1159,9 @@ function AppRegistrationTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Payment Gateway Health */}
+      <GatewayHealthCard />
 
       {/* Architecture overview */}
       <Card>

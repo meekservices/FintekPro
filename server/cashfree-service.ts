@@ -17,6 +17,10 @@ export interface CashfreeOrderResponse {
   paymentSessionId?: string;
   paymentUrl?: string;
   message?: string;
+  /** HTTP status code from Cashfree — undefined means a network/transport error (no response received) */
+  statusCode?: number;
+  /** 'business' = Cashfree rejected the request (4xx), 'network' = transport/5xx failure */
+  errorType?: 'business' | 'network';
 }
 
 export interface CashfreeOrderStatus {
@@ -156,7 +160,10 @@ export class CashfreeService {
       
       return {
         success: false,
-        message: userMessage
+        message: userMessage,
+        statusCode,
+        // No statusCode means no HTTP response received → network/transport failure
+        errorType: statusCode === undefined ? 'network' : statusCode >= 400 && statusCode < 500 ? 'business' : 'network',
       };
     }
   }

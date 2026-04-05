@@ -1,11 +1,6 @@
 import { Request, Response, NextFunction } from "express";
-import { db } from "../db";
-import { sql } from "drizzle-orm";
+import { auditBufferService } from "../services/audit-buffer-service";
 
-/**
- * Audit categories for compliance tracking
- * Aligned with SEBI/RBI regulatory requirements
- */
 export type AuditCategory = 
   | 'authentication'
   | 'kyc'
@@ -15,9 +10,6 @@ export type AuditCategory =
   | 'compliance'
   | 'data_access';
 
-/**
- * Parameters for audit logging
- */
 export interface AuditLogParams {
   userId?: string | number;
   action: string;
@@ -29,116 +21,44 @@ export interface AuditLogParams {
   riskLevel?: 'low' | 'medium' | 'high' | 'critical';
 }
 
-/**
- * Determine audit category based on request path
- */
 function categorizeRoute(path: string): AuditCategory {
-  // Authentication routes
-  if (path.includes('/login') || path.includes('/register') || path.includes('/auth')) {
-    return 'authentication';
-  }
-  
-  // KYC routes
-  if (path.includes('/kyc') || path.includes('/ckyc')) {
-    return 'kyc';
-  }
-  
-  // Transaction routes
-  if (path.includes('/orders') || path.includes('/cart') || path.includes('/payments')) {
-    return 'transaction';
-  }
-  
-  // Portfolio routes
-  if (path.includes('/portfolio') || path.includes('/holdings')) {
-    return 'portfolio';
-  }
-  
-  // Admin routes
-  if (path.includes('/admin')) {
-    return 'admin';
-  }
-  
-  // Compliance routes
-  if (path.includes('/compliance')) {
-    return 'compliance';
-  }
-  
-  // Default to data_access for everything else
+  if (path.includes('/login') || path.includes('/register') || path.includes('/auth')) return 'authentication';
+  if (path.includes('/kyc') || path.includes('/ckyc')) return 'kyc';
+  if (path.includes('/orders') || path.includes('/cart') || path.includes('/payments')) return 'transaction';
+  if (path.includes('/portfolio') || path.includes('/holdings')) return 'portfolio';
+  if (path.includes('/admin')) return 'admin';
+  if (path.includes('/compliance')) return 'compliance';
   return 'data_access';
 }
 
-/**
- * Determine risk level based on route and method
- */
 function determineRiskLevel(path: string, method: string): 'low' | 'medium' | 'high' | 'critical' {
-  // DELETE operations are high risk
-  if (method === 'DELETE') {
-    return 'high';
-  }
-  
-  // Admin mutations are high risk
-  if (path.includes('/admin') && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
-    return 'high';
-  }
-  
-  // Transaction operations are high risk
-  if (path.includes('/payments') || path.includes('/orders')) {
-    return method === 'GET' ? 'medium' : 'high';
-  }
-  
-  // KYC operations are medium to high risk
-  if (path.includes('/kyc') || path.includes('/ckyc')) {
-    return method === 'GET' ? 'low' : 'high';
-  }
-  
-  // Authentication operations are medium to high risk
-  if (path.includes('/auth') || path.includes('/login') || path.includes('/register')) {
-    return 'medium';
-  }
-  
-  // POST/PUT/PATCH are medium risk by default
-  if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
-    return 'medium';
-  }
-  
-  // GET operations are low risk
+  if (method === 'DELETE') return 'high';
+  if (path.includes('/admin') && (method === 'POST' || method === 'PUT' || method === 'PATCH')) return 'high';
+  if (path.includes('/payments') || path.includes('/orders')) return method === 'GET' ? 'medium' : 'high';
+  if (path.includes('/kyc') || path.includes('/ckyc')) return method === 'GET' ? 'low' : 'high';
+  if (path.includes('/auth') || path.includes('/login') || path.includes('/register')) return 'medium';
+  if (method === 'POST' || method === 'PUT' || method === 'PATCH') return 'medium';
   return 'low';
 }
 
 /**
- * Core audit logging function
- * Inserts audit trail records into the database for regulatory compliance
+ * Core audit logging function — now buffered via auditBufferService.
+ * Writes are batched every 2 seconds (or every 200 entries) for DB efficiency.
+ * On DB failure the buffer drains to /tmp/audit-fallback/audit-fallback.jsonl.
  */
 export async function auditLog(params: AuditLogParams): Promise<void> {
-  try {
-    // Prepare details as JSON
-    const detailsJson = params.details ? JSON.stringify(params.details) : null;
-    
-    // Insert into audit_trail table using raw SQL
-    // The table structure should match: audit_trail(user_id, action, category, details, ip_address, user_agent, outcome, risk_level, created_at)
-    await db.execute(
-      sql`
-        INSERT INTO audit_trail (user_id, action, category, details, ip_address, user_agent, outcome, risk_level, created_at)
-        VALUES (${params.userId || null}, ${params.action}, ${params.category}, ${detailsJson}, ${params.ipAddress || null}, ${params.userAgent || null}, ${params.outcome}, ${params.riskLevel || 'low'}, NOW())
-      `
-    );
-  } catch (error: any) {
-    // Log warning if table doesn't exist or other database error occurs
-    // This is expected during initial deployment before migrations run
-    if (error?.message?.includes('audit_trail') || error?.message?.includes('relation')) {
-      console.warn('[AUDIT] Audit trail table not yet created - skipping record insert');
-    } else {
-      console.warn('[AUDIT] Failed to log audit trail:', error?.message || 'Unknown error');
-    }
-  }
+  auditBufferService.push({
+    userId: params.userId != null ? String(params.userId) : null,
+    action: params.action,
+    category: params.category,
+    details: params.details ?? null,
+    ipAddress: params.ipAddress ?? null,
+    userAgent: params.userAgent ?? null,
+    outcome: params.outcome,
+    riskLevel: params.riskLevel ?? 'low',
+  });
 }
 
-/**
- * Express middleware for automatic audit trail logging
- * Logs all POST/PUT/PATCH/DELETE requests to /api/* endpoints
- * 
- * Usage: app.use(auditTrailMiddleware);
- */
 const SENSITIVE_GET_PATTERNS = [
   '/api/kyc',
   '/api/ckyc',
@@ -169,28 +89,21 @@ export const auditTrailMiddleware = (req: Request, res: Response, next: NextFunc
   const isApiRoute = req.path.startsWith('/api/');
   const isHealthCheck = req.path === '/api/health' || req.path === '/api/ready' || req.path === '/api/live';
   
-  if (!isApiRoute || isHealthCheck) {
-    return next();
-  }
+  if (!isApiRoute || isHealthCheck) return next();
 
   const isSensitiveGet = req.method === 'GET' && SENSITIVE_GET_PATTERNS.some(p => req.path.startsWith(p));
   
-  if (!isMutatingMethod && !isSensitiveGet) {
-    return next();
-  }
+  if (!isMutatingMethod && !isSensitiveGet) return next();
 
   const startTime = Date.now();
   
   res.on('finish', () => {
     const duration = Date.now() - startTime;
-    const isSuccess = res.statusCode < 400;
-    const outcome = isSuccess ? 'success' : 'failure';
+    const outcome = res.statusCode < 400 ? 'success' : 'failure';
     
     const userId = (req as any).user?.id || (req.session as any)?.passport?.user;
     const ipAddress = req.ip || req.socket?.remoteAddress;
     const userAgent = req.get('User-Agent');
-    const category = categorizeRoute(req.path);
-    const riskLevel = determineRiskLevel(req.path, req.method);
     
     const details: Record<string, any> = {
       method: req.method,
@@ -201,22 +114,18 @@ export const auditTrailMiddleware = (req: Request, res: Response, next: NextFunc
     };
     
     const contentLength = req.get('Content-Length');
-    if (contentLength) {
-      details.requestBodySize = parseInt(contentLength, 10);
-    }
+    if (contentLength) details.requestBodySize = parseInt(contentLength, 10);
     
     auditLog({
       userId,
       action: `${req.method} ${req.path}`,
-      category,
+      category: categorizeRoute(req.path),
       details,
       ipAddress,
       userAgent,
-      outcome,
-      riskLevel,
-    }).catch((err) => {
-      console.error('[AUDIT] Failed to log audit trail:', err?.message || 'Unknown error');
-    });
+      outcome: outcome as 'success' | 'failure',
+      riskLevel: determineRiskLevel(req.path, req.method),
+    }).catch(() => {});
   });
   
   next();

@@ -6,8 +6,149 @@ import { complianceMonitor } from '../../compliance-monitor';
 import { clientMoneySegregationService } from '../../services/client-money-segregation-service';
 import { dailyReconciliationService } from '../../services/daily-reconciliation-service';
 import { registerFemaComplianceRoutes } from '../fema-compliance';
+import { unifiedPaymentGateway } from '../../services/unified-payment-gateway';
 
 export function registerPaymentRoutes(app: Express): void {
+  // ==================== UNIFIED PAYMENT GATEWAY ROUTES ====================
+
+  app.post('/api/payments/create-order', async (req, res) => {
+    const idempotencyKey = (req.headers['x-idempotency-key'] as string | undefined)?.trim();
+    // Track whether we hold the pending lock AND whether the gateway already created an order.
+    // CRITICAL: once gatewayOrderCreated=true, we must NEVER release the lock — doing so would
+    // allow a retry with the same idempotency key to trigger a second charge.
+    let idempotencyLockHeld = false;
+    let gatewayOrderCreated = false;
+    let userId: string | undefined;
+
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const { amount, phone, email, name, returnUrl } = req.body;
+
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: 'Invalid amount' });
+      }
+
+      const user = await storage.getUser(req.user.id);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      userId = user.id;
+
+      if (idempotencyKey) {
+        const { locked, cached } = await unifiedPaymentGateway.acquireIdempotencyLock(
+          idempotencyKey,
+          user.id,
+        );
+
+        if (!locked) {
+          if (cached) {
+            return res.json({ ...cached, idempotent: true });
+          }
+          return res.status(409).json({
+            message: 'A request with this idempotency key is already in progress. Please retry shortly.',
+          });
+        }
+        idempotencyLockHeld = true;
+      }
+
+      const orderResponse = await unifiedPaymentGateway.createOrder({
+        amount,
+        userId: user.id,
+        phone: phone || user.mobile || '9999999999',
+        email: email || user.email || `${user.id}@example.com`,
+        name: name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Customer',
+        returnUrl,
+      });
+
+      if (orderResponse.success) {
+        // Gateway has created the order — mark this immediately so the catch block
+        // knows NOT to release the lock (to prevent duplicate-charge on retry).
+        gatewayOrderCreated = true;
+      }
+
+      if (!orderResponse.success) {
+        // Gateway rejected or failed before creating an order — safe to release the lock
+        // so the user can retry with the same idempotency key.
+        if (idempotencyKey && idempotencyLockHeld) {
+          await unifiedPaymentGateway.releaseIdempotencyLock(idempotencyKey, user.id);
+          idempotencyLockHeld = false;
+        }
+        complianceMonitor.logEvent({
+          eventType: 'payment',
+          action: 'create_unified_order',
+          outcome: 'failure',
+          riskLevel: 'high',
+          error: orderResponse.message,
+          userId: user.id,
+        });
+        return res.status(400).json({ message: orderResponse.message || 'Order creation failed' });
+      }
+
+      if (idempotencyKey && orderResponse.orderId) {
+        // Persist the completed response — if this fails, the lock stays as pending.
+        // The user will get a 500 but retrying the same key returns 409 ("in progress"),
+        // preventing a duplicate charge. They should check order status separately.
+        await unifiedPaymentGateway.finaliseIdempotencyKey(
+          idempotencyKey,
+          user.id,
+          orderResponse.orderId,
+          orderResponse.gateway,
+          orderResponse,
+        );
+        idempotencyLockHeld = false;
+      }
+
+      complianceMonitor.logEvent({
+        eventType: 'payment',
+        action: 'create_unified_order',
+        resource: orderResponse.orderId,
+        outcome: 'success',
+        riskLevel: 'medium',
+        userId: user.id,
+        metadata: { gateway: orderResponse.gateway, fallbackUsed: orderResponse.fallbackUsed },
+      });
+
+      res.json({
+        success: true,
+        orderId: orderResponse.orderId,
+        paymentSessionId: orderResponse.paymentSessionId,
+        paymentUrl: orderResponse.paymentUrl,
+        gateway: orderResponse.gateway,
+        fallbackUsed: orderResponse.fallbackUsed,
+        message: orderResponse.message,
+      });
+
+    } catch (error) {
+      // Only release the lock if no gateway order was created yet.
+      // If gatewayOrderCreated=true, keep the lock (pending) to block retries
+      // from creating a duplicate charge. The user should check order status.
+      if (idempotencyKey && idempotencyLockHeld && !gatewayOrderCreated && userId) {
+        unifiedPaymentGateway.releaseIdempotencyLock(idempotencyKey, userId).catch(() => {});
+      }
+      console.error('Error creating unified order:', error);
+      res.status(500).json({ message: 'Failed to create order' });
+    }
+  });
+
+  app.get('/api/payments/gateway-health', async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const health = await unifiedPaymentGateway.getGatewayHealth();
+
+      res.json({ success: true, ...health });
+    } catch (error) {
+      console.error('Error checking gateway health:', error);
+      res.status(500).json({ message: 'Failed to check gateway health' });
+    }
+  });
+
   // ==================== CASHFREE PAYMENT GATEWAY ROUTES ====================
   
   app.post('/api/payments/cashfree/create-order', async (req, res) => {
