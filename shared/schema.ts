@@ -10528,6 +10528,28 @@ export const insertPhonePeTransactionSchema = createInsertSchema(phonePeTransact
 export type PhonePeTransaction = typeof phonePeTransactions.$inferSelect;
 export type InsertPhonePeTransaction = z.infer<typeof insertPhonePeTransactionSchema>;
 
+// Payment Idempotency Keys - Prevent duplicate payment orders
+export const paymentIdempotencyKeys = pgTable("payment_idempotency_keys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  idempotencyKey: varchar("idempotency_key").notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  orderId: varchar("order_id").notNull(),
+  gateway: varchar("gateway").notNull(), // 'cashfree' | 'phonepe'
+  responsePayload: jsonb("response_payload").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+}, (table) => [
+  uniqueIndex("idx_payment_idempotency_scope").on(table.userId, table.idempotencyKey),
+  index("idx_payment_idempotency_expires").on(table.expiresAt),
+]);
+
+export const insertPaymentIdempotencyKeySchema = createInsertSchema(paymentIdempotencyKeys).omit({
+  id: true,
+  createdAt: true,
+});
+export type PaymentIdempotencyKey = typeof paymentIdempotencyKeys.$inferSelect;
+export type InsertPaymentIdempotencyKey = z.infer<typeof insertPaymentIdempotencyKeySchema>;
+
 // Tax Rules table - Dynamic tax rates and rules management
 export const taxRules = pgTable(
   "tax_rules",
