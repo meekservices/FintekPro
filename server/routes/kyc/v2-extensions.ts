@@ -939,7 +939,7 @@ export function registerKycV2ExtensionRoutes(app: Express) {
    */
   app.post("/api/admin/kyc/reset", requireAdmin, async (req: any, res) => {
     try {
-      const { userId } = req.body;
+      const { userId } = req.body || {};
       const resetBy = req.user?.id || 'admin';
 
       if (userId) {
@@ -950,8 +950,8 @@ export function registerKycV2ExtensionRoutes(app: Express) {
       // Bulk reset — only non-admin users
       const nonAdminResult = await db.execute(drizzleSql`
         SELECT id FROM users
-        WHERE NOT (roles && ARRAY['admin','superadmin']::text[])
-          AND role NOT IN ('admin', 'superadmin')
+        WHERE (roles IS NULL OR NOT (roles && ARRAY['admin','superadmin']::text[]))
+          AND (role IS NULL OR role NOT IN ('admin', 'superadmin'))
       `);
 
       // drizzle db.execute returns QueryResult<Record<string,unknown>> with .rows array
