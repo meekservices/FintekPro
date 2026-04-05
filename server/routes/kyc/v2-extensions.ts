@@ -855,54 +855,59 @@ export function registerKycV2ExtensionRoutes(app: Express) {
 
   // Full KYC reset: clears all user_profiles verification flags, sessions, and bank state
   async function fullKycReset(userId: string, resetBy: string): Promise<void> {
-    await db.execute(drizzleSql`
-      UPDATE user_profiles SET
-        pan_verified_via_sandbox            = false,
-        pan_verified_via_smart_kyc          = false,
-        ckyc_fetched_via_authbridge         = false,
-        kra_verified_via_protean            = false,
-        aadhaar_verified_via_smart_kyc      = false,
-        is_profile_completed                = false,
-        profile_completed_at                = NULL,
-        video_kyc_completed                 = false,
-        video_kyc_completed_date            = NULL,
-        video_kyc_status                    = 'pending',
-        face_to_face_verification_completed = false,
-        face_to_face_verification_date      = NULL,
-        kyc_level                           = '0',
-        kyc_level_upgraded_at               = NULL,
-        kyc_tier                            = 'basic',
-        kyc_tier_status                     = 'provisional',
-        kyc_update_due_date                 = NULL,
-        products_unlocked                   = '[]'::jsonb
-      WHERE user_id = ${userId}
-    `);
-    await db.execute(drizzleSql`
-      UPDATE users SET kyc_status = NULL, ckyc_status = NULL WHERE id = ${userId}
-    `);
-    await db.execute(drizzleSql`
-      UPDATE kyc_verification_sessions
-      SET session_outcome = 'reset_by_admin', is_active = false
-      WHERE user_id = ${userId} AND is_active = true
-    `);
-    await db.execute(drizzleSql`
-      UPDATE user_bank_accounts
-      SET is_verified = false, verification_status = 'pending'
-      WHERE user_id = ${userId}
-    `);
+    // All DB mutations run inside a transaction for atomicity
+    await db.transaction(async (tx) => {
+      await tx.execute(drizzleSql`
+        UPDATE user_profiles SET
+          pan_verified_via_sandbox            = false,
+          pan_verified_via_smart_kyc          = false,
+          ckyc_fetched_via_authbridge         = false,
+          kra_verified_via_protean            = false,
+          aadhaar_verified_via_smart_kyc      = false,
+          is_profile_completed                = false,
+          profile_completed_at                = NULL,
+          video_kyc_completed                 = false,
+          video_kyc_completed_date            = NULL,
+          video_kyc_status                    = 'pending',
+          face_to_face_verification_completed = false,
+          face_to_face_verification_date      = NULL,
+          kyc_level                           = '0',
+          kyc_level_upgraded_at               = NULL,
+          kyc_tier                            = 'basic',
+          kyc_tier_status                     = 'provisional',
+          kyc_update_due_date                 = NULL,
+          products_unlocked                   = '[]'::jsonb
+        WHERE user_id = ${userId}
+      `);
+      await tx.execute(drizzleSql`
+        UPDATE users SET kyc_status = NULL, ckyc_status = NULL WHERE id = ${userId}
+      `);
+      await tx.execute(drizzleSql`
+        UPDATE kyc_verification_sessions
+        SET session_outcome = 'reset_by_admin', is_active = false
+        WHERE user_id = ${userId} AND is_active = true
+      `);
+      await tx.execute(drizzleSql`
+        UPDATE user_bank_accounts
+        SET is_verified = false, verification_status = 'pending'
+        WHERE user_id = ${userId}
+      `);
+      // best-effort audit log — do not rollback the whole reset if this fails
+      try {
+        await tx.execute(drizzleSql`
+          INSERT INTO kyc_audit_logs
+            (id, user_id, accessed_by, access_type, purpose, api_endpoint, access_status, created_at)
+          VALUES (
+            gen_random_uuid(), ${userId}, ${resetBy}, 'write',
+            'Admin full KYC reset — all verification flags and sessions cleared',
+            '/api/admin/kyc/reset', 'success', NOW()
+          )
+        `);
+      } catch { /* non-fatal */ }
+    });
+    // Post-transaction: invalidate in-memory cache (cannot run inside a DB transaction)
     const { invalidateComplianceCache } = await import('../../middleware/universal-kyc-gate');
     invalidateComplianceCache(userId);
-    try {
-      await db.execute(drizzleSql`
-        INSERT INTO kyc_audit_logs
-          (id, user_id, accessed_by, access_type, purpose, api_endpoint, access_status, created_at)
-        VALUES (
-          gen_random_uuid(), ${userId}, ${resetBy}, 'write',
-          'Admin full KYC reset — all verification flags and sessions cleared',
-          '/api/admin/kyc/reset', 'success', NOW()
-        )
-      `);
-    } catch { /* audit log is best-effort */ }
   }
 
   app.post("/api/admin/kyc/reset", requireAdmin, async (req: any, res) => {
@@ -946,8 +951,9 @@ export function registerKycV2ExtensionRoutes(app: Express) {
   // Lightweight ping to KYC providers — returns live/degraded/down with latency
   app.get("/api/admin/kyc/provider-health", requireAdmin, async (_req: any, res) => {
     type ProviderStatus = { status: 'live' | 'degraded' | 'down'; latencyMs: number; error?: string };
+    type FetchResponse = Awaited<ReturnType<typeof globalThis.fetch>>;
 
-    async function ping(fn: () => Promise<Response>): Promise<ProviderStatus> {
+    async function ping(fn: () => Promise<FetchResponse>): Promise<ProviderStatus> {
       const start = Date.now();
       try {
         const r = await fn();
