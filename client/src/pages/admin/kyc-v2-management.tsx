@@ -1970,7 +1970,7 @@ function AllKycSessionsTab() {
   });
 
   const resetAll = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/admin/kyc/reset", {}),
+    mutationFn: () => apiRequest("/api/admin/kyc/reset", { method: "POST", body: JSON.stringify({}) }),
     onSuccess: () => {
       toast({ title: "KYC Reset Complete", description: "All user KYC has been reset. Users must redo KYC." });
       setConfirmResetAll(false);
@@ -1980,7 +1980,7 @@ function AllKycSessionsTab() {
   });
 
   const resetOne = useMutation({
-    mutationFn: (userId: string) => apiRequest("POST", "/api/admin/kyc/reset", { userId }),
+    mutationFn: (userId: string) => apiRequest("/api/admin/kyc/reset", { method: "POST", body: JSON.stringify({ userId }) }),
     onSuccess: () => {
       toast({ title: "KYC Reset", description: "User KYC has been reset." });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/kyc/sessions"] });
