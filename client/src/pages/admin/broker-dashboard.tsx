@@ -923,13 +923,38 @@ function CorporateActionsTab() {
 // ─── App Registration & Setup Tab ──────────────────────────────────────────────
 
 function AppRegistrationTab() {
-  const { data: configData } = useQuery<{ configured: boolean; isBrokerApi: boolean; baseUrl: string }>({
+  const { toast } = useToast();
+  const [apiKey, setApiKey] = useState("");
+  const [secretKey, setSecretKey] = useState("");
+  const [baseUrl, setBaseUrl] = useState("https://broker-api.sandbox.alpaca.markets");
+  const [showSecret, setShowSecret] = useState(false);
+
+  const { data: configData, refetch: refetchConfig } = useQuery<{
+    configured: boolean; authOk: boolean; authError?: string; isBrokerApi: boolean; baseUrl: string;
+  }>({
     queryKey: ["/api/us-trading/alpaca/config"],
-    staleTime: 60000,
+    staleTime: 30000,
+  });
+
+  const credentialsMutation = useMutation({
+    mutationFn: () => apiRequest(`${BASE}/alpaca/credentials`, {
+      method: "POST",
+      body: JSON.stringify({ apiKey: apiKey.trim(), secretKey: secretKey.trim(), baseUrl }),
+    }),
+    onSuccess: () => {
+      toast({ title: "Credentials saved", description: "Alpaca auth verified. Click Activate US Trading on the dashboard." });
+      setSecretKey("");
+      refetchConfig();
+      queryClient.invalidateQueries({ queryKey: ["/api/us-trading/alpaca/config"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Invalid credentials", description: err?.message || "Auth test failed — check Key ID and Secret.", variant: "destructive" });
+    },
   });
 
   const isSandbox = configData?.baseUrl?.includes("sandbox");
   const configured = configData?.configured ?? false;
+  const authOk = (configData as any)?.authOk ?? false;
 
   const setupSteps = [
     {
@@ -942,14 +967,14 @@ function AppRegistrationTab() {
     {
       step: 2,
       title: "Configure API Credentials",
-      description: "Once approved, add your ALPACA_API_KEY and ALPACA_SECRET_KEY to the environment. These are your Broker API keys — not trading API keys.",
-      status: configured ? "done" : "pending",
+      description: "Use the form below to enter your Broker API Key and Secret. Click 'Test & Save' to verify auth before activating.",
+      status: authOk ? "done" : "pending",
       action: null,
     },
     {
       step: 3,
       title: "Switch to Broker API Base URL",
-      description: "Sandbox: broker-api.sandbox.alpaca.markets — Production: broker-api.alpaca.markets. Set ALPACA_BASE_URL accordingly.",
+      description: "Sandbox: broker-api.sandbox.alpaca.markets — Production: broker-api.alpaca.markets. Select the environment in the form below.",
       status: configData?.isBrokerApi ? "done" : "pending",
       action: null,
     },
@@ -964,6 +989,107 @@ function AppRegistrationTab() {
 
   return (
     <div className="space-y-6">
+
+      {/* ─── Credentials Form ──────────────────────────────────────────── */}
+      <Card className="border-primary/30">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-primary" />
+            Set Alpaca Broker Credentials
+          </CardTitle>
+          <CardDescription>
+            Enter the Key ID and Secret from{" "}
+            <a href="https://broker-app.sandbox.alpaca.markets" target="_blank" rel="noopener noreferrer"
+              className="text-primary underline">
+              broker-app.sandbox.alpaca.markets → API/Devs → Generate API Key
+            </a>.
+            The secret is only shown once at key creation time.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">API Key ID</Label>
+              <Input
+                placeholder="CK7XXXXXXXXXXXXXXXXXXXXXX"
+                value={apiKey}
+                onChange={e => setApiKey(e.target.value)}
+                className="font-mono text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Secret Key</Label>
+              <div className="relative">
+                <Input
+                  type={showSecret ? "text" : "password"}
+                  placeholder="Your secret key (shown once at creation)"
+                  value={secretKey}
+                  onChange={e => setSecretKey(e.target.value)}
+                  className="font-mono text-sm pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSecret(s => !s)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showSecret ? <XCircle className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Environment</Label>
+            <div className="flex gap-2">
+              {[
+                { label: "Sandbox (Paper Trading)", value: "https://broker-api.sandbox.alpaca.markets" },
+                { label: "Production (Live)", value: "https://broker-api.alpaca.markets" },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setBaseUrl(opt.value)}
+                  className={`flex-1 text-xs px-3 py-2 rounded-md border transition-colors ${
+                    baseUrl === opt.value
+                      ? "border-primary bg-primary/10 text-primary font-medium"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 py-2">
+            <Info className="h-3.5 w-3.5 text-amber-600" />
+            <AlertDescription className="text-xs text-amber-700 dark:text-amber-300">
+              This saves credentials for the current session. For persistence across restarts, also add
+              <code className="mx-1">ALPACA_API_KEY</code> and <code className="mr-1">ALPACA_SECRET_KEY</code>
+              to Replit Secrets.
+            </AlertDescription>
+          </Alert>
+          <div className="flex gap-2 items-center">
+            <Button
+              onClick={() => credentialsMutation.mutate()}
+              disabled={credentialsMutation.isPending || !apiKey || !secretKey}
+              className="gap-2"
+            >
+              {credentialsMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              {credentialsMutation.isPending ? "Testing…" : "Test & Save"}
+            </Button>
+            {authOk && (
+              <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                <CheckCircle2 className="h-3.5 w-3.5" /> Auth OK — go back to the dashboard and click Activate US Trading
+              </span>
+            )}
+            {configured && !authOk && (configData as any)?.authError && (
+              <span className="flex items-center gap-1 text-xs text-red-600">
+                <XCircle className="h-3.5 w-3.5" /> Auth failing — enter the correct secret above
+              </span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Architecture overview */}
       <Card>
         <CardHeader>
