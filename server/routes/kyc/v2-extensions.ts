@@ -853,37 +853,222 @@ export function registerKycV2ExtensionRoutes(app: Express) {
     }
   });
 
+  // ============================================================================
+  // FULL KYC RESET — clears ALL verification flags so the user restarts from 0
+  // ============================================================================
+
+  /**
+   * Shared helper: fully reset a single user's KYC state.
+   * Clears all profile verification flags, closes active sessions, and
+   * marks bank accounts as un-verified so they can re-do penny-drop.
+   * Identity data (name, DOB, PAN number) is preserved for re-use.
+   */
+  async function fullKycReset(userId: string, resetBy: string): Promise<void> {
+    // 1. Reset all verification flags in user_profiles
+    await db.execute(drizzleSql`
+      UPDATE user_profiles SET
+        pan_verified_via_sandbox            = false,
+        pan_verified_via_smart_kyc          = false,
+        ckyc_fetched_via_authbridge         = false,
+        kra_verified_via_protean            = false,
+        aadhaar_verified_via_smart_kyc      = false,
+        is_profile_completed                = false,
+        profile_completed_at                = NULL,
+        video_kyc_completed                 = false,
+        video_kyc_completed_date            = NULL,
+        video_kyc_status                    = 'pending',
+        face_to_face_verification_completed = false,
+        face_to_face_verification_date      = NULL,
+        kyc_level                           = '0',
+        kyc_level_upgraded_at               = NULL,
+        kyc_tier                            = 'basic',
+        kyc_tier_status                     = 'provisional',
+        kyc_update_due_date                 = NULL,
+        products_unlocked                   = '[]'::jsonb
+      WHERE user_id = ${userId}
+    `);
+
+    // 2. Clear kyc_status / ckyc_status on the users row
+    await db.execute(drizzleSql`
+      UPDATE users SET kyc_status = NULL, ckyc_status = NULL
+      WHERE id = ${userId}
+    `);
+
+    // 3. Close any active KYC sessions
+    await db.execute(drizzleSql`
+      UPDATE kyc_verification_sessions
+      SET session_outcome = 'reset_by_admin', is_active = false
+      WHERE user_id = ${userId}
+    `);
+
+    // 4. Un-verify bank accounts so they redo penny-drop
+    await db.execute(drizzleSql`
+      UPDATE user_bank_accounts
+      SET is_verified = false, verification_status = 'pending'
+      WHERE user_id = ${userId}
+    `);
+
+    // 5. Invalidate the in-memory compliance cache for this user
+    const { invalidateComplianceCache } = await import('../../middleware/universal-kyc-gate');
+    invalidateComplianceCache(userId);
+
+    // 6. Write audit log entry (best-effort — don't fail the reset if this errors)
+    try {
+      await db.execute(drizzleSql`
+        INSERT INTO kyc_audit_logs
+          (id, user_id, accessed_by, access_type, purpose, api_endpoint, access_status, created_at)
+        VALUES (
+          gen_random_uuid(),
+          ${userId},
+          ${resetBy},
+          'write',
+          'Admin full KYC reset — all verification flags and sessions cleared',
+          '/api/admin/kyc/reset',
+          'success',
+          NOW()
+        )
+      `);
+    } catch { /* non-fatal */ }
+  }
+
+  /**
+   * POST /api/admin/kyc/reset
+   * Full KYC reset for a specific user (body: { userId }) or all non-admin users (no body).
+   * Now correctly resets user_profiles verification flags, not just users.kyc_status.
+   */
   app.post("/api/admin/kyc/reset", requireAdmin, async (req: any, res) => {
     try {
       const { userId } = req.body;
+      const resetBy = req.user?.id || 'admin';
 
       if (userId) {
-        await db.execute(drizzleSql`
-          UPDATE kyc_verification_sessions
-          SET session_outcome = 'reset_by_admin', is_active = false
-          WHERE user_id = ${userId}
-        `);
-        await db.execute(drizzleSql`
-          UPDATE users SET kyc_status = NULL, ckyc_status = NULL
-          WHERE id = ${userId}
-        `);
-        return res.json({ success: true, message: `KYC reset for user ${userId}` });
+        await fullKycReset(userId, resetBy);
+        return res.json({ success: true, message: `Full KYC reset completed for user ${userId}. All verification flags cleared. User must restart KYC from step 1.` });
       }
 
-      await db.execute(drizzleSql`
-        UPDATE kyc_verification_sessions
-        SET session_outcome = 'reset_by_admin', is_active = false
-      `);
-      await db.execute(drizzleSql`
-        UPDATE users SET kyc_status = NULL, ckyc_status = NULL
-        WHERE role NOT IN ('admin', 'superadmin')
+      // Bulk reset — only non-admin users
+      const nonAdminUsers = await db.execute(drizzleSql`
+        SELECT id FROM users
+        WHERE NOT (roles && ARRAY['admin','superadmin']::text[])
+          AND role NOT IN ('admin', 'superadmin')
       `);
 
-      res.json({ success: true, message: 'KYC reset for all non-admin users' });
+      let resetCount = 0;
+      for (const row of (nonAdminUsers as any).rows ?? []) {
+        await fullKycReset(row.id, resetBy);
+        resetCount++;
+      }
+
+      res.json({ success: true, message: `Full KYC reset completed for ${resetCount} non-admin users.` });
     } catch (error) {
       console.error('[Admin KYC Reset]', error);
       res.status(500).json({ success: false, error: 'Failed to reset KYC' });
     }
+  });
+
+  /**
+   * POST /api/admin/kyc/reset-self
+   * Allows an admin to reset their own KYC so they can re-complete the wizard.
+   * Requires admin or superadmin role.
+   */
+  app.post("/api/admin/kyc/reset-self", requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      await fullKycReset(userId, userId);
+      res.json({
+        success: true,
+        message: 'Your KYC has been fully reset. Please navigate to the KYC wizard to restart verification.',
+        redirectTo: '/onboarding',
+      });
+    } catch (error) {
+      console.error('[Admin KYC Self-Reset]', error);
+      res.status(500).json({ success: false, error: 'Failed to reset your KYC' });
+    }
+  });
+
+  /**
+   * GET /api/admin/kyc/provider-health
+   * Lightweight ping to each KYC provider. Returns live/degraded/down status.
+   * Used by the admin KYC management page status strip.
+   */
+  app.get("/api/admin/kyc/provider-health", requireAdmin, async (_req: any, res) => {
+    async function ping(name: string, fn: () => Promise<void>): Promise<{ status: 'live' | 'degraded' | 'down'; latencyMs: number; error?: string }> {
+      const start = Date.now();
+      try {
+        await fn();
+        return { status: 'live', latencyMs: Date.now() - start };
+      } catch (err: any) {
+        const latencyMs = Date.now() - start;
+        const msg: string = err?.message || String(err);
+        // 4xx from provider = reachable but auth/input issue → degraded
+        // network error = down
+        const isDegraded = msg.includes('401') || msg.includes('403') || msg.includes('400') || msg.includes('timeout') || latencyMs > 5000;
+        return { status: isDegraded ? 'degraded' : 'down', latencyMs, error: msg.slice(0, 120) };
+      }
+    }
+
+    const SANDBOX_URL = process.env.SANDBOX_BASE_URL || 'https://test-api.sandbox.co.in';
+    const TRUTHSCREEN_URL = 'https://www.truthscreen.com';
+
+    const [sandboxPan, truthscreenAadhaar, truthscreenCkyc, ckycRegistry] = await Promise.all([
+      ping('sandbox_pan', async () => {
+        const apiKey = process.env.SANDBOX_API_KEY;
+        if (!apiKey) throw new Error('SANDBOX_API_KEY not configured');
+        const r = await fetch(`${SANDBOX_URL}/kyc/v2/pan`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'x-api-version': '1.0' },
+          body: JSON.stringify({ '@entity': 'in.co.sandbox.kyc.pan_plus.request', 'pan': 'AAAAA0000A' }),
+          signal: AbortSignal.timeout(6000),
+        });
+        if (r.status >= 500) throw new Error(`HTTP ${r.status}`);
+      }),
+      ping('truthscreen_aadhaar', async () => {
+        const user = process.env.TRUTHSCREEN_USERNAME;
+        const pass = process.env.TRUTHSCREEN_PASSWORD;
+        if (!user || !pass) throw new Error('TRUTHSCREEN credentials not configured');
+        const r = await fetch(`${TRUTHSCREEN_URL}/api/3.0/generate-otp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ docType: 1, docNumber: '999999999999', username: user }),
+          signal: AbortSignal.timeout(6000),
+        });
+        if (r.status >= 500) throw new Error(`HTTP ${r.status}`);
+      }),
+      ping('truthscreen_ckyc', async () => {
+        const user = process.env.TRUTHSCREEN_USERNAME;
+        if (!user) throw new Error('TRUTHSCREEN credentials not configured');
+        const r = await fetch(`${TRUTHSCREEN_URL}/api/ckyc`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ docType: 3, docNumber: 'AAAAA0000A', username: user }),
+          signal: AbortSignal.timeout(6000),
+        });
+        if (r.status >= 500) throw new Error(`HTTP ${r.status}`);
+      }),
+      ping('ckyc_registry', async () => {
+        // Lightweight check — CKYC Registry (CERSAI) endpoint availability
+        const apiKey = process.env.CKYC_API_KEY;
+        if (!apiKey) throw new Error('CKYC_API_KEY not configured — running in mock mode');
+        const r = await fetch('https://uatkyc.ckycreg.in/ckyc/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+          body: JSON.stringify({ pan: 'AAAAA0000A' }),
+          signal: AbortSignal.timeout(6000),
+        });
+        if (r.status >= 500) throw new Error(`HTTP ${r.status}`);
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      checkedAt: new Date().toISOString(),
+      providers: {
+        sandbox_pan: sandboxPan,
+        truthscreen_aadhaar: truthscreenAadhaar,
+        truthscreen_ckyc: truthscreenCkyc,
+        ckyc_registry: ckycRegistry,
+      },
+    });
   });
 
   console.log('✅ KYC v2 Extension routes registered (Video KYC, Maker-Checker, Rejection, Eligibility, Audit Pack, Webhooks, Environment, Rate Limits, Agent Step Reset, Active Session Lookup)');
