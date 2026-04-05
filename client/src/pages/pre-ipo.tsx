@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ActionButtonWithNudge } from "@/components/kyc/kyc-gap-nudge";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
@@ -81,7 +82,6 @@ export default function PreIPOPage() {
       });
       
       if (response.ok) {
-        // Refresh investments list
         window.location.reload();
       }
     } catch (error) {
@@ -404,14 +404,15 @@ export default function PreIPOPage() {
                                 Please invest only what you can afford to lose.
                               </AlertDescription>
                             </Alert>
-                            <Button 
+                            <ActionButtonWithNudge
+                              productCode="UNLISTED_SECURITIES"
+                              onProceed={() => handleInvestment(company.id)}
                               className="w-full"
-                              onClick={() => handleInvestment(company.id)}
                               disabled={!investmentAmount || parseInt(investmentAmount) < company.minimumInvestment}
                               data-testid="button-confirm-investment"
                             >
                               Confirm Investment
-                            </Button>
+                            </ActionButtonWithNudge>
                           </div>
                         </DialogContent>
                       </Dialog>

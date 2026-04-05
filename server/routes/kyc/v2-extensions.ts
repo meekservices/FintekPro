@@ -398,6 +398,186 @@ export function registerKycV2ExtensionRoutes(app: Express) {
     }
   });
 
+  // ============================================================
+  // KYC GAP SUGGESTIONS ENDPOINT (BE-KYC-GAPS)
+  // ============================================================
+
+  app.get("/api/kyc/gap", requireAuth, async (req: any, res) => {
+    try {
+      const { productCode } = req.query;
+
+      // productCode is required — gap is always product-specific
+      if (!productCode || typeof productCode !== 'string') {
+        return res.status(400).json({ success: false, error: 'productCode query parameter is required' });
+      }
+
+      const profile = req.user;
+
+      // Admin/compliance roles never see KYC gaps — they have full access
+      const adminRoles = ['superadmin', 'admin', 'master_agent', 'compliance_officer', 'compliance_team',
+        'bd_head', 'bd_team', 'finance_head', 'finance_team', 'ops_head', 'ops_team',
+        'hr_head', 'hr_team', 'tech_head', 'tech_backend', 'tech_frontend', 'tech_devops',
+        'regulatory_auditor', 'tester'];
+      const userRoles: string[] = profile.roles || (profile.role ? [profile.role] : ['user']);
+      const isAdmin = userRoles.some((r: string) => adminRoles.includes(r));
+
+      if (isAdmin) {
+        return res.json({ success: true, hasGap: false, isAdmin: true });
+      }
+
+      const userState = {
+        kycTier: profile.kycTier || 'basic',
+        kycTierStatus: profile.kycTierStatus || 'provisional',
+        amlRiskLevel: profile.amlRiskLevel || null,
+        fatcaSigned: profile.fatcaStatus === 'Y',
+        videoKycDone: false,
+        makerCheckerApproved: false,
+        femaCompliant: false,
+      };
+
+      // Determine role category for messaging
+      const isSubAgent = userRoles.some((r: string) => r === 'sub_agent');
+      const isAgent = userRoles.some((r: string) => ['agent', 'associate'].includes(r));
+      const isPartner = userRoles.some((r: string) => ['partner', 'partner_ops'].includes(r));
+
+      let roleCategory: 'client' | 'agent' | 'partner' | 'sub_agent' = 'client';
+      if (isSubAgent) roleCategory = 'sub_agent';
+      else if (isAgent) roleCategory = 'agent';
+      else if (isPartner) roleCategory = 'partner';
+
+      // Sub-agents cannot execute transactions directly
+      if (roleCategory === 'sub_agent') {
+        return res.json({
+          success: true,
+          hasGap: true,
+          roleCategory,
+          message: 'Transaction execution is handled by your supervising partner/agent. Please contact them to proceed.',
+          missingItems: [],
+          currentTier: userState.kycTier,
+          requiredTier: null,
+          productCode: productCode || null,
+          wizardDeepLink: null,
+        });
+      }
+
+      // Fetch eligibility for the given product
+      const eligibility = await kycProductEligibilityService.checkSingleProduct(productCode, userState);
+
+      if (!eligibility) {
+        return res.json({ success: true, hasGap: false, productCode, message: 'Product not found in eligibility matrix' });
+      }
+
+      // Build structured missing items list with human-readable labels & wizard deep-links
+      const CONDITION_META: Record<string, { label: string; description: string; wizardStep: number }> = {
+        'AML_OK': { label: 'AML Screening', description: 'Anti-money laundering risk check must pass', wizardStep: 5 },
+        'FATCA_SIGNED': { label: 'FATCA Declaration', description: 'Foreign Account Tax Compliance declaration required', wizardStep: 5 },
+        'VIDEO_KYC_DONE': { label: 'Video KYC', description: 'Live video verification with a KYC officer', wizardStep: 4 },
+        'MAKER_CHECKER_APPROVED': { label: 'Manual Approval', description: 'Compliance team review and approval required', wizardStep: 5 },
+        'FEMA_COMPLIANT': { label: 'FEMA Compliance', description: 'Foreign Exchange Management Act compliance declaration', wizardStep: 5 },
+      };
+
+      const TIER_META: Record<string, { label: string; description: string; wizardStep: number }> = {
+        'basic': { label: 'Basic KYC', description: 'Complete PAN + Aadhaar verification', wizardStep: 1 },
+        'enhanced': { label: 'Enhanced KYC', description: 'Bank linking + additional document verification', wizardStep: 3 },
+        'accredited_investor': { label: 'Accredited Investor KYC', description: 'Full verification including net worth proof and Video KYC', wizardStep: 4 },
+      };
+
+      const missingItems: Array<{ key: string; label: string; description: string; wizardStep: number; type: 'tier' | 'condition' | 'limit' }> = [];
+      // Start at Infinity so the first item properly sets the lowest step
+      let lowestWizardStep = Infinity;
+
+      if (!eligibility.eligible) {
+        // Check if tier upgrade needed
+        const tierOrder = ['basic', 'enhanced', 'accredited_investor'];
+        const currentTierIdx = tierOrder.indexOf(userState.kycTier);
+        const requiredTierIdx = tierOrder.indexOf(eligibility.requiredTier);
+
+        if (currentTierIdx < requiredTierIdx) {
+          const tierMeta = TIER_META[eligibility.requiredTier];
+          if (tierMeta) {
+            missingItems.push({
+              key: `tier_${eligibility.requiredTier}`,
+              label: `Upgrade to ${tierMeta.label}`,
+              description: tierMeta.description,
+              wizardStep: tierMeta.wizardStep,
+              type: 'tier',
+            });
+            lowestWizardStep = Math.min(lowestWizardStep, tierMeta.wizardStep);
+          }
+        }
+
+        // Check missing conditions
+        for (const cond of eligibility.missingConditions) {
+          const meta = CONDITION_META[cond];
+          if (meta) {
+            missingItems.push({
+              key: cond,
+              label: meta.label,
+              description: meta.description,
+              wizardStep: meta.wizardStep,
+              type: 'condition',
+            });
+            lowestWizardStep = Math.min(lowestWizardStep, meta.wizardStep);
+          } else {
+            missingItems.push({
+              key: cond,
+              label: cond.replace(/_/g, ' '),
+              description: 'Required for product eligibility',
+              wizardStep: 1,
+              type: 'condition',
+            });
+            lowestWizardStep = Math.min(lowestWizardStep, 1);
+          }
+        }
+      }
+
+      // Check for transaction amount limits (eligible but limited by max amount cap)
+      let amountLimitMessage: string | null = null;
+      if (eligibility.maxAmount && eligibility.maxAmount > 0) {
+        const formattedLimit = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(eligibility.maxAmount);
+        amountLimitMessage = `Your current KYC tier limits transactions to ${formattedLimit}. Complete Enhanced KYC to raise this limit.`;
+        missingItems.push({
+          key: 'amount_limit',
+          label: `Transaction limit: ${formattedLimit}`,
+          description: amountLimitMessage,
+          wizardStep: 3,
+          type: 'limit',
+        });
+        lowestWizardStep = Math.min(lowestWizardStep, 3);
+      }
+
+      const hasGap = !eligibility.eligible || missingItems.length > 0;
+      // If lowestWizardStep is still Infinity (no missing items), no deep-link needed
+      const resolvedStep = isFinite(lowestWizardStep) ? lowestWizardStep : 1;
+      const wizardDeepLink = missingItems.length > 0 ? `/onboarding?step=${resolvedStep}` : null;
+
+      // Role-specific messaging
+      const roleMessages: Record<typeof roleCategory, string> = {
+        client: 'Complete your personal KYC verification to access this product.',
+        agent: 'Your empanelment or KYC certification is incomplete. Complete the required steps to enable transactions for your clients.',
+        partner: 'Your partner empanelment requirements are incomplete. Please complete the certification gaps to proceed.',
+        sub_agent: 'Contact your supervising partner/agent to execute this transaction.',
+      };
+
+      return res.json({
+        success: true,
+        hasGap,
+        roleCategory,
+        message: hasGap ? roleMessages[roleCategory] : null,
+        missingItems,
+        currentTier: userState.kycTier,
+        requiredTier: eligibility?.requiredTier || null,
+        productCode: productCode || null,
+        productName: eligibility?.productName || null,
+        wizardDeepLink,
+        amountLimitMessage,
+      });
+    } catch (error) {
+      console.error('[KYC Gap] Error computing gap:', error);
+      res.status(500).json({ success: false, error: 'Failed to compute KYC gap' });
+    }
+  });
+
   app.get("/api/kyc/product-eligibility/rules", requireAdmin, async (req: any, res) => {
     try {
       const rules = await kycProductEligibilityService.getRules();
