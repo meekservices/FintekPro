@@ -1,5 +1,0 @@
-Timestamp,Service,Operation,Entity,Status,Records,Duration (ms)
-2026-01-19T08:47:03.350Z,CRM,post,api_request,failure,1,77
-2026-01-19T08:47:03.323Z,CRM,error,api_error,failure,0,0
-2026-01-18T12:16:35.454Z,CRM,get,api_request,failure,1,83
-2026-01-18T12:16:35.427Z,CRM,error,api_error,failure,0,0
