@@ -39,196 +39,242 @@
  *   POST /api/python/portfolio/rebalance         body: {currentAllocations, targetAllocations, totalValue, ...}
  */
 import { Router } from 'express';
-import { proxyToPython, isPythonServiceConfigured } from '../clients/python-client';
+import { proxyToPython, isPythonServiceConfigured, getPythonHealthState, getPythonBaseUrl } from '../clients/python-client';
 import { requireAuth } from '../middleware/auth';
 
 const router = Router();
 
 router.get('/api/python/health', async (req, res) => {
+  const state = getPythonHealthState();
   if (!isPythonServiceConfigured()) {
     return res.json({
       status: 'not_configured',
       service: 'fintekpro-python',
       message: 'Set PYTHON_SERVICE_URL to enable the Python analytics service.',
       deploy_path: 'services/python/',
+      lastSuccessAt: state.lastSuccessAt,
+      consecutiveFailures: state.consecutiveFailures,
+      latencyMs: null,
     });
   }
-  return proxyToPython(req, res, '/health');
+  // Probe the Python service directly so we can measure latency and
+  // inject our own tracking fields without mutating res.json.
+  const start = Date.now();
+  try {
+    const upstreamRes = await fetch(`${getPythonBaseUrl()}/health`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    const latencyMs = Date.now() - start;
+    const body = await upstreamRes.json().catch(() => ({}));
+    const fresh = getPythonHealthState();
+    return res.json({
+      status: upstreamRes.ok ? (body.status ?? 'ok') : 'degraded',
+      ...body,
+      latencyMs,
+      lastSuccessAt: fresh.lastSuccessAt,
+      consecutiveFailures: fresh.consecutiveFailures,
+    });
+  } catch {
+    const latencyMs = Date.now() - start;
+    const fresh = getPythonHealthState();
+    return res.json({
+      status: 'unreachable',
+      latencyMs,
+      lastSuccessAt: fresh.lastSuccessAt,
+      consecutiveFailures: fresh.consecutiveFailures,
+    });
+  }
 });
 
 // ── Analytics ────────────────────────────────────────────────────────────
 router.get('/api/python/analytics/portfolio-summary', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/analytics/portfolio-summary');
+  return proxyToPython(req, res, '/api/analytics/portfolio-summary', 'portfolio-summary');
 });
 
 router.get('/api/python/analytics/capital-gains', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/analytics/capital-gains');
+  return proxyToPython(req, res, '/api/analytics/capital-gains', 'capital-gains');
 });
 
 router.get('/api/python/analytics/amc-breakdown', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/analytics/amc-breakdown');
+  return proxyToPython(req, res, '/api/analytics/amc-breakdown', 'amc-breakdown');
 });
 
 // ── Quant ────────────────────────────────────────────────────────────────
 router.post('/api/python/quant/xirr', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/quant/xirr');
+  return proxyToPython(req, res, '/api/quant/xirr', 'xirr', { xirr: null, label: 'XIRR unavailable' });
 });
 
 router.get('/api/python/quant/portfolio-xirr', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/quant/portfolio-xirr');
+  return proxyToPython(req, res, '/api/quant/portfolio-xirr', 'portfolio-xirr', { xirr: null, label: 'Portfolio XIRR unavailable' });
 });
 
 router.get('/api/python/quant/rolling-returns', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/quant/rolling-returns');
+  return proxyToPython(req, res, '/api/quant/rolling-returns', 'rolling-returns', { rollingStats: [] });
 });
 
 router.post('/api/python/quant/mvo', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/quant/mvo');
+  return proxyToPython(req, res, '/api/quant/mvo', 'mvo', { frontier: [], optimalWeights: [] });
 });
 
 router.post('/api/python/quant/black-litterman', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/quant/black-litterman');
+  return proxyToPython(req, res, '/api/quant/black-litterman', 'black-litterman');
 });
 
 router.post('/api/python/quant/backtest', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/mf/backtest');
+  return proxyToPython(req, res, '/api/mf/backtest', 'backtest');
 });
 
 router.post('/api/python/quant/drift-predict', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/quant/drift-predict');
+  return proxyToPython(req, res, '/api/quant/drift-predict', 'drift-predict');
 });
 
 // ── MF Analytics (py-mf-analytics-v2) ───────────────────────────────────
 router.post('/api/python/mf/compute-metrics', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/mf/compute-metrics');
+  return proxyToPython(req, res, '/api/mf/compute-metrics', 'mf-compute-metrics');
 });
 
 router.get('/api/python/mf/scheme-analytics', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/mf/scheme-analytics');
+  return proxyToPython(req, res, '/api/mf/scheme-analytics', 'mf-scheme-analytics');
 });
 
 router.post('/api/python/mf/monthly-series', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/mf/monthly-series');
+  return proxyToPython(req, res, '/api/mf/monthly-series', 'mf-monthly-series');
 });
 
 router.post('/api/python/mf/bulk-compute-db', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/mf/bulk-compute-db');
+  return proxyToPython(req, res, '/api/mf/bulk-compute-db', 'mf-bulk-compute');
 });
 
 router.post('/api/python/mf/cross-sectional-rank', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/mf/cross-sectional-rank');
+  return proxyToPython(req, res, '/api/mf/cross-sectional-rank', 'mf-cross-sectional-rank');
 });
 
 router.post('/api/python/mf/risk-from-monthly', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/mf/risk-from-monthly');
+  return proxyToPython(req, res, '/api/mf/risk-from-monthly', 'mf-risk-from-monthly');
 });
 
 router.post('/api/python/mf/sync-change-pct', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/mf/sync-change-pct');
+  return proxyToPython(req, res, '/api/mf/sync-change-pct', 'mf-sync-change-pct');
 });
 
 router.post('/api/python/mf/derived-metrics', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/mf/derived-metrics');
+  return proxyToPython(req, res, '/api/mf/derived-metrics', 'mf-derived-metrics');
 });
 
 router.post('/api/python/mf/nav-backfill', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/mf/nav-backfill');
+  return proxyToPython(req, res, '/api/mf/nav-backfill', 'mf-nav-backfill');
 });
 
 router.post('/api/python/mf/amfi-enrich', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/mf/amfi-enrich');
+  return proxyToPython(req, res, '/api/mf/amfi-enrich', 'mf-amfi-enrich');
 });
 
 router.post('/api/python/mf/monthly-pipeline', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/mf/monthly-pipeline');
+  return proxyToPython(req, res, '/api/mf/monthly-pipeline', 'mf-monthly-pipeline');
 });
 
 // ── Forecasting (py-return-forecast-v1 / py-sip-v1) ─────────────────────
 router.post('/api/python/forecasting/return-forecast', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/forecasting/return-forecast');
+  return proxyToPython(req, res, '/api/forecasting/return-forecast', 'return-forecast', {
+    baseCase: null,
+    bearCase: null,
+    bullCase: null,
+    timeSeries: [],
+    label: 'Forecast unavailable — using simple compound return estimate',
+  });
 });
 
 router.post('/api/python/forecasting/sip-simulate', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/forecasting/sip-simulate');
+  return proxyToPython(req, res, '/api/forecasting/sip-simulate', 'sip-simulate', {
+    totalInvested: null,
+    finalValue: null,
+    inflationAdjustedValue: null,
+    projection: [],
+    label: 'SIP simulation unavailable',
+  });
 });
 
 // ── Portfolio Operations (py-overlap-v1 / py-rebalance-v1) ───────────────
 router.post('/api/python/portfolio/overlap-analysis', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/portfolio/overlap-analysis');
+  return proxyToPython(req, res, '/api/portfolio/overlap-analysis', 'portfolio-overlap', {
+    overlapScore: null,
+    commonHoldings: [],
+    label: 'Overlap analysis unavailable',
+  });
 });
 
 router.post('/api/python/portfolio/rebalance', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/portfolio/rebalance');
+  return proxyToPython(req, res, '/api/portfolio/rebalance', 'portfolio-rebalance');
 });
 
 // ── Asset Allocation Optimizer (py-mvo-v2) ───────────────────────────────────
 router.post('/api/python/quant/asset-allocation', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/quant/asset-allocation');
+  return proxyToPython(req, res, '/api/quant/asset-allocation', 'asset-allocation');
 });
 
 // ── Batch Financial Metrics (py-metrics-v1) ──────────────────────────────────
 router.post('/api/python/analytics/batch-metrics', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/analytics/batch-metrics');
+  return proxyToPython(req, res, '/api/analytics/batch-metrics', 'batch-metrics');
 });
 
 // ── Fixed Income & Corporate Treasury (py-bond-v1 / py-treasury-v1) ─────────
 router.post('/api/python/fixed-income/bond-analytics', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/fixed-income/bond-analytics');
+  return proxyToPython(req, res, '/api/fixed-income/bond-analytics', 'bond-analytics');
 });
 
 router.post('/api/python/fixed-income/batch-bond-analytics', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/fixed-income/batch-bond-analytics');
+  return proxyToPython(req, res, '/api/fixed-income/batch-bond-analytics', 'batch-bond-analytics');
 });
 
 router.post('/api/python/fixed-income/yield-curve', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/fixed-income/yield-curve');
+  return proxyToPython(req, res, '/api/fixed-income/yield-curve', 'yield-curve');
 });
 
 router.post('/api/python/fixed-income/treasury-optimize', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/fixed-income/treasury-optimize');
+  return proxyToPython(req, res, '/api/fixed-income/treasury-optimize', 'treasury-optimize');
 });
 
 // ── Factor Models (py-factor-v1) ─────────────────────────────────────────────
 router.post('/api/python/factor/fund-factors', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/factor/fund-factors');
+  return proxyToPython(req, res, '/api/factor/fund-factors', 'fund-factors');
 });
 
 router.post('/api/python/factor/batch-fund-factors', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/factor/batch-fund-factors');
+  return proxyToPython(req, res, '/api/factor/batch-fund-factors', 'batch-fund-factors');
 });
 
 router.get('/api/python/factor/market-factors', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/factor/market-factors');
+  return proxyToPython(req, res, '/api/factor/market-factors', 'market-factors');
 });
 
 // ── ML Scoring Engine (py-sklearn-v1) ────────────────────────────────────────
 router.post('/api/python/ml/train', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/ml/train');
+  return proxyToPython(req, res, '/api/ml/train', 'ml-train');
 });
 
 router.post('/api/python/ml/score', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/ml/score');
+  return proxyToPython(req, res, '/api/ml/score', 'ml-score');
 });
 
 router.get('/api/python/ml/model-info', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/ml/model-info');
+  return proxyToPython(req, res, '/api/ml/model-info', 'ml-model-info');
 });
 
 router.post('/api/python/ml/cross-validate', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/ml/cross-validate');
+  return proxyToPython(req, res, '/api/ml/cross-validate', 'ml-cross-validate');
 });
 
 // ── Regime Detection (py-regime-v2) ──────────────────────────────────────────
 router.post('/api/python/regime/detect', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/regime/detect');
+  return proxyToPython(req, res, '/api/regime/detect', 'regime-detect');
 });
 
 router.get('/api/python/regime/history', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/regime/history');
+  return proxyToPython(req, res, '/api/regime/history', 'regime-history');
 });
 
 router.post('/api/python/regime/detect-batch', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/regime/detect-batch');
+  return proxyToPython(req, res, '/api/regime/detect-batch', 'regime-detect-batch');
 });
 
 // ── Point-to-Point Price Returns (golden_prices time-series → Pandas) ─────────
@@ -247,61 +293,61 @@ router.post('/api/python/regime/detect-batch', requireAuth, async (req, res) => 
 //  GET  /api/python/corporate-actions/history/:isin
 //
 router.post('/api/python/price-returns/compute', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/price-returns/compute');
+  return proxyToPython(req, res, '/api/price-returns/compute', 'price-returns-compute');
 });
 
 router.post('/api/python/price-returns/batch', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/price-returns/batch');
+  return proxyToPython(req, res, '/api/price-returns/batch', 'price-returns-batch');
 });
 
 router.post('/api/python/price-returns/daily-run', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/price-returns/daily-run');
+  return proxyToPython(req, res, '/api/price-returns/daily-run', 'price-returns-daily-run');
 });
 
 router.get('/api/python/price-returns/:isin/history', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, `/api/price-returns/${req.params.isin}/history`);
+  return proxyToPython(req, res, `/api/price-returns/${req.params.isin}/history`, 'price-returns-history');
 });
 
 router.get('/api/python/price-returns/:isin', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, `/api/price-returns/${req.params.isin}`);
+  return proxyToPython(req, res, `/api/price-returns/${req.params.isin}`, 'price-returns');
 });
 
 // ── Corporate Actions ────────────────────────────────────────────────────────
 router.post('/api/python/corporate-actions/sync', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/corporate-actions/sync');
+  return proxyToPython(req, res, '/api/corporate-actions/sync', 'corporate-actions-sync');
 });
 
 router.get('/api/python/corporate-actions/pending', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/corporate-actions/pending');
+  return proxyToPython(req, res, '/api/corporate-actions/pending', 'corporate-actions-pending');
 });
 
 router.post('/api/python/corporate-actions/apply-adjustments', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/corporate-actions/apply-adjustments');
+  return proxyToPython(req, res, '/api/corporate-actions/apply-adjustments', 'corporate-actions-adjustments');
 });
 
 router.get('/api/python/corporate-actions/list', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/corporate-actions/list');
+  return proxyToPython(req, res, '/api/corporate-actions/list', 'corporate-actions-list');
 });
 
 router.get('/api/python/corporate-actions/history/:isin', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, `/api/corporate-actions/history/${req.params.isin}`);
+  return proxyToPython(req, res, `/api/corporate-actions/history/${req.params.isin}`, 'corporate-actions-history');
 });
 
 // ── Data Lake ─────────────────────────────────────────────────────────────
 router.post('/api/python/data-lake/store-bhavcopy', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/data-lake/store-bhavcopy');
+  return proxyToPython(req, res, '/api/data-lake/store-bhavcopy', 'data-lake-bhavcopy');
 });
 
 router.post('/api/python/data-lake/store-amfi-nav', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/data-lake/store-amfi-nav');
+  return proxyToPython(req, res, '/api/data-lake/store-amfi-nav', 'data-lake-amfi-nav');
 });
 
 router.get('/api/python/data-lake/list', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/data-lake/list');
+  return proxyToPython(req, res, '/api/data-lake/list', 'data-lake-list');
 });
 
 router.get('/api/python/data-lake/retrieve', requireAuth, async (req, res) => {
-  return proxyToPython(req, res, '/api/data-lake/retrieve');
+  return proxyToPython(req, res, '/api/data-lake/retrieve', 'data-lake-retrieve');
 });
 
 export default router;

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import PythonServiceUnavailable from "@/components/PythonServiceUnavailable";
 import {
   BarChart3,
   TrendingUp,
@@ -49,23 +50,9 @@ export default function AgentQuantAnalytics() {
     retry: false
   });
 
-  const isOffline = !healthData || healthData.status === "not_configured";
-
-  if (isOffline && !healthLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
-        <AlertTriangle className="h-16 w-16 text-amber-500 mb-4" />
-        <h2 className="text-2xl font-bold mb-2">Python Analytics Offline</h2>
-        <p className="text-muted-foreground max-w-md mb-6">
-          The Python sidecar service is not configured or currently unreachable. 
-          Quant analytics, MVO optimization, and advanced forecasting are unavailable.
-        </p>
-        <Button onClick={() => window.location.reload()}>
-          <RefreshCw className="h-4 w-4 mr-2" /> Retry Connection
-        </Button>
-      </div>
-    );
-  }
+  const serviceOffline = !healthLoading && healthData && (
+    healthData.status === "not_configured" || healthData.status === "unreachable"
+  );
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -75,6 +62,18 @@ export default function AgentQuantAnalytics() {
           Advanced portfolio analytics and forecasting powered by the Python Quant Engine.
         </p>
       </div>
+
+      {serviceOffline && (
+        <PythonServiceUnavailable
+          feature="analytics"
+          reason={
+            healthData?.status === "not_configured"
+              ? "Python analytics service not configured. Set PYTHON_SERVICE_URL to enable all quant features."
+              : "Python analytics service is currently unreachable. Features will show basic-mode fallbacks."
+          }
+          onRetry={() => window.location.reload()}
+        />
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <ScrollableTabsList>
@@ -156,7 +155,18 @@ function PortfolioXIRR() {
           </Button>
         </div>
 
-        {data && (
+        {data?.degraded && (
+          <PythonServiceUnavailable
+            feature={data.feature ?? "portfolio-xirr"}
+            reason={data.reason}
+            onRetry={() => refetch()}
+            fallback={data.fallback?.label ? (
+              <p className="text-sm text-amber-800 dark:text-amber-300">{String(data.fallback.label)}</p>
+            ) : undefined}
+          />
+        )}
+
+        {data && !data.degraded && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
             <div className="space-y-4">
               <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900 rounded-lg">
@@ -256,7 +266,18 @@ function RollingReturns() {
           </Button>
         </div>
 
-        {data && (
+        {data?.degraded && (
+          <PythonServiceUnavailable
+            feature={data.feature ?? "rolling-returns"}
+            reason={data.reason}
+            onRetry={() => refetch()}
+            fallback={data.fallback?.label ? (
+              <p className="text-sm text-amber-800 dark:text-amber-300">{String(data.fallback.label)}</p>
+            ) : undefined}
+          />
+        )}
+
+        {data && !data.degraded && (
           <div className="pt-4 h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.rollingStats}>
@@ -338,7 +359,16 @@ function SIPSimulator() {
           <CardTitle>Wealth Projection</CardTitle>
         </CardHeader>
         <CardContent>
-          {data ? (
+          {data?.degraded ? (
+            <PythonServiceUnavailable
+              feature={data.feature ?? "sip-simulate"}
+              reason={data.reason}
+              onRetry={() => refetch()}
+              fallback={data.fallback?.label ? (
+                <p className="text-sm text-amber-800 dark:text-amber-300">{String(data.fallback.label)}</p>
+              ) : undefined}
+            />
+          ) : data ? (
             <div className="space-y-6">
               <div className="grid grid-cols-3 gap-4">
                 <div className="p-4 bg-muted rounded-lg">
@@ -448,7 +478,16 @@ function ReturnForecast() {
           <CardTitle>Confidence Intervals (95%)</CardTitle>
         </CardHeader>
         <CardContent>
-          {data ? (
+          {data?.degraded ? (
+            <PythonServiceUnavailable
+              feature={data.feature ?? "return-forecast"}
+              reason={data.reason}
+              onRetry={() => refetch()}
+              fallback={data.fallback?.label ? (
+                <p className="text-sm text-amber-800 dark:text-amber-300">{String(data.fallback.label)}</p>
+              ) : undefined}
+            />
+          ) : data ? (
             <div className="space-y-6">
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div className="p-3 border rounded">
@@ -561,7 +600,16 @@ function FundOverlap() {
           <CardTitle>Overlap Results</CardTitle>
         </CardHeader>
         <CardContent>
-          {data ? (
+          {data?.degraded ? (
+            <PythonServiceUnavailable
+              feature={data.feature ?? "portfolio-overlap"}
+              reason={data.reason}
+              onRetry={() => refetch()}
+              fallback={data.fallback?.label ? (
+                <p className="text-sm text-amber-800 dark:text-amber-300">{String(data.fallback.label)}</p>
+              ) : undefined}
+            />
+          ) : data ? (
             <div className="space-y-6">
               <div className="p-6 bg-amber-500/10 text-center rounded-xl">
                 <p className="text-sm text-amber-600 font-medium mb-1">Portfolio Overlap Score</p>
@@ -651,7 +699,16 @@ function MVOTab() {
           <CardTitle>Efficient Frontier</CardTitle>
         </CardHeader>
         <CardContent>
-          {data ? (
+          {data?.degraded ? (
+            <PythonServiceUnavailable
+              feature={data.feature ?? "mvo"}
+              reason={data.reason}
+              onRetry={() => refetch()}
+              fallback={data.fallback?.label ? (
+                <p className="text-sm text-amber-800 dark:text-amber-300">{String(data.fallback.label)}</p>
+              ) : undefined}
+            />
+          ) : data ? (
             <div className="space-y-6">
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
