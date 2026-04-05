@@ -948,16 +948,24 @@ export function registerKycV2ExtensionRoutes(app: Express) {
       }
 
       // Bulk reset — only non-admin users
-      const nonAdminUsers = await db.execute(drizzleSql`
+      const nonAdminResult = await db.execute(drizzleSql`
         SELECT id FROM users
         WHERE NOT (roles && ARRAY['admin','superadmin']::text[])
           AND role NOT IN ('admin', 'superadmin')
       `);
 
+      // drizzle db.execute returns QueryResult<Record<string,unknown>> with .rows array
+      const nonAdminRows: Array<Record<string, unknown>> =
+        Array.isArray(nonAdminResult) ? nonAdminResult :
+        Array.isArray((nonAdminResult as { rows?: unknown }).rows) ? (nonAdminResult as { rows: Array<Record<string, unknown>> }).rows :
+        [];
+
       let resetCount = 0;
-      for (const row of (nonAdminUsers as any).rows ?? []) {
-        await fullKycReset(row.id, resetBy);
-        resetCount++;
+      for (const row of nonAdminRows) {
+        if (typeof row.id === 'string') {
+          await fullKycReset(row.id, resetBy);
+          resetCount++;
+        }
       }
 
       res.json({ success: true, message: `Full KYC reset completed for ${resetCount} non-admin users.` });
@@ -993,71 +1001,82 @@ export function registerKycV2ExtensionRoutes(app: Express) {
    * Used by the admin KYC management page status strip.
    */
   app.get("/api/admin/kyc/provider-health", requireAdmin, async (_req: any, res) => {
-    async function ping(name: string, fn: () => Promise<void>): Promise<{ status: 'live' | 'degraded' | 'down'; latencyMs: number; error?: string }> {
+    /**
+     * Probe function that classifies HTTP responses correctly:
+     *  2xx → live (provider reachable and responding normally)
+     *  4xx → degraded (provider reachable but auth/input issue — likely misconfigured creds)
+     *  5xx → down (provider overloaded or broken)
+     *  network error / timeout → down
+     */
+    async function ping(
+      _name: string,
+      fn: () => Promise<Response>,
+    ): Promise<{ status: 'live' | 'degraded' | 'down'; latencyMs: number; error?: string }> {
       const start = Date.now();
       try {
-        await fn();
-        return { status: 'live', latencyMs: Date.now() - start };
+        const r = await fn();
+        const latencyMs = Date.now() - start;
+        if (r.status >= 200 && r.status < 300) {
+          return { status: 'live', latencyMs };
+        }
+        if (r.status >= 400 && r.status < 500) {
+          return { status: 'degraded', latencyMs, error: `HTTP ${r.status} — provider reachable, credentials may need updating` };
+        }
+        return { status: 'down', latencyMs, error: `HTTP ${r.status}` };
       } catch (err: any) {
         const latencyMs = Date.now() - start;
         const msg: string = err?.message || String(err);
-        // 4xx from provider = reachable but auth/input issue → degraded
-        // network error = down
-        const isDegraded = msg.includes('401') || msg.includes('403') || msg.includes('400') || msg.includes('timeout') || latencyMs > 5000;
+        const isDegraded = msg.includes('timeout') || latencyMs >= 6000;
         return { status: isDegraded ? 'degraded' : 'down', latencyMs, error: msg.slice(0, 120) };
       }
+    }
+
+    /** If credentials are missing, immediately return degraded with a clear message (no network call). */
+    function credentialsMissing(names: string[]): { status: 'degraded'; latencyMs: number; error: string } {
+      return { status: 'degraded', latencyMs: 0, error: `Not configured — set ${names.join(', ')}` };
     }
 
     const SANDBOX_URL = process.env.SANDBOX_BASE_URL || 'https://test-api.sandbox.co.in';
     const TRUTHSCREEN_URL = 'https://www.truthscreen.com';
 
+    const sandboxApiKey = process.env.SANDBOX_API_KEY;
+    const tsUser = process.env.TRUTHSCREEN_USERNAME;
+    const tsPass = process.env.TRUTHSCREEN_PASSWORD;
+    const ckycApiKey = process.env.CKYC_API_KEY;
+
     const [sandboxPan, truthscreenAadhaar, truthscreenCkyc, ckycRegistry] = await Promise.all([
-      ping('sandbox_pan', async () => {
-        const apiKey = process.env.SANDBOX_API_KEY;
-        if (!apiKey) throw new Error('SANDBOX_API_KEY not configured');
-        const r = await fetch(`${SANDBOX_URL}/kyc/v2/pan`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'x-api-version': '1.0' },
-          body: JSON.stringify({ '@entity': 'in.co.sandbox.kyc.pan_plus.request', 'pan': 'AAAAA0000A' }),
-          signal: AbortSignal.timeout(6000),
-        });
-        if (r.status >= 500) throw new Error(`HTTP ${r.status}`);
-      }),
-      ping('truthscreen_aadhaar', async () => {
-        const user = process.env.TRUTHSCREEN_USERNAME;
-        const pass = process.env.TRUTHSCREEN_PASSWORD;
-        if (!user || !pass) throw new Error('TRUTHSCREEN credentials not configured');
-        const r = await fetch(`${TRUTHSCREEN_URL}/api/3.0/generate-otp`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ docType: 1, docNumber: '999999999999', username: user }),
-          signal: AbortSignal.timeout(6000),
-        });
-        if (r.status >= 500) throw new Error(`HTTP ${r.status}`);
-      }),
-      ping('truthscreen_ckyc', async () => {
-        const user = process.env.TRUTHSCREEN_USERNAME;
-        if (!user) throw new Error('TRUTHSCREEN credentials not configured');
-        const r = await fetch(`${TRUTHSCREEN_URL}/api/ckyc`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ docType: 3, docNumber: 'AAAAA0000A', username: user }),
-          signal: AbortSignal.timeout(6000),
-        });
-        if (r.status >= 500) throw new Error(`HTTP ${r.status}`);
-      }),
-      ping('ckyc_registry', async () => {
-        // Lightweight check — CKYC Registry (CERSAI) endpoint availability
-        const apiKey = process.env.CKYC_API_KEY;
-        if (!apiKey) throw new Error('CKYC_API_KEY not configured — running in mock mode');
-        const r = await fetch('https://uatkyc.ckycreg.in/ckyc/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-          body: JSON.stringify({ pan: 'AAAAA0000A' }),
-          signal: AbortSignal.timeout(6000),
-        });
-        if (r.status >= 500) throw new Error(`HTTP ${r.status}`);
-      }),
+      !sandboxApiKey
+        ? Promise.resolve(credentialsMissing(['SANDBOX_API_KEY']))
+        : ping('sandbox_pan', () => fetch(`${SANDBOX_URL}/kyc/v2/pan`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${sandboxApiKey}`, 'Content-Type': 'application/json', 'x-api-version': '1.0' },
+            body: JSON.stringify({ '@entity': 'in.co.sandbox.kyc.pan_plus.request', 'pan': 'AAAAA0000A' }),
+            signal: AbortSignal.timeout(6000),
+          })),
+      !tsUser || !tsPass
+        ? Promise.resolve(credentialsMissing(['TRUTHSCREEN_USERNAME', 'TRUTHSCREEN_PASSWORD']))
+        : ping('truthscreen_aadhaar', () => fetch(`${TRUTHSCREEN_URL}/api/3.0/generate-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ docType: 1, docNumber: '999999999999', username: tsUser, password: tsPass }),
+            signal: AbortSignal.timeout(6000),
+          })),
+      !tsUser || !tsPass
+        ? Promise.resolve(credentialsMissing(['TRUTHSCREEN_USERNAME', 'TRUTHSCREEN_PASSWORD']))
+        : ping('truthscreen_ckyc', () => fetch(`${TRUTHSCREEN_URL}/api/ckyc`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ docType: 3, docNumber: 'AAAAA0000A', username: tsUser, password: tsPass }),
+            signal: AbortSignal.timeout(6000),
+          })),
+      !ckycApiKey
+        ? Promise.resolve(credentialsMissing(['CKYC_API_KEY']))
+        : ping('ckyc_registry', () => fetch('https://uatkyc.ckycreg.in/ckyc/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': ckycApiKey },
+            body: JSON.stringify({ pan: 'AAAAA0000A' }),
+            signal: AbortSignal.timeout(6000),
+          })),
     ]);
 
     res.json({
