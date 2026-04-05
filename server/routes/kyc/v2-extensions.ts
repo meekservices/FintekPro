@@ -853,18 +853,8 @@ export function registerKycV2ExtensionRoutes(app: Express) {
     }
   });
 
-  // ============================================================================
-  // FULL KYC RESET — clears ALL verification flags so the user restarts from 0
-  // ============================================================================
-
-  /**
-   * Shared helper: fully reset a single user's KYC state.
-   * Clears all profile verification flags, closes active sessions, and
-   * marks bank accounts as un-verified so they can re-do penny-drop.
-   * Identity data (name, DOB, PAN number) is preserved for re-use.
-   */
+  // Full KYC reset: clears all user_profiles verification flags, sessions, and bank state
   async function fullKycReset(userId: string, resetBy: string): Promise<void> {
-    // 1. Reset all verification flags in user_profiles
     await db.execute(drizzleSql`
       UPDATE user_profiles SET
         pan_verified_via_sandbox            = false,
@@ -887,56 +877,34 @@ export function registerKycV2ExtensionRoutes(app: Express) {
         products_unlocked                   = '[]'::jsonb
       WHERE user_id = ${userId}
     `);
-
-    // 2. Clear kyc_status / ckyc_status on the users row
     await db.execute(drizzleSql`
-      UPDATE users SET kyc_status = NULL, ckyc_status = NULL
-      WHERE id = ${userId}
+      UPDATE users SET kyc_status = NULL, ckyc_status = NULL WHERE id = ${userId}
     `);
-
-    // 3. Close only ACTIVE KYC sessions — preserve historical completed/failed records
     await db.execute(drizzleSql`
       UPDATE kyc_verification_sessions
       SET session_outcome = 'reset_by_admin', is_active = false
-      WHERE user_id = ${userId}
-        AND is_active = true
+      WHERE user_id = ${userId} AND is_active = true
     `);
-
-    // 4. Un-verify bank accounts so they redo penny-drop
     await db.execute(drizzleSql`
       UPDATE user_bank_accounts
       SET is_verified = false, verification_status = 'pending'
       WHERE user_id = ${userId}
     `);
-
-    // 5. Invalidate the in-memory compliance cache for this user
     const { invalidateComplianceCache } = await import('../../middleware/universal-kyc-gate');
     invalidateComplianceCache(userId);
-
-    // 6. Write audit log entry (best-effort — don't fail the reset if this errors)
     try {
       await db.execute(drizzleSql`
         INSERT INTO kyc_audit_logs
           (id, user_id, accessed_by, access_type, purpose, api_endpoint, access_status, created_at)
         VALUES (
-          gen_random_uuid(),
-          ${userId},
-          ${resetBy},
-          'write',
+          gen_random_uuid(), ${userId}, ${resetBy}, 'write',
           'Admin full KYC reset — all verification flags and sessions cleared',
-          '/api/admin/kyc/reset',
-          'success',
-          NOW()
+          '/api/admin/kyc/reset', 'success', NOW()
         )
       `);
-    } catch { /* non-fatal */ }
+    } catch { /* audit log is best-effort */ }
   }
 
-  /**
-   * POST /api/admin/kyc/reset
-   * Full KYC reset for a specific user (body: { userId }) or all non-admin users (no body).
-   * Now correctly resets user_profiles verification flags, not just users.kyc_status.
-   */
   app.post("/api/admin/kyc/reset", requireAdmin, async (req: any, res) => {
     try {
       const { userId } = req.body || {};
@@ -944,101 +912,61 @@ export function registerKycV2ExtensionRoutes(app: Express) {
 
       if (userId) {
         await fullKycReset(userId, resetBy);
-        return res.json({ success: true, message: `Full KYC reset completed for user ${userId}. All verification flags cleared. User must restart KYC from step 1.` });
+        return res.json({ success: true, message: `KYC fully reset for user ${userId}.` });
       }
 
-      // Bulk reset — only non-admin users
-      const nonAdminResult = await db.execute(drizzleSql`
+      const result = await db.execute(drizzleSql`
         SELECT id FROM users
         WHERE (roles IS NULL OR NOT (roles && ARRAY['admin','superadmin']::text[]))
           AND (role IS NULL OR role NOT IN ('admin', 'superadmin'))
       `);
-
-      // drizzle db.execute returns QueryResult<Record<string,unknown>> with .rows array
-      const nonAdminRows: Array<Record<string, unknown>> =
-        Array.isArray(nonAdminResult) ? nonAdminResult :
-        Array.isArray((nonAdminResult as { rows?: unknown }).rows) ? (nonAdminResult as { rows: Array<Record<string, unknown>> }).rows :
-        [];
-
+      const rows = result.rows ?? result as any[];
       let resetCount = 0;
-      for (const row of nonAdminRows) {
-        if (typeof row.id === 'string') {
-          await fullKycReset(row.id, resetBy);
-          resetCount++;
-        }
+      for (const row of rows) {
+        if (row.id) { await fullKycReset(String(row.id), resetBy); resetCount++; }
       }
-
-      res.json({ success: true, message: `Full KYC reset completed for ${resetCount} non-admin users.` });
-    } catch (error) {
+      res.json({ success: true, message: `KYC fully reset for ${resetCount} non-admin users.` });
+    } catch (error: any) {
       console.error('[Admin KYC Reset]', error);
       res.status(500).json({ success: false, error: 'Failed to reset KYC' });
     }
   });
 
-  /**
-   * POST /api/admin/kyc/reset-self
-   * Allows an admin to reset their own KYC so they can re-complete the wizard.
-   * Requires admin or superadmin role.
-   */
   app.post("/api/admin/kyc/reset-self", requireAdmin, async (req: any, res) => {
     try {
       const userId = req.user!.id;
       await fullKycReset(userId, userId);
-      res.json({
-        success: true,
-        message: 'Your KYC has been fully reset. Please navigate to the KYC wizard to restart verification.',
-        redirectTo: '/onboarding',
-      });
-    } catch (error) {
+      res.json({ success: true, message: 'Your KYC has been fully reset. Navigate to the KYC wizard to restart.', redirectTo: '/onboarding' });
+    } catch (error: any) {
       console.error('[Admin KYC Self-Reset]', error);
       res.status(500).json({ success: false, error: 'Failed to reset your KYC' });
     }
   });
 
-  /**
-   * GET /api/admin/kyc/provider-health
-   * Lightweight ping to each KYC provider. Returns live/degraded/down status.
-   * Used by the admin KYC management page status strip.
-   */
+  // Lightweight ping to KYC providers — returns live/degraded/down with latency
   app.get("/api/admin/kyc/provider-health", requireAdmin, async (_req: any, res) => {
-    /**
-     * Probe function that classifies HTTP responses correctly:
-     *  2xx → live (provider reachable and responding normally)
-     *  4xx → degraded (provider reachable but auth/input issue — likely misconfigured creds)
-     *  5xx → down (provider overloaded or broken)
-     *  network error / timeout → down
-     */
-    async function ping(
-      _name: string,
-      fn: () => Promise<Response>,
-    ): Promise<{ status: 'live' | 'degraded' | 'down'; latencyMs: number; error?: string }> {
+    type ProviderStatus = { status: 'live' | 'degraded' | 'down'; latencyMs: number; error?: string };
+
+    async function ping(fn: () => Promise<Response>): Promise<ProviderStatus> {
       const start = Date.now();
       try {
         const r = await fn();
         const latencyMs = Date.now() - start;
-        if (r.status >= 200 && r.status < 300) {
-          return { status: 'live', latencyMs };
-        }
-        if (r.status >= 400 && r.status < 500) {
-          return { status: 'degraded', latencyMs, error: `HTTP ${r.status} — provider reachable, credentials may need updating` };
-        }
+        if (r.status >= 200 && r.status < 300) return { status: 'live', latencyMs };
+        if (r.status >= 400 && r.status < 500) return { status: 'degraded', latencyMs, error: `HTTP ${r.status} — credentials may need updating` };
         return { status: 'down', latencyMs, error: `HTTP ${r.status}` };
       } catch (err: any) {
         const latencyMs = Date.now() - start;
-        const msg: string = err?.message || String(err);
-        const isDegraded = msg.includes('timeout') || latencyMs >= 6000;
-        return { status: isDegraded ? 'degraded' : 'down', latencyMs, error: msg.slice(0, 120) };
+        const msg = String(err?.message ?? err).slice(0, 120);
+        return { status: latencyMs >= 6000 ? 'degraded' : 'down', latencyMs, error: msg };
       }
     }
 
-    /** If credentials are missing, immediately return degraded with a clear message (no network call). */
-    function credentialsMissing(names: string[]): { status: 'degraded'; latencyMs: number; error: string } {
-      return { status: 'degraded', latencyMs: 0, error: `Not configured — set ${names.join(', ')}` };
-    }
+    const notConfigured = (names: string[]): ProviderStatus =>
+      ({ status: 'degraded', latencyMs: 0, error: `Not configured — set ${names.join(', ')}` });
 
     const SANDBOX_URL = process.env.SANDBOX_BASE_URL || 'https://test-api.sandbox.co.in';
     const TRUTHSCREEN_URL = 'https://www.truthscreen.com';
-
     const sandboxApiKey = process.env.SANDBOX_API_KEY;
     const tsUser = process.env.TRUTHSCREEN_USERNAME;
     const tsPass = process.env.TRUTHSCREEN_PASSWORD;
@@ -1046,32 +974,32 @@ export function registerKycV2ExtensionRoutes(app: Express) {
 
     const [sandboxPan, truthscreenAadhaar, truthscreenCkyc, ckycRegistry] = await Promise.all([
       !sandboxApiKey
-        ? Promise.resolve(credentialsMissing(['SANDBOX_API_KEY']))
-        : ping('sandbox_pan', () => fetch(`${SANDBOX_URL}/kyc/v2/pan`, {
+        ? Promise.resolve(notConfigured(['SANDBOX_API_KEY']))
+        : ping(() => fetch(`${SANDBOX_URL}/kyc/v2/pan`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${sandboxApiKey}`, 'Content-Type': 'application/json', 'x-api-version': '1.0' },
             body: JSON.stringify({ '@entity': 'in.co.sandbox.kyc.pan_plus.request', 'pan': 'AAAAA0000A' }),
             signal: AbortSignal.timeout(6000),
           })),
       !tsUser || !tsPass
-        ? Promise.resolve(credentialsMissing(['TRUTHSCREEN_USERNAME', 'TRUTHSCREEN_PASSWORD']))
-        : ping('truthscreen_aadhaar', () => fetch(`${TRUTHSCREEN_URL}/api/3.0/generate-otp`, {
+        ? Promise.resolve(notConfigured(['TRUTHSCREEN_USERNAME', 'TRUTHSCREEN_PASSWORD']))
+        : ping(() => fetch(`${TRUTHSCREEN_URL}/api/3.0/generate-otp`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ docType: 1, docNumber: '999999999999', username: tsUser, password: tsPass }),
             signal: AbortSignal.timeout(6000),
           })),
       !tsUser || !tsPass
-        ? Promise.resolve(credentialsMissing(['TRUTHSCREEN_USERNAME', 'TRUTHSCREEN_PASSWORD']))
-        : ping('truthscreen_ckyc', () => fetch(`${TRUTHSCREEN_URL}/api/ckyc`, {
+        ? Promise.resolve(notConfigured(['TRUTHSCREEN_USERNAME', 'TRUTHSCREEN_PASSWORD']))
+        : ping(() => fetch(`${TRUTHSCREEN_URL}/api/ckyc`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ docType: 3, docNumber: 'AAAAA0000A', username: tsUser, password: tsPass }),
             signal: AbortSignal.timeout(6000),
           })),
       !ckycApiKey
-        ? Promise.resolve(credentialsMissing(['CKYC_API_KEY']))
-        : ping('ckyc_registry', () => fetch('https://uatkyc.ckycreg.in/ckyc/search', {
+        ? Promise.resolve(notConfigured(['CKYC_API_KEY']))
+        : ping(() => fetch('https://uatkyc.ckycreg.in/ckyc/search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': ckycApiKey },
             body: JSON.stringify({ pan: 'AAAAA0000A' }),
