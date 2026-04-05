@@ -28,6 +28,9 @@ import {
   Hash,
   Info,
   RotateCcw,
+  Zap,
+  BookOpen,
+  UserX,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -1699,6 +1702,258 @@ function DirectRejectTab() {
   );
 }
 
+// ─── Provider Health Strip ───────────────────────────────────────────────────
+
+function ProviderHealthStrip() {
+  const { data, isLoading, refetch, isFetching } = useQuery<{
+    success: boolean;
+    checkedAt: string;
+    providers: Record<string, { status: 'live' | 'degraded' | 'down'; latencyMs: number; error?: string }>;
+  }>({
+    queryKey: ["/api/admin/kyc/provider-health"],
+    refetchInterval: 5 * 60 * 1000,
+    staleTime: 4 * 60 * 1000,
+  });
+
+  const statusColor = (s: string) =>
+    s === 'live' ? 'bg-green-500' : s === 'degraded' ? 'bg-yellow-500' : 'bg-red-500';
+
+  const statusLabel = (s: string) =>
+    s === 'live' ? 'Live' : s === 'degraded' ? 'Degraded' : 'Down';
+
+  const providerNames: Record<string, string> = {
+    sandbox_pan: 'Sandbox PAN',
+    truthscreen_aadhaar: 'TruthScreen Aadhaar',
+    truthscreen_ckyc: 'TruthScreen CKYC',
+    ckyc_registry: 'CKYC Registry',
+  };
+
+  if (isLoading) return <Skeleton className="h-10 w-full mb-2" />;
+
+  const providers = data?.providers ?? {};
+  const anyDown = Object.values(providers).some(p => p.status === 'down');
+  const anyDegraded = Object.values(providers).some(p => p.status === 'degraded');
+
+  return (
+    <div className={`rounded-lg border px-4 py-2 flex flex-wrap items-center gap-4 mb-2 text-sm
+      ${anyDown ? 'border-red-400 bg-red-50 dark:bg-red-950' : anyDegraded ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-950' : 'border-green-400 bg-green-50 dark:bg-green-950'}`}>
+      <span className="font-semibold flex items-center gap-1.5">
+        <Zap className="h-4 w-4" /> Provider Health
+      </span>
+      {Object.entries(providers).map(([key, info]) => (
+        <span key={key} className="flex items-center gap-1.5">
+          <span className={`h-2 w-2 rounded-full ${statusColor(info.status)}`} />
+          <span className="font-medium">{providerNames[key] ?? key}:</span>
+          <span className={info.status === 'live' ? 'text-green-700 dark:text-green-300' : info.status === 'degraded' ? 'text-yellow-700' : 'text-red-700'}>
+            {statusLabel(info.status)}
+          </span>
+          <span className="text-muted-foreground text-xs">({info.latencyMs}ms)</span>
+          {info.error && <span className="text-xs text-muted-foreground truncate max-w-[120px]" title={info.error}>⚠ {info.error.slice(0, 40)}</span>}
+        </span>
+      ))}
+      {Object.keys(providers).length === 0 && <span className="text-muted-foreground">No data</span>}
+      <Button variant="ghost" size="sm" className="ml-auto h-6 px-2 text-xs" onClick={() => refetch()} disabled={isFetching}>
+        <RefreshCw className={`h-3 w-3 mr-1 ${isFetching ? 'animate-spin' : ''}`} />Refresh
+      </Button>
+    </div>
+  );
+}
+
+// ─── Admin Self-Reset Card ────────────────────────────────────────────────────
+
+function SelfResetCard() {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+
+  const selfReset = useMutation({
+    mutationFn: () => apiRequest("/api/admin/kyc/reset-self", { method: "POST", body: JSON.stringify({}) }),
+    onSuccess: () => {
+      toast({ title: "KYC Reset Complete", description: "Your KYC has been cleared. Navigate to the onboarding wizard to restart." });
+      setOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/kyc/sessions"] });
+    },
+    onError: (e: any) => toast({ title: "Reset Failed", description: e?.message ?? "Unknown error", variant: "destructive" }),
+  });
+
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="gap-1.5 text-orange-600 border-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950">
+        <UserX className="h-4 w-4" />
+        Reset My KYC
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-orange-600 flex items-center gap-2">
+              <UserX className="h-5 w-5" /> Reset Your Own KYC
+            </DialogTitle>
+            <DialogDescription className="space-y-2 pt-2">
+              <p>This will fully reset <strong>your own</strong> KYC status:</p>
+              <ul className="list-disc pl-5 space-y-1 text-sm">
+                <li>All verification flags cleared (PAN, Aadhaar, CKYC, Video KYC)</li>
+                <li>Your KYC level drops to 0 — you must restart the wizard</li>
+                <li>Bank account verification is reset (penny-drop required again)</li>
+                <li>Your active KYC sessions are closed</li>
+              </ul>
+              <p className="text-sm text-muted-foreground mt-2">
+                You will still have full admin portal access. Use this to re-verify your identity with fresh credentials.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => selfReset.mutate()} disabled={selfReset.isPending}>
+              {selfReset.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserX className="h-4 w-4 mr-2" />}
+              Yes, Reset My KYC
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ─── Regulatory Compliance Matrix Tab ────────────────────────────────────────
+
+const REGULATORY_MATRIX = [
+  {
+    category: 'Internal Staff',
+    roles: ['superadmin', 'admin', 'bd_head', 'compliance_officer', 'finance_head', 'ops_head', 'hr_head', 'tech_head', 'regulatory_auditor', 'bd_team', 'compliance_team', 'finance_team', 'ops_team', 'hr_team', 'tech_backend', 'tech_frontend', 'tech_devops'],
+    portalAccess: 'Level 0 — Always unrestricted',
+    transactionAccess: 'N/A (admin portal)',
+    regulatoryBasis: 'Platform operators — portal access is not a regulated activity. Personal KYC is required by PMLA §12 before handling client money personally.',
+    complianceNote: 'FintekPro employees should complete personal KYC (recommended Level 1 minimum) for internal compliance, but this is NOT enforced as a portal gate.',
+    statusColor: 'green',
+  },
+  {
+    category: 'External Agents',
+    roles: ['agent', 'sub_agent', 'associate', 'partner_ops'],
+    portalAccess: 'Level 1 required for portal access',
+    transactionAccess: 'Level 1 minimum before advisory activity',
+    regulatoryBasis: 'AMFI Circular CIR/ARN/002/2025 — All AMFI-registered agents and sub-agents must complete Standard KYC (PAN + Address OVD + Photograph) before distributing mutual funds or advising clients.',
+    complianceNote: 'Agent portal access is gated at Level 1. Agents without KYC cannot view client portfolios or place orders on behalf of clients.',
+    statusColor: 'blue',
+  },
+  {
+    category: 'Distribution Partners',
+    roles: ['partner'],
+    portalAccess: 'Level 1 required for portal access',
+    transactionAccess: 'Level 1 for standard activities; Level 2 recommended for ARN anchor',
+    regulatoryBasis: 'SEBI (KYC Registration Agency) Regulations 2011 — Distribution partners and ARN holders must be KYC-registered. AMFI Circular mandates Full KYC (Level 2) for ARN master holders.',
+    complianceNote: 'Partners are gated at Level 1 for portal access. Level 2 (Video KYC + Bank verification) is recommended for full compliance as an ARN anchor.',
+    statusColor: 'purple',
+  },
+  {
+    category: 'Retail Clients & Users',
+    roles: ['client', 'user'],
+    portalAccess: 'Level 0 — Can explore platform freely',
+    transactionAccess: 'Level 1 required before placing any order, investment, or payment',
+    regulatoryBasis: 'RBI Master Direction on KYC 2016, Part B, Chapter II — Minimum Standard KYC (PAN + Address + Photograph) mandatory before conducting any financial transaction. PMLA §12 — Reporting entities must obtain KYC before allowing financial activity.',
+    complianceNote: 'Transaction-only gate: clients can browse all products, research, and view market data without KYC. The moment they attempt to invest or pay, Level 1 KYC is enforced automatically.',
+    statusColor: 'yellow',
+  },
+  {
+    category: 'Business Clients',
+    roles: ['business_client'],
+    portalAccess: 'Level 0 — Can explore platform freely',
+    transactionAccess: 'Level 1 required; Level 2 recommended for high-value transactions',
+    regulatoryBasis: 'RBI Master Direction on KYC 2016 — Business entities require entity KYC (PAN + CIN/LLPIN + authorized signatory KYC). PMLA §11A — Enhanced Due Diligence for business clients.',
+    complianceNote: 'Business clients follow the same explore-then-transact gate as retail clients. Full KYC (Level 2) is recommended before allowing large-value transactions.',
+    statusColor: 'orange',
+  },
+];
+
+function RegulatoryMatrixTab() {
+  const colorMap: Record<string, string> = {
+    green: 'border-green-400 bg-green-50 dark:bg-green-950 dark:border-green-700',
+    blue: 'border-blue-400 bg-blue-50 dark:bg-blue-950 dark:border-blue-700',
+    purple: 'border-purple-400 bg-purple-50 dark:bg-purple-950 dark:border-purple-700',
+    yellow: 'border-yellow-400 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-700',
+    orange: 'border-orange-400 bg-orange-50 dark:bg-orange-950 dark:border-orange-700',
+  };
+  const badgeMap: Record<string, string> = {
+    green: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    blue: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    purple: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+    yellow: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+    orange: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold flex items-center gap-2"><BookOpen className="h-5 w-5" />Regulatory KYC Requirements by Role</h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          Per PMLA 2002, RBI Master Direction on KYC 2016, SEBI KRA Regulations, and AMFI Circulars.
+          FintekPro enforces KYC at the transaction level for clients and at the portal-access level for distribution partners and agents.
+        </p>
+      </div>
+
+      <Alert className="border-blue-300 bg-blue-50 dark:bg-blue-950">
+        <Shield className="h-4 w-4" />
+        <AlertTitle>Compliance Architecture</AlertTitle>
+        <AlertDescription className="text-sm mt-1">
+          <strong>Two-tier gate:</strong> Admin portal is always fully accessible to internal staff (no KYC gate).
+          External agents and partners are gated at portal login (Level 1).
+          Clients are gated only at transaction time (Level 1) — they can browse freely without KYC.
+        </AlertDescription>
+      </Alert>
+
+      <div className="space-y-4">
+        {REGULATORY_MATRIX.map((row) => (
+          <Card key={row.category} className={`border-l-4 ${colorMap[row.statusColor]}`}>
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <CardTitle className="text-base">{row.category}</CardTitle>
+                <div className="flex flex-wrap gap-1">
+                  {row.roles.map(r => (
+                    <Badge key={r} className={`text-xs font-mono ${badgeMap[row.statusColor]}`}>{r}</Badge>
+                  ))}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm pt-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Portal Access Gate</p>
+                  <p>{row.portalAccess}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Transaction Gate</p>
+                  <p>{row.transactionAccess}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Regulatory Basis</p>
+                <p className="text-muted-foreground text-xs">{row.regulatoryBasis}</p>
+              </div>
+              <div className="rounded-md bg-background/60 border px-3 py-2">
+                <p className="text-xs font-semibold mb-0.5">FintekPro Implementation</p>
+                <p className="text-xs text-muted-foreground">{row.complianceNote}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>Level Definitions</AlertTitle>
+        <AlertDescription className="text-sm mt-1">
+          <ul className="space-y-1">
+            <li><strong>Level 0:</strong> Registered user — no verification required</li>
+            <li><strong>Level 1 (Standard KYC):</strong> PAN verified (Sandbox.co.in) + Address OVD via CKYC/KRA + Profile completed — satisfies RBI/PMLA minimum</li>
+            <li><strong>Level 2 (Full KYC):</strong> Level 1 + CKYC/KRA registration + Video KYC (V-CIP) or In-Person Verification + Bank penny-drop verified — satisfies SEBI/AMFI requirements for investment products</li>
+          </ul>
+        </AlertDescription>
+      </Alert>
+    </div>
+  );
+}
+
+// ─── All KYC Sessions Tab ─────────────────────────────────────────────────────
+
 function AllKycSessionsTab() {
   const { toast } = useToast();
   const [outcomeFilter, setOutcomeFilter] = useState("all");
@@ -1872,19 +2127,23 @@ function AllKycSessionsTab() {
 
 export default function KycV2ManagementPage() {
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Shield className="h-6 w-6" />
-          KYC Admin Management
-        </h1>
-        <p className="text-muted-foreground">Comprehensive KYC operations, approvals, and monitoring</p>
+    <div className="p-6 max-w-7xl mx-auto space-y-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Shield className="h-6 w-6" />
+            KYC Admin Management
+          </h1>
+          <p className="text-muted-foreground">Comprehensive KYC operations, approvals, and monitoring</p>
+        </div>
+        <SelfResetCard />
       </div>
 
       <EnvironmentBanner />
+      <ProviderHealthStrip />
 
       <Tabs defaultValue="all-sessions" className="space-y-4">
-        <TabsList className="grid grid-cols-4 md:grid-cols-9 w-full">
+        <TabsList className="grid grid-cols-5 md:grid-cols-10 w-full">
           <TabsTrigger value="all-sessions" className="text-xs sm:text-sm">
             <Activity className="h-4 w-4 mr-1 hidden sm:inline" />
             All Sessions
@@ -1920,6 +2179,10 @@ export default function KycV2ManagementPage() {
           <TabsTrigger value="step-resets" className="text-xs sm:text-sm">
             <RotateCcw className="h-4 w-4 mr-1 hidden sm:inline" />
             Step Resets
+          </TabsTrigger>
+          <TabsTrigger value="compliance-matrix" className="text-xs sm:text-sm">
+            <BookOpen className="h-4 w-4 mr-1 hidden sm:inline" />
+            Compliance
           </TabsTrigger>
         </TabsList>
 
@@ -1957,6 +2220,10 @@ export default function KycV2ManagementPage() {
 
         <TabsContent value="step-resets">
           <StepResetTab />
+        </TabsContent>
+
+        <TabsContent value="compliance-matrix">
+          <RegulatoryMatrixTab />
         </TabsContent>
       </Tabs>
     </div>
