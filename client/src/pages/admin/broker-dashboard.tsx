@@ -24,7 +24,7 @@ import {
   Search, Plus, Download, BarChart3, Activity, ChevronRight,
   Landmark, Building2, Wallet, BookOpen, Calendar,
   Globe, KeyRound, ExternalLink, Server, Info, Copy, Lock,
-  DollarSign, Zap, Crown, BadgeIndianRupee,
+  DollarSign, Zap, Crown, BadgeIndianRupee, Rocket, Power,
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -1134,18 +1134,49 @@ function AppRegistrationTab() {
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function BrokerDashboard() {
-  const { data: configData } = useQuery<{ configured: boolean; isBrokerApi: boolean; baseUrl: string }>({
+  const { toast } = useToast();
+
+  const { data: configData, isLoading: configLoading, refetch: refetchConfig } = useQuery<{
+    configured: boolean; authOk: boolean; authError?: string;
+    isBrokerApi: boolean; baseUrl: string;
+  }>({
     queryKey: ["/api/us-trading/alpaca/config"],
     queryFn: () => fetch(`${BASE}/alpaca/config`).then(r => r.json()),
   });
 
+  const { data: flagsData, refetch: refetchFlags } = useQuery<{
+    US_TRADING_ENABLED: boolean; US_TRADING_ALPACA: boolean;
+    US_MARKET_DATA_POLYGON: boolean; US_FRACTIONAL_TRADING: boolean;
+  }>({
+    queryKey: ["/api/us-trading/feature-flags"],
+    queryFn: () => fetch(`${BASE}/feature-flags`).then(r => r.json()).then(r => r.flags ?? r),
+  });
+
+  const activateMutation = useMutation({
+    mutationFn: () => apiRequest(`${BASE}/activate-us-trading`, { method: "POST" }),
+    onSuccess: (data: any) => {
+      toast({ title: "US Trading Activated", description: "All trading flags enabled successfully." });
+      refetchConfig();
+      refetchFlags();
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Activation Failed",
+        description: err?.message || "Check ALPACA_SECRET_KEY in Replit Secrets.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const configured = configData?.configured ?? false;
+  const authOk = configData?.authOk ?? false;
   const isBrokerApi = configData?.isBrokerApi ?? false;
+  const tradingActive = flagsData?.US_TRADING_ENABLED && flagsData?.US_TRADING_ALPACA;
 
   const { data: accountsData } = useQuery<{ configured: boolean; accounts: any[] }>({
     queryKey: ["/api/us-trading/broker/accounts"],
     queryFn: () => fetch(`${BASE}/broker/accounts`).then(r => r.json()),
-    enabled: configured && isBrokerApi,
+    enabled: authOk && isBrokerApi,
   });
 
   const accounts = accountsData?.accounts || [];
@@ -1164,21 +1195,95 @@ export default function BrokerDashboard() {
 
       {/* Status Bar */}
       <div className="flex flex-wrap gap-2 items-center">
-        <Badge variant={configured ? "default" : "secondary"} className="gap-1">
-          {configured ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-          {configured ? "API Connected" : "API Not Configured"}
+        <Badge variant={authOk ? "default" : "destructive"} className="gap-1">
+          {authOk ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+          {configLoading ? "Checking…" : authOk ? "Auth OK" : configured ? "Auth Failed" : "Not Configured"}
         </Badge>
         <Badge variant={isBrokerApi ? "default" : "outline"} className="gap-1">
           <Landmark className="h-3 w-3" />
           {isBrokerApi ? "Broker API" : "Trading API"}
+        </Badge>
+        <Badge variant={tradingActive ? "default" : "secondary"} className="gap-1">
+          <Power className="h-3 w-3" />
+          {tradingActive ? "Trading Active" : "Trading Inactive"}
         </Badge>
         {configData?.baseUrl && (
           <span className="text-xs text-muted-foreground font-mono">{configData.baseUrl}</span>
         )}
       </div>
 
+      {/* Auth Error Banner */}
+      {configured && !authOk && configData?.authError && (
+        <Alert className="border-red-200 bg-red-50 dark:bg-red-950/20">
+          <AlertTriangle className="h-4 w-4 text-red-500" />
+          <AlertDescription className="text-sm text-red-700 dark:text-red-300">
+            <strong>Alpaca auth failed (401):</strong> The <code>ALPACA_SECRET_KEY</code> in Replit Secrets
+            does not match the active key. To fix:
+            <ol className="list-decimal ml-4 mt-1 space-y-0.5 text-xs">
+              <li>Go to <strong>broker-app.alpaca.markets → API/Devs → Generate API Key</strong></li>
+              <li>Copy the new Secret Key (shown only once)</li>
+              <li>In Replit → Secrets → update <code>ALPACA_SECRET_KEY</code></li>
+              <li>Restart the server, then click <strong>Activate US Trading</strong> below</li>
+            </ol>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Activate US Trading Panel */}
+      {!tradingActive && (
+        <Card className="border-blue-200 dark:border-blue-800">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Rocket className="h-4 w-4 text-blue-500" />
+              Activate US Paper Trading
+            </CardTitle>
+            <CardDescription>
+              Enable client paper trading accounts via Alpaca Sandbox. Requires valid API credentials.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3 items-center">
+              <Button
+                onClick={() => activateMutation.mutate()}
+                disabled={activateMutation.isPending || !configured}
+                className="gap-2"
+              >
+                {activateMutation.isPending ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Rocket className="h-4 w-4" />
+                )}
+                {activateMutation.isPending ? "Activating…" : "Activate US Trading"}
+              </Button>
+              <div className="flex gap-2 flex-wrap text-xs text-muted-foreground">
+                {[
+                  { label: "Trading Enabled", ok: flagsData?.US_TRADING_ENABLED },
+                  { label: "Alpaca Connected", ok: flagsData?.US_TRADING_ALPACA },
+                  { label: "Fractional Shares", ok: flagsData?.US_FRACTIONAL_TRADING },
+                ].map(f => (
+                  <span key={f.label} className={`flex items-center gap-1 ${f.ok ? "text-green-600" : "text-muted-foreground"}`}>
+                    {f.ok ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                    {f.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* All Active Banner */}
+      {tradingActive && (
+        <Alert className="border-green-200 bg-green-50 dark:bg-green-950/20 py-2">
+          <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+          <AlertDescription className="text-xs text-green-700 dark:text-green-300">
+            US Trading is <strong>active</strong>. Clients can open paper trading accounts via the US Trading section.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* KPI Cards */}
-      {configured && isBrokerApi && (
+      {authOk && isBrokerApi && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { title: "Total Accounts", value: accounts.length, icon: Users, color: "text-blue-500" },

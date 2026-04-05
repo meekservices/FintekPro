@@ -1036,13 +1036,50 @@ router.post("/alpaca/credentials", async (req, res) => {
 });
 
 router.get("/alpaca/config", async (req, res) => {
+  const configured = alpacaBrokerService.isConfigured();
+  let authOk = false;
+  let authError: string | undefined;
+  if (configured) {
+    try {
+      const test = await alpacaBrokerService.testConnection();
+      authOk = test.success;
+      if (!test.success) authError = test.message;
+    } catch (e: any) {
+      authError = e.message;
+    }
+  }
   res.json({
-    configured: alpacaBrokerService.isConfigured(),
+    configured,
+    authOk,
+    authError,
     isPaper: alpacaBrokerService.isPaperTrading(),
     baseUrl: alpacaBrokerService.getBaseUrl(),
     defaultBaseUrl: "https://broker-api.sandbox.alpaca.markets",
     isBrokerApi: alpacaBrokerService.isBrokerApi(),
   });
+});
+
+// Activate all US trading feature flags at once (admin convenience)
+router.post("/activate-us-trading", async (req, res) => {
+  try {
+    const test = await alpacaBrokerService.testConnection();
+    if (!test.success) {
+      return res.status(400).json({
+        success: false,
+        error: `Alpaca auth failed — update ALPACA_SECRET_KEY: ${test.message}`,
+        authOk: false,
+      });
+    }
+    await usTradingService.initializeFeatureFlags();
+    const flags = ["US_TRADING_ENABLED", "US_TRADING_ALPACA", "US_FRACTIONAL_TRADING"];
+    for (const flag of flags) {
+      await usTradingService.setFeatureFlag(flag, true);
+    }
+    const allFlags = await usTradingService.getFeatureFlags();
+    res.json({ success: true, message: "US Trading activated", flags: allFlags, authOk: true });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // List all broker-managed accounts (broker API only)
