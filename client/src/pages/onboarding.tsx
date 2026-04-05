@@ -748,11 +748,28 @@ export default function SmartKYCOnboarding() {
     }
   });
 
-  // Parse URL parameters for edit mode and referral code
+  // Parse URL parameters for edit mode, referral code, and deep-link step
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const mode = searchParams.get('mode');
     const ref = searchParams.get('ref');
+    const stepParam = searchParams.get('step');
+
+    // Handle KYC deep-link: ?step=N navigates to the relevant wizard step
+    if (stepParam) {
+      const stepNum = parseInt(stepParam, 10);
+      const STEP_MAP: Record<number, WizardStep> = {
+        1: 'pan_entry',
+        2: 'type_detection',
+        3: 'data_collection',
+        4: 'risk_profiling',
+        5: 'compliance_signoff',
+      };
+      const targetStep = STEP_MAP[stepNum];
+      if (targetStep) {
+        setCurrentStep(targetStep);
+      }
+    }
     
     // Handle edit mode
     if (mode === 'edit') {

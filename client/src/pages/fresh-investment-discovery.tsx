@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ActionButtonWithNudge } from "@/components/kyc/kyc-gap-nudge";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -144,6 +145,21 @@ export default function FreshInvestmentDiscovery() {
 
   const handleAddToCart = (opportunity: InvestmentOpportunity) => {
     toast({ title: "Added to Cart", description: `${opportunity.name} added to your investment cart` });
+  };
+
+  const getProductCode = (type: InvestmentOpportunity["type"]): string => {
+    const mapping: Record<string, string> = {
+      mutual_fund: "MUTUAL_FUNDS",
+      stock: "EQUITY_TRADING",
+      bond: "BONDS_NCD",
+      etf: "EQUITY_TRADING",
+      ipo: "EQUITY_TRADING",
+      aif: "PMS_AIF",
+      pms: "PMS_AIF",
+      fd: "FIXED_DEPOSITS",
+      sgb: "BONDS_NCD",
+    };
+    return mapping[type] || "MUTUAL_FUNDS";
   };
 
   const getMatchBadge = (score: number) => {
@@ -402,21 +418,24 @@ export default function FreshInvestmentDiscovery() {
                         </div>
                       )}
                     </CardContent>
-                    <CardFooter className="border-t pt-3 flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        className="flex-1"
-                        data-testid={`button-view-${opportunity.id}`}
-                      >
-                        <Eye className="w-4 h-4 mr-2" /> View Details
-                      </Button>
-                      <Button 
-                        className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600"
-                        onClick={() => handleAddToCart(opportunity)}
-                        data-testid={`button-invest-${opportunity.id}`}
-                      >
-                        <ShoppingCart className="w-4 h-4 mr-2" /> Invest Now
-                      </Button>
+                    <CardFooter className="border-t pt-3 flex flex-col gap-2">
+                      <div className="flex gap-2 w-full">
+                        <Button 
+                          variant="outline" 
+                          className="flex-1"
+                          data-testid={`button-view-${opportunity.id}`}
+                        >
+                          <Eye className="w-4 h-4 mr-2" /> View Details
+                        </Button>
+                        <ActionButtonWithNudge
+                          productCode={getProductCode(opportunity.type)}
+                          onProceed={() => handleAddToCart(opportunity)}
+                          className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+                          buttonVariant="default"
+                        >
+                          <ShoppingCart className="w-4 h-4 mr-2" /> Invest Now
+                        </ActionButtonWithNudge>
+                      </div>
                     </CardFooter>
                   </Card>
                 );

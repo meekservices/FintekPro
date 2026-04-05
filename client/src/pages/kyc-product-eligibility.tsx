@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Lock, Unlock, Shield, CheckCircle2, AlertTriangle, Info, ArrowUpRight } from "lucide-react";
+import { KycGapNudge } from "@/components/kyc/kyc-gap-nudge";
 
 interface ProductEligibility {
   productCode: string;
@@ -154,7 +155,7 @@ function TierUpgradeProgress({ eligibility }: { eligibility: ProductEligibility[
 
 function ProductCard({ product }: { product: ProductEligibility }) {
   const cardContent = (
-    <Card className={`transition-all ${product.locked ? "opacity-80 border-muted" : "border-green-200 dark:border-green-800"}`}>
+    <Card className={`transition-all ${product.locked ? "border-muted" : "border-green-200 dark:border-green-800"}`}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">{product.productName}</CardTitle>
@@ -182,7 +183,11 @@ function ProductCard({ product }: { product: ProductEligibility }) {
           </div>
         )}
 
-        {product.missingConditions.length > 0 && (
+        {product.locked && (
+          <KycGapNudge productCode={product.productCode} variant="compact" />
+        )}
+
+        {!product.locked && product.missingConditions.length > 0 && (
           <div className="space-y-1">
             <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
               <AlertTriangle className="h-3 w-3" />
@@ -205,7 +210,7 @@ function ProductCard({ product }: { product: ProductEligibility }) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="cursor-help">{cardContent}</div>
+          <div>{cardContent}</div>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs">
           <div className="space-y-1">
