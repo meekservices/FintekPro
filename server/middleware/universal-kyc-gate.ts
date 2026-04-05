@@ -93,14 +93,62 @@ export const ROLE_KYC_MINIMUM: Record<string, '0' | '1' | '2'> = {
   sub_agent: '1',
   associate: '1',
 
-  // Client types
-  client: '1',
-  business_client: '1',
-  user: '1',
+  // Client types — Level 0 so they can explore freely.
+  // Transaction endpoints enforce Level 1 separately via isClientTransactionPath().
+  client: '0',
+  business_client: '0',
+  user: '0',
 
   // Internal testing — exempt
   tester: '0',
 };
+
+/**
+ * Roles that are pure end-clients — they can explore freely but need KYC to transact.
+ */
+const CLIENT_EXPLORE_ROLES = new Set(['client', 'user', 'business_client']);
+
+/**
+ * Transaction paths that require KYC Level 1 even for explore-mode client roles.
+ * Anything not in this list is considered "explore" and allowed without KYC.
+ */
+const CLIENT_TRANSACTION_PATHS = [
+  '/api/orders',
+  '/api/mf/purchase',
+  '/api/mf/redeem',
+  '/api/mf/switch',
+  '/api/mf/lumpsum',
+  '/api/mf/folio',
+  '/api/sip',
+  '/api/us-trading/accounts',
+  '/api/us-trading/orders',
+  '/api/us-trading/activate',
+  '/api/bonds/orders',
+  '/api/bonds/purchase',
+  '/api/unlisted/orders',
+  '/api/unlisted/purchase',
+  '/api/investments',
+  '/api/withdrawal',
+  '/api/transfer',
+  '/api/payments/cashfree/create-order',
+  '/api/payments/create',
+  '/api/payments/initiate',
+  '/api/ipo/apply',
+  '/api/nps/invest',
+  '/api/portfolio/rebalance',
+  '/api/portfolio/buy',
+  '/api/portfolio/sell',
+  '/api/fixed-deposits/book',
+  '/api/insurance/purchase',
+  '/api/loan/apply',
+  '/api/loan/apply-now',
+  '/api/gold/buy',
+  '/api/gold/sell',
+];
+
+function isClientTransactionPath(path: string): boolean {
+  return CLIENT_TRANSACTION_PATHS.some(prefix => path.startsWith(prefix));
+}
 
 /**
  * Paths that are exempt from KYC enforcement.
@@ -262,6 +310,36 @@ export async function universalKycGate(
 
   // Exempt paths — KYC completion flows, webhooks, health checks
   if (isExempt(req.path)) return next();
+
+  // ── Client / user / business_client explore-mode logic ──────────────────────
+  // These roles can browse the platform freely. KYC is only enforced when they
+  // attempt an actual financial transaction (order, investment, payment, etc.).
+  const userRolesEarly: string[] = (req.user as any).roles
+    || ((req.user as any).role ? [(req.user as any).role] : ['user']);
+  const isPureClientRole = userRolesEarly.every(r => CLIENT_EXPLORE_ROLES.has(r));
+
+  if (isPureClientRole) {
+    if (!isClientTransactionPath(req.path)) {
+      return next(); // Exploration allowed without KYC
+    }
+    // Transaction path — enforce Level 1 KYC
+    try {
+      const { level: currentLevel } = await getUserKYCLevel((req.user as any).id);
+      if (parseInt(currentLevel) >= 1) return next();
+      res.status(403).json({
+        code: 'KYC_REQUIRED',
+        message: 'Please complete your KYC verification before placing orders or investing.',
+        requiredLevel: '1',
+        currentLevel,
+        redirectTo: '/onboarding',
+        transactionBlocked: true,
+      });
+      return;
+    } catch {
+      return next(); // fail-open
+    }
+  }
+  // ────────────────────────────────────────────────────────────────────────────
 
   try {
     const user = req.user as any;
