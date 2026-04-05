@@ -27,6 +27,37 @@ const CIRCUIT_OPEN_DURATION_MS = 2 * 60 * 1000; // 2 minutes open before retry
 let circuitFailures   = 0;
 let circuitOpenUntil  = 0;   // epoch ms — 0 means closed
 
+// ── Health tracking state ──────────────────────────────────────────────────
+let lastSuccessAt: Date | null = null;
+let consecutiveFailures = 0;
+
+export function getPythonHealthState() {
+  return {
+    lastSuccessAt,
+    consecutiveFailures,
+    circuitOpen: circuitOpenUntil > 0 && Date.now() < circuitOpenUntil,
+    circuitOpenUntil: circuitOpenUntil > 0 ? new Date(circuitOpenUntil) : null,
+  };
+}
+
+/**
+ * Returns a structured degraded response envelope for a given Python feature.
+ * Use this instead of raw res.status(503).json(...) so all Python routes
+ * return a consistent shape that the frontend can detect and handle gracefully.
+ */
+export function pythonDegradedResponse(
+  feature: string,
+  fallback?: Record<string, unknown>,
+  reason = 'Analytics service temporarily unavailable',
+) {
+  return {
+    degraded: true,
+    feature,
+    reason,
+    fallback: fallback ?? null,
+  };
+}
+
 function circuitIsOpen(): boolean {
   if (circuitOpenUntil === 0) return false;
   if (Date.now() < circuitOpenUntil) return true;
@@ -37,6 +68,7 @@ function circuitIsOpen(): boolean {
 
 function recordFailure(status?: number): void {
   circuitFailures++;
+  consecutiveFailures++;
   if (circuitFailures >= CIRCUIT_OPEN_THRESHOLD) {
     const wasOpen = circuitOpenUntil > 0;
     circuitOpenUntil = Date.now() + CIRCUIT_OPEN_DURATION_MS;
@@ -66,6 +98,8 @@ function recordSuccess(): void {
   }
   circuitFailures = 0;
   circuitOpenUntil = 0;
+  consecutiveFailures = 0;
+  lastSuccessAt = new Date();
 }
 
 // ── URL helpers ───────────────────────────────────────────────────────────
@@ -128,6 +162,10 @@ async function fetchWithToken(user: any, url: string, init: RequestInit = {}): P
 
 export function isPythonServiceConfigured(): boolean {
   return !!getBaseUrl();
+}
+
+export function getPythonBaseUrl(): string {
+  return getBaseUrl();
 }
 
 /**
@@ -225,24 +263,31 @@ export function startPythonKeepAlive(): void {
   setInterval(ping, INTERVAL_MS);
 }
 
-export async function proxyToPython(req: Request, res: Response, path: string): Promise<void> {
+export async function proxyToPython(
+  req: Request,
+  res: Response,
+  path: string,
+  feature = 'analytics',
+  fallback?: Record<string, unknown>,
+): Promise<void> {
   const baseUrl = getBaseUrl();
   if (!baseUrl) {
-    res.status(503).json({
-      error: 'Quant analytics service unavailable',
-      degraded: true,
-      detail: 'Set PYTHON_SERVICE_URL environment variable to enable the Python micro-service.',
-      hint: 'Run services/python/ locally or deploy it and set PYTHON_SERVICE_URL to its URL.',
-    });
+    // Return HTTP 200 so TanStack Query resolves to `data` (not `error`).
+    // The frontend detects degradation via data.degraded === true.
+    res.status(200).json(pythonDegradedResponse(
+      feature,
+      fallback,
+      'Analytics service not configured — set PYTHON_SERVICE_URL to enable.',
+    ));
     return;
   }
 
   if (circuitIsOpen()) {
-    res.status(503).json({
-      error: 'Quant analytics service temporarily unavailable',
-      degraded: true,
-      detail: 'Circuit breaker open — Python service is recovering. Retrying automatically.',
-    });
+    res.status(200).json(pythonDegradedResponse(
+      feature,
+      fallback,
+      'Analytics service temporarily unavailable — circuit breaker open, retrying automatically.',
+    ));
     return;
   }
 
@@ -259,16 +304,30 @@ export async function proxyToPython(req: Request, res: Response, path: string): 
     const json = await upstream.json();
     if (upstream.ok) {
       recordSuccess();
-    } else {
+      res.status(200).json(json);
+    } else if (upstream.status >= 400 && upstream.status < 500) {
+      // 4xx errors are client/input errors from the Python service — pass through
+      // with the original status so the caller receives meaningful validation feedback.
       recordFailure(upstream.status);
+      res.status(upstream.status).json(json);
+    } else {
+      // 5xx or unexpected errors indicate service outage — return a structured
+      // degraded envelope with HTTP 200 so TanStack Query resolves to `data`
+      // and the frontend can render the graceful fallback UI.
+      recordFailure(upstream.status);
+      res.status(200).json(pythonDegradedResponse(
+        feature,
+        fallback,
+        `Analytics service returned an error (HTTP ${upstream.status}).`,
+      ));
     }
-    res.status(upstream.status).json(json);
   } catch (err: any) {
     recordFailure();
-    res.status(502).json({
-      error: 'Python Analytics Service unreachable',
-      detail: err.message,
-    });
+    res.status(200).json(pythonDegradedResponse(
+      feature,
+      fallback,
+      'Analytics service unreachable.',
+    ));
   }
 }
 
