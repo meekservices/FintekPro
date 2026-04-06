@@ -1175,17 +1175,38 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
       };
 
       // 1. historical_nav_data (identifier, identifier_type, date)
-      await dedupAndIndex(
-        'historical_nav_data',
-        `DELETE FROM historical_nav_data
-         WHERE id NOT IN (
-           SELECT DISTINCT ON (identifier, identifier_type, date) id
-           FROM historical_nav_data
-           ORDER BY identifier, identifier_type, date, fetched_at DESC NULLS LAST
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS idx_historical_nav_unique
-           ON historical_nav_data (identifier, identifier_type, date)`
-      );
+      // The table may have 9M+ rows — the standard IN (SELECT DISTINCT ON ...) dedup
+      // query exceeds the 30s statement_timeout. Use a dedicated pool client with
+      // timeout disabled, and a faster self-join DELETE, then CONCURRENTLY index.
+      try {
+        const { pool: bgPool } = await import('./db');
+        const client = await bgPool.connect();
+        try {
+          await client.query('SET statement_timeout = 0');
+          // Self-join DELETE: keeps the row with the largest id (latest fetched) per key.
+          // Far more efficient on large tables than IN (SELECT DISTINCT ON ...).
+          await client.query(`
+            DELETE FROM historical_nav_data a
+            USING historical_nav_data b
+            WHERE a.identifier = b.identifier
+              AND a.identifier_type = b.identifier_type
+              AND a.date = b.date
+              AND a.id < b.id
+          `);
+          // CONCURRENTLY allows reads/writes during index build; cannot run in a transaction.
+          await client.query(`
+            CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_historical_nav_unique
+              ON historical_nav_data (identifier, identifier_type, date)
+          `);
+          console.log('✅ [Migration] historical_nav_data unique index created (background)');
+        } catch (e: any) {
+          console.warn('[Migration] historical_nav_data (background):', e?.message);
+        } finally {
+          client.release();
+        }
+      } catch (e: any) {
+        console.warn('[Migration] historical_nav_data pool error:', e?.message);
+      }
 
       // 2. mutual_fund_metrics (scheme_code, fiscal_year)
       await dedupAndIndex(
