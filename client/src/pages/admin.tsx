@@ -587,6 +587,342 @@ function ApiStatusPanel() {
   );
 }
 
+// Database Governance Tab Component
+type DbSortKey = 'tableName' | 'rowCount' | 'deadTuplePct' | 'seqScans' | 'idxScans' | 'lastAutovacuum' | 'usageStatus';
+
+function DatabaseGovernanceTab() {
+  const { toast } = useToast();
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [archiveTarget, setArchiveTarget] = useState<string | null>(null);
+  const [archiveReason, setArchiveReason] = useState('');
+  const [confirmName, setConfirmName] = useState('');
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<DbSortKey>('usageStatus');
+  const [sortAsc, setSortAsc] = useState(false);
+
+  const { data, isLoading, refetch } = useQuery<{ success: boolean; count: number; tables: any[] }>({
+    queryKey: ['/api/admin/db/table-audit'],
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async ({ tableName, reason }: { tableName: string; reason: string }) => {
+      return apiRequest('/api/admin/db/archive-table', 'POST', { body: { tableName, reason } });
+    },
+    onSuccess: () => {
+      toast({ title: 'Table archived', description: `Table moved to _archive schema successfully.` });
+      setArchiveDialogOpen(false);
+      setArchiveTarget(null);
+      setArchiveReason('');
+      setConfirmName('');
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/db/table-audit'] });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Archive failed', description: error.message ?? 'Unknown error', variant: 'destructive' });
+    },
+  });
+
+  const STATUS_COLORS: Record<string, string> = {
+    active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    low_activity: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+    zero_reads_90d: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+    candidate_for_archive: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  };
+
+  const STATUS_LABELS: Record<string, string> = {
+    active: 'Active',
+    low_activity: 'Low Activity',
+    zero_reads_90d: 'Zero Reads (90d)',
+    candidate_for_archive: 'Archive Candidate',
+  };
+
+  const STATUS_SEVERITY: Record<string, number> = {
+    candidate_for_archive: 4,
+    zero_reads_90d: 3,
+    low_activity: 2,
+    active: 1,
+  };
+
+  const handleSort = (key: DbSortKey) => {
+    if (sortKey === key) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortKey(key);
+      setSortAsc(key === 'tableName');
+    }
+  };
+
+  const SortIcon = ({ col }: { col: DbSortKey }) => {
+    if (sortKey !== col) return <span className="text-muted-foreground/40 ml-1">↕</span>;
+    return <span className="ml-1">{sortAsc ? '↑' : '↓'}</span>;
+  };
+
+  const tables: any[] = data?.tables ?? [];
+
+  const filtered = tables
+    .filter((t) => {
+      const matchSearch = !search || t.tableName.toLowerCase().includes(search.toLowerCase());
+      const matchStatus = statusFilter === 'all' || t.usageStatus === statusFilter;
+      return matchSearch && matchStatus;
+    })
+    .sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'tableName') {
+        cmp = a.tableName.localeCompare(b.tableName);
+      } else if (sortKey === 'usageStatus') {
+        cmp = (STATUS_SEVERITY[b.usageStatus] ?? 0) - (STATUS_SEVERITY[a.usageStatus] ?? 0);
+      } else if (sortKey === 'lastAutovacuum') {
+        const aVal = a.lastAutovacuum ? new Date(a.lastAutovacuum).getTime() : 0;
+        const bVal = b.lastAutovacuum ? new Date(b.lastAutovacuum).getTime() : 0;
+        cmp = aVal - bVal;
+      } else {
+        cmp = (a[sortKey] ?? 0) - (b[sortKey] ?? 0);
+      }
+      return sortAsc ? cmp : -cmp;
+    });
+
+  const candidateCount = tables.filter((t) => t.usageStatus === 'candidate_for_archive').length;
+  const zeroReadCount = tables.filter((t) => t.usageStatus === 'zero_reads_90d').length;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-blue-600" />
+                Database Governance
+              </CardTitle>
+              <CardDescription>
+                Table usage audit from pg_stat_user_tables. Archive candidates are tables with zero rows and zero scans.
+                Archiving moves the table to the _archive schema — no data is deleted.
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* Summary badges */}
+          <div className="flex flex-wrap gap-3 mb-4">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted text-sm">
+              <span className="font-medium">{data?.count ?? 0}</span> total tables
+            </div>
+            {zeroReadCount > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 text-sm">
+                <AlertTriangle className="w-4 h-4" />
+                <span className="font-medium">{zeroReadCount}</span> zero reads (90d)
+              </div>
+            )}
+            {candidateCount > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 text-sm">
+                <AlertTriangle className="w-4 h-4" />
+                <span className="font-medium">{candidateCount}</span> archive candidates
+              </div>
+            )}
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search table name..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-52">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="low_activity">Low Activity</SelectItem>
+                <SelectItem value="zero_reads_90d">Zero Reads (90d)</SelectItem>
+                <SelectItem value="candidate_for_archive">Archive Candidates</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {isLoading ? (
+            <div className="space-y-2">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="h-10 bg-muted rounded animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-md border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>
+                      <button className="flex items-center gap-0.5 hover:text-foreground" onClick={() => handleSort('tableName')}>
+                        Table Name<SortIcon col="tableName" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <button className="flex items-center gap-0.5 ml-auto hover:text-foreground" onClick={() => handleSort('rowCount')}>
+                        Row Count<SortIcon col="rowCount" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <button className="flex items-center gap-0.5 ml-auto hover:text-foreground" onClick={() => handleSort('deadTuplePct')}>
+                        Dead Tuples %<SortIcon col="deadTuplePct" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <button className="flex items-center gap-0.5 ml-auto hover:text-foreground" onClick={() => handleSort('seqScans')}>
+                        Seq Scans<SortIcon col="seqScans" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <button className="flex items-center gap-0.5 ml-auto hover:text-foreground" onClick={() => handleSort('idxScans')}>
+                        Idx Scans<SortIcon col="idxScans" />
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button className="flex items-center gap-0.5 hover:text-foreground" onClick={() => handleSort('lastAutovacuum')}>
+                        Last Autovacuum<SortIcon col="lastAutovacuum" />
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button className="flex items-center gap-0.5 hover:text-foreground" onClick={() => handleSort('usageStatus')}>
+                        Status<SortIcon col="usageStatus" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-right">Archive</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        No tables match your filters
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filtered.map((t) => (
+                      <TableRow
+                        key={t.tableName}
+                        className={t.usageStatus === 'candidate_for_archive' || t.usageStatus === 'zero_reads_90d' ? 'bg-red-50/50 dark:bg-red-950/20' : ''}
+                      >
+                        <TableCell>
+                          <code className="text-xs font-mono">{t.tableName}</code>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{t.rowCount.toLocaleString()}</TableCell>
+                        <TableCell className="text-right tabular-nums">{t.deadTuplePct}%</TableCell>
+                        <TableCell className="text-right tabular-nums">{t.seqScans.toLocaleString()}</TableCell>
+                        <TableCell className="text-right tabular-nums">{t.idxScans.toLocaleString()}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {t.lastAutovacuum ? format(new Date(t.lastAutovacuum), 'MMM d, yyyy') : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={`text-xs ${STATUS_COLORS[t.usageStatus] ?? ''}`}>
+                            {STATUS_LABELS[t.usageStatus] ?? t.usageStatus}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => {
+                              setArchiveTarget(t.tableName);
+                              setArchiveReason('');
+                              setConfirmName('');
+                              setArchiveDialogOpen(true);
+                            }}
+                          >
+                            Archive
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Archive Confirmation Dialog */}
+      <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Archive Table
+            </DialogTitle>
+            <DialogDescription>
+              This will move{' '}
+              <code className="font-mono text-sm bg-muted px-1 rounded">{archiveTarget}</code>{' '}
+              from the <strong>public</strong> schema to <strong>_archive</strong> (renamed with a date suffix).
+              No data is deleted. The operation is reversible.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="archive-reason">Reason for archiving</Label>
+              <Textarea
+                id="archive-reason"
+                placeholder="Describe why this table is being archived..."
+                value={archiveReason}
+                onChange={(e) => setArchiveReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirm-name">
+                Type <strong>{archiveTarget}</strong> to confirm
+              </Label>
+              <Input
+                id="confirm-name"
+                placeholder={archiveTarget ?? ''}
+                value={confirmName}
+                onChange={(e) => setConfirmName(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setArchiveDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={
+                confirmName !== archiveTarget ||
+                archiveReason.trim().length < 5 ||
+                archiveMutation.isPending
+              }
+              onClick={() => {
+                if (archiveTarget) {
+                  archiveMutation.mutate({ tableName: archiveTarget, reason: archiveReason });
+                }
+              }}
+            >
+              {archiveMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Archiving...
+                </>
+              ) : (
+                'Archive Table'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // Unlisted Marketplace Tab Component
 function UnlistedMarketplaceTab() {
   const { toast } = useToast();
@@ -1252,7 +1588,7 @@ export default function AdminPanel() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button 
-                    variant={["api-status", "system", "activities", "errors", "ai-analysis"].includes(selectedTab) ? "default" : "outline"}
+                    variant={["api-status", "system", "activities", "errors", "ai-analysis", "database-governance"].includes(selectedTab) ? "default" : "outline"}
                     className="gap-2"
                     data-testid="nav-system"
                   >
@@ -1311,6 +1647,14 @@ export default function AdminPanel() {
                   >
                     <Brain className="w-4 h-4 mr-2" />
                     AI Analysis
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("database-governance")}
+                    className={selectedTab === "database-governance" ? "bg-accent" : ""}
+                    data-testid="nav-database-governance"
+                  >
+                    <Database className="w-4 h-4 mr-2" />
+                    Database Governance
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -2416,6 +2760,11 @@ export default function AdminPanel() {
           {/* Unlisted Marketplace Tab */}
           <TabsContent value="unlisted" className="space-y-6" data-testid="unlisted-content">
             <UnlistedMarketplaceTab />
+          </TabsContent>
+
+          {/* Database Governance Tab */}
+          <TabsContent value="database-governance" className="space-y-6" data-testid="database-governance-content">
+            <DatabaseGovernanceTab />
           </TabsContent>
         </Tabs>
       </div>

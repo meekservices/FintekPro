@@ -15,6 +15,7 @@ import { errorDigestService } from './services/error-digest-service';
 import { isProductionEnvironment } from './utils/enrichment-guard';
 import { db } from './db';
 import { sql } from 'drizzle-orm';
+import { logger } from './logger';
 
 export function initializeComplianceCrons(): void {
   if (!isProductionEnvironment()) {
@@ -209,4 +210,89 @@ export function initializeComplianceCrons(): void {
     }
   });
   console.log('📋 [SEBIQuarterly] Quarterly report generation scheduled (1st Jan/Apr/Jul/Oct, 6:00 AM IST)');
+
+  // ── Monthly DB Table Audit — 1st of each month at 2:00 AM IST (8:30 PM UTC) ─
+  //
+  // RUNBOOK: Database Table Governance
+  // -----------------------------------
+  // Purpose: Provide monthly visibility into table usage so the team can
+  //          identify and safely archive unused legacy tables.
+  //
+  // What this job does:
+  //   1. Queries pg_stat_user_tables for all tables in the public schema.
+  //   2. Classifies each table into one of four status buckets:
+  //        - active              → has live rows AND scans in last 90 days
+  //        - low_activity        → has rows but very few scans (< 10 total)
+  //        - zero_reads_90d      → has rows but no scans & no recent vacuum
+  //        - candidate_for_archive → 0 rows and 0 scans ever
+  //   3. Logs a summary (total, zero_reads_90d count, candidate count) to the
+  //      application logger.
+  //
+  // What this job does NOT do:
+  //   - It NEVER archives or drops any table automatically.
+  //   - It does NOT touch _archive schema tables.
+  //
+  // Manual archive process:
+  //   1. Review the monthly log summary or the admin UI (Admin → Database Governance tab).
+  //   2. Verify the table is safe to archive (no FK dependencies, no app references).
+  //   3. Use the admin UI "Archive" button (superadmin only) or the API endpoint:
+  //        POST /api/admin/db/archive-table { tableName, reason }
+  //      This moves the table from public.<name> → _archive.<name>_YYYYMMDD.
+  //      The operation is logged to kyc_audit_logs and is fully reversible by
+  //      renaming the table back:
+  //        ALTER TABLE _archive.<name>_YYYYMMDD SET SCHEMA public;
+  //        ALTER TABLE public.<name>_YYYYMMDD RENAME TO <name>;
+  //   4. No table is ever automatically DROPPED — dropping requires a separate,
+  //      explicit DBA action after a suitable retention period in _archive.
+  // -----------------------------------
+  cron.schedule('30 20 1 * *', async () => {
+    logger.info('[CRON][DbAudit] Starting monthly database table audit...');
+    try {
+      const { tableAuditQuery } = await import('./routes/admin/db-governance');
+      const rows = await tableAuditQuery();
+
+      let zeroReadsCount = 0;
+      let candidateCount = 0;
+      let activeCount = 0;
+      let lowActivityCount = 0;
+
+      for (const row of rows) {
+        const liveTup = parseInt(row.n_live_tup ?? '0', 10);
+        const seqScan = parseInt(row.seq_scan ?? '0', 10);
+        const idxScan = parseInt(row.idx_scan ?? '0', 10);
+        const totalScans = seqScan + idxScan;
+        const lastVacuumDate = row.last_autovacuum ? new Date(row.last_autovacuum) : null;
+        const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+        const vacuumedRecently = lastVacuumDate && lastVacuumDate > ninetyDaysAgo;
+
+        if (liveTup === 0 && totalScans === 0) {
+          candidateCount++;
+        } else if (totalScans === 0 && !vacuumedRecently) {
+          zeroReadsCount++;
+        } else if (totalScans > 0 && totalScans < 10) {
+          lowActivityCount++;
+        } else {
+          activeCount++;
+        }
+      }
+
+      logger.info('[CRON][DbAudit] Monthly table audit complete', {
+        totalTables: rows.length,
+        active: activeCount,
+        low_activity: lowActivityCount,
+        zero_reads_90d: zeroReadsCount,
+        candidate_for_archive: candidateCount,
+      });
+
+      if (candidateCount > 0 || zeroReadsCount > 0) {
+        logger.warn(
+          `[CRON][DbAudit] Action recommended: ${candidateCount} tables are archive candidates, ` +
+          `${zeroReadsCount} tables have zero reads in 90+ days. Review in Admin → Database Governance.`
+        );
+      }
+    } catch (error: any) {
+      logger.error('[CRON][DbAudit] Monthly table audit failed', { error: error.message });
+    }
+  });
+  console.log('🗃️ [DbAudit] Monthly table audit scheduled (1st of each month, 2:00 AM IST)');
 }
