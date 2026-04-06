@@ -47,6 +47,8 @@ export interface KYCComplianceDetails {
   ckycVerified: boolean;
   kraVerified: boolean;
   videoKycCompleted: boolean;
+  videoKycExpired: boolean;
+  videoKycExpiryDate: Date | null;
   ipvCompleted: boolean;
   bankPennyDropVerified: boolean;
   missingRequirements: string[];
@@ -174,7 +176,22 @@ export async function getUserKYCLevel(userId: string): Promise<{
   const addressOvdVerified = ckycVerified || kraVerified;
   
   const photographCaptured = profile.isProfileCompleted || false; // Photograph is part of profile completion
-  const videoKycCompleted = profile.videoKycCompleted || false;
+
+  // V-CIP expiry enforcement (RBI 2023 V-CIP guidelines)
+  // 90-day grace period for users who completed V-CIP before this feature was deployed
+  const VCIP_GRACE_PERIOD_END = new Date('2024-06-01T00:00:00Z');
+  const now = new Date();
+  const vcipRawCompleted = profile.videoKycCompleted || false;
+  let videoKycCompleted = vcipRawCompleted;
+  if (vcipRawCompleted && profile.videoKycExpiryDate) {
+    const expiryDate = new Date(profile.videoKycExpiryDate);
+    const gracePeriodPassed = now > VCIP_GRACE_PERIOD_END;
+    const vcipExpired = expiryDate < now;
+    if (vcipExpired && gracePeriodPassed) {
+      videoKycCompleted = false;
+    }
+  }
+
   const ipvCompleted = profile.faceToFaceVerificationCompleted || false;
   const bankPennyDropVerified = verifiedBank?.isVerified || false;
 
@@ -201,6 +218,10 @@ export async function getUserKYCLevel(userId: string): Promise<{
     hasIdentityVerification && 
     bankPennyDropVerified;
 
+  // Compute V-CIP expiry state for compliance details
+  const videoKycExpired = vcipRawCompleted && !!profile.videoKycExpiryDate && !videoKycCompleted;
+  const videoKycExpiryDate = profile.videoKycExpiryDate ? new Date(profile.videoKycExpiryDate) : null;
+
   // Build missing requirements list for user guidance
   if (!panVerified) missingRequirements.push('PAN verification');
   if (!addressOvdVerified) missingRequirements.push('Address proof (Aadhaar/OVD)');
@@ -208,7 +229,11 @@ export async function getUserKYCLevel(userId: string): Promise<{
   
   if (hasLevel1Requirements) {
     if (!hasCentralKycVerification) missingRequirements.push('CKYC/KRA registration');
-    if (!videoKycCompleted && !ipvCompleted) missingRequirements.push('Video KYC or In-Person Verification');
+    if (videoKycExpired) {
+      missingRequirements.push('Video KYC (V-CIP) has expired — renewal required');
+    } else if (!videoKycCompleted && !ipvCompleted) {
+      missingRequirements.push('Video KYC or In-Person Verification');
+    }
     if (!bankPennyDropVerified) missingRequirements.push('Bank account verification');
   }
 
@@ -228,6 +253,8 @@ export async function getUserKYCLevel(userId: string): Promise<{
     ckycVerified,
     kraVerified,
     videoKycCompleted,
+    videoKycExpired,
+    videoKycExpiryDate,
     ipvCompleted,
     bankPennyDropVerified,
     missingRequirements,

@@ -3,13 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Shield, ShieldCheck, Crown, CheckCircle2, XCircle, AlertCircle, Lock, Unlock, Edit, ArrowRight, FileCheck, TrendingUp, Clock } from 'lucide-react';
+import { Shield, ShieldCheck, Crown, CheckCircle2, XCircle, AlertCircle, Lock, Unlock, Edit, ArrowRight, FileCheck, TrendingUp, Clock, Video, AlertTriangle } from 'lucide-react';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { differenceInDays, differenceInMonths, format } from 'date-fns';
 
 export default function KYCDashboard() {
   const { toast } = useToast();
@@ -29,6 +30,20 @@ export default function KYCDashboard() {
   const { data: eligibilityData, isLoading: eligibilityLoading } = useQuery({
     queryKey: ['/api/kyc/product-eligibility'],
     enabled: !!user
+  });
+
+  // Fetch vault status (includes V-CIP expiry)
+  const { data: vaultStatus } = useQuery<{
+    success: boolean;
+    verifiedFields: {
+      videoKycCompleted: boolean;
+      videoKycCompletedAt: string | null;
+      videoKycExpiryDate: string | null;
+      videoKycExpired: boolean;
+    };
+  }>({
+    queryKey: ['/api/kyc/vault-status'],
+    enabled: !!user,
   });
 
   // KYC upgrade request mutation
@@ -220,6 +235,20 @@ export default function KYCDashboard() {
             </div>
           </div>
 
+          {/* V-CIP Expiry Status */}
+          {vaultStatus?.verifiedFields?.videoKycCompleted && (
+            <div>
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                <Video className="h-4 w-4" />
+                Video KYC (V-CIP) Status
+              </h3>
+              <VcipExpiryBadge
+                expiryDate={vaultStatus.verifiedFields.videoKycExpiryDate}
+                expired={vaultStatus.verifiedFields.videoKycExpired}
+              />
+            </div>
+          )}
+
           {/* Compliance Status */}
           <div>
             <h3 className="font-semibold mb-3">Compliance Status</h3>
@@ -392,6 +421,73 @@ export default function KYCDashboard() {
           </AlertDescription>
         </Alert>
       )}
+    </div>
+  );
+}
+
+// V-CIP Expiry Badge Component
+function VcipExpiryBadge({ expiryDate, expired }: { expiryDate: string | null; expired: boolean }) {
+  if (!expiryDate) {
+    return (
+      <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+        <Clock className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">Expiry date not set</span>
+      </div>
+    );
+  }
+
+  const expiry = new Date(expiryDate);
+  const now = new Date();
+  const daysLeft = differenceInDays(expiry, now);
+  const monthsLeft = differenceInMonths(expiry, now);
+
+  if (expired || daysLeft <= 0) {
+    return (
+      <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
+        <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-red-700 dark:text-red-300">V-CIP Expired</p>
+          <p className="text-xs text-red-600 dark:text-red-400">Expired on {format(expiry, 'dd MMM yyyy')} — please renew your Video KYC</p>
+        </div>
+        <Badge variant="destructive" className="ml-auto shrink-0">Expired</Badge>
+      </div>
+    );
+  }
+
+  if (daysLeft <= 30) {
+    return (
+      <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
+        <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-red-700 dark:text-red-300">Expires in {daysLeft} day{daysLeft !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-red-600 dark:text-red-400">Expiry date: {format(expiry, 'dd MMM yyyy')}</p>
+        </div>
+        <Badge variant="destructive" className="ml-auto shrink-0">Expires in {daysLeft}d</Badge>
+      </div>
+    );
+  }
+
+  if (monthsLeft <= 6) {
+    return (
+      <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+        <Clock className="h-5 w-5 text-amber-500 shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Expires in {monthsLeft} month{monthsLeft !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-amber-600 dark:text-amber-400">Expiry date: {format(expiry, 'dd MMM yyyy')}</p>
+        </div>
+        <Badge className="ml-auto shrink-0 bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">Expires in {monthsLeft}mo</Badge>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+      <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
+      <div>
+        <p className="text-sm font-semibold text-green-700 dark:text-green-300">Expires in {monthsLeft} month{monthsLeft !== 1 ? 's' : ''}</p>
+        <p className="text-xs text-green-600 dark:text-green-400">Expiry date: {format(expiry, 'dd MMM yyyy')}</p>
+      </div>
+      <Badge className="ml-auto shrink-0 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Expires in {monthsLeft}mo</Badge>
     </div>
   );
 }
