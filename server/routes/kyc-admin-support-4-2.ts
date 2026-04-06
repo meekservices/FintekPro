@@ -403,7 +403,7 @@ app.get('/api/admin/error-logs', requireAdmin, async (req, res) => {
       });
     }
     
-    const cashfreeEnv = process.env.CASHFREE_ENVIRONMENT || 'SANDBOX';
+    const cashfreeEnv = process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX');
     if (cashfreeEnv === 'SANDBOX') {
       errorLogs.push({
         id: 'info-cashfree',
