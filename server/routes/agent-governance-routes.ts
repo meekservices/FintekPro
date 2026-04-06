@@ -13,7 +13,6 @@ import {
   portfolios
 } from "@shared/schema";
 import { eq, and, desc, gte, lte, sql, or, isNotNull, sum } from "drizzle-orm";
-import { createAppError, AppErrorCode } from "../utils/error-types";
 
 const router = Router();
 
