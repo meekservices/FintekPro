@@ -25,6 +25,171 @@ import { TransactionReportViewer } from "@/components/reports/transaction-report
 import CkycManagement from "./admin/ckyc-management";
 import SupplierDashboard from "./admin/supplier-dashboard";
 
+function AIGovernancePanel() {
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ['/api/admin/ai/prompts'],
+  });
+  const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
+  const { data: historyData, isLoading: historyLoading } = useQuery<any>({
+    queryKey: ['/api/admin/ai/prompts', selectedPrompt, 'history'],
+    queryFn: async () => {
+      if (!selectedPrompt) return null;
+      const res = await fetch(`/api/admin/ai/prompts/${encodeURIComponent(selectedPrompt)}/history`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load prompt history');
+      return res.json();
+    },
+    enabled: !!selectedPrompt,
+  });
+
+  const prompts: any[] = data?.prompts || [];
+
+  const freshnessColor: Record<string, string> = {
+    green: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
+    amber: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+    red: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  };
+
+  const categoryColor: Record<string, string> = {
+    investment_advice: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    portfolio_analysis: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+    general_chat: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
+    kyc_guidance: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+    compliance: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="w-5 h-5 text-purple-600" />
+            AI Prompt Governance
+          </CardTitle>
+          <CardDescription>
+            Centralised prompt inventory with regulatory category, version, and freshness tracking.
+            Green = reviewed within 90 days · Amber = 90–180 days · Red = &gt;180 days or never reviewed.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Prompt Name</TableHead>
+                  <TableHead>Version</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Last Reviewed</TableHead>
+                  <TableHead>Reviewed By</TableHead>
+                  <TableHead>Freshness</TableHead>
+                  <TableHead>Usage History</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {prompts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      No prompts found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  prompts.map((p: any) => (
+                    <TableRow key={p.name}>
+                      <TableCell className="font-mono text-sm">{p.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{p.version}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${categoryColor[p.regulatoryCategory] || 'bg-gray-100 text-gray-800'}`}>
+                          {p.regulatoryCategory.replace(/_/g, ' ')}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {p.lastReviewedAt}
+                        <div className="text-xs text-muted-foreground">{p.daysSinceReview} days ago</div>
+                      </TableCell>
+                      <TableCell className="text-sm">{p.reviewedBy}</TableCell>
+                      <TableCell>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${freshnessColor[p.freshness]}`}>
+                          {p.freshness === 'green' ? '● ' : p.freshness === 'amber' ? '● ' : '● '}
+                          {p.freshness.charAt(0).toUpperCase() + p.freshness.slice(1)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedPrompt(selectedPrompt === p.name ? null : p.name)}
+                        >
+                          <Clock className="w-3 h-3 mr-1" />
+                          History
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {selectedPrompt && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Clock className="w-4 h-4" />
+              Usage History: <span className="font-mono text-sm">{selectedPrompt}</span>
+            </CardTitle>
+            <CardDescription>Immutable audit log of AI interactions using this prompt version</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {historyLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Used At</TableHead>
+                    <TableHead>Version</TableHead>
+                    <TableHead>User ID</TableHead>
+                    <TableHead>Feature</TableHead>
+                    <TableHead>Response Hash</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(historyData?.history || []).length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                        No usage records yet for this prompt
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    (historyData?.history || []).map((h: any) => (
+                      <TableRow key={h.id}>
+                        <TableCell className="text-sm">{new Date(h.usedAt).toLocaleString()}</TableCell>
+                        <TableCell><Badge variant="outline">{h.version}</Badge></TableCell>
+                        <TableCell className="text-sm text-muted-foreground font-mono">{h.userId || '—'}</TableCell>
+                        <TableCell className="text-sm">{h.feature || '—'}</TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">{h.responsePreviewHash?.slice(0, 16)}…</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 
 // Enhanced API Status Panel Component
 function ApiStatusPanel() {
@@ -1036,7 +1201,7 @@ export default function AdminPanel() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button 
-                    variant={["ckyc", "compliance"].includes(selectedTab) ? "default" : "outline"}
+                    variant={["ckyc", "compliance", "ai-governance"].includes(selectedTab) ? "default" : "outline"}
                     className="gap-2"
                     data-testid="nav-compliance-kyc"
                   >
@@ -1071,6 +1236,14 @@ export default function AdminPanel() {
                         {complianceAlerts.length}
                       </Badge>
                     )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("ai-governance")}
+                    className={selectedTab === "ai-governance" ? "bg-accent" : ""}
+                    data-testid="nav-ai-governance"
+                  >
+                    <Brain className="w-4 h-4 mr-2" />
+                    AI Governance
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -2233,6 +2406,11 @@ export default function AdminPanel() {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* AI Governance Tab */}
+          <TabsContent value="ai-governance" className="space-y-6" data-testid="ai-governance-content">
+            <AIGovernancePanel />
           </TabsContent>
 
           {/* Unlisted Marketplace Tab */}
