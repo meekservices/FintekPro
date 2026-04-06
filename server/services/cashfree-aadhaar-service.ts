@@ -58,11 +58,20 @@ export class CashfreeAadhaarService {
     return this.isProduction() ? this.PRODUCTION_URL : this.SANDBOX_URL;
   }
   
+  static hasVerificationCredentials(): boolean {
+    return !!(
+      (process.env.CASHFREE_VERIFICATION_APP_ID && process.env.CASHFREE_VERIFICATION_SECRET_KEY) ||
+      (process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY)
+    );
+  }
+
   private static getHeaders() {
+    const appId = process.env.CASHFREE_VERIFICATION_APP_ID || process.env.CASHFREE_APP_ID || '';
+    const secretKey = process.env.CASHFREE_VERIFICATION_SECRET_KEY || process.env.CASHFREE_SECRET_KEY || '';
     return {
       'Content-Type': 'application/json',
-      'x-client-id': process.env.CASHFREE_APP_ID || '',
-      'x-client-secret': process.env.CASHFREE_SECRET_KEY || ''
+      'x-client-id': appId,
+      'x-client-secret': secretKey
     };
   }
   
@@ -221,12 +230,11 @@ export class CashfreeAadhaarService {
   }
   
   /**
-   * Check if Cashfree credentials are configured
+   * Check if any Cashfree verification credentials are configured.
+   * Prefers CASHFREE_VERIFICATION_APP_ID/SECRET (Secure ID product),
+   * falls back to CASHFREE_APP_ID/SECRET_KEY (Payment Gateway product).
    */
   static isConfigured(): boolean {
-    return !!(
-      process.env.CASHFREE_APP_ID && 
-      process.env.CASHFREE_SECRET_KEY
-    );
+    return CashfreeAadhaarService.hasVerificationCredentials();
   }
 }

@@ -166,7 +166,10 @@ function refreshConfigStatus() {
           break;
         case 'cashfree':
         case 'cashfree_bank':
-          provider.isConfigured = !!(process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY);
+          provider.isConfigured = !!(
+            (process.env.CASHFREE_VERIFICATION_APP_ID && process.env.CASHFREE_VERIFICATION_SECRET_KEY) ||
+            (process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY)
+          );
           break;
         case 'aadhaar_address': {
           const hasAnyAadhaarProvider = !!(
