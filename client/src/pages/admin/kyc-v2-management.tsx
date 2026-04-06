@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, Suspense } from "react";
+import { useQuery, useSuspenseQuery, useMutation } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   Video,
@@ -56,6 +56,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingState } from "@/components/LoadingState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -1705,7 +1706,7 @@ function DirectRejectTab() {
 // ─── Provider Health Strip ───────────────────────────────────────────────────
 
 function ProviderHealthStrip() {
-  const { data, isLoading, refetch, isFetching } = useQuery<{
+  const { data, refetch, isFetching } = useSuspenseQuery<{
     success: boolean;
     checkedAt: string;
     providers: Record<string, { status: 'live' | 'degraded' | 'down'; latencyMs: number; error?: string }>;
@@ -1727,8 +1728,6 @@ function ProviderHealthStrip() {
     truthscreen_ckyc: 'TruthScreen CKYC',
     ckyc_registry: 'CKYC Registry',
   };
-
-  if (isLoading) return <Skeleton className="h-10 w-full mb-2" />;
 
   const providers = data?.providers ?? {};
   const anyDown = Object.values(providers).some(p => p.status === 'down');
@@ -1959,7 +1958,7 @@ function AllKycSessionsTab() {
   const [outcomeFilter, setOutcomeFilter] = useState("all");
   const [confirmResetAll, setConfirmResetAll] = useState(false);
 
-  const { data, isLoading, refetch } = useQuery<{ success: boolean; sessions: any[]; total: number }>({
+  const { data, refetch } = useSuspenseQuery<{ success: boolean; sessions: any[]; total: number }>({
     queryKey: ["/api/admin/kyc/sessions", outcomeFilter],
     queryFn: async () => {
       const param = outcomeFilter !== "all" ? `?outcome=${outcomeFilter}` : "";
@@ -2036,9 +2035,7 @@ function AllKycSessionsTab() {
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        {isLoading ? (
-          <div className="p-4 space-y-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
-        ) : sessions.length === 0 ? (
+        {sessions.length === 0 ? (
           <div className="py-16 text-center text-muted-foreground">
             <Users className="h-10 w-10 mx-auto mb-3 opacity-40" />
             <p className="font-medium">No KYC sessions found</p>
@@ -2140,7 +2137,9 @@ export default function KycV2ManagementPage() {
       </div>
 
       <EnvironmentBanner />
-      <ProviderHealthStrip />
+      <Suspense fallback={<Skeleton className="h-10 w-full mb-2" />}>
+        <ProviderHealthStrip />
+      </Suspense>
 
       <Tabs defaultValue="all-sessions" className="space-y-4">
         <TabsList className="grid grid-cols-5 md:grid-cols-10 w-full">
@@ -2187,7 +2186,9 @@ export default function KycV2ManagementPage() {
         </TabsList>
 
         <TabsContent value="all-sessions">
-          <AllKycSessionsTab />
+          <Suspense fallback={<LoadingState variant="section-table" count={6} />}>
+            <AllKycSessionsTab />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="video-kyc">
@@ -2223,7 +2224,9 @@ export default function KycV2ManagementPage() {
         </TabsContent>
 
         <TabsContent value="compliance-matrix">
-          <RegulatoryMatrixTab />
+          <Suspense fallback={<LoadingState variant="section-table" count={5} />}>
+            <RegulatoryMatrixTab />
+          </Suspense>
         </TabsContent>
       </Tabs>
     </div>

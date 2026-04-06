@@ -1,5 +1,5 @@
-import { useState, useEffect, FormEvent } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, FormEvent, Suspense } from "react";
+import { useQuery, useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +56,7 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { LoadingState } from "@/components/LoadingState";
 
 interface CkycClient {
   id: string;
@@ -199,6 +200,193 @@ interface MeetingClient {
   username: string;
 }
 
+function AgentQuickStatsSection() {
+  const { data: ckycClients } = useSuspenseQuery<CkycClient[]>({
+    queryKey: ["/api/agent/ckyc-clients"],
+    queryFn: async () => apiRequest("/api/agent/ckyc-clients"),
+  });
+  const { data: notificationTriggers } = useSuspenseQuery<NotificationTrigger[]>({
+    queryKey: ["/api/agent/notifications"],
+    queryFn: async () => apiRequest("/api/agent/notifications"),
+  });
+  const pending = notificationTriggers?.filter(t => t.status === "pending").length ?? 0;
+  const sent = notificationTriggers?.filter(t => t.status === "sent").length ?? 0;
+  const failed = notificationTriggers?.filter(t => t.status === "failed").length ?? 0;
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+          <CardTitle className="text-xs sm:text-sm font-medium">Total Clients</CardTitle>
+          <Users className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+          <div className="text-xl sm:text-2xl font-bold">{ckycClients?.length ?? 0}</div>
+          <p className="text-xs text-muted-foreground">Active CKYC records</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+          <CardTitle className="text-xs sm:text-sm font-medium">Pending</CardTitle>
+          <Clock className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+          <div className="text-xl sm:text-2xl font-bold">{pending}</div>
+          <p className="text-xs text-muted-foreground">Awaiting delivery</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+          <CardTitle className="text-xs sm:text-sm font-medium">Sent Today</CardTitle>
+          <CheckCircle className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+          <div className="text-xl sm:text-2xl font-bold">{sent}</div>
+          <p className="text-xs text-muted-foreground">Successfully delivered</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+          <CardTitle className="text-xs sm:text-sm font-medium">Failed</CardTitle>
+          <XCircle className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+          <div className="text-xl sm:text-2xl font-bold">{failed}</div>
+          <p className="text-xs text-muted-foreground">Need attention</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function AgentKeyMetricsSection() {
+  const { data: overviewData } = useSuspenseQuery<ClientOverview>({
+    queryKey: ["/api/agent/dashboard/overview"],
+  });
+  const { data: ckycClients } = useSuspenseQuery<CkycClient[]>({
+    queryKey: ["/api/agent/ckyc-clients"],
+    queryFn: async () => apiRequest("/api/agent/ckyc-clients"),
+  });
+  const overview: ClientOverview = overviewData ?? {
+    totalClients: ckycClients?.length ?? 0,
+    activeClients: 0,
+    newThisMonth: 0,
+    kycPending: 0,
+    itrPending: 0,
+    totalAUM: 0,
+    revenueThisMonth: 0,
+    complianceScore: 0,
+  };
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900" data-testid="card-total-clients">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">Total Clients</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-3xl font-bold text-blue-900 dark:text-blue-100" data-testid="text-total-clients">{overview.totalClients}</div>
+              <p className="text-xs text-blue-600 dark:text-blue-400">+{overview.newThisMonth} this month</p>
+            </div>
+            <Users className="h-8 w-8 text-blue-500" />
+          </div>
+        </CardContent>
+      </Card>
+      <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900" data-testid="card-total-aum">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">Total AUM</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-3xl font-bold text-green-900 dark:text-green-100" data-testid="text-total-aum">
+                ₹{(overview.totalAUM / 10000000).toFixed(1)}Cr
+              </div>
+              <p className="text-xs text-green-600 dark:text-green-400">Assets under mgmt</p>
+            </div>
+            <IndianRupee className="h-8 w-8 text-green-500" />
+          </div>
+        </CardContent>
+      </Card>
+      <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900" data-testid="card-revenue">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">Revenue (MTD)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-3xl font-bold text-purple-900 dark:text-purple-100" data-testid="text-revenue">
+                ₹{(overview.revenueThisMonth / 1000).toFixed(0)}K
+              </div>
+              <p className="text-xs text-purple-600 dark:text-purple-400">This month</p>
+            </div>
+            <DollarSign className="h-8 w-8 text-purple-500" />
+          </div>
+        </CardContent>
+      </Card>
+      <Card className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950 dark:to-amber-900" data-testid="card-compliance">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-amber-700 dark:text-amber-300">Compliance Score</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-3xl font-bold text-amber-900 dark:text-amber-100" data-testid="text-compliance-score">
+                {overview.complianceScore}%
+              </div>
+              <p className="text-xs text-amber-600 dark:text-amber-400">Excellent</p>
+            </div>
+            <Shield className="h-8 w-8 text-amber-500" />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function AgentRecentActivitySection() {
+  const { data: recentActivityData } = useSuspenseQuery<Array<{ id: number; type: string; client: string; message: string; time: string }>>({
+    queryKey: ["/api/agent/dashboard/recent-activity"],
+  });
+  const recentActivity = recentActivityData ?? [];
+  return (
+    <Card data-testid="card-recent-activity">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Clock className="h-5 w-5" />
+          Recent Activity
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {recentActivity.map((activity) => (
+            <div key={activity.id} className="flex items-center gap-4 p-3 bg-muted rounded-lg" data-testid={`activity-${activity.id}`}>
+              <div className={`p-2 rounded-full ${
+                activity.type === 'itr_filed' ? 'bg-green-100 dark:bg-green-900/30 text-green-600' :
+                activity.type === 'kyc_completed' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' :
+                activity.type === 'ca_assigned' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600' :
+                activity.type === 'payment_received' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' :
+                'bg-muted text-muted-foreground'
+              }`}>
+                {activity.type === 'itr_filed' ? <FileText className="h-4 w-4" /> :
+                 activity.type === 'kyc_completed' ? <CheckCircle className="h-4 w-4" /> :
+                 activity.type === 'ca_assigned' ? <UserCheck className="h-4 w-4" /> :
+                 activity.type === 'payment_received' ? <IndianRupee className="h-4 w-4" /> :
+                 <FileText className="h-4 w-4" />}
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-sm">{activity.client}</p>
+                <p className="text-xs text-muted-foreground">{activity.message}</p>
+              </div>
+              <span className="text-xs text-muted-foreground">{activity.time}</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AgentDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -294,14 +482,10 @@ export default function AgentDashboard() {
   });
 
   // Fetch dashboard overview data
-  const { data: overviewData, isLoading: overviewLoading } = useQuery<ClientOverview>({
+  const { data: overviewData } = useQuery<ClientOverview>({
     queryKey: ["/api/agent/dashboard/overview"]
   });
 
-  // Fetch recent activity
-  const { data: recentActivityData, isLoading: activityLoading } = useQuery<Array<{ id: number; type: string; client: string; message: string; time: string }>>({
-    queryKey: ["/api/agent/dashboard/recent-activity"]
-  });
 
   // Fetch ITR cases
   const { data: itrCasesData, isLoading: itrCasesLoading } = useQuery<ITRCase[]>({
@@ -655,48 +839,9 @@ export default function AgentDashboard() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-            <CardTitle className="text-xs sm:text-sm font-medium">Total Clients</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-            <div className="text-xl sm:text-2xl font-bold">{ckycClients?.length || 0}</div>
-            <p className="text-xs text-muted-foreground">Active CKYC records</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-            <CardTitle className="text-xs sm:text-sm font-medium">Pending</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-            <div className="text-xl sm:text-2xl font-bold">{pendingNotifications}</div>
-            <p className="text-xs text-muted-foreground">Awaiting delivery</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-            <CardTitle className="text-xs sm:text-sm font-medium">Sent Today</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-            <div className="text-xl sm:text-2xl font-bold">{sentNotifications}</div>
-            <p className="text-xs text-muted-foreground">Successfully delivered</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-            <CardTitle className="text-xs sm:text-sm font-medium">Failed</CardTitle>
-            <XCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-            <div className="text-xl sm:text-2xl font-bold">{failedNotifications}</div>
-            <p className="text-xs text-muted-foreground">Need attention</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Suspense fallback={<LoadingState variant="section-stats-row" />}>
+        <AgentQuickStatsSection />
+      </Suspense>
 
       <Tabs defaultValue="overview" className="space-y-4">
         <ScrollableTabsList className="w-full">
@@ -740,12 +885,7 @@ export default function AgentDashboard() {
 
         {/* Client Overview At-a-Glance Tab */}
         <TabsContent value="overview" className="space-y-6" data-testid="content-overview">
-          {overviewLoading || clientsLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <span className="ml-2 text-muted-foreground">Loading dashboard...</span>
-            </div>
-          ) : (() => {
+          {(() => {
             const overview: ClientOverview = overviewData || {
               totalClients: ckycClients?.length || 0,
               activeClients: 0,
@@ -764,85 +904,21 @@ export default function AgentDashboard() {
               { status: "Inactive", count: ckycClients.filter(c => c.verificationStatus === 'inactive').length, color: "bg-muted-foreground" }
             ] : [];
             
-            const recentActivity = recentActivityData || [];
-            
             return (
               <>
                 {/* Key Metrics Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900" data-testid="card-total-clients">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">Total Clients</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-3xl font-bold text-blue-900 dark:text-blue-100" data-testid="text-total-clients">{overview.totalClients}</div>
-                          <p className="text-xs text-blue-600 dark:text-blue-400">+{overview.newThisMonth} this month</p>
-                        </div>
-                        <Users className="h-8 w-8 text-blue-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900" data-testid="card-total-aum">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">Total AUM</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-3xl font-bold text-green-900 dark:text-green-100" data-testid="text-total-aum">
-                            ₹{(overview.totalAUM / 10000000).toFixed(1)}Cr
-                          </div>
-                          <p className="text-xs text-green-600 dark:text-green-400">Assets under mgmt</p>
-                        </div>
-                        <IndianRupee className="h-8 w-8 text-green-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900" data-testid="card-revenue">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">Revenue (MTD)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-3xl font-bold text-purple-900 dark:text-purple-100" data-testid="text-revenue">
-                            ₹{(overview.revenueThisMonth / 1000).toFixed(0)}K
-                          </div>
-                          <p className="text-xs text-purple-600 dark:text-purple-400">This month</p>
-                        </div>
-                        <DollarSign className="h-8 w-8 text-purple-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950 dark:to-amber-900" data-testid="card-compliance">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-amber-700 dark:text-amber-300">Compliance Score</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-3xl font-bold text-amber-900 dark:text-amber-100" data-testid="text-compliance-score">
-                            {overview.complianceScore}%
-                          </div>
-                          <p className="text-xs text-amber-600 dark:text-amber-400">Excellent</p>
-                        </div>
-                        <Shield className="h-8 w-8 text-amber-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                <Suspense fallback={<LoadingState variant="section-stats-row" />}>
+                  <AgentKeyMetricsSection />
+                </Suspense>
 
                 {/* Pick of the Day Widget */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-2">
-                    <PickOfTheDayWidget />
+                <Suspense fallback={<LoadingState variant="section-chart" />}>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2">
+                      <PickOfTheDayWidget />
+                    </div>
                   </div>
-                </div>
+                </Suspense>
 
                 {/* Action Items & Client Distribution */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -914,7 +990,7 @@ export default function AgentDashboard() {
                             </span>
                             <span className="font-medium">{item.count}</span>
                           </div>
-                          <Progress value={(item.count / overview.totalClients) * 100} className="h-2" />
+                          <Progress value={(item.count / (overview.totalClients || 1)) * 100} className="h-2" />
                         </div>
                       ))}
                     </CardContent>
@@ -922,40 +998,9 @@ export default function AgentDashboard() {
                 </div>
 
                 {/* Recent Activity */}
-                <Card data-testid="card-recent-activity">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Clock className="h-5 w-5" />
-                      Recent Activity
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {recentActivity.map((activity) => (
-                        <div key={activity.id} className="flex items-center gap-4 p-3 bg-muted rounded-lg" data-testid={`activity-${activity.id}`}>
-                          <div className={`p-2 rounded-full ${
-                            activity.type === 'itr_filed' ? 'bg-green-100 dark:bg-green-900/30 text-green-600' :
-                            activity.type === 'kyc_completed' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' :
-                            activity.type === 'ca_assigned' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600' :
-                            activity.type === 'payment_received' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' :
-                            'bg-muted text-muted-foreground'
-                          }`}>
-                            {activity.type === 'itr_filed' ? <FileText className="h-4 w-4" /> :
-                             activity.type === 'kyc_completed' ? <CheckCircle className="h-4 w-4" /> :
-                             activity.type === 'ca_assigned' ? <UserCheck className="h-4 w-4" /> :
-                             activity.type === 'payment_received' ? <IndianRupee className="h-4 w-4" /> :
-                             <FileText className="h-4 w-4" />}
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">{activity.client}</p>
-                            <p className="text-xs text-muted-foreground">{activity.message}</p>
-                          </div>
-                          <span className="text-xs text-muted-foreground">{activity.time}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                <Suspense fallback={<LoadingState variant="section-table" count={5} />}>
+                  <AgentRecentActivitySection />
+                </Suspense>
               </>
             );
           })()}

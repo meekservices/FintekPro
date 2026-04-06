@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, TrendingUp, TrendingDown, Star, Filter, Calculator, RefreshCw, ArrowRight, Shield, Building2, Award, Clock, AlertCircle, Store, ChevronLeft, ChevronRight, ShoppingCart, ClipboardList, Wallet, IndianRupee, ArrowUpRight, ArrowDownRight, Package, FileText, CheckCircle2, AlertTriangle, Banknote, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMutualFunds, usePopularMutualFunds, useSearchMutualFunds, type MutualFundData } from "@/hooks/use-mutual-funds";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useNSEIndices, useMarketMovers, useMarketStatus } from "@/hooks/use-market-data";
 import { usePortfolios, usePortfolioPerformance, useEnhancedPortfolioHoldings } from "@/hooks/use-portfolio";
 import { InvestmentModal } from "@/components/InvestmentModal";
@@ -665,6 +665,200 @@ function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; seb
   );
 }
 
+function PopularFundsSection({ sebiData, onInvestClick, onViewAll }: {
+  sebiData?: any[];
+  onInvestClick: (fund: MutualFundData) => void;
+  onViewAll: () => void;
+}) {
+  const { data: popularFunds } = useSuspenseQuery<MutualFundData[]>({
+    queryKey: ['/api/mutual-funds/popular'],
+    queryFn: async () => {
+      const res = await fetch('/api/mutual-funds/popular');
+      if (!res.ok) throw new Error('Failed to fetch popular funds');
+      const result = await res.json();
+      return result.data || result;
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  return (
+    <section>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-foreground">Popular Funds</h2>
+        {popularFunds && popularFunds.length > 0 && (
+          <Button variant="outline" size="sm" className="flex items-center gap-2" onClick={onViewAll} data-testid="view-all-funds">
+            View All <ArrowRight className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+      {popularFunds && popularFunds.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {popularFunds.map((fund) => (
+            <FundCard key={fund.schemeCode} fund={fund} sebiData={sebiData} onInvestClick={onInvestClick} />
+          ))}
+        </div>
+      ) : (
+        <Card className="border-dashed border-2 border-border">
+          <CardContent className="flex flex-col items-center justify-center py-8">
+            <TrendingUp className="h-8 w-8 text-muted-foreground mb-2" />
+            <p className="text-muted-foreground text-center">No popular mutual funds available.</p>
+          </CardContent>
+        </Card>
+      )}
+    </section>
+  );
+}
+
+interface StoreFundsGridProps {
+  storeCategory: string;
+  storeFundHouse: string;
+  storePlanType: string;
+  storeSearchTerm: string;
+  storePage: number;
+  setStorePage: (value: number | ((prev: number) => number)) => void;
+  setStoreSearchTerm: (v: string) => void;
+  setStoreCategory: (v: string) => void;
+  setStoreFundHouse: (v: string) => void;
+  onInvestClick: (fund: MutualFundData) => void;
+}
+
+function StoreFundsGrid({
+  storeCategory, storeFundHouse, storePlanType, storeSearchTerm, storePage,
+  setStorePage, setStoreSearchTerm, setStoreCategory, setStoreFundHouse, onInvestClick
+}: StoreFundsGridProps) {
+  const queryKey = ["/api/public/mutual-funds", storeCategory, storeFundHouse, storePlanType, storeSearchTerm, storePage];
+  const { data: publishedFundsData, refetch: refetchPublished } = useSuspenseQuery<any>({
+    queryKey,
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: storePage.toString(),
+        limit: '24',
+        planType: storePlanType,
+        ...(storeCategory !== 'all' && { category: storeCategory }),
+        ...(storeFundHouse !== 'all' && { fundHouse: storeFundHouse }),
+        ...(storeSearchTerm && { search: storeSearchTerm })
+      });
+      const res = await fetch(`/api/public/mutual-funds?${params}`);
+      if (!res.ok) throw new Error('Failed to fetch published funds');
+      return res.json();
+    },
+  });
+
+  if (publishedFundsData?.funds?.length > 0) {
+    return (
+      <>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {publishedFundsData.funds.map((fund: any) => (
+            <Card
+              key={fund.id}
+              className="group hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border border-border"
+              data-testid={`store-fund-card-${fund.schemeCode}`}
+            >
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-foreground line-clamp-2 group-hover:text-finance-blue transition-colors">
+                      {fund.schemeName}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
+                      <Building2 className="w-3 h-3" />
+                      {fund.fundHouse}
+                    </p>
+                  </div>
+                  <Badge variant={fund.planType === 'direct' ? 'default' : 'secondary'} className={fund.planType === 'direct' ? 'bg-green-600' : ''}>
+                    {fund.planType === 'direct' ? 'Direct' : 'Regular'}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2 mb-4">
+                  {fund.category && <Badge variant="outline" className="text-xs">{fund.category}</Badge>}
+                  {fund.riskLevel && (
+                    <Badge variant="outline" className={`text-xs ${
+                      fund.riskLevel === 'low' ? 'text-green-600 border-green-300' :
+                      fund.riskLevel === 'medium' ? 'text-amber-600 border-amber-300' :
+                      'text-red-600 border-red-300'
+                    }`}>
+                      {fund.riskLevel} risk
+                    </Badge>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-muted rounded-lg">
+                  <div>
+                    <p className="text-xs text-muted-foreground">NAV</p>
+                    <p className="text-lg font-bold text-foreground">₹{parseFloat(fund.nav || '0').toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">1Y Returns</p>
+                    <p className={`text-lg font-bold ${parseFloat(fund.returns1y || '0') >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {parseFloat(fund.returns1y || '0') >= 0 ? '+' : ''}{parseFloat(fund.returns1y || '0').toFixed(2)}%
+                    </p>
+                  </div>
+                </div>
+                {fund.rating && (
+                  <div className="flex items-center gap-1 mb-4">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star key={star} className={`w-4 h-4 ${star <= fund.rating ? 'text-yellow-400 fill-current' : 'text-muted-foreground'}`} />
+                    ))}
+                    <span className="text-xs text-muted-foreground ml-1">FintekPro Rating</span>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="flex-1 bg-finance-blue hover:bg-blue-600"
+                    onClick={() => onInvestClick({
+                      schemeCode: fund.schemeCode,
+                      schemeName: fund.schemeName,
+                      fundHouse: fund.fundHouse,
+                      category: fund.category,
+                      nav: fund.nav,
+                      change: fund.change || '0',
+                      changePercent: fund.changePercent || '0'
+                    } as MutualFundData)}
+                    data-testid={`store-invest-${fund.schemeCode}`}
+                  >
+                    Invest Now
+                  </Button>
+                  <Button size="sm" variant="outline" data-testid={`store-details-${fund.schemeCode}`}>Details</Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        {publishedFundsData.pagination?.totalPages > 1 && (
+          <div className="flex items-center justify-center gap-4 pt-6">
+            <Button variant="outline" size="sm" disabled={storePage <= 1} onClick={() => setStorePage(p => Math.max(1, p - 1))} data-testid="store-prev-page">
+              <ChevronLeft className="w-4 h-4 mr-1" />Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">Page {storePage} of {publishedFundsData.pagination.totalPages}</span>
+            <Button variant="outline" size="sm" disabled={storePage >= publishedFundsData.pagination.totalPages} onClick={() => setStorePage(p => p + 1)} data-testid="store-next-page">
+              Next<ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <Card className="border-dashed border-2 border-border">
+      <CardContent className="flex flex-col items-center justify-center py-16">
+        <Store className="h-16 w-16 text-muted-foreground mb-4" />
+        <h3 className="text-xl font-semibold text-muted-foreground mb-2">No Published Funds</h3>
+        <p className="text-muted-foreground text-center max-w-md mb-4">
+          {storeSearchTerm || storeCategory !== 'all' || storeFundHouse !== 'all'
+            ? 'No funds match your current filters. Try adjusting your search criteria.'
+            : 'Mutual fund schemes will appear here once they are imported and published by the admin.'}
+        </p>
+        {(storeSearchTerm || storeCategory !== 'all' || storeFundHouse !== 'all') && (
+          <Button variant="outline" onClick={() => { setStoreSearchTerm(''); setStoreCategory('all'); setStoreFundHouse('all'); setStorePage(() => 1); }}>
+            Clear Filters
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function MutualFunds() {
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -1055,7 +1249,7 @@ export default function MutualFunds() {
     fund.category?.toLowerCase().includes(selectedCategory.toLowerCase())
   );
 
-  const isLoading = isLoadingAll || isLoadingPopular || (searchTerm.length > 2 && isSearching);
+  const isLoading = isLoadingAll || (searchTerm.length > 2 && isSearching);
 
   // Investment modal state
   const [selectedFund, setSelectedFund] = useState<MutualFundData | null>(null);
@@ -1148,7 +1342,7 @@ export default function MutualFunds() {
   
   // Check if any data is stale or has errors
   const hasStaleData = isNSEStale || isMoversStale || isStatusStale || isPortfoliosStale || isPerformanceStale || isHoldingsStale;
-  const hasDataErrors = nseError || allError || popularError;
+  const hasDataErrors = nseError || allError;
 
   return (
     <div className="space-y-8" data-testid="mutual-funds-page">
@@ -1804,194 +1998,20 @@ export default function MutualFunds() {
             </div>
             
             {/* Funds Grid */}
-            {isLoadingPublished ? (
-              <LoadingState variant="card" count={6} />
-            ) : publishedError ? (
-              <Card className="border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700">
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
-                  <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200 mb-2">No Published Funds Yet</h3>
-                  <p className="text-amber-700 dark:text-amber-300 text-center max-w-md">
-                    Mutual fund schemes will appear here once they are published by the admin. 
-                    Please import funds from AMFI and enable AMC publishing in the admin portal.
-                  </p>
-                  <Button 
-                    variant="outline" 
-                    className="mt-4"
-                    onClick={() => refetchPublished()}
-                  >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Refresh
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : publishedFundsData?.funds?.length > 0 ? (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {publishedFundsData.funds.map((fund: any) => (
-                    <Card 
-                      key={fund.id} 
-                      className="group hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border border-border"
-                      data-testid={`store-fund-card-${fund.schemeCode}`}
-                    >
-                      <CardContent className="p-6">
-                        <div className="flex justify-between items-start mb-4">
-                          <div className="flex-1">
-                            <h3 className="font-bold text-foreground line-clamp-2 group-hover:text-finance-blue transition-colors">
-                              {fund.schemeName}
-                            </h3>
-                            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
-                              <Building2 className="w-3 h-3" />
-                              {fund.fundHouse}
-                            </p>
-                          </div>
-                          <Badge 
-                            variant={fund.planType === 'direct' ? 'default' : 'secondary'}
-                            className={fund.planType === 'direct' ? 'bg-green-600' : ''}
-                          >
-                            {fund.planType === 'direct' ? 'Direct' : 'Regular'}
-                          </Badge>
-                        </div>
-                        
-                        <div className="flex items-center gap-2 mb-4">
-                          {fund.category && (
-                            <Badge variant="outline" className="text-xs">
-                              {fund.category}
-                            </Badge>
-                          )}
-                          {fund.riskLevel && (
-                            <Badge 
-                              variant="outline" 
-                              className={`text-xs ${
-                                fund.riskLevel === 'low' ? 'text-green-600 border-green-300 dark:border-green-700' :
-                                fund.riskLevel === 'medium' ? 'text-amber-600 border-amber-300 dark:border-amber-700' :
-                                'text-red-600 border-red-300 dark:border-red-700'
-                              }`}
-                            >
-                              {fund.riskLevel} risk
-                            </Badge>
-                          )}
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-muted rounded-lg">
-                          <div>
-                            <p className="text-xs text-muted-foreground">NAV</p>
-                            <p className="text-lg font-bold text-foreground">
-                              ₹{parseFloat(fund.nav || '0').toFixed(2)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">1Y Returns</p>
-                            <p className={`text-lg font-bold ${
-                              parseFloat(fund.returns1y || '0') >= 0 
-                                ? 'text-green-600 dark:text-green-400' 
-                                : 'text-red-600 dark:text-red-400'
-                            }`}>
-                              {parseFloat(fund.returns1y || '0') >= 0 ? '+' : ''}
-                              {parseFloat(fund.returns1y || '0').toFixed(2)}%
-                            </p>
-                          </div>
-                        </div>
-                        
-                        {fund.rating && (
-                          <div className="flex items-center gap-1 mb-4">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <Star
-                                key={star}
-                                className={`w-4 h-4 ${star <= fund.rating ? 'text-yellow-400 fill-current' : 'text-muted-foreground'}`}
-                              />
-                            ))}
-                            <span className="text-xs text-muted-foreground ml-1">FintekPro Rating</span>
-                          </div>
-                        )}
-                        
-                        <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            className="flex-1 bg-finance-blue hover:bg-blue-600"
-                            onClick={() => handleInvestClick({
-                              schemeCode: fund.schemeCode,
-                              schemeName: fund.schemeName,
-                              fundHouse: fund.fundHouse,
-                              category: fund.category,
-                              nav: fund.nav,
-                              change: fund.change || '0',
-                              changePercent: fund.changePercent || '0'
-                            } as MutualFundData)}
-                            data-testid={`store-invest-${fund.schemeCode}`}
-                          >
-                            Invest Now
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            data-testid={`store-details-${fund.schemeCode}`}
-                          >
-                            Details
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-                
-                {/* Pagination */}
-                {publishedFundsData.pagination?.totalPages > 1 && (
-                  <div className="flex items-center justify-center gap-4 pt-6">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={storePage <= 1}
-                      onClick={() => setStorePage(p => Math.max(1, p - 1))}
-                      data-testid="store-prev-page"
-                    >
-                      <ChevronLeft className="w-4 h-4 mr-1" />
-                      Previous
-                    </Button>
-                    <span className="text-sm text-muted-foreground">
-                      Page {storePage} of {publishedFundsData.pagination.totalPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={storePage >= publishedFundsData.pagination.totalPages}
-                      onClick={() => setStorePage(p => p + 1)}
-                      data-testid="store-next-page"
-                    >
-                      Next
-                      <ChevronRight className="w-4 h-4 ml-1" />
-                    </Button>
-                  </div>
-                )}
-              </>
-            ) : (
-              <Card className="border-dashed border-2 border-border">
-                <CardContent className="flex flex-col items-center justify-center py-16">
-                  <Store className="h-16 w-16 text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-semibold text-muted-foreground mb-2">
-                    No Published Funds
-                  </h3>
-                  <p className="text-muted-foreground text-center max-w-md mb-4">
-                    {storeSearchTerm || storeCategory !== 'all' || storeFundHouse !== 'all'
-                      ? 'No funds match your current filters. Try adjusting your search criteria.'
-                      : 'Mutual fund schemes will appear here once they are imported and published by the admin.'}
-                  </p>
-                  {(storeSearchTerm || storeCategory !== 'all' || storeFundHouse !== 'all') && (
-                    <Button 
-                      variant="outline"
-                      onClick={() => {
-                        setStoreSearchTerm('');
-                        setStoreCategory('all');
-                        setStoreFundHouse('all');
-                        setStorePage(1);
-                      }}
-                    >
-                      Clear Filters
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+            <Suspense fallback={<LoadingState variant="section-table" count={6} />}>
+              <StoreFundsGrid
+                storeCategory={storeCategory}
+                storeFundHouse={storeFundHouse}
+                storePlanType={storePlanType}
+                storeSearchTerm={storeSearchTerm}
+                storePage={storePage}
+                setStorePage={setStorePage}
+                setStoreSearchTerm={setStoreSearchTerm}
+                setStoreCategory={setStoreCategory}
+                setStoreFundHouse={setStoreFundHouse}
+                onInvestClick={handleInvestClick}
+              />
+            </Suspense>
           </TabsContent>
 
           {/* Proposals Tab - AI/Agent Investment Proposals */}
@@ -2691,50 +2711,13 @@ export default function MutualFunds() {
           <TabsContent value="explore" className="space-y-6" data-testid="explore-funds">
             
             {/* Popular Funds */}
-            <section>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-foreground">Popular Funds</h2>
-                {popularFunds && popularFunds.length > 0 && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex items-center gap-2" 
-                    onClick={handleViewAllClick}
-                    data-testid="view-all-funds"
-                  >
-                    View All <ArrowRight className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-              
-              {isLoadingPopular ? (
-                <LoadingState variant="card" count={6} />
-              ) : popularError ? (
-                <Card className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
-                  <CardContent className="flex flex-col items-center justify-center py-8">
-                    <TrendingDown className="h-8 w-8 text-red-500 mb-2" />
-                    <p className="text-red-700 dark:text-red-300 text-center">
-                      Unable to load popular funds. Please try refreshing.
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : popularFunds && popularFunds.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {popularFunds.map((fund) => (
-                    <FundCard key={fund.schemeCode} fund={fund} sebiData={Array.isArray(sebiMutualFunds) ? sebiMutualFunds : undefined} onInvestClick={handleInvestClick} />
-                  ))}
-                </div>
-              ) : (
-                <Card className="border-dashed border-2 border-border">
-                  <CardContent className="flex flex-col items-center justify-center py-8">
-                    <TrendingUp className="h-8 w-8 text-muted-foreground mb-2" />
-                    <p className="text-muted-foreground text-center">
-                      Loading popular mutual funds...
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </section>
+            <Suspense fallback={<LoadingState variant="card" count={6} />}>
+              <PopularFundsSection
+                sebiData={Array.isArray(sebiMutualFunds) ? sebiMutualFunds : undefined}
+                onInvestClick={handleInvestClick}
+                onViewAll={handleViewAllClick}
+              />
+            </Suspense>
 
             {/* All Funds */}
             {filteredFunds.length > 0 && (
@@ -2754,7 +2737,7 @@ export default function MutualFunds() {
             )}
 
             {/* Loading state for search/all funds */}
-            {isLoading && !isLoadingPopular && (
+            {isLoading && (
               <LoadingState variant="card" count={6} />
             )}
 
