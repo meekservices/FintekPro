@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 interface LoadingStateProps {
-  variant?: 'card' | 'list' | 'table' | 'form' | 'stats' | 'chart' | 'dashboard' | 'portfolio' | 'market-movers' | 'agent-dashboard' | 'partner-dashboard';
+  variant?: 'card' | 'list' | 'table' | 'form' | 'stats' | 'chart' | 'dashboard' | 'portfolio' | 'market-movers' | 'agent-dashboard' | 'partner-dashboard' | 'section-table' | 'section-chart' | 'section-stats-row';
   count?: number;
   className?: string;
 }
@@ -402,6 +402,91 @@ export function LoadingState({ variant = 'card', count = 1, className = '' }: Lo
           </Card>
         </div>
       </div>
+    );
+  }
+
+  if (variant === 'section-stats-row') {
+    return (
+      <div className={`grid grid-cols-2 md:grid-cols-4 gap-4 ${className}`} data-testid="loading-section-stats-row">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i}>
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-7 w-28" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+                <Skeleton className="h-10 w-10 rounded-lg" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  if (variant === 'section-chart') {
+    const barHeights = [42, 65, 50, 78, 38, 55, 70, 45, 60, 35, 72, 48];
+    return (
+      <Card className={className} data-testid="loading-section-chart">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <Skeleton className="h-8 w-24 rounded-md" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="h-56 flex items-end justify-between gap-1.5 pb-2">
+            {barHeights.map((height, i) => (
+              <Skeleton
+                key={i}
+                className="flex-1 rounded-t"
+                style={{ height: `${height}%` }}
+              />
+            ))}
+          </div>
+          <div className="flex justify-between mt-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-3 w-10" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (variant === 'section-table') {
+    return (
+      <Card className={className} data-testid="loading-section-table">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-5 w-36" />
+            <Skeleton className="h-8 w-28 rounded-md" />
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="border-t">
+            <div className="grid grid-cols-5 gap-4 px-4 py-3 bg-muted/50">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-3 w-full" />
+              ))}
+            </div>
+            {Array.from({ length: count > 1 ? count : 6 }).map((_, i) => (
+              <div key={i} className="grid grid-cols-5 gap-4 px-4 py-3 border-t">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-4/5" />
+                <Skeleton className="h-4 w-3/5" />
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 

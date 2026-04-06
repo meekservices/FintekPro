@@ -22,8 +22,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { usePortfoliosByPan, useEnhancedPortfolioHoldings, usePortfolioPerformance, useEpfHoldings, usePpfHoldings, useEpsHoldings, useInsuranceHoldings, useNpsAccounts, useApyAccounts } from "@/hooks/use-portfolio";
 import { LoadingState } from "@/components/LoadingState";
 import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard, PiggyBank, Shield, Target, Calculator, AlertTriangle, Building2, ExternalLink, Briefcase, History, FileText, CheckCircle2, Clock, XCircle, Loader2, ChevronDown, Landmark } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { useState, useEffect, Suspense } from "react";
 import { useConsent, type SchemeType } from "@/hooks/use-consent";
 import { ConsentDialog } from "@/components/ConsentDialog";
 import { ConsentAwareSchemeTab } from "@/components/ConsentAwareSchemeTab";
@@ -175,6 +175,201 @@ function tagTrackerHoldings(
     source: matchHolding(holding, fintekproHoldings) ? 'FINTEKPRO' as PortfolioSource : 'EXTERNAL' as PortfolioSource,
     portfolioView: 'TRACKER' as PortfolioView
   }));
+}
+
+function HoldingsTableSection({ portfolioId }: { portfolioId: string }) {
+  const { data: enhancedHoldings } = useSuspenseQuery<import("@/hooks/use-portfolio").EnhancedHolding[]>({
+    queryKey: ['/api/portfolios', portfolioId, 'holdings', 'enhanced'],
+    refetchInterval: 30000,
+    select: (data: any) => Array.isArray(data) ? data : [],
+  });
+
+  if (!enhancedHoldings || enhancedHoldings.length === 0) {
+    return (
+      <div className="text-center py-8" data-testid="empty-holdings">
+        <p className="text-muted-foreground mb-4">No holdings found</p>
+        <Button variant="outline">Add Your First Investment</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6" data-testid="holdings-list">
+      {Object.entries(
+        enhancedHoldings.reduce((groups: Record<string, typeof enhancedHoldings>, holding) => {
+          const assetType = holding.assetType;
+          if (!groups[assetType]) groups[assetType] = [];
+          groups[assetType].push(holding);
+          return groups;
+        }, {})
+      ).map(([assetType, holdings]) => {
+        const totalInvested = Array.isArray(holdings) ? holdings.reduce((sum, h) => sum + parseFloat(h.investedValue || '0'), 0) : 0;
+        const totalCurrent = Array.isArray(holdings) ? holdings.reduce((sum, h) => sum + parseFloat(h.currentValue || '0'), 0) : 0;
+        const totalGainLoss = totalCurrent - totalInvested;
+        const totalGainLossPercent = totalInvested > 0 ? (totalGainLoss / totalInvested) * 100 : 0;
+        const assetTypeLabel = assetType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+        return (
+          <div key={assetType} className="bg-muted/50 rounded-lg p-4">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-border">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground capitalize">{assetTypeLabel}</h3>
+                <p className="text-sm text-muted-foreground">{holdings?.length || 0} holding{(holdings?.length || 0) !== 1 ? 's' : ''}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold text-foreground">₹{totalCurrent.toLocaleString()}</p>
+                <div className={`text-sm flex items-center justify-end ${totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {totalGainLoss >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                  {totalGainLoss >= 0 ? '+' : ''}₹{totalGainLoss.toFixed(0)} ({totalGainLossPercent.toFixed(1)}%)
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {holdings?.map((holding) => (
+                <div key={holding.id} className="flex justify-between items-center p-3 bg-background rounded-md" data-testid={`holding-${holding.symbol}`}>
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2">
+                      <h4 className="font-semibold text-foreground">{holding.symbol}</h4>
+                      <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-0.5 rounded">{holding.exchange}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Qty: {holding.quantity} @ ₹{holding.avgPrice}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-foreground">₹{parseFloat(holding.currentValue).toLocaleString()}</p>
+                    <div className={`text-sm ${parseFloat(holding.gainLoss) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {parseFloat(holding.gainLoss) >= 0 ? '+' : ''}{parseFloat(holding.gainLossPercent).toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PortfolioChartSection({ portfolioId }: { portfolioId: string }) {
+  const { data: performance } = useSuspenseQuery<import("@/hooks/use-portfolio").PortfolioPerformance>({
+    queryKey: ['/api/portfolios', portfolioId, 'performance'],
+    refetchInterval: 30000,
+  });
+  return (
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <PortfolioPerformanceChart
+        currentValue={performance?.totalCurrentValue ? parseFloat(performance.totalCurrentValue) : 0}
+        investedValue={performance?.totalInvestedValue ? parseFloat(performance.totalInvestedValue) : 0}
+        isLoading={false}
+      />
+      <AssetAllocationChart
+        assets={(performance?.assetBreakdown ?? []).map((asset: any, _index: number) => ({
+          name: asset.name,
+          value: asset.value,
+          percentage: parseFloat(asset.percentage),
+          color: asset.color,
+          changePercent: parseFloat(asset.changePercent || '0'),
+        }))}
+        totalValue={performance?.totalCurrentValue ? parseFloat(performance.totalCurrentValue) : 0}
+        isLoading={false}
+      />
+    </div>
+  );
+}
+
+function FintekproOrdersSection({ isAuthenticated }: { isAuthenticated: boolean }) {
+  const { data: fintekproOrders } = useSuspenseQuery<import("@shared/schema").UnifiedOrder[]>({
+    queryKey: ["/api/unified-orders"],
+    enabled: isAuthenticated,
+  });
+  if (!Array.isArray(fintekproOrders) || fintekproOrders.length === 0) {
+    return (
+      <div className="text-center py-16" data-testid="fintekpro-empty">
+        <Briefcase className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-muted-foreground mb-2">No FintekPro Investments</h3>
+        <p className="text-muted-foreground text-center max-w-md mx-auto mb-6">
+          You haven't made any investments through FintekPro yet. Start investing to see your portfolio here.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg" data-testid="stat-total-orders">
+          <div className="text-sm text-muted-foreground">Total Orders</div>
+          <div className="text-2xl font-bold text-blue-600">{fintekproOrders.length}</div>
+        </div>
+        <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg" data-testid="stat-completed-orders">
+          <div className="text-sm text-muted-foreground">Completed</div>
+          <div className="text-2xl font-bold text-green-600">
+            {fintekproOrders.filter(o => o.status === 'completed').length}
+          </div>
+        </div>
+        <div className="p-4 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg" data-testid="stat-pending-orders">
+          <div className="text-sm text-muted-foreground">Pending</div>
+          <div className="text-2xl font-bold text-yellow-600">
+            {fintekproOrders.filter(o => o.status === 'processing' || o.status === 'initiated').length}
+          </div>
+        </div>
+        <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg" data-testid="stat-total-invested">
+          <div className="text-sm text-muted-foreground">Total Invested</div>
+          <div className="text-2xl font-bold text-purple-600">
+            ₹{fintekproOrders.reduce((sum, o) => sum + parseFloat(o.amount || '0'), 0).toLocaleString()}
+          </div>
+        </div>
+      </div>
+      <div className="border rounded-lg overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Order #</TableHead>
+              <TableHead>Product</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Date</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {fintekproOrders.map((order) => (
+              <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
+                <TableCell className="font-medium">{order.orderNumber}</TableCell>
+                <TableCell>
+                  <div>
+                    <div className="font-medium">{order.productName}</div>
+                    <div className="text-xs text-muted-foreground capitalize">{order.productType?.replace('_', ' ')}</div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="capitalize">{order.orderType}</Badge>
+                </TableCell>
+                <TableCell className="text-right font-medium">
+                  ₹{parseFloat(order.amount || '0').toLocaleString()}
+                </TableCell>
+                <TableCell>
+                  <Badge className={
+                    order.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' :
+                    order.status === 'processing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' :
+                    order.status === 'cancelled' || order.status === 'failed' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200' :
+                    'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200'
+                  }>
+                    {order.status === 'completed' && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                    {order.status === 'processing' && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                    {(order.status === 'initiated' || order.status === 'pending') && <Clock className="h-3 w-3 mr-1" />}
+                    {(order.status === 'cancelled' || order.status === 'failed') && <XCircle className="h-3 w-3 mr-1" />}
+                    {order.status}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm">
+                  {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '—'}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
 }
 
 export default function Portfolio() {
@@ -465,25 +660,16 @@ export default function Portfolio() {
             <QuickInsights isLoading={isLoading} />
 
             {/* Performance Chart and Asset Allocation */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <PortfolioPerformanceChart
-                currentValue={performance?.totalCurrentValue ? parseFloat(performance.totalCurrentValue) : 0}
-                investedValue={performance?.totalInvestedValue ? parseFloat(performance.totalInvestedValue) : 0}
-                isLoading={isLoading}
-              />
-              
-              <AssetAllocationChart
-                assets={performance?.assetBreakdown?.map((asset: any, index: number) => ({
-                  name: asset.name,
-                  value: asset.value,
-                  percentage: parseFloat(asset.percentage),
-                  color: asset.color,
-                  changePercent: parseFloat(asset.changePercent || '0'),
-                })) || []}
-                totalValue={performance?.totalCurrentValue ? parseFloat(performance.totalCurrentValue) : 0}
-                isLoading={isLoading}
-              />
-            </div>
+            {portfolioId ? (
+              <Suspense fallback={<LoadingState variant="section-chart" />}>
+                <PortfolioChartSection portfolioId={portfolioId} />
+              </Suspense>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <PortfolioPerformanceChart currentValue={0} investedValue={0} isLoading={isLoading} />
+                <AssetAllocationChart assets={[]} totalValue={0} isLoading={isLoading} />
+              </div>
+            )}
 
             {/* Government Schemes Summary Card */}
             <Card className="border-l-4 border-green-500">
@@ -541,78 +727,16 @@ export default function Portfolio() {
                 {/* Holdings Table */}
                 <Card>
                   <CardHeader>
-                    <div className="flex justify-between items-center">
-                      <CardTitle>Portfolio Holdings by Asset Class</CardTitle>
-                      {enhancedHoldings && (
-                        <div className="text-sm text-muted-foreground">
-                          {enhancedHoldings.length} total holdings
-                        </div>
-                      )}
-                    </div>
+                    <CardTitle>Portfolio Holdings by Asset Class</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {isLoading ? (
-                      <LoadingState variant="list" count={5} />
-                    ) : Array.isArray(enhancedHoldings) && enhancedHoldings.length > 0 ? (
-                      <div className="space-y-6" data-testid="holdings-list">
-                        {Object.entries(
-                          enhancedHoldings.reduce((groups, holding) => {
-                            const assetType = holding.assetType;
-                            if (!groups[assetType]) {
-                              groups[assetType] = [];
-                            }
-                            groups[assetType].push(holding);
-                            return groups;
-                          }, {} as Record<string, typeof enhancedHoldings>)
-                        ).map(([assetType, holdings]) => {
-                          const totalInvested = Array.isArray(holdings) ? holdings.reduce((sum, h) => sum + parseFloat(h.investedValue || '0'), 0) : 0;
-                          const totalCurrent = Array.isArray(holdings) ? holdings.reduce((sum, h) => sum + parseFloat(h.currentValue || '0'), 0) : 0;
-                          const totalGainLoss = totalCurrent - totalInvested;
-                          const totalGainLossPercent = totalInvested > 0 ? (totalGainLoss / totalInvested) * 100 : 0;
-                          const assetTypeLabel = assetType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-                          
-                          return (
-                            <div key={assetType} className="bg-muted/50 rounded-lg p-4">
-                              <div className="flex justify-between items-center mb-4 pb-3 border-b border-border">
-                                <div>
-                                  <h3 className="text-lg font-semibold text-foreground capitalize">{assetTypeLabel}</h3>
-                                  <p className="text-sm text-muted-foreground">{holdings?.length || 0} holding{(holdings?.length || 0) !== 1 ? 's' : ''}</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-lg font-bold text-foreground">₹{totalCurrent.toLocaleString()}</p>
-                                  <div className={`text-sm flex items-center justify-end ${totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {totalGainLoss >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
-                                    {totalGainLoss >= 0 ? '+' : ''}₹{totalGainLoss.toFixed(0)} ({totalGainLossPercent.toFixed(1)}%)
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="space-y-2">
-                                {holdings?.map((holding) => (
-                                  <div key={holding.id} className="flex justify-between items-center p-3 bg-background rounded-md" data-testid={`holding-${holding.symbol}`}>
-                                    <div className="flex-1">
-                                      <div className="flex items-center space-x-2">
-                                        <h4 className="font-semibold text-foreground">{holding.symbol}</h4>
-                                        <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-0.5 rounded">{holding.exchange}</span>
-                                      </div>
-                                      <p className="text-sm text-muted-foreground">Qty: {holding.quantity} @ ₹{holding.avgPrice}</p>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="font-bold text-foreground">₹{parseFloat(holding.currentValue).toLocaleString()}</p>
-                                      <div className={`text-sm ${parseFloat(holding.gainLoss) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                        {parseFloat(holding.gainLoss) >= 0 ? '+' : ''}{parseFloat(holding.gainLossPercent).toFixed(1)}%
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                    {portfolioId ? (
+                      <Suspense fallback={<LoadingState variant="section-table" count={5} />}>
+                        <HoldingsTableSection portfolioId={portfolioId} />
+                      </Suspense>
                     ) : (
                       <div className="text-center py-8" data-testid="empty-holdings">
-                        <p className="text-muted-foreground mb-4">No holdings found</p>
-                        <Button variant="outline">Add Your First Investment</Button>
+                        <p className="text-muted-foreground mb-4">No portfolio selected</p>
                       </div>
                     )}
                   </CardContent>
@@ -707,6 +831,7 @@ export default function Portfolio() {
 
           {/* FintekPro Portfolio Tab - Internal transactions done through platform */}
           <TabsContent value="fintekpro" className="space-y-8">
+            <Suspense fallback={<LoadingState variant="section-table" count={6} />}>
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -726,113 +851,7 @@ export default function Portfolio() {
                 </div>
               </CardHeader>
               <CardContent>
-                {ordersLoading ? (
-                  <LoadingState variant="table" count={5} />
-                ) : Array.isArray(fintekproOrders) && fintekproOrders.length > 0 ? (
-                  <div className="space-y-6">
-                    {/* Summary Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg" data-testid="stat-total-orders">
-                        <div className="text-sm text-muted-foreground">Total Orders</div>
-                        <div className="text-2xl font-bold text-blue-600">{fintekproOrders.length}</div>
-                      </div>
-                      <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg" data-testid="stat-completed-orders">
-                        <div className="text-sm text-muted-foreground">Completed</div>
-                        <div className="text-2xl font-bold text-green-600">
-                          {fintekproOrders.filter(o => o.status === 'completed').length}
-                        </div>
-                      </div>
-                      <div className="p-4 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg" data-testid="stat-pending-orders">
-                        <div className="text-sm text-muted-foreground">Pending</div>
-                        <div className="text-2xl font-bold text-yellow-600">
-                          {fintekproOrders.filter(o => o.status === 'processing' || o.status === 'initiated').length}
-                        </div>
-                      </div>
-                      <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg" data-testid="stat-total-invested">
-                        <div className="text-sm text-muted-foreground">Total Invested</div>
-                        <div className="text-2xl font-bold text-purple-600">
-                          ₹{fintekproOrders.reduce((sum, o) => sum + parseFloat(o.amount || '0'), 0).toLocaleString()}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Orders Table */}
-                    <div className="border rounded-lg overflow-hidden">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Order #</TableHead>
-                            <TableHead>Product</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead className="text-right">Amount</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Date</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {fintekproOrders.map((order) => (
-                            <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
-                              <TableCell className="font-medium">{order.orderNumber}</TableCell>
-                              <TableCell>
-                                <div>
-                                  <div className="font-medium">{order.productName}</div>
-                                  <div className="text-xs text-muted-foreground capitalize">{order.productType?.replace('_', ' ')}</div>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="capitalize">
-                                  {order.orderType}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right font-medium">
-                                ₹{parseFloat(order.amount || '0').toLocaleString()}
-                              </TableCell>
-                              <TableCell>
-                                <Badge 
-                                  className={
-                                    order.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' :
-                                    order.status === 'processing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' :
-                                    order.status === 'cancelled' || order.status === 'failed' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200' :
-                                    'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200'
-                                  }
-                                >
-                                  {order.status === 'completed' && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                                  {order.status === 'processing' && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-                                  {(order.status === 'initiated' || order.status === 'pending') && <Clock className="h-3 w-3 mr-1" />}
-                                  {(order.status === 'cancelled' || order.status === 'failed') && <XCircle className="h-3 w-3 mr-1" />}
-                                  {order.status}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {new Date(order.createdAt).toLocaleDateString('en-IN', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  year: 'numeric'
-                                })}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-12" data-testid="empty-orders">
-                    <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-foreground mb-2">No FintekPro Orders Yet</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Start investing through FintekPro to see your transactions here
-                    </p>
-                    <Button 
-                      className="bg-blue-600 hover:bg-blue-700"
-                      onClick={() => window.location.href = '/store'}
-                      data-testid="button-browse-products"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Browse Products
-                    </Button>
-                  </div>
-                )}
+                <FintekproOrdersSection isAuthenticated={isAuthenticated} />
               </CardContent>
             </Card>
 
@@ -894,10 +913,12 @@ export default function Portfolio() {
                 </div>
               </div>
             </div>
+            </Suspense>
           </TabsContent>
 
           {/* Tracker Portfolio Tab - PAN-level consolidated holdings from NSDL/CDSL */}
           <TabsContent value="tracker" className="space-y-8">
+            <Suspense fallback={<LoadingState variant="section-table" count={6} />}>
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -1080,10 +1101,12 @@ export default function Portfolio() {
                 </div>
               </div>
             </div>
+            </Suspense>
           </TabsContent>
 
           {/* External Portfolio Tab - DERIVED as (Tracker - FintekPro) */}
           <TabsContent value="external" className="space-y-8">
+            <Suspense fallback={<LoadingState variant="section-table" count={6} />}>
             {/* SEBI Compliance Disclosure Banner */}
             <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg" data-testid="external-portfolio-disclosure">
               <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -1239,6 +1262,7 @@ export default function Portfolio() {
                 <ExternalPortfolioSync />
               </CardContent>
             </Card>
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="insurance" className="space-y-8">
