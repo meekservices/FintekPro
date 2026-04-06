@@ -1,6 +1,11 @@
 import { Router, Request, Response } from 'express';
+import { db } from '../db';
+import { adminSettings } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 const router = Router();
+
+const SETTINGS_KEY = 'pan_active_provider';
 
 interface PANProviderConfig {
   provider: string;
@@ -14,16 +19,16 @@ interface PANProviderConfig {
   features: string[];
 }
 
-const PAN_PROVIDERS: PANProviderConfig[] = [
+const PAN_PROVIDERS: Omit<PANProviderConfig, 'isActive' | 'isConfigured' | 'missingEnvVars'>[] = [
   {
     provider: 'cashfree-pan',
     name: 'Cashfree Verification Suite',
     description: 'PAN verification via Cashfree API with name match scoring, Aadhaar seeding status, and corporate PAN support',
     pricePerVerification: 2.50,
-    isActive: true,
-    isConfigured: false,
-    requiredEnvVars: ['CASHFREE_APP_ID', 'CASHFREE_SECRET_KEY'],
-    missingEnvVars: [],
+    requiredEnvVars: [
+      'CASHFREE_SECUREID_APP_ID|CASHFREE_VERIFICATION_APP_ID|CASHFREE_PG_APP_ID|CASHFREE_APP_ID',
+      'CASHFREE_SECUREID_SECRET_KEY|CASHFREE_VERIFICATION_SECRET_KEY|CASHFREE_PG_SECRET_KEY|CASHFREE_SECRET_KEY',
+    ],
     features: ['Name Match Scoring', 'Aadhaar Seeding Status', 'Corporate PAN', 'Real-time API', 'Sandbox Testing'],
   },
   {
@@ -31,53 +36,76 @@ const PAN_PROVIDERS: PANProviderConfig[] = [
     name: 'Sandbox.co.in PAN API',
     description: 'Government-sourced PAN verification via Sandbox.co.in with detailed taxpayer info and compliance data',
     pricePerVerification: 1.80,
-    isActive: false,
-    isConfigured: false,
     requiredEnvVars: ['SANDBOX_API_KEY', 'SANDBOX_API_SECRET'],
-    missingEnvVars: [],
     features: ['Government Data Source', 'Taxpayer Category', 'Last Name Match', 'Compliance Check', 'Bulk Verification'],
   },
   {
-    provider: 'truthscreen-aadhaar',
+    provider: 'truthscreen-pan',
     name: 'TruthScreen PAN Verification',
     description: 'NSDL-backed PAN verification with comprehensive identity validation and fraud detection',
     pricePerVerification: 3.00,
-    isActive: false,
-    isConfigured: false,
     requiredEnvVars: ['TRUTHSCREEN_USERNAME', 'TRUTHSCREEN_PASSWORD'],
-    missingEnvVars: [],
     features: ['NSDL Direct', 'Fraud Detection', 'Identity Validation', 'Historical Records', 'Enterprise SLA'],
   },
 ];
 
-let activeProvider = 'cashfree-pan';
 let providerPricing: Record<string, number> = {
   'cashfree-pan': 2.50,
   'sandbox-pan': 1.80,
-  'truthscreen-aadhaar': 3.00,
+  'truthscreen-pan': 3.00,
 };
 
-function getProviders(): PANProviderConfig[] {
+let _activeProvider = 'cashfree-pan';
+let _loaded = false;
+
+async function loadActiveProvider(): Promise<string> {
+  if (_loaded) return _activeProvider;
+  try {
+    const [row] = await db
+      .select({ value: adminSettings.value })
+      .from(adminSettings)
+      .where(eq(adminSettings.key, SETTINGS_KEY));
+    if (row?.value && typeof row.value === 'string') {
+      _activeProvider = row.value;
+    } else if (row?.value && typeof (row.value as any) === 'object') {
+      _activeProvider = (row.value as any).provider || 'cashfree-pan';
+    }
+  } catch {
+  }
+  _loaded = true;
+  return _activeProvider;
+}
+
+async function saveActiveProvider(provider: string): Promise<void> {
+  _activeProvider = provider;
+  await db
+    .insert(adminSettings)
+    .values({ key: SETTINGS_KEY, value: provider as any, description: 'Active PAN verification provider' })
+    .onConflictDoUpdate({ target: adminSettings.key, set: { value: provider as any, updatedAt: new Date() } });
+}
+
+function isGroupConfigured(group: string): boolean {
+  return group.split('|').some(v => !!process.env[v]);
+}
+
+function getProviders(active: string): PANProviderConfig[] {
   return PAN_PROVIDERS.map(p => {
-    const missingEnvVars = p.requiredEnvVars.filter(v => !process.env[v]);
+    const missingGroups = p.requiredEnvVars.filter(g => !isGroupConfigured(g));
     return {
       ...p,
       pricePerVerification: providerPricing[p.provider] ?? p.pricePerVerification,
-      isActive: p.provider === activeProvider,
-      isConfigured: missingEnvVars.length === 0,
-      missingEnvVars,
+      isActive: p.provider === active,
+      isConfigured: missingGroups.length === 0,
+      missingEnvVars: missingGroups,
     };
   });
 }
 
 router.get('/providers', async (_req: Request, res: Response) => {
   try {
-    const providers = getProviders();
-    res.json({
-      success: true,
-      activeProvider,
-      providers,
-    });
+    const active = await loadActiveProvider();
+    const providers = getProviders(active);
+    res.json({ success: true, activeProvider: active, providers });
   } catch (error) {
     console.error('[PAN Provider Routes] Error fetching providers:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch PAN providers' });
@@ -87,14 +115,21 @@ router.get('/providers', async (_req: Request, res: Response) => {
 router.post('/set-provider', async (req: Request, res: Response) => {
   try {
     const { provider } = req.body;
-    if (!provider || !PAN_PROVIDERS.find(p => p.provider === provider)) {
+    const active = await loadActiveProvider();
+    const providerDef = PAN_PROVIDERS.find(p => p.provider === provider);
+    if (!provider || !providerDef) {
       return res.status(400).json({ success: false, error: 'Invalid provider' });
     }
-    const providerConfig = getProviders().find(p => p.provider === provider);
+    const configs = getProviders(active);
+    const providerConfig = configs.find(p => p.provider === provider);
     if (!providerConfig?.isConfigured) {
-      return res.status(400).json({ success: false, error: 'Provider is not configured. Please add the required environment variables first.' });
+      const missing = providerConfig?.missingEnvVars || [];
+      return res.status(400).json({
+        success: false,
+        error: `Provider not configured — missing credentials: ${missing.join(', ')}`,
+      });
     }
-    activeProvider = provider;
+    await saveActiveProvider(provider);
     res.json({ success: true, activeProvider: provider });
   } catch (error) {
     console.error('[PAN Provider Routes] Error setting provider:', error);
@@ -121,8 +156,10 @@ router.patch('/pricing', async (req: Request, res: Response) => {
 
 router.get('/usage', async (_req: Request, res: Response) => {
   try {
+    const active = await loadActiveProvider();
     res.json({
       success: true,
+      activeProvider: active,
       stats: {
         totalVerifications: 0,
         successfulVerifications: 0,
@@ -132,7 +169,6 @@ router.get('/usage', async (_req: Request, res: Response) => {
         thisMonth: { verifications: 0, cost: 0 },
         byProvider: {},
       },
-      mockData: true,
       note: 'Usage tracking will populate as verifications are processed',
     });
   } catch (error) {
@@ -140,4 +176,5 @@ router.get('/usage', async (_req: Request, res: Response) => {
   }
 });
 
+export { loadActiveProvider };
 export default router;
