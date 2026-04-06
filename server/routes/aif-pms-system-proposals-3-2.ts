@@ -140,10 +140,10 @@ app.get("/api/admin/api-config", requireAdmin, async (req, res) => {
         name: 'Cashfree',
         description: 'Payment gateway & verification (primary)',
         category: 'payments',
-        envVars: ['CASHFREE_APP_ID', 'CASHFREE_SECRET_KEY'],
-        environmentVar: 'CASHFREE_ENVIRONMENT',
-        status: process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY ? 'configured' : 'missing',
-        environment: process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'production' : 'sandbox'),
+        envVars: ['CASHFREE_PG_APP_ID', 'CASHFREE_PG_SECRET_KEY', 'CASHFREE_SECUREID_APP_ID', 'CASHFREE_SECUREID_SECRET_KEY'],
+        environmentVar: 'CASHFREE_PG_ENVIRONMENT',
+        status: (process.env.CASHFREE_PG_APP_ID || process.env.CASHFREE_APP_ID) && (process.env.CASHFREE_PG_SECRET_KEY || process.env.CASHFREE_SECRET_KEY) ? 'configured' : 'missing',
+        environment: process.env.CASHFREE_PG_ENVIRONMENT || process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'production' : 'sandbox'),
         testEndpoint: '/api/admin/api-config/test/cashfree',
         docs: 'https://docs.cashfree.com'
       },
@@ -323,21 +323,23 @@ app.post("/api/admin/api-config/test/:serviceId", requireAdmin, async (req, res)
     const startTime = Date.now();
 
     switch (serviceId) {
-      case 'cashfree':
-        if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
-          result = { success: false, message: 'Missing Cashfree credentials' };
+      case 'cashfree': {
+        const cfPgAppId = process.env.CASHFREE_PG_APP_ID || process.env.CASHFREE_APP_ID;
+        const cfPgSecret = process.env.CASHFREE_PG_SECRET_KEY || process.env.CASHFREE_SECRET_KEY;
+        if (!cfPgAppId || !cfPgSecret) {
+          result = { success: false, message: 'Missing Cashfree PG credentials (CASHFREE_PG_APP_ID / CASHFREE_PG_SECRET_KEY)' };
         } else {
           try {
-            const env = process.env.CASHFREE_ENVIRONMENT || 'sandbox';
-            const baseUrl = env === 'production' 
-              ? 'https://api.cashfree.com' 
+            const env = process.env.CASHFREE_PG_ENVIRONMENT || process.env.CASHFREE_ENVIRONMENT || 'sandbox';
+            const baseUrl = env.toUpperCase() === 'PRODUCTION'
+              ? 'https://api.cashfree.com'
               : 'https://sandbox.cashfree.com';
-            
+
             const response = await fetch(`${baseUrl}/pg/orders`, {
               method: 'GET',
               headers: {
-                'x-client-id': process.env.CASHFREE_APP_ID,
-                'x-client-secret': process.env.CASHFREE_SECRET_KEY,
+                'x-client-id': cfPgAppId,
+                'x-client-secret': cfPgSecret,
                 'x-api-version': '2023-08-01'
               }
             });
@@ -353,6 +355,7 @@ app.post("/api/admin/api-config/test/:serviceId", requireAdmin, async (req, res)
           }
         }
         break;
+      }
 
       case 'sandbox':
         if (!process.env.SANDBOX_API_KEY || !process.env.SANDBOX_API_SECRET) {

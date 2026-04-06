@@ -44,7 +44,10 @@ router.get('/providers', async (req: Request, res: Response) => {
         environment: process.env.NODE_ENV || 'development',
         truthscreenConfigured: !!(process.env.TRUTHSCREEN_USERNAME && process.env.TRUTHSCREEN_PASSWORD),
         sandboxConfigured: !!(process.env.SANDBOX_API_KEY && process.env.SANDBOX_API_SECRET),
-        cashfreeConfigured: !!(process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY),
+        cashfreeConfigured: !!(
+          (process.env.CASHFREE_PG_APP_ID || process.env.CASHFREE_APP_ID) &&
+          (process.env.CASHFREE_PG_SECRET_KEY || process.env.CASHFREE_SECRET_KEY)
+        ),
         bseStarConfigured: !!(process.env.BSE_STAR_API_KEY && process.env.BSE_STAR_USER_ID),
         kraConfigured: !!(process.env.KRA_API_KEY),
         nsdlCkycConfigured: !!(process.env.CKYC_API_KEY && process.env.CKYC_API_SECRET),
