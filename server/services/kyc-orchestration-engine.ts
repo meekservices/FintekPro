@@ -9,6 +9,10 @@ import {
   conversionFunnels,
   providerMetrics,
 } from "@shared/schema";
+import { CashfreePANService } from "./cashfree-pan-service";
+import { CashfreeAadhaarService } from "./cashfree-aadhaar-service";
+import { verifyBankAccountV2 } from "./cashfree-vrs-service";
+import { sandboxKYCService } from "./sandbox-kyc-service";
 
 interface VerificationRequest {
   userId: string;
@@ -242,34 +246,318 @@ class KycOrchestrationEngine {
     providerCode: string,
     request: VerificationRequest
   ): Promise<{ success: boolean; data?: Record<string, any>; errorCode?: string; errorMessage?: string }> {
+    const p = request.payload;
+
     switch (providerCode) {
-      case "sandbox_pan":
-        console.log(`[KYC-ENGINE] Calling Sandbox PAN verification for ${request.kycStep}`);
-        return { success: true, data: { verified: true, source: "sandbox_pan" } };
 
-      case "truthscreen_pan":
-        console.log(`[KYC-ENGINE] Calling TruthScreen PAN verification for ${request.kycStep}`);
-        return { success: true, data: { verified: true, source: "truthscreen_pan" } };
+      // ─── PAN VERIFICATION ────────────────────────────────────────────────
 
-      case "sandbox_aadhaar":
-        console.log(`[KYC-ENGINE] Calling Sandbox Aadhaar verification for ${request.kycStep}`);
-        return { success: true, data: { verified: true, source: "sandbox_aadhaar" } };
+      case "sandbox_pan": {
+        console.log(`[KYC-ENGINE] Calling Sandbox.co.in PAN verification`);
+        const pan = (p.pan || '').toUpperCase();
+        const name = p.name || '';
+        // sandbox requires DD/MM/YYYY — convert from YYYY-MM-DD if needed
+        let dob = p.dob || '01/01/1990';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+          const [y, m, d] = dob.split('-');
+          dob = `${d}/${m}/${y}`;
+        }
+        if (!pan || !name) {
+          return { success: false, errorCode: 'MISSING_PAYLOAD', errorMessage: 'pan and name are required for sandbox_pan' };
+        }
+        try {
+          const result = await sandboxKYCService.verifyPAN(pan, name, dob, p.reason || 'KYC verification');
+          if (result.status === 'valid') {
+            return {
+              success: true,
+              data: {
+                verified: true,
+                source: 'sandbox_pan',
+                pan: result.pan,
+                category: result.category,
+                nameMatch: result.nameMatch,
+                dobMatch: result.dobMatch,
+                aadhaarSeeded: result.aadhaarSeeded,
+                transactionId: result.transactionId,
+              },
+            };
+          }
+          return {
+            success: false,
+            errorCode: 'PAN_INVALID',
+            errorMessage: result.remarks || 'PAN is invalid or not found in NSDL records',
+          };
+        } catch (err: any) {
+          return { success: false, errorCode: 'PROVIDER_ERROR', errorMessage: err.message };
+        }
+      }
 
-      case "truthscreen_ckyc":
-        console.log(`[KYC-ENGINE] Calling TruthScreen CKYC verification for ${request.kycStep}`);
-        return { success: true, data: { verified: true, source: "truthscreen_ckyc" } };
+      case "cashfree_pan": {
+        console.log(`[KYC-ENGINE] Calling Cashfree Secure ID PAN Lite verification`);
+        const pan = (p.pan || '').toUpperCase();
+        const name = p.name || '';
+        if (!pan || !name) {
+          return { success: false, errorCode: 'MISSING_PAYLOAD', errorMessage: 'pan and name are required for cashfree_pan' };
+        }
+        if (!CashfreePANService.isConfigured()) {
+          return { success: false, errorCode: 'PROVIDER_NOT_CONFIGURED', errorMessage: 'Cashfree Secure ID credentials not set — add CASHFREE_SECUREID_APP_ID / CASHFREE_SECUREID_SECRET_KEY' };
+        }
+        try {
+          const result = await CashfreePANService.verifyPAN(pan, name);
+          if (result.verified) {
+            return {
+              success: true,
+              data: {
+                verified: true,
+                source: 'cashfree_pan',
+                pan: result.data?.pan,
+                type: result.data?.type,
+                registeredName: result.data?.registeredName,
+                nameMatchScore: result.data?.nameMatchScore,
+                nameMatchResult: result.data?.nameMatchResult,
+                panStatus: result.data?.panStatus,
+                aadhaarSeedingStatus: result.data?.aadhaarSeedingStatus,
+                verificationId: (result.data as any)?.verificationId,
+              },
+            };
+          }
+          return { success: false, errorCode: 'PAN_INVALID', errorMessage: result.message };
+        } catch (err: any) {
+          return { success: false, errorCode: 'PROVIDER_ERROR', errorMessage: err.message };
+        }
+      }
 
-      case "authbridge_ckyc":
-        console.log(`[KYC-ENGINE] Calling AuthBridge CKYC verification for ${request.kycStep}`);
-        return { success: true, data: { verified: true, source: "authbridge_ckyc" } };
+      case "truthscreen_pan": {
+        console.log(`[KYC-ENGINE] TruthScreen PAN — not implemented yet`);
+        return { success: false, errorCode: 'PROVIDER_NOT_IMPLEMENTED', errorMessage: 'TruthScreen PAN integration not yet configured — contact admin to set TRUTHSCREEN credentials' };
+      }
 
-      case "sandbox_bank":
-        console.log(`[KYC-ENGINE] Calling Sandbox Bank verification for ${request.kycStep}`);
-        return { success: true, data: { verified: true, source: "sandbox_bank" } };
+      // ─── AADHAAR VERIFICATION ─────────────────────────────────────────────
+      // payload.subStep = 'generate_otp' | 'verify_otp'
+      //   generate_otp: payload.aadhaarNumber required
+      //   verify_otp:   payload.refId + payload.otp required
 
-      case "cashfree_bank":
-        console.log(`[KYC-ENGINE] Calling Cashfree Bank verification for ${request.kycStep}`);
-        return { success: true, data: { verified: true, source: "cashfree_bank" } };
+      case "sandbox_aadhaar": {
+        const subStep = p.subStep || (p.aadhaarNumber ? 'generate_otp' : 'verify_otp');
+        if (subStep === 'generate_otp') {
+          console.log(`[KYC-ENGINE] Calling Sandbox Aadhaar OTP generation`);
+          if (!p.aadhaarNumber) {
+            return { success: false, errorCode: 'MISSING_PAYLOAD', errorMessage: 'aadhaarNumber is required for aadhaar generate_otp' };
+          }
+          try {
+            const result = await sandboxKYCService.generateAadhaarOTP(p.aadhaarNumber, p.reason || 'KYC verification');
+            return {
+              success: true,
+              data: {
+                subStep: 'generate_otp',
+                source: 'sandbox_aadhaar',
+                referenceId: result.referenceId,
+                message: result.message,
+                validForSeconds: result.validFor,
+                maskedAadhaar: `XXXX XXXX ${String(p.aadhaarNumber).slice(-4)}`,
+              },
+            };
+          } catch (err: any) {
+            return { success: false, errorCode: 'OTP_GENERATION_FAILED', errorMessage: err.message };
+          }
+        } else {
+          console.log(`[KYC-ENGINE] Calling Sandbox Aadhaar OTP verification`);
+          if (!p.refId || !p.otp) {
+            return { success: false, errorCode: 'MISSING_PAYLOAD', errorMessage: 'refId and otp are required for aadhaar verify_otp' };
+          }
+          try {
+            const result = await sandboxKYCService.verifyAadhaarOTP(p.refId, p.otp);
+            return {
+              success: true,
+              data: {
+                subStep: 'verify_otp',
+                source: 'sandbox_aadhaar',
+                verified: result.verified,
+                aadhaarNumber: result.aadhaarNumber,
+                fullName: result.fullName,
+                dateOfBirth: result.dateOfBirth,
+                gender: result.gender,
+                address: result.address,
+              },
+            };
+          } catch (err: any) {
+            return { success: false, errorCode: 'OTP_VERIFICATION_FAILED', errorMessage: err.message };
+          }
+        }
+      }
+
+      case "cashfree_aadhaar": {
+        if (!CashfreeAadhaarService.isConfigured()) {
+          return { success: false, errorCode: 'PROVIDER_NOT_CONFIGURED', errorMessage: 'Cashfree Secure ID credentials not set — add CASHFREE_SECUREID_APP_ID / CASHFREE_SECUREID_SECRET_KEY' };
+        }
+        const subStep = p.subStep || (p.aadhaarNumber ? 'generate_otp' : 'verify_otp');
+        if (subStep === 'generate_otp') {
+          console.log(`[KYC-ENGINE] Calling Cashfree Aadhaar OKYC OTP generation`);
+          if (!p.aadhaarNumber) {
+            return { success: false, errorCode: 'MISSING_PAYLOAD', errorMessage: 'aadhaarNumber is required for aadhaar generate_otp' };
+          }
+          try {
+            const result = await CashfreeAadhaarService.generateOTP(p.aadhaarNumber);
+            if (result.success) {
+              return {
+                success: true,
+                data: {
+                  subStep: 'generate_otp',
+                  source: 'cashfree_aadhaar',
+                  refId: result.ref_id,
+                  maskedAadhaar: result.maskedAadhaar,
+                  message: result.message,
+                },
+              };
+            }
+            return { success: false, errorCode: 'OTP_GENERATION_FAILED', errorMessage: result.message };
+          } catch (err: any) {
+            return { success: false, errorCode: 'OTP_GENERATION_FAILED', errorMessage: err.message };
+          }
+        } else {
+          console.log(`[KYC-ENGINE] Calling Cashfree Aadhaar OKYC OTP verification`);
+          if (!p.refId || !p.otp) {
+            return { success: false, errorCode: 'MISSING_PAYLOAD', errorMessage: 'refId and otp are required for aadhaar verify_otp' };
+          }
+          try {
+            const result = await CashfreeAadhaarService.verifyOTP(p.otp, p.refId);
+            if (result.verified) {
+              return {
+                success: true,
+                data: {
+                  subStep: 'verify_otp',
+                  source: 'cashfree_aadhaar',
+                  verified: true,
+                  name: result.data?.name,
+                  dob: result.data?.dob,
+                  gender: result.data?.gender,
+                  address: result.data?.address,
+                },
+              };
+            }
+            return { success: false, errorCode: 'OTP_VERIFICATION_FAILED', errorMessage: result.message };
+          } catch (err: any) {
+            return { success: false, errorCode: 'OTP_VERIFICATION_FAILED', errorMessage: err.message };
+          }
+        }
+      }
+
+      case "offline_aadhaar_xml": {
+        console.log(`[KYC-ENGINE] offline_aadhaar_xml — requires file upload flow, not inline`);
+        return {
+          success: false,
+          errorCode: 'MANUAL_UPLOAD_REQUIRED',
+          errorMessage: 'Aadhaar XML upload must be handled through the document upload flow, not the engine verify endpoint',
+        };
+      }
+
+      case "truthscreen_aadhaar": {
+        console.log(`[KYC-ENGINE] TruthScreen Aadhaar — not implemented yet`);
+        return { success: false, errorCode: 'PROVIDER_NOT_IMPLEMENTED', errorMessage: 'TruthScreen Aadhaar integration not yet configured' };
+      }
+
+      // ─── BANK ACCOUNT VERIFICATION ────────────────────────────────────────
+
+      case "sandbox_bank": {
+        console.log(`[KYC-ENGINE] Calling Sandbox.co.in Bank penny-drop verification`);
+        const accountNo = p.accountNo || p.accountNumber || '';
+        const ifsc = (p.ifsc || '').toUpperCase();
+        if (!accountNo || !ifsc) {
+          return { success: false, errorCode: 'MISSING_PAYLOAD', errorMessage: 'accountNo and ifsc are required for sandbox_bank' };
+        }
+        try {
+          const result = await sandboxKYCService.verifyBankAccountPennyDrop(accountNo, ifsc);
+          if (result.verified) {
+            return {
+              success: true,
+              data: {
+                verified: true,
+                source: 'sandbox_bank',
+                accountNumber: result.accountNumber,
+                ifsc: result.ifsc,
+                accountHolderName: result.accountHolderName,
+                bankName: result.bankName,
+                branchName: result.branchName,
+                transactionId: result.transactionId,
+                utr: result.utr,
+              },
+            };
+          }
+          return { success: false, errorCode: 'BANK_VERIFICATION_FAILED', errorMessage: 'Bank account could not be verified' };
+        } catch (err: any) {
+          return { success: false, errorCode: 'PROVIDER_ERROR', errorMessage: err.message };
+        }
+      }
+
+      case "cashfree_bank": {
+        console.log(`[KYC-ENGINE] Calling Cashfree VRS Bank Account V2 (sync) verification`);
+        const bankAccount = p.accountNo || p.accountNumber || '';
+        const ifsc = (p.ifsc || '').toUpperCase();
+        if (!bankAccount || !ifsc) {
+          return { success: false, errorCode: 'MISSING_PAYLOAD', errorMessage: 'accountNo and ifsc are required for cashfree_bank' };
+        }
+        try {
+          const result = await verifyBankAccountV2({
+            bankAccount,
+            ifsc,
+            name: p.accountHolderName || p.name || undefined,
+            phoneNumber: p.phone || undefined,
+          });
+          if (result.success) {
+            return {
+              success: true,
+              data: {
+                verified: true,
+                source: 'cashfree_bank',
+                ...result.data,
+              },
+            };
+          }
+          return {
+            success: false,
+            errorCode: 'BANK_VERIFICATION_FAILED',
+            errorMessage: result.error || 'Cashfree bank verification failed',
+          };
+        } catch (err: any) {
+          return { success: false, errorCode: 'PROVIDER_ERROR', errorMessage: err.message };
+        }
+      }
+
+      // ─── CKYC VERIFICATION ────────────────────────────────────────────────
+
+      case "truthscreen_ckyc": {
+        console.log(`[KYC-ENGINE] TruthScreen CKYC — not implemented yet`);
+        return { success: false, errorCode: 'PROVIDER_NOT_IMPLEMENTED', errorMessage: 'TruthScreen CKYC integration not yet configured' };
+      }
+
+      case "authbridge_ckyc": {
+        console.log(`[KYC-ENGINE] AuthBridge CKYC — not implemented yet`);
+        return { success: false, errorCode: 'PROVIDER_NOT_IMPLEMENTED', errorMessage: 'AuthBridge CKYC integration not yet configured' };
+      }
+
+      case "cersai_ckyc": {
+        console.log(`[KYC-ENGINE] CERSAI CKYC — not implemented yet`);
+        return { success: false, errorCode: 'PROVIDER_NOT_IMPLEMENTED', errorMessage: 'CERSAI CKYC integration not yet configured' };
+      }
+
+      case "vkyc_ckyc": {
+        console.log(`[KYC-ENGINE] Video KYC — not implemented yet`);
+        return { success: false, errorCode: 'PROVIDER_NOT_IMPLEMENTED', errorMessage: 'Video KYC integration not yet configured' };
+      }
+
+      case "manual_ckyc": {
+        console.log(`[KYC-ENGINE] manual_ckyc — marking as PENDING_MANUAL_REVIEW`);
+        return {
+          success: true,
+          data: {
+            verified: false,
+            source: 'manual_ckyc',
+            status: 'PENDING_MANUAL_REVIEW',
+            requiresManualReview: true,
+            message: 'CKYC requires manual verification by compliance team',
+          },
+        };
+      }
 
       default:
         console.error(`[KYC-ENGINE] Unknown provider code: ${providerCode} — no implementation registered`);
