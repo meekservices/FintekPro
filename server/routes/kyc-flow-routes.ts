@@ -1,6 +1,11 @@
 import { Router, Request, Response } from 'express';
+import { db } from '../db';
+import { adminSettings } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 const router = Router();
+
+const SETTINGS_KEY = 'kyc_flow_config_overrides';
 
 export interface KycStepProvider {
   providerId: string;
@@ -104,6 +109,49 @@ const kycFlowConfig: KycStep[] = [
   },
 ];
 
+type OverrideMap = Record<string, Record<string, { priority?: number; pricePerCall?: number }>>;
+
+async function loadOverrides(): Promise<OverrideMap> {
+  try {
+    const [row] = await db
+      .select({ value: adminSettings.value })
+      .from(adminSettings)
+      .where(eq(adminSettings.key, SETTINGS_KEY));
+    if (row?.value && typeof row.value === 'object') {
+      return row.value as OverrideMap;
+    }
+  } catch (err) {
+    console.error('[KYC Flow Routes] Failed to load overrides:', err);
+  }
+  return {};
+}
+
+async function saveOverrides(overrides: OverrideMap): Promise<void> {
+  try {
+    await db
+      .insert(adminSettings)
+      .values({ key: SETTINGS_KEY, value: overrides, description: 'KYC flow provider priority and pricing overrides' })
+      .onConflictDoUpdate({ target: adminSettings.key, set: { value: overrides, updatedAt: new Date() } });
+  } catch (err) {
+    console.error('[KYC Flow Routes] Failed to save overrides:', err);
+    throw err;
+  }
+}
+
+function applyOverrides(overrides: OverrideMap): void {
+  for (const step of kycFlowConfig) {
+    const stepOverrides = overrides[step.stepId];
+    if (!stepOverrides) continue;
+    for (const provider of step.providers) {
+      const providerOverride = stepOverrides[provider.providerId];
+      if (!providerOverride) continue;
+      if (typeof providerOverride.priority === 'number') provider.priority = providerOverride.priority;
+      if (typeof providerOverride.pricePerCall === 'number') provider.pricePerCall = providerOverride.pricePerCall;
+    }
+    step.providers.sort((a, b) => a.priority - b.priority);
+  }
+}
+
 function refreshConfigStatus() {
   for (const step of kycFlowConfig) {
     for (const provider of step.providers) {
@@ -142,6 +190,8 @@ function refreshConfigStatus() {
 
 router.get('/flow', async (_req: Request, res: Response) => {
   try {
+    const overrides = await loadOverrides();
+    applyOverrides(overrides);
     refreshConfigStatus();
     res.json({
       success: true,
@@ -181,6 +231,14 @@ router.patch('/flow/:stepId/priorities', async (req: Request, res: Response) => 
 
     step.providers.sort((a, b) => a.priority - b.priority);
 
+    const overrides = await loadOverrides();
+    if (!overrides[stepId]) overrides[stepId] = {};
+    for (const p of step.providers) {
+      if (!overrides[stepId][p.providerId]) overrides[stepId][p.providerId] = {};
+      overrides[stepId][p.providerId].priority = p.priority;
+    }
+    await saveOverrides(overrides);
+
     res.json({ success: true, step });
   } catch (error) {
     console.error('[KYC Flow Routes] Error updating priorities:', error);
@@ -204,6 +262,13 @@ router.patch('/flow/:stepId/provider/:providerId/price', async (req: Request, re
     if (!provider) return res.status(404).json({ success: false, error: 'Provider not found' });
 
     provider.pricePerCall = pricePerCall;
+
+    const overrides = await loadOverrides();
+    if (!overrides[stepId]) overrides[stepId] = {};
+    if (!overrides[stepId][providerId]) overrides[stepId][providerId] = {};
+    overrides[stepId][providerId].pricePerCall = pricePerCall;
+    await saveOverrides(overrides);
+
     res.json({ success: true, provider });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to update pricing' });
