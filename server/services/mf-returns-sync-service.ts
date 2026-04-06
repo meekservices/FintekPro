@@ -350,31 +350,33 @@ class MFReturnsSyncService {
       const batch = records.slice(i, i + 200);
       try {
         const writeDb = hasProductionDb() ? getProductionDb() : db;
+        // WHERE NOT EXISTS instead of ON CONFLICT — works before the unique index
+        // idx_historical_nav_unique is created in production (avoids PG errors).
         await writeDb.execute(sql`
-          INSERT INTO historical_nav_data (id, identifier, identifier_type, date, nav, source, fetched_at, created_at)
-          SELECT * FROM (
+          INSERT INTO historical_nav_data (identifier, identifier_type, date, nav, source, fetched_at, created_at)
+          SELECT t.identifier, t.identifier_type, t.date, t.nav, t.source, NOW(), NOW()
+          FROM (
             VALUES ${sql.join(
               batch.map(r => sql`(
-                ${`${identifier}-${r.date.toISOString().split('T')[0]}`}::varchar,
                 ${r.identifier}::varchar,
                 ${r.identifierType}::varchar,
                 ${r.date.toISOString().split('T')[0]}::date,
                 ${r.nav}::numeric,
-                ${r.source}::varchar,
-                NOW(),
-                NOW()
+                ${r.source}::varchar
               )`),
               sql`,`
             )}
-          ) AS t(id, identifier, identifier_type, date, nav, source, fetched_at, created_at)
-          ON CONFLICT (identifier, identifier_type, date) DO NOTHING
+          ) AS t(identifier, identifier_type, date, nav, source)
+          WHERE NOT EXISTS (
+            SELECT 1 FROM historical_nav_data h
+            WHERE h.identifier = t.identifier
+              AND h.identifier_type = t.identifier_type
+              AND h.date = t.date
+          )
         `);
         stored += batch.length;
       } catch (error: any) {
-        // Silently continue on constraint errors
-        if (!error.message?.includes('constraint')) {
-          console.error(`[MFReturnsSync] Error storing batch:`, error.message);
-        }
+        console.error(`[MFReturnsSync] Error storing batch:`, error.message);
       }
     }
     

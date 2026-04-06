@@ -183,30 +183,37 @@ export class HistoricalNavService {
       const batch = records.slice(i, i + BATCH_SIZE);
       
       try {
-        // Use ON CONFLICT DO NOTHING to skip existing records
-        const result = await db.execute(sql`
+        // WHERE NOT EXISTS is used instead of ON CONFLICT so this works even before
+        // the unique index idx_historical_nav_unique is created in production.
+        // Once the index is created by the background migration, this query
+        // becomes safe against concurrent duplicate inserts as well.
+        await db.execute(sql`
           INSERT INTO historical_nav_data (identifier, identifier_type, date, nav, source, fetched_at, created_at)
-          SELECT * FROM (
+          SELECT t.identifier, t.identifier_type, t.date, t.nav, t.source, NOW(), NOW()
+          FROM (
             VALUES ${sql.join(
               batch.map(r => sql`(
                 ${r.identifier}::varchar,
                 ${r.identifierType}::varchar,
                 ${r.date}::date,
                 ${r.nav}::numeric,
-                ${r.source}::varchar,
-                NOW(),
-                NOW()
+                ${r.source}::varchar
               )`),
               sql`, `
             )}
-          ) AS t(identifier, identifier_type, date, nav, source, fetched_at, created_at)
-          ON CONFLICT (identifier, identifier_type, date) DO NOTHING
+          ) AS t(identifier, identifier_type, date, nav, source)
+          WHERE NOT EXISTS (
+            SELECT 1 FROM historical_nav_data h
+            WHERE h.identifier = t.identifier
+              AND h.identifier_type = t.identifier_type
+              AND h.date = t.date
+          )
         `);
-        
+
         totalInserted += batch.length;
       } catch (error: any) {
-        // If conflict constraint doesn't exist, try individual inserts
-        if (error.message?.includes('constraint')) {
+        // Fallback: per-row insert for any remaining batch failure
+        if (error.message?.includes('constraint') || error.message?.includes('unique') || error.message?.includes('duplicate')) {
           for (const record of batch) {
             try {
               const existing = await db.select().from(historicalNavData)
