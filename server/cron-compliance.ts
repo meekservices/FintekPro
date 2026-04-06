@@ -16,6 +16,7 @@ import { isProductionEnvironment } from './utils/enrichment-guard';
 import { db } from './db';
 import { sql } from 'drizzle-orm';
 import { logger } from './logger';
+import { twilioWhatsAppService } from './services/twilio-whatsapp-service';
 
 export function initializeComplianceCrons(): void {
   if (!isProductionEnvironment()) {
@@ -295,4 +296,70 @@ export function initializeComplianceCrons(): void {
     }
   });
   console.log('🗃️ [DbAudit] Monthly table audit scheduled (1st of each month, 2:00 AM IST)');
+
+  // ── V-CIP Expiry Reminder — 1st of each month at 9:00 AM IST (3:30 AM UTC) ─
+  // Queries users whose video_kyc_expiry_date is within the next 60 days and
+  // sends a WhatsApp reminder to complete V-CIP renewal (per RBI 2023 V-CIP guidelines).
+  cron.schedule('30 3 1 * *', async () => {
+    console.log('[CRON] Starting V-CIP expiry reminder job...');
+    try {
+      const rows = await db.execute(sql`
+        SELECT
+          up.user_id          AS "userId",
+          up.video_kyc_expiry_date AS "expiryDate",
+          u.mobile            AS "mobile",
+          u.first_name        AS "firstName"
+        FROM user_profiles up
+        JOIN users u ON u.id = up.user_id
+        WHERE up.video_kyc_expiry_date IS NOT NULL
+          AND up.video_kyc_expiry_date > NOW()
+          AND up.video_kyc_expiry_date <= NOW() + INTERVAL '60 days'
+          AND u.mobile IS NOT NULL
+      `);
+
+      const users = (rows.rows ?? rows) as Array<{
+        userId: string;
+        expiryDate: string;
+        mobile: string;
+        firstName: string | null;
+      }>;
+
+      console.log(`[CRON][V-CIP Expiry] Found ${users.length} users with expiring V-CIP`);
+      let sent = 0;
+      let failed = 0;
+
+      for (const u of users) {
+        const expiryFormatted = new Date(u.expiryDate).toLocaleDateString('en-IN', {
+          day: '2-digit', month: 'short', year: 'numeric',
+        });
+        const name = u.firstName || 'Valued Customer';
+        const body =
+          `🔐 *FintekPro V-CIP Renewal Reminder*\n\n` +
+          `Dear ${name},\n\n` +
+          `Your Video KYC (V-CIP) session will expire on *${expiryFormatted}*.\n\n` +
+          `To continue accessing investment products without interruption, please complete your V-CIP renewal before this date.\n\n` +
+          `👉 Renew now: https://app.fintekpro.in/onboarding?step=video-kyc\n\n` +
+          `_If you have already renewed, please ignore this message._\n\n` +
+          `Regards,\nFintekPro Compliance Team`;
+
+        try {
+          const result = await twilioWhatsAppService.sendMessage(u.mobile, body, undefined, 'kyc_update');
+          if (result.success) {
+            sent++;
+          } else {
+            failed++;
+            console.warn(`[CRON][V-CIP Expiry] Failed to send reminder to user ${u.userId}: ${result.error}`);
+          }
+        } catch (msgErr: any) {
+          failed++;
+          console.error(`[CRON][V-CIP Expiry] Exception sending reminder to user ${u.userId}: ${msgErr.message}`);
+        }
+      }
+
+      console.log(`[CRON][V-CIP Expiry] Reminder job complete — sent: ${sent}, failed: ${failed}`);
+    } catch (error: any) {
+      console.error('[CRON][V-CIP Expiry] Job failed:', error.message);
+    }
+  });
+  console.log('📅 [VCIPExpiryReminder] Monthly reminder scheduled (1st of each month, 9:00 AM IST)');
 }

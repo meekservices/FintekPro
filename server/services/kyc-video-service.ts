@@ -1,8 +1,12 @@
 import { db } from '../db';
-import { kycVideoSessions, kycAuditLogs } from '@shared/schema';
+import { kycVideoSessions, kycAuditLogs, userProfiles } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { kycEncryptionService } from './kyc-encryption-service';
 import crypto from 'crypto';
+
+const VCIP_EXPIRY_YEARS_STANDARD = 2;
+const VCIP_EXPIRY_YEARS_NRI_HIGH_VALUE = 1;
+const VCIP_GRACE_PERIOD_END = new Date('2024-06-01T00:00:00Z');
 
 type VideoKycReason = 'HIGH_AML' | 'ADMIN_REQUEST' | 'REKYC_ESCALATION' | 'REGULATOR_MANDATE' | 'CRITICAL_AML';
 type VideoKycStatus = 'PENDING' | 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'EXPIRED';
@@ -119,6 +123,8 @@ class KycVideoService {
         return { success: false, error: 'Recording hash is mandatory for completed sessions' };
       }
 
+      const completedAt = new Date();
+
       await db.update(kycVideoSessions)
         .set({
           status: params.status,
@@ -126,10 +132,43 @@ class KycVideoService {
           recordingHash: params.recordingHash,
           officerNotes: params.officerNotes || null,
           failureReason: params.failureReason || null,
-          completedAt: new Date(),
+          completedAt,
           updatedAt: new Date(),
         })
         .where(eq(kycVideoSessions.id, params.videoKycId));
+
+      if (params.status === 'COMPLETED' && session.userId) {
+        const [profile] = await db.select()
+          .from(userProfiles)
+          .where(eq(userProfiles.userId, session.userId))
+          .limit(1);
+
+        if (profile) {
+          const isNriOrHighValue =
+            profile.residentStatus?.startsWith('nri') ||
+            profile.residentStatus === 'oci' ||
+            profile.residentStatus === 'pio' ||
+            profile.isHighRiskCustomer ||
+            profile.investorType === 'hni';
+
+          const expiryYears = isNriOrHighValue
+            ? VCIP_EXPIRY_YEARS_NRI_HIGH_VALUE
+            : VCIP_EXPIRY_YEARS_STANDARD;
+
+          const expiryDate = new Date(completedAt);
+          expiryDate.setFullYear(expiryDate.getFullYear() + expiryYears);
+
+          await db.update(userProfiles)
+            .set({
+              videoKycCompleted: true,
+              videoKycCompletedDate: profile.videoKycCompletedDate ?? completedAt,
+              videoKycExpiryDate: expiryDate,
+              videoKycStatus: 'completed',
+              updatedAt: new Date(),
+            })
+            .where(eq(userProfiles.userId, session.userId));
+        }
+      }
 
       await db.insert(kycAuditLogs).values({
         sessionId: session.sessionId,

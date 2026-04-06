@@ -31,6 +31,7 @@ import {
   Zap,
   BookOpen,
   UserX,
+  CalendarClock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -1951,6 +1952,126 @@ function RegulatoryMatrixTab() {
   );
 }
 
+// ─── V-CIP Expiry Tab ─────────────────────────────────────────────────────────
+
+type VcipRecord = {
+  userId: string;
+  videoKycExpiryDate: string;
+  videoKycCompletedDate: string | null;
+  videoKycStatus: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  mobile: string | null;
+  expiryStatus: 'expired' | 'critical' | 'warning' | 'ok';
+};
+
+function expiryStatusBadge(status: VcipRecord['expiryStatus']) {
+  if (status === 'expired') return <Badge variant="destructive">Expired</Badge>;
+  if (status === 'critical') return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">Critical (&lt;30d)</Badge>;
+  if (status === 'warning') return <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">Expiring Soon</Badge>;
+  return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">OK</Badge>;
+}
+
+function VcipExpiryTab() {
+  const { data, refetch } = useSuspenseQuery<{ success: boolean; records: VcipRecord[]; total: number }>({
+    queryKey: ["/api/admin/kyc/vcip-expiry"],
+    queryFn: async () => {
+      const r = await fetch("/api/admin/kyc/vcip-expiry");
+      if (!r.ok) throw new Error("Failed to load V-CIP expiry data");
+      return r.json();
+    },
+  });
+
+  const records = data?.records ?? [];
+  const expired = records.filter(r => r.expiryStatus === 'expired').length;
+  const critical = records.filter(r => r.expiryStatus === 'critical').length;
+  const warning = records.filter(r => r.expiryStatus === 'warning').length;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5" />
+              V-CIP Expiry Overview
+            </CardTitle>
+            <CardDescription>
+              Video KYC expiry status for all users — per RBI 2023 V-CIP guidelines
+            </CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-1" />Refresh
+          </Button>
+        </div>
+        <div className="flex gap-3 flex-wrap mt-2">
+          <div className="flex items-center gap-1.5 text-sm">
+            <span className="h-2.5 w-2.5 rounded-full bg-red-600 inline-block" />
+            <span className="text-muted-foreground">Expired:</span>
+            <span className="font-semibold">{expired}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-sm">
+            <span className="h-2.5 w-2.5 rounded-full bg-red-400 inline-block" />
+            <span className="text-muted-foreground">Critical (&lt;30d):</span>
+            <span className="font-semibold">{critical}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-sm">
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-400 inline-block" />
+            <span className="text-muted-foreground">Warning (&lt;6mo):</span>
+            <span className="font-semibold">{warning}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-sm">
+            <span className="h-2.5 w-2.5 rounded-full bg-green-400 inline-block" />
+            <span className="text-muted-foreground">Valid:</span>
+            <span className="font-semibold">{records.length - expired - critical - warning}</span>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        {records.length === 0 ? (
+          <div className="py-16 text-center text-muted-foreground">
+            <CalendarClock className="h-10 w-10 mx-auto mb-3 opacity-30" />
+            <p>No V-CIP records found</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Email / Mobile</TableHead>
+                <TableHead>Completed</TableHead>
+                <TableHead>Expiry Date</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {records.map(r => (
+                <TableRow key={r.userId} className={r.expiryStatus === 'expired' ? 'bg-red-50 dark:bg-red-950/30' : r.expiryStatus === 'critical' ? 'bg-red-50/50 dark:bg-red-950/10' : ''}>
+                  <TableCell className="font-medium">
+                    {[r.firstName, r.lastName].filter(Boolean).join(' ') || <span className="text-muted-foreground">—</span>}
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-xs">{r.email || '—'}</div>
+                    <div className="text-xs text-muted-foreground">{r.mobile || '—'}</div>
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {r.videoKycCompletedDate ? format(new Date(r.videoKycCompletedDate), 'dd MMM yyyy') : '—'}
+                  </TableCell>
+                  <TableCell className="text-sm font-medium">
+                    {format(new Date(r.videoKycExpiryDate), 'dd MMM yyyy')}
+                  </TableCell>
+                  <TableCell>{expiryStatusBadge(r.expiryStatus)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── All KYC Sessions Tab ─────────────────────────────────────────────────────
 
 function AllKycSessionsTab() {
@@ -2142,7 +2263,7 @@ export default function KycV2ManagementPage() {
       </Suspense>
 
       <Tabs defaultValue="all-sessions" className="space-y-4">
-        <TabsList className="grid grid-cols-5 md:grid-cols-10 w-full">
+        <TabsList className="grid grid-cols-6 md:grid-cols-11 w-full">
           <TabsTrigger value="all-sessions" className="text-xs sm:text-sm">
             <Activity className="h-4 w-4 mr-1 hidden sm:inline" />
             All Sessions
@@ -2150,6 +2271,10 @@ export default function KycV2ManagementPage() {
           <TabsTrigger value="video-kyc" className="text-xs sm:text-sm">
             <Video className="h-4 w-4 mr-1 hidden sm:inline" />
             Video KYC
+          </TabsTrigger>
+          <TabsTrigger value="vcip-expiry" className="text-xs sm:text-sm">
+            <CalendarClock className="h-4 w-4 mr-1 hidden sm:inline" />
+            V-CIP Expiry
           </TabsTrigger>
           <TabsTrigger value="maker-checker" className="text-xs sm:text-sm">
             <Users className="h-4 w-4 mr-1 hidden sm:inline" />
@@ -2193,6 +2318,12 @@ export default function KycV2ManagementPage() {
 
         <TabsContent value="video-kyc">
           <VideoKycTab />
+        </TabsContent>
+
+        <TabsContent value="vcip-expiry">
+          <Suspense fallback={<LoadingState variant="section-table" count={5} />}>
+            <VcipExpiryTab />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="maker-checker">

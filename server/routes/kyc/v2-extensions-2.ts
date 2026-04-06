@@ -500,6 +500,39 @@ export function registerKycV2ExtensionPart2Routes(app: Express) {
     }
   });
 
+  // V-CIP Expiry Overview — lists all users with a video_kyc_expiry_date
+  app.get("/api/admin/kyc/vcip-expiry", requireAdmin, async (_req: any, res) => {
+    try {
+      const rows = await db.execute(drizzleSql`
+        SELECT
+          up.user_id                AS "userId",
+          up.video_kyc_expiry_date  AS "videoKycExpiryDate",
+          up.video_kyc_completed_date AS "videoKycCompletedDate",
+          up.video_kyc_status       AS "videoKycStatus",
+          u.first_name              AS "firstName",
+          u.last_name               AS "lastName",
+          u.email,
+          u.mobile,
+          CASE
+            WHEN up.video_kyc_expiry_date < NOW() THEN 'expired'
+            WHEN up.video_kyc_expiry_date < NOW() + INTERVAL '30 days' THEN 'critical'
+            WHEN up.video_kyc_expiry_date < NOW() + INTERVAL '6 months' THEN 'warning'
+            ELSE 'ok'
+          END AS "expiryStatus"
+        FROM user_profiles up
+        JOIN users u ON u.id = up.user_id
+        WHERE up.video_kyc_expiry_date IS NOT NULL
+        ORDER BY up.video_kyc_expiry_date ASC
+      `);
+
+      const records = rows.rows ?? rows;
+      res.json({ success: true, records, total: (records as any[]).length });
+    } catch (error) {
+      console.error('[Admin VCIP Expiry]', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch V-CIP expiry data' });
+    }
+  });
+
   // Full KYC reset: clears all user_profiles verification flags, sessions, and bank state
   async function fullKycReset(userId: string, resetBy: string): Promise<void> {
     // All DB mutations run inside a transaction for atomicity
