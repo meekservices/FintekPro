@@ -33,20 +33,28 @@ export class CashfreePANService {
   private static readonly PRODUCTION_URL = 'https://api.cashfree.com/verification';
   
   private static getBaseUrl(): string {
-    const env = process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX');
-    return env === 'PRODUCTION' ? this.PRODUCTION_URL : this.SANDBOX_URL;
+    const env = process.env.CASHFREE_SECUREID_ENVIRONMENT || process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX');
+    return env.toUpperCase() === 'PRODUCTION' ? this.PRODUCTION_URL : this.SANDBOX_URL;
   }
-  
+
   static hasVerificationCredentials(): boolean {
     return !!(
-      (process.env.CASHFREE_VERIFICATION_APP_ID && process.env.CASHFREE_VERIFICATION_SECRET_KEY) ||
-      (process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY)
+      (process.env.CASHFREE_SECUREID_APP_ID || process.env.CASHFREE_VERIFICATION_APP_ID || process.env.CASHFREE_PG_APP_ID || process.env.CASHFREE_APP_ID) &&
+      (process.env.CASHFREE_SECUREID_SECRET_KEY || process.env.CASHFREE_VERIFICATION_SECRET_KEY || process.env.CASHFREE_PG_SECRET_KEY || process.env.CASHFREE_SECRET_KEY)
     );
   }
 
   private static getHeaders() {
-    const appId = process.env.CASHFREE_VERIFICATION_APP_ID || process.env.CASHFREE_APP_ID || '';
-    const secretKey = process.env.CASHFREE_VERIFICATION_SECRET_KEY || process.env.CASHFREE_SECRET_KEY || '';
+    const appId =
+      process.env.CASHFREE_SECUREID_APP_ID ||
+      process.env.CASHFREE_VERIFICATION_APP_ID ||
+      process.env.CASHFREE_PG_APP_ID ||
+      process.env.CASHFREE_APP_ID || '';
+    const secretKey =
+      process.env.CASHFREE_SECUREID_SECRET_KEY ||
+      process.env.CASHFREE_VERIFICATION_SECRET_KEY ||
+      process.env.CASHFREE_PG_SECRET_KEY ||
+      process.env.CASHFREE_SECRET_KEY || '';
     return {
       'Content-Type': 'application/json',
       'x-client-id': appId,

@@ -305,18 +305,18 @@ class UnifiedPaymentGateway {
   }
 
   async getGatewayHealth(): Promise<PaymentGatewayHealth> {
-    const cashfreeEnv = process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX');
-    const cashfreeBaseUrl = cashfreeEnv === 'PRODUCTION'
+    const cashfreeEnv = process.env.CASHFREE_PG_ENVIRONMENT || process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX');
+    const cashfreeBaseUrl = cashfreeEnv.toUpperCase() === 'PRODUCTION'
       ? 'https://api.cashfree.com/pg'
       : 'https://sandbox.cashfree.com/pg';
 
-    const phonePeEnv = process.env.PHONEPE_ENVIRONMENT || 'SANDBOX';
-    const phonePeBaseUrl = phonePeEnv === 'PRODUCTION'
+    const phonePeEnv = process.env.PHONEPE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX');
+    const phonePeBaseUrl = phonePeEnv.toUpperCase() === 'PRODUCTION'
       ? 'https://api.phonepe.com/apis/hermes'
       : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
 
-    const cashfreeAppId = process.env.CASHFREE_APP_ID;
-    const cashfreeSecret = process.env.CASHFREE_SECRET_KEY;
+    const cashfreeAppId = process.env.CASHFREE_PG_APP_ID || process.env.CASHFREE_APP_ID;
+    const cashfreeSecret = process.env.CASHFREE_PG_SECRET_KEY || process.env.CASHFREE_SECRET_KEY;
     const phonePeMerchantId = process.env.PHONEPE_MERCHANT_ID;
     const phonePeSaltKey = process.env.PHONEPE_SALT_KEY;
 

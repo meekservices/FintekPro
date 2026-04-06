@@ -1,6 +1,12 @@
 import axios, { AxiosInstance } from 'axios';
 import crypto from 'crypto';
 import { getAppBaseUrl } from './utils/app-url';
+import {
+  getCashfreePGAppId,
+  getCashfreePGSecretKey,
+  getCashfreePGEnvironment,
+  getCashfreePGBaseUrl,
+} from './utils/cashfree-config';
 
 export interface CashfreePaymentRequest {
   amount: number;
@@ -39,32 +45,23 @@ export class CashfreeService {
   private apiClient: AxiosInstance;
 
   constructor() {
-    this.appId = process.env.CASHFREE_APP_ID || '';
-    this.secretKey = process.env.CASHFREE_SECRET_KEY || '';
-    
-    // Auto-detect environment: use explicit CASHFREE_ENVIRONMENT if set, otherwise use NODE_ENV
-    if (process.env.CASHFREE_ENVIRONMENT) {
-      this.environment = process.env.CASHFREE_ENVIRONMENT;
-    } else {
-      this.environment = process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX';
-    }
-    
+    this.appId = getCashfreePGAppId();
+    this.secretKey = getCashfreePGSecretKey();
+    this.environment = getCashfreePGEnvironment();
+
     // Validate credentials are present
     if (!this.appId || !this.secretKey) {
       const isDev = process.env.NODE_ENV === 'development';
       if (isDev) {
-        console.warn('⚠️ Cashfree credentials (CASHFREE_APP_ID, CASHFREE_SECRET_KEY) not configured');
-        console.warn('⚠️ Cashfree payment and verification APIs will not function properly');
+        console.warn('⚠️ Cashfree PG credentials (CASHFREE_PG_APP_ID, CASHFREE_PG_SECRET_KEY) not configured');
+        console.warn('⚠️ Cashfree Payment Gateway APIs will not function properly');
       } else {
-        // In production, throw error if credentials are missing
-        throw new Error('Cashfree credentials (CASHFREE_APP_ID, CASHFREE_SECRET_KEY) are required in production');
+        throw new Error('Cashfree PG credentials (CASHFREE_PG_APP_ID, CASHFREE_PG_SECRET_KEY) are required in production');
       }
     }
-    
+
     // Set base URL based on environment
-    this.baseUrl = this.environment === 'PRODUCTION' 
-      ? 'https://api.cashfree.com/pg'
-      : 'https://sandbox.cashfree.com/pg';
+    this.baseUrl = getCashfreePGBaseUrl();
 
     // Create axios instance with default headers
     this.apiClient = axios.create({

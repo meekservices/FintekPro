@@ -403,18 +403,18 @@ app.get('/api/admin/error-logs', requireAdmin, async (req, res) => {
       });
     }
     
-    const cashfreeEnv = process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX');
-    if (cashfreeEnv === 'SANDBOX') {
+    const cashfreeEnv = process.env.CASHFREE_PG_ENVIRONMENT || process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX');
+    if (cashfreeEnv.toUpperCase() === 'SANDBOX') {
       errorLogs.push({
         id: 'info-cashfree',
         timestamp: new Date().toISOString(),
         level: 'low',
         category: 'payment',
-        message: 'Cashfree payment gateway running in SANDBOX mode',
+        message: 'Cashfree PG running in SANDBOX mode',
         source: 'server/services/cashfree-service.ts',
         count: 1,
         lastOccurrence: new Date().toISOString(),
-        suggestedFix: 'Update CASHFREE_ENVIRONMENT to PRODUCTION for live payments',
+        suggestedFix: 'Set CASHFREE_PG_ENVIRONMENT=PRODUCTION for live payments',
         resolved: false
       });
     }

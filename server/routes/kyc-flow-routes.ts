@@ -167,15 +167,15 @@ function refreshConfigStatus() {
         case 'cashfree':
         case 'cashfree_bank':
           provider.isConfigured = !!(
-            (process.env.CASHFREE_VERIFICATION_APP_ID && process.env.CASHFREE_VERIFICATION_SECRET_KEY) ||
-            (process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY)
+            (process.env.CASHFREE_SECUREID_APP_ID || process.env.CASHFREE_VERIFICATION_APP_ID || process.env.CASHFREE_PG_APP_ID || process.env.CASHFREE_APP_ID) &&
+            (process.env.CASHFREE_SECUREID_SECRET_KEY || process.env.CASHFREE_VERIFICATION_SECRET_KEY || process.env.CASHFREE_PG_SECRET_KEY || process.env.CASHFREE_SECRET_KEY)
           );
           break;
         case 'aadhaar_address': {
           const hasAnyAadhaarProvider = !!(
             (process.env.SANDBOX_API_KEY && process.env.SANDBOX_API_SECRET) ||
             (process.env.TRUTHSCREEN_USERNAME && process.env.TRUTHSCREEN_PASSWORD) ||
-            (process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY)
+            (process.env.CASHFREE_SECUREID_APP_ID || process.env.CASHFREE_VERIFICATION_APP_ID || process.env.CASHFREE_PG_APP_ID || process.env.CASHFREE_APP_ID)
           );
           provider.isConfigured = hasAnyAadhaarProvider;
           break;

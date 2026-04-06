@@ -28,8 +28,8 @@ function detectActiveProvider(service: 'pan' | 'aadhaar' | 'ckyc' | 'aml'): stri
   const hasSandbox = !!(process.env.SANDBOX_API_KEY && process.env.SANDBOX_API_SECRET);
   const hasTruthScreen = !!(process.env.TRUTHSCREEN_USERNAME && process.env.TRUTHSCREEN_PASSWORD);
   const hasCashfree = !!(
-    (process.env.CASHFREE_VERIFICATION_APP_ID && process.env.CASHFREE_VERIFICATION_SECRET_KEY) ||
-    (process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY)
+    (process.env.CASHFREE_SECUREID_APP_ID || process.env.CASHFREE_VERIFICATION_APP_ID || process.env.CASHFREE_PG_APP_ID || process.env.CASHFREE_APP_ID) &&
+    (process.env.CASHFREE_SECUREID_SECRET_KEY || process.env.CASHFREE_VERIFICATION_SECRET_KEY || process.env.CASHFREE_PG_SECRET_KEY || process.env.CASHFREE_SECRET_KEY)
   );
 
   switch (service) {

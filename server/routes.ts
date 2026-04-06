@@ -345,13 +345,16 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     try {
       const { cashfreeService } = await import('./cashfree-service');
       const hasCredentials = cashfreeService.hasValidCredentials();
+      const cfPgAppId = process.env.CASHFREE_PG_APP_ID || process.env.CASHFREE_APP_ID;
+      const cfPgSecret = process.env.CASHFREE_PG_SECRET_KEY || process.env.CASHFREE_SECRET_KEY;
+      const cfSidAppId = process.env.CASHFREE_SECUREID_APP_ID || process.env.CASHFREE_VERIFICATION_APP_ID;
       diagnostics.checks.cashfree = {
         status: hasCredentials ? 'configured' : 'missing_credentials',
-        appIdSet: !!process.env.CASHFREE_APP_ID,
-        secretKeySet: !!process.env.CASHFREE_SECRET_KEY,
-        appIdLength: process.env.CASHFREE_APP_ID?.length || 0,
-        secretKeyLength: process.env.CASHFREE_SECRET_KEY?.length || 0,
-        environment: process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX')
+        pgAppIdSet: !!cfPgAppId,
+        pgSecretKeySet: !!cfPgSecret,
+        pgAppIdLength: cfPgAppId?.length || 0,
+        secureIdAppIdSet: !!cfSidAppId,
+        environment: process.env.CASHFREE_PG_ENVIRONMENT || process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX')
       };
     } catch (error: any) {
       diagnostics.checks.cashfree = { status: 'error', message: error.message };

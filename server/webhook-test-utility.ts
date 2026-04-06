@@ -13,7 +13,7 @@ export class CashfreeWebhookTester {
   private baseUrl: string;
 
   constructor() {
-    this.secretKey = process.env.CASHFREE_SECRET_KEY || '';
+    this.secretKey = process.env.CASHFREE_PG_SECRET_KEY || process.env.CASHFREE_SECRET_KEY || '';
     this.baseUrl = process.env.REPLIT_DEV_DOMAIN 
       ? `https://${process.env.REPLIT_DEV_DOMAIN}`
       : 'http://localhost:5000';

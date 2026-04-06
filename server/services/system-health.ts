@@ -116,12 +116,15 @@ async function checkSMSService(): Promise<ServiceHealth> {
 }
 
 async function checkPaymentGateway(): Promise<ServiceHealth> {
-  const cashfreeConfigured = !!process.env.CASHFREE_APP_ID && !!process.env.CASHFREE_SECRET_KEY;
+  const cashfreeConfigured = !!(
+    (process.env.CASHFREE_PG_APP_ID || process.env.CASHFREE_APP_ID) &&
+    (process.env.CASHFREE_PG_SECRET_KEY || process.env.CASHFREE_SECRET_KEY)
+  );
   return {
     name: 'Payment Gateway (Cashfree)',
     status: cashfreeConfigured ? 'healthy' : 'degraded',
     lastCheck: new Date().toISOString(),
-    message: cashfreeConfigured ? 'Cashfree configured' : 'Cashfree credentials missing'
+    message: cashfreeConfigured ? 'Cashfree PG configured' : 'Cashfree PG credentials missing (CASHFREE_PG_APP_ID / CASHFREE_PG_SECRET_KEY)'
   };
 }
 
@@ -140,7 +143,7 @@ async function checkAIService(): Promise<ServiceHealth> {
 
 async function checkVerificationAPIs(): Promise<ServiceHealth> {
   const sandboxConfigured = !!process.env.SANDBOX_API_KEY;
-  const cashfreeVerify = !!process.env.CASHFREE_APP_ID;
+  const cashfreeVerify = !!(process.env.CASHFREE_SECUREID_APP_ID || process.env.CASHFREE_VERIFICATION_APP_ID || process.env.CASHFREE_PG_APP_ID || process.env.CASHFREE_APP_ID);
   return {
     name: 'KYC Verification APIs',
     status: (sandboxConfigured || cashfreeVerify) ? 'healthy' : 'degraded',
