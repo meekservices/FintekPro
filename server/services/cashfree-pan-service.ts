@@ -33,7 +33,7 @@ export class CashfreePANService {
   private static readonly PRODUCTION_URL = 'https://api.cashfree.com/verification';
   
   private static getBaseUrl(): string {
-    const env = process.env.CASHFREE_ENVIRONMENT || 'SANDBOX';
+    const env = process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX');
     return env === 'PRODUCTION' ? this.PRODUCTION_URL : this.SANDBOX_URL;
   }
   

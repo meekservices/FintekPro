@@ -305,7 +305,7 @@ class UnifiedPaymentGateway {
   }
 
   async getGatewayHealth(): Promise<PaymentGatewayHealth> {
-    const cashfreeEnv = process.env.CASHFREE_ENVIRONMENT || 'SANDBOX';
+    const cashfreeEnv = process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX');
     const cashfreeBaseUrl = cashfreeEnv === 'PRODUCTION'
       ? 'https://api.cashfree.com/pg'
       : 'https://sandbox.cashfree.com/pg';

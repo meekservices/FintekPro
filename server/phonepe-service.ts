@@ -49,7 +49,7 @@ export class PhonePeService {
     this.merchantId = process.env.PHONEPE_MERCHANT_ID || '';
     this.saltKey = process.env.PHONEPE_SALT_KEY || '';
     this.saltIndex = process.env.PHONEPE_SALT_INDEX || '1';
-    this.environment = process.env.PHONEPE_ENVIRONMENT || 'SANDBOX';
+    this.environment = process.env.PHONEPE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX');
     
     // Set base URL based on environment
     this.baseUrl = this.environment === 'PRODUCTION' 
