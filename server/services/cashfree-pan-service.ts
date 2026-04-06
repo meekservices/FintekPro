@@ -90,46 +90,63 @@ export class CashfreePANService {
         };
       }
       
+      // Use /pan-lite (current documented endpoint — returns name_match, dob_match, pan_status)
+      const verificationId = `pan_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       const response = await axios.post(
-        `${this.getBaseUrl()}/pan`,
-        { 
+        `${this.getBaseUrl()}/pan-lite`,
+        {
+          verification_id: verificationId,
           pan: pan.toUpperCase(),
           name: name.trim()
         },
         { headers: this.getHeaders() }
       );
-      
-      // Cashfree returns 200 even for invalid PAN, check the valid field
-      if (response.data && response.data.valid === true) {
-        // Normalize type to TitleCase for consistency (Cashfree returns "INDIVIDUAL"/"BUSINESS")
-        const normalizedType = response.data.type === 'INDIVIDUAL' ? 'Individual' : 
-                               response.data.type === 'BUSINESS' ? 'Business' : 
-                               response.data.type;
-        
+
+      const d = response.data;
+      // pan-lite: status = "VALID" | "INVALID", pan_status = "E" (existing) | "N" (not found)
+      // Legacy /pan: valid = true/false
+      const isValid = d.status === 'VALID' || d.valid === true;
+
+      if (isValid) {
+        const nameMatchRaw = d.name_match;
+        const nameMatchResult = nameMatchRaw === 'Y' ? 'MATCH'
+          : nameMatchRaw === 'N' ? 'NO_MATCH'
+          : (d.name_match_result || 'UNKNOWN');
+        const nameMatchScore = nameMatchRaw === 'Y' ? 100
+          : nameMatchRaw === 'N' ? 0
+          : (d.name_match_score || 0);
+
+        const rawType = d.type || (d.pan ? (d.pan[3] === 'P' ? 'INDIVIDUAL' : 'BUSINESS') : 'INDIVIDUAL');
+        const normalizedType = rawType === 'INDIVIDUAL' ? 'Individual'
+          : rawType === 'BUSINESS' ? 'Business'
+          : rawType;
+
         return {
           success: true,
-          message: "PAN verified successfully",
+          message: 'PAN verified successfully',
           verified: true,
           data: {
-            pan: response.data.pan,
+            pan: d.pan || pan.toUpperCase(),
             type: normalizedType as 'Individual' | 'Business',
-            registeredName: response.data.registered_name || response.data.name_pan_card,
-            nameProvided: response.data.name_provided,
-            nameMatchScore: response.data.name_match_score || 0,
-            nameMatchResult: response.data.name_match_result || 'NO_MATCH',
-            aadhaarSeedingStatus: response.data.aadhaar_seeding_status,
-            aadhaarSeedingStatusDesc: response.data.aadhaar_seeding_status_desc,
-            panStatus: response.data.pan_status,
-            lastUpdatedAt: response.data.last_updated_at,
-            referenceId: response.data.reference_id
+            registeredName: d.registered_name || d.name_pan_card || d.name || '',
+            nameProvided: d.name_provided || name.trim(),
+            nameMatchScore,
+            nameMatchResult,
+            aadhaarSeedingStatus: d.aadhaar_seeding_status,
+            aadhaarSeedingStatusDesc: d.aadhaar_seeding_status_desc,
+            panStatus: d.pan_status,
+            dobMatch: d.dob_match,
+            lastUpdatedAt: d.last_updated_at,
+            referenceId: d.reference_id,
+            verificationId: d.verification_id || verificationId,
           }
         };
       }
-      
+
       // PAN is invalid or doesn't match
       return {
         success: false,
-        message: response.data?.message || "PAN verification failed. Please check the PAN and name.",
+        message: d?.message || 'PAN verification failed. Please check the PAN and name.',
         verified: false
       };
       

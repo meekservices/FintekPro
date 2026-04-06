@@ -215,6 +215,7 @@ import meetingBookingsRoutes from "./routes/meeting-bookings";
 import sebiRiskProfilingRoutes from "./routes/sebi-risk-profiling-routes";
 import portfolioReportsRoutes from "./routes/portfolio-reports";
 import kycFlowRoutes from "./routes/kyc-flow-routes";
+import cashfreeVrsRoutes from "./routes/cashfree-vrs-routes";
 import kycEngineRoutes from "./routes/kyc-engine-routes";
 import aiRecommendationTrackingRoutes from "./routes/ai-recommendation-tracking-routes";
 import errorTrackingRoutes from "./routes/error-tracking-routes";
@@ -589,6 +590,11 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // KYC Flow Configuration Routes (unified single source of truth for all KYC providers)
   app.use("/api/admin/kyc", requireAdmin, kycFlowRoutes);
   console.log("✅ KYC Flow Configuration routes registered");
+
+  // Cashfree VRS (Secure ID) Routes — admin testing for all verification APIs
+  app.use("/api/admin/cashfree-vrs", cashfreeVrsRoutes);
+  console.log("✅ Cashfree VRS (Secure ID) routes registered (/api/admin/cashfree-vrs/*)");
+
   
   // KYC Engine Routes (orchestration, identity, consent, admin)
   app.use("/api/kyc-engine", kycEngineRoutes);
