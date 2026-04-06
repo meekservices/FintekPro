@@ -112,7 +112,10 @@ KYC verification data completed via the Smart KYC Wizard (PAN + Aadhaar OTP) is 
 | Environment | Database | Connection Variable | SSL |
 |-------------|----------|---------------------|-----|
 | Development | Replit Helium (local PostgreSQL, 758 tables) | `DATABASE_URL` | `ssl: false` |
-| Production | Neon (external, 9.4M row NAV data) | `PRODUCTION_DATABASE_URL` | via WebSocket |
+| Production | **Railway Postgres** (PostgreSQL 18, 9.4M row NAV data) | `PRODUCTION_DATABASE_URL` | SSL via `rlwy.net` |
+
+**Deployment platform**: Railway (Node.js app server + Railway Postgres in the same private network).
+Data was migrated FROM Neon → Railway Postgres via `scripts/migrate-to-railway.mjs`. Neon is no longer the production database.
 
 **Why this split:**
 - Replit's publish flow checks `DATABASE_URL` (Helium) for schema diffs. Previously the app directed both environments to Neon, causing "SERVER unexpectedly disconnected" during publish (Helium doesn't support SSL; old code forced it).
@@ -121,13 +124,13 @@ KYC verification data completed via the Smart KYC Wizard (PAN + Aadhaar OTP) is 
 ### Key Files
 - `server/db.ts` — main app DB; uses `DATABASE_URL` in dev, `PRODUCTION_DATABASE_URL` in production
 - `server/db-production.ts` — enrichment-only connection, always `PRODUCTION_DATABASE_URL`
-- `drizzle.config.ts` — **Replit publish diff-check entry point**. Routes to `PRODUCTION_DATABASE_URL` (Neon, SSL) when set, falls back to `DATABASE_URL` (Helium, ssl:false). Restricted to 6-table `drizzle_kit_managed` stub — can never generate DROP statements against the 755-table public schema.
+- `drizzle.config.ts` — **Replit publish diff-check entry point**. Routes to `PRODUCTION_DATABASE_URL` (Railway Postgres, SSL) when set, falls back to `DATABASE_URL` (Helium, ssl:false). Restricted to 6-table `drizzle_kit_managed` stub — can never generate DROP statements against the 755-table public schema.
 - `drizzle.local.config.ts` — full schema push for Helium dev DB (`ssl: false`). Run manually: `npx drizzle-kit push --config=drizzle.local.config.ts`
-- `drizzle.production.config.ts` — startup sync for Neon (6-table `drizzle_kit_managed` schema only, to avoid touching the 755-table public schema)
+- `drizzle.production.config.ts` — startup sync for Railway Postgres (6-table `drizzle_kit_managed` schema only, to avoid touching the 755-table public schema)
 
 ### Publish Safety Notes
 - **Never click "Copy development database to production"** during deploy — Helium has no enrichment data.
-- Schema sync at production startup (`scripts/start-production.sh`) targets the `drizzle_kit_managed` schema only. If Neon's TCP port is unreachable (Replit autoscale blocks port 5432), it skips gracefully.
+- Schema sync at production startup (`scripts/start-production.sh`) targets the `drizzle_kit_managed` schema only.
 
 ---
 
