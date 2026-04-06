@@ -360,53 +360,55 @@ class FinancialDataRepository {
       return isFinite(n) ? n : undefined;
     };
 
+    // FMP v3 /quote/{symbols} supports a comma-separated list (up to 50).
+    // It works on the free tier and returns live price + change data.
+    // The old /stable/profile endpoint required a paid plan.
     try {
-      const capped = symbols.slice(0, 10);
-      const fetchOne = async (sym: string): Promise<[string, InstrumentData] | null> => {
-        const resp = await fetch(
-          `https://financialmodelingprep.com/stable/profile?symbol=${encodeURIComponent(sym)}&apikey=${apiKey}`,
-          { signal: AbortSignal.timeout(10000), headers: { 'Accept': 'application/json', 'User-Agent': 'FintekPro/2.5' } }
-        );
-        if (!resp.ok) return null;
-        const d: any[] = await resp.json();
-        const q = d?.[0];
-        if (!q?.price) return null;
-        const data: InstrumentData = {
+      const capped = symbols.slice(0, 50);
+      const joined = capped.map(s => encodeURIComponent(s)).join(',');
+      const resp = await fetch(
+        `https://financialmodelingprep.com/api/v3/quote/${joined}?apikey=${apiKey}`,
+        { signal: AbortSignal.timeout(12000), headers: { 'Accept': 'application/json', 'User-Agent': 'FintekPro/2.5' } }
+      );
+      if (!resp.ok) {
+        console.log(`⚠️ [FMP] HTTP ${resp.status} for batch ${instrumentType} quotes`);
+        return results;
+      }
+      const data: any[] = await resp.json();
+      if (!Array.isArray(data)) return results;
+
+      for (const q of data) {
+        if (!q?.symbol || q.price == null) continue;
+        results.set(q.symbol, {
           instrumentType,
-          symbol: q.symbol || sym,
-          name: q.companyName || sym,
+          symbol: q.symbol,
+          name: q.name || q.symbol,
           exchange: q.exchange || 'US',
           currency: q.currency || 'USD',
-          country: q.country || 'US',
+          country: 'US',
           currentPrice: safeFloat(q.price),
-          previousClose: undefined,
+          previousClose: safeFloat(q.previousClose),
           dayChange: safeFloat(q.change),
-          dayChangePercent: safeFloat(q.changePercentage),
-          dayHigh: undefined,
-          dayLow: undefined,
-          openPrice: undefined,
+          dayChangePercent: safeFloat(q.changesPercentage),
+          dayHigh: safeFloat(q.dayHigh),
+          dayLow: safeFloat(q.dayLow),
+          openPrice: safeFloat(q.open),
           volume: safeFloat(q.volume),
           marketCap: safeFloat(q.marketCap),
-          peRatio: undefined,
+          peRatio: safeFloat(q.pe),
           dividendYield: undefined,
-          sector: q.sector || undefined,
-          category: instrumentType === 'etf' ? (q.sector || undefined) : undefined,
+          sector: undefined,
+          category: undefined,
           expenseRatio: undefined,
           aum: instrumentType === 'etf' ? safeFloat(q.marketCap) : undefined,
           dataSource: 'fmp',
           confidenceScore: 88,
-        };
-        return [q.symbol || sym, data];
-      };
-
-      const settled = await Promise.allSettled(capped.map(fetchOne));
-      for (const r of settled) {
-        if (r.status === 'fulfilled' && r.value) results.set(r.value[0], r.value[1]);
+        });
       }
 
-      console.log(`✅ [FMP Stable] Fetched ${results.size}/${capped.length} ${instrumentType} profiles`);
+      console.log(`✅ [FMP] Fetched ${results.size}/${capped.length} ${instrumentType} quotes`);
     } catch (error: any) {
-      console.log(`⚠️ [FMP Stable] Error: ${error.message}`);
+      console.log(`⚠️ [FMP] Error: ${error.message}`);
     }
 
     return results;
@@ -895,61 +897,61 @@ class FinancialDataRepository {
       }
     };
 
-    // ── Market-segregated routing ──────────────────────────────────────────
-    // US equities (no suffix) → Alpha Vantage first: completely separate infra
-    //   from Yahoo, so Python/yfinance and Yahoo Node.js don't compete with it.
-    // Indian (.NS/.BO) + International (.HK/.T/.L etc.) → Python/yfinance first:
-    //   unmatched coverage for non-US markets; no alternative free source matches it.
     const usSymbols   = symbols.filter(s => !s.includes('.'));
     const indSymbols  = symbols.filter(s => s.includes('.NS') || s.includes('.BO'));
     const intlSymbols = symbols.filter(s => s.includes('.') && !s.includes('.NS') && !s.includes('.BO'));
 
-    // ── Tier 1-A: Alpha Vantage for US equities ────────────────────────────
+    // ── Tier 1-A: Alpha Vantage for US equities (separate infra from Yahoo) ─
     if (usSymbols.length && process.env.ALPHA_VANTAGE_API_KEY) {
       const avResults = await this.fetchBatchFromAlphaVantage(usSymbols, 'global_stock');
       for (const [sym, data] of avResults) await persist(data, sym);
     }
 
-    // ── Tier 1-B: Python/yfinance for Indian + Intl (best for non-US) ─────
+    // ── Tier 1-B: Google Finance HTML for US stocks AV missed ─────────────
+    // No API key, works from datacenter IPs, completely independent of Yahoo.
+    // Promoted ahead of Python to reduce dependency on the Python sidecar for US data.
+    const gfUsNeeded = usSymbols.filter(s => !saved.has(s));
+    if (gfUsNeeded.length) {
+      console.log(`[GlobalStocks] ${gfUsNeeded.length} US symbols after AV → Google Finance HTML`);
+      const gfResults = await this.fetchBatchFromGoogleFinance(gfUsNeeded, 'global_stock');
+      for (const [sym, data] of gfResults) await persist(data, sym);
+    }
+
+    // ── Tier 2: FMP batch for any still-missing US symbols ─────────────────
+    // FMP /api/v3/quote supports free-tier batch lookups (up to 50 symbols).
+    const fmpUsNeeded = usSymbols.filter(s => !saved.has(s));
+    if (fmpUsNeeded.length && process.env.FMP_API_KEY) {
+      console.log(`[GlobalStocks] ${fmpUsNeeded.length} US symbols after GF → FMP batch`);
+      const fmpResults = await this.fetchBatchFromFMP(fmpUsNeeded, 'global_stock');
+      for (const [sym, data] of fmpResults) await persist(data, sym);
+    }
+
+    // ── Tier 3: Python/yfinance for Indian + Intl (best non-US source) ─────
     const nonUsNeeded = [...indSymbols, ...intlSymbols].filter(s => !saved.has(s));
     if (nonUsNeeded.length) {
       const pythonResults = await this.fetchBatchFromPython(nonUsNeeded, 'global_stock');
       for (const [sym, data] of pythonResults) await persist(data, sym);
     }
 
-    // ── Tier 2: Python/yfinance for US equities Alpha Vantage missed ───────
-    const usNeeded = usSymbols.filter(s => !saved.has(s));
-    if (usNeeded.length) {
-      console.log(`[GlobalStocks] ${usNeeded.length} US symbols after AV → Python/yfinance`);
-      const pythonResults = await this.fetchBatchFromPython(usNeeded, 'global_stock');
+    // ── Tier 4: Python/yfinance for any still-missing US symbols ───────────
+    const pythonUsNeeded = usSymbols.filter(s => !saved.has(s));
+    if (pythonUsNeeded.length) {
+      console.log(`[GlobalStocks] ${pythonUsNeeded.length} US symbols after GF+FMP → Python`);
+      const pythonResults = await this.fetchBatchFromPython(pythonUsNeeded, 'global_stock');
       for (const [sym, data] of pythonResults) await persist(data, sym);
     }
 
-    // ── Tier 3: Google Finance HTML for remaining US stocks ────────────────
-    // No API key needed; HTML scraping works from datacenter IPs.
-    // Only applicable to symbols without a suffix (US-listed).
-    const gfUsNeeded = usSymbols.filter(s => !saved.has(s));
-    if (gfUsNeeded.length) {
-      console.log(`[GlobalStocks] ${gfUsNeeded.length} US symbols after Python → Google Finance HTML`);
-      const gfResults = await this.fetchBatchFromGoogleFinance(gfUsNeeded, 'global_stock');
-      for (const [sym, data] of gfResults) await persist(data, sym);
-    }
-
-    // ── Tier 4: FMP for any still-missing symbols ──────────────────────────
-    const fmpNeeded = symbols.filter(s => !saved.has(s));
-    if (fmpNeeded.length && process.env.FMP_API_KEY) {
-      const fmpResults = await this.fetchBatchFromFMP(fmpNeeded, 'global_stock');
-      for (const [sym, data] of fmpResults) await persist(data, sym);
-    }
-
-    // ── Tier 5: Yahoo Finance — genuine last resort ────────────────────────
-    const yahooNeeded = symbols.filter(s => !saved.has(s));
-    failed = yahooNeeded.length;
+    // ── Tier 5: Yahoo Finance — last resort, capped at 5 symbols ──────────
+    // Yahoo rate-limits datacenter IPs aggressively; exceeding 2 consecutive
+    // requests triggers a 429 that kills the remaining batch. Strict cap prevents
+    // burning the quota on symbols that GF/FMP/Python already covered.
+    const yahooNeeded = symbols.filter(s => !saved.has(s)).slice(0, 5);
+    failed = symbols.filter(s => !saved.has(s)).length;
     if (yahooNeeded.length) {
-      console.log(`[GlobalStocks] ${yahooNeeded.length} symbols hitting Yahoo last-resort`);
+      console.log(`[GlobalStocks] ${yahooNeeded.length} symbols → Yahoo (capped at 5)`);
       const yahooResult = await this.refreshViaYahoo(yahooNeeded, 'global_stock');
       success += yahooResult.success;
-      failed = Math.max(0, failed - yahooResult.success);
+      failed = Math.max(0, symbols.filter(s => !saved.has(s) && !yahooResult.success).length);
     }
 
     console.log(`📊 [FinancialDataRepository] Refreshed global stocks: ${success} success, ${failed} failed`);
@@ -971,28 +973,36 @@ class FinancialDataRepository {
       }
     };
 
-    // ── Tier 1: FMP — ETF specialist, separate infra from Yahoo ───────────
-    // FMP is optimised for ETF data (NAV, expense ratio, category) and does NOT
-    // run over Yahoo infrastructure, so it doesn't compete with yfinance or
-    // Yahoo Node.js. Make it the primary source for all ETFs.
-    if (process.env.FMP_API_KEY) {
-      const fmpResults = await this.fetchBatchFromFMP(symbols, 'etf');
-      for (const [sym, data] of fmpResults) await persist(data, sym);
+    // ── Tier 1: Google Finance HTML — no API key, works from datacenter IPs ─
+    // US ETFs (no dot suffix) have full exchange mappings in GF_US_EXCHANGE_MAP.
+    // Promoted to primary because it has zero rate-limit risk and no API dependency.
+    const usEtfs = symbols.filter(s => !s.includes('.'));
+    if (usEtfs.length) {
+      const gfResults = await this.fetchBatchFromGoogleFinance(usEtfs, 'etf');
+      for (const [sym, data] of gfResults) await persist(data, sym);
       if (saved.size === symbols.length) {
-        console.log(`📊 [ETFs] Refreshed ${success} ETFs via FMP (no fallback needed)`);
+        console.log(`📊 [ETFs] Refreshed ${success} ETFs via Google Finance (no fallback needed)`);
         return { success, failed };
       }
     }
 
-    // ── Tier 2: Python/yfinance ────────────────────────────────────────────
-    const tier2Needed = symbols.filter(s => !saved.has(s));
-    if (tier2Needed.length) {
-      console.log(`[ETFs] ${tier2Needed.length} ETFs after FMP → Python/yfinance`);
-      const pythonResults = await this.fetchBatchFromPython(tier2Needed, 'etf');
+    // ── Tier 2: FMP batch — free-tier /api/v3/quote, ETF specialist ────────
+    const fmpNeeded = symbols.filter(s => !saved.has(s));
+    if (fmpNeeded.length && process.env.FMP_API_KEY) {
+      console.log(`[ETFs] ${fmpNeeded.length} ETFs after GF → FMP batch`);
+      const fmpResults = await this.fetchBatchFromFMP(fmpNeeded, 'etf');
+      for (const [sym, data] of fmpResults) await persist(data, sym);
+    }
+
+    // ── Tier 3: Python/yfinance for any still-missing ──────────────────────
+    const pythonNeeded = symbols.filter(s => !saved.has(s));
+    if (pythonNeeded.length) {
+      console.log(`[ETFs] ${pythonNeeded.length} ETFs after GF+FMP → Python/yfinance`);
+      const pythonResults = await this.fetchBatchFromPython(pythonNeeded, 'etf');
       for (const [sym, data] of pythonResults) await persist(data, sym);
     }
 
-    // ── Tier 3: Alpha Vantage for US ETFs Python couldn't price ───────────
+    // ── Tier 4: Alpha Vantage for US ETFs still missing ────────────────────
     const avNeeded = symbols.filter(s => !saved.has(s) && !s.includes('.'));
     if (avNeeded.length && process.env.ALPHA_VANTAGE_API_KEY) {
       console.log(`[ETFs] ${avNeeded.length} US ETFs after Python → Alpha Vantage`);
@@ -1000,24 +1010,14 @@ class FinancialDataRepository {
       for (const [sym, data] of avResults) await persist(data, sym);
     }
 
-    // ── Tier 4: Google Finance HTML for remaining US ETFs ─────────────────
-    // No API key needed; HTML scraping works from datacenter IPs.
-    // Only US-listed ETFs (no dot suffix) are in the GF_US_EXCHANGE_MAP.
-    const gfEtfNeeded = symbols.filter(s => !saved.has(s) && !s.includes('.'));
-    if (gfEtfNeeded.length) {
-      console.log(`[ETFs] ${gfEtfNeeded.length} ETFs after AV → Google Finance HTML`);
-      const gfResults = await this.fetchBatchFromGoogleFinance(gfEtfNeeded, 'etf');
-      for (const [sym, data] of gfResults) await persist(data, sym);
-    }
-
-    // ── Tier 5: Yahoo Finance — genuine last resort ────────────────────────
-    const yahooNeeded = symbols.filter(s => !saved.has(s));
-    failed = yahooNeeded.length;
+    // ── Tier 5: Yahoo Finance — last resort, capped at 5 ─────────────────
+    const yahooNeeded = symbols.filter(s => !saved.has(s)).slice(0, 5);
+    failed = symbols.filter(s => !saved.has(s)).length;
     if (yahooNeeded.length) {
-      console.log(`[ETFs] ${yahooNeeded.length} ETFs hitting Yahoo last-resort`);
+      console.log(`[ETFs] ${yahooNeeded.length} ETFs → Yahoo (capped at 5)`);
       const yahooResult = await this.refreshViaYahoo(yahooNeeded, 'etf');
       success += yahooResult.success;
-      failed = Math.max(0, failed - yahooResult.success);
+      failed = Math.max(0, symbols.filter(s => !saved.has(s)).length - yahooResult.success);
     }
 
     console.log(`📊 [FinancialDataRepository] Refreshed ETFs: ${success} success, ${failed} failed`);
@@ -1027,34 +1027,27 @@ class FinancialDataRepository {
   private async refreshViaYahoo(symbols: string[], type: 'global_stock' | 'etf'): Promise<{ success: number; failed: number }> {
     let success = 0;
     let failed = 0;
-    let consecutiveRateLimits = 0;
-    let delay = 5000;
+    // 15s initial delay — datacenter IPs get 429 fast; spacing out drastically
+    // reduces repeat failures. Bail immediately on the first rate-limit hit.
+    const DELAY_MS = 15_000;
 
     for (const symbol of symbols) {
-      if (consecutiveRateLimits >= 2) {
-        console.log(`[FinancialDataRepository] Yahoo rate limit hit, skipping remaining ${symbols.length - (success + failed)} ${type}s`);
-        failed += symbols.length - (success + failed);
-        break;
-      }
-
       try {
         const result = type === 'etf' ? await this.fetchETF(symbol) : await this.fetchGlobalStock(symbol);
         if (result.success && result.data) {
           await this.saveToDatabase(result.data);
           success++;
-          consecutiveRateLimits = 0;
-          delay = 5000;
         } else {
           failed++;
           if (result.error?.includes('Rate limited') || result.error?.includes('Too Many')) {
-            consecutiveRateLimits++;
-            delay = Math.min(delay * 2, 30000);
+            console.log(`[Yahoo] Rate limited on ${symbol} — stopping Yahoo requests for this cycle`);
+            failed += symbols.length - (success + failed);
+            break;
           }
         }
-        await new Promise(resolve => setTimeout(resolve, delay));
-      } catch (error) {
+        await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+      } catch {
         failed++;
-        consecutiveRateLimits++;
       }
     }
 
