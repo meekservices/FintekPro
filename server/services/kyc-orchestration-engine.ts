@@ -13,6 +13,8 @@ import { CashfreePANService } from "./cashfree-pan-service";
 import { CashfreeAadhaarService } from "./cashfree-aadhaar-service";
 import { verifyBankAccountV2 } from "./cashfree-vrs-service";
 import { sandboxKYCService } from "./sandbox-kyc-service";
+import { TruthscreenAadhaarService } from "./truthscreen-aadhaar-service";
+import { TruthScreenCkycAdapter } from "./adapters/truthscreen-ckyc-adapter";
 
 interface VerificationRequest {
   userId: string;
@@ -328,8 +330,43 @@ class KycOrchestrationEngine {
       }
 
       case "truthscreen_pan": {
-        console.log(`[KYC-ENGINE] TruthScreen PAN — not implemented yet`);
-        return { success: false, errorCode: 'PROVIDER_NOT_IMPLEMENTED', errorMessage: 'TruthScreen PAN integration not yet configured — contact admin to set TRUTHSCREEN credentials' };
+        console.log(`[KYC-ENGINE] Calling TruthScreen CKYC search for PAN verification`);
+        const pan = (p.pan || '').toUpperCase();
+        const name = p.name || '';
+        if (!pan) {
+          return { success: false, errorCode: 'MISSING_PAYLOAD', errorMessage: 'pan is required for truthscreen_pan' };
+        }
+        const tsAdapter = new TruthScreenCkycAdapter();
+        if (!tsAdapter.isConfigured()) {
+          return { success: false, errorCode: 'PROVIDER_NOT_CONFIGURED', errorMessage: 'TruthScreen credentials not set — add TRUTHSCREEN_USERNAME / TRUTHSCREEN_PASSWORD' };
+        }
+        try {
+          const result = await tsAdapter.verify({
+            panNumber: pan,
+            fullName: name,
+            dateOfBirth: p.dob || '',
+          });
+          if (result.success && result.found) {
+            return {
+              success: true,
+              data: {
+                verified: true,
+                source: 'truthscreen_pan',
+                kin: result.kin,
+                kycStatus: result.status,
+                fullName: result.data?.fullName,
+                dateOfBirth: result.data?.dateOfBirth,
+                provider: 'TruthScreen CKYC Registry',
+              },
+            };
+          }
+          if (result.success && !result.found) {
+            return { success: false, errorCode: 'PAN_NOT_IN_CKYC', errorMessage: result.message || 'PAN not found in CKYC registry — try sandbox or Cashfree provider' };
+          }
+          return { success: false, errorCode: result.errorCode || 'CKYC_SEARCH_FAILED', errorMessage: result.message || 'TruthScreen CKYC search failed' };
+        } catch (err: any) {
+          return { success: false, errorCode: 'PROVIDER_ERROR', errorMessage: err.message };
+        }
       }
 
       // ─── AADHAAR VERIFICATION ─────────────────────────────────────────────
@@ -452,8 +489,61 @@ class KycOrchestrationEngine {
       }
 
       case "truthscreen_aadhaar": {
-        console.log(`[KYC-ENGINE] TruthScreen Aadhaar — not implemented yet`);
-        return { success: false, errorCode: 'PROVIDER_NOT_IMPLEMENTED', errorMessage: 'TruthScreen Aadhaar integration not yet configured' };
+        if (!process.env.TRUTHSCREEN_USERNAME || !process.env.TRUTHSCREEN_PASSWORD) {
+          return { success: false, errorCode: 'PROVIDER_NOT_CONFIGURED', errorMessage: 'TruthScreen credentials not set — add TRUTHSCREEN_USERNAME / TRUTHSCREEN_PASSWORD' };
+        }
+        const subStep = p.subStep || (p.aadhaarNumber ? 'generate_otp' : 'verify_otp');
+        if (subStep === 'generate_otp') {
+          console.log(`[KYC-ENGINE] Calling TruthScreen Aadhaar OTP generation`);
+          if (!p.aadhaarNumber) {
+            return { success: false, errorCode: 'MISSING_PAYLOAD', errorMessage: 'aadhaarNumber is required for aadhaar generate_otp' };
+          }
+          try {
+            const result = await TruthscreenAadhaarService.generateOTP(p.aadhaarNumber);
+            if (result.success) {
+              return {
+                success: true,
+                data: {
+                  subStep: 'generate_otp',
+                  source: 'truthscreen_aadhaar',
+                  refId: result.refId,
+                  maskedAadhaar: result.maskedAadhaar,
+                  transactionId: result.transactionId,
+                  message: result.message,
+                },
+              };
+            }
+            return { success: false, errorCode: 'OTP_GENERATION_FAILED', errorMessage: result.message };
+          } catch (err: any) {
+            return { success: false, errorCode: 'OTP_GENERATION_FAILED', errorMessage: err.message };
+          }
+        } else {
+          console.log(`[KYC-ENGINE] Calling TruthScreen Aadhaar OTP verification`);
+          if (!p.refId || !p.otp) {
+            return { success: false, errorCode: 'MISSING_PAYLOAD', errorMessage: 'refId and otp are required for aadhaar verify_otp' };
+          }
+          try {
+            const result = await TruthscreenAadhaarService.verifyOTP(p.refId, p.otp);
+            if (result.verified) {
+              return {
+                success: true,
+                data: {
+                  subStep: 'verify_otp',
+                  source: 'truthscreen_aadhaar',
+                  verified: true,
+                  name: result.data?.name,
+                  dob: result.data?.dob,
+                  gender: result.data?.gender,
+                  fatherName: result.data?.fatherName,
+                  address: result.data?.address,
+                },
+              };
+            }
+            return { success: false, errorCode: 'OTP_VERIFICATION_FAILED', errorMessage: result.message };
+          } catch (err: any) {
+            return { success: false, errorCode: 'OTP_VERIFICATION_FAILED', errorMessage: err.message };
+          }
+        }
       }
 
       // ─── BANK ACCOUNT VERIFICATION ────────────────────────────────────────
@@ -526,8 +616,45 @@ class KycOrchestrationEngine {
       // ─── CKYC VERIFICATION ────────────────────────────────────────────────
 
       case "truthscreen_ckyc": {
-        console.log(`[KYC-ENGINE] TruthScreen CKYC — not implemented yet`);
-        return { success: false, errorCode: 'PROVIDER_NOT_IMPLEMENTED', errorMessage: 'TruthScreen CKYC integration not yet configured' };
+        console.log(`[KYC-ENGINE] Calling TruthScreen CKYC 3-step search`);
+        const pan = (p.pan || '').toUpperCase();
+        if (!pan) {
+          return { success: false, errorCode: 'MISSING_PAYLOAD', errorMessage: 'pan is required for truthscreen_ckyc' };
+        }
+        const tsAdapter = new TruthScreenCkycAdapter();
+        if (!tsAdapter.isConfigured()) {
+          return { success: false, errorCode: 'PROVIDER_NOT_CONFIGURED', errorMessage: 'TruthScreen credentials not set — add TRUTHSCREEN_USERNAME / TRUTHSCREEN_PASSWORD' };
+        }
+        try {
+          const result = await tsAdapter.verify({
+            panNumber: pan,
+            fullName: p.name || '',
+            dateOfBirth: p.dob || '',
+          });
+          if (result.success && result.found) {
+            return {
+              success: true,
+              data: {
+                verified: true,
+                source: 'truthscreen_ckyc',
+                kin: result.kin,
+                kycStatus: result.status,
+                verificationLevel: result.verificationLevel,
+                fullName: result.data?.fullName,
+                dateOfBirth: result.data?.dateOfBirth,
+                gender: result.data?.gender,
+                address: result.data?.address,
+                kycDate: result.data?.kycDate,
+              },
+            };
+          }
+          if (result.success && !result.found) {
+            return { success: false, errorCode: 'CKYC_NOT_FOUND', errorMessage: result.message || 'No CKYC record found for this PAN' };
+          }
+          return { success: false, errorCode: result.errorCode || 'CKYC_SEARCH_FAILED', errorMessage: result.message || 'TruthScreen CKYC search failed' };
+        } catch (err: any) {
+          return { success: false, errorCode: 'PROVIDER_ERROR', errorMessage: err.message };
+        }
       }
 
       case "authbridge_ckyc": {
