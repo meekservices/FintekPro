@@ -102,18 +102,18 @@ export default function AdminKycFlow() {
     },
   });
 
-  const moveProvider = (step: KycStep, providerIndex: number, direction: 'up' | 'down') => {
-    const providers = [...step.providers];
-    const swapIndex = direction === 'up' ? providerIndex - 1 : providerIndex + 1;
-    if (swapIndex < 0 || swapIndex >= providers.length) return;
+  const moveProvider = (step: KycStep, sortedIndex: number, direction: 'up' | 'down') => {
+    const sorted = [...step.providers].sort((a, b) => a.priority - b.priority);
+    const swapIndex = direction === 'up' ? sortedIndex - 1 : sortedIndex + 1;
+    if (swapIndex < 0 || swapIndex >= sorted.length) return;
 
-    const tempPriority = providers[providerIndex].priority;
-    providers[providerIndex].priority = providers[swapIndex].priority;
-    providers[swapIndex].priority = tempPriority;
+    const tempPriority = sorted[sortedIndex].priority;
+    sorted[sortedIndex].priority = sorted[swapIndex].priority;
+    sorted[swapIndex].priority = tempPriority;
 
     updatePriorityMutation.mutate({
       stepId: step.stepId,
-      providers: providers.map(p => ({ providerId: p.providerId, priority: p.priority })),
+      providers: sorted.map(p => ({ providerId: p.providerId, priority: p.priority })),
     });
   };
 
@@ -174,9 +174,10 @@ export default function AdminKycFlow() {
         <ArrowUpDown className="h-4 w-4" />
         <AlertTitle>Priority-Based Fallback</AlertTitle>
         <AlertDescription>
-          Each KYC step uses providers in priority order. If the primary provider fails or is unavailable, 
-          the system automatically tries the next provider. Use the arrow buttons to reorder providers. 
-          Only configured providers will be used in verification flows.
+          Each KYC step tries providers in priority order. If the top-priority provider fails or is not configured,
+          the system falls back to the next one automatically. Priority and pricing changes are persisted to the
+          database and survive server restarts. Only providers marked <strong>Ready</strong> will be selected for
+          live verification flows.
         </AlertDescription>
       </Alert>
 
