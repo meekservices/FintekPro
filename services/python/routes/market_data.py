@@ -784,7 +784,19 @@ async def batch_quotes(
     if len(symbols) > 150:
         raise HTTPException(status_code=400, detail="Max 150 symbols per request")
     loop = asyncio.get_event_loop()
-    results = await loop.run_in_executor(_executor, _fetch_quotes_sync, symbols)
+    # Hard 12-second wall-clock timeout so a hung yfinance call never causes
+    # Railway to return 502 to the Node.js caller (Node callPython timeout = 15s).
+    try:
+        results = await asyncio.wait_for(
+            loop.run_in_executor(_executor, _fetch_quotes_sync, symbols),
+            timeout=12.0,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            f"[market_data] /quotes timed out after 12s for {len(symbols)} symbols "
+            f"({symbols[:5]}{'…' if len(symbols) > 5 else ''}) — returning empty"
+        )
+        results = {}
     return {"results": results, "count": len(results), "source": "yfinance"}
 
 
