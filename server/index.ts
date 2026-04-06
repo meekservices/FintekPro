@@ -1557,6 +1557,68 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     console.warn('[Migration] us_broker_accounts account opening columns skipped:', e?.message);
   }
 
+  // ca_verification_status — create table + add any columns missing from earlier deployments
+  try {
+    const { db: caDb } = await import('./db');
+    const { sql: caSql } = await import('drizzle-orm');
+    await caDb.execute(caSql`
+      CREATE TABLE IF NOT EXISTS ca_verification_status (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR NOT NULL UNIQUE REFERENCES users(id),
+        icai_membership_number VARCHAR NOT NULL,
+        icai_verified BOOLEAN DEFAULT false,
+        icai_verified_at TIMESTAMPTZ,
+        icai_verified_by VARCHAR REFERENCES users(id),
+        cop_number VARCHAR,
+        cop_valid_from DATE,
+        cop_valid_to DATE,
+        cop_verified BOOLEAN DEFAULT false,
+        cop_verified_at TIMESTAMPTZ,
+        pan_number VARCHAR NOT NULL DEFAULT '',
+        pan_verified BOOLEAN DEFAULT false,
+        pan_verified_at TIMESTAMPTZ,
+        dsc_available BOOLEAN DEFAULT false,
+        dsc_serial_number VARCHAR,
+        dsc_valid_from DATE,
+        dsc_valid_to DATE,
+        dsc_verified_at TIMESTAMPTZ,
+        overall_status VARCHAR DEFAULT 'pending',
+        can_sign_form_15cb BOOLEAN DEFAULT false,
+        approved_at TIMESTAMPTZ,
+        approved_by VARCHAR REFERENCES users(id),
+        rejection_reason TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    // Add any columns missing from older table instances
+    await caDb.execute(caSql`
+      ALTER TABLE ca_verification_status
+        ADD COLUMN IF NOT EXISTS icai_verified BOOLEAN DEFAULT false,
+        ADD COLUMN IF NOT EXISTS icai_verified_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS icai_verified_by VARCHAR REFERENCES users(id),
+        ADD COLUMN IF NOT EXISTS cop_number VARCHAR,
+        ADD COLUMN IF NOT EXISTS cop_valid_from DATE,
+        ADD COLUMN IF NOT EXISTS cop_valid_to DATE,
+        ADD COLUMN IF NOT EXISTS cop_verified BOOLEAN DEFAULT false,
+        ADD COLUMN IF NOT EXISTS cop_verified_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS pan_verified BOOLEAN DEFAULT false,
+        ADD COLUMN IF NOT EXISTS pan_verified_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS dsc_available BOOLEAN DEFAULT false,
+        ADD COLUMN IF NOT EXISTS dsc_serial_number VARCHAR,
+        ADD COLUMN IF NOT EXISTS dsc_valid_from DATE,
+        ADD COLUMN IF NOT EXISTS dsc_valid_to DATE,
+        ADD COLUMN IF NOT EXISTS dsc_verified_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS can_sign_form_15cb BOOLEAN DEFAULT false,
+        ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS approved_by VARCHAR REFERENCES users(id),
+        ADD COLUMN IF NOT EXISTS rejection_reason TEXT
+    `);
+    console.log('✅ [Migration] ca_verification_status table verified/created');
+  } catch (e: any) {
+    console.warn('[Migration] ca_verification_status schema skipped:', e?.message);
+  }
+
   // FintekPro Subscription / Monetization columns on users table
   try {
     const { db: subDb } = await import('./db');
