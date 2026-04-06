@@ -32,6 +32,7 @@ import { registerPaymentRoutes } from './routes/payments';
 import { registerBBPSRoutes } from './routes/bbps';
 import { registerCapitalGainsRoutes } from './routes/capital-gains';
 import { registerAdminPanelRoutes } from './routes/admin';
+import aiGovernanceRouter from './routes/admin/ai-governance';
 import { registerPartnerPortalRoutes } from './routes/partner';
 import { registerPortalSystemRoutes } from './routes/portal-system';
 import { registerKYCWizardRoutes } from './routes/kyc';
@@ -784,6 +785,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.use("/api/webauthn", webauthnRouter);
   console.log("✅ WebAuthn Biometric Authentication routes registered");
   registerDLMRoutes(app);
+  app.use(aiGovernanceRouter);
+  console.log('✅ AI Governance routes registered');
 
   // Extracted domain route modules (P3 — routes.ts size reduction)
   registerFamilyCollaborationRoutes(app);

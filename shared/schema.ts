@@ -33170,3 +33170,25 @@ export const creditRatings = pgTable("credit_ratings", {
 export type CreditRating = typeof creditRatings.$inferSelect;
 export type InsertCreditRating = typeof creditRatings.$inferInsert;
 export const insertCreditRatingSchema = createInsertSchema(creditRatings).omit({ id: true, createdAt: true });
+
+// ── AI Prompt Version Audit Table ────────────────────────────────────────────
+// Immutable log of which prompt version was used for each AI interaction.
+// Supports SEBI/RBI compliance audits and prompt governance.
+export const aiPromptVersions = pgTable("ai_prompt_versions", {
+  id: serial("id").primaryKey(),
+  promptName: varchar("prompt_name", { length: 255 }).notNull(),
+  version: varchar("version", { length: 50 }).notNull(),
+  usedAt: timestamp("used_at").defaultNow().notNull(),
+  userId: varchar("user_id"),
+  feature: varchar("feature", { length: 255 }),
+  responsePreviewHash: varchar("response_preview_hash", { length: 64 }),
+}, (table) => [
+  index("idx_ai_prompt_versions_name").on(table.promptName),
+  index("idx_ai_prompt_versions_used_at").on(table.usedAt),
+  index("idx_ai_prompt_versions_user_id").on(table.userId),
+]);
+
+export type AiPromptVersion = typeof aiPromptVersions.$inferSelect;
+export type InsertAiPromptVersion = typeof aiPromptVersions.$inferInsert;
+export const insertAiPromptVersionSchema = createInsertSchema(aiPromptVersions).omit({ id: true, usedAt: true });
+
