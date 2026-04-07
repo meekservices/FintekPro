@@ -210,6 +210,71 @@ class IrisKfintechService {
     const qs = params ? '?' + new URLSearchParams(params).toString() : '';
     return this.call(`/reports/portfolio-summary/${pan}${qs}`);
   }
+  // STP (Systematic Transfer Plan)
+  async registerStp(body: any) { return this.call('/sif/transactions/stp/register', 'POST', body); }
+  async cancelStp(body: any) { return this.call('/sif/transactions/stp/cancel', 'POST', body); }
+  async pauseStp(body: any) { return this.call('/sif/transactions/stp/pause', 'POST', body); }
+
+  // SWP (Systematic Withdrawal Plan)
+  async registerSwp(body: any) { return this.call('/sif/transactions/swp/register', 'POST', body); }
+  async cancelSwp(body: any) { return this.call('/sif/transactions/swp/cancel', 'POST', body); }
+  async pauseSwp(body: any) { return this.call('/sif/transactions/swp/pause', 'POST', body); }
+
+  // Additional Purchase (existing folio)
+  async placeAdditionalPurchase(body: any) { return this.call('/sif/transactions/additional-purchase', 'POST', body); }
+
+  // eNACH / Mandate Creation
+  async createMandate(body: any) { return this.call('/sif/mandates', 'POST', body); }
+  async getMandateStatus(mandateId: string) { return this.call(`/sif/mandates/${mandateId}`); }
+
+  // Fixed Deposit Orders
+  async placeFdOrder(body: any) { return this.call('/user/fixed-deposit/order', 'POST', body); }
+  async getFdOrders(pan: string) { return this.call(`/user/fixed-deposit/orders?pan=${encodeURIComponent(pan)}`); }
+  async getFdOrderDetails(orderId: string) { return this.call(`/user/fixed-deposit/orders/${orderId}`); }
+
+  // NPS (National Pension System)
+  async getNpsSubscriberDetails(pran: string) { return this.call(`/nps/subscriber/${pran}`); }
+  async initiateNpsOnboarding(body: any) { return this.call('/nps/subscriber/onboarding', 'POST', body); }
+  async placeNpsContribution(body: any) { return this.call('/nps/transactions/contribution', 'POST', body); }
+  async getNpsPortfolio(pran: string) { return this.call(`/nps/subscriber/${pran}/portfolio`); }
+  async getNpsFundValues(pran: string) { return this.call(`/nps/subscriber/${pran}/fund-values`); }
+
+  // Non-Financial Transactions
+  async updateNominee(pan: string, body: any) { return this.call(`/sif/non-financial/${pan}/nominee`, 'POST', body); }
+  async updateEmail(pan: string, body: any) { return this.call(`/sif/non-financial/${pan}/email`, 'POST', body); }
+  async updateMobile(pan: string, body: any) { return this.call(`/sif/non-financial/${pan}/mobile`, 'POST', body); }
+  async updateFatca(pan: string, body: any) { return this.call(`/sif/non-financial/${pan}/fatca`, 'POST', body); }
+  async updateIdcw(pan: string, body: any) { return this.call(`/sif/non-financial/${pan}/idcw`, 'POST', body); }
+  async updateBankDetails(pan: string, body: any) { return this.call(`/sif/non-financial/${pan}/bank`, 'POST', body); }
+  async manageBankMandate(pan: string, body: any) { return this.call(`/sif/non-financial/${pan}/bank-mandate`, 'POST', body); }
+
+  // Business Hierarchy
+  async listSubBrokers(params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/user/hierarchy/sub-brokers${qs}`);
+  }
+  async getSubBrokerDetails(euinCode: string) { return this.call(`/user/hierarchy/sub-brokers/${euinCode}`); }
+  async addEmployee(body: any) { return this.call('/user/hierarchy/employees', 'POST', body); }
+  async updateEmployee(euinCode: string, body: any) { return this.call(`/user/hierarchy/employees/${euinCode}`, 'PUT', body); }
+
+  // Bulk Reports
+  async getBulkCapitalGains(params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/reports/bulk/capital-gains${qs}`);
+  }
+  async getSipMaturityCalendar(params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/reports/sip-maturity-calendar${qs}`);
+  }
+  async getDividendTracker(params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/reports/dividend-tracker${qs}`);
+  }
+  async getBulkPortfolioReport(params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/reports/bulk/portfolio${qs}`);
+  }
+
 }
 
 export const irisKfintechService = new IrisKfintechService();

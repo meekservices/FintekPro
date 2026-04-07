@@ -288,3 +288,184 @@ export function useKfintechSwitchTransaction() {
     },
   });
 }
+// ─── IRIS API hooks ────────────────────────────────────────────────────────
+
+async function irisRequest(url: string, data?: any, method = data ? 'POST' : 'GET'): Promise<any> {
+  const options: RequestInit = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+  };
+  if (data) options.body = JSON.stringify(data);
+  const response = await fetch(url, options);
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.message || `Request failed: ${response.status}`);
+  return result.data ?? result;
+}
+
+// STP hooks
+export function useIrisStp() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => irisRequest('/api/iris/transactions/stp/register', data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['/api/iris'] }); },
+  });
+}
+export function useIrisStpCancel() {
+  return useMutation({ mutationFn: (data: any) => irisRequest('/api/iris/transactions/stp/cancel', data) });
+}
+export function useIrisStpPause() {
+  return useMutation({ mutationFn: (data: any) => irisRequest('/api/iris/transactions/stp/pause', data) });
+}
+
+// SWP hooks
+export function useIrisSwp() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => irisRequest('/api/iris/transactions/swp/register', data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['/api/iris'] }); },
+  });
+}
+export function useIrisSwpCancel() {
+  return useMutation({ mutationFn: (data: any) => irisRequest('/api/iris/transactions/swp/cancel', data) });
+}
+export function useIrisSwpPause() {
+  return useMutation({ mutationFn: (data: any) => irisRequest('/api/iris/transactions/swp/pause', data) });
+}
+
+// Additional Purchase
+export function useIrisAdditionalPurchase() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => irisRequest('/api/iris/transactions/additional-purchase', data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['/api/iris'] }); },
+  });
+}
+
+// eNACH Mandate
+export function useIrisCreateMandate() {
+  return useMutation({ mutationFn: (data: any) => irisRequest('/api/iris/transactions/mandates', data) });
+}
+export function useIrisMandateStatus(mandateId: string) {
+  return useQuery({
+    queryKey: ['/api/iris/transactions/mandates', mandateId],
+    queryFn: () => irisRequest(`/api/iris/transactions/mandates/${mandateId}`),
+    enabled: !!mandateId,
+  });
+}
+
+// FD Orders
+export function useIrisFdOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => irisRequest('/api/iris/products/fixed-deposits/order', data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['/api/iris/products/fixed-deposits/orders'] }); },
+  });
+}
+export function useIrisFdOrders(pan: string) {
+  return useQuery({
+    queryKey: ['/api/iris/products/fixed-deposits/orders', pan],
+    queryFn: () => irisRequest(`/api/iris/products/fixed-deposits/orders?pan=${encodeURIComponent(pan)}`),
+    enabled: !!pan,
+  });
+}
+export function useIrisFdProducts() {
+  return useQuery({
+    queryKey: ['/api/iris/products/fixed-deposits'],
+    queryFn: () => irisRequest('/api/iris/products/fixed-deposits'),
+    staleTime: 30 * 60 * 1000,
+  });
+}
+
+// NPS
+export function useIrisNpsSubscriber(pran: string) {
+  return useQuery({
+    queryKey: ['/api/iris/nps/subscriber', pran],
+    queryFn: () => irisRequest(`/api/iris/nps/subscriber/${pran}`),
+    enabled: !!pran && pran.length >= 12,
+  });
+}
+export function useIrisNpsPortfolio(pran: string) {
+  return useQuery({
+    queryKey: ['/api/iris/nps/subscriber', pran, 'portfolio'],
+    queryFn: () => irisRequest(`/api/iris/nps/subscriber/${pran}/portfolio`),
+    enabled: !!pran && pran.length >= 12,
+  });
+}
+export function useIrisNpsOnboarding() {
+  return useMutation({ mutationFn: (data: any) => irisRequest('/api/iris/nps/subscriber/onboarding', data) });
+}
+export function useIrisNpsContribution() {
+  return useMutation({ mutationFn: (data: any) => irisRequest('/api/iris/nps/transactions/contribution', data) });
+}
+
+// Non-Financial Transactions
+export function useIrisUpdateNominee() {
+  return useMutation({ mutationFn: ({ pan, ...body }: any) => irisRequest(`/api/iris/non-financial/${pan}/nominee`, body) });
+}
+export function useIrisUpdateEmail() {
+  return useMutation({ mutationFn: ({ pan, ...body }: any) => irisRequest(`/api/iris/non-financial/${pan}/email`, body) });
+}
+export function useIrisUpdateMobile() {
+  return useMutation({ mutationFn: ({ pan, ...body }: any) => irisRequest(`/api/iris/non-financial/${pan}/mobile`, body) });
+}
+export function useIrisUpdateFatca() {
+  return useMutation({ mutationFn: ({ pan, ...body }: any) => irisRequest(`/api/iris/non-financial/${pan}/fatca`, body) });
+}
+export function useIrisUpdateIdcw() {
+  return useMutation({ mutationFn: ({ pan, ...body }: any) => irisRequest(`/api/iris/non-financial/${pan}/idcw`, body) });
+}
+export function useIrisUpdateBank() {
+  return useMutation({ mutationFn: ({ pan, ...body }: any) => irisRequest(`/api/iris/non-financial/${pan}/bank`, body) });
+}
+export function useIrisManageBankMandate() {
+  return useMutation({ mutationFn: ({ pan, ...body }: any) => irisRequest(`/api/iris/non-financial/${pan}/bank-mandate`, body) });
+}
+
+// Business Hierarchy
+export function useIrisSubBrokers(params?: Record<string, string>) {
+  const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+  return useQuery({
+    queryKey: ['/api/iris/hierarchy/sub-brokers', params],
+    queryFn: () => irisRequest(`/api/iris/hierarchy/sub-brokers${qs}`),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+export function useIrisAddEmployee() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => irisRequest('/api/iris/hierarchy/employees', data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['/api/iris/hierarchy/sub-brokers'] }); },
+  });
+}
+
+// Bulk Reports
+export function useIrisBulkCapitalGains(params?: Record<string, string>) {
+  return useQuery({
+    queryKey: ['/api/iris/reports/bulk/capital-gains', params],
+    queryFn: () => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return irisRequest(`/api/iris/reports/bulk/capital-gains${qs}`);
+    },
+    enabled: false,
+  });
+}
+export function useIrisSipMaturityCalendar(params?: Record<string, string>) {
+  return useQuery({
+    queryKey: ['/api/iris/reports/sip-maturity-calendar', params],
+    queryFn: () => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return irisRequest(`/api/iris/reports/sip-maturity-calendar${qs}`);
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+}
+export function useIrisDividendTracker(params?: Record<string, string>) {
+  return useQuery({
+    queryKey: ['/api/iris/reports/dividend-tracker', params],
+    queryFn: () => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return irisRequest(`/api/iris/reports/dividend-tracker${qs}`);
+    },
+    staleTime: 30 * 60 * 1000,
+  });
+}
