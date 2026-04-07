@@ -238,13 +238,14 @@ export async function verifyBankAccountV2(params: {
   verificationId?: string;
 }): Promise<VRSResponse> {
   const body: Record<string, unknown> = {
+    verification_id: params.verificationId || generateVerificationId('bank'),
     bank_account: params.bankAccount,
     ifsc: params.ifsc.toUpperCase(),
   };
   if (params.name) body.name = params.name;
   if (params.phoneNumber) body.phone_number = params.phoneNumber;
-  if (params.verificationId) body.verification_id = params.verificationId;
-  return vrsPost('/bank-account/sync', body);
+  // x-api-version 2023-08-01 is required by Cashfree Secure ID bank-account/sync endpoint
+  return vrsPost('/bank-account/sync', body, '2023-08-01');
 }
 
 /**
