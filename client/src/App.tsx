@@ -180,6 +180,7 @@ const AgentThemeSettings = lazyWithRetry(() => import("@/pages/agent/theme-setti
 const AgentResearchLists = lazyWithRetry(() => import("@/pages/agent-research-lists"));
 const AgentResearchListDetail = lazyWithRetry(() => import("@/pages/agent-research-list-detail"));
 const ResearchNoteGenerator = lazyWithRetry(() => import("@/pages/research-note-generator"));
+const AgentHniLeaderboard = lazyWithRetry(() => import("@/pages/agent-hni-leaderboard"));
 const AgentScreener = lazyWithRetry(() => import("@/pages/agent-screener"));
 const AgentResearchAnalytics = lazyWithRetry(() => import("@/pages/agent-research-analytics"));
 const AgentTreasuryPage = lazyWithRetry(() => import("@/pages/agent-treasury"));
@@ -2416,6 +2417,13 @@ function AgentRoutes() {
         {() => (
           <Suspense fallback={<LoadingState />}>
             <ResearchNoteGenerator />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/agent/hni-leaderboard">
+        {() => (
+          <Suspense fallback={<LoadingState />}>
+            <AgentHniLeaderboard />
           </Suspense>
         )}
       </Route>

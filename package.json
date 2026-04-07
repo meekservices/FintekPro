@@ -108,6 +108,7 @@
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.2",
+    "lightweight-charts": "^5.1.0",
     "lucide-react": "^0.453.0",
     "mammoth": "^1.11.0",
     "memoizee": "^0.4.17",

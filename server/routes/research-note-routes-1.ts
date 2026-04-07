@@ -15,6 +15,27 @@ import { credhiveService } from "../services/credhive-service";
 import { db } from "../db";
 import { sql, eq, desc } from "drizzle-orm";
 import { unlistedCompanies, companyFinancials } from "@shared/schema";
+import { objectStorageClient } from "../objectStorage";
+
+const REPORT_BUCKET = process.env.PRIVATE_OBJECT_DIR?.split("/")[1] || "replit-objstore-7b306d6a-5cfa-4282-bce0-65a5f8cd4c06";
+const REPORT_PREFIX = ".private/research-reports/";
+
+async function storeReportInObjectStorage(safeName: string, buffer: Buffer, label: string): Promise<string | null> {
+  try {
+    const key = `${REPORT_PREFIX}${safeName}_${Date.now()}.pdf`;
+    const bucket = objectStorageClient.bucket(REPORT_BUCKET);
+    const file = bucket.file(key);
+    await file.save(buffer, {
+      metadata: {
+        contentType: "application/pdf",
+        metadata: { label, generatedAt: new Date().toISOString() },
+      },
+    });
+    return key;
+  } catch (_) {
+    return null;
+  }
+}
 
 const router = Router();
 
@@ -420,6 +441,7 @@ router.post("/generate/pdf", async (req: Request, res: Response) => {
     const data = await buildReportData(symbol.trim());
     const buffer = await generatePDF(data);
     const safeName = data.companyName.replace(/[^a-zA-Z0-9]/g, "_");
+    storeReportInObjectStorage(safeName, buffer, `${data.companyName} Research Report`);
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="${safeName}_Report.pdf"`);
     res.send(buffer);
@@ -428,5 +450,49 @@ router.post("/generate/pdf", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/stored", async (_req: Request, res: Response) => {
+  try {
+    const bucket = objectStorageClient.bucket(REPORT_BUCKET);
+    const [files] = await bucket.getFiles({ prefix: REPORT_PREFIX, maxResults: 50 });
+    const reports = await Promise.all(
+      files
+        .filter((f) => f.name.endsWith(".pdf"))
+        .sort((a, b) => (b.metadata.updated || "").localeCompare(a.metadata.updated || ""))
+        .slice(0, 30)
+        .map(async (f) => {
+          const meta = f.metadata?.metadata as Record<string, string> | undefined;
+          const namePart = f.name.replace(REPORT_PREFIX, "").replace(/\.pdf$/, "");
+          const [cleanName] = namePart.split("_").slice(0, -1);
+          return {
+            key: f.name,
+            label: meta?.label || cleanName || namePart,
+            generatedAt: meta?.generatedAt || f.metadata.updated || null,
+            sizeKb: f.metadata.size ? Math.round(Number(f.metadata.size) / 1024) : null,
+          };
+        })
+    );
+    res.json(reports);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to list stored reports" });
+  }
+});
+
+router.get("/stored/download", async (req: Request, res: Response) => {
+  try {
+    const key = req.query.key as string;
+    if (!key || !key.startsWith(REPORT_PREFIX)) return res.status(400).json({ error: "Invalid key" });
+    const bucket = objectStorageClient.bucket(REPORT_BUCKET);
+    const file = bucket.file(key);
+    const [exists] = await file.exists();
+    if (!exists) return res.status(404).json({ error: "Report not found" });
+    const [contents] = await file.download();
+    const fileName = key.split("/").pop() || "report.pdf";
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.send(contents);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to download report" });
+  }
+});
 
 export default router;
