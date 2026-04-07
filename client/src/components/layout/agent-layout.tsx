@@ -117,6 +117,7 @@ const agentNavCategories: NavCategory[] = [
     items: [
       { title: "Lead Pipeline", href: "/agent/leads", icon: TrendingUp, description: "Manage your lead pipeline" },
       { title: "HNI Leaderboard", href: "/agent/hni-leaderboard", icon: Trophy, description: "Prospects ranked by wealth score", badge: "AI" },
+      { title: "Deal Matcher", href: "/agent/deal-matcher", icon: Target, description: "Match AIF/PMS deals to best-fit prospects", badge: "AI" },
       { title: "Zoho CRM", href: "/agent/zoho-crm", icon: Target, description: "All leads from Zoho" },
       { title: "Tasks", href: "/agent/tasks", icon: CheckSquare, description: "Tasks and reminders" },
       { title: "Calendar", href: "/agent/calendar", icon: Calendar, description: "Appointments" },
