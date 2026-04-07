@@ -19,6 +19,7 @@ import { db } from "../../db";
 import { sql } from "drizzle-orm";
 import { goldenPrices, priceAuditLog } from "../../../shared/schema";
 import fetch from "node-fetch";
+import { guardedExecution, validateStockPrice, validateNav, validateChangePercent } from "../guarded-execution";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -91,80 +92,106 @@ function validatePrice(price: number, prevPrice: number | null): { valid: boolea
 // ─── Source Adapters ──────────────────────────────────────────────────────────
 
 async function fetchNSEClose(symbol: string): Promise<RawPrice | null> {
-  try {
-    const encoded = encodeURIComponent(symbol);
-    const url = `https://www.nseindia.com/api/quote-equity?symbol=${encoded}`;
-    const resp = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json",
-        "Referer": "https://www.nseindia.com/",
-      },
-      signal: AbortSignal.timeout(6000),
-    });
-    if (!resp.ok) return null;
-    const data = await resp.json() as any;
-    const cp = data?.priceInfo?.lastPrice ?? data?.priceInfo?.close;
-    if (!cp) return null;
-    return {
-      price: parseFloat(cp),
-      open: data?.priceInfo?.open,
-      high: data?.priceInfo?.intraDayHighLow?.max,
-      low: data?.priceInfo?.intraDayHighLow?.min,
-      volume: data?.preOpenMarket?.totalTradedVolume,
-      changePercent: data?.priceInfo?.pChange,
-      source: "NSE_BHAVCOPY",
-      confidence: SOURCE_CONFIDENCE.NSE_BHAVCOPY,
-    };
-  } catch {
-    return null;
-  }
+  return guardedExecution(
+    async () => {
+      const encoded = encodeURIComponent(symbol);
+      const url = `https://www.nseindia.com/api/quote-equity?symbol=${encoded}`;
+      const resp = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0",
+          "Accept": "application/json",
+          "Referer": "https://www.nseindia.com/",
+        },
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json() as any;
+      const cp = data?.priceInfo?.lastPrice ?? data?.priceInfo?.close;
+      if (!cp) return null;
+      const price = parseFloat(cp);
+      validateStockPrice(price, symbol);
+      return {
+        price,
+        open: data?.priceInfo?.open,
+        high: data?.priceInfo?.intraDayHighLow?.max,
+        low: data?.priceInfo?.intraDayHighLow?.min,
+        volume: data?.preOpenMarket?.totalTradedVolume,
+        changePercent: validateChangePercent(data?.priceInfo?.pChange, symbol),
+        source: "NSE_BHAVCOPY",
+        confidence: SOURCE_CONFIDENCE.NSE_BHAVCOPY,
+      };
+    },
+    {
+      module: 'pricing_engine',
+      operation: 'nse_close_fetch',
+      input: { symbol },
+      fallback: null,
+      code: `NSE equity API → priceInfo.lastPrice for ${symbol}`,
+    },
+  );
 }
 
 async function fetchAMFINav(isin: string): Promise<RawPrice | null> {
-  try {
-    const resp = await fetch(`https://api.mfapi.in/mf/latest?isin=${isin}`, {
-      signal: AbortSignal.timeout(6000),
-    });
-    if (!resp.ok) return null;
-    const data = await resp.json() as any;
-    const nav = data?.[0]?.nav ?? data?.nav;
-    if (!nav) return null;
-    return {
-      price: parseFloat(nav),
-      source: "AMFI_NAV",
-      confidence: SOURCE_CONFIDENCE.AMFI_NAV,
-    };
-  } catch {
-    return null;
-  }
+  return guardedExecution(
+    async () => {
+      const resp = await fetch(`https://api.mfapi.in/mf/latest?isin=${isin}`, {
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json() as any;
+      const nav = data?.[0]?.nav ?? data?.nav;
+      if (!nav) return null;
+      const price = parseFloat(nav);
+      validateNav(price, isin);
+      return {
+        price,
+        source: "AMFI_NAV",
+        confidence: SOURCE_CONFIDENCE.AMFI_NAV,
+      };
+    },
+    {
+      module: 'pricing_engine',
+      operation: 'amfi_nav_fetch',
+      input: { isin },
+      fallback: null,
+      code: `AMFI mfapi.in → nav for ISIN ${isin}`,
+    },
+  );
 }
 
 async function fetchFMPPrice(symbol: string): Promise<RawPrice | null> {
-  try {
-    const apiKey = process.env.FMP_API_KEY ?? process.env.FINANCIAL_MODELING_PREP_API_KEY;
-    if (!apiKey) return null;
-    const resp = await fetch(
-      `https://financialmodelingprep.com/stable/profile?symbol=${symbol}.NS&apikey=${apiKey}`,
-      { signal: AbortSignal.timeout(8000) }
-    );
-    if (!resp.ok) return null;
-    const data = await resp.json() as any[];
-    if (!data?.[0]?.price) return null;
-    const q = data[0];
-    return {
-      price: q.price,
-      open: undefined,
-      high: undefined,
-      low: undefined,
-      volume: q.volume,
-      changePercent: q.changePercentage,
-      source: "FMP",
-      confidence: SOURCE_CONFIDENCE.FMP,
-    };
-  } catch {
-    return null;
-  }
+  return guardedExecution(
+    async () => {
+      const apiKey = process.env.FMP_API_KEY ?? process.env.FINANCIAL_MODELING_PREP_API_KEY;
+      if (!apiKey) return null;
+      const resp = await fetch(
+        `https://financialmodelingprep.com/stable/profile?symbol=${symbol}.NS&apikey=${apiKey}`,
+        { signal: AbortSignal.timeout(8000) }
+      );
+      if (!resp.ok) return null;
+      const data = await resp.json() as any[];
+      if (!data?.[0]?.price) return null;
+      const q = data[0];
+      validateStockPrice(q.price, symbol);
+      return {
+        price: q.price,
+        open: undefined,
+        high: undefined,
+        low: undefined,
+        volume: q.volume,
+        changePercent: validateChangePercent(q.changePercentage, symbol),
+        source: "FMP",
+        confidence: SOURCE_CONFIDENCE.FMP,
+      };
+    },
+    {
+      module: 'pricing_engine',
+      operation: 'fmp_price_fetch',
+      input: { symbol },
+      fallback: null,
+      code: `FMP stable/profile → price for ${symbol}.NS`,
+    },
+  );
 }
 
 async function fetchLastKnownPrice(isin: string, priceDate: string): Promise<RawPrice | null> {

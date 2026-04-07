@@ -17,6 +17,7 @@
 
 import axios from "axios";
 import { logger } from "../logger";
+import { guardedExecution, validateStockPrice, validateChangePercent } from "./guarded-execution";
 
 // ─── Cache TTLs ────────────────────────────────────────────────────────────────
 
@@ -295,12 +296,28 @@ class AlpacaMarketDataService {
     const cached = this.quoteCache.get(upper);
     if (cached && this.valid(cached.cachedAt, QUOTE_CACHE_TTL)) return cached.data;
 
-    const snap = await this.getSnapshot(upper);
-    if (!snap) return null;
+    return guardedExecution(
+      async () => {
+        const snap = await this.getSnapshot(upper);
+        if (!snap) return null;
 
-    const quote = this.toQuote(snap);
-    this.quoteCache.set(upper, { data: quote, cachedAt: Date.now() });
-    return quote;
+        const quote = this.toQuote(snap);
+
+        // Financial validation: price must be positive and finite
+        validateStockPrice(quote.price, upper);
+        validateChangePercent(quote.changePercent, upper);
+
+        this.quoteCache.set(upper, { data: quote, cachedAt: Date.now() });
+        return quote;
+      },
+      {
+        module: 'pricing_engine',
+        operation: 'alpaca_quote',
+        input: { symbol: upper },
+        fallback: null,
+        code: `Yahoo Finance snapshot → getQuote for ${upper}`,
+      },
+    );
   }
 
   async getMultipleQuotes(symbols: string[]): Promise<Map<string, StockQuote>> {

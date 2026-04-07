@@ -1788,6 +1788,32 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     console.error('[Migration] self_healing_events table error:', e?.message);
   }
 
+  // Boot-time: self_healing_feedback table (execution feedback loop)
+  try {
+    const { db: fbDb } = await import('./db');
+    const { sql: fbSql } = await import('drizzle-orm');
+    await fbDb.execute(fbSql`
+      CREATE TABLE IF NOT EXISTS self_healing_feedback (
+        id            SERIAL PRIMARY KEY,
+        module        VARCHAR(50)  NOT NULL,
+        operation     VARCHAR(100) NOT NULL,
+        duration_ms   INTEGER,
+        success       BOOLEAN      NOT NULL DEFAULT true,
+        error_message TEXT,
+        risk_level    VARCHAR(10),
+        fallback_used BOOLEAN      DEFAULT false,
+        occurred_at   TIMESTAMPTZ  DEFAULT NOW()
+      )
+    `);
+    await fbDb.execute(fbSql`
+      CREATE INDEX IF NOT EXISTS idx_self_healing_feedback_module_occurred
+        ON self_healing_feedback (module, occurred_at DESC)
+    `);
+    console.log('✅ [Migration] self_healing_feedback table verified/created');
+  } catch (e: any) {
+    console.error('[Migration] self_healing_feedback table error:', e?.message);
+  }
+
   // Init auto-recovery service (circuit breaker registry + service registration)
   try {
     const { initAutoRecoveryService } = await import('./services/auto-recovery-service');
