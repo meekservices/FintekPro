@@ -133,7 +133,11 @@ export default function AgentKycEmpanelment() {
   const [panName, setPanName] = useState("");
   const [aadhaarNumber, setAadhaarNumber] = useState("");
   const [aadhaarOtpSent, setAadhaarOtpSent] = useState(false);
+  const [aadhaarSendingOtp, setAadhaarSendingOtp] = useState(false);
   const [aadhaarOtp, setAadhaarOtp] = useState("");
+  const [aadhaarVerifyingOtp, setAadhaarVerifyingOtp] = useState(false);
+  const [aadhaarReferenceId, setAadhaarReferenceId] = useState("");
+  const [aadhaarSandboxHint, setAadhaarSandboxHint] = useState("");
   const [aadhaarVerified, setAadhaarVerified] = useState(false);
   const [aadhaarLast4, setAadhaarLast4] = useState("");
 
@@ -245,22 +249,48 @@ export default function AgentKycEmpanelment() {
     setPanVerifying(false);
   }
 
-  // ── Aadhaar OTP (simulated for sandbox) ──────────────────────────────────
+  // ── Aadhaar OTP ───────────────────────────────────────────────────────────
   async function sendAadhaarOtp() {
     if (aadhaarNumber.length !== 12) { toast({ title: "Enter 12-digit Aadhaar number", variant: "destructive" }); return; }
-    setAadhaarOtpSent(true);
-    toast({ title: "OTP Sent", description: `OTP sent to mobile linked with Aadhaar ****${aadhaarNumber.slice(-4)}` });
+    setAadhaarSendingOtp(true);
+    try {
+      const res = await apiRequest("/api/agent/empanelment/aadhaar/send-otp", {
+        method: "POST",
+        body: JSON.stringify({ aadhaarNumber }),
+      });
+      setAadhaarReferenceId(res.referenceId || "");
+      setAadhaarOtpSent(true);
+      if (res.testOtp) {
+        setAadhaarSandboxHint(`Sandbox mode — use OTP: ${res.testOtp}`);
+      } else {
+        setAadhaarSandboxHint("");
+      }
+      toast({ title: "OTP Sent", description: res.message || `OTP sent to mobile linked with Aadhaar ****${aadhaarNumber.slice(-4)}` });
+    } catch (err: any) {
+      toast({ title: "Failed to send OTP", description: err.message || "Please try again", variant: "destructive" });
+    } finally {
+      setAadhaarSendingOtp(false);
+    }
   }
 
   async function verifyAadhaarOtp() {
     if (aadhaarOtp.length !== 6) { toast({ title: "Enter 6-digit OTP", variant: "destructive" }); return; }
-    // In sandbox always accept 123456
-    const isValid = aadhaarOtp === "123456" || aadhaarOtp.length === 6;
-    if (isValid) {
-      setAadhaarVerified(true); setAadhaarLast4(aadhaarNumber.slice(-4));
-      toast({ title: "Aadhaar Verified ✓", description: `Identity confirmed (****${aadhaarNumber.slice(-4)})` });
-    } else {
-      toast({ title: "Invalid OTP", description: "Please enter the correct OTP", variant: "destructive" });
+    setAadhaarVerifyingOtp(true);
+    try {
+      const res = await apiRequest("/api/agent/empanelment/aadhaar/verify-otp", {
+        method: "POST",
+        body: JSON.stringify({ referenceId: aadhaarReferenceId, otp: aadhaarOtp, aadhaarNumber }),
+      });
+      if (res.verified) {
+        setAadhaarVerified(true); setAadhaarLast4(res.last4 || aadhaarNumber.slice(-4));
+        toast({ title: "Aadhaar Verified ✓", description: `Identity confirmed (****${res.last4 || aadhaarNumber.slice(-4)})` });
+      } else {
+        toast({ title: "Invalid OTP", description: "Please enter the correct OTP", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "OTP verification failed", description: err.message || "Please try again", variant: "destructive" });
+    } finally {
+      setAadhaarVerifyingOtp(false);
     }
   }
 
@@ -654,16 +684,23 @@ export default function AgentKycEmpanelment() {
                     <p className="text-xs text-muted-foreground">OTP will be sent to the mobile number linked to your Aadhaar</p>
                   </div>
                   {!aadhaarOtpSent ? (
-                    <Button variant="outline" onClick={sendAadhaarOtp} disabled={aadhaarNumber.length !== 12}>
-                      Send OTP to Aadhaar-linked Mobile
+                    <Button variant="outline" onClick={sendAadhaarOtp} disabled={aadhaarNumber.length !== 12 || aadhaarSendingOtp}>
+                      {aadhaarSendingOtp ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Sending…</> : "Send OTP to Aadhaar-linked Mobile"}
                     </Button>
                   ) : (
                     <div className="space-y-2">
+                      {aadhaarSandboxHint && (
+                        <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-3 py-1.5 rounded-md">
+                          ⚠️ {aadhaarSandboxHint}
+                        </p>
+                      )}
                       <Label>Enter 6-digit OTP</Label>
                       <div className="flex gap-3">
                         <Input placeholder="123456" value={aadhaarOtp} onChange={e => setAadhaarOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} className="font-mono w-40" maxLength={6} />
-                        <Button onClick={verifyAadhaarOtp} disabled={aadhaarOtp.length !== 6}>Verify OTP</Button>
-                        <Button variant="ghost" onClick={() => setAadhaarOtpSent(false)}>Resend</Button>
+                        <Button onClick={verifyAadhaarOtp} disabled={aadhaarOtp.length !== 6 || aadhaarVerifyingOtp}>
+                          {aadhaarVerifyingOtp ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Verifying…</> : "Verify OTP"}
+                        </Button>
+                        <Button variant="ghost" onClick={() => { setAadhaarOtpSent(false); setAadhaarOtp(""); setAadhaarSandboxHint(""); }}>Resend</Button>
                       </div>
                     </div>
                   )}

@@ -403,6 +403,93 @@ router.post("/step/6", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/agent/empanelment/aadhaar/send-otp — send real OTP to agent's own Aadhaar-linked mobile
+router.post("/aadhaar/send-otp", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) return res.status(401).json({ error: "Unauthenticated" });
+
+    const { aadhaarNumber } = req.body;
+    if (!aadhaarNumber || !/^\d{12}$/.test(aadhaarNumber)) {
+      return res.status(400).json({ success: false, message: "Valid 12-digit Aadhaar number is required" });
+    }
+
+    const { kycEnvironmentService } = await import('../services/kyc-environment-service');
+    const isDemoMode = kycEnvironmentService.isSandbox();
+
+    if (isDemoMode) {
+      return res.json({
+        success: true,
+        referenceId: `demo_ref_${Date.now()}`,
+        message: "Sandbox mode: Use OTP 123456 to verify",
+        environment: 'sandbox',
+        testOtp: '123456',
+      });
+    }
+
+    const { sandboxKYCService } = await import('../services/sandbox-kyc-service');
+    const result = await sandboxKYCService.generateAadhaarOTP(
+      aadhaarNumber,
+      'Agent identity verification for empanelment'
+    );
+
+    const isMockFallback = result.referenceId.startsWith('mock_ref');
+    console.log(`[AgentEmpanelment] Aadhaar OTP ${isMockFallback ? 'MOCK (SANDBOX_BASE_URL not set)' : 'sent'} for agent ${agentId}, ref: ${result.referenceId}`);
+
+    return res.json({
+      success: true,
+      referenceId: result.referenceId,
+      message: isMockFallback
+        ? "Sandbox mode (SANDBOX_BASE_URL not configured): Use OTP 123456"
+        : result.message || "OTP sent to your Aadhaar-linked mobile number",
+      validFor: result.validFor,
+      environment: isMockFallback ? 'sandbox' : 'production',
+      ...(isMockFallback ? { testOtp: '123456' } : {}),
+    });
+  } catch (err: any) {
+    console.error("[AgentEmpanelment] Aadhaar OTP send error:", err.message);
+    return res.status(500).json({ success: false, message: err.message || "Failed to send OTP" });
+  }
+});
+
+// POST /api/agent/empanelment/aadhaar/verify-otp — verify OTP
+router.post("/aadhaar/verify-otp", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) return res.status(401).json({ error: "Unauthenticated" });
+
+    const { referenceId, otp, aadhaarNumber } = req.body;
+    if (!otp || !/^\d{6}$/.test(otp)) {
+      return res.status(400).json({ success: false, message: "Valid 6-digit OTP is required" });
+    }
+
+    const { kycEnvironmentService } = await import('../services/kyc-environment-service');
+    const isDemoMode = kycEnvironmentService.isSandbox();
+
+    let verified = false;
+    if (isDemoMode) {
+      verified = otp === '123456';
+    } else {
+      if (!referenceId) return res.status(400).json({ success: false, message: "Reference ID is required" });
+      const { sandboxKYCService } = await import('../services/sandbox-kyc-service');
+      const result = await sandboxKYCService.verifyAadhaarOTP(referenceId, otp);
+      verified = result.verified;
+    }
+
+    if (!verified) {
+      return res.status(400).json({ success: false, message: "Invalid OTP. Please try again." });
+    }
+
+    const last4 = aadhaarNumber ? String(aadhaarNumber).slice(-4) : '****';
+    console.log(`[AgentEmpanelment] Aadhaar verified for agent ${agentId} (****${last4})`);
+
+    return res.json({ success: true, verified: true, last4, message: "Aadhaar verified successfully" });
+  } catch (err: any) {
+    console.error("[AgentEmpanelment] Aadhaar OTP verify error:", err.message);
+    return res.status(400).json({ success: false, message: err.message || "OTP verification failed" });
+  }
+});
+
 // POST /api/agent/empanelment/submit — final submission
 router.post("/submit", requireAuth, async (req: Request, res: Response) => {
   try {
