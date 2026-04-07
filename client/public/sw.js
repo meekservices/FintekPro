@@ -1,5 +1,5 @@
 const SW_URL = new URL(self.location.href);
-const VERSION = SW_URL.searchParams.get('v') || '10';
+const VERSION = SW_URL.searchParams.get('v') || '11';
 // BUILD changes on every deployment — guarantees fresh caches after each publish
 const BUILD = SW_URL.searchParams.get('b') || VERSION;
 const CACHE_PREFIX = 'fintekpro';
@@ -110,9 +110,26 @@ self.addEventListener('fetch', (event) => {
       caches.open(STATIC_CACHE).then(async (cache) => {
         const cached = await cache.match(request);
         if (cached) return cached;
-        const networkResp = await fetch(request);
-        if (networkResp.ok) cache.put(request, networkResp.clone());
-        return networkResp;
+        try {
+          const networkResp = await fetch(request);
+          if (networkResp.ok) {
+            cache.put(request, networkResp.clone());
+            return networkResp;
+          }
+          // Asset returned 404 — the deploy changed chunk hashes.
+          // Delete all stale caches and tell all open tabs to reload so they
+          // pick up the new HTML and its matching chunks.
+          if (networkResp.status === 404) {
+            console.warn('[ServiceWorker] Chunk 404 detected — clearing caches and reloading clients');
+            const cacheNames = await caches.keys();
+            await Promise.all(cacheNames.filter(n => n.startsWith(CACHE_PREFIX)).map(n => caches.delete(n)));
+            const clients = await self.clients.matchAll({ type: 'window' });
+            clients.forEach(client => client.navigate(client.url));
+          }
+          return networkResp;
+        } catch {
+          return new Response('', { status: 503 });
+        }
       })
     );
     return;
