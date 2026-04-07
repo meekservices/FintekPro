@@ -73,8 +73,10 @@ test-*.sh
 # Temp files
 temp_*.txt
 
-# Attached assets (images, PDFs, etc. uploaded during development)
+# Attached assets — only the brand PNGs are committed (needed for Railway Docker build)
+# Everything else (text pastes, PDFs, screenshots, user data) stays local only
 attached_assets/
+!attached_assets/fintekpro_*.png
 
 # Drizzle local config (Replit-specific)
 drizzle.local.config.ts
