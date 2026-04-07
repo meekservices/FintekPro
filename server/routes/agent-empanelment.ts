@@ -274,7 +274,11 @@ router.post("/step/4/verify-bank", requireAuth, async (req: Request, res: Respon
       }
     } catch { /* non-fatal */ }
 
+    console.log(`[AgentEmpanelment] Bank verify: acct=****${accountNumber.slice(-4)} ifsc=${ifscCode.toUpperCase()} name="${accountHolderName}"`);
     const result = await verifyBankAccountPennyDrop(accountNumber, ifscCode.toUpperCase(), accountHolderName);
+    if (!result.success) {
+      console.warn(`[AgentEmpanelment] Bank verify FAILED: ${result.errorMessage}`, result.providerResponse);
+    }
 
     const nameMatch = result.nameMatchScore ? isNameMatchAcceptable(result.nameMatchScore) : false;
     const verified = result.success && nameMatch;
@@ -289,7 +293,7 @@ router.post("/step/4/verify-bank", requireAuth, async (req: Request, res: Respon
           bank_branch            = ${bankBranch},
           bank_verified          = ${verified},
           bank_verified_at       = ${verified ? new Date().toISOString() : null},
-          bank_penny_drop_ref    = ${result.referenceId ?? null},
+          bank_penny_drop_ref    = ${result.transactionId ?? null},
           bank_name_match_score  = ${result.nameMatchScore ?? null},
           current_step = GREATEST(current_step, ${verified ? 5 : 4}),
           updated_at   = NOW()
@@ -317,7 +321,7 @@ router.post("/step/4/verify-bank", requireAuth, async (req: Request, res: Respon
         ? `Bank account verified ✓ (${bankName}${bankBranch ? " – " + bankBranch : ""})`
         : result.success && !nameMatch
           ? "Bank account found but name doesn't match sufficiently. Please check the name on the account."
-          : (result.message || "Bank verification failed. Please check account details.")
+          : (result.errorMessage || "Bank verification failed. Please check account details.")
     });
   } catch (err: any) {
     console.error("[AgentEmpanelment] Bank verify error:", err);
