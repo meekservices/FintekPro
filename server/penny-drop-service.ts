@@ -109,23 +109,38 @@ async function verifyBankAccountViaCashfree(
 
   const data: any = result.data || {};
   const nameAtBank: string = data.name_at_bank || data.account_holder_name || '';
-  const accountExists: boolean = data.account_exists !== false; // treat absent as true
+  // Cashfree returns account_status ("ACTIVE"/"INVALID") not account_exists boolean
+  const accountStatus: string = (data.account_status || '').toUpperCase();
+  const accountExists: boolean =
+    data.account_exists === true ||
+    accountStatus === 'ACTIVE' ||
+    accountStatus === 'VALID' ||
+    (data.account_exists !== false && accountStatus !== 'INVALID' && accountStatus !== 'NOT_FOUND');
   const nameMatchScore = nameAtBank ? calculateNameMatchScore(accountHolderName, nameAtBank) : undefined;
 
   if (!accountExists) {
     return {
       success: false,
-      errorMessage: 'Bank account does not exist or is invalid',
+      errorMessage: data.message || 'Bank account does not exist or is invalid',
       providerResponse: result.data,
     };
   }
 
-  console.log(`✅ [BankVerify] Cashfree VRS succeeded. Name match: ${nameMatchScore ?? 'N/A'}%`);
+  // If we get back no name, treat as account not found
+  if (!nameAtBank) {
+    return {
+      success: false,
+      errorMessage: data.message || 'Could not retrieve account holder name from bank',
+      providerResponse: result.data,
+    };
+  }
+
+  console.log(`✅ [BankVerify] Cashfree VRS succeeded. Name at bank: "${nameAtBank}", match: ${nameMatchScore ?? 'N/A'}%`);
   return {
     success: true,
     transactionId: data.verification_id || data.reference_id,
     accountStatus: 'active',
-    verifiedName: nameAtBank || accountHolderName,
+    verifiedName: nameAtBank,
     nameMatchScore,
     amount: 1.00,
     providerResponse: result.data,
