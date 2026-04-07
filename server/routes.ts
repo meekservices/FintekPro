@@ -766,6 +766,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   registerBBPSPanConsentRoutes(app);
   registerInvestmentIdeasRoutes(app);
   registerKYCAdminSupportRoutes(app);
+  registerKYCWizardRoutes(app);
   registerAgentProspectAcquisitionRoutes(app);
   registerUserProfileKYCRoutes(app);
   registerFinancialGoalsRoutes(app);

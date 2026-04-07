@@ -1557,6 +1557,34 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     console.warn('[Migration] us_broker_accounts account opening columns skipped:', e?.message);
   }
 
+  // agent_services column on users + agent_notifications table
+  try {
+    const { db: agDb } = await import('./db');
+    const { sql: agSql } = await import('drizzle-orm');
+    await agDb.execute(agSql`
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS agent_services TEXT[]
+    `);
+    await agDb.execute(agSql`
+      CREATE TABLE IF NOT EXISTS agent_notifications (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        agent_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR NOT NULL DEFAULT 'info',
+        title VARCHAR NOT NULL DEFAULT '',
+        message TEXT NOT NULL DEFAULT '',
+        read BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await agDb.execute(agSql`
+      CREATE INDEX IF NOT EXISTS idx_agent_notifications_agent_id
+        ON agent_notifications(agent_id)
+    `);
+    console.log('✅ [Migration] agent_services column + agent_notifications table verified/created');
+  } catch (e: any) {
+    console.warn('[Migration] agent_services/agent_notifications skipped:', e?.message);
+  }
+
   // ca_verification_status — create table + add any columns missing from earlier deployments
   try {
     const { db: caDb } = await import('./db');

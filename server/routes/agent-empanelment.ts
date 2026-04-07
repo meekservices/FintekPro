@@ -172,9 +172,13 @@ router.post("/step/2", requireAuth, async (req: Request, res: Response) => {
       WHERE agent_id = ${agentId}
     `);
 
-    await db.execute(sql`
-      UPDATE users SET agent_services = ${servicesOffered} WHERE id = ${agentId}
-    `);
+    try {
+      await db.execute(sql`
+        UPDATE users SET agent_services = ${servicesOffered} WHERE id = ${agentId}
+      `);
+    } catch (mirrorErr: any) {
+      console.warn('[AgentEmpanelment] Step 2 users mirror skipped:', mirrorErr?.message);
+    }
 
     res.json({ success: true, step: 2 });
   } catch (err: any) {
