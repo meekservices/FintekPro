@@ -1592,6 +1592,7 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     await plDb.execute(plSql`
       ALTER TABLE prospect_leads
         ADD COLUMN IF NOT EXISTS estimated_networth   NUMERIC(18,2),
+        ADD COLUMN IF NOT EXISTS investable_surplus   NUMERIC(15,2),
         ADD COLUMN IF NOT EXISTS wealth_score         NUMERIC(6,2),
         ADD COLUMN IF NOT EXISTS activity_score       NUMERIC(6,2),
         ADD COLUMN IF NOT EXISTS relationship_score   NUMERIC(6,2),
