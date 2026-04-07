@@ -1443,6 +1443,61 @@ class AlpacaBrokerService {
       return [];
     }
   }
+
+  // ─── High-Yield Cash / Cash Interest Program ──────────────────────────────
+
+  async getAprTiers(): Promise<any[]> {
+    if (!this.isConfigured()) return [];
+    try {
+      const response = await this.client.get("/v1/cash_interest/apr_tiers");
+      const data = response.data;
+      return Array.isArray(data) ? data : (data?.apr_tiers ?? []);
+    } catch (error: any) {
+      console.error("[CashInterest] getAprTiers error:", error.message);
+      return [];
+    }
+  }
+
+  async enrollCashInterest(accountId: string, aprTierName: string): Promise<any> {
+    const response = await this.client.patch(`/v1/accounts/${accountId}`, {
+      cash_interest: { apr_tier_name: aprTierName },
+    });
+    return response.data;
+  }
+
+  async unenrollCashInterest(accountId: string): Promise<any> {
+    const response = await this.client.patch(`/v1/accounts/${accountId}`, {
+      cash_interest: { status: "TERMINATED" },
+    });
+    return response.data;
+  }
+
+  // ─── Fully Paid Securities Lending (FPSL) ───────────────────────────────────
+
+  async getFpslStatus(accountId: string): Promise<any> {
+    if (!this.isConfigured()) return null;
+    try {
+      const account = await this.getAccount(accountId);
+      return (account as any)?.fpsl ?? null;
+    } catch (error: any) {
+      console.error("[FPSL] getFpslStatus error:", error.message);
+      return null;
+    }
+  }
+
+  async enrollFpsl(accountId: string, tierId: string): Promise<any> {
+    const response = await this.client.patch(`/v1/accounts/${accountId}`, {
+      fpsl: { us: { tier_id: tierId } },
+    });
+    return response.data;
+  }
+
+  async unenrollFpsl(accountId: string): Promise<any> {
+    const response = await this.client.patch(`/v1/accounts/${accountId}`, {
+      fpsl: { us: { status: "TERMINATED" } },
+    });
+    return response.data;
+  }
 }
 
 export const alpacaBrokerService = new AlpacaBrokerService();

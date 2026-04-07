@@ -90,7 +90,26 @@ router.get("/broker/reports/:reportId", async (req, res) => {
 
 // ─── Corporate Actions ────────────────────────────────────────────────────────
 
-/** List corporate action announcements (dividends, splits, mergers) */
+/** List corporate action announcements via new /v1/corporate_actions/announcements endpoint */
+router.get("/broker/corporate-actions/announcements", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, announcements: [] });
+    }
+    const announcements = await alpacaBrokerService.getCorporateActionsNew({
+      symbol: req.query.symbol as string,
+      types: req.query.types as string,
+      date_from: req.query.date_from as string,
+      date_to: req.query.date_to as string,
+      limit: req.query.limit ? parseInt(req.query.limit as string) : 100,
+    });
+    res.json({ success: true, announcements });
+  } catch (error: any) {
+    res.status(500).json({ success: false, announcements: [], error: error.message });
+  }
+});
+
+/** List corporate action announcements (legacy endpoint — dividends, splits, mergers) */
 router.get("/broker/corporate-actions", async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
@@ -468,6 +487,79 @@ router.get("/broker/corporate-actions/announcements", async (req, res) => {
       limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
     });
     res.json({ success: true, announcements: actions, total: actions.length });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── High-Yield Cash Interest Program ────────────────────────────────────────
+
+router.get("/cash-interest/tiers", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const tiers = await alpacaBrokerService.getAprTiers();
+    res.json({ success: true, tiers });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/broker/accounts/:accountId/cash-interest/enroll", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const { accountId } = req.params;
+    const { apr_tier_name } = req.body;
+    if (!apr_tier_name) return res.status(400).json({ error: "apr_tier_name required" });
+    const result = await alpacaBrokerService.enrollCashInterest(accountId, apr_tier_name);
+    res.json({ success: true, account: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/broker/accounts/:accountId/cash-interest/unenroll", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const { accountId } = req.params;
+    const result = await alpacaBrokerService.unenrollCashInterest(accountId);
+    res.json({ success: true, account: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── Fully Paid Securities Lending (FPSL) ───────────────────────────────────
+
+router.get("/broker/accounts/:accountId/fpsl/status", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const { accountId } = req.params;
+    const fpslStatus = await alpacaBrokerService.getFpslStatus(accountId);
+    res.json({ success: true, fpsl: fpslStatus });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/broker/accounts/:accountId/fpsl/enroll", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const { accountId } = req.params;
+    const { tier_id } = req.body;
+    if (!tier_id) return res.status(400).json({ error: "tier_id required" });
+    const result = await alpacaBrokerService.enrollFpsl(accountId, tier_id);
+    res.json({ success: true, account: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/broker/accounts/:accountId/fpsl/unenroll", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
+    const { accountId } = req.params;
+    const result = await alpacaBrokerService.unenrollFpsl(accountId);
+    res.json({ success: true, account: result });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
