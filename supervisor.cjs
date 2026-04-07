@@ -57,17 +57,67 @@ function validateEnv() {
 // NOTE: EADDRINUSE is handled separately below — do NOT add it here
 // or it creates a restart loop when a previous process still holds the port.
 const CRASH_PATTERNS = [
+  // Network / connectivity
   'ECONNREFUSED',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'ECONNRESET',
+  'EPIPE',
+  // Database
   'DB timeout',
+  'relation does not exist',
+  'column does not exist',
+  'connection terminated unexpectedly',
+  'password authentication failed',
+  'too many clients',
+  // Node runtime
   'Cannot find module',
   'SyntaxError',
+  'ReferenceError: Cannot access',
+  'TypeError: Cannot read propert',
   'Error: listen EACCES',
+  // Heap / memory
+  'JavaScript heap out of memory',
+  'FATAL ERROR: Reached heap limit',
+  // TypeScript / tsx
+  'TSError',
+  'TS18007',
 ];
+
+// ── Supervisor DB bridge (best-effort, non-blocking) ──────────────────────────
+// Reports crash events to the self-healing events table via the running app's
+// REST endpoint. Silently skipped if the app is not yet up.
+function reportCrashEvent(triggerMessage, context) {
+  const body = JSON.stringify({
+    eventType: 'supervisor_restart',
+    trigger: (triggerMessage || '').substring(0, 300),
+    action: 'restart_scheduled',
+    success: true,
+    message: `Supervisor detected crash pattern and scheduled restart #${restartCount + 1}`,
+    context: context || 'supervisor',
+  });
+
+  const postReq = http.request(
+    {
+      hostname: '127.0.0.1',
+      port: PORT,
+      path: '/api/internal/self-healing/crash-event',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      timeout: 2000,
+    },
+    () => { /* fire-and-forget — we don't read the response */ }
+  );
+  postReq.on('error', () => { /* silently ignore if app is down */ });
+  postReq.write(body);
+  postReq.end();
+}
 
 function scanForCrashPattern(line) {
   // Special handling for EADDRINUSE — hard-kill then restart, don't loop
   if (line.includes('EADDRINUSE')) {
     log('🔍 EADDRINUSE detected — hard-killing orphan server processes then restarting');
+    reportCrashEvent('EADDRINUSE — port already in use', 'supervisor:port_conflict');
     hardKillServerProcesses();
     scheduleRestart();
     return;
@@ -76,6 +126,7 @@ function scanForCrashPattern(line) {
   for (const pattern of CRASH_PATTERNS) {
     if (line.includes(pattern)) {
       log(`🔍 Crash pattern detected: "${pattern}" — scheduling restart`);
+      reportCrashEvent(line.trim(), `supervisor:pattern:${pattern}`);
       scheduleRestart();
       break;
     }

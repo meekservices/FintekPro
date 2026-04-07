@@ -9,6 +9,7 @@ import { apiResponse } from '../utils/responses';
 import { ZodError } from 'zod';
 import { logErrorWithTraceId } from '../services/error-tracking-service';
 import { logger } from '../logger';
+import { handleErrorWithAutoRecovery } from '../services/auto-recovery-service';
 
 /**
  * Format Zod validation errors
@@ -50,6 +51,12 @@ async function logError(error: AppError, req: Request, traceId: string): Promise
     await logErrorWithTraceId(error, req, traceId);
   } catch (trackingError) {
     logger.error('[ErrorHandler] Failed to persist error to tracking service', { error: trackingError instanceof Error ? trackingError.message : String(trackingError) });
+  }
+
+  // Auto-recovery: for 5xx errors, check if a recovery action should be triggered
+  if (error.status >= 500) {
+    const errorMsg = `${error.message} ${error.stack || ''}`;
+    handleErrorWithAutoRecovery(errorMsg, `${req.method} ${req.path}`).catch(() => {});
   }
 }
 
