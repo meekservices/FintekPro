@@ -117,14 +117,18 @@ class SandboxPANService {
         formattedDOB = `${day}/${month}/${year}`;
       }
 
+      // Sandbox.co.in rejects date_of_birth="" with "date_of_birth cannot be empty".
+      // Only include the field when a real value is provided.
       const requestPayload: any = {
         '@entity': 'in.co.sandbox.kyc.pan_verification.request',
         pan: panNumber.toUpperCase(),
         name_as_per_pan: fullName || '',
-        date_of_birth: formattedDOB,
         consent: 'Y',
         reason: 'KYC verification for financial services'
       };
+      if (formattedDOB) {
+        requestPayload.date_of_birth = formattedDOB;
+      }
 
       const response = await axios.post<SandboxPANResponse>(
         `${this.baseUrl}/kyc/pan/verify`,

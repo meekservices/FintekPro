@@ -27,6 +27,23 @@ const CIRCUIT_OPEN_DURATION_MS = 2 * 60 * 1000; // 2 minutes open before retry
 let circuitFailures   = 0;
 let circuitOpenUntil  = 0;   // epoch ms — 0 means closed
 
+// ── Python body-error deduplication ────────────────────────────────────────
+// Prevents log floods when a batch job calls callPython() many times and the
+// Python service returns the same error for each call (e.g. "No trained model
+// found" when no ML model exists yet). Each unique error message is logged once;
+// subsequent identical messages are suppressed until the map is cleared at
+// the start of each new minute.
+const seenPythonErrors = new Map<string, number>(); // message → last-logged minute
+function logPythonBodyErrorOnce(path: string, message: string): void {
+  const minuteKey = Math.floor(Date.now() / 60_000);
+  const key = `${path}::${message}`;
+  if (seenPythonErrors.get(key) === minuteKey) return; // already logged this minute
+  seenPythonErrors.set(key, minuteKey);
+  // Keep map bounded
+  if (seenPythonErrors.size > 100) seenPythonErrors.clear();
+  console.warn(`[PythonClient] POST ${path} → Python error: ${message}`);
+}
+
 // ── Health tracking state ──────────────────────────────────────────────────
 let lastSuccessAt: Date | null = null;
 let consecutiveFailures = 0;
@@ -377,7 +394,7 @@ export async function callPython<T = any>(
     recordSuccess();
 
     if (json && typeof json === 'object' && 'error' in json) {
-      console.warn(`[PythonClient] ${method} ${path} → Python error: ${json.error}`);
+      logPythonBodyErrorOnce(path, String(json.error));
       return null;
     }
 
