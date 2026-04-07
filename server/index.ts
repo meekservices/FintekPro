@@ -1639,8 +1639,16 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
       )
     `);
     // Add any columns missing from older table instances
+    // NOTE: user_id / icai_membership_number are included here so that tables
+    // created before this schema revision (which used ca_id) get the new columns.
+    // They are nullable because pre-existing rows were written under the old schema.
     await caDb.execute(caSql`
       ALTER TABLE ca_verification_status
+        ADD COLUMN IF NOT EXISTS user_id VARCHAR REFERENCES users(id),
+        ADD COLUMN IF NOT EXISTS icai_membership_number VARCHAR,
+        ADD COLUMN IF NOT EXISTS pan_number VARCHAR,
+        ADD COLUMN IF NOT EXISTS overall_status VARCHAR DEFAULT 'pending',
+        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW(),
         ADD COLUMN IF NOT EXISTS icai_verified BOOLEAN DEFAULT false,
         ADD COLUMN IF NOT EXISTS icai_verified_at TIMESTAMPTZ,
         ADD COLUMN IF NOT EXISTS icai_verified_by VARCHAR REFERENCES users(id),
