@@ -7,7 +7,7 @@ import { usTradingService } from "../services/us-trading-service";
 import { alpacaMarketDataService } from "../services/alpaca-market-data-service";
 import { alpacaBrokerService } from "../services/alpaca-broker-service";
 import { alpacaSseService } from "../services/alpaca-sse-service";
-import { massiveWebSocketService } from "../services/massive-websocket-service";
+import { alpacaWsStreamingService } from "../services/alpaca-ws-streaming-service";
 import { usOrderNotificationService } from "../services/us-order-notification-service";
 import { usRebalancingEngine } from "../services/us-rebalancing-engine";
 import { orderAuditHook } from "../services/order-audit-hook";
@@ -181,6 +181,55 @@ router.get("/market/status", async (req, res) => {
   res.json({ success: true, marketData: status });
 });
 
+// GET /market/clock — live market open/close from Alpaca /v1/clock
+router.get("/market/clock", async (req, res) => {
+  try {
+    // Try live Alpaca clock first
+    if (alpacaBrokerService.isConfigured()) {
+      try {
+        const clock = await alpacaBrokerService.getMarketClock();
+        if (clock) {
+          return res.json({
+            success: true,
+            source: "alpaca",
+            is_open: clock.is_open,
+            next_open: clock.next_open,
+            next_close: clock.next_close,
+            timestamp: clock.timestamp,
+          });
+        }
+      } catch {}
+    }
+    // Fallback to calculated status
+    const calc = alpacaMarketDataService.getMarketStatus();
+    res.json({
+      success:    true,
+      source:     "calculated",
+      is_open:    calc.isOpen,
+      next_open:  calc.nextOpen,
+      next_close: calc.nextClose,
+      timestamp:  calc.timestamp,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /market/trades/latest?symbols=AAPL,MSFT — latest trade ticks
+router.get("/market/trades/latest", async (req, res) => {
+  try {
+    const { symbols } = req.query;
+    if (!symbols) return res.status(400).json({ success: false, error: "symbols query param required" });
+    const symbolList = (symbols as string).split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+    const tradesMap  = await alpacaMarketDataService.getLatestTrades(symbolList);
+    const trades: Record<string, any> = {};
+    tradesMap.forEach((t, sym) => { trades[sym] = t; });
+    res.json({ success: true, trades });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 router.post("/orders", async (req, res) => {
   try {
     const userId = (req as any).user?.id;
@@ -211,6 +260,45 @@ router.post("/orders", async (req, res) => {
         error: "Compliance check failed",
         blockers: compliance.blockers,
       });
+    }
+
+    // ── PDT Check ─────────────────────────────────────────────────────────────
+    // If the account is flagged as a Pattern Day Trader and has < $25,000 equity,
+    // Alpaca will reject the order with HTTP 403. Surface this before submission.
+    if (alpacaBrokerService.isConfigured()) {
+      try {
+        const accountInfo = await alpacaBrokerService.getAccount();
+        if (accountInfo?.pattern_day_trader) {
+          const equity = parseFloat(accountInfo.equity || "0");
+          if (equity < 25_000) {
+            return res.status(403).json({
+              success: false,
+              error: "Pattern Day Trader (PDT) restriction: your account equity is below $25,000. " +
+                "You cannot place day trades until your equity is restored. " +
+                "This is a FINRA requirement. Consider using GTC orders or waiting until the next trading day.",
+              pdt_flagged: true,
+            });
+          }
+        }
+      } catch {} // Non-fatal — let Alpaca handle it server-side if this check fails
+    }
+
+    // ── Fractionability Check ──────────────────────────────────────────────────
+    // If the order is fractional (qty < 1) or notional, the asset must be fractionable.
+    const isFractional = (data.quantity !== undefined && data.quantity < 1) || data.notionalUsd !== undefined;
+    if (isFractional && alpacaBrokerService.isConfigured()) {
+      try {
+        const asset = await alpacaBrokerService.getAsset(data.symbol.toUpperCase());
+        if (asset && !asset.fractionable) {
+          return res.status(400).json({
+            success: false,
+            error: `${data.symbol.toUpperCase()} is not eligible for fractional trading. ` +
+              "Use a whole-share quantity instead, or choose a fractionable security.",
+            fractionable: false,
+            symbol: data.symbol.toUpperCase(),
+          });
+        }
+      } catch {} // Non-fatal — let Alpaca handle rejection if asset check fails
     }
 
     const fxRate = await alpacaMarketDataService.getUsdInrRate();
