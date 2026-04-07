@@ -4,13 +4,15 @@ const SANDBOX_API_KEY = process.env.SANDBOX_API_KEY || '';
 const SANDBOX_API_SECRET = process.env.SANDBOX_API_SECRET || '';
 
 export function getSandboxBaseUrl(): string {
-  if (process.env.SANDBOX_BASE_URL) return process.env.SANDBOX_BASE_URL;
-  if (SANDBOX_API_KEY.startsWith('key_live')) return 'https://api.sandbox.co.in';
+  const explicit = process.env.SANDBOX_BASE_URL;
+  if (explicit) return explicit.replace(/\/$/, '');
+  console.warn('[Sandbox] SANDBOX_BASE_URL not set — set it to https://api.sandbox.co.in (prod) or https://test-api.sandbox.co.in (test). Defaulting to test.');
   return 'https://test-api.sandbox.co.in';
 }
 
 export function getSandboxEnvironment(): 'TEST' | 'PRODUCTION' {
-  return SANDBOX_API_KEY.startsWith('key_live') ? 'PRODUCTION' : 'TEST';
+  const url = getSandboxBaseUrl();
+  return url.includes('test-api') ? 'TEST' : 'PRODUCTION';
 }
 
 export function hasSandboxCredentials(): boolean {

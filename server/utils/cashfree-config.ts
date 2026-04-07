@@ -87,6 +87,7 @@ export function getCashfreeSecureIDEnvironment(): 'PRODUCTION' | 'SANDBOX' {
 }
 
 export function getCashfreeSecureIDBaseUrl(): string {
+  if (process.env.CASHFREE_SECUREID_BASE_URL) return process.env.CASHFREE_SECUREID_BASE_URL.replace(/\/$/, '');
   return getCashfreeSecureIDEnvironment() === 'PRODUCTION'
     ? 'https://api.cashfree.com/verification'
     : 'https://sandbox.cashfree.com/verification';

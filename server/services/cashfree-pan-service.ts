@@ -8,6 +8,7 @@
  */
 
 import axios from 'axios';
+import { getCashfreeSecureIDBaseUrl } from '../utils/cashfree-config';
 
 interface CashfreePANResponse {
   success: boolean;
@@ -29,12 +30,8 @@ interface CashfreePANResponse {
 }
 
 export class CashfreePANService {
-  private static readonly SANDBOX_URL = 'https://sandbox.cashfree.com/verification';
-  private static readonly PRODUCTION_URL = 'https://api.cashfree.com/verification';
-  
   private static getBaseUrl(): string {
-    const env = process.env.CASHFREE_SECUREID_ENVIRONMENT || process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX');
-    return env.toUpperCase() === 'PRODUCTION' ? this.PRODUCTION_URL : this.SANDBOX_URL;
+    return getCashfreeSecureIDBaseUrl();
   }
 
   static hasVerificationCredentials(): boolean {

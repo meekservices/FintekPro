@@ -80,9 +80,8 @@ app.get("/api/kyc/notification-status", async (req, res) => {
 });
 
 
-// Verify PAN for agent client onboarding
-// Routes to the provider selected in the admin panel (persisted in DB).
-// Falls back to the next available provider if the primary returns no result.
+// Verify PAN — provider priority comes from admin/kyc-flow page (kyc_flow_config_overrides in DB).
+// Iterates providers in priority order, skips unconfigured ones, falls through on failure.
 app.post("/api/kyc/verify-pan", async (req, res) => {
   try {
     const { panNumber, name } = req.body;
@@ -98,97 +97,81 @@ app.post("/api/kyc/verify-pan", async (req, res) => {
       return res.status(400).json({ success: false, error: "Invalid PAN format. Must be 10 characters (e.g., ABCDE1234F)", verified: false });
     }
 
-    const { loadActiveProvider } = await import('./pan-provider-routes');
-    const activeProvider = await loadActiveProvider();
+    const { getOrderedPanProviders } = await import('./kyc-flow-routes');
+    const providers = await getOrderedPanProviders();
     const safeName = name || "Name Not Provided";
 
-    console.log(`[KYC] PAN verify — active provider: ${activeProvider}`);
+    console.log(`[KYC] PAN verify — provider order from admin/kyc-flow: ${providers.map(p => `${p.providerId}(p${p.priority},${p.isConfigured ? 'ready' : 'not-configured'})`).join(' → ')}`);
 
-    // ── Cashfree (primary when selected) ────────────────────────────────────
-    if (activeProvider === 'cashfree-pan') {
-      const { CashfreePANService } = await import('./services/cashfree-pan-service');
-      if (CashfreePANService.isConfigured()) {
-        const result = await CashfreePANService.verifyPAN(normalizedPan, safeName);
-        if (result.success || result.verified !== undefined) {
-          return res.json({
-            success: result.success,
-            verified: result.verified,
-            name: result.data?.registeredName || null,
-            panType: result.data?.type || null,
-            panStatus: result.data?.panStatus || null,
-            aadhaarLinked: result.data?.aadhaarSeedingStatus === 'Y',
-            provider: 'cashfree',
-            message: result.message,
-          });
-        }
+    for (const provider of providers) {
+      if (!provider.isConfigured) {
+        console.log(`[KYC] Skipping ${provider.providerId} — not configured`);
+        continue;
       }
-      // Cashfree not configured or returned nothing — fall through to Sandbox
-      console.warn('[KYC] Cashfree not configured or returned no result, falling back to Sandbox');
-    }
 
-    // ── TruthScreen (primary when selected) ─────────────────────────────────
-    if (activeProvider === 'truthscreen-pan') {
-      const { TruthScreenCkycAdapter } = await import('./services/adapters/truthscreen-ckyc-adapter');
-      const adapter = new TruthScreenCkycAdapter();
-      if (adapter.isConfigured()) {
-        try {
+      try {
+        if (provider.providerId === 'cashfree') {
+          const { CashfreePANService } = await import('../services/cashfree-pan-service');
+          const result = await CashfreePANService.verifyPAN(normalizedPan, safeName);
+          if (result.verified || result.success) {
+            return res.json({
+              success: result.success,
+              verified: result.verified,
+              name: result.data?.registeredName || null,
+              panType: result.data?.type || null,
+              panStatus: result.data?.panStatus || null,
+              aadhaarLinked: result.data?.aadhaarSeedingStatus === 'Y',
+              provider: 'cashfree',
+              message: result.message,
+            });
+          }
+          console.warn(`[KYC] cashfree returned unverified — ${result.message}`);
+
+        } else if (provider.providerId === 'sandbox') {
+          const { sandboxPANService } = await import('./sandbox-pan-api');
+          const result = await sandboxPANService.verifyPAN(normalizedPan, safeName);
+          if (result && result.status === 'success' && result.data) {
+            return res.json({
+              success: true,
+              verified: result.data.status === 'VALID',
+              name: result.data.full_name || null,
+              panType: result.data.category || null,
+              panStatus: result.data.status || null,
+              aadhaarLinked: result.data.aadhaar_linked || false,
+              provider: 'sandbox',
+              message: result.message || 'PAN verified via Sandbox.co.in',
+            });
+          }
+          console.warn(`[KYC] sandbox returned no usable data`);
+
+        } else if (provider.providerId === 'truthscreen') {
+          const { TruthScreenCkycAdapter } = await import('../services/adapters/truthscreen-ckyc-adapter');
+          const adapter = new TruthScreenCkycAdapter();
           const result = await adapter.verify({ panNumber: normalizedPan, fullName: safeName, dateOfBirth: '' });
           if (result.success) {
             return res.json({
               success: true,
               verified: true,
-              name: result.data?.name || null,
+              name: result.data?.fullName || null,
               panType: 'Individual',
               panStatus: 'VALID',
               provider: 'truthscreen',
-              message: 'PAN verified via TruthScreen',
+              message: 'PAN verified via TruthScreen CKYC',
             });
           }
-        } catch (e) {
-          console.warn('[KYC] TruthScreen PAN failed, falling back to Sandbox:', (e as Error).message);
+          console.warn(`[KYC] truthscreen returned: ${result.message}`);
         }
+      } catch (providerErr) {
+        console.warn(`[KYC] ${provider.providerId} threw error, trying next provider:`, providerErr instanceof Error ? providerErr.message : providerErr);
       }
     }
 
-    // ── Sandbox (primary when selected, universal fallback) ──────────────────
-    const { sandboxPANService } = await import('./sandbox-pan-api');
-    try {
-      const sandboxResult = await sandboxPANService.verifyPAN(normalizedPan, safeName);
-      if (sandboxResult && sandboxResult.status === 'success' && sandboxResult.data) {
-        return res.json({
-          success: true,
-          verified: sandboxResult.data.status === 'VALID',
-          name: sandboxResult.data.full_name || null,
-          panType: sandboxResult.data.category || null,
-          panStatus: sandboxResult.data.status || null,
-          aadhaarLinked: sandboxResult.data.aadhaar_linked || false,
-          provider: 'sandbox',
-          message: sandboxResult.message || 'PAN verified via Sandbox',
-        });
-      }
-    } catch (sandboxErr) {
-      console.warn('[KYC] Sandbox PAN failed, trying Cashfree as last resort:', sandboxErr instanceof Error ? sandboxErr.message : sandboxErr);
-    }
-
-    // ── Last resort: Cashfree if not already primary ─────────────────────────
-    if (activeProvider !== 'cashfree-pan') {
-      const { CashfreePANService } = await import('./services/cashfree-pan-service');
-      if (CashfreePANService.isConfigured()) {
-        const result = await CashfreePANService.verifyPAN(normalizedPan, safeName);
-        return res.json({
-          success: result.success,
-          verified: result.verified,
-          name: result.data?.registeredName || null,
-          panType: result.data?.type || null,
-          panStatus: result.data?.panStatus || null,
-          aadhaarLinked: result.data?.aadhaarSeedingStatus === 'Y',
-          provider: 'cashfree',
-          message: result.message,
-        });
-      }
-    }
-
-    return res.status(503).json({ success: false, verified: false, error: "No PAN verification provider is available", message: "All providers unavailable or not configured" });
+    return res.status(503).json({
+      success: false,
+      verified: false,
+      error: "PAN not verified",
+      message: "All configured providers failed or are unavailable",
+    });
   } catch (error) {
     console.error("KYC PAN verification error:", error);
     res.status(500).json({ success: false, verified: false, error: "PAN verification failed", message: error instanceof Error ? error.message : "Unknown error" });
