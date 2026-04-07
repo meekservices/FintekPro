@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { getSandboxBaseUrl, getSandboxApiKey, getSandboxApiSecret, getSandboxAccessToken, clearSandboxToken } from './utils/sandbox-config';
+import { verifyBankAccountV2 } from './services/cashfree-vrs-service';
+import { hasCashfreeSecureIDCredentials } from './utils/cashfree-config';
 
 const SANDBOX_BASE_URL = getSandboxBaseUrl();
 const SANDBOX_API_URL = `${SANDBOX_BASE_URL}/bank`;
@@ -84,16 +86,73 @@ export function calculateNameMatchScore(name1: string, name2: string): number {
   return Math.round(similarity);
 }
 
+// ── Cashfree VRS fallback (used when Sandbox.co.in credentials are absent) ──────
+async function verifyBankAccountViaCashfree(
+  accountNumber: string,
+  ifscCode: string,
+  accountHolderName: string
+): Promise<PennyDropResult> {
+  console.log(`🏦 [BankVerify] Using Cashfree VRS (Sandbox.co.in credentials not configured)`);
+  const result = await verifyBankAccountV2({
+    bankAccount: accountNumber,
+    ifsc: ifscCode.toUpperCase(),
+    name: accountHolderName,
+  });
+
+  if (!result.success) {
+    return {
+      success: false,
+      errorMessage: result.error || 'Bank verification failed via Cashfree Secure ID',
+      providerResponse: result.data,
+    };
+  }
+
+  const data: any = result.data || {};
+  const nameAtBank: string = data.name_at_bank || data.account_holder_name || '';
+  const accountExists: boolean = data.account_exists !== false; // treat absent as true
+  const nameMatchScore = nameAtBank ? calculateNameMatchScore(accountHolderName, nameAtBank) : undefined;
+
+  if (!accountExists) {
+    return {
+      success: false,
+      errorMessage: 'Bank account does not exist or is invalid',
+      providerResponse: result.data,
+    };
+  }
+
+  console.log(`✅ [BankVerify] Cashfree VRS succeeded. Name match: ${nameMatchScore ?? 'N/A'}%`);
+  return {
+    success: true,
+    transactionId: data.verification_id || data.reference_id,
+    accountStatus: 'active',
+    verifiedName: nameAtBank || accountHolderName,
+    nameMatchScore,
+    amount: 1.00,
+    providerResponse: result.data,
+  };
+}
+
 export async function verifyBankAccountPennyDrop(
   accountNumber: string,
   ifscCode: string,
   accountHolderName: string
 ): Promise<PennyDropResult> {
-  try {
-    const apiKey = getSandboxApiKey();
-    if (!apiKey || !getSandboxApiSecret()) {
-      throw new Error('Sandbox API credentials not configured');
+  // ── Use Cashfree VRS when Sandbox.co.in credentials are not set ─────────────
+  const sandboxApiKey = getSandboxApiKey();
+  const sandboxApiSecret = getSandboxApiSecret();
+  if (!sandboxApiKey || !sandboxApiSecret) {
+    if (hasCashfreeSecureIDCredentials()) {
+      return verifyBankAccountViaCashfree(accountNumber, ifscCode, accountHolderName);
     }
+    return {
+      success: false,
+      errorMessage: 'Bank verification service not configured. Contact support.',
+      providerResponse: { error: 'No credentials: SANDBOX_API_KEY or CASHFREE_VERIFICATION_APP_ID required' },
+    };
+  }
+
+  try {
+    const apiKey = sandboxApiKey;
 
     const requestData: SandboxVerificationRequest = {
       account_number: accountNumber,
