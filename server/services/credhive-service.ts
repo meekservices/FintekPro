@@ -14,6 +14,7 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
+import { guardedExecution, validateCredhiveProfile, validateProspectData } from './guarded-execution';
 
 const CREDHIVE_API_KEY  = process.env.CREDHIVE_API_KEY  || '';
 const CREDHIVE_BASE_URL = process.env.CREDHIVE_BASE_URL || 'https://api.credhive.in/v1';
@@ -202,37 +203,56 @@ class CredhiveService {
     if (!this.available) {
       return { success: false, isApiKeyMissing: true, error: 'CREDHIVE_API_KEY not configured' };
     }
-    try {
-      const response = await this.client.get(`/company/${encodeURIComponent(cin)}`);
-      const d: any = response.data?.data || response.data;
-      const profile: CredhiveCompanyProfile = {
-        cin: d.cin || cin,
-        company_name: d.company_name || d.name || '',
-        status: d.company_status || d.status || 'unknown',
-        company_type: d.company_type || d.company_category,
-        roc_state: d.roc_state || d.roc_code,
-        date_of_incorporation: d.date_of_incorporation || d.incorporation_date,
-        registered_address: d.registered_address
-          ? (typeof d.registered_address === 'string'
-              ? d.registered_address
-              : [d.registered_address.address_line, d.registered_address.city, d.registered_address.state, d.registered_address.pincode].filter(Boolean).join(', '))
-          : undefined,
-        authorized_capital: this._num(d.authorized_capital),
-        paid_up_capital: this._num(d.paid_up_capital),
-        face_value: this._num(d.face_value),
-        total_shares: this._num(d.total_shares),
-        isin: d.isin,
-        sector: d.sector || d.industry_class,
-        industry: d.industry || d.sub_industry,
-        website: d.website || d.url,
-        description: d.description || d.business_description,
-        email: d.email || d.email_id,
-        pan: d.pan,
-      };
-      return { success: true, data: profile };
-    } catch (err: any) {
-      return { success: false, error: err?.message || 'Credhive profile fetch failed' };
-    }
+    return guardedExecution(
+      async () => {
+        const response = await this.client.get(`/company/${encodeURIComponent(cin)}`);
+        const d: any = response.data?.data || response.data;
+
+        // Schema validation: ensure API response still has expected shape
+        validateCredhiveProfile(d, cin);
+
+        const profile: CredhiveCompanyProfile = {
+          cin: d.cin || cin,
+          company_name: d.company_name || d.name || '',
+          status: d.company_status || d.status || 'unknown',
+          company_type: d.company_type || d.company_category,
+          roc_state: d.roc_state || d.roc_code,
+          date_of_incorporation: d.date_of_incorporation || d.incorporation_date,
+          registered_address: d.registered_address
+            ? (typeof d.registered_address === 'string'
+                ? d.registered_address
+                : [d.registered_address.address_line, d.registered_address.city, d.registered_address.state, d.registered_address.pincode].filter(Boolean).join(', '))
+            : undefined,
+          authorized_capital: this._num(d.authorized_capital),
+          paid_up_capital: this._num(d.paid_up_capital),
+          face_value: this._num(d.face_value),
+          total_shares: this._num(d.total_shares),
+          isin: d.isin,
+          sector: d.sector || d.industry_class,
+          industry: d.industry || d.sub_industry,
+          website: d.website || d.url,
+          description: d.description || d.business_description,
+          email: d.email || d.email_id,
+          pan: d.pan,
+        };
+
+        // Validate required prospect fields
+        validateProspectData(
+          { cin: profile.cin, company_name: profile.company_name, status: profile.status },
+          ['cin', 'company_name', 'status'],
+          'Credhive company profile',
+        );
+
+        return { success: true, data: profile };
+      },
+      {
+        module: 'prospect_engine',
+        operation: 'credhive_company_profile',
+        input: { cin },
+        fallback: { success: false, error: 'Credhive profile fetch failed — using fallback' } as CredhiveProfileResponse,
+        code: `Credhive API → /company/${cin}`,
+      },
+    );
   }
 
   /**

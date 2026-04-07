@@ -19,6 +19,7 @@ import {
   triggerManualRecovery,
   type RecoveryAction,
 } from '../services/auto-recovery-service';
+import { getFeedbackStats, routeFixStrategy, type GuardedModule } from '../services/guarded-execution';
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
 
@@ -132,6 +133,32 @@ router.get('/events', requireAdmin, async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error('[SelfHealing] Events fetch error:', err);
     res.status(500).json({ error: 'Failed to fetch healing events' });
+  }
+});
+
+// ── GET /feedback ─────────────────────────────────────────────────────────────
+// Data feedback loop: error → module → fix strategy → success rate
+router.get('/feedback', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const hours = parseInt((req.query.hours as string) || '24', 10);
+    const stats = await getFeedbackStats(Math.min(hours, 720));
+
+    // Enrich each module row with its fix strategy and risk routing
+    const enriched = stats.byModule.map((row) => ({
+      ...row,
+      fixStrategy: routeFixStrategy(row.module as GuardedModule),
+    }));
+
+    res.json({
+      success: true,
+      hoursWindow: stats.summary.hoursWindow,
+      summary: stats.summary,
+      byModule: enriched,
+      recentFailures: stats.recentFailures,
+    });
+  } catch (err: any) {
+    console.error('[SelfHealing] Feedback stats error:', err);
+    res.status(500).json({ error: 'Failed to retrieve feedback stats' });
   }
 });
 

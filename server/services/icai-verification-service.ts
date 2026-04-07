@@ -20,6 +20,7 @@ import { db } from '../db';
 import { sql } from 'drizzle-orm';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
+import { guardedExecution, validateICAIResult } from './guarded-execution';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -482,16 +483,34 @@ export async function verifyICAIMembership(
   let html = '';
   let source: ICAIVerificationResult['source'] = 'SCRAPER_FAILED';
 
-  const { html: httpHtml, success: httpOk } = await fetchViaHttp(cleaned);
-  if (httpOk) {
-    html = httpHtml;
+  const httpResult = await guardedExecution(
+    () => fetchViaHttp(cleaned),
+    {
+      module: 'prospect_engine',
+      operation: 'icai_http_scrape',
+      input: { membershipNumber: cleaned },
+      fallback: { html: '', success: false },
+      code: `ICAI HTTP scraper → member search for ${cleaned}`,
+    },
+  );
+  if (httpResult.success) {
+    html = httpResult.html;
     source = 'ICAI_HTTP';
   } else {
     console.log('[ICAI] HTTP fetch failed — falling back to Puppeteer');
     await randomDelay(2000, 4000);
-    const { html: ppHtml, success: ppOk } = await fetchViaPuppeteer(cleaned);
-    if (ppOk) {
-      html = ppHtml;
+    const ppResult = await guardedExecution(
+      () => fetchViaPuppeteer(cleaned),
+      {
+        module: 'prospect_engine',
+        operation: 'icai_puppeteer_scrape',
+        input: { membershipNumber: cleaned },
+        fallback: { html: '', success: false },
+        code: `ICAI Puppeteer scraper → member search for ${cleaned}`,
+      },
+    );
+    if (ppResult.success) {
+      html = ppResult.html;
       source = 'ICAI_PUPPETEER';
     }
   }
@@ -545,6 +564,13 @@ export async function verifyICAIMembership(
   };
 
   await persistResult(cleaned, result, html, partnerId);
+
+  // Schema validation: warn if scraper output is missing expected fields (ICAI DOM may have changed)
+  try {
+    validateICAIResult(result as unknown as Record<string, unknown>);
+  } catch (validationErr: any) {
+    console.warn(`[ICAI] Schema validation warning for ${cleaned}: ${validationErr.message} — scraper may need update`);
+  }
 
   console.log(`[ICAI] Result for ${cleaned}: status=${membershipStatus} name="${parsed.name}" confidence=${confidenceScore}`);
   return result;
