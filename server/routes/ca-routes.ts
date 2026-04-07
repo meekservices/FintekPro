@@ -3,6 +3,7 @@ import { db } from '../db';
 import { eq, and, sql, desc, ilike, or } from 'drizzle-orm';
 import { partners, caProfiles, agentItrCases, users } from '@shared/schema';
 import { caAssignmentService } from '../services/ca-assignment-service';
+import { verifyICAIMembership } from '../services/icai-verification-service';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { 
@@ -538,6 +539,192 @@ router.get('/admin/performance', requireAuth, injectRoleInfo, requireAdminPortal
       success: false,
       error: 'Failed to fetch performance data',
     });
+  }
+});
+
+// ─── ICAI Verification (ICHI Scraper Layer) ───────────────────────────────────
+
+/**
+ * Admin: trigger ICAI scraper for a registered CA partner
+ * POST /api/ca/admin/verify-icai/:partnerId
+ */
+router.post('/admin/verify-icai/:partnerId', requireAuth, injectRoleInfo, requireAdminPortal, async (req: Request, res: Response) => {
+  try {
+    const { partnerId } = req.params;
+    const { forceRefresh = false } = req.body;
+
+    const [partner] = await db.select().from(partners)
+      .where(and(eq(partners.id, partnerId), eq(partners.partnerType, 'chartered_accountant')))
+      .limit(1);
+
+    if (!partner) {
+      return res.status(404).json({ success: false, error: 'CA partner not found' });
+    }
+
+    if (!partner.icaiMembershipNumber) {
+      return res.status(400).json({ success: false, error: 'Partner has no ICAI membership number on record' });
+    }
+
+    const result = await verifyICAIMembership(
+      partner.icaiMembershipNumber,
+      partner.companyName ?? undefined,
+      partnerId,
+      Boolean(forceRefresh)
+    );
+
+    // Compute statuses in TypeScript before writing to DB
+    const icaiActive = result.membershipStatus === 'ACTIVE' || result.membershipStatus === 'FELLOW' || result.membershipStatus === 'ASSOCIATE';
+    const icaiScraperStatus = icaiActive ? 'verified' : result.source === 'SCRAPER_FAILED' ? 'scraper_failed' : 'unverified';
+    const autoApprove = icaiActive && (result.nameMatchScore ?? 0) >= 70;
+    const newVerifStatus = autoApprove ? 'verified' : result.source === 'SCRAPER_FAILED' ? partner.caVerificationStatus : 'pending';
+
+    await db.execute(sql`
+      UPDATE partners SET
+        icai_scraped_name       = ${result.nameAtICAI ?? null},
+        icai_scraper_status     = ${icaiScraperStatus},
+        icai_scraper_run_at     = NOW(),
+        icai_scraper_source     = ${result.source},
+        icai_confidence_score   = ${result.confidenceScore},
+        icai_cop_status         = ${result.copStatus ?? null},
+        ca_verification_status  = ${newVerifStatus},
+        updated_at = NOW()
+      WHERE id = ${partnerId}
+    `);
+
+    return res.json({
+      success: true,
+      partnerId,
+      icaiNumber: partner.icaiMembershipNumber,
+      result: {
+        nameAtICAI: result.nameAtICAI,
+        providedName: partner.companyName,
+        membershipStatus: result.membershipStatus,
+        membershipType: result.membershipType,
+        copStatus: result.copStatus,
+        nameMatchScore: result.nameMatchScore,
+        confidenceScore: result.confidenceScore,
+        source: result.source,
+        error: result.error,
+      },
+      autoApproved: (result.membershipStatus === 'ACTIVE' || result.membershipStatus === 'FELLOW') && (result.nameMatchScore ?? 0) >= 70,
+    });
+  } catch (error: any) {
+    console.error('[ICAI] Admin verify-icai error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * Partner self-service: request ICAI membership verification
+ * POST /api/ca/icai-check
+ */
+router.post('/icai-check', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { membershipNumber } = req.body;
+
+    const [partner] = await db.select().from(partners)
+      .where(and(eq(partners.contactEmail, user.email), eq(partners.partnerType, 'chartered_accountant')))
+      .limit(1);
+
+    if (!partner) {
+      return res.status(404).json({ success: false, error: 'CA profile not found' });
+    }
+
+    const icaiNumber = membershipNumber || partner.icaiMembershipNumber;
+    if (!icaiNumber) {
+      return res.status(400).json({ success: false, error: 'No ICAI membership number provided' });
+    }
+
+    const result = await verifyICAIMembership(
+      icaiNumber,
+      partner.companyName ?? undefined,
+      partner.id
+    );
+
+    await db.execute(sql`
+      UPDATE partners SET
+        icai_scraped_name     = ${result.nameAtICAI ?? null},
+        icai_scraper_status   = ${result.source === 'SCRAPER_FAILED' ? 'scraper_failed' : 'checked'},
+        icai_scraper_run_at   = NOW(),
+        icai_scraper_source   = ${result.source},
+        icai_confidence_score = ${result.confidenceScore},
+        icai_cop_status       = ${result.copStatus ?? null},
+        updated_at = NOW()
+      WHERE id = ${partner.id}
+    `);
+
+    return res.json({
+      success: true,
+      membershipStatus: result.membershipStatus,
+      nameAtICAI: result.nameAtICAI,
+      copStatus: result.copStatus,
+      confidenceScore: result.confidenceScore,
+      source: result.source,
+      nameMatchScore: result.nameMatchScore,
+      message: result.source === 'SCRAPER_FAILED'
+        ? 'Could not reach ICAI portal. Manual verification will be done by our team.'
+        : result.membershipStatus === 'ACTIVE' || result.membershipStatus === 'FELLOW'
+          ? 'ICAI membership confirmed. Your application is under review.'
+          : 'ICAI membership status could not be confirmed. Our team will verify manually.',
+      error: result.error,
+    });
+  } catch (error: any) {
+    console.error('[ICAI] Self-check error:', error);
+    res.status(500).json({ success: false, error: 'Verification request failed. Please try again.' });
+  }
+});
+
+/**
+ * Get cached ICAI status for a membership number (admin + partner)
+ * GET /api/ca/icai-status/:membershipNumber
+ */
+router.get('/icai-status/:membershipNumber', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { membershipNumber } = req.params;
+    const cleaned = membershipNumber.trim().toUpperCase();
+
+    const rows = await db.execute(sql`
+      SELECT
+        p.id,
+        p.company_name,
+        p.icai_membership_number,
+        p.icai_scraped_name,
+        p.icai_scraper_status,
+        p.icai_scraper_run_at,
+        p.icai_scraper_source,
+        p.icai_confidence_score,
+        p.icai_cop_status,
+        p.ca_verification_status
+      FROM partners p
+      WHERE p.icai_membership_number = ${cleaned}
+        AND p.partner_type = 'chartered_accountant'
+      LIMIT 1
+    `);
+
+    const row = (rows as any[])[0];
+    if (!row) {
+      return res.status(404).json({ success: false, error: 'No CA record found for this membership number' });
+    }
+
+    res.json({
+      success: true,
+      partnerId: row.id,
+      membershipNumber: row.icai_membership_number,
+      registeredName: row.company_name,
+      scraperResult: {
+        nameAtICAI: row.icai_scraped_name,
+        status: row.icai_scraper_status,
+        runAt: row.icai_scraper_run_at,
+        source: row.icai_scraper_source,
+        confidenceScore: row.icai_confidence_score,
+        copStatus: row.icai_cop_status,
+      },
+      overallVerificationStatus: row.ca_verification_status,
+    });
+  } catch (error: any) {
+    console.error('[ICAI] Status check error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
