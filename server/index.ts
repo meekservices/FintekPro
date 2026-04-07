@@ -1831,6 +1831,15 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     console.warn('[SelfHealing] Route mount skipped:', e?.message);
   }
 
+  // Mount AIF/PMS deal-to-prospect matching routes
+  try {
+    const dealMatchRouter = (await import('./routes/deal-prospect-match-routes')).default;
+    app.use('/api/deals', dealMatchRouter);
+    console.log('✅ Deal-to-Prospect Matching Engine routes registered (/api/deals/*)');
+  } catch (e: any) {
+    console.warn('[DealMatcher] Route mount skipped:', e?.message);
+  }
+
   // Internal supervisor crash-event bridge (localhost only, no auth)
   app.post('/api/internal/self-healing/crash-event', (req: any, res: any) => {
     const forwarded = req.headers['x-forwarded-for'];

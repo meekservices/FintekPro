@@ -181,6 +181,7 @@ const AgentResearchLists = lazyWithRetry(() => import("@/pages/agent-research-li
 const AgentResearchListDetail = lazyWithRetry(() => import("@/pages/agent-research-list-detail"));
 const ResearchNoteGenerator = lazyWithRetry(() => import("@/pages/research-note-generator"));
 const AgentHniLeaderboard = lazyWithRetry(() => import("@/pages/agent-hni-leaderboard"));
+const AgentDealMatcher = lazyWithRetry(() => import("@/pages/agent-deal-matcher"));
 const AgentScreener = lazyWithRetry(() => import("@/pages/agent-screener"));
 const AgentResearchAnalytics = lazyWithRetry(() => import("@/pages/agent-research-analytics"));
 const AgentTreasuryPage = lazyWithRetry(() => import("@/pages/agent-treasury"));
@@ -2424,6 +2425,13 @@ function AgentRoutes() {
         {() => (
           <Suspense fallback={<LoadingState />}>
             <AgentHniLeaderboard />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/agent/deal-matcher">
+        {() => (
+          <Suspense fallback={<LoadingState />}>
+            <AgentDealMatcher />
           </Suspense>
         )}
       </Route>
