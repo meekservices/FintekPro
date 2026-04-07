@@ -244,5 +244,143 @@ export function registerIrisKfintechRoutes(app: Express): void {
     await wrap(res, () => irisKfintechService.getPortfolioReport(req.params.pan, req.query as Record<string, string>));
   });
 
+  // STP Registration
+  app.post('/api/iris/transactions/stp/register', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.registerStp(req.body as Record<string, unknown>));
+  });
+
+  app.post('/api/iris/transactions/stp/cancel', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.cancelStp(req.body as Record<string, unknown>));
+  });
+
+  app.post('/api/iris/transactions/stp/pause', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.pauseStp(req.body as Record<string, unknown>));
+  });
+
+  // SWP Registration
+  app.post('/api/iris/transactions/swp/register', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.registerSwp(req.body as Record<string, unknown>));
+  });
+
+  app.post('/api/iris/transactions/swp/cancel', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.cancelSwp(req.body as Record<string, unknown>));
+  });
+
+  app.post('/api/iris/transactions/swp/pause', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.pauseSwp(req.body as Record<string, unknown>));
+  });
+
+  // Additional Purchase
+  app.post('/api/iris/transactions/additional-purchase', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.placeAdditionalPurchase(req.body as Record<string, unknown>));
+  });
+
+  // eNACH / Mandate Creation
+  app.post('/api/iris/transactions/mandates', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.createMandate(req.body as Record<string, unknown>));
+  });
+
+  app.get('/api/iris/transactions/mandates/:mandateId', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getMandateStatus(req.params.mandateId));
+  });
+
+  // Fixed Deposit Orders
+  app.post('/api/iris/products/fixed-deposits/order', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.placeFdOrder(req.body as Record<string, unknown>));
+  });
+
+  app.get('/api/iris/products/fixed-deposits/orders', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getFdOrders(req.query.pan as string));
+  });
+
+  app.get('/api/iris/products/fixed-deposits/orders/:orderId', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getFdOrderDetails(req.params.orderId));
+  });
+
+  // NPS
+  app.get('/api/iris/nps/subscriber/:pran', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getNpsSubscriberDetails(req.params.pran));
+  });
+
+  app.get('/api/iris/nps/subscriber/:pran/portfolio', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getNpsPortfolio(req.params.pran));
+  });
+
+  app.get('/api/iris/nps/subscriber/:pran/fund-values', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getNpsFundValues(req.params.pran));
+  });
+
+  app.post('/api/iris/nps/subscriber/onboarding', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.initiateNpsOnboarding(req.body as Record<string, unknown>));
+  });
+
+  app.post('/api/iris/nps/transactions/contribution', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.placeNpsContribution(req.body as Record<string, unknown>));
+  });
+
+  // Non-Financial Transactions
+  app.post('/api/iris/non-financial/:pan/nominee', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.updateNominee(req.params.pan, req.body as Record<string, unknown>));
+  });
+
+  app.post('/api/iris/non-financial/:pan/email', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.updateEmail(req.params.pan, req.body as Record<string, unknown>));
+  });
+
+  app.post('/api/iris/non-financial/:pan/mobile', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.updateMobile(req.params.pan, req.body as Record<string, unknown>));
+  });
+
+  app.post('/api/iris/non-financial/:pan/fatca', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.updateFatca(req.params.pan, req.body as Record<string, unknown>));
+  });
+
+  app.post('/api/iris/non-financial/:pan/idcw', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.updateIdcw(req.params.pan, req.body as Record<string, unknown>));
+  });
+
+  app.post('/api/iris/non-financial/:pan/bank', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.updateBankDetails(req.params.pan, req.body as Record<string, unknown>));
+  });
+
+  app.post('/api/iris/non-financial/:pan/bank-mandate', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.manageBankMandate(req.params.pan, req.body as Record<string, unknown>));
+  });
+
+  // Business Hierarchy
+  app.get('/api/iris/hierarchy/sub-brokers', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.listSubBrokers(req.query as Record<string, string>));
+  });
+
+  app.get('/api/iris/hierarchy/sub-brokers/:euinCode', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSubBrokerDetails(req.params.euinCode));
+  });
+
+  app.post('/api/iris/hierarchy/employees', requireAuth, requireAdmin, async (req, res) => {
+    await wrap(res, () => irisKfintechService.addEmployee(req.body as Record<string, unknown>));
+  });
+
+  app.put('/api/iris/hierarchy/employees/:euinCode', requireAuth, requireAdmin, async (req, res) => {
+    await wrap(res, () => irisKfintechService.updateEmployee(req.params.euinCode, req.body as Record<string, unknown>));
+  });
+
+  // Bulk Reports
+  app.get('/api/iris/reports/bulk/capital-gains', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getBulkCapitalGains(req.query as Record<string, string>));
+  });
+
+  app.get('/api/iris/reports/sip-maturity-calendar', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSipMaturityCalendar(req.query as Record<string, string>));
+  });
+
+  app.get('/api/iris/reports/dividend-tracker', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getDividendTracker(req.query as Record<string, string>));
+  });
+
+  app.get('/api/iris/reports/bulk/portfolio', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getBulkPortfolioReport(req.query as Record<string, string>));
+  });
+
+
   console.log('✅ IRIS KFintech routes registered');
 }
