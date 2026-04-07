@@ -278,4 +278,18 @@ router.patch('/flow/:stepId/provider/:providerId/price', async (req: Request, re
   }
 });
 
+/**
+ * Returns the PAN verification providers sorted by admin-configured priority,
+ * with isConfigured status refreshed from env vars.
+ * Used by /api/kyc/verify-pan to honour the admin/kyc-flow ordering.
+ */
+export async function getOrderedPanProviders(): Promise<KycStepProvider[]> {
+  const overrides = await loadOverrides();
+  applyOverrides(overrides);
+  refreshConfigStatus();
+  const panStep = kycFlowConfig.find(s => s.stepId === 'pan_verification');
+  if (!panStep) return [];
+  return [...panStep.providers].sort((a, b) => a.priority - b.priority);
+}
+
 export default router;
