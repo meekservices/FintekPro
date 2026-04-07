@@ -615,6 +615,60 @@ class AlpacaMarketDataService {
     return result;
   }
 
+  // ─── Latest Trades (last tick price for each symbol) ──────────────────────
+
+  async getLatestTrades(symbols: string[]): Promise<Map<string, {
+    price: number; size: number; exchange: string; timestamp: string; conditions: string[];
+  }>> {
+    const result = new Map<string, any>();
+    if (!symbols.length) return result;
+
+    if (this.isConfigured()) {
+      try {
+        const res = await axios.get(`${ALPACA_DATA_URL}/stocks/trades/latest`, {
+          headers: this.authHeaders!,
+          params: {
+            symbols: symbols.map(s => s.toUpperCase()).join(","),
+            feed: this.feed,
+          },
+          timeout: 8_000,
+        });
+        const tradesMap: Record<string, any> = res.data?.trades || {};
+        for (const [sym, t] of Object.entries(tradesMap)) {
+          result.set(sym, {
+            price:      (t as any).p ?? 0,
+            size:       (t as any).s ?? 0,
+            exchange:   (t as any).x ?? "",
+            timestamp:  (t as any).t ?? "",
+            conditions: (t as any).c ?? [],
+            tape:       (t as any).z ?? "",
+            source:     "alpaca_data",
+          });
+        }
+        if (result.size > 0) return result;
+      } catch (err: any) {
+        logger.warn(`MarketData: getLatestTrades failed (${err.message}), falling back to snapshots`);
+      }
+    }
+
+    // Fallback: extract from snapshots
+    try {
+      const snaps = await this.getSnapshots(symbols);
+      for (const [sym, snap] of snaps) {
+        result.set(sym, {
+          price:      snap.latestTrade.price,
+          size:       snap.latestTrade.size,
+          exchange:   snap.latestTrade.exchange,
+          timestamp:  snap.latestTrade.timestamp,
+          conditions: [],
+          source:     "snapshot_fallback",
+        });
+      }
+    } catch {}
+
+    return result;
+  }
+
   // ─── Asset / Symbol Details ────────────────────────────────────────────────
 
   async getStockDetails(symbol: string): Promise<StockDetails | null> {

@@ -7,7 +7,7 @@ import { usTradingService } from "../services/us-trading-service";
 import { alpacaMarketDataService } from "../services/alpaca-market-data-service";
 import { alpacaBrokerService } from "../services/alpaca-broker-service";
 import { alpacaSseService } from "../services/alpaca-sse-service";
-import { massiveWebSocketService } from "../services/massive-websocket-service";
+import { alpacaWsStreamingService } from "../services/alpaca-ws-streaming-service";
 import { usOrderNotificationService } from "../services/us-order-notification-service";
 import { usRebalancingEngine } from "../services/us-rebalancing-engine";
 import { orderAuditHook } from "../services/order-audit-hook";
@@ -227,7 +227,7 @@ router.get("/rebalancing/suggestion", async (req, res) => {
 
 router.get("/ws/status", async (req, res) => {
   try {
-    const status = massiveWebSocketService.getStatus();
+    const status = alpacaWsStreamingService.getStatus();
     res.json({ success: true, ...status });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -237,16 +237,16 @@ router.get("/ws/status", async (req, res) => {
 router.post("/ws/connect", async (req, res) => {
   try {
     const { feed } = req.body || {};
-    if (!massiveWebSocketService.isConfigured()) {
+    if (!alpacaWsStreamingService.isConfigured()) {
       return res.status(400).json({
         success: false,
-        error: "Massive WebSocket API key not configured. Set POLYGON_API_KEY.",
+        error: "Alpaca API credentials not configured. Set ALPACA_API_KEY and ALPACA_SECRET_KEY.",
       });
     }
-    massiveWebSocketService.connect(feed || "delayed");
+    alpacaWsStreamingService.connect(feed);
     res.json({
       success: true,
-      message: `Connecting to ${feed || "delayed"} feed...`,
+      message: `Connecting to Alpaca Data WebSocket (${alpacaWsStreamingService.getStatus().feed} feed)...`,
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -255,8 +255,8 @@ router.post("/ws/connect", async (req, res) => {
 
 router.post("/ws/disconnect", async (req, res) => {
   try {
-    massiveWebSocketService.disconnect();
-    res.json({ success: true, message: "Disconnected from Massive WebSocket" });
+    alpacaWsStreamingService.disconnect();
+    res.json({ success: true, message: "Disconnected from Alpaca Data WebSocket" });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -278,7 +278,7 @@ router.post("/ws/subscribe", async (req, res) => {
 
     const { symbols, channels } = parsed.data;
 
-    if (!massiveWebSocketService.isConnected()) {
+    if (!alpacaWsStreamingService.isConnected()) {
       return res.status(400).json({
         success: false,
         error: "WebSocket not connected. Call POST /ws/connect first.",
@@ -287,11 +287,11 @@ router.post("/ws/subscribe", async (req, res) => {
 
     const channelList = channels || ["trades", "quotes", "minuteAggs"];
 
-    if (channelList.includes("trades")) massiveWebSocketService.subscribeTrades(symbols);
-    if (channelList.includes("quotes")) massiveWebSocketService.subscribeQuotes(symbols);
-    if (channelList.includes("minuteAggs")) massiveWebSocketService.subscribeMinuteAggs(symbols);
-    if (channelList.includes("secondAggs")) massiveWebSocketService.subscribeSecondAggs(symbols);
-    if (channelList.includes("all")) massiveWebSocketService.subscribeAll(symbols);
+    if (channelList.includes("trades")) alpacaWsStreamingService.subscribeTrades(symbols);
+    if (channelList.includes("quotes")) alpacaWsStreamingService.subscribeQuotes(symbols);
+    if (channelList.includes("minuteAggs")) alpacaWsStreamingService.subscribeMinuteAggs(symbols);
+    if (channelList.includes("secondAggs")) alpacaWsStreamingService.subscribeSecondAggs(symbols);
+    if (channelList.includes("all")) alpacaWsStreamingService.subscribeAll(symbols);
 
     res.json({
       success: true,
@@ -312,10 +312,10 @@ router.post("/ws/unsubscribe", async (req, res) => {
     const { symbols, channels } = parsed.data;
     const channelList = channels || ["trades", "quotes", "minuteAggs"];
 
-    if (channelList.includes("trades")) massiveWebSocketService.unsubscribeTrades(symbols);
-    if (channelList.includes("quotes")) massiveWebSocketService.unsubscribeQuotes(symbols);
-    if (channelList.includes("minuteAggs")) massiveWebSocketService.unsubscribeMinuteAggs(symbols);
-    if (channelList.includes("all")) massiveWebSocketService.unsubscribeAll(symbols);
+    if (channelList.includes("trades")) alpacaWsStreamingService.unsubscribeTrades(symbols);
+    if (channelList.includes("quotes")) alpacaWsStreamingService.unsubscribeQuotes(symbols);
+    if (channelList.includes("minuteAggs")) alpacaWsStreamingService.unsubscribeMinuteAggs(symbols);
+    if (channelList.includes("all")) alpacaWsStreamingService.unsubscribeAll(symbols);
 
     res.json({
       success: true,
@@ -329,16 +329,36 @@ router.post("/ws/unsubscribe", async (req, res) => {
 router.get("/ws/latest/:symbol", async (req, res) => {
   try {
     const symbol = req.params.symbol.toUpperCase();
-    const quote = massiveWebSocketService.getLatestQuote(symbol);
-    const trade = massiveWebSocketService.getLatestTrade(symbol);
-    const agg = massiveWebSocketService.getLatestAgg(symbol);
+    const quote = alpacaWsStreamingService.getLatestQuote(symbol);
+    const trade = alpacaWsStreamingService.getLatestTrade(symbol);
+    const agg   = alpacaWsStreamingService.getLatestAgg(symbol);
+
+    // If streaming hasn't received data yet, fall back to the REST snapshot
+    let restQuote: any = null;
+    if (!quote && !trade) {
+      try {
+        const snaps = await alpacaMarketDataService.getSnapshots([symbol]);
+        const snap = snaps.get(symbol);
+        if (snap) {
+          restQuote = {
+            bidPrice: snap.latestQuote.bidPrice,
+            askPrice: snap.latestQuote.askPrice,
+            bidSize:  snap.latestQuote.bidSize,
+            askSize:  snap.latestQuote.askSize,
+            timestamp: snap.latestQuote.timestamp,
+            source: "rest_snapshot",
+          };
+        }
+      } catch {}
+    }
 
     res.json({
-      success: true,
+      success:   true,
       symbol,
-      quote: quote || null,
-      trade: trade || null,
+      quote:     quote || restQuote || null,
+      trade:     trade || null,
       aggregate: agg || null,
+      streaming: alpacaWsStreamingService.isConnected(),
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -348,9 +368,11 @@ router.get("/ws/latest/:symbol", async (req, res) => {
 router.get("/ws/latest", async (req, res) => {
   try {
     res.json({
-      success: true,
-      quotes: massiveWebSocketService.getAllLatestQuotes(),
-      trades: massiveWebSocketService.getAllLatestTrades(),
+      success:   true,
+      quotes:    alpacaWsStreamingService.getAllLatestQuotes(),
+      trades:    alpacaWsStreamingService.getAllLatestTrades(),
+      bars:      alpacaWsStreamingService.getAllLatestBars(),
+      streaming: alpacaWsStreamingService.isConnected(),
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });

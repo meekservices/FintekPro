@@ -1,7 +1,8 @@
 /**
  * Enhanced Order Form
  * Adds: notional "Invest ₹X" flow (INR→USD), extended hours toggle,
- * trailing stop type, short selling, bracket orders.
+ * trailing stop type, short selling, live market clock, PDT warning,
+ * fractionability notice, W-8BEN / LRS / wash sale disclosures.
  */
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -17,7 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   TrendingUp, TrendingDown, Clock, Moon, AlertTriangle, RefreshCw,
-  BadgeIndianRupee, DollarSign, ChevronDown, ChevronUp, Info,
+  BadgeIndianRupee, DollarSign, Info, CheckCircle2, XCircle, Zap,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -68,6 +69,24 @@ export default function EnhancedOrderForm({ defaultSymbol = "", onSuccess }: Enh
   });
   const fxRate = fxData?.rate ?? 83.5;
 
+  // Live market clock — open/closed/pre-market/after-hours
+  const { data: clockData } = useQuery<{
+    success: boolean; is_open: boolean; next_open: string; next_close: string; timestamp: string;
+  }>({
+    queryKey: ["/api/us-trading/market/clock"],
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+  const isMarketOpen = clockData?.is_open ?? false;
+
+  // Detect pre-market / after-hours window for extended hours relevance
+  const etHour = clockData?.timestamp
+    ? new Date(new Date(clockData.timestamp).toLocaleString("en-US", { timeZone: "America/New_York" })).getHours()
+    : -1;
+  const isPreMarket   = etHour >= 4  && etHour < 9;
+  const isAfterHours  = etHour >= 16 && etHour < 20;
+  const isExtendedWindow = isPreMarket || isAfterHours;
+
   // Live quote
   const { data: quoteData, isLoading: quoteLoading } = useQuery<{
     success: boolean;
@@ -81,6 +100,19 @@ export default function EnhancedOrderForm({ defaultSymbol = "", onSuccess }: Enh
   });
 
   const livePrice = quoteData?.quote?.price ?? 0;
+
+  // Account info — PDT flag and equity check
+  const { data: accountData } = useQuery<{
+    success: boolean;
+    account: { pattern_day_trader: boolean; equity: string; daytrade_count: number };
+  }>({
+    queryKey: ["/api/us-trading/account/details"],
+    staleTime: 120_000,
+  });
+  const isPdt        = accountData?.account?.pattern_day_trader ?? false;
+  const equity       = parseFloat(accountData?.account?.equity ?? "0");
+  const daytradeCount = accountData?.account?.daytrade_count ?? 0;
+  const pdtRisk      = isPdt && equity < 25_000;
 
   // Compute preview values
   const notionalUsd = qtyMode === "notional_inr"
@@ -133,12 +165,37 @@ export default function EnhancedOrderForm({ defaultSymbol = "", onSuccess }: Enh
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
+        <CardTitle className="text-base flex items-center gap-2 flex-wrap">
           Place Order
-          {extendedHours && <Badge className="bg-indigo-100 text-indigo-700 text-xs gap-1"><Moon className="h-3 w-3" /> Extended Hours</Badge>}
+          {/* Live market status */}
+          {clockData && (
+            isMarketOpen
+              ? <Badge className="bg-green-100 text-green-700 text-xs gap-1"><CheckCircle2 className="h-3 w-3" /> Market Open</Badge>
+              : isExtendedWindow
+              ? <Badge className="bg-indigo-100 text-indigo-700 text-xs gap-1"><Zap className="h-3 w-3" /> {isPreMarket ? "Pre-Market" : "After-Hours"}</Badge>
+              : <Badge className="bg-gray-100 text-gray-600 text-xs gap-1"><XCircle className="h-3 w-3" /> Market Closed</Badge>
+          )}
+          {extendedHours && <Badge className="bg-indigo-100 text-indigo-700 text-xs gap-1"><Moon className="h-3 w-3" /> Extended Hours On</Badge>}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* PDT Warning — shown before the user places an order */}
+        {pdtRisk && (
+          <Alert className="border-red-200 bg-red-50 dark:bg-red-950/20">
+            <AlertTriangle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-sm text-red-700 dark:text-red-300">
+              <strong>Pattern Day Trader (PDT) Restriction:</strong> Your account is flagged as a PDT and equity (${equity.toLocaleString()}) is below $25,000 — the FINRA minimum. Day trades will be rejected until equity is restored. Use GTC orders or consider adding funds. Day trades this week: {daytradeCount}/4.
+            </AlertDescription>
+          </Alert>
+        )}
+        {isPdt && !pdtRisk && (
+          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 py-2">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+            <AlertDescription className="text-xs text-amber-700">
+              <strong>PDT Account:</strong> Your account is flagged as a Pattern Day Trader. You can place unlimited day trades since equity exceeds $25,000. Day trades this week: {daytradeCount}.
+            </AlertDescription>
+          </Alert>
+        )}
         {/* Symbol */}
         <div>
           <Label className="text-xs">Symbol</Label>
@@ -216,6 +273,11 @@ export default function EnhancedOrderForm({ defaultSymbol = "", onSuccess }: Enh
             <TabsContent value="shares" className="mt-2">
               <Input type="number" value={qty} onChange={e => setQty(e.target.value)}
                 placeholder="e.g. 10 shares" className="h-9 text-sm" min="0.000001" step="any" />
+              {qty && parseFloat(qty) > 0 && parseFloat(qty) < 1 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Fractional quantity — asset must be fractionable. Only market orders with time_in_force=day are supported.
+                </p>
+              )}
             </TabsContent>
             <TabsContent value="notional_usd" className="mt-2">
               <div className="relative">
@@ -223,6 +285,9 @@ export default function EnhancedOrderForm({ defaultSymbol = "", onSuccess }: Enh
                 <Input type="number" value={qty} onChange={e => setQty(e.target.value)}
                   placeholder="e.g. 500.00" className="h-9 text-sm pl-8" min="1" step="any" />
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Notional orders require the asset to be fractionable. Market orders only. Min $1.
+              </p>
             </TabsContent>
             <TabsContent value="notional_inr" className="mt-2">
               <div className="relative">
@@ -232,7 +297,7 @@ export default function EnhancedOrderForm({ defaultSymbol = "", onSuccess }: Enh
               </div>
               {inrAmount && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  ≈ ${(parseFloat(inrAmount) / fxRate).toFixed(2)} at ₹{fxRate.toFixed(2)}/USD
+                  ≈ ${(parseFloat(inrAmount) / fxRate).toFixed(2)} at ₹{fxRate.toFixed(2)}/USD · Notional = fractionable assets only
                 </p>
               )}
             </TabsContent>
@@ -282,8 +347,9 @@ export default function EnhancedOrderForm({ defaultSymbol = "", onSuccess }: Enh
         {extendedHours && (
           <Alert className="border-amber-200 bg-amber-50/50 py-2">
             <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-            <AlertDescription className="text-xs text-amber-700">
-              Extended hours have lower liquidity. Only limit orders are supported. Prices may differ significantly from regular hours.
+            <AlertDescription className="text-xs text-amber-700 space-y-0.5">
+              <p><strong>Extended Hours Risk Disclosure (Alpaca):</strong></p>
+              <p>Overnight 8 PM–4 AM ET · Pre-market 4–9:30 AM ET · After-hours 4–8 PM ET. Lower liquidity, wider bid-ask spreads, and higher price volatility than regular hours. Only limit orders accepted. Fractional orders are also supported during extended hours. By enabling this, you acknowledge Alpaca's Extended Hours Trading Risk Disclosure.</p>
             </AlertDescription>
           </Alert>
         )}

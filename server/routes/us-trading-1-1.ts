@@ -7,7 +7,7 @@ import { usTradingService } from "../services/us-trading-service";
 import { alpacaMarketDataService } from "../services/alpaca-market-data-service";
 import { alpacaBrokerService } from "../services/alpaca-broker-service";
 import { alpacaSseService } from "../services/alpaca-sse-service";
-import { massiveWebSocketService } from "../services/massive-websocket-service";
+import { alpacaWsStreamingService } from "../services/alpaca-ws-streaming-service";
 import { usOrderNotificationService } from "../services/us-order-notification-service";
 import { usRebalancingEngine } from "../services/us-rebalancing-engine";
 import { orderAuditHook } from "../services/order-audit-hook";
@@ -271,11 +271,13 @@ router.post("/account/apply", async (req, res) => {
 
     // 2) Parse wizard payload
     const {
-      identity,    // { firstName, middleName, lastName, dateOfBirth, taxId, taxIdType, countryOfCitizenship, countryOfBirth, countryOfTaxResidence, fundingSource, annualIncomeMin, annualIncomeMax, liquidNetWorthMin, liquidNetWorthMax, totalNetWorthMin, totalNetWorthMax }
-      contact,     // { email, phone, streetAddress, city, state, postalCode, country }
-      disclosures, // { isControlPerson, isAffiliatedExchangeOrFinra, isPoliticallyExposed, immediateFamilyExposed }
-      agreements,  // Array<{ agreement, signedAt, ipAddress }>
-      documents,   // Optional Array<{ documentType, content, mimeType }>
+      identity,          // { firstName, middleName, lastName, dateOfBirth, taxId, taxIdType, countryOfCitizenship, countryOfBirth, countryOfTaxResidence, fundingSource, annualIncomeMin, annualIncomeMax, liquidNetWorthMin, liquidNetWorthMax, totalNetWorthMin, totalNetWorthMax }
+      contact,           // { email, phone, streetAddress, city, state, postalCode, country }
+      disclosures,       // { isControlPerson, isAffiliatedExchangeOrFinra, isPoliticallyExposed, immediateFamilyExposed }
+      agreements,        // Array<{ agreement, signedAt, ipAddress }>
+      documents,         // Optional Array<{ documentType, content, mimeType }>
+      riskTolerance,     // "conservative" | "moderate" | "significant_risk" — top-level Alpaca field
+      investmentObjective, // "growth_income" | "growth" | "capital_preservation" | "speculation" | "other"
     } = req.body;
 
     if (!identity || !contact || !disclosures || !agreements?.length) {
@@ -285,8 +287,19 @@ router.post("/account/apply", async (req, res) => {
     // 3) Check if already applied
     let brokerAccount = await usTradingService.getBrokerAccount(userId);
 
-    // 4) Build Alpaca payload
-    const alpacaPayload = {
+    // 4) Build Alpaca payload — https://docs.alpaca.markets/reference/createaccount
+    //    Required top-level: account_type, contact, identity, disclosures, agreements
+    //    India-specific: country fields set to IND, tax_id_type set to PAN, W-8BEN via documents
+    const alpacaPayload: any = {
+      // account_type: "trading" is required for standard brokerage accounts
+      account_type: "trading",
+
+      // Top-level risk profile fields (not nested under identity)
+      // Valid values: "conservative" | "moderate" | "significant_risk"
+      risk_tolerance: (riskTolerance || "moderate") as "conservative" | "moderate" | "significant_risk",
+      // Valid values: "growth_income" | "growth" | "capital_preservation" | "speculation" | "other"
+      investment_objective: (investmentObjective || "growth") as string,
+
       contact: {
         email_address: contact.email,
         phone_number: contact.phone,
@@ -302,11 +315,14 @@ router.post("/account/apply", async (req, res) => {
         middle_name: identity.middleName || undefined,
         date_of_birth: identity.dateOfBirth,
         tax_id: identity.taxId || undefined,
+        // India: PAN card = "PAN" type; Aadhaar last 4 only (never store full Aadhaar)
         tax_id_type: identity.taxIdType || "NOT_SPECIFIED",
         country_of_citizenship: identity.countryOfCitizenship || "IND",
         country_of_birth: identity.countryOfBirth || "IND",
         country_of_tax_residence: identity.countryOfTaxResidence || "IND",
-        funding_source: Array.isArray(identity.fundingSource) ? identity.fundingSource : [identity.fundingSource || "employment_income"],
+        funding_source: Array.isArray(identity.fundingSource)
+          ? identity.fundingSource
+          : [identity.fundingSource || "employment_income"],
         annual_income_min: identity.annualIncomeMin || "10000",
         annual_income_max: identity.annualIncomeMax || "50000",
         liquid_net_worth_min: identity.liquidNetWorthMin || "5000",
@@ -326,7 +342,31 @@ router.post("/account/apply", async (req, res) => {
         ip_address: a.ipAddress || req.ip || "0.0.0.0",
         revision: a.revision || "04.2021.10",
       })),
-      documents: documents || [],
+      // W-8BEN: Required for all non-US-resident account holders (Indian residents)
+      // Auto-generate from KYC data — treaty_country "IND", foreign_tax_id = PAN
+      documents: documents?.length
+        ? documents
+        : (() => {
+            if (identity.taxId && identity.dateOfBirth) {
+              return [{
+                document_type: "w8ben",
+                content: JSON.stringify({
+                  country_citizen: identity.countryOfCitizenship || "IND",
+                  date_of_birth: identity.dateOfBirth,
+                  full_name: `${identity.firstName}${identity.middleName ? " " + identity.middleName : ""} ${identity.lastName}`,
+                  ip_address: req.ip || "0.0.0.0",
+                  signed_at: new Date().toISOString(),
+                  signer_full_name: `${identity.firstName} ${identity.lastName}`,
+                  foreign_tax_id: identity.taxId,
+                  tax_id_type: identity.taxIdType || "NOT_SPECIFIED",
+                  treaty_country: identity.countryOfTaxResidence || "IND",
+                  revision: "10.2018",
+                }),
+                mime_type: "application/json",
+              }];
+            }
+            return [];
+          })(),
       enabled_assets: ["us_equity"],
     };
 
@@ -476,6 +516,53 @@ router.get("/account/status", async (req, res) => {
   }
 });
 
+/**
+ * GET /account/details
+ * Returns live trading account details from Alpaca — PDT flag, equity, day trade count.
+ * Used by the order form to display PDT warnings before order placement.
+ */
+router.get("/account/details", async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+
+    const brokerAccount = await usTradingService.getBrokerAccount(userId);
+    if (!brokerAccount?.alpacaAccountId) {
+      return res.status(404).json({ success: false, error: "No Alpaca account found" });
+    }
+
+    const tradingAccount = await alpacaBrokerService.getTradingAccount(brokerAccount.alpacaAccountId);
+    if (!tradingAccount) {
+      return res.status(503).json({ success: false, error: "Unable to fetch trading account from Alpaca" });
+    }
+
+    res.json({
+      success: true,
+      account: {
+        id: tradingAccount.id,
+        status: tradingAccount.status,
+        currency: tradingAccount.currency,
+        equity: tradingAccount.equity,
+        cash: tradingAccount.cash,
+        buying_power: tradingAccount.buying_power,
+        portfolio_value: tradingAccount.portfolio_value,
+        pattern_day_trader: tradingAccount.pattern_day_trader ?? false,
+        daytrade_count: tradingAccount.daytrade_count ?? 0,
+        daytrading_buying_power: tradingAccount.daytrading_buying_power,
+        long_market_value: tradingAccount.long_market_value,
+        short_market_value: tradingAccount.short_market_value,
+        unrealized_pl: tradingAccount.unrealized_pl,
+        unrealized_plpc: tradingAccount.unrealized_plpc,
+        realized_pl: tradingAccount.realized_pl,
+        trading_blocked: tradingAccount.trading_blocked ?? false,
+        account_blocked: tradingAccount.account_blocked ?? false,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 router.get("/market/quote/:symbol", async (req, res) => {
   try {
     const { symbol } = req.params;
@@ -529,6 +616,110 @@ router.get("/market/details/:symbol", async (req, res) => {
     const quote = await alpacaMarketDataService.getQuote(symbol);
     
     res.json({ success: true, details, quote });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /funding/swift-instructions
+ * Returns static SWIFT wire instructions for Indian investors to fund their
+ * Alpaca account via LRS/SWIFT transfer from their AD-I bank.
+ *
+ * Note: The actual beneficiary account details (unique per user) come from the
+ * Alpaca Funding Wallet API (/broker/accounts/:id/funding-wallet). This endpoint
+ * provides the procedural guide and Alpaca's known routing details as a reference.
+ */
+router.get("/funding/swift-instructions", async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+
+    const brokerAccount = await usTradingService.getBrokerAccount(userId);
+    const alpacaAccountId = brokerAccount?.alpacaAccountId;
+
+    // Alpaca / Velox Clearing SWIFT reference (same for all accounts — beneficiary
+    // account number is what differs per user and comes from the funding-wallet API).
+    const instructions = {
+      // ── Beneficiary ────────────────────────────────────────────────────────
+      beneficiary_name: "Velox Clearing LLC / FBO [Your Name]",
+      beneficiary_account_note: "Use the account number from your FintekPro Funding Wallet",
+      currency: "USD",
+
+      // ── Correspondent / Intermediary bank ─────────────────────────────────
+      // Indian AD-I banks typically need an intermediary US bank for SWIFT routing.
+      intermediary_bank_name: "JPMorgan Chase Bank, N.A.",
+      intermediary_swift_bic: "CHASUS33",
+      intermediary_aba: "021000021",
+      intermediary_address: "383 Madison Ave, New York, NY 10179, USA",
+
+      // ── Beneficiary bank (Velox / Alpaca clearing) ─────────────────────────
+      beneficiary_bank_name: "Velox Clearing LLC",
+      beneficiary_bank_address: "299 Park Avenue, New York, NY 10171, USA",
+      beneficiary_bank_country: "US",
+
+      // ── LRS / FEMA / India Compliance ──────────────────────────────────────
+      purpose_code: "S0001",   // RBI purpose code for portfolio investment (SEBI FEMA)
+      lrs_annual_limit_usd: 250_000,
+      form_required: "Form A2 (collected by your AD Category-I bank)",
+      tcs_threshold_inr: 700_000,
+      tcs_rate_percent: 20,
+      tcs_note: "Your AD bank will deduct 20% TCS on LRS remittance above ₹7 lakh/FY (Finance Act 2023 §206C(1G)). Claim credit when filing ITR.",
+
+      // ── Step-by-step guide ─────────────────────────────────────────────────
+      steps: [
+        {
+          step: 1,
+          title: "Get your unique USD account details",
+          description: "Go to Funding → Wallet in FintekPro to get your dedicated USD beneficiary account number and routing details assigned by Alpaca.",
+        },
+        {
+          step: 2,
+          title: "Visit your bank's LRS / forex desk (AD Category-I bank)",
+          description: "Authorised dealers: SBI, HDFC, ICICI, Axis, Kotak, YES Bank, etc. Online option: Wise, HDFC Remit, Thomas Cook.",
+        },
+        {
+          step: 3,
+          title: "Fill Form A2",
+          description: "Your bank will provide Form A2 (FEMA declaration). Purpose: 'Overseas portfolio investment in listed US equities under LRS'. Purpose code: S0001.",
+        },
+        {
+          step: 4,
+          title: "Provide PAN and KYC",
+          description: "Your PAN is mandatory for LRS. Bank will verify annual LRS utilization against your PAN. Ensure PAN is linked to Aadhaar.",
+        },
+        {
+          step: 5,
+          title: "Initiate SWIFT wire transfer",
+          description: "Send the USD amount (after TCS deduction or net of bank charges) to your Alpaca beneficiary account. Use the SWIFT BIC of the intermediary bank shown above.",
+        },
+        {
+          step: 6,
+          title: "Track settlement",
+          description: "International SWIFT transfers typically settle in 2–5 business days. Check your FintekPro Funding Wallet for the deposit to appear.",
+        },
+        {
+          step: 7,
+          title: "Maintain ITR records",
+          description: "Report US assets in Schedule FA of your Indian ITR. US dividends and capital gains must be reported in Schedule FSI. Consult a CA.",
+        },
+      ],
+
+      // ── Important notes ────────────────────────────────────────────────────
+      important_notes: [
+        "Never send INR directly — the transfer must be in USD.",
+        "Your bank will convert INR to USD at their interbank rate + spread. Compare rates across banks.",
+        "Each SWIFT transfer has a fixed fee (₹1,000–₹2,500 at most banks). Large transfers are more efficient.",
+        "Minimum transfer: Most banks require a minimum of $500–$1,000 for LRS international wires.",
+        "LRS limit resets on April 1 every financial year.",
+        "Keep Form A2 receipts for at least 5 years for FEMA compliance.",
+      ],
+
+      alpaca_account_id: alpacaAccountId || null,
+      generated_at: new Date().toISOString(),
+    };
+
+    res.json({ success: true, instructions });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
