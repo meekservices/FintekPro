@@ -70,8 +70,8 @@ const STEPS = [
 
 const SERVICE_OPTIONS = [
   { id: "mutual_fund", label: "Mutual Fund Distribution", subtitle: "ARN + NISM V-A required", icon: "📈" },
-  { id: "insurance", label: "Insurance Distribution", subtitle: "POSP license required", icon: "🛡️" },
-  { id: "loans", label: "Loan / DSA", subtitle: "DSA code required", icon: "🏦" },
+  { id: "insurance", label: "Insurance Distribution", subtitle: "Referral bonus · POSP code assigned by FintekPro", icon: "🛡️" },
+  { id: "loans", label: "Loan / DSA", subtitle: "Referral bonus · no additional credentials needed", icon: "🏦" },
   { id: "ria", label: "Investment Advisory (RIA)", subtitle: "SEBI RIA number required", icon: "💼" },
   { id: "stocks", label: "Stock Broking Support", subtitle: "NISM XII required", icon: "📊" },
 ];
@@ -832,35 +832,27 @@ export default function AgentKycEmpanelment() {
               </div>
             )}
 
-            {/* POSP (Insurance) */}
+            {/* POSP (Insurance) — referral model, no document needed */}
             {servicesOffered.includes("insurance") && (
-              <div className="space-y-3 p-4 border rounded-xl">
-                <h3 className="font-semibold text-sm text-green-700 dark:text-green-300 flex items-center gap-2">
-                  <span className="text-lg">🛡️</span> POSP — Insurance Distribution
+              <div className="p-4 border border-green-200 dark:border-green-800 rounded-xl bg-green-50 dark:bg-green-950/30">
+                <h3 className="font-semibold text-sm text-green-700 dark:text-green-300 flex items-center gap-2 mb-2">
+                  <span className="text-lg">🛡️</span> Insurance Distribution — Referral Model
                 </h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <Label>POSP License Number *</Label>
-                    <Input placeholder="POSP-XXXXXXXX" value={pospNumber} onChange={e => setPospNumber(e.target.value)} className="font-mono" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Issuing Insurer *</Label>
-                    <Input placeholder="e.g. HDFC Life, LIC, New India" value={pospInsurer} onChange={e => setPospInsurer(e.target.value)} />
-                  </div>
-                </div>
+                <p className="text-sm text-green-700 dark:text-green-400">
+                  Your <strong>POSP code will be assigned by FintekPro</strong> — no license or certificate is required from you. You will earn referral bonuses on every policy sold through your link. No additional documents needed for this service.
+                </p>
               </div>
             )}
 
-            {/* DSA (Loans) */}
+            {/* DSA (Loans) — referral model, no document needed */}
             {servicesOffered.includes("loans") && (
-              <div className="space-y-3 p-4 border rounded-xl">
-                <h3 className="font-semibold text-sm text-cyan-700 dark:text-cyan-300 flex items-center gap-2">
-                  <span className="text-lg">🏦</span> DSA — Loan Distribution
+              <div className="p-4 border border-cyan-200 dark:border-cyan-800 rounded-xl bg-cyan-50 dark:bg-cyan-950/30">
+                <h3 className="font-semibold text-sm text-cyan-700 dark:text-cyan-300 flex items-center gap-2 mb-2">
+                  <span className="text-lg">🏦</span> Loan / DSA — Referral Model
                 </h3>
-                <div className="space-y-1">
-                  <Label>DSA Code *</Label>
-                  <Input placeholder="DSA-XXXXXX" value={dsaCode} onChange={e => setDsaCode(e.target.value.toUpperCase())} className="font-mono" />
-                </div>
+                <p className="text-sm text-cyan-700 dark:text-cyan-400">
+                  You operate as a <strong>referral partner</strong> for loan products. No DSA code or empanelment document is required from you. You will earn referral bonuses on every loan disbursed through your leads. No additional credentials needed.
+                </p>
               </div>
             )}
           </CardContent>
