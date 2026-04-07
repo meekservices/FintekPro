@@ -1763,6 +1763,63 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     console.error('[Migration] audit_trail table error:', e?.message);
   }
 
+  // Boot-time: self_healing_events table for auto-recovery audit log
+  try {
+    const { db: shDb } = await import('./db');
+    const { sql: shSql } = await import('drizzle-orm');
+    await shDb.execute(shSql`
+      CREATE TABLE IF NOT EXISTS self_healing_events (
+        id            SERIAL PRIMARY KEY,
+        event_type    VARCHAR(50) NOT NULL,
+        trigger_message TEXT,
+        action_taken  VARCHAR(100),
+        success       BOOLEAN,
+        message       TEXT,
+        context       TEXT,
+        occurred_at   TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await shDb.execute(shSql`
+      CREATE INDEX IF NOT EXISTS idx_self_healing_events_occurred_at
+        ON self_healing_events (occurred_at DESC)
+    `);
+    console.log('✅ [Migration] self_healing_events table verified/created');
+  } catch (e: any) {
+    console.error('[Migration] self_healing_events table error:', e?.message);
+  }
+
+  // Init auto-recovery service (circuit breaker registry + service registration)
+  try {
+    const { initAutoRecoveryService } = await import('./services/auto-recovery-service');
+    initAutoRecoveryService();
+  } catch (e: any) {
+    console.warn('[AutoRecovery] Init skipped:', e?.message);
+  }
+
+  // Mount self-healing admin routes
+  try {
+    const selfHealingRouter = (await import('./routes/self-healing-routes')).default;
+    app.use('/api/admin/self-healing', selfHealingRouter);
+    console.log('✅ Self-healing admin routes mounted at /api/admin/self-healing');
+  } catch (e: any) {
+    console.warn('[SelfHealing] Route mount skipped:', e?.message);
+  }
+
+  // Internal supervisor crash-event bridge (localhost only, no auth)
+  app.post('/api/internal/self-healing/crash-event', (req: any, res: any) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    const remoteIp  = forwarded ? String(forwarded).split(',')[0].trim() : req.socket?.remoteAddress;
+    const isLocal   = !remoteIp || remoteIp === '127.0.0.1' || remoteIp === '::1' || remoteIp === '::ffff:127.0.0.1';
+    if (!isLocal) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+    const { eventType, trigger, action, success, message, context } = req.body || {};
+    import('./services/auto-recovery-service').then(({ logHealingEvent }) => {
+      logHealingEvent({ eventType: eventType || 'supervisor_restart', trigger, action, success, message, context }).catch(() => {});
+    }).catch(() => {});
+
+    res.json({ success: true });
+  });
+
   // Register additional routes from routes.ts (but don't create a new server - we already have one)
   await registerRoutes(app, server);
 
