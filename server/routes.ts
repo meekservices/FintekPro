@@ -23,6 +23,7 @@ import { registerPortfolioCompareAISIPRoutes } from './routes/portfolio-compare-
 import { registerFamilyCollaborationRoutes } from './routes/family-collaboration';
 import { registerAlertSystemRoutes } from './routes/alert-system';
 import { registerSystemAdminRoutes } from './routes/system-admin';
+import { registerIrisKfintechRoutes } from './routes/iris-kfintech-routes';
 import { executionGuard } from "./middleware/execution-guard";
 import { proxyToInsurance } from './clients/insurance-client';
 import { registerCrmRoutes } from './routes/crm';
@@ -801,6 +802,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   registerFamilyCollaborationRoutes(app);
   registerAlertSystemRoutes(app);
   registerSystemAdminRoutes(app);
+  registerIrisKfintechRoutes(app);
   
   return server;
 }

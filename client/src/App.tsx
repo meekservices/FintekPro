@@ -216,6 +216,7 @@ const AdminAgentPayouts = lazyWithRetry(() => import("@/pages/admin/agent-payout
 const AgentProspectProposals = lazyWithRetry(() => import("@/pages/agent-prospect-proposals"));
 const OnboardingPage = lazyWithRetry(() => import("@/pages/onboarding"));
 const AgentKycEmpanelment = lazyWithRetry(() => import("@/pages/agent-kyc-empanelment"));
+const AgentIrisHub = lazyWithRetry(() => import("@/pages/agent-iris-hub"));
 const PublicProposalPage = lazyWithRetry(() => import("@/pages/public-proposal"));
 const ManualKYCPage = lazyWithRetry(() => import("@/pages/manual-kyc"));
 const KycRejectionRekyc = lazyWithRetry(() => import("@/pages/kyc-rejection-rekyc"));
@@ -2446,6 +2447,15 @@ function AgentRoutes() {
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
               <KycRejectionRekyc />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/iris">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentIrisHub />
             </Suspense>
           </AgentLayout>
         )}
