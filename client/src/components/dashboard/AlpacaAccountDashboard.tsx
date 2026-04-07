@@ -37,7 +37,7 @@ import {
   Building2, KeyRound, Eye, EyeOff, Link2, FileText, Banknote, Trash2,
   ArrowUpCircle, ArrowDownCircle, Plus, Download, Globe, ChevronRight,
   Zap, Crown, Lock, Landmark, Send, Settings2, CalendarDays, Radio,
-  ListOrdered, ShieldCheck,
+  ListOrdered, ShieldCheck, GitMerge, Scale, Info, Receipt, FilePlus,
 } from "lucide-react";
 import FundingWalletPanel from "@/components/us-trading/FundingWalletPanel";
 import RecipientBanksPanel from "@/components/us-trading/RecipientBanksPanel";
@@ -46,6 +46,8 @@ import OptionsChain from "@/components/us-trading/OptionsChain";
 import AccountConfigPanel from "@/components/us-trading/AccountConfigPanel";
 import AlpacaEventFeed from "@/components/us-trading/AlpacaEventFeed";
 import MarketCalendarPanel from "@/components/us-trading/MarketCalendarPanel";
+import CorporateActionsPanel from "@/components/us-trading/CorporateActionsPanel";
+import RebalancingPanel from "@/components/us-trading/RebalancingPanel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -915,16 +917,41 @@ function ActivitiesTab({ accountId }: { accountId: string }) {
 
   const activities = data?.activities ?? [];
 
+  const ACTIVITY_TYPES: Array<{ value: string; label: string; tooltip: string }> = [
+    { value: "all", label: "All Types", tooltip: "Show every activity type" },
+    { value: "FILL", label: "Fills", tooltip: "Order executions (buys/sells)" },
+    { value: "DIV", label: "Dividends", tooltip: "Cash dividends for US residents" },
+    { value: "DIVNRA", label: "Dividends (NRA)", tooltip: "25% withholding tax on dividends for non-US residents (DIVNRA)" },
+    { value: "INT", label: "Interest", tooltip: "Cash interest earned on uninvested cash via the High-Yield program" },
+    { value: "CSD", label: "Cash Deposits", tooltip: "ACH or wire transfers into the account" },
+    { value: "CSW", label: "Cash Withdrawals", tooltip: "Cash withdrawn to external bank" },
+    { value: "JNLC", label: "Journal Cash", tooltip: "Internal cash journal between Alpaca accounts" },
+    { value: "JNLS", label: "Journal Securities", tooltip: "Internal securities journal between Alpaca accounts" },
+    { value: "ACATC", label: "ACAT Cash", tooltip: "Automated Customer Account Transfer — cash component" },
+    { value: "ACATS", label: "ACAT Securities", tooltip: "Automated Customer Account Transfer — securities component" },
+    { value: "SSO", label: "Stock Settlement", tooltip: "Stock settlement out of account" },
+    { value: "SSOI", label: "Stock Settlement In", tooltip: "Stock settlement into account" },
+    { value: "REORG", label: "Reorganisation", tooltip: "Corporate reorganisation event (spin-off, merger, split)" },
+    { value: "PTC", label: "Pass-through Charge", tooltip: "Exchange or regulatory pass-through fee" },
+    { value: "NC", label: "Name Change", tooltip: "Security name/symbol change" },
+  ];
+
   const activityTypeColor: Record<string, string> = {
     FILL: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
     ACATC: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
     ACATS: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
     DIV: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-    DIVNRA: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    DIVNRA: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+    INT: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
     CSD: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
     CSW: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
     JNLC: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
     JNLS: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+    SSO: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
+    SSOI: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
+    REORG: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    PTC: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+    NC: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300",
   };
 
   return (
@@ -937,17 +964,15 @@ function ActivitiesTab({ accountId }: { accountId: string }) {
           </CardTitle>
           <div className="flex items-center gap-2">
             <Select value={activityType} onValueChange={setActivityType}>
-              <SelectTrigger className="h-8 w-[120px] text-xs">
+              <SelectTrigger className="h-8 w-[140px] text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="FILL">Fills</SelectItem>
-                <SelectItem value="DIV">Dividends</SelectItem>
-                <SelectItem value="CSD">Cash Deposits</SelectItem>
-                <SelectItem value="CSW">Cash Withdrawals</SelectItem>
-                <SelectItem value="JNLC">Journal Cash</SelectItem>
-                <SelectItem value="JNLS">Journal Securities</SelectItem>
+                {ACTIVITY_TYPES.map(t => (
+                  <SelectItem key={t.value} value={t.value} title={t.tooltip}>
+                    {t.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Button variant="ghost" size="sm" onClick={() => refetch()} className="h-7 px-2">
@@ -1002,7 +1027,7 @@ function ActivitiesTab({ accountId }: { accountId: string }) {
   );
 }
 
-// ─── Documents Tab ─────────────────────────────────────────────────────────────
+// ─── Documents + Tax Center Tab ────────────────────────────────────────────────
 
 interface BrokerDocument {
   id: string;
@@ -1012,8 +1037,58 @@ interface BrokerDocument {
   content?: string;
 }
 
+const DOC_TYPE_LABEL: Record<string, string> = {
+  account_statement: "Account Statement",
+  trade_confirmation: "Trade Confirmation",
+  tax_statement: "Tax Statement",
+  "1099": "1099",
+  tax_1099b: "1099-B (Capital Gains)",
+  tax_1099div: "1099-DIV (Dividends)",
+  tax_1099int: "1099-INT (Interest)",
+  tax_w8ben: "W-8BEN",
+  identity_verification: "Identity Verification",
+  cip_result: "CIP Result",
+  cip_approval: "CIP Approval",
+  schedule_c_gain_loss: "P&L / Schedule C",
+  pnl: "Realized P&L Report",
+};
+
+const DOC_CATEGORY: Record<string, "tax" | "kyc" | "trade"> = {
+  account_statement: "trade",
+  trade_confirmation: "trade",
+  tax_statement: "tax",
+  "1099": "tax",
+  tax_1099b: "tax",
+  tax_1099div: "tax",
+  tax_1099int: "tax",
+  tax_w8ben: "kyc",
+  schedule_c_gain_loss: "tax",
+  pnl: "tax",
+  identity_verification: "kyc",
+  cip_result: "kyc",
+  cip_approval: "kyc",
+};
+
+const REPORT_TYPES = [
+  { value: "account_statement", label: "Account Statement", desc: "Monthly or quarterly account summary" },
+  { value: "trade_confirmation", label: "Trade Confirmations", desc: "Executed order confirmations" },
+  { value: "tax_1099b", label: "1099-B (Capital Gains)", desc: "For US tax reporting; informational for India ITR Schedule FA/FSI" },
+  { value: "tax_1099div", label: "1099-DIV (Dividends)", desc: "Dividend income report incl. DIVNRA withholding" },
+  { value: "tax_1099int", label: "1099-INT (Interest)", desc: "Cash interest earned (report in India ITR Schedule FSI)" },
+  { value: "pnl", label: "Realized P&L", desc: "Realized gains/losses — use for India Capital Gains computation" },
+  { value: "schedule_c_gain_loss", label: "P&L / Schedule C", desc: "Detailed gain/loss breakdown per security" },
+];
+
 function DocumentsTab({ accountId }: { accountId: string }) {
   const { toast } = useToast();
+  const [docFilter, setDocFilter] = useState<"all" | "tax" | "kyc" | "trade">("all");
+  const [generateType, setGenerateType] = useState<string>("");
+  const [dateFrom, setDateFrom] = useState<string>(() => {
+    const d = new Date(); d.setFullYear(d.getFullYear() - 1);
+    return d.toISOString().split("T")[0];
+  });
+  const [dateTo, setDateTo] = useState<string>(new Date().toISOString().split("T")[0]);
+
   const { data, isLoading, refetch } = useQuery<{ documents: BrokerDocument[] }>({
     queryKey: ["/api/us-trading/broker/accounts", accountId, "documents"],
     queryFn: () => fetch(`/api/us-trading/broker/accounts/${accountId}/documents`).then(r => r.json()),
@@ -1025,81 +1100,258 @@ function DocumentsTab({ accountId }: { accountId: string }) {
       fetch(`/api/us-trading/broker/accounts/${accountId}/documents/${docId}/download`)
         .then(r => r.json()),
     onSuccess: (data: any) => {
-      if (data?.url) {
-        window.open(data.url, "_blank");
-      } else {
-        toast({ title: "Download ready", description: "Document URL opened in new tab." });
-      }
+      if (data?.url) window.open(data.url, "_blank");
+      else toast({ title: "Download ready", description: "Document URL opened in new tab." });
     },
     onError: (e: any) => toast({ title: "Download failed", description: e.message, variant: "destructive" }),
   });
 
-  const docTypeLabel: Record<string, string> = {
-    account_statement: "Account Statement",
-    trade_confirmation: "Trade Confirmation",
-    tax_statement: "Tax Statement",
-    1099: "1099",
-    identity_verification: "Identity Verification",
-    cip_result: "CIP Result",
-  };
+  const generateMutation = useMutation({
+    mutationFn: () =>
+      apiRequest(`/api/us-trading/broker/accounts/${accountId}/documents`, {
+        method: "POST",
+        body: JSON.stringify({ document_type: generateType, date_from: dateFrom, date_to: dateTo }),
+      }),
+    onSuccess: () => {
+      toast({ title: "Report requested", description: "The document will appear in your list shortly." });
+      setTimeout(() => refetch(), 2000);
+    },
+    onError: (e: any) => toast({ title: "Generate failed", description: e.message, variant: "destructive" }),
+  });
 
-  const documents = data?.documents ?? [];
+  const allDocs = data?.documents ?? [];
+  const docs = docFilter === "all" ? allDocs : allDocs.filter(d => (DOC_CATEGORY[d.document_type] ?? "trade") === docFilter);
+  const taxDocs = allDocs.filter(d => DOC_CATEGORY[d.document_type] === "tax");
+  const kycDocs = allDocs.filter(d => DOC_CATEGORY[d.document_type] === "kyc");
 
   return (
-    <Card>
+    <div className="space-y-4">
+      {/* ── Tax Center Card ──────────────────────────────── */}
+      <Card className="border-amber-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Receipt className="h-4 w-4 text-amber-600" />
+            Tax Center
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Generate tax documents for Indian ITR filing. Use P&L / 1099 data for Schedule FA, FSI, and Capital Gains schedules.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {taxDocs.length === 0 ? (
+              <div className="col-span-2 text-xs text-muted-foreground bg-muted/40 rounded p-3">
+                No tax documents found. Use the generator below to request them.
+              </div>
+            ) : (
+              taxDocs.map(d => (
+                <div key={d.id} className="flex items-center justify-between border rounded-md p-3">
+                  <div>
+                    <div className="text-xs font-medium">{DOC_TYPE_LABEL[d.document_type] ?? d.document_type.replace(/_/g, " ")}</div>
+                    {d.date && <div className="text-[10px] text-muted-foreground">{new Date(d.date).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}</div>}
+                  </div>
+                  <Button variant="outline" size="sm" className="h-7 px-2" onClick={() => downloadMutation.mutate(d.id)}>
+                    <Download className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+          <Separator />
+          <div>
+            <p className="text-xs font-medium mb-2 flex items-center gap-1"><FilePlus className="h-3.5 w-3.5" /> Generate Report</p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Select value={generateType} onValueChange={setGenerateType}>
+                <SelectTrigger className="h-8 text-xs flex-1">
+                  <SelectValue placeholder="Select report type..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {REPORT_TYPES.map(r => (
+                    <SelectItem key={r.value} value={r.value}>
+                      <div>
+                        <div className="text-xs font-medium">{r.label}</div>
+                        <div className="text-[10px] text-muted-foreground">{r.desc}</div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-8 text-xs w-36" />
+              <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-8 text-xs w-36" />
+              <Button
+                size="sm"
+                className="h-8 text-xs whitespace-nowrap"
+                disabled={!generateType || generateMutation.isPending}
+                onClick={() => generateMutation.mutate()}
+              >
+                {generateMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin mr-1" /> : <FilePlus className="h-3 w-3 mr-1" />}
+                Generate
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Alert className="border-amber-200 bg-amber-50/50 py-2">
+        <Info className="h-3.5 w-3.5 text-amber-600" />
+        <AlertDescription className="text-xs text-amber-700">
+          <strong>India Tax Filing Tip:</strong> US capital gains go in <strong>Schedule CG → FA</strong>. Dividend income (with DIVNRA withholding) goes in <strong>Schedule FSI</strong>. Use Form 67 before filing to claim Foreign Tax Credit. Maintain position records for Schedule FA (foreign assets) if portfolio value exceeds ₹5L at year-end.
+        </AlertDescription>
+      </Alert>
+
+      {/* ── All Documents ─────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              All Documents
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Select value={docFilter} onValueChange={v => setDocFilter(v as any)}>
+                <SelectTrigger className="h-8 w-[110px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="tax">Tax</SelectItem>
+                  <SelectItem value="kyc">KYC</SelectItem>
+                  <SelectItem value="trade">Trade</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="ghost" size="sm" onClick={() => refetch()} className="h-7 px-2">
+                <RefreshCw className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="p-4 space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : docs.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">No documents available</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Document Type</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="w-16"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {docs.map(d => (
+                  <TableRow key={d.id}>
+                    <TableCell className="font-medium text-sm">
+                      {DOC_TYPE_LABEL[d.document_type] ?? d.document_type.replace(/_/g, " ")}
+                      {d.document_sub_type && <span className="text-xs text-muted-foreground ml-1 capitalize">({d.document_sub_type.replace(/_/g, " ")})</span>}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={
+                        DOC_CATEGORY[d.document_type] === "tax" ? "bg-amber-100 text-amber-700 text-[10px]" :
+                        DOC_CATEGORY[d.document_type] === "kyc" ? "bg-blue-100 text-blue-700 text-[10px]" :
+                        "bg-gray-100 text-gray-600 text-[10px]"
+                      }>
+                        {DOC_CATEGORY[d.document_type] ?? "trade"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {d.date ? new Date(d.date).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2"
+                        onClick={() => downloadMutation.mutate(d.id)}
+                        disabled={downloadMutation.isPending}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── LRS Tracker Card ─────────────────────────────────────────────────────────
+
+function LrsTrackerCard() {
+  const { data, isLoading } = useQuery<{
+    success: boolean;
+    data: {
+      financialYear: string;
+      lrsLimitUsd: number;
+      totalRemittedUsd: number;
+      remainingLimitUsd: number;
+      transactionCount: number;
+      taxImplications: { tcsRate: number; tcsThreshold: number; note: string };
+    };
+  }>({
+    queryKey: ["/api/global-advisory/lrs/status"],
+    queryFn: () => fetch("/api/global-advisory/lrs/status").then(r => r.json()),
+    staleTime: 120_000,
+  });
+
+  const d = data?.data;
+  const usedPct = d ? Math.min((d.totalRemittedUsd / d.lrsLimitUsd) * 100, 100) : 0;
+
+  return (
+    <Card className="border-indigo-200">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Account Documents
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Globe className="h-4 w-4 text-indigo-600" />
+            LRS Tracker — FY {d?.financialYear ?? "2024-25"}
           </CardTitle>
-          <Button variant="ghost" size="sm" onClick={() => refetch()} className="h-7 px-2">
-            <RefreshCw className="h-3.5 w-3.5" />
-          </Button>
+          <Badge className="bg-indigo-100 text-indigo-700 text-xs">FEMA/RBI</Badge>
         </div>
+        <CardDescription className="text-xs">Liberalised Remittance Scheme — $250,000/FY cap</CardDescription>
       </CardHeader>
-      <CardContent className="p-0">
+      <CardContent className="space-y-3">
         {isLoading ? (
-          <div className="p-4 space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-        ) : documents.length === 0 ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">No documents available</div>
+          <div className="space-y-2"><Skeleton className="h-6 w-full" /><Skeleton className="h-3 w-full" /></div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Document Type</TableHead>
-                <TableHead>Sub Type</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="w-16"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {documents.map(d => (
-                <TableRow key={d.id}>
-                  <TableCell className="font-medium">
-                    {docTypeLabel[d.document_type] ?? d.document_type.replace(/_/g, " ")}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground capitalize">
-                    {d.document_sub_type?.replace(/_/g, " ") ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {d.date ? new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2"
-                      onClick={() => downloadMutation.mutate(d.id)}
-                      disabled={downloadMutation.isPending}
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <>
+            <div className="flex items-end justify-between">
+              <div>
+                <div className="text-2xl font-bold">${(d?.totalRemittedUsd ?? 0).toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">of $250,000 used ({usedPct.toFixed(1)}%)</div>
+              </div>
+              <div className="text-right">
+                <div className="text-base font-semibold text-green-600">${(d?.remainingLimitUsd ?? 250000).toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">remaining</div>
+              </div>
+            </div>
+            <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${usedPct > 80 ? "bg-red-500" : usedPct > 50 ? "bg-amber-500" : "bg-emerald-500"}`}
+                style={{ width: `${usedPct}%` }}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="bg-amber-50 dark:bg-amber-900/20 rounded p-2 border border-amber-200">
+                <div className="font-medium text-amber-700">TCS Threshold</div>
+                <div className="text-muted-foreground">₹7 Lakh ({d?.taxImplications?.tcsRate ?? 20}% TCS above)</div>
+              </div>
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded p-2 border border-blue-200">
+                <div className="font-medium text-blue-700">Transactions</div>
+                <div className="text-muted-foreground">{d?.transactionCount ?? 0} remittances this FY</div>
+              </div>
+            </div>
+            {(d?.totalRemittedUsd ?? 0) > 0 && (
+              <div className="text-xs text-muted-foreground bg-muted/40 rounded p-2">
+                {d?.taxImplications?.note}
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
@@ -1655,12 +1907,21 @@ export default function AlpacaAccountDashboard() {
             <FileText className="h-3.5 w-3.5" />
             Documents
           </TabsTrigger>
+          <TabsTrigger value="corp-actions" className="flex items-center gap-1.5">
+            <GitMerge className="h-3.5 w-3.5" />
+            Corp Actions
+          </TabsTrigger>
+          <TabsTrigger value="rebalance" className="flex items-center gap-1.5">
+            <Scale className="h-3.5 w-3.5" />
+            Rebalance
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-5 mt-0">
           {configured && (
             <PortfolioChart period={chartPeriod} setPeriod={setChartPeriod} isPaper={isPaper} />
           )}
+          <LrsTrackerCard />
         </TabsContent>
 
         <TabsContent value="trading" className="space-y-5 mt-0">
@@ -1725,6 +1986,14 @@ export default function AlpacaAccountDashboard() {
           ) : (
             <div className="py-8 text-center text-sm text-muted-foreground">Account data not loaded</div>
           )}
+        </TabsContent>
+
+        <TabsContent value="corp-actions" className="mt-0">
+          <CorporateActionsPanel accountId={account?.id} />
+        </TabsContent>
+
+        <TabsContent value="rebalance" className="mt-0">
+          <RebalancingPanel accountId={account?.id} />
         </TabsContent>
       </Tabs>
     </div>
