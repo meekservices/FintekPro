@@ -21,8 +21,8 @@ import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 
 // ── Circuit breaker state ──────────────────────────────────────────────────
-const CIRCUIT_OPEN_THRESHOLD  = 5;           // consecutive failures before opening
-const CIRCUIT_OPEN_DURATION_MS = 2 * 60 * 1000; // 2 minutes open before retry
+const CIRCUIT_OPEN_THRESHOLD  = 3;            // consecutive failures before opening
+const CIRCUIT_OPEN_DURATION_MS = 30 * 60 * 1000; // 30 minutes open before retry (prevents hourly scheduler hammering a dead service)
 
 let circuitFailures   = 0;
 let circuitOpenUntil  = 0;   // epoch ms — 0 means closed

@@ -1585,6 +1585,25 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     console.warn('[Migration] agent_services/agent_notifications skipped:', e?.message);
   }
 
+  // prospect_leads scoring engine columns — added after initial table creation
+  try {
+    const { db: plDb } = await import('./db');
+    const { sql: plSql } = await import('drizzle-orm');
+    await plDb.execute(plSql`
+      ALTER TABLE prospect_leads
+        ADD COLUMN IF NOT EXISTS estimated_networth   NUMERIC(18,2),
+        ADD COLUMN IF NOT EXISTS wealth_score         NUMERIC(6,2),
+        ADD COLUMN IF NOT EXISTS activity_score       NUMERIC(6,2),
+        ADD COLUMN IF NOT EXISTS relationship_score   NUMERIC(6,2),
+        ADD COLUMN IF NOT EXISTS composite_score      NUMERIC(6,2),
+        ADD COLUMN IF NOT EXISTS scoring_version      VARCHAR,
+        ADD COLUMN IF NOT EXISTS scored_at            TIMESTAMPTZ
+    `);
+    console.log('✅ [Migration] prospect_leads scoring columns verified/added');
+  } catch (e: any) {
+    console.warn('[Migration] prospect_leads scoring columns skipped:', e?.message);
+  }
+
   // ca_verification_status — create table + add any columns missing from earlier deployments
   try {
     const { db: caDb } = await import('./db');
