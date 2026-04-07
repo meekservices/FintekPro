@@ -1,97 +1,157 @@
-import { useStockCandles, type CandleData } from "@/hooks/use-market-data";
+import { useEffect, useRef, useState } from "react";
+import { createChart, IChartApi, ISeriesApi, CandlestickData, LineData, Time } from "lightweight-charts";
+import { useStockCandles } from "@/hooks/use-market-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useState, useEffect } from "react";
-
-interface ProcessedCandleData {
-  time: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume?: number;
-}
-
-interface MarketStats {
-  open: number;
-  high: number;
-  low: number;
-  volume?: number;
-  change: number;
-  changePercent: number;
-}
+import { Badge } from "@/components/ui/badge";
+import { TrendingUp, TrendingDown } from "lucide-react";
 
 interface MarketChartProps {
   symbol?: string;
 }
 
+type ChartType = "candlestick" | "line" | "area";
+type Timeframe = "1W" | "1M" | "3M" | "1Y";
+
+const TIMEFRAME_DAYS: Record<Timeframe, number> = {
+  "1W": 7,
+  "1M": 30,
+  "3M": 90,
+  "1Y": 365,
+};
+
 export function MarketChart({ symbol = "^NSEI" }: MarketChartProps) {
-  const [timeframe, setTimeframe] = useState("1D");
-  const [chartData, setChartData] = useState<ProcessedCandleData[]>([]);
-  
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<any> | null>(null);
+  const [timeframe, setTimeframe] = useState<Timeframe>("1M");
+  const [chartType, setChartType] = useState<ChartType>("candlestick");
+  const [stats, setStats] = useState<{
+    open: number; high: number; low: number; close: number;
+    change: number; changePct: number;
+  } | null>(null);
+
   const { data: candles, isLoading, error } = useStockCandles(symbol, "D");
 
   useEffect(() => {
-    if (candles && candles.s === 'ok') {
-      // Process candle data for chart
-      const processedData = candles.t.map((timestamp: number, index: number) => ({
-        time: new Date(timestamp * 1000).toLocaleDateString(),
-        open: candles.o[index],
-        high: candles.h[index],
-        low: candles.l[index],
-        close: candles.c[index],
-        volume: candles.v?.[index]
-      }));
-      setChartData(processedData);
-    }
-  }, [candles]);
+    if (!containerRef.current) return;
+    const isDark = document.documentElement.classList.contains("dark");
 
-  const timeframes = [
-    { label: "1D", value: "1D" },
-    { label: "1W", value: "1W" },
-    { label: "1M", value: "1M" },
-    { label: "1Y", value: "1Y" },
-  ];
+    const chart = createChart(containerRef.current, {
+      width: containerRef.current.clientWidth,
+      height: 300,
+      layout: {
+        background: { color: isDark ? "#0f172a" : "#ffffff" },
+        textColor: isDark ? "#94a3b8" : "#475569",
+      },
+      grid: {
+        vertLines: { color: isDark ? "#1e293b" : "#f1f5f9" },
+        horzLines: { color: isDark ? "#1e293b" : "#f1f5f9" },
+      },
+      crosshair: { mode: 1 },
+      rightPriceScale: { borderColor: isDark ? "#334155" : "#e2e8f0" },
+      timeScale: {
+        borderColor: isDark ? "#334155" : "#e2e8f0",
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      handleScroll: true,
+      handleScale: true,
+    });
 
-  const getMarketStats = (): MarketStats | null => {
-    if (!chartData || chartData.length === 0) return null;
-    
-    const latest = chartData[chartData.length - 1];
-    const previous = chartData[chartData.length - 2];
-    
-    return {
-      open: latest.open,
-      high: Math.max(...chartData.slice(-1).map((d: any) => d.high)),
-      low: Math.min(...chartData.slice(-1).map((d: any) => d.low)),
-      volume: latest.volume,
-      change: latest.close - (previous?.close || latest.close),
-      changePercent: previous ? ((latest.close - previous.close) / previous.close) * 100 : 0
+    chartRef.current = chart;
+
+    const ro = new ResizeObserver((entries) => {
+      if (chartRef.current && entries[0]) {
+        chartRef.current.applyOptions({ width: entries[0].contentRect.width });
+      }
+    });
+    ro.observe(containerRef.current);
+
+    return () => {
+      ro.disconnect();
+      chartRef.current?.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
     };
-  };
+  }, []);
 
-  const stats = getMarketStats();
+  useEffect(() => {
+    if (!chartRef.current || !candles || candles.s !== "ok") return;
+
+    if (seriesRef.current) {
+      try { chartRef.current.removeSeries(seriesRef.current); } catch (_) {}
+      seriesRef.current = null;
+    }
+
+    const nowSec = Date.now() / 1000;
+    const cutoff = nowSec - TIMEFRAME_DAYS[timeframe] * 86400;
+    const startIdx = Math.max(0, candles.t.findIndex((t: number) => t >= cutoff));
+
+    const t = candles.t.slice(startIdx) as number[];
+    const o = candles.o.slice(startIdx) as number[];
+    const h = candles.h.slice(startIdx) as number[];
+    const l = candles.l.slice(startIdx) as number[];
+    const c = candles.c.slice(startIdx) as number[];
+
+    if (t.length === 0) return;
+
+    const UP = "#10b981";
+    const DOWN = "#ef4444";
+
+    if (chartType === "candlestick") {
+      const s = chartRef.current.addCandlestickSeries({
+        upColor: UP, downColor: DOWN,
+        borderUpColor: UP, borderDownColor: DOWN,
+        wickUpColor: UP, wickDownColor: DOWN,
+      });
+      s.setData(t.map((ts, i) => ({ time: ts as Time, open: o[i], high: h[i], low: l[i], close: c[i] } as CandlestickData)));
+      seriesRef.current = s;
+    } else if (chartType === "line") {
+      const s = chartRef.current.addLineSeries({ color: "#3b82f6", lineWidth: 2 });
+      s.setData(t.map((ts, i) => ({ time: ts as Time, value: c[i] } as LineData)));
+      seriesRef.current = s;
+    } else {
+      const s = chartRef.current.addAreaSeries({
+        topColor: "rgba(59,130,246,0.35)",
+        bottomColor: "rgba(59,130,246,0.0)",
+        lineColor: "#3b82f6",
+        lineWidth: 2,
+      });
+      s.setData(t.map((ts, i) => ({ time: ts as Time, value: c[i] } as LineData)));
+      seriesRef.current = s;
+    }
+
+    chartRef.current.timeScale().fitContent();
+
+    const last = c[c.length - 1];
+    const prev = c.length > 1 ? c[c.length - 2] : last;
+    setStats({
+      open: o[o.length - 1],
+      high: Math.max(...h),
+      low: Math.min(...l),
+      close: last,
+      change: last - prev,
+      changePct: prev !== 0 ? ((last - prev) / prev) * 100 : 0,
+    });
+  }, [candles, timeframe, chartType]);
 
   if (isLoading) {
     return (
       <Card className="lg:col-span-2">
         <CardHeader>
           <div className="flex justify-between items-center">
+            <Skeleton className="h-7 w-40" />
             <Skeleton className="h-8 w-48" />
-            <div className="flex space-x-2">
-              {timeframes.map((tf) => (
-                <Skeleton key={tf.value} className="h-8 w-12" />
-              ))}
-            </div>
           </div>
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-80 w-full mb-6" />
+          <Skeleton className="h-72 w-full mb-4" />
           <div className="grid grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="text-center">
-                <Skeleton className="h-4 w-12 mx-auto mb-2" />
-                <Skeleton className="h-6 w-16 mx-auto" />
+                <Skeleton className="h-3 w-10 mx-auto mb-1" />
+                <Skeleton className="h-5 w-16 mx-auto" />
               </div>
             ))}
           </div>
@@ -100,86 +160,77 @@ export function MarketChart({ symbol = "^NSEI" }: MarketChartProps) {
     );
   }
 
-  if (error) {
+  if (error || (candles && candles.s !== "ok")) {
     return (
       <Card className="lg:col-span-2">
-        <CardContent className="flex items-center justify-center h-96">
-          <div className="text-center" data-testid="chart-error">
-            <p className="text-red-500 mb-2">Error loading market data</p>
-            <p className="text-muted-foreground text-sm">Please check your connection and try again</p>
+        <CardContent className="flex items-center justify-center h-80">
+          <div className="text-center">
+            <p className="text-red-500 mb-1 font-medium">Chart unavailable</p>
+            <p className="text-muted-foreground text-sm">Try a different symbol</p>
           </div>
         </CardContent>
       </Card>
     );
   }
 
+  const up = (stats?.change ?? 0) >= 0;
+
   return (
     <Card className="lg:col-span-2" data-testid="market-chart">
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-2xl font-bold text-foreground" data-testid="chart-title">
-            Market Overview
-          </CardTitle>
-          <div className="flex space-x-2">
-            {timeframes.map((tf) => (
-              <Button
-                key={tf.value}
-                variant={timeframe === tf.value ? "default" : "outline"}
-                size="sm"
-                onClick={() => setTimeframe(tf.value)}
-                data-testid={`timeframe-${tf.value}`}
-              >
-                {tf.label}
-              </Button>
-            ))}
+      <CardHeader className="pb-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-3 flex-wrap">
+            <CardTitle className="text-lg font-bold" data-testid="chart-title">{symbol}</CardTitle>
+            {stats && (
+              <>
+                <span className="text-xl font-bold tabular-nums">
+                  {stats.close.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                </span>
+                <Badge className={up ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "bg-red-500 hover:bg-red-600 text-white"}>
+                  {up ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                  {up ? "+" : ""}{stats.changePct.toFixed(2)}%
+                </Badge>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex border rounded-md overflow-hidden text-xs">
+              {(["candlestick", "line", "area"] as ChartType[]).map((t) => (
+                <button key={t} onClick={() => setChartType(t)}
+                  className={`px-2 py-1 font-medium transition-colors ${chartType === t ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}>
+                  {t === "candlestick" ? "OHLC" : t === "line" ? "Line" : "Area"}
+                </button>
+              ))}
+            </div>
+            <div className="flex border rounded-md overflow-hidden text-xs">
+              {(["1W", "1M", "3M", "1Y"] as Timeframe[]).map((tf) => (
+                <button key={tf} onClick={() => setTimeframe(tf)}
+                  className={`px-2 py-1 font-medium transition-colors ${timeframe === tf ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
+                  data-testid={`timeframe-${tf}`}>
+                  {tf}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </CardHeader>
       <CardContent>
-        {/* Chart Container - Using placeholder for now */}
-        <div className="h-80 bg-muted rounded-lg flex items-center justify-center mb-6" data-testid="chart-container">
-          {chartData ? (
-            <div className="text-center">
-              <p className="text-muted-foreground mb-2">Market Chart</p>
-              <p className="text-2xl font-bold text-finance-blue">
-                {symbol} - {(chartData[chartData.length - 1]?.close ?? 0).toFixed(2)}
-              </p>
-              <p className={`text-sm ${(stats?.change ?? 0) >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
-                {(stats?.change ?? 0) >= 0 ? '+' : ''}{(stats?.change ?? 0).toFixed(2)} ({(stats?.changePercent ?? 0).toFixed(2)}%)
-              </p>
-            </div>
-          ) : (
-            <p className="text-muted-foreground">No chart data available</p>
-          )}
-        </div>
-
-        {/* Market Stats */}
+        <div ref={containerRef} className="w-full rounded-lg overflow-hidden mb-4" style={{ minHeight: 300 }} data-testid="chart-container" />
         {stats && (
-          <div className="grid grid-cols-4 gap-4" data-testid="market-stats">
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground">Open</p>
-              <p className="font-bold text-foreground" data-testid="stat-open">
-                {stats.open?.toFixed(2)}
-              </p>
-            </div>
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground">High</p>
-              <p className="font-bold text-finance-green" data-testid="stat-high">
-                {stats.high?.toFixed(2)}
-              </p>
-            </div>
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground">Low</p>
-              <p className="font-bold text-finance-red" data-testid="stat-low">
-                {stats.low?.toFixed(2)}
-              </p>
-            </div>
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground">Volume</p>
-              <p className="font-bold text-foreground" data-testid="stat-volume">
-                {stats.volume ? (stats.volume / 1000000).toFixed(2) + 'M' : 'N/A'}
-              </p>
-            </div>
+          <div className="grid grid-cols-4 gap-3 pt-3 border-t" data-testid="market-stats">
+            {[
+              { label: "Open", value: stats.open, color: "" },
+              { label: "High", value: stats.high, color: "text-emerald-600" },
+              { label: "Low", value: stats.low, color: "text-red-600" },
+              { label: "Change", value: stats.change, color: up ? "text-emerald-600" : "text-red-600", prefix: up ? "+" : "" },
+            ].map(({ label, value, color, prefix }) => (
+              <div key={label} className="text-center">
+                <p className="text-xs text-muted-foreground mb-1">{label}</p>
+                <p className={`font-semibold tabular-nums text-sm ${color}`} data-testid={`stat-${label.toLowerCase()}`}>
+                  {prefix}{value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                </p>
+              </div>
+            ))}
           </div>
         )}
       </CardContent>

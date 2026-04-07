@@ -115,6 +115,98 @@ interface Client {
   name: string;
 }
 
+interface StoredReport {
+  key: string;
+  label: string;
+  generatedAt: string | null;
+  sizeKb: number | null;
+}
+
+function StoredResearchReports() {
+  const { toast } = useToast();
+  const { data: reports, isLoading, refetch } = useQuery<StoredReport[]>({
+    queryKey: ["/api/research-note/stored"],
+  });
+
+  const handleDownload = async (report: StoredReport) => {
+    try {
+      const url = `/api/research-note/stored/download?key=${encodeURIComponent(report.key)}`;
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = report.label.replace(/[^a-zA-Z0-9]/g, "_") + ".pdf";
+      a.click();
+    } catch {
+      toast({ title: "Download failed", variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <div>
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileDown className="h-5 w-5 text-emerald-500" />
+            Stored Research Reports
+          </CardTitle>
+          <CardDescription>PDFs saved to cloud storage from the Research Note Generator</CardDescription>
+        </div>
+        <Button variant="ghost" size="sm" onClick={() => refetch()}>
+          <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded bg-muted animate-pulse" />
+                <div className="flex-1 space-y-1">
+                  <div className="h-4 w-48 bg-muted rounded animate-pulse" />
+                  <div className="h-3 w-32 bg-muted rounded animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : !reports || reports.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">No stored reports yet</p>
+            <p className="text-sm mt-1">
+              Generate a PDF from the{" "}
+              <Link href="/agent/research/generate" className="text-emerald-500 hover:underline">
+                Research Note Generator
+              </Link>{" "}
+              — it will be saved here automatically.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {reports.map((r) => (
+              <div key={r.key} className="flex items-center justify-between py-3 gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-9 w-9 rounded bg-red-50 dark:bg-red-900/20 flex items-center justify-center flex-shrink-0">
+                    <FileText className="h-5 w-5 text-red-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{r.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {r.generatedAt ? new Date(r.generatedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Unknown date"}
+                      {r.sizeKb ? ` · ${r.sizeKb} KB` : ""}
+                    </p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => handleDownload(r)} className="flex-shrink-0">
+                  <Download className="h-4 w-4 mr-1" /> Download
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AgentReportsHub() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("templates");
@@ -302,6 +394,7 @@ export default function AgentReportsHub() {
           <TabsList className="bg-card border-border">
             <TabsTrigger value="templates" className="data-[state=active]:bg-emerald-600">Report Templates</TabsTrigger>
             <TabsTrigger value="generated" className="data-[state=active]:bg-emerald-600">Generated Reports</TabsTrigger>
+            <TabsTrigger value="stored" className="data-[state=active]:bg-emerald-600">Research PDFs</TabsTrigger>
           </TabsList>
 
           {/* Templates Tab */}
@@ -455,6 +548,11 @@ export default function AgentReportsHub() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Stored Research PDFs Tab */}
+          <TabsContent value="stored" className="space-y-4">
+            <StoredResearchReports />
           </TabsContent>
         </Tabs>
 
