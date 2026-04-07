@@ -146,14 +146,31 @@ class SandboxPANService {
 
       const rawData: any = response.data;
       const responseData: any = rawData?.data || rawData;
+      const resolvedData: any = responseData?.pan_number ? responseData : responseData?.data || responseData;
+
+      // Log raw response fields to detect name field name variations across environments
+      const nameFields = ['full_name','name','name_on_card','name_pan_card','first_name','last_name','holder_name'];
+      const presentNameFields = nameFields.filter(f => resolvedData?.[f] != null && resolvedData[f] !== '');
+      console.log(`[Sandbox PAN API] Response fields: ${Object.keys(resolvedData || {}).join(', ')} | Name fields present: ${presentNameFields.map(f => `${f}="${resolvedData[f]}"`).join(', ') || 'NONE'}`);
+
+      // Resolve name from whichever field the API populated
+      const resolvedName = resolvedData?.full_name || resolvedData?.name || resolvedData?.name_on_card
+        || resolvedData?.name_pan_card
+        || (resolvedData?.first_name && resolvedData?.last_name ? `${resolvedData.first_name} ${resolvedData.last_name}`.trim() : null)
+        || resolvedData?.first_name || resolvedData?.holder_name || null;
+
+      if (resolvedName && resolvedData) {
+        resolvedData.full_name = resolvedName;
+      }
+
       const normalizedResponse: SandboxPANResponse = {
         status: (rawData?.code === 200 || responseData?.status === 'VALID' || rawData?.status === 'success') ? 'success' : 'failure',
-        data: responseData?.pan_number ? responseData : responseData?.data || responseData,
+        data: resolvedData,
         message: rawData?.message,
       };
 
       if (normalizedResponse.status === 'success' && normalizedResponse.data) {
-        console.log(`✅ [Sandbox PAN API] PAN verified successfully: ${this.maskPAN(panNumber)} (${this.isTestEnvironment ? 'TEST' : 'LIVE'})`);
+        console.log(`✅ [Sandbox PAN API] PAN verified successfully: ${this.maskPAN(panNumber)} name="${resolvedName || 'NOT_RETURNED'}" (${this.isTestEnvironment ? 'TEST' : 'LIVE'})`);
         return normalizedResponse;
       } else {
         console.error('❌ [Sandbox PAN API] PAN verification failed:', normalizedResponse.message || JSON.stringify(response.data).substring(0, 200));

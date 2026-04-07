@@ -230,7 +230,12 @@ export default function AgentKycEmpanelment() {
       const res = await apiRequest("/api/kyc/verify-pan", { method: "POST", body: JSON.stringify({ panNumber: panNumber.toUpperCase() }) });
       if (res.verified) {
         setPanVerified(true); setPanName(res.name || "");
-        toast({ title: "PAN Verified ✓", description: `Registered name: ${res.name || "N/A"}` });
+        toast({
+          title: "PAN Verified ✓",
+          description: res.name
+            ? `Registered name: ${res.name}`
+            : "PAN is valid. Name not returned by the income tax authority."
+        });
       } else {
         toast({ title: "PAN not verified", description: res.message || "PAN could not be verified", variant: "destructive" });
       }

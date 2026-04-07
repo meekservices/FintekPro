@@ -131,13 +131,17 @@ app.post("/api/kyc/verify-pan", async (req, res) => {
           const { sandboxPANService } = await import('./sandbox-pan-api');
           const result = await sandboxPANService.verifyPAN(normalizedPan, safeName);
           if (result && result.status === 'success' && result.data) {
+            const d: any = result.data;
+            const resolvedName = d.full_name || d.name || d.name_on_card || d.name_pan_card
+              || (d.first_name && d.last_name ? `${d.first_name} ${d.last_name}`.trim() : null)
+              || d.first_name || d.holder_name || null;
             return res.json({
               success: true,
-              verified: result.data.status === 'VALID',
-              name: result.data.full_name || null,
-              panType: result.data.category || null,
-              panStatus: result.data.status || null,
-              aadhaarLinked: result.data.aadhaar_linked || false,
+              verified: d.status === 'VALID',
+              name: resolvedName,
+              panType: d.category || null,
+              panStatus: d.status || null,
+              aadhaarLinked: d.aadhaar_linked || false,
               provider: 'sandbox',
               message: result.message || 'PAN verified via Sandbox.co.in',
             });
