@@ -114,6 +114,24 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
       console.error("Error fetching agent proposals stats:", error);
       res.json({ pendingResponses: 0 });
     }
+  });
+
+  // GET agent notifications
+  app.get("/api/agent/notifications", requireAgent, async (req, res) => {
+    try {
+      const agentId = req.user?.id;
+      const rows = await db.execute(sql`
+        SELECT id, agent_id, type, title, message, read, created_at
+        FROM agent_notifications
+        WHERE agent_id = ${agentId}
+        ORDER BY created_at DESC
+        LIMIT 50
+      `);
+      res.json(rows.rows ?? []);
+    } catch {
+      res.json([]);
+    }
+  });
 
   // Push notification subscription storage (in-memory for demo)
   const pushSubscriptions = new Map<string, any>();
@@ -123,7 +141,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
     try {
       const userId = req.user?.id || 'anonymous';
       const { subscription } = req.body;
-      
+
       if (!subscription) {
         return res.status(400).json({ error: "Subscription data required" });
       }
@@ -163,7 +181,6 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
       console.error("Error marking all notifications as read:", error);
       res.status(500).json({ error: "Failed to mark notifications as read" });
     }
-  });
   });
 
   // Get agent profile information
