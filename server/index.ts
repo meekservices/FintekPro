@@ -1659,11 +1659,38 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
         ADD COLUMN IF NOT EXISTS can_sign_form_15cb BOOLEAN DEFAULT false,
         ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ,
         ADD COLUMN IF NOT EXISTS approved_by VARCHAR REFERENCES users(id),
-        ADD COLUMN IF NOT EXISTS rejection_reason TEXT
+        ADD COLUMN IF NOT EXISTS rejection_reason TEXT,
+        ADD COLUMN IF NOT EXISTS icai_scraped_name      VARCHAR,
+        ADD COLUMN IF NOT EXISTS icai_membership_status VARCHAR,
+        ADD COLUMN IF NOT EXISTS icai_membership_type   VARCHAR,
+        ADD COLUMN IF NOT EXISTS icai_cop_status        VARCHAR,
+        ADD COLUMN IF NOT EXISTS icai_confidence_score  NUMERIC(4,2),
+        ADD COLUMN IF NOT EXISTS icai_scraped_at        TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS icai_source            VARCHAR,
+        ADD COLUMN IF NOT EXISTS icai_raw_html          TEXT,
+        ADD COLUMN IF NOT EXISTS icai_error             TEXT
     `);
     console.log('✅ [Migration] ca_verification_status table verified/created');
   } catch (e: any) {
     console.warn('[Migration] ca_verification_status schema skipped:', e?.message);
+  }
+
+  // partners — ICAI scraper result columns
+  try {
+    const { db: icaiDb } = await import('./db');
+    const { sql: icaiSql } = await import('drizzle-orm');
+    await icaiDb.execute(icaiSql`
+      ALTER TABLE partners
+        ADD COLUMN IF NOT EXISTS icai_scraped_name       VARCHAR,
+        ADD COLUMN IF NOT EXISTS icai_scraper_status     VARCHAR DEFAULT 'pending',
+        ADD COLUMN IF NOT EXISTS icai_scraper_run_at     TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS icai_scraper_source     VARCHAR,
+        ADD COLUMN IF NOT EXISTS icai_confidence_score   NUMERIC(4,2),
+        ADD COLUMN IF NOT EXISTS icai_cop_status         VARCHAR
+    `);
+    console.log('✅ [Migration] partners ICAI scraper columns verified/added');
+  } catch (e: any) {
+    console.warn('[Migration] partners ICAI scraper columns skipped:', e?.message);
   }
 
   // FintekPro Subscription / Monetization columns on users table
