@@ -148,34 +148,57 @@ export class CashfreePANService {
       };
       
     } catch (error: any) {
-      console.error('Cashfree PAN verification error:', error.response?.data || error.message);
-      
+      const apiError = error.response?.data;
+      const apiMessage: string = apiError?.message || '';
+      const statusCode: number = error.response?.status || 0;
+
+      // Credential / environment mismatch — sandbox key sent to production URL or vice-versa.
+      // Cashfree returns 401 with "Client secret belongs to prod environment" or similar.
+      // This is a server configuration issue, NOT a user error — never surface it raw.
+      const isCredentialMismatch =
+        statusCode === 401 ||
+        /prod environment|sandbox environment|invalid client|client secret/i.test(apiMessage);
+
+      if (isCredentialMismatch) {
+        console.error(
+          '[CashfreePAN] ❌ Credential/environment mismatch — Cashfree rejected the request.',
+          `URL: ${this.getBaseUrl()}/pan-lite`,
+          `API message: "${apiMessage}"`,
+          'Fix: ensure CASHFREE_SECUREID_ENVIRONMENT matches the credentials (SANDBOX or PRODUCTION) in Railway/env.'
+        );
+        return {
+          success: false,
+          message: 'PAN verification is temporarily unavailable. Please try again later.',
+          verified: false
+        };
+      }
+
+      console.error('Cashfree PAN verification error:', apiError || error.message);
+
       // Handle specific Cashfree error responses
-      if (error.response?.data) {
-        const errorData = error.response.data;
-        
-        // Handle validation errors
-        if (errorData.message) {
+      if (apiError) {
+        // Handle validation errors (e.g. "PAN not found", "Invalid PAN" from Cashfree)
+        if (apiMessage && !isCredentialMismatch) {
           return {
             success: false,
-            message: errorData.message,
+            message: apiMessage,
             verified: false
           };
         }
-        
+
         // Handle invalid PAN
-        if (errorData.valid === false) {
+        if (apiError.valid === false) {
           return {
             success: false,
-            message: "PAN is invalid or does not exist in government records",
+            message: 'PAN is invalid or does not exist in government records',
             verified: false
           };
         }
       }
-      
+
       return {
         success: false,
-        message: "Failed to verify PAN. Please try again.",
+        message: 'Failed to verify PAN. Please try again.',
         verified: false
       };
     }
