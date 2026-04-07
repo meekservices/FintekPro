@@ -198,7 +198,7 @@ export default function AgentKycEmpanelment() {
     setNismCertType(emp.nism_certificate_type || ""); setNismExpiry(emp.nism_expiry_date || "");
     setRiaNumber(emp.ria_number || ""); setPospNumber(emp.posp_number || "");
     setPospInsurer(emp.posp_insurer || ""); setDsaCode(emp.dsa_code || "");
-    setBankAccountNumber(emp.bank_account_number || ""); setBankIfsc(emp.bank_ifsc || "");
+    setBankAccountNumber((emp.bank_account_number || "").replace(/\D/g, "")); setBankIfsc(emp.bank_ifsc || "");
     setBankHolderName(emp.bank_account_holder_name || ""); setBankName(emp.bank_name || "");
     setBankBranch(emp.bank_branch || ""); setBankVerified(emp.bank_verified || false);
     if (emp.bank_verified && emp.bank_name) setBankMsg(`Verified ✓ (${emp.bank_name}${emp.bank_branch ? " – " + emp.bank_branch : ""})`);
@@ -314,8 +314,9 @@ export default function AgentKycEmpanelment() {
         toast({ title: "Verification failed", description: res.message, variant: "destructive" });
       }
     } catch (err: any) {
-      setBankMsg("Verification failed. Try again.");
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      const errMsg = err.message || "Verification failed. Try again.";
+      setBankMsg(errMsg);
+      toast({ title: "Verification Error", description: errMsg, variant: "destructive" });
     }
     setBankVerifying(false);
   }
