@@ -150,6 +150,13 @@ const agentNavCategories: NavCategory[] = [
     ]
   },
   {
+    title: "KFintech / IRIS",
+    icon: Landmark,
+    items: [
+      { title: "IRIS Hub", href: "/agent/iris", icon: Landmark, description: "MF, AIF, PMS, FD, NPS & SIF via IRIS", badge: "NEW" },
+    ]
+  },
+  {
     title: "Operations",
     icon: Wallet,
     items: [
