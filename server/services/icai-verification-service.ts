@@ -115,16 +115,38 @@ function nameMatchScore(expected: string, actual: string): number {
 }
 
 function resolveChromiumPath(): string | undefined {
-  const knownPaths = [
-    '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+  if (process.env.CHROMIUM_PATH) return process.env.CHROMIUM_PATH;
+
+  // 1. Puppeteer bundled Chromium (preferred — no Nix chromium package needed)
+  try {
+    const puppeteerPkg = require('puppeteer');
+    const ep = puppeteerPkg.executablePath?.();
+    if (ep && fs.existsSync(ep)) return ep;
+  } catch {}
+
+  // 2. Common puppeteer cache paths across environments
+  const home = process.env.HOME || '/root';
+  const puppeteerCachePaths = [
+    `${home}/.cache/puppeteer/chrome/linux-146.0.7680.76/chrome-linux64/chrome`,
+    `${home}/.cache/puppeteer/chrome/linux-stable/chrome-linux64/chrome`,
+    `/root/.cache/puppeteer/chrome/linux-146.0.7680.76/chrome-linux64/chrome`,
+  ];
+  for (const p of puppeteerCachePaths) {
+    if (fs.existsSync(p)) return p;
+  }
+
+  // 3. System Chromium (Nix or package-manager installed)
+  const systemPaths = [
     '/usr/bin/chromium-browser',
     '/usr/bin/chromium',
     '/usr/bin/google-chrome',
     '/snap/bin/chromium',
   ];
-  for (const p of knownPaths) {
+  for (const p of systemPaths) {
     if (fs.existsSync(p)) return p;
   }
+
+  // 4. Dynamic PATH lookup
   try {
     const found = execSync('which chromium 2>/dev/null || which chromium-browser 2>/dev/null || which google-chrome 2>/dev/null', { timeout: 3000 }).toString().trim();
     if (found) return found;

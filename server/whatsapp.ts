@@ -9,21 +9,38 @@ import { storage } from './storage';
 import { randomUUID } from 'crypto';
 
 function resolveChromiumPath(): string | undefined {
-  // 1. Explicit env override — set CHROMIUM_PATH on Railway if auto-detect fails
+  // 1. Explicit env override
   if (process.env.CHROMIUM_PATH) return process.env.CHROMIUM_PATH;
 
-  // 2. Dynamic PATH lookup — works when Nixpacks installs chromium in PATH
+  // 2. Puppeteer bundled Chromium (preferred — no Nix chromium package needed)
+  try {
+    const puppeteerPkg = require('puppeteer');
+    const ep = puppeteerPkg.executablePath?.();
+    if (ep) { try { accessSync(ep, constants.X_OK); return ep; } catch {} }
+  } catch {}
+
+  // 3. Common puppeteer cache paths across environments
+  const home = process.env.HOME || '/root';
+  const puppeteerCachePaths = [
+    `${home}/.cache/puppeteer/chrome/linux-146.0.7680.76/chrome-linux64/chrome`,
+    `${home}/.cache/puppeteer/chrome/linux-stable/chrome-linux64/chrome`,
+    `/root/.cache/puppeteer/chrome/linux-146.0.7680.76/chrome-linux64/chrome`,
+  ];
+  for (const p of puppeteerCachePaths) {
+    try { accessSync(p, constants.X_OK); return p; } catch {}
+  }
+
+  // 4. Dynamic PATH lookup
   const whichCandidates = ['chromium', 'google-chrome-stable', 'google-chrome', 'chromium-browser'];
   for (const bin of whichCandidates) {
     try {
       const found = execSync(`which ${bin} 2>/dev/null`, { timeout: 2000 }).toString().trim();
-      if (found) { return found; }
-    } catch { /* not in PATH */ }
+      if (found) return found;
+    } catch {}
   }
 
-  // 3. Known static paths — Replit Nix path and common Linux locations
+  // 5. System static paths
   const staticCandidates = [
-    '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
     '/usr/bin/google-chrome-stable',
     '/usr/bin/google-chrome',
     '/usr/bin/chromium-browser',
@@ -31,10 +48,9 @@ function resolveChromiumPath(): string | undefined {
     '/snap/bin/chromium',
   ];
   for (const p of staticCandidates) {
-    try { accessSync(p, constants.X_OK); return p; } catch { /* not found */ }
+    try { accessSync(p, constants.X_OK); return p; } catch {}
   }
 
-  // 4. Let Puppeteer use its bundled Chromium (fallback, may not be present)
   return undefined;
 }
 
