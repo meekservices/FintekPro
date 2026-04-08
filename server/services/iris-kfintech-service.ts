@@ -275,6 +275,162 @@ class IrisKfintechService {
     return this.call(`/reports/bulk/portfolio${qs}`);
   }
 
+  // ─── Phase 1: Switch ─────────────────────────────────────────────────────────
+  async placeSwitch(body: any) { return this.call('/sif/transactions/switch', 'POST', body); }
+  async cancelSwitch(body: any) { return this.call('/sif/transactions/switch/cancel', 'POST', body); }
+  async reinitiateSwitch(orderId: string) { return this.call(`/sif/transactions/switch/${orderId}/reinitiate`, 'POST'); }
+
+  // ─── Phase 1: eNACH ──────────────────────────────────────────────────────────
+  async createEnach(body: any) { return this.call('/sif/enach/create', 'POST', body); }
+  async getEnachStatus(mandateId: string) { return this.call(`/sif/enach/${mandateId}/status`); }
+  async cancelEnach(mandateId: string) { return this.call(`/sif/enach/${mandateId}/cancel`, 'POST'); }
+  async listEnach(pan: string) { return this.call(`/sif/enach?pan=${encodeURIComponent(pan)}`); }
+  async regenerateEnachLink(mandateId: string) { return this.call(`/sif/enach/${mandateId}/regenerate-link`, 'POST'); }
+
+  // ─── Phase 1: UPI Autopay Mandate ────────────────────────────────────────────
+  async createUpiMandate(body: any) { return this.call('/sif/mandates/upi', 'POST', body); }
+  async getUpiMandateStatus(umrn: string) { return this.call(`/sif/mandates/upi/${umrn}`); }
+  async cancelUpiMandate(umrn: string) { return this.call(`/sif/mandates/upi/${umrn}/cancel`, 'POST'); }
+  async listUpiMandates(pan: string) { return this.call(`/sif/mandates/upi?pan=${encodeURIComponent(pan)}`); }
+
+  // ─── Phase 1: Folio Management ───────────────────────────────────────────────
+  async listFolios(pan: string) { return this.call(`/user/investors/${pan}/folios`); }
+  async getFolioDetails(pan: string, folioNo: string) { return this.call(`/user/investors/${pan}/folios/${folioNo}`); }
+  async getFolioTransactions(pan: string, folioNo: string, params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/user/investors/${pan}/folios/${folioNo}/transactions${qs}`);
+  }
+
+  // ─── Phase 1: Investor Portal Link ───────────────────────────────────────────
+  async getInvestorPortalLink(pan: string) { return this.call(`/user/investors/${pan}/portal-link`); }
+  async sendPortalLinkToInvestor(pan: string, body?: any) { return this.call(`/user/investors/${pan}/portal-link/send`, 'POST', body); }
+
+  // ─── Phase 2: Commission Statements ──────────────────────────────────────────
+  async getCommissionStatement(params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/reports/commission${qs}`);
+  }
+  async getTrailCommission(params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/reports/trail-commission${qs}`);
+  }
+  async getCommissionSummary(params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/reports/commission/summary${qs}`);
+  }
+  async getAmcWiseCommission(params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/reports/commission/amc-wise${qs}`);
+  }
+
+  // ─── Phase 2: Digital Investor Onboarding ────────────────────────────────────
+  async initiateInvestorOnboarding(body: any) { return this.call('/user/onboarding/initiate', 'POST', body); }
+  async getOnboardingStatus(applicationId: string) { return this.call(`/user/onboarding/${applicationId}/status`); }
+  async verifyOnboardingKyc(applicationId: string, body: any) { return this.call(`/user/onboarding/${applicationId}/kyc-verify`, 'POST', body); }
+  async listOnboardingApplications(params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/user/onboarding/applications${qs}`);
+  }
+  async resendOnboardingLink(applicationId: string) { return this.call(`/user/onboarding/${applicationId}/resend-link`, 'POST'); }
+
+  // ─── Phase 2: CAS Statement ──────────────────────────────────────────────────
+  async getCasStatement(pan: string, params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/reports/cas/${pan}${qs}`);
+  }
+  async generateCasStatement(body: any) { return this.call('/reports/cas/generate', 'POST', body); }
+
+  // ─── Phase 2: XIRR & Returns Analytics ──────────────────────────────────────
+  async getInvestorXirr(pan: string, params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/analytics/xirr/${pan}${qs}`);
+  }
+  async getInvestorReturns(pan: string, params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/analytics/returns/${pan}${qs}`);
+  }
+  async getSchemeReturns(schemeCode: string) { return this.call(`/sif/schemes/${schemeCode}/returns`); }
+  async getPortfolioXirr(pan: string) { return this.call(`/analytics/portfolio-xirr/${pan}`); }
+
+  // ─── Phase 3: Scheme NAV History ─────────────────────────────────────────────
+  async getSchemeNavHistory(schemeCode: string, params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/sif/schemes/${schemeCode}/nav-history${qs}`);
+  }
+  async getSchemeLatestNav(schemeCode: string) { return this.call(`/sif/schemes/${schemeCode}/nav`); }
+
+  // ─── Phase 3: Scheme Performance ─────────────────────────────────────────────
+  async getSchemePerformance(schemeCode: string) { return this.call(`/sif/schemes/${schemeCode}/performance`); }
+  async getTopPerformingSchemes(params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/sif/schemes/top-performers${qs}`);
+  }
+
+  // ─── Phase 3: Scheme Holdings ─────────────────────────────────────────────────
+  async getSchemeHoldings(schemeCode: string) { return this.call(`/sif/schemes/${schemeCode}/portfolio-holdings`); }
+  async getSchemeFactSheet(schemeCode: string) { return this.call(`/sif/schemes/${schemeCode}/factsheet`); }
+
+  // ─── Phase 3: Scheme Comparison ──────────────────────────────────────────────
+  async compareSchemes(body: { schemeCodes: string[] }) { return this.call('/sif/schemes/compare', 'POST', body); }
+
+  // ─── Phase 3: Scheme Categories ──────────────────────────────────────────────
+  async getSchemeCategories() { return this.call('/sif/categories'); }
+  async getSchemeSubcategories(category?: string) {
+    return this.call(`/sif/subcategories${category ? '?category=' + encodeURIComponent(category) : ''}`);
+  }
+  async getSchemesByCategory(category: string, params?: any) {
+    const qs = params ? '&' + new URLSearchParams(params).toString() : '';
+    return this.call(`/sif/schemes?category=${encodeURIComponent(category)}${qs}`);
+  }
+
+  // ─── Phase 3: Investor Risk Profiling ────────────────────────────────────────
+  async getRiskQuestionnaire() { return this.call('/user/risk-profile/questionnaire'); }
+  async submitRiskProfile(pan: string, body: any) { return this.call(`/user/investors/${pan}/risk-profile`, 'POST', body); }
+  async getInvestorRiskProfile(pan: string) { return this.call(`/user/investors/${pan}/risk-profile`); }
+  async getSchemesForRiskProfile(riskProfile: string) {
+    return this.call(`/sif/schemes/recommended?riskProfile=${encodeURIComponent(riskProfile)}`);
+  }
+
+  // ─── Phase 3: Application / Order Tracking ───────────────────────────────────
+  async listApplications(params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/user/applications${qs}`);
+  }
+  async getApplicationStatus(applicationId: string) { return this.call(`/user/applications/${applicationId}/status`); }
+  async getOrderTracking(orderId: string) { return this.call(`/sif/transactions/${orderId}/tracking`); }
+
+  // ─── Phase 3: Alert Management ───────────────────────────────────────────────
+  async createAlert(body: any) { return this.call('/user/alerts', 'POST', body); }
+  async listAlerts(pan: string) { return this.call(`/user/alerts?pan=${encodeURIComponent(pan)}`); }
+  async deleteAlert(alertId: string) { return this.call(`/user/alerts/${alertId}`, 'DELETE'); }
+  async updateAlert(alertId: string, body: any) { return this.call(`/user/alerts/${alertId}`, 'PUT', body); }
+
+  // ─── Phase 3: Compliance / AML Reports ───────────────────────────────────────
+  async getComplianceReport(params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/reports/compliance${qs}`);
+  }
+  async getPmlaReport(params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/reports/pmla${qs}`);
+  }
+  async getAmlReport(params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/reports/aml${qs}`);
+  }
+
+  // ─── Phase 3: WhatsApp Notifications ─────────────────────────────────────────
+  async sendWhatsappNotification(body: any) { return this.call('/notifications/whatsapp/send', 'POST', body); }
+  async getNotificationTemplates() { return this.call('/notifications/templates'); }
+  async getNotificationHistory(pan: string) { return this.call(`/notifications/history?pan=${encodeURIComponent(pan)}`); }
+
+  // ─── Phase 3: NFO ─────────────────────────────────────────────────────────────
+  async getNfoSchemes() { return this.call('/sif/nfo/active'); }
+  async getNfoSchemeDetails(schemeCode: string) { return this.call(`/sif/nfo/${schemeCode}`); }
+  async applyNfo(body: any) { return this.call('/sif/nfo/apply', 'POST', body); }
+  async getNfoApplications(pan: string) { return this.call(`/sif/nfo/applications?pan=${encodeURIComponent(pan)}`); }
+  async cancelNfoApplication(applicationId: string) { return this.call(`/sif/nfo/applications/${applicationId}/cancel`, 'POST'); }
+
 }
 
 export const irisKfintechService = new IrisKfintechService();

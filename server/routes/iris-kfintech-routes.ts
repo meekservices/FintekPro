@@ -381,6 +381,235 @@ export function registerIrisKfintechRoutes(app: Express): void {
     await wrap(res, () => irisKfintechService.getBulkPortfolioReport(req.query as Record<string, string>));
   });
 
+  // ─── Phase 1: Switch (IRIS namespace) ────────────────────────────────────────
+  app.post('/api/iris/transactions/switch', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.placeSwitch(req.body));
+  });
+  app.post('/api/iris/transactions/switch/cancel', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.cancelSwitch(req.body));
+  });
+  app.post('/api/iris/transactions/switch/:orderId/reinitiate', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.reinitiateSwitch(req.params.orderId));
+  });
+
+  // ─── Phase 1: eNACH ──────────────────────────────────────────────────────────
+  app.post('/api/iris/enach/create', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.createEnach(req.body));
+  });
+  app.get('/api/iris/enach/:mandateId/status', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getEnachStatus(req.params.mandateId));
+  });
+  app.post('/api/iris/enach/:mandateId/cancel', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.cancelEnach(req.params.mandateId));
+  });
+  app.get('/api/iris/enach', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.listEnach(req.query.pan as string));
+  });
+  app.post('/api/iris/enach/:mandateId/regenerate-link', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.regenerateEnachLink(req.params.mandateId));
+  });
+
+  // ─── Phase 1: UPI Autopay Mandate ────────────────────────────────────────────
+  app.post('/api/iris/mandates/upi', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.createUpiMandate(req.body));
+  });
+  app.get('/api/iris/mandates/upi/:umrn', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getUpiMandateStatus(req.params.umrn));
+  });
+  app.post('/api/iris/mandates/upi/:umrn/cancel', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.cancelUpiMandate(req.params.umrn));
+  });
+  app.get('/api/iris/mandates/upi', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.listUpiMandates(req.query.pan as string));
+  });
+
+  // ─── Phase 1: Folio Management ───────────────────────────────────────────────
+  app.get('/api/iris/investors/:pan/folios', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.listFolios(req.params.pan));
+  });
+  app.get('/api/iris/investors/:pan/folios/:folioNo', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getFolioDetails(req.params.pan, req.params.folioNo));
+  });
+  app.get('/api/iris/investors/:pan/folios/:folioNo/transactions', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getFolioTransactions(req.params.pan, req.params.folioNo, req.query));
+  });
+
+  // ─── Phase 1: Investor Portal Link ───────────────────────────────────────────
+  app.get('/api/iris/investors/:pan/portal-link', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getInvestorPortalLink(req.params.pan));
+  });
+  app.post('/api/iris/investors/:pan/portal-link/send', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.sendPortalLinkToInvestor(req.params.pan, req.body));
+  });
+
+  // ─── Phase 2: Commission Statements ──────────────────────────────────────────
+  app.get('/api/iris/reports/commission', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getCommissionStatement(req.query as Record<string, string>));
+  });
+  app.get('/api/iris/reports/trail-commission', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getTrailCommission(req.query as Record<string, string>));
+  });
+  app.get('/api/iris/reports/commission/summary', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getCommissionSummary(req.query as Record<string, string>));
+  });
+  app.get('/api/iris/reports/commission/amc-wise', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getAmcWiseCommission(req.query as Record<string, string>));
+  });
+
+  // ─── Phase 2: Digital Investor Onboarding ────────────────────────────────────
+  app.post('/api/iris/onboarding/initiate', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.initiateInvestorOnboarding(req.body));
+  });
+  app.get('/api/iris/onboarding/:applicationId/status', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getOnboardingStatus(req.params.applicationId));
+  });
+  app.post('/api/iris/onboarding/:applicationId/kyc-verify', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.verifyOnboardingKyc(req.params.applicationId, req.body));
+  });
+  app.get('/api/iris/onboarding/applications', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.listOnboardingApplications(req.query as Record<string, string>));
+  });
+  app.post('/api/iris/onboarding/:applicationId/resend-link', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.resendOnboardingLink(req.params.applicationId));
+  });
+
+  // ─── Phase 2: CAS Statement ──────────────────────────────────────────────────
+  app.get('/api/iris/reports/cas/:pan', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getCasStatement(req.params.pan, req.query as Record<string, string>));
+  });
+  app.post('/api/iris/reports/cas/generate', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.generateCasStatement(req.body));
+  });
+
+  // ─── Phase 2: XIRR & Returns ─────────────────────────────────────────────────
+  app.get('/api/iris/analytics/xirr/:pan', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getInvestorXirr(req.params.pan, req.query as Record<string, string>));
+  });
+  app.get('/api/iris/analytics/returns/:pan', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getInvestorReturns(req.params.pan, req.query as Record<string, string>));
+  });
+  app.get('/api/iris/analytics/portfolio-xirr/:pan', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getPortfolioXirr(req.params.pan));
+  });
+  app.get('/api/iris/schemes/:schemeCode/returns', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSchemeReturns(req.params.schemeCode));
+  });
+
+  // ─── Phase 3: Scheme NAV History ─────────────────────────────────────────────
+  app.get('/api/iris/schemes/:schemeCode/nav-history', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSchemeNavHistory(req.params.schemeCode, req.query as Record<string, string>));
+  });
+  app.get('/api/iris/schemes/:schemeCode/nav', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSchemeLatestNav(req.params.schemeCode));
+  });
+
+  // ─── Phase 3: Scheme Performance & Holdings ──────────────────────────────────
+  app.get('/api/iris/schemes/:schemeCode/performance', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSchemePerformance(req.params.schemeCode));
+  });
+  app.get('/api/iris/schemes/top-performers', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getTopPerformingSchemes(req.query as Record<string, string>));
+  });
+  app.get('/api/iris/schemes/:schemeCode/holdings', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSchemeHoldings(req.params.schemeCode));
+  });
+  app.get('/api/iris/schemes/:schemeCode/factsheet', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSchemeFactSheet(req.params.schemeCode));
+  });
+
+  // ─── Phase 3: Scheme Comparison ──────────────────────────────────────────────
+  app.post('/api/iris/schemes/compare', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.compareSchemes(req.body));
+  });
+
+  // ─── Phase 3: Scheme Categories ──────────────────────────────────────────────
+  app.get('/api/iris/categories', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSchemeCategories());
+  });
+  app.get('/api/iris/subcategories', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSchemeSubcategories(req.query.category as string));
+  });
+  app.get('/api/iris/schemes/by-category', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSchemesByCategory(req.query.category as string, req.query as Record<string, string>));
+  });
+
+  // ─── Phase 3: Risk Profiling ──────────────────────────────────────────────────
+  app.get('/api/iris/risk-profile/questionnaire', requireAuth, async (_req, res) => {
+    await wrap(res, () => irisKfintechService.getRiskQuestionnaire());
+  });
+  app.post('/api/iris/investors/:pan/risk-profile', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.submitRiskProfile(req.params.pan, req.body));
+  });
+  app.get('/api/iris/investors/:pan/risk-profile', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getInvestorRiskProfile(req.params.pan));
+  });
+  app.get('/api/iris/schemes/recommended', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSchemesForRiskProfile(req.query.riskProfile as string));
+  });
+
+  // ─── Phase 3: Application / Order Tracking ───────────────────────────────────
+  app.get('/api/iris/applications', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.listApplications(req.query as Record<string, string>));
+  });
+  app.get('/api/iris/applications/:applicationId/status', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getApplicationStatus(req.params.applicationId));
+  });
+  app.get('/api/iris/transactions/:orderId/tracking', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getOrderTracking(req.params.orderId));
+  });
+
+  // ─── Phase 3: Alert Management ───────────────────────────────────────────────
+  app.post('/api/iris/alerts', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.createAlert(req.body));
+  });
+  app.get('/api/iris/alerts', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.listAlerts(req.query.pan as string));
+  });
+  app.delete('/api/iris/alerts/:alertId', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.deleteAlert(req.params.alertId));
+  });
+  app.put('/api/iris/alerts/:alertId', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.updateAlert(req.params.alertId, req.body));
+  });
+
+  // ─── Phase 3: Compliance / AML ───────────────────────────────────────────────
+  app.get('/api/iris/reports/compliance', requireAuth, requireAdmin, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getComplianceReport(req.query as Record<string, string>));
+  });
+  app.get('/api/iris/reports/pmla', requireAuth, requireAdmin, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getPmlaReport(req.query as Record<string, string>));
+  });
+  app.get('/api/iris/reports/aml', requireAuth, requireAdmin, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getAmlReport(req.query as Record<string, string>));
+  });
+
+  // ─── Phase 3: WhatsApp Notifications ─────────────────────────────────────────
+  app.post('/api/iris/notifications/whatsapp', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.sendWhatsappNotification(req.body));
+  });
+  app.get('/api/iris/notifications/templates', requireAuth, requireAgent, async (_req, res) => {
+    await wrap(res, () => irisKfintechService.getNotificationTemplates());
+  });
+  app.get('/api/iris/notifications/history', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getNotificationHistory(req.query.pan as string));
+  });
+
+  // ─── Phase 3: NFO ─────────────────────────────────────────────────────────────
+  app.get('/api/iris/nfo/active', requireAuth, async (_req, res) => {
+    await wrap(res, () => irisKfintechService.getNfoSchemes());
+  });
+  app.get('/api/iris/nfo/:schemeCode', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getNfoSchemeDetails(req.params.schemeCode));
+  });
+  app.post('/api/iris/nfo/apply', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.applyNfo(req.body));
+  });
+  app.get('/api/iris/nfo/applications', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getNfoApplications(req.query.pan as string));
+  });
+  app.post('/api/iris/nfo/applications/:applicationId/cancel', requireAuth, async (req, res) => {
+    await wrap(res, () => irisKfintechService.cancelNfoApplication(req.params.applicationId));
+  });
 
   console.log('✅ IRIS KFintech routes registered');
 }

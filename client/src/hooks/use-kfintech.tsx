@@ -469,3 +469,461 @@ export function useIrisDividendTracker(params?: Record<string, string>) {
     staleTime: 30 * 60 * 1000,
   });
 }
+
+// ─── Phase 1: Switch (IRIS namespace) ────────────────────────────────────────
+export function useIrisSwitch() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => irisRequest('/api/iris/transactions/switch', data),
+    onSuccess: (_d, v) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/iris/investors', v.pan] });
+    },
+  });
+}
+export function useIrisCancelSwitch() {
+  return useMutation({ mutationFn: (data: any) => irisRequest('/api/iris/transactions/switch/cancel', data) });
+}
+
+// ─── Phase 1: eNACH ──────────────────────────────────────────────────────────
+export function useIrisListEnach(pan: string) {
+  return useQuery({
+    queryKey: ['/api/iris/enach', pan],
+    queryFn: () => irisRequest(`/api/iris/enach?pan=${encodeURIComponent(pan)}`),
+    enabled: !!pan,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+export function useIrisCreateEnach() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => irisRequest('/api/iris/enach/create', data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/iris/enach'] }),
+  });
+}
+export function useIrisCancelEnach() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (mandateId: string) => irisRequest(`/api/iris/enach/${mandateId}/cancel`, {}),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/iris/enach'] }),
+  });
+}
+export function useIrisRegenerateEnachLink() {
+  return useMutation({ mutationFn: (mandateId: string) => irisRequest(`/api/iris/enach/${mandateId}/regenerate-link`, {}) });
+}
+
+// ─── Phase 1: UPI Autopay Mandate ────────────────────────────────────────────
+export function useIrisListUpiMandates(pan: string) {
+  return useQuery({
+    queryKey: ['/api/iris/mandates/upi', pan],
+    queryFn: () => irisRequest(`/api/iris/mandates/upi?pan=${encodeURIComponent(pan)}`),
+    enabled: !!pan,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+export function useIrisCreateUpiMandate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => irisRequest('/api/iris/mandates/upi', data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/iris/mandates/upi'] }),
+  });
+}
+export function useIrisCancelUpiMandate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (umrn: string) => irisRequest(`/api/iris/mandates/upi/${umrn}/cancel`, {}),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/iris/mandates/upi'] }),
+  });
+}
+
+// ─── Phase 1: Folio Management ───────────────────────────────────────────────
+export function useIrisFolios(pan: string) {
+  return useQuery({
+    queryKey: ['/api/iris/investors', pan, 'folios'],
+    queryFn: () => irisRequest(`/api/iris/investors/${pan}/folios`),
+    enabled: !!pan,
+    staleTime: 10 * 60 * 1000,
+  });
+}
+export function useIrisFolioDetails(pan: string, folioNo: string) {
+  return useQuery({
+    queryKey: ['/api/iris/investors', pan, 'folios', folioNo],
+    queryFn: () => irisRequest(`/api/iris/investors/${pan}/folios/${folioNo}`),
+    enabled: !!pan && !!folioNo,
+  });
+}
+export function useIrisFolioTransactions(pan: string, folioNo: string) {
+  return useQuery({
+    queryKey: ['/api/iris/investors', pan, 'folios', folioNo, 'transactions'],
+    queryFn: () => irisRequest(`/api/iris/investors/${pan}/folios/${folioNo}/transactions`),
+    enabled: !!pan && !!folioNo,
+  });
+}
+
+// ─── Phase 1: Investor Portal Link ───────────────────────────────────────────
+export function useIrisInvestorPortalLink(pan: string, enabled = false) {
+  return useQuery({
+    queryKey: ['/api/iris/investors', pan, 'portal-link'],
+    queryFn: () => irisRequest(`/api/iris/investors/${pan}/portal-link`),
+    enabled: !!pan && enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+export function useIrisSendPortalLink() {
+  return useMutation({ mutationFn: ({ pan, body }: { pan: string; body?: any }) => irisRequest(`/api/iris/investors/${pan}/portal-link/send`, body ?? {}) });
+}
+
+// ─── Phase 2: Commission Statements ──────────────────────────────────────────
+export function useIrisCommission(params?: Record<string, string>) {
+  return useQuery({
+    queryKey: ['/api/iris/reports/commission', params],
+    queryFn: () => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return irisRequest(`/api/iris/reports/commission${qs}`);
+    },
+    staleTime: 30 * 60 * 1000,
+  });
+}
+export function useIrisTrailCommission(params?: Record<string, string>) {
+  return useQuery({
+    queryKey: ['/api/iris/reports/trail-commission', params],
+    queryFn: () => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return irisRequest(`/api/iris/reports/trail-commission${qs}`);
+    },
+    staleTime: 30 * 60 * 1000,
+  });
+}
+export function useIrisCommissionSummary(params?: Record<string, string>) {
+  return useQuery({
+    queryKey: ['/api/iris/reports/commission/summary', params],
+    queryFn: () => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return irisRequest(`/api/iris/reports/commission/summary${qs}`);
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
+// ─── Phase 2: Digital Investor Onboarding ────────────────────────────────────
+export function useIrisOnboardingApplications(params?: Record<string, string>) {
+  return useQuery({
+    queryKey: ['/api/iris/onboarding/applications', params],
+    queryFn: () => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return irisRequest(`/api/iris/onboarding/applications${qs}`);
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+export function useIrisInitiateOnboarding() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => irisRequest('/api/iris/onboarding/initiate', data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/iris/onboarding/applications'] }),
+  });
+}
+export function useIrisResendOnboardingLink() {
+  return useMutation({ mutationFn: (applicationId: string) => irisRequest(`/api/iris/onboarding/${applicationId}/resend-link`, {}) });
+}
+export function useIrisOnboardingStatus(applicationId: string) {
+  return useQuery({
+    queryKey: ['/api/iris/onboarding', applicationId, 'status'],
+    queryFn: () => irisRequest(`/api/iris/onboarding/${applicationId}/status`),
+    enabled: !!applicationId,
+    refetchInterval: 30 * 1000,
+  });
+}
+
+// ─── Phase 2: CAS Statement ──────────────────────────────────────────────────
+export function useIrisCasStatement(pan: string, params?: Record<string, string>) {
+  return useQuery({
+    queryKey: ['/api/iris/reports/cas', pan, params],
+    queryFn: () => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return irisRequest(`/api/iris/reports/cas/${pan}${qs}`);
+    },
+    enabled: !!pan,
+    staleTime: 60 * 60 * 1000,
+  });
+}
+export function useIrisGenerateCas() {
+  return useMutation({ mutationFn: (data: any) => irisRequest('/api/iris/reports/cas/generate', data) });
+}
+
+// ─── Phase 2: XIRR & Returns ─────────────────────────────────────────────────
+export function useIrisInvestorXirr(pan: string, params?: Record<string, string>) {
+  return useQuery({
+    queryKey: ['/api/iris/analytics/xirr', pan, params],
+    queryFn: () => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return irisRequest(`/api/iris/analytics/xirr/${pan}${qs}`);
+    },
+    enabled: !!pan,
+    staleTime: 30 * 60 * 1000,
+  });
+}
+export function useIrisPortfolioXirr(pan: string) {
+  return useQuery({
+    queryKey: ['/api/iris/analytics/portfolio-xirr', pan],
+    queryFn: () => irisRequest(`/api/iris/analytics/portfolio-xirr/${pan}`),
+    enabled: !!pan,
+    staleTime: 30 * 60 * 1000,
+  });
+}
+export function useIrisSchemeReturns(schemeCode: string) {
+  return useQuery({
+    queryKey: ['/api/iris/schemes', schemeCode, 'returns'],
+    queryFn: () => irisRequest(`/api/iris/schemes/${schemeCode}/returns`),
+    enabled: !!schemeCode,
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
+// ─── Phase 3: Scheme NAV History ─────────────────────────────────────────────
+export function useIrisSchemeNavHistory(schemeCode: string, params?: Record<string, string>) {
+  return useQuery({
+    queryKey: ['/api/iris/schemes', schemeCode, 'nav-history', params],
+    queryFn: () => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return irisRequest(`/api/iris/schemes/${schemeCode}/nav-history${qs}`);
+    },
+    enabled: !!schemeCode,
+    staleTime: 60 * 60 * 1000,
+  });
+}
+export function useIrisSchemeLatestNav(schemeCode: string) {
+  return useQuery({
+    queryKey: ['/api/iris/schemes', schemeCode, 'nav'],
+    queryFn: () => irisRequest(`/api/iris/schemes/${schemeCode}/nav`),
+    enabled: !!schemeCode,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// ─── Phase 3: Scheme Performance & Holdings ──────────────────────────────────
+export function useIrisSchemePerformance(schemeCode: string) {
+  return useQuery({
+    queryKey: ['/api/iris/schemes', schemeCode, 'performance'],
+    queryFn: () => irisRequest(`/api/iris/schemes/${schemeCode}/performance`),
+    enabled: !!schemeCode,
+    staleTime: 60 * 60 * 1000,
+  });
+}
+export function useIrisTopPerformers(params?: Record<string, string>) {
+  return useQuery({
+    queryKey: ['/api/iris/schemes/top-performers', params],
+    queryFn: () => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return irisRequest(`/api/iris/schemes/top-performers${qs}`);
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+}
+export function useIrisSchemeHoldings(schemeCode: string) {
+  return useQuery({
+    queryKey: ['/api/iris/schemes', schemeCode, 'holdings'],
+    queryFn: () => irisRequest(`/api/iris/schemes/${schemeCode}/holdings`),
+    enabled: !!schemeCode,
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+}
+export function useIrisSchemeFactSheet(schemeCode: string) {
+  return useQuery({
+    queryKey: ['/api/iris/schemes', schemeCode, 'factsheet'],
+    queryFn: () => irisRequest(`/api/iris/schemes/${schemeCode}/factsheet`),
+    enabled: !!schemeCode,
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+}
+
+// ─── Phase 3: Scheme Comparison ──────────────────────────────────────────────
+export function useIrisCompareSchemes() {
+  return useMutation({ mutationFn: (schemeCodes: string[]) => irisRequest('/api/iris/schemes/compare', { schemeCodes }) });
+}
+
+// ─── Phase 3: Scheme Categories ──────────────────────────────────────────────
+export function useIrisSchemeCategories() {
+  return useQuery({
+    queryKey: ['/api/iris/categories'],
+    queryFn: () => irisRequest('/api/iris/categories'),
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+}
+export function useIrisSchemesByCategory(category: string) {
+  return useQuery({
+    queryKey: ['/api/iris/schemes/by-category', category],
+    queryFn: () => irisRequest(`/api/iris/schemes/by-category?category=${encodeURIComponent(category)}`),
+    enabled: !!category,
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
+// ─── Phase 3: Risk Profiling ──────────────────────────────────────────────────
+export function useIrisRiskQuestionnaire() {
+  return useQuery({
+    queryKey: ['/api/iris/risk-profile/questionnaire'],
+    queryFn: () => irisRequest('/api/iris/risk-profile/questionnaire'),
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+}
+export function useIrisInvestorRiskProfile(pan: string) {
+  return useQuery({
+    queryKey: ['/api/iris/investors', pan, 'risk-profile'],
+    queryFn: () => irisRequest(`/api/iris/investors/${pan}/risk-profile`),
+    enabled: !!pan,
+    staleTime: 60 * 60 * 1000,
+  });
+}
+export function useIrisSubmitRiskProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ pan, body }: { pan: string; body: any }) => irisRequest(`/api/iris/investors/${pan}/risk-profile`, body),
+    onSuccess: (_d, v) => queryClient.invalidateQueries({ queryKey: ['/api/iris/investors', v.pan, 'risk-profile'] }),
+  });
+}
+export function useIrisSchemesForRisk(riskProfile: string) {
+  return useQuery({
+    queryKey: ['/api/iris/schemes/recommended', riskProfile],
+    queryFn: () => irisRequest(`/api/iris/schemes/recommended?riskProfile=${encodeURIComponent(riskProfile)}`),
+    enabled: !!riskProfile,
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
+// ─── Phase 3: Application / Order Tracking ───────────────────────────────────
+export function useIrisApplications(params?: Record<string, string>) {
+  return useQuery({
+    queryKey: ['/api/iris/applications', params],
+    queryFn: () => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return irisRequest(`/api/iris/applications${qs}`);
+    },
+    staleTime: 2 * 60 * 1000,
+    refetchInterval: 30 * 1000,
+  });
+}
+export function useIrisApplicationStatus(applicationId: string) {
+  return useQuery({
+    queryKey: ['/api/iris/applications', applicationId, 'status'],
+    queryFn: () => irisRequest(`/api/iris/applications/${applicationId}/status`),
+    enabled: !!applicationId,
+    refetchInterval: 15 * 1000,
+  });
+}
+export function useIrisOrderTracking(orderId: string) {
+  return useQuery({
+    queryKey: ['/api/iris/transactions', orderId, 'tracking'],
+    queryFn: () => irisRequest(`/api/iris/transactions/${orderId}/tracking`),
+    enabled: !!orderId,
+    refetchInterval: 15 * 1000,
+  });
+}
+
+// ─── Phase 3: Alert Management ───────────────────────────────────────────────
+export function useIrisAlerts(pan: string) {
+  return useQuery({
+    queryKey: ['/api/iris/alerts', pan],
+    queryFn: () => irisRequest(`/api/iris/alerts?pan=${encodeURIComponent(pan)}`),
+    enabled: !!pan,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+export function useIrisCreateAlert() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => irisRequest('/api/iris/alerts', data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/iris/alerts'] }),
+  });
+}
+export function useIrisDeleteAlert() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (alertId: string) => {
+      const res = await fetch(`/api/iris/alerts/${alertId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete alert');
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/iris/alerts'] }),
+  });
+}
+
+// ─── Phase 3: Compliance / AML Reports ───────────────────────────────────────
+export function useIrisComplianceReport(params?: Record<string, string>) {
+  return useQuery({
+    queryKey: ['/api/iris/reports/compliance', params],
+    queryFn: () => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return irisRequest(`/api/iris/reports/compliance${qs}`);
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+}
+export function useIrisPmlaReport(params?: Record<string, string>) {
+  return useQuery({
+    queryKey: ['/api/iris/reports/pmla', params],
+    queryFn: () => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return irisRequest(`/api/iris/reports/pmla${qs}`);
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
+// ─── Phase 3: WhatsApp Notifications ─────────────────────────────────────────
+export function useIrisNotificationTemplates() {
+  return useQuery({
+    queryKey: ['/api/iris/notifications/templates'],
+    queryFn: () => irisRequest('/api/iris/notifications/templates'),
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+}
+export function useIrisSendWhatsapp() {
+  return useMutation({ mutationFn: (data: any) => irisRequest('/api/iris/notifications/whatsapp', data) });
+}
+export function useIrisNotificationHistory(pan: string) {
+  return useQuery({
+    queryKey: ['/api/iris/notifications/history', pan],
+    queryFn: () => irisRequest(`/api/iris/notifications/history?pan=${encodeURIComponent(pan)}`),
+    enabled: !!pan,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// ─── Phase 3: NFO ─────────────────────────────────────────────────────────────
+export function useIrisNfoSchemes() {
+  return useQuery({
+    queryKey: ['/api/iris/nfo/active'],
+    queryFn: () => irisRequest('/api/iris/nfo/active'),
+    staleTime: 30 * 60 * 1000,
+  });
+}
+export function useIrisNfoDetails(schemeCode: string) {
+  return useQuery({
+    queryKey: ['/api/iris/nfo', schemeCode],
+    queryFn: () => irisRequest(`/api/iris/nfo/${schemeCode}`),
+    enabled: !!schemeCode,
+    staleTime: 60 * 60 * 1000,
+  });
+}
+export function useIrisApplyNfo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => irisRequest('/api/iris/nfo/apply', data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/iris/nfo'] }),
+  });
+}
+export function useIrisNfoApplications(pan: string) {
+  return useQuery({
+    queryKey: ['/api/iris/nfo/applications', pan],
+    queryFn: () => irisRequest(`/api/iris/nfo/applications?pan=${encodeURIComponent(pan)}`),
+    enabled: !!pan,
+    staleTime: 10 * 60 * 1000,
+  });
+}
+export function useIrisCancelNfo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (applicationId: string) => irisRequest(`/api/iris/nfo/applications/${applicationId}/cancel`, {}),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/iris/nfo'] }),
+  });
+}
