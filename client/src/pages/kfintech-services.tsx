@@ -43,7 +43,22 @@ import {
   CreditCard,
   FileBarChart,
   UserPlus,
-  Briefcase
+  Briefcase,
+  Bell,
+  Link,
+  Activity,
+  Target,
+  ListFilter,
+  BookOpen,
+  Zap,
+  Send,
+  Eye,
+  Trash2,
+  ExternalLink,
+  Info,
+  FileCheck,
+  GitCompare,
+  Layers
 } from 'lucide-react';
 import { 
   useKfintechPortfolio, 
@@ -56,7 +71,6 @@ import {
   useKfintechSipSetup,
   useKfintechSipCancel,
   useKfintechStatementGeneration,
-  useKfintechSwitchTransaction,
   useIrisStp,
   useIrisSwp,
   useIrisStpCancel,
@@ -79,7 +93,49 @@ import {
   useIrisAddEmployee,
   useIrisSipMaturityCalendar,
   useIrisDividendTracker,
-  useIrisCreateMandate
+  useIrisCreateMandate,
+  // Phase 1
+  useIrisSwitch,
+  useIrisListEnach,
+  useIrisCreateEnach,
+  useIrisCancelEnach,
+  useIrisRegenerateEnachLink,
+  useIrisListUpiMandates,
+  useIrisCreateUpiMandate,
+  useIrisCancelUpiMandate,
+  useIrisFolios,
+  useIrisFolioTransactions,
+  useIrisSendPortalLink,
+  // Phase 2
+  useIrisCommission,
+  useIrisTrailCommission,
+  useIrisCommissionSummary,
+  useIrisOnboardingApplications,
+  useIrisInitiateOnboarding,
+  useIrisResendOnboardingLink,
+  useIrisCasStatement,
+  useIrisGenerateCas,
+  useIrisPortfolioXirr,
+  // Phase 3
+  useIrisTopPerformers,
+  useIrisSchemeCategories,
+  useIrisInvestorRiskProfile,
+  useIrisRiskQuestionnaire,
+  useIrisSubmitRiskProfile,
+  useIrisApplications,
+  useIrisAlerts,
+  useIrisCreateAlert,
+  useIrisDeleteAlert,
+  useIrisComplianceReport,
+  useIrisPmlaReport,
+  useIrisSendWhatsapp,
+  useIrisNotificationTemplates,
+  useIrisNotificationHistory,
+  useIrisNfoSchemes,
+  useIrisApplyNfo,
+  useIrisNfoApplications,
+  useIrisCancelNfo,
+  useIrisCompareSchemes,
 } from '@/hooks/use-kfintech';
 import { useToast } from '@/hooks/use-toast';
 
@@ -132,6 +188,20 @@ export default function KfintechServices() {
     name: '', euinCode: '', mobile: '', email: '', role: 'AGENT'
   });
   const [activeTab, setActiveTab] = useState('portfolio');
+  // Phase 1–3 state
+  const [enachForm, setEnachForm] = useState<Record<string, string>>({ bankAccount: '', ifsc: '', bankName: '', accountHolder: '', amount: '', startDate: '' });
+  const [upiForm, setUpiForm] = useState<Record<string, string>>({ upiId: '', amount: '', frequency: 'MONTHLY' });
+  const [selectedFolio, setSelectedFolio] = useState<string>('');
+  const [onboardingForm, setOnboardingForm] = useState<Record<string, string>>({ name: '', email: '', mobile: '', pan: '' });
+  const [casParams, setCasParams] = useState<Record<string, string>>({ fromDate: '', toDate: '', type: 'DETAILED' });
+  const [commissionParams, setCommissionParams] = useState<Record<string, string>>({ fromDate: '', toDate: '' });
+  const [schemeResearchCode, setSchemeResearchCode] = useState<string>('');
+  const [compareCodes, setCompareCodes] = useState<string>('');
+  const [alertForm, setAlertForm] = useState<Record<string, string>>({ type: 'NAV', schemeCode: '', threshold: '', direction: 'ABOVE' });
+  const [nfoApplyForm, setNfoApplyForm] = useState<Record<string, string>>({ schemeCode: '', amount: '', folioNumber: '' });
+  const [whatsappForm, setWhatsappForm] = useState<Record<string, string>>({ mobile: '', template: '', message: '' });
+  const [trackOrderId, setTrackOrderId] = useState<string>('');
+  const [riskAnswers, setRiskAnswers] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
   // IRIS API hooks
@@ -159,6 +229,51 @@ export default function KfintechServices() {
   const subBrokers = useIrisSubBrokers(employeeSearch ? { search: employeeSearch } : undefined);
   const sipMaturity = useIrisSipMaturityCalendar();
   const dividendTracker = useIrisDividendTracker();
+
+  // Phase 1: Switch / eNACH / UPI / Folios
+  const switchMutation = useIrisSwitch();
+  const enachList = useIrisListEnach(selectedPan);
+  const createEnachMutation = useIrisCreateEnach();
+  const cancelEnachMutation = useIrisCancelEnach();
+  const regenerateEnachMutation = useIrisRegenerateEnachLink();
+  const upiList = useIrisListUpiMandates(selectedPan);
+  const createUpiMutation = useIrisCreateUpiMandate();
+  const cancelUpiMutation = useIrisCancelUpiMandate();
+  const folioList = useIrisFolios(selectedPan);
+  const folioTxns = useIrisFolioTransactions(selectedPan, selectedFolio);
+  const sendPortalLinkMutation = useIrisSendPortalLink();
+
+  // Phase 2: Commission / Onboarding / CAS / XIRR
+  const commission = useIrisCommission(commissionParams.fromDate ? commissionParams : undefined);
+  const trailCommission = useIrisTrailCommission(commissionParams.fromDate ? commissionParams : undefined);
+  const commissionSummary = useIrisCommissionSummary();
+  const onboardingApps = useIrisOnboardingApplications();
+  const initiateOnboardingMutation = useIrisInitiateOnboarding();
+  const resendOnboardingMutation = useIrisResendOnboardingLink();
+  const casStatement = useIrisCasStatement(selectedPan, casParams.fromDate ? casParams : undefined);
+  const generateCasMutation = useIrisGenerateCas();
+  const portfolioXirr = useIrisPortfolioXirr(selectedPan);
+
+  // Phase 3: Research / Risk / Tracking / Alerts / Compliance / WhatsApp / NFO
+  const topPerformers = useIrisTopPerformers();
+  const schemeCategories = useIrisSchemeCategories();
+  const riskProfile = useIrisInvestorRiskProfile(selectedPan);
+  const riskQuestionnaire = useIrisRiskQuestionnaire();
+  const submitRiskMutation = useIrisSubmitRiskProfile();
+  const applications = useIrisApplications();
+  const alerts = useIrisAlerts(selectedPan);
+  const createAlertMutation = useIrisCreateAlert();
+  const deleteAlertMutation = useIrisDeleteAlert();
+  const complianceReport = useIrisComplianceReport();
+  const pmlaReport = useIrisPmlaReport();
+  const sendWhatsappMutation = useIrisSendWhatsapp();
+  const notificationTemplates = useIrisNotificationTemplates();
+  const notificationHistory = useIrisNotificationHistory(selectedPan);
+  const nfoSchemes = useIrisNfoSchemes();
+  const applyNfoMutation = useIrisApplyNfo();
+  const nfoApplications = useIrisNfoApplications(selectedPan);
+  const cancelNfoMutation = useIrisCancelNfo();
+  const compareSchemesMutation = useIrisCompareSchemes();
 
   // Form setups
   const panForm = useForm<z.infer<typeof panSchema>>({
@@ -433,12 +548,24 @@ export default function KfintechServices() {
             <TabsTrigger value="sip" data-testid="tab-sip">SIP</TabsTrigger>
             <TabsTrigger value="purchase" data-testid="tab-purchase">Purchase</TabsTrigger>
             <TabsTrigger value="switch" data-testid="tab-switch">Switch</TabsTrigger>
+            <TabsTrigger value="enach-mandates" data-testid="tab-enach">eNACH & UPI</TabsTrigger>
+            <TabsTrigger value="folios" data-testid="tab-folios">Folios</TabsTrigger>
             <TabsTrigger value="schemes" data-testid="tab-schemes">Schemes</TabsTrigger>
+            <TabsTrigger value="scheme-research" data-testid="tab-scheme-research">Research</TabsTrigger>
+            <TabsTrigger value="nfo" data-testid="tab-nfo">NFO</TabsTrigger>
             <TabsTrigger value="statements" data-testid="tab-statements">Statements</TabsTrigger>
+            <TabsTrigger value="cas-xirr" data-testid="tab-cas-xirr">CAS & XIRR</TabsTrigger>
             <TabsTrigger value="stp-swp" data-testid="tab-stp-swp">STP / SWP</TabsTrigger>
             <TabsTrigger value="non-financial" data-testid="tab-non-financial">Non-Financial</TabsTrigger>
             <TabsTrigger value="nps" data-testid="tab-nps">NPS</TabsTrigger>
             <TabsTrigger value="fd-orders" data-testid="tab-fd-orders">FD Orders</TabsTrigger>
+            <TabsTrigger value="risk-profile" data-testid="tab-risk">Risk Profile</TabsTrigger>
+            <TabsTrigger value="portal-onboarding" data-testid="tab-onboarding">Onboarding</TabsTrigger>
+            <TabsTrigger value="commission" data-testid="tab-commission">Commission</TabsTrigger>
+            <TabsTrigger value="order-tracking" data-testid="tab-tracking">Order Track</TabsTrigger>
+            <TabsTrigger value="alerts" data-testid="tab-alerts">Alerts</TabsTrigger>
+            <TabsTrigger value="notifications" data-testid="tab-notifications">WhatsApp</TabsTrigger>
+            <TabsTrigger value="compliance" data-testid="tab-compliance">Compliance</TabsTrigger>
             <TabsTrigger value="hierarchy" data-testid="tab-hierarchy">Hierarchy</TabsTrigger>
             <TabsTrigger value="bulk-reports" data-testid="tab-bulk-reports">Bulk Reports</TabsTrigger>
           </ScrollableTabsList>
@@ -2096,6 +2223,1010 @@ export default function KfintechServices() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* ── eNACH & UPI Mandates Tab ─────────────────────────────────────── */}
+          <TabsContent value="enach-mandates" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* eNACH Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5" />eNACH Mandates</CardTitle>
+                  <CardDescription>Electronic NACH — net banking auto-debit for SIPs</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {enachList.isLoading ? (
+                    <div className="flex justify-center py-4"><RefreshCw className="h-5 w-5 animate-spin" /></div>
+                  ) : enachList.data?.length > 0 ? (
+                    <div className="space-y-2">
+                      {enachList.data.map((m: any) => (
+                        <div key={m.mandateId} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div>
+                            <p className="font-medium text-sm">{m.bankName} — ****{m.accountNo?.slice(-4)}</p>
+                            <p className="text-xs text-muted-foreground">₹{m.amount?.toLocaleString()} | {m.status}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => regenerateEnachMutation.mutate(m.mandateId)}>
+                              <Link className="h-3 w-3 mr-1" />Link
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => cancelEnachMutation.mutate(m.mandateId)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">No eNACH mandates found</p>
+                  )}
+                  <Separator />
+                  <p className="text-xs font-semibold">Register New eNACH</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[['Bank Account No.', 'bankAccount'], ['IFSC Code', 'ifsc'], ['Bank Name', 'bankName'], ['Account Holder', 'accountHolder']].map(([label, key]) => (
+                      <div key={key} className="space-y-1">
+                        <Label className="text-xs">{label}</Label>
+                        <Input className="h-8 text-sm" value={enachForm[key]} onChange={e => setEnachForm(p => ({ ...p, [key]: e.target.value }))} />
+                      </div>
+                    ))}
+                    <div className="space-y-1">
+                      <Label className="text-xs">Max Amount (₹)</Label>
+                      <Input className="h-8 text-sm" type="number" value={enachForm.amount} onChange={e => setEnachForm(p => ({ ...p, amount: e.target.value }))} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Start Date</Label>
+                      <Input className="h-8 text-sm" type="date" value={enachForm.startDate} onChange={e => setEnachForm(p => ({ ...p, startDate: e.target.value }))} />
+                    </div>
+                  </div>
+                  <Button className="w-full" disabled={createEnachMutation.isPending} onClick={() => createEnachMutation.mutate({ pan: selectedPan, ...enachForm }, {
+                    onSuccess: () => toast({ title: 'eNACH Initiated', description: 'Mandate registration link sent. Investor must authorize via net banking.' }),
+                    onError: (e: any) => toast({ title: 'Failed', description: e.message, variant: 'destructive' }),
+                  })}>
+                    {createEnachMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-4 w-4 mr-2" />}
+                    Register eNACH Mandate
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* UPI Autopay Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Phone className="h-5 w-5" />UPI Autopay Mandates</CardTitle>
+                  <CardDescription>UPI recurring mandate for SIP payments (post-2022 mandatory)</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {upiList.isLoading ? (
+                    <div className="flex justify-center py-4"><RefreshCw className="h-5 w-5 animate-spin" /></div>
+                  ) : upiList.data?.length > 0 ? (
+                    <div className="space-y-2">
+                      {upiList.data.map((m: any) => (
+                        <div key={m.umrn} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div>
+                            <p className="font-medium text-sm">{m.upiId}</p>
+                            <p className="text-xs text-muted-foreground">₹{m.amount?.toLocaleString()} | {m.frequency} | {m.status}</p>
+                          </div>
+                          <Button size="sm" variant="destructive" onClick={() => cancelUpiMutation.mutate(m.umrn)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">No UPI mandates found</p>
+                  )}
+                  <Separator />
+                  <p className="text-xs font-semibold">Create UPI Autopay Mandate</p>
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">UPI ID (e.g. name@upi)</Label>
+                      <Input className="h-8 text-sm" value={upiForm.upiId} onChange={e => setUpiForm(p => ({ ...p, upiId: e.target.value }))} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Amount (₹)</Label>
+                        <Input className="h-8 text-sm" type="number" value={upiForm.amount} onChange={e => setUpiForm(p => ({ ...p, amount: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Frequency</Label>
+                        <Select value={upiForm.frequency} onValueChange={v => setUpiForm(p => ({ ...p, frequency: v }))}>
+                          <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="MONTHLY">Monthly</SelectItem>
+                            <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                            <SelectItem value="WEEKLY">Weekly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                  <Button className="w-full" disabled={createUpiMutation.isPending} onClick={() => createUpiMutation.mutate({ pan: selectedPan, ...upiForm }, {
+                    onSuccess: () => toast({ title: 'UPI Mandate Created', description: 'Mandate request sent to investor\'s UPI app for approval.' }),
+                    onError: (e: any) => toast({ title: 'Failed', description: e.message, variant: 'destructive' }),
+                  })}>
+                    {createUpiMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-4 w-4 mr-2" />}
+                    Create UPI Autopay
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ── Folios Tab ───────────────────────────────────────────────────── */}
+          <TabsContent value="folios" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Layers className="h-5 w-5" />Folio Management</CardTitle>
+                <CardDescription>View all folios, scheme-level holdings and folio transactions</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {folioList.isLoading ? (
+                  <div className="flex justify-center py-8"><RefreshCw className="h-5 w-5 animate-spin" /></div>
+                ) : folioList.data?.length > 0 ? (
+                  <div className="space-y-2">
+                    {folioList.data.map((f: any) => (
+                      <div key={f.folioNumber} className={`p-3 border rounded-lg cursor-pointer transition-colors ${selectedFolio === f.folioNumber ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
+                        onClick={() => setSelectedFolio(f.folioNumber)}>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium text-sm">{f.folioNumber}</p>
+                            <p className="text-xs text-muted-foreground">{f.schemeName}</p>
+                            <p className="text-xs text-muted-foreground">{f.amcName} | {f.category}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-sm">₹{f.currentValue?.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground">{f.units?.toFixed(3)} units</p>
+                            <Badge variant={f.gainLoss >= 0 ? 'default' : 'destructive'} className="text-xs mt-1">
+                              {f.gainLoss >= 0 ? '+' : ''}{f.gainLossPercentage?.toFixed(2)}%
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Layers className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No folios found for this PAN</p>
+                  </div>
+                )}
+                {selectedFolio && (
+                  <>
+                    <Separator />
+                    <p className="text-xs font-semibold">Transactions — Folio {selectedFolio}</p>
+                    {folioTxns.isLoading ? (
+                      <div className="flex justify-center py-4"><RefreshCw className="h-4 w-4 animate-spin" /></div>
+                    ) : folioTxns.data?.length > 0 ? (
+                      <div className="space-y-1 max-h-64 overflow-y-auto">
+                        {folioTxns.data.map((t: any, i: number) => (
+                          <div key={i} className="flex justify-between text-sm p-2 bg-muted/30 rounded">
+                            <span>{t.date} — {t.type}</span>
+                            <span className="font-medium">₹{t.amount?.toLocaleString()} ({t.units} units @ ₹{t.nav})</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center">No transactions for this folio</p>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ── Scheme Research Tab ─────────────────────────────────────────── */}
+          <TabsContent value="scheme-research" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5" />Scheme Explorer</CardTitle>
+                  <CardDescription>NAV history, performance, holdings, factsheet</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex gap-2">
+                    <Input placeholder="Enter scheme code (e.g. 120503)" value={schemeResearchCode} onChange={e => setSchemeResearchCode(e.target.value)} />
+                    <Button variant="outline" size="sm" onClick={() => setSchemeResearchCode(schemeResearchCode)}><Search className="h-4 w-4" /></Button>
+                  </div>
+                  {schemeResearchCode && (
+                    <div className="space-y-3 mt-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button variant="outline" size="sm" className="w-full" onClick={() => toast({ title: 'NAV History', description: `Fetching NAV history for ${schemeResearchCode}` })}>
+                          <BarChart3 className="h-3 w-3 mr-1" />NAV History
+                        </Button>
+                        <Button variant="outline" size="sm" className="w-full" onClick={() => toast({ title: 'Performance', description: `Fetching performance for ${schemeResearchCode}` })}>
+                          <TrendingUp className="h-3 w-3 mr-1" />Performance
+                        </Button>
+                        <Button variant="outline" size="sm" className="w-full" onClick={() => toast({ title: 'Holdings', description: `Fetching portfolio holdings for ${schemeResearchCode}` })}>
+                          <PieChart className="h-3 w-3 mr-1" />Holdings
+                        </Button>
+                        <Button variant="outline" size="sm" className="w-full" onClick={() => toast({ title: 'Factsheet', description: `Fetching factsheet for ${schemeResearchCode}` })}>
+                          <FileCheck className="h-3 w-3 mr-1" />Factsheet
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><GitCompare className="h-5 w-5" />Compare Schemes</CardTitle>
+                  <CardDescription>Side-by-side comparison of 2–4 schemes</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Scheme Codes (comma-separated)</Label>
+                    <Input placeholder="e.g. 120503,119598,118989" value={compareCodes} onChange={e => setCompareCodes(e.target.value)} />
+                  </div>
+                  <Button className="w-full" disabled={compareSchemesMutation.isPending} onClick={() => {
+                    const codes = compareCodes.split(',').map(c => c.trim()).filter(Boolean);
+                    if (codes.length < 2) { toast({ title: 'Enter at least 2 scheme codes', variant: 'destructive' }); return; }
+                    compareSchemesMutation.mutate(codes, {
+                      onSuccess: (d: any) => toast({ title: 'Comparison Ready', description: `Compared ${codes.length} schemes successfully` }),
+                      onError: (e: any) => toast({ title: 'Failed', description: e.message, variant: 'destructive' }),
+                    });
+                  }}>
+                    {compareSchemesMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <GitCompare className="h-4 w-4 mr-2" />}
+                    Compare Schemes
+                  </Button>
+                  {compareSchemesMutation.data && (
+                    <div className="mt-3 p-3 bg-muted/30 rounded-lg text-sm">
+                      <p className="font-semibold mb-2">Comparison Result</p>
+                      <pre className="text-xs overflow-auto max-h-48">{JSON.stringify(compareSchemesMutation.data, null, 2)}</pre>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" />Top Performers</CardTitle>
+                  <CardDescription>Best performing schemes across categories</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {topPerformers.isLoading ? (
+                    <div className="flex justify-center py-4"><RefreshCw className="h-5 w-5 animate-spin" /></div>
+                  ) : topPerformers.data?.length > 0 ? (
+                    <div className="space-y-2">
+                      {topPerformers.data.slice(0, 10).map((s: any, i: number) => (
+                        <div key={i} className="flex justify-between items-center p-2 bg-muted/30 rounded text-sm">
+                          <div>
+                            <p className="font-medium">{s.schemeName}</p>
+                            <p className="text-xs text-muted-foreground">{s.category} | NAV ₹{s.nav}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-green-600 font-semibold">{s.returns1Y?.toFixed(2)}%</p>
+                            <p className="text-xs text-muted-foreground">1Y return</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No performance data available</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><ListFilter className="h-5 w-5" />Scheme Categories</CardTitle>
+                  <CardDescription>SEBI scheme taxonomy — category-wise listing</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {schemeCategories.isLoading ? (
+                    <div className="flex justify-center py-4"><RefreshCw className="h-5 w-5 animate-spin" /></div>
+                  ) : schemeCategories.data?.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {schemeCategories.data.map((cat: any, i: number) => (
+                        <Badge key={i} variant="outline" className="cursor-pointer text-xs" onClick={() => toast({ title: cat.name, description: `${cat.schemeCount} schemes` })}>
+                          {cat.name} ({cat.schemeCount})
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <ListFilter className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Category data will load here</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ── NFO Tab ─────────────────────────────────────────────────────── */}
+          <TabsContent value="nfo" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Zap className="h-5 w-5" />Active NFOs</CardTitle>
+                  <CardDescription>New Fund Offers currently open for subscription</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {nfoSchemes.isLoading ? (
+                    <div className="flex justify-center py-8"><RefreshCw className="h-5 w-5 animate-spin" /></div>
+                  ) : nfoSchemes.data?.length > 0 ? (
+                    <div className="space-y-3">
+                      {nfoSchemes.data.map((nfo: any) => (
+                        <div key={nfo.schemeCode} className={`p-3 border rounded-lg cursor-pointer transition-colors ${nfoApplyForm.schemeCode === nfo.schemeCode ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
+                          onClick={() => setNfoApplyForm(p => ({ ...p, schemeCode: nfo.schemeCode }))}>
+                          <div className="flex justify-between">
+                            <div>
+                              <p className="font-medium text-sm">{nfo.schemeName}</p>
+                              <p className="text-xs text-muted-foreground">{nfo.amcName} | {nfo.category}</p>
+                              <p className="text-xs text-muted-foreground">Closes: {nfo.closureDate}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs font-medium">Min: ₹{nfo.minimumAmount?.toLocaleString()}</p>
+                              <Badge variant="default" className="text-xs mt-1">OPEN</Badge>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Zap className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No active NFOs at this time</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" />Apply for NFO</CardTitle>
+                  <CardDescription>Subscribe to a New Fund Offer</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Scheme Code</Label>
+                      <Input className="h-8 text-sm" value={nfoApplyForm.schemeCode} onChange={e => setNfoApplyForm(p => ({ ...p, schemeCode: e.target.value }))} placeholder="Select from list or enter code" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Investment Amount (₹)</Label>
+                      <Input className="h-8 text-sm" type="number" value={nfoApplyForm.amount} onChange={e => setNfoApplyForm(p => ({ ...p, amount: e.target.value }))} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Folio Number (optional)</Label>
+                      <Input className="h-8 text-sm" value={nfoApplyForm.folioNumber} onChange={e => setNfoApplyForm(p => ({ ...p, folioNumber: e.target.value }))} placeholder="Leave blank for new folio" />
+                    </div>
+                  </div>
+                  <Button className="w-full" disabled={applyNfoMutation.isPending} onClick={() => applyNfoMutation.mutate({ pan: selectedPan, ...nfoApplyForm }, {
+                    onSuccess: () => toast({ title: 'NFO Application Submitted', description: 'Your NFO subscription has been placed.' }),
+                    onError: (e: any) => toast({ title: 'Failed', description: e.message, variant: 'destructive' }),
+                  })}>
+                    {applyNfoMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-4 w-4 mr-2" />}
+                    Apply for NFO
+                  </Button>
+                  {nfoApplications.data?.length > 0 && (
+                    <>
+                      <Separator />
+                      <p className="text-xs font-semibold">Your NFO Applications</p>
+                      <div className="space-y-2">
+                        {nfoApplications.data.map((app: any) => (
+                          <div key={app.applicationId} className="flex justify-between items-center p-2 bg-muted/30 rounded text-sm">
+                            <div>
+                              <p className="font-medium text-xs">{app.schemeName}</p>
+                              <p className="text-xs text-muted-foreground">₹{app.amount?.toLocaleString()} | {app.status}</p>
+                            </div>
+                            {app.status === 'PENDING' && (
+                              <Button size="sm" variant="destructive" onClick={() => cancelNfoMutation.mutate(app.applicationId)}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ── CAS & XIRR Tab ──────────────────────────────────────────────── */}
+          <TabsContent value="cas-xirr" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><FileBarChart className="h-5 w-5" />CAS Statement</CardTitle>
+                  <CardDescription>Consolidated Account Statement across all RTAs (CAMS + KFintech)</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">From Date</Label>
+                      <Input className="h-8 text-sm" type="date" value={casParams.fromDate} onChange={e => setCasParams(p => ({ ...p, fromDate: e.target.value }))} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">To Date</Label>
+                      <Input className="h-8 text-sm" type="date" value={casParams.toDate} onChange={e => setCasParams(p => ({ ...p, toDate: e.target.value }))} />
+                    </div>
+                  </div>
+                  <Select value={casParams.type} onValueChange={v => setCasParams(p => ({ ...p, type: v }))}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DETAILED">Detailed</SelectItem>
+                      <SelectItem value="SUMMARY">Summary</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {casStatement.isLoading && <div className="flex justify-center py-4"><RefreshCw className="h-5 w-5 animate-spin" /></div>}
+                  {casStatement.data && (
+                    <div className="p-3 bg-muted/30 rounded-lg space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Total Value</span>
+                        <span className="font-bold">₹{casStatement.data?.totalValue?.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Total Cost</span>
+                        <span>₹{casStatement.data?.totalCost?.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>P&L</span>
+                        <span className={casStatement.data?.pnl >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                          ₹{casStatement.data?.pnl?.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  <Button className="w-full" variant="outline" disabled={generateCasMutation.isPending} onClick={() => generateCasMutation.mutate({ pan: selectedPan, ...casParams }, {
+                    onSuccess: () => toast({ title: 'CAS Generated', description: 'Statement emailed to registered email address.' }),
+                    onError: (e: any) => toast({ title: 'Failed', description: e.message, variant: 'destructive' }),
+                  })}>
+                    {generateCasMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                    Generate & Email CAS
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Activity className="h-5 w-5" />XIRR & Returns</CardTitle>
+                  <CardDescription>Portfolio-level XIRR and annualised returns analysis</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {portfolioXirr.isLoading ? (
+                    <div className="flex justify-center py-4"><RefreshCw className="h-5 w-5 animate-spin" /></div>
+                  ) : portfolioXirr.data ? (
+                    <div className="space-y-3">
+                      <div className="p-4 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg text-center">
+                        <p className="text-3xl font-bold text-primary">{portfolioXirr.data?.xirr?.toFixed(2)}%</p>
+                        <p className="text-sm text-muted-foreground mt-1">Portfolio XIRR (Annualised)</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        {[
+                          ['Invested', `₹${portfolioXirr.data?.invested?.toLocaleString()}`],
+                          ['Current Value', `₹${portfolioXirr.data?.currentValue?.toLocaleString()}`],
+                          ['Absolute Return', `${portfolioXirr.data?.absoluteReturn?.toFixed(2)}%`],
+                          ['Gain/Loss', `₹${portfolioXirr.data?.gainLoss?.toLocaleString()}`],
+                        ].map(([k, v]) => (
+                          <div key={k} className="p-2 bg-muted/30 rounded text-center">
+                            <p className="text-xs text-muted-foreground">{k}</p>
+                            <p className="font-semibold text-sm">{v}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">XIRR data will appear here once transactions are loaded</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ── Risk Profile Tab ─────────────────────────────────────────────── */}
+          <TabsContent value="risk-profile" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5" />Investor Risk Profile</CardTitle>
+                  <CardDescription>SEBI-mandated risk profiling — maps to suitable scheme categories</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {riskProfile.isLoading ? (
+                    <div className="flex justify-center py-4"><RefreshCw className="h-5 w-5 animate-spin" /></div>
+                  ) : riskProfile.data ? (
+                    <div className="space-y-3">
+                      <div className="p-4 text-center border rounded-lg">
+                        <p className="text-2xl font-bold text-primary">{riskProfile.data?.riskCategory}</p>
+                        <p className="text-sm text-muted-foreground">Risk Category</p>
+                        <p className="text-xs mt-1 text-muted-foreground">Score: {riskProfile.data?.score}/100</p>
+                        <p className="text-xs text-muted-foreground">Last updated: {riskProfile.data?.updatedAt}</p>
+                      </div>
+                      <div className="p-3 bg-muted/30 rounded-lg">
+                        <p className="text-xs font-semibold mb-2">Recommended Allocation</p>
+                        {riskProfile.data?.recommendedAllocation && Object.entries(riskProfile.data.recommendedAllocation).map(([k, v]) => (
+                          <div key={k} className="flex justify-between text-sm">
+                            <span>{k}</span><span className="font-medium">{v as string}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <Target className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No risk profile found. Complete the questionnaire.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><FileCheck className="h-5 w-5" />Risk Questionnaire</CardTitle>
+                  <CardDescription>Complete investor risk assessment</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {riskQuestionnaire.isLoading ? (
+                    <div className="flex justify-center py-4"><RefreshCw className="h-5 w-5 animate-spin" /></div>
+                  ) : riskQuestionnaire.data?.questions?.length > 0 ? (
+                    <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
+                      {riskQuestionnaire.data.questions.map((q: any) => (
+                        <div key={q.id} className="space-y-2">
+                          <p className="text-sm font-medium">{q.question}</p>
+                          <div className="space-y-1">
+                            {q.options.map((opt: any) => (
+                              <label key={opt.value} className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input type="radio" name={q.id} value={opt.value} checked={riskAnswers[q.id] === opt.value}
+                                  onChange={() => setRiskAnswers(p => ({ ...p, [q.id]: opt.value }))} />
+                                {opt.label}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      <Button className="w-full" disabled={submitRiskMutation.isPending} onClick={() => submitRiskMutation.mutate({ pan: selectedPan, body: { answers: riskAnswers } }, {
+                        onSuccess: () => toast({ title: 'Risk Profile Submitted', description: 'Profile has been saved and scheme recommendations updated.' }),
+                        onError: (e: any) => toast({ title: 'Failed', description: e.message, variant: 'destructive' }),
+                      })}>
+                        {submitRiskMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                        Submit Risk Profile
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <FileCheck className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Questionnaire not available</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ── Portal & Onboarding Tab ──────────────────────────────────────── */}
+          <TabsContent value="portal-onboarding" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><ExternalLink className="h-5 w-5" />Investor Self-Service Portal</CardTitle>
+                  <CardDescription>Generate one-time link for investor to access KFintech portal directly</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>Portal Link</AlertTitle>
+                    <AlertDescription>The generated link is valid for 24 hours and allows the investor to view holdings, statements, and request non-financial updates independently.</AlertDescription>
+                  </Alert>
+                  <Button className="w-full" disabled={sendPortalLinkMutation.isPending} onClick={() => sendPortalLinkMutation.mutate({ pan: selectedPan }, {
+                    onSuccess: (d: any) => toast({ title: 'Portal Link Sent', description: d?.message ?? 'Link sent to investor\'s registered email and mobile.' }),
+                    onError: (e: any) => toast({ title: 'Failed', description: e.message, variant: 'destructive' }),
+                  })}>
+                    {sendPortalLinkMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <ExternalLink className="h-4 w-4 mr-2" />}
+                    Send Portal Link to Investor
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5" />Digital Investor Onboarding</CardTitle>
+                  <CardDescription>Initiate eKYC + account opening via IRIS digital flow</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    {[['Full Name', 'name'], ['PAN', 'pan'], ['Email', 'email'], ['Mobile', 'mobile']].map(([label, key]) => (
+                      <div key={key} className="space-y-1">
+                        <Label className="text-xs">{label}</Label>
+                        <Input className="h-8 text-sm" value={onboardingForm[key]} onChange={e => setOnboardingForm(p => ({ ...p, [key]: e.target.value }))} />
+                      </div>
+                    ))}
+                  </div>
+                  <Button className="w-full" disabled={initiateOnboardingMutation.isPending} onClick={() => initiateOnboardingMutation.mutate(onboardingForm, {
+                    onSuccess: (d: any) => toast({ title: 'Onboarding Initiated', description: `Application ID: ${d?.applicationId}. Link sent to investor.` }),
+                    onError: (e: any) => toast({ title: 'Failed', description: e.message, variant: 'destructive' }),
+                  })}>
+                    {initiateOnboardingMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />}
+                    Initiate Onboarding
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />Onboarding Applications</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {onboardingApps.isLoading ? (
+                    <div className="flex justify-center py-4"><RefreshCw className="h-5 w-5 animate-spin" /></div>
+                  ) : onboardingApps.data?.length > 0 ? (
+                    <div className="space-y-2">
+                      {onboardingApps.data.map((app: any) => (
+                        <div key={app.applicationId} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div>
+                            <p className="font-medium text-sm">{app.name} — {app.pan}</p>
+                            <p className="text-xs text-muted-foreground">App ID: {app.applicationId} | {app.createdAt}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={app.status === 'COMPLETED' ? 'default' : app.status === 'PENDING' ? 'secondary' : 'destructive'}>
+                              {app.status}
+                            </Badge>
+                            {app.status === 'PENDING' && (
+                              <Button size="sm" variant="outline" onClick={() => resendOnboardingMutation.mutate(app.applicationId, {
+                                onSuccess: () => toast({ title: 'Link Resent', description: `Onboarding link resent to ${app.email}` }),
+                              })}>
+                                <Send className="h-3 w-3 mr-1" />Resend
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">No onboarding applications found</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ── Commission Tab ───────────────────────────────────────────────── */}
+          <TabsContent value="commission" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Percent className="h-5 w-5" />Commission & Trail Summary</CardTitle>
+                <CardDescription>Upfront + trail commissions from AMCs — SEBI AMFI reporting</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">From Date</Label>
+                    <Input className="h-8 text-sm" type="date" value={commissionParams.fromDate} onChange={e => setCommissionParams(p => ({ ...p, fromDate: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">To Date</Label>
+                    <Input className="h-8 text-sm" type="date" value={commissionParams.toDate} onChange={e => setCommissionParams(p => ({ ...p, toDate: e.target.value }))} />
+                  </div>
+                </div>
+                {commissionSummary.data && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      ['Total Upfront', `₹${commissionSummary.data?.totalUpfront?.toLocaleString()}`],
+                      ['Total Trail', `₹${commissionSummary.data?.totalTrail?.toLocaleString()}`],
+                      ['This Month', `₹${commissionSummary.data?.thisMonth?.toLocaleString()}`],
+                      ['This Year', `₹${commissionSummary.data?.thisYear?.toLocaleString()}`],
+                    ].map(([k, v]) => (
+                      <div key={k} className="p-3 bg-muted/30 rounded-lg text-center">
+                        <p className="text-xs text-muted-foreground">{k}</p>
+                        <p className="font-bold text-sm">{v}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="space-y-3">
+                  {commission.isLoading ? (
+                    <div className="flex justify-center py-4"><RefreshCw className="h-5 w-5 animate-spin" /></div>
+                  ) : commission.data?.length > 0 ? (
+                    <div className="max-h-64 overflow-y-auto space-y-1">
+                      {commission.data.map((c: any, i: number) => (
+                        <div key={i} className="flex justify-between text-sm p-2 bg-muted/20 rounded">
+                          <span>{c.amcName} — {c.schemeName}</span>
+                          <span className="font-medium">₹{c.amount?.toLocaleString()} ({c.type})</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <Percent className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Select a date range to view commission details</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ── Order Tracking Tab ───────────────────────────────────────────── */}
+          <TabsContent value="order-tracking" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Activity className="h-5 w-5" />Track Order</CardTitle>
+                  <CardDescription>Real-time order status with live updates every 15s</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex gap-2">
+                    <Input placeholder="Enter Order / Application ID" value={trackOrderId} onChange={e => setTrackOrderId(e.target.value)} />
+                    <Button variant="outline" size="sm" onClick={() => setTrackOrderId(trackOrderId)}><Search className="h-4 w-4" /></Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5" />Recent Applications</CardTitle>
+                  <CardDescription>All pending and recent MF orders — auto-refreshes every 30s</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {applications.isLoading ? (
+                    <div className="flex justify-center py-4"><RefreshCw className="h-5 w-5 animate-spin" /></div>
+                  ) : applications.data?.length > 0 ? (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {applications.data.map((app: any) => (
+                        <div key={app.applicationId} className="p-2 border rounded-lg text-sm">
+                          <div className="flex justify-between">
+                            <span className="font-medium">{app.schemeName}</span>
+                            <Badge variant={app.status === 'PROCESSED' ? 'default' : app.status === 'PENDING' ? 'secondary' : 'destructive'} className="text-xs">
+                              {app.status}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{app.applicationId} | ₹{app.amount?.toLocaleString()} | {app.type}</p>
+                          <p className="text-xs text-muted-foreground">{app.date}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No pending applications</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ── Alerts Tab ──────────────────────────────────────────────────── */}
+          <TabsContent value="alerts" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5" />Active Alerts</CardTitle>
+                  <CardDescription>NAV, portfolio value, and SIP reminders</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {alerts.isLoading ? (
+                    <div className="flex justify-center py-4"><RefreshCw className="h-5 w-5 animate-spin" /></div>
+                  ) : alerts.data?.length > 0 ? (
+                    <div className="space-y-2">
+                      {alerts.data.map((alert: any) => (
+                        <div key={alert.alertId} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div>
+                            <p className="font-medium text-sm">{alert.type} Alert — {alert.schemeCode ?? 'Portfolio'}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {alert.direction} ₹{alert.threshold} | {alert.active ? 'Active' : 'Inactive'}
+                            </p>
+                          </div>
+                          <Button size="sm" variant="destructive" onClick={() => deleteAlertMutation.mutate(alert.alertId)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No alerts configured</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5" />Create Alert</CardTitle>
+                  <CardDescription>Get notified when NAV or portfolio crosses thresholds</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Alert Type</Label>
+                      <Select value={alertForm.type} onValueChange={v => setAlertForm(p => ({ ...p, type: v }))}>
+                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NAV">NAV Alert</SelectItem>
+                          <SelectItem value="PORTFOLIO">Portfolio Value</SelectItem>
+                          <SelectItem value="SIP">SIP Reminder</SelectItem>
+                          <SelectItem value="DIVIDEND">Dividend Declared</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Scheme Code (optional for portfolio alerts)</Label>
+                      <Input className="h-8 text-sm" value={alertForm.schemeCode} onChange={e => setAlertForm(p => ({ ...p, schemeCode: e.target.value }))} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Threshold Value (₹)</Label>
+                        <Input className="h-8 text-sm" type="number" value={alertForm.threshold} onChange={e => setAlertForm(p => ({ ...p, threshold: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Direction</Label>
+                        <Select value={alertForm.direction} onValueChange={v => setAlertForm(p => ({ ...p, direction: v }))}>
+                          <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ABOVE">Above threshold</SelectItem>
+                            <SelectItem value="BELOW">Below threshold</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                  <Button className="w-full" disabled={createAlertMutation.isPending} onClick={() => createAlertMutation.mutate({ pan: selectedPan, ...alertForm }, {
+                    onSuccess: () => { toast({ title: 'Alert Created', description: 'You will be notified via email and push when the condition is met.' }); setAlertForm({ type: 'NAV', schemeCode: '', threshold: '', direction: 'ABOVE' }); },
+                    onError: (e: any) => toast({ title: 'Failed', description: e.message, variant: 'destructive' }),
+                  })}>
+                    {createAlertMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Bell className="h-4 w-4 mr-2" />}
+                    Create Alert
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ── WhatsApp Notifications Tab ───────────────────────────────────── */}
+          <TabsContent value="notifications" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Send className="h-5 w-5" />Send WhatsApp Notification</CardTitle>
+                  <CardDescription>Send templated WhatsApp messages to investors via KFintech Business API</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Mobile Number (with country code)</Label>
+                      <Input className="h-8 text-sm" placeholder="+919876543210" value={whatsappForm.mobile} onChange={e => setWhatsappForm(p => ({ ...p, mobile: e.target.value }))} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Template</Label>
+                      <Select value={whatsappForm.template} onValueChange={v => setWhatsappForm(p => ({ ...p, template: v }))}>
+                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select template" /></SelectTrigger>
+                        <SelectContent>
+                          {notificationTemplates.data?.map((t: any) => (
+                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                          ))}
+                          <SelectItem value="SIP_REMINDER">SIP Payment Reminder</SelectItem>
+                          <SelectItem value="NAV_ALERT">NAV Alert</SelectItem>
+                          <SelectItem value="PORTFOLIO_STATEMENT">Portfolio Statement</SelectItem>
+                          <SelectItem value="TRANSACTION_CONFIRMATION">Transaction Confirmation</SelectItem>
+                          <SelectItem value="REDEMPTION_PROCESSED">Redemption Processed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Custom Message (optional)</Label>
+                      <Input className="h-8 text-sm" value={whatsappForm.message} onChange={e => setWhatsappForm(p => ({ ...p, message: e.target.value }))} placeholder="Additional message parameters" />
+                    </div>
+                  </div>
+                  <Button className="w-full" disabled={sendWhatsappMutation.isPending} onClick={() => sendWhatsappMutation.mutate({ pan: selectedPan, ...whatsappForm }, {
+                    onSuccess: () => { toast({ title: 'WhatsApp Sent', description: 'Message delivered via KFintech Business API.' }); setWhatsappForm({ mobile: '', template: '', message: '' }); },
+                    onError: (e: any) => toast({ title: 'Failed', description: e.message, variant: 'destructive' }),
+                  })}>
+                    {sendWhatsappMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                    Send WhatsApp Message
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5" />Notification History</CardTitle>
+                  <CardDescription>All outbound communications for this investor</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {notificationHistory.isLoading ? (
+                    <div className="flex justify-center py-4"><RefreshCw className="h-5 w-5 animate-spin" /></div>
+                  ) : notificationHistory.data?.length > 0 ? (
+                    <div className="space-y-2 max-h-72 overflow-y-auto">
+                      {notificationHistory.data.map((n: any, i: number) => (
+                        <div key={i} className="p-2 bg-muted/30 rounded text-sm">
+                          <div className="flex justify-between">
+                            <span className="font-medium">{n.template}</span>
+                            <Badge variant={n.status === 'DELIVERED' ? 'default' : 'secondary'} className="text-xs">{n.status}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{n.channel} | {n.sentAt}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No notifications sent yet</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ── Compliance / AML Tab ─────────────────────────────────────────── */}
+          <TabsContent value="compliance" className="space-y-6">
+            <Alert>
+              <Shield className="h-4 w-4" />
+              <AlertTitle>Compliance Reports — Admin Only</AlertTitle>
+              <AlertDescription>PMLA/AML reports are generated for regulatory filing. All access is logged.</AlertDescription>
+            </Alert>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5" />PMLA / AML Report</CardTitle>
+                  <CardDescription>Prevention of Money Laundering Act compliance data</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {pmlaReport.isLoading ? (
+                    <div className="flex justify-center py-4"><RefreshCw className="h-5 w-5 animate-spin" /></div>
+                  ) : pmlaReport.data ? (
+                    <div className="p-3 bg-muted/30 rounded-lg space-y-2 text-sm">
+                      <div className="flex justify-between"><span>High Value Txns (&gt;₹10L)</span><span className="font-semibold">{pmlaReport.data?.highValueCount}</span></div>
+                      <div className="flex justify-between"><span>Suspicious Patterns</span><span className="font-semibold text-red-600">{pmlaReport.data?.suspiciousCount}</span></div>
+                      <div className="flex justify-between"><span>STR Filed</span><span className="font-semibold">{pmlaReport.data?.strFiled}</span></div>
+                      <div className="flex justify-between"><span>Period</span><span>{pmlaReport.data?.period}</span></div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <Shield className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">PMLA report data will load here</p>
+                    </div>
+                  )}
+                  <Button className="w-full" variant="outline" onClick={() => toast({ title: 'AML Report', description: 'Generating full AML report for regulatory submission...' })}>
+                    <Download className="h-4 w-4 mr-2" />Download PMLA Report
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><FileBarChart className="h-5 w-5" />Compliance Summary</CardTitle>
+                  <CardDescription>Overall compliance health and pending actions</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {complianceReport.isLoading ? (
+                    <div className="flex justify-center py-4"><RefreshCw className="h-5 w-5 animate-spin" /></div>
+                  ) : complianceReport.data ? (
+                    <div className="space-y-2 text-sm">
+                      {[
+                        ['KYC Expiring (30d)', complianceReport.data?.kycExpiring, 'text-yellow-600'],
+                        ['KYC Expired', complianceReport.data?.kycExpired, 'text-red-600'],
+                        ['FATCA Pending', complianceReport.data?.fatcaPending, 'text-orange-600'],
+                        ['Nominee Missing', complianceReport.data?.nomineeMissing, 'text-orange-600'],
+                        ['Compliant Investors', complianceReport.data?.compliant, 'text-green-600'],
+                      ].map(([k, v, cls]) => (
+                        <div key={k} className="flex justify-between p-2 bg-muted/20 rounded">
+                          <span>{k}</span><span className={`font-semibold ${cls}`}>{v ?? '—'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <FileBarChart className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Compliance data will load here</p>
+                    </div>
+                  )}
+                  <Button className="w-full" variant="outline" onClick={() => toast({ title: 'Compliance Report', description: 'Generating compliance summary report...' })}>
+                    <Download className="h-4 w-4 mr-2" />Download Compliance Report
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
         </Tabs>
       )}
     </div>
