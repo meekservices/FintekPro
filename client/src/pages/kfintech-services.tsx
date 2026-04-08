@@ -332,7 +332,6 @@ export default function KfintechServices() {
   const sipSetupMutation = useKfintechSipSetup();
   const sipCancelMutation = useKfintechSipCancel();
   const statementMutation = useKfintechStatementGeneration();
-  const switchMutation = useKfintechSwitchTransaction();
 
   const handlePanSubmit = (data: z.infer<typeof panSchema>) => {
     setSelectedPan(data.pan);
