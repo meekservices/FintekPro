@@ -215,7 +215,7 @@ import { taxRoutes } from "./tax-routes";
 import meetingBookingsRoutes from "./routes/meeting-bookings";
 import sebiRiskProfilingRoutes from "./routes/sebi-risk-profiling-routes";
 import portfolioReportsRoutes from "./routes/portfolio-reports";
-import kycFlowRoutes from "./routes/kyc-flow-routes";
+import kycFlowRoutes, { ensureAdminSettingsTable } from "./routes/kyc-flow-routes";
 import cashfreeVrsRoutes from "./routes/cashfree-vrs-routes";
 import kycEngineRoutes from "./routes/kyc-engine-routes";
 import aiRecommendationTrackingRoutes from "./routes/ai-recommendation-tracking-routes";
@@ -589,6 +589,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   console.log("✅ AI Recommendation Tracking routes registered");
   
   // KYC Flow Configuration Routes (unified single source of truth for all KYC providers)
+  ensureAdminSettingsTable().catch(() => {});
   app.use("/api/admin/kyc", requireAdmin, kycFlowRoutes);
   console.log("✅ KYC Flow Configuration routes registered");
 

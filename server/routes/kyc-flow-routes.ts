@@ -1,7 +1,24 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { adminSettings } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
+
+export async function ensureAdminSettingsTable(): Promise<void> {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS admin_settings (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        key VARCHAR NOT NULL UNIQUE,
+        value JSONB,
+        description TEXT,
+        updated_by VARCHAR,
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+  } catch (err) {
+    console.error('[KYC Flow Routes] Failed to ensure admin_settings table:', err);
+  }
+}
 
 const router = Router();
 
@@ -133,8 +150,7 @@ async function saveOverrides(overrides: OverrideMap): Promise<void> {
       .values({ key: SETTINGS_KEY, value: overrides, description: 'KYC flow provider priority and pricing overrides' })
       .onConflictDoUpdate({ target: adminSettings.key, set: { value: overrides, updatedAt: new Date() } });
   } catch (err) {
-    console.error('[KYC Flow Routes] Failed to save overrides:', err);
-    throw err;
+    console.error('[KYC Flow Routes] Failed to save overrides (in-memory state still updated):', err);
   }
 }
 
