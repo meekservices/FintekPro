@@ -109,8 +109,13 @@ export class SandboxKYCService {
 
     try {
       const response = await axios.post(
-        `${SANDBOX_BASE_URL}/kyc/corporate/mca/search`,
-        { cin },
+        `${SANDBOX_BASE_URL}/mca/company/master-data/search`,
+        {
+          '@entity': 'in.co.sandbox.kyc.mca.master_data.request',
+          id: cin,
+          consent: 'y',
+          reason: 'Corporate KYC verification for financial services',
+        },
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
@@ -125,28 +130,29 @@ export class SandboxKYCService {
         throw new Error(response.data.message || 'MCA verification failed');
       }
 
-      const data = response.data.data;
-      
+      const raw = response.data.data;
+      const cmd = raw.company_master_data || raw;
+
       return {
-        cin: data.cin,
-        companyName: data.company_name,
-        companyStatus: data.company_status,
-        companyClass: data.company_class,
-        companyCategory: data.company_category,
-        dateOfIncorporation: data.date_of_incorporation,
-        registeredAddress: data.registered_address,
-        paidUpCapital: data.paid_up_capital,
-        authorizedCapital: data.authorized_capital,
-        directors: (data.directors || []).map((d: any) => ({
-          din: d.din,
-          name: d.name,
-          designation: d.designation,
-          appointmentDate: d.appointment_date,
+        cin: cmd.cin || cin,
+        companyName: cmd.company_name || '',
+        companyStatus: cmd['company_status(for_efiling)'] || cmd.company_status || '',
+        companyClass: cmd.class_of_company || cmd.company_class || '',
+        companyCategory: cmd.company_category || '',
+        dateOfIncorporation: cmd.date_of_incorporation || '',
+        registeredAddress: cmd.registered_address || '',
+        paidUpCapital: cmd['paid_up_capital(rs)'] || cmd.paid_up_capital || '',
+        authorizedCapital: cmd['authorised_capital(rs)'] || cmd.authorized_capital || '',
+        directors: (raw.directors || raw.signatory || []).map((d: any) => ({
+          din: d.din || d.director_identification_number || '',
+          name: d.name || d.director_name || '',
+          designation: d.designation || '',
+          appointmentDate: d.begin_date || d.appointment_date || '',
         })),
-        registrationNumber: data.registration_number,
-        emailId: data.email_id,
-        lastAGMDate: data.last_agm_date,
-        lastBalanceSheetDate: data.last_balance_sheet_date,
+        registrationNumber: cmd.registration_number || '',
+        emailId: cmd.email_id || '',
+        lastAGMDate: cmd.date_of_last_agm || cmd.last_agm_date || '',
+        lastBalanceSheetDate: cmd.date_of_balance_sheet || cmd.last_balance_sheet_date || '',
       };
     } catch (error: any) {
       console.error('MCA verification error:', error.response?.data || error.message);
@@ -675,9 +681,10 @@ export class SandboxKYCService {
     const token = await getSandboxAccessToken();
 
     try {
+      const shareCode = String(Math.floor(1000 + Math.random() * 9000));
       const response = await axios.post(
         `${SANDBOX_BASE_URL}/kyc/aadhaar/okyc/otp/verify`,
-        { '@entity': 'in.co.sandbox.kyc.aadhaar.okyc.request', reference_id: referenceId, otp },
+        { '@entity': 'in.co.sandbox.kyc.aadhaar.okyc.request', reference_id: referenceId, otp, share_code: shareCode },
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
@@ -793,18 +800,13 @@ export class SandboxKYCService {
     const token = await getSandboxAccessToken();
 
     try {
-      const response = await axios.post(
-        `${SANDBOX_BASE_URL}/kyc/bank/penny-drop`,
-        { 
-          account_number: accountNumber,
-          ifsc: ifsc,
-        },
+      const response = await axios.get(
+        `${SANDBOX_BASE_URL}/bank/${ifsc}/accounts/${accountNumber}/verify`,
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
             'Authorization': token,
             'x-api-version': '1.0.0',
-            'Content-Type': 'application/json',
           },
         }
       );
@@ -815,12 +817,12 @@ export class SandboxKYCService {
 
       const data = response.data.data;
       return {
-        accountNumber: data.account_number,
-        ifsc: data.ifsc,
-        accountHolderName: data.account_holder_name || data.name_at_bank,
-        bankName: data.bank_name,
-        branchName: data.branch_name || data.branch,
-        verified: data.verified || data.account_exists === true,
+        accountNumber: accountNumber,
+        ifsc: ifsc,
+        accountHolderName: data.name_at_bank || data.account_holder_name || '',
+        bankName: data.bank_name || '',
+        branchName: data.branch_name || data.branch || '',
+        verified: data.account_exists === true,
         transactionId: response.data.transaction_id,
         utr: data.utr,
       };
@@ -1036,18 +1038,13 @@ export class SandboxKYCService {
     const token = await getSandboxAccessToken();
 
     try {
-      const response = await axios.post(
-        `${SANDBOX_BASE_URL}/bank/account/verify`,
-        { 
-          account_number: accountNumber,
-          ifsc: ifsc,
-        },
+      const response = await axios.get(
+        `${SANDBOX_BASE_URL}/bank/${ifsc}/accounts/${accountNumber}/verify`,
         {
           headers: {
             'x-api-key': SANDBOX_API_KEY,
             'Authorization': token,
             'x-api-version': '1.0.0',
-            'Content-Type': 'application/json',
             'X-Accept-Cache': 'true',
           },
         }
@@ -1059,12 +1056,12 @@ export class SandboxKYCService {
 
       const data = response.data.data;
       return {
-        accountNumber: data.account_number,
-        ifsc: data.ifsc,
-        accountHolderName: data.account_holder_name || data.name_at_bank,
+        accountNumber: accountNumber,
+        ifsc: ifsc,
+        accountHolderName: data.name_at_bank || data.account_holder_name || '',
         bankName: data.bank_name || supportedBank,
         branchName: data.branch_name || data.branch || '',
-        verified: data.account_exists === true || data.verified === true,
+        verified: data.account_exists === true,
         transactionId: response.data.transaction_id,
         verificationMethod: 'pennyless',
       };

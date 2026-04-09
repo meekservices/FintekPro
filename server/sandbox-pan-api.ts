@@ -325,7 +325,7 @@ class SandboxPANService {
     }
   }
 
-  async checkPANAadhaarLinkage(panNumber: string): Promise<PANAadhaarLinkageResponse> {
+  async checkPANAadhaarLinkage(panNumber: string, aadhaarNumber?: string): Promise<PANAadhaarLinkageResponse> {
     try {
       const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
       if (!panRegex.test(panNumber)) {
@@ -350,14 +350,19 @@ class SandboxPANService {
         throw authError;
       }
 
+      const linkageBody: Record<string, string> = {
+        '@entity': 'in.co.sandbox.kyc.pan_aadhaar.status',
+        pan: panNumber.toUpperCase(),
+        consent: 'Y',
+        reason: 'PAN-Aadhaar linkage check for KYC compliance',
+      };
+      if (aadhaarNumber) {
+        linkageBody.aadhaar_number = aadhaarNumber;
+      }
+
       const response = await axios.post<PANAadhaarLinkageResponse>(
-        `${this.baseUrl}/kyc/pan/aadhaar-link-status`,
-        {
-          '@entity': 'in.co.sandbox.kyc.pan.aadhaar_link_status',
-          pan: panNumber.toUpperCase(),
-          consent: 'Y',
-          reason: 'PAN-Aadhaar linkage check'
-        },
+        `${this.baseUrl}/kyc/pan-aadhaar/status`,
+        linkageBody,
         {
           headers: {
             'Content-Type': 'application/json',
