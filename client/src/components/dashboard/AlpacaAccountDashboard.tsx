@@ -38,7 +38,7 @@ import {
   ArrowUpCircle, ArrowDownCircle, Plus, Download, Globe, ChevronRight,
   Zap, Crown, Lock, Landmark, Send, Settings2, CalendarDays, Radio,
   ListOrdered, ShieldCheck, GitMerge, Scale, Info, Receipt, FilePlus,
-  Bookmark, ArrowLeftRight,
+  Bookmark, ArrowLeftRight, Calculator,
 } from "lucide-react";
 import FundingWalletPanel from "@/components/us-trading/FundingWalletPanel";
 import RecipientBanksPanel from "@/components/us-trading/RecipientBanksPanel";
@@ -51,6 +51,7 @@ import CorporateActionsPanel from "@/components/us-trading/CorporateActionsPanel
 import RebalancingPanel from "@/components/us-trading/RebalancingPanel";
 import WatchlistsPanel from "@/components/us-trading/WatchlistsPanel";
 import JournalsPanel from "@/components/us-trading/JournalsPanel";
+import TaxLotsPanel from "@/components/us-trading/TaxLotsPanel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1926,6 +1927,10 @@ export default function AlpacaAccountDashboard() {
             <ArrowLeftRight className="h-3.5 w-3.5" />
             Journals
           </TabsTrigger>
+          <TabsTrigger value="tax-lots" className="flex items-center gap-1.5">
+            <Calculator className="h-3.5 w-3.5" />
+            Tax Lots
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-5 mt-0">
@@ -2017,6 +2022,10 @@ export default function AlpacaAccountDashboard() {
 
         <TabsContent value="journals" className="mt-0">
           <JournalsPanel />
+        </TabsContent>
+
+        <TabsContent value="tax-lots" className="mt-0">
+          <TaxLotsPanel accountId={account?.id} />
         </TabsContent>
       </Tabs>
     </div>

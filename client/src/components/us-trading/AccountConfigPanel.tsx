@@ -3,6 +3,7 @@
  * Controls PDT, shorting, fractional trading, options level, trade confirmations,
  * High-Yield Cash Interest program, and Fully Paid Securities Lending (FPSL).
  */
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { Settings, Shield, AlertTriangle, RefreshCw, TrendingDown, Percent, Landmark, TrendingUp, Info, BadgePercent, Banknote } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import { Settings, Shield, AlertTriangle, RefreshCw, TrendingDown, Percent, Landmark, TrendingUp, Info, BadgePercent, Banknote, Lock, Unlock, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AlpacaAccountConfig } from "@/components/us-trading/types";
@@ -86,6 +93,48 @@ export default function AccountConfigPanel({ accountId }: AccountConfigPanelProp
       refetchFpsl();
     },
     onError: (e: any) => toast({ title: "FPSL update failed", description: e.message, variant: "destructive" }),
+  });
+
+  const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
+  const [suspendReason, setSuspendReason] = useState("");
+
+  const { data: restrictionsData, refetch: refetchRestrictions } = useQuery<{ success: boolean; restrictions: any }>({
+    queryKey: ["/api/us-trading/broker/accounts", accountId, "restrictions"],
+    queryFn: () => fetch(`/api/us-trading/broker/accounts/${accountId}/restrictions`).then(r => r.json()),
+    staleTime: 60_000,
+    enabled: !!accountId,
+  });
+
+  const restrictionsMutation = useMutation({
+    mutationFn: (updates: Record<string, boolean>) =>
+      apiRequest(`/api/us-trading/broker/accounts/${accountId}/restrictions`, "PATCH", updates),
+    onSuccess: () => {
+      toast({ title: "Trading restrictions updated" });
+      refetchRestrictions();
+    },
+    onError: (e: any) => toast({ title: "Restrictions update failed", description: e.message, variant: "destructive" }),
+  });
+
+  const suspendMutation = useMutation({
+    mutationFn: (reason: string) =>
+      apiRequest(`/api/us-trading/broker/accounts/${accountId}/suspend`, "POST", { reason }),
+    onSuccess: () => {
+      toast({ title: "Account suspended", description: "Account trading has been suspended." });
+      setSuspendDialogOpen(false);
+      setSuspendReason("");
+      refetchRestrictions();
+    },
+    onError: (e: any) => toast({ title: "Suspend failed", description: e.message, variant: "destructive" }),
+  });
+
+  const reinstateMutation = useMutation({
+    mutationFn: () =>
+      apiRequest(`/api/us-trading/broker/accounts/${accountId}/reinstate`, "POST", {}),
+    onSuccess: () => {
+      toast({ title: "Account reinstated", description: "Account trading has been reinstated." });
+      refetchRestrictions();
+    },
+    onError: (e: any) => toast({ title: "Reinstate failed", description: e.message, variant: "destructive" }),
   });
 
   function toggle(key: keyof AlpacaAccountConfig, current: boolean) {
@@ -404,6 +453,129 @@ export default function AccountConfigPanel({ accountId }: AccountConfigPanelProp
           </Alert>
         </div>
       )}
+
+      {/* ── Trading Restrictions ─────────────────────────────────────────── */}
+      {accountId && (
+        <div className="space-y-3">
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-red-600" />
+              <h3 className="font-semibold text-sm">Trading Restrictions</h3>
+            </div>
+            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => refetchRestrictions()}>
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              {/* Restriction Toggles */}
+              {[
+                { key: "restrict_trading", label: "Restrict All Trading", desc: "Prevents all buy and sell orders on this account." },
+                { key: "restrict_short_selling", label: "Restrict Short Selling", desc: "Disables ability to open short positions." },
+                { key: "restrict_options_trading", label: "Restrict Options Trading", desc: "Disables options order entry for this account." },
+              ].map(({ key, label, desc }) => {
+                const active = restrictionsData?.restrictions?.[key] ?? false;
+                return (
+                  <div key={key} className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-medium">{label}</div>
+                      <div className="text-xs text-muted-foreground">{desc}</div>
+                    </div>
+                    <Switch
+                      checked={active}
+                      disabled={restrictionsMutation.isPending}
+                      onCheckedChange={() => restrictionsMutation.mutate({ [key]: !active })}
+                    />
+                  </div>
+                );
+              })}
+
+              <Separator />
+
+              {/* Suspend / Reinstate */}
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-xs font-medium">Account Suspension</div>
+                  <div className="text-xs text-muted-foreground">
+                    Fully suspend all trading and funding activity on this account.
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-7 text-xs"
+                    onClick={() => setSuspendDialogOpen(true)}
+                    disabled={suspendMutation.isPending || reinstateMutation.isPending}
+                  >
+                    <Lock className="h-3 w-3 mr-1" />
+                    Suspend
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs text-green-700 border-green-200"
+                    onClick={() => reinstateMutation.mutate()}
+                    disabled={reinstateMutation.isPending || suspendMutation.isPending}
+                  >
+                    {reinstateMutation.isPending
+                      ? <RefreshCw className="h-3 w-3 animate-spin mr-1" />
+                      : <Unlock className="h-3 w-3 mr-1" />}
+                    Reinstate
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Alert className="border-red-200 bg-red-50/50 py-2">
+            <AlertTriangle className="h-3.5 w-3.5 text-red-600" />
+            <AlertDescription className="text-xs text-red-700">
+              Trading restrictions are broker-level controls. Suspension halts all activity including pending orders and funding. Reinstatement restores normal trading access. Use only for compliance, regulatory, or fraud prevention purposes.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      {/* Suspend Dialog */}
+      <Dialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Lock className="h-4 w-4" /> Suspend Account
+            </DialogTitle>
+            <DialogDescription>
+              This will halt all trading, funding, and activity on the account. Provide a reason for audit trail.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label className="text-xs">Reason for Suspension</Label>
+            <Textarea
+              value={suspendReason}
+              onChange={e => setSuspendReason(e.target.value)}
+              placeholder="e.g. Customer request, compliance review, suspected fraud..."
+              rows={3}
+              className="text-sm"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setSuspendDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={!suspendReason.trim() || suspendMutation.isPending}
+              onClick={() => suspendMutation.mutate(suspendReason.trim())}
+            >
+              {suspendMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin mr-1" /> : null}
+              Confirm Suspend
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => refetch()}>
         <RefreshCw className="h-3.5 w-3.5" /> Refresh Configuration

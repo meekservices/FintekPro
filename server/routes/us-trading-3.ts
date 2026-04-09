@@ -586,4 +586,206 @@ router.delete("/broker/accounts/:accountId/watchlists/:watchlistId/symbols/:symb
   }
 });
 
+// ─── Corporate Action Elections ────────────────────────────────────────────────
+
+/** Get account-scoped corporate action announcements (voluntary actions) */
+router.get("/broker/accounts/:accountId/corporate-actions", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const announcements = await alpacaBrokerService.getAccountCorporateActions(req.params.accountId, {
+      symbol: req.query.symbol as string,
+      types: req.query.types as string,
+      date_from: req.query.date_from as string,
+      date_to: req.query.date_to as string,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+    });
+    res.json({ success: true, announcements });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/** Get a single corporate action announcement by ID */
+router.get("/broker/corporate-actions/announcements/:announcementId", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const announcement = await alpacaBrokerService.getCorporateActionAnnouncement(req.params.announcementId);
+    if (!announcement) return res.status(404).json({ success: false, error: "Announcement not found" });
+    res.json({ success: true, announcement });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/** Get elections already submitted for an announcement */
+router.get("/broker/accounts/:accountId/corporate-actions/:announcementId/elections", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const elections = await alpacaBrokerService.getCorporateActionElections(
+      req.params.accountId,
+      req.params.announcementId,
+    );
+    res.json({ success: true, elections });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * Submit a voluntary corporate action election
+ * Body: { election_type: "cash" | "stock" | "mixed" | "none", ...opts }
+ */
+router.post("/broker/accounts/:accountId/corporate-actions/:announcementId/elections", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const { election_type, ...rest } = req.body;
+    if (!election_type) {
+      return res.status(400).json({ success: false, error: "election_type is required (cash|stock|mixed|none)" });
+    }
+    const result = await alpacaBrokerService.submitCorporateActionElection(
+      req.params.accountId,
+      req.params.announcementId,
+      election_type,
+      rest,
+    );
+    res.status(201).json({ success: true, election: result });
+  } catch (error: any) {
+    const status = error.response?.status || 500;
+    res.status(status).json({ success: false, error: error.response?.data?.message || error.message });
+  }
+});
+
+// ─── Tax Lot Management ─────────────────────────────────────────────────────────
+// Useful for India investors optimising LTCG/STCG on US-equity positions
+// (US LTCG threshold: >1 yr; India tax treatment for US stocks follows FEMA/DTAA)
+
+/** Get all tax lots across all positions for an account */
+router.get("/broker/accounts/:accountId/positions/tax-lots", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const lots = await alpacaBrokerService.getAllPositionTaxLots(req.params.accountId);
+    res.json({ success: true, tax_lots: lots });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/** Get tax lots for a single position/symbol */
+router.get("/broker/accounts/:accountId/positions/:symbol/tax-lots", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const lots = await alpacaBrokerService.getPositionTaxLots(
+      req.params.accountId,
+      req.params.symbol,
+    );
+    res.json({ success: true, symbol: req.params.symbol, tax_lots: lots });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── ACH Relationship Verification (Micro-deposits) ───────────────────────────
+
+/**
+ * Verify an ACH relationship using micro-deposit amounts.
+ * Alpaca sends two small deposits; user must confirm exact values here.
+ * Body: { amount1: number, amount2: number }
+ */
+router.post("/broker/accounts/:accountId/ach-relationships/:achId/verify", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const { amount1, amount2 } = req.body;
+    if (amount1 == null || amount2 == null) {
+      return res.status(400).json({ success: false, error: "amount1 and amount2 are required" });
+    }
+    const result = await alpacaBrokerService.verifyAchRelationship(
+      req.params.accountId,
+      req.params.achId,
+      Number(amount1),
+      Number(amount2),
+    );
+    res.json({ success: true, relationship: result });
+  } catch (error: any) {
+    const status = error.response?.status || 500;
+    res.status(status).json({ success: false, error: error.response?.data?.message || error.message });
+  }
+});
+
+// ─── Account Trading Restrictions (Admin/Compliance) ──────────────────────────
+
+/** Get current trading restrictions for an account */
+router.get("/broker/accounts/:accountId/restrictions", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const restrictions = await alpacaBrokerService.getAccountRestrictions(req.params.accountId);
+    res.json({ success: true, restrictions });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * Update trading restrictions on an account (admin/compliance only).
+ * Body: { restrict_trading?, restrict_short_selling?, restrict_options_trading?,
+ *         restrict_margin?, max_margin_multiplier?, suspend_trading? }
+ */
+router.patch("/broker/accounts/:accountId/restrictions", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const result = await alpacaBrokerService.updateAccountRestrictions(req.params.accountId, req.body);
+    res.json({ success: true, restrictions: result });
+  } catch (error: any) {
+    const status = error.response?.status || 500;
+    res.status(status).json({ success: false, error: error.response?.data?.message || error.message });
+  }
+});
+
+/** Suspend all trading on an account (compliance/AML — requires reason) */
+router.post("/broker/accounts/:accountId/suspend", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const { reason } = req.body;
+    if (!reason) return res.status(400).json({ success: false, error: "reason is required for account suspension" });
+    const result = await alpacaBrokerService.suspendAccount(req.params.accountId, reason);
+    res.json({ success: true, account: result });
+  } catch (error: any) {
+    const status = error.response?.status || 500;
+    res.status(status).json({ success: false, error: error.response?.data?.message || error.message });
+  }
+});
+
+/** Reinstate a suspended account */
+router.post("/broker/accounts/:accountId/reinstate", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const result = await alpacaBrokerService.reinstateAccount(req.params.accountId);
+    res.json({ success: true, account: result });
+  } catch (error: any) {
+    const status = error.response?.status || 500;
+    res.status(status).json({ success: false, error: error.response?.data?.message || error.message });
+  }
+});
+
 export default router;

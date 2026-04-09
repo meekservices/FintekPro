@@ -1498,6 +1498,233 @@ class AlpacaBrokerService {
     });
     return response.data;
   }
+
+  // ─── Corporate Action Elections ─────────────────────────────────────────────
+
+  /**
+   * Get a single corporate action announcement by ID.
+   * GET /v1/corporate_actions/announcements/:id
+   */
+  async getCorporateActionAnnouncement(announcementId: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(`/v1/corporate_actions/announcements/${announcementId}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status !== 404) console.error("[CorpAction] getAnnouncement error:", error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get corporate action announcements for a specific account (optional symbol filter).
+   * GET /v1/accounts/:accountId/corporate_actions/announcements
+   */
+  async getAccountCorporateActions(accountId: string, params?: {
+    symbol?: string;
+    types?: string;
+    date_from?: string;
+    date_to?: string;
+    limit?: number;
+  }): Promise<any[]> {
+    try {
+      const response = await this.client.get(
+        `/v1/accounts/${accountId}/corporate_actions/announcements`,
+        { params }
+      );
+      const data = response.data;
+      return Array.isArray(data) ? data : (data?.announcements ?? []);
+    } catch (error: any) {
+      if (error.response?.status !== 404) {
+        console.error("[CorpAction] getAccountCorporateActions error:", error.message);
+      }
+      return [];
+    }
+  }
+
+  /**
+   * Submit a voluntary corporate action election (e.g. cash vs stock choice for merger/tender).
+   * POST /v1/accounts/:accountId/corporate_actions/announcements/:announcementId/elections
+   * electionType: "cash" | "stock" | "mixed" | "none"
+   */
+  async submitCorporateActionElection(
+    accountId: string,
+    announcementId: string,
+    electionType: "cash" | "stock" | "mixed" | "none",
+    data?: Record<string, any>
+  ): Promise<any> {
+    const response = await this.client.post(
+      `/v1/accounts/${accountId}/corporate_actions/announcements/${announcementId}/elections`,
+      { election_type: electionType, ...data }
+    );
+    return response.data;
+  }
+
+  /**
+   * Get all elections an account has submitted.
+   * GET /v1/accounts/:accountId/corporate_actions/announcements/:announcementId/elections
+   */
+  async getCorporateActionElections(accountId: string, announcementId: string): Promise<any[]> {
+    try {
+      const response = await this.client.get(
+        `/v1/accounts/${accountId}/corporate_actions/announcements/${announcementId}/elections`
+      );
+      const data = response.data;
+      return Array.isArray(data) ? data : (data?.elections ?? []);
+    } catch (error: any) {
+      if (error.response?.status !== 404) console.error("[CorpAction] getElections error:", error.message);
+      return [];
+    }
+  }
+
+  // ─── Tax Lot Management ──────────────────────────────────────────────────────
+
+  /**
+   * Get tax lots for a specific position.
+   * GET /v1beta1/trading/accounts/:accountId/positions/:symbol/tax_lots
+   * Tax lots show individual purchase tranches: cost basis, acquisition date, unrealized P&L.
+   * Used for India LTCG/STCG optimization (holding > 24 months = LTCG for US equity per FEMA rules).
+   */
+  async getPositionTaxLots(accountId: string, symbol: string): Promise<any[]> {
+    try {
+      const response = await this.client.get(
+        `/v1beta1/trading/accounts/${accountId}/positions/${symbol.toUpperCase()}/tax_lots`
+      );
+      const data = response.data;
+      return Array.isArray(data) ? data : (data?.tax_lots ?? []);
+    } catch (error: any) {
+      if (error.response?.status !== 404) console.error("[TaxLots] getPositionTaxLots error:", error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get tax lots for all positions in an account.
+   * GET /v1beta1/trading/accounts/:accountId/positions/tax_lots
+   */
+  async getAllPositionTaxLots(accountId: string): Promise<any[]> {
+    try {
+      const response = await this.client.get(
+        `/v1beta1/trading/accounts/${accountId}/positions/tax_lots`
+      );
+      const data = response.data;
+      return Array.isArray(data) ? data : (data?.tax_lots ?? []);
+    } catch (error: any) {
+      if (error.response?.status !== 404) console.error("[TaxLots] getAllPositionTaxLots error:", error.message);
+      return [];
+    }
+  }
+
+  // ─── Options Exercise ────────────────────────────────────────────────────────
+
+  /**
+   * Exercise one or more options contracts (early exercise or at expiry).
+   * POST /v1beta1/trading/accounts/:accountId/options/exercises
+   * Body: { type: "e" (exercise) or "a" (abandon), contracts: [{ symbol, qty }] }
+   */
+  async exerciseOptions(accountId: string, contracts: Array<{ symbol: string; qty: number }>, type: "e" | "a" = "e"): Promise<any> {
+    const response = await this.client.post(
+      `/v1beta1/trading/accounts/${accountId}/options/exercises`,
+      { type, contracts }
+    );
+    return response.data;
+  }
+
+  /**
+   * List options exercise requests for an account.
+   * GET /v1beta1/trading/accounts/:accountId/options/exercises
+   */
+  async listOptionsExercises(accountId: string, params?: { symbol?: string; status?: string; limit?: number }): Promise<any[]> {
+    try {
+      const response = await this.client.get(
+        `/v1beta1/trading/accounts/${accountId}/options/exercises`,
+        { params }
+      );
+      const data = response.data;
+      return Array.isArray(data) ? data : (data?.exercises ?? []);
+    } catch (error: any) {
+      if (error.response?.status !== 404) console.error("[Options] listExercises error:", error.message);
+      return [];
+    }
+  }
+
+  // ─── ACH Relationship Verification ──────────────────────────────────────────
+
+  /**
+   * Verify an ACH relationship via micro-deposit amounts.
+   * POST /v1/accounts/:accountId/ach_relationships/:achRelationshipId/verify
+   * Alpaca deposits two small amounts; user must confirm exact values.
+   */
+  async verifyAchRelationship(
+    accountId: string,
+    achRelationshipId: string,
+    amount1: number,
+    amount2: number
+  ): Promise<any> {
+    const response = await this.client.post(
+      `/v1/accounts/${accountId}/ach_relationships/${achRelationshipId}/verify`,
+      { amount1, amount2 }
+    );
+    return response.data;
+  }
+
+  // ─── Account Trading Restrictions ───────────────────────────────────────────
+
+  /**
+   * Get the current trading restrictions / account-level configurations.
+   * GET /v1/accounts/:accountId/account_configurations
+   */
+  async getAccountRestrictions(accountId: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(`/v1/accounts/${accountId}/account_configurations`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status !== 404) console.error("[Restrictions] getAccountRestrictions error:", error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Update trading restrictions on an account.
+   * PATCH /v1/accounts/:accountId/account_configurations
+   * Supports restricting/unrestricting trading, enabling/disabling margin, etc.
+   */
+  async updateAccountRestrictions(accountId: string, restrictions: {
+    restrict_trading?: boolean;
+    restrict_short_selling?: boolean;
+    restrict_options_trading?: boolean;
+    restrict_margin?: boolean;
+    max_margin_multiplier?: number;
+    suspend_trading?: boolean;
+  }): Promise<any> {
+    const response = await this.client.patch(
+      `/v1/accounts/${accountId}/account_configurations`,
+      restrictions
+    );
+    return response.data;
+  }
+
+  /**
+   * Suspend all trading on an account (e.g. for compliance/AML breach).
+   * Uses PATCH /v1/accounts/:accountId with status: "ACCOUNT_SUSPENDED"
+   */
+  async suspendAccount(accountId: string, reason: string): Promise<any> {
+    const response = await this.client.patch(`/v1/accounts/${accountId}`, {
+      status: "ACCOUNT_SUSPENDED",
+      suspension_reason: reason,
+    });
+    return response.data;
+  }
+
+  /**
+   * Reinstate a previously suspended account.
+   * Uses PATCH /v1/accounts/:accountId with status: "ACTIVE"
+   */
+  async reinstateAccount(accountId: string): Promise<any> {
+    const response = await this.client.patch(`/v1/accounts/${accountId}`, {
+      status: "ACTIVE",
+    });
+    return response.data;
+  }
 }
 
 export const alpacaBrokerService = new AlpacaBrokerService();
