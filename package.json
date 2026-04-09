@@ -186,9 +186,6 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "optionalDependencies": {
-    "bufferutil": "4.1.0"
-  },
   "overrides": {
     "indian-stock-exchange": {
       "axios": "^1.8.2"
