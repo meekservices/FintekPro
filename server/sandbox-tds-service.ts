@@ -932,6 +932,339 @@ class SandboxTDSService {
     return sectionMap[section || '194C'] || 'contractor';
   }
 
+  // ============ SANDBOX API — CALCULATOR ============
+
+  /**
+   * Calculate TDS on non-salary payment via Sandbox API.
+   * Endpoint: POST /tds/calculator/non-salary
+   */
+  async calculateNonSalaryTDSSandbox(params: {
+    deducteeType: string;          // e.g. "individual", "company"
+    isPanAvailable: boolean;
+    residentialStatus: string;     // e.g. "resident", "non_resident"
+    is206abApplicable: boolean;
+    isPanOperative: boolean;
+    natureOfPayment: string;       // e.g. "winnings_from_online_games"
+    creditAmount: number;
+    creditDate: number;            // Unix epoch ms
+  }): Promise<any> {
+    return this.makeAPICall('/tds/calculator/non-salary', {
+      '@entity': 'in.co.sandbox.tds.calculator.non_salary.request',
+      deductee_type: params.deducteeType,
+      is_pan_available: params.isPanAvailable,
+      residential_status: params.residentialStatus,
+      is_206ab_applicable: params.is206abApplicable,
+      is_pan_operative: params.isPanOperative,
+      nature_of_payment: params.natureOfPayment,
+      credit_amount: params.creditAmount,
+      credit_date: params.creditDate,
+    }, 'POST');
+  }
+
+  // ============ SANDBOX API — TDS ANALYTICS (JOB-BASED) ============
+
+  /**
+   * Submit TDS Potential Notices analytics job.
+   * Endpoint: POST /tds/analytics/potential-notices
+   * After creation, upload Sheet JSON to json_url, then poll.
+   */
+  async submitTDSAnalyticsJob(params: {
+    tan: string;
+    quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+    form: '24Q' | '26Q' | '27Q';
+    financialYear: string;         // e.g. "FY 2024-25"
+  }): Promise<any> {
+    return this.makeAPICall('/tds/analytics/potential-notices', {
+      '@entity': 'in.co.sandbox.tds.analytics.potential_notices.request',
+      quarter: params.quarter,
+      tan: params.tan,
+      form: params.form,
+      financial_year: params.financialYear,
+    }, 'POST');
+  }
+
+  /**
+   * Poll TDS Analytics job status.
+   * Endpoint: GET /tds/analytics/potential-notices?job_id=...
+   * When status==="succeeded" → data.potential_notice_report_url is populated.
+   */
+  async pollTDSAnalyticsJob(jobId: string): Promise<any> {
+    return this.makeAPICall(`/tds/analytics/potential-notices?job_id=${encodeURIComponent(jobId)}`, undefined, 'GET');
+  }
+
+  /**
+   * Submit TCS Potential Notices analytics job.
+   * Endpoint: POST /tcs/analytics/potential-notices
+   */
+  async submitTCSAnalyticsJob(params: {
+    tan: string;
+    quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+    financialYear: string;
+  }): Promise<any> {
+    return this.makeAPICall('/tcs/analytics/potential-notices', {
+      '@entity': 'in.co.sandbox.tcs.analytics.potential_notices.request',
+      quarter: params.quarter,
+      tan: params.tan,
+      financial_year: params.financialYear,
+    }, 'POST');
+  }
+
+  /**
+   * Poll TCS Analytics job status.
+   * Endpoint: GET /tcs/analytics/potential-notices?job_id=...
+   */
+  async pollTCSAnalyticsJob(jobId: string): Promise<any> {
+    return this.makeAPICall(`/tcs/analytics/potential-notices?job_id=${encodeURIComponent(jobId)}`, undefined, 'GET');
+  }
+
+  // ============ SANDBOX API — TDS REPORTS (JOB-BASED) ============
+
+  /**
+   * Submit TDS TXT report generation job.
+   * Endpoint: POST /tds/reports/txt
+   * Response includes job_id + json_url (PUT your Sheet JSON to json_url to trigger processing).
+   */
+  async submitTDSReportJob(params: {
+    tan: string;
+    quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+    form: '24Q' | '26Q' | '27Q';
+    financialYear: string;
+    previousReceiptNumber?: string;
+  }): Promise<any> {
+    return this.makeAPICall('/tds/reports/txt', {
+      '@entity': 'in.co.sandbox.tds.reports.request',
+      financial_year: params.financialYear,
+      form: params.form,
+      quarter: params.quarter,
+      tan: params.tan,
+      ...(params.previousReceiptNumber && { previous_receipt_number: params.previousReceiptNumber }),
+    }, 'POST');
+  }
+
+  /**
+   * Poll TDS TXT report job status.
+   * Endpoint: GET /tds/reports/txt?job_id=...
+   * When status==="succeeded" → data.txt_file_url is populated.
+   */
+  async pollTDSReportJob(jobId: string): Promise<any> {
+    return this.makeAPICall(`/tds/reports/txt?job_id=${encodeURIComponent(jobId)}`, undefined, 'GET');
+  }
+
+  /**
+   * Search/list prior TDS report jobs.
+   * Endpoint: POST /tds/reports/txt/search
+   */
+  async searchTDSReportJobs(params: {
+    tan: string;
+    quarter?: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+    form?: '24Q' | '26Q' | '27Q';
+    financialYear?: string;
+    fromDate?: number;
+    toDate?: number;
+    pageSize?: number;
+    lastEvaluatedKey?: string;
+  }): Promise<any> {
+    return this.makeAPICall('/tds/reports/txt/search', {
+      '@entity': 'in.co.sandbox.tds.reports.jobs.search',
+      tan: params.tan,
+      ...(params.quarter && { quarter: params.quarter }),
+      ...(params.form && { form: params.form }),
+      ...(params.financialYear && { financial_year: params.financialYear }),
+      ...(params.fromDate && { from_date: params.fromDate }),
+      ...(params.toDate && { to_date: params.toDate }),
+      ...(params.pageSize && { page_size: params.pageSize }),
+      ...(params.lastEvaluatedKey && { last_evaluated_key: params.lastEvaluatedKey }),
+    }, 'POST');
+  }
+
+  // ============ SANDBOX API — TCS REPORTS (JOB-BASED) ============
+
+  /**
+   * Submit TCS TXT report generation job.
+   * Endpoint: POST /tcs/reports/txt
+   */
+  async submitTCSReportJob(params: {
+    tan: string;
+    quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+    financialYear: string;
+    previousReceiptNumber?: string;
+  }): Promise<any> {
+    return this.makeAPICall('/tcs/reports/txt', {
+      '@entity': 'in.co.sandbox.tcs.reports.request',
+      financial_year: params.financialYear,
+      quarter: params.quarter,
+      tan: params.tan,
+      ...(params.previousReceiptNumber && { previous_receipt_number: params.previousReceiptNumber }),
+    }, 'POST');
+  }
+
+  /**
+   * Poll TCS TXT report job status.
+   * Endpoint: GET /tcs/reports/txt?job_id=...
+   */
+  async pollTCSReportJob(jobId: string): Promise<any> {
+    return this.makeAPICall(`/tcs/reports/txt?job_id=${encodeURIComponent(jobId)}`, undefined, 'GET');
+  }
+
+  /**
+   * Search/list prior TCS report jobs.
+   * Endpoint: POST /tcs/reports/txt/search
+   */
+  async searchTCSReportJobs(params: {
+    tan: string;
+    quarter?: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+    financialYear?: string;
+    fromDate?: number;
+    toDate?: number;
+    pageSize?: number;
+    lastEvaluatedKey?: string;
+  }): Promise<any> {
+    return this.makeAPICall('/tcs/reports/txt/search', {
+      '@entity': 'in.co.sandbox.tcs.reports.jobs.search',
+      tan: params.tan,
+      ...(params.quarter && { quarter: params.quarter }),
+      ...(params.financialYear && { financial_year: params.financialYear }),
+      ...(params.fromDate && { from_date: params.fromDate }),
+      ...(params.toDate && { to_date: params.toDate }),
+      ...(params.pageSize && { page_size: params.pageSize }),
+      ...(params.lastEvaluatedKey && { last_evaluated_key: params.lastEvaluatedKey }),
+    }, 'POST');
+  }
+
+  // ============ SANDBOX API — COMPLIANCE: FORM 16 / 16A ============
+
+  /**
+   * Submit Form 16 or Form 16A TRACES download job.
+   * Endpoint: POST /tds/compliance/traces/deductors/forms/{certificate_type}
+   * certificate_type: "form-16" | "form-16a"
+   */
+  async submitForm16Job(certificateType: 'form-16' | 'form-16a', params: {
+    username: string;
+    password: string;
+    tan: string;
+    securityCaptcha: {
+      quarter: string;
+      financialYear: string;
+      form: string;
+      bsrCode: string;
+      challanDate: number;
+      challanSerialNo: string;
+      provisionalReceiptNumber: string;
+      challanAmount: number;
+      uniquePanAmountCombination: any[][];
+    };
+    rememberMe?: boolean;
+  }): Promise<any> {
+    return this.makeAPICall(
+      `/tds/compliance/traces/deductors/forms/${certificateType}`,
+      {
+        '@entity': 'in.co.sandbox.tds.compliance.traces.credentials',
+        username: params.username,
+        password: params.password,
+        tan: params.tan,
+        security_captcha: {
+          '@entity': 'in.co.sandbox.tds.compliance.traces.credentials.security_captcha',
+          quarter: params.securityCaptcha.quarter,
+          financial_year: params.securityCaptcha.financialYear,
+          form: params.securityCaptcha.form,
+          bsr_code: params.securityCaptcha.bsrCode,
+          challan_date: params.securityCaptcha.challanDate,
+          challan_serial_no: params.securityCaptcha.challanSerialNo,
+          provisional_receipt_number: params.securityCaptcha.provisionalReceiptNumber,
+          challan_amount: params.securityCaptcha.challanAmount,
+          unique_pan_amount_combination_for_challan: params.securityCaptcha.uniquePanAmountCombination,
+        },
+        remember_me: params.rememberMe ?? false,
+      },
+      'POST'
+    );
+  }
+
+  /**
+   * Poll Form 16 / 16A TRACES download job status.
+   * Endpoint: POST /tds/compliance/traces/deductors/forms/{certificate_type}/status
+   */
+  async pollForm16JobStatus(certificateType: 'form-16' | 'form-16a', params: {
+    username: string;
+    password: string;
+    tan: string;
+  }): Promise<any> {
+    return this.makeAPICall(
+      `/tds/compliance/traces/deductors/forms/${certificateType}/status`,
+      {
+        '@entity': 'in.co.sandbox.tds.compliance.traces.status.request',
+        username: params.username,
+        password: params.password,
+        tan: params.tan,
+      },
+      'POST'
+    );
+  }
+
+  // ============ SANDBOX API — COMPLIANCE: FVU GENERATION ============
+
+  /**
+   * Submit FVU generation job.
+   * Endpoint: POST /tds/compliance/fvu/generate
+   * Response: { job_id, txt_file_upload_url, csi_file_upload_url }
+   * PUT your .txt and .csi files to those upload URLs (no auth headers), then poll.
+   */
+  async submitFVUGenerateJob(params: {
+    tan: string;
+    financialYear: string;
+    quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+    form: '24Q' | '26Q' | '27Q';
+    filingType: 'regular' | 'correction';
+  }): Promise<any> {
+    return this.makeAPICall('/tds/compliance/fvu/generate', {
+      '@entity': 'in.co.sandbox.tds.compliance.fvu.generate.request',
+      financial_year: params.financialYear,
+      quarter: params.quarter,
+      form: params.form,
+      tan: params.tan,
+      filing_type: params.filingType,
+    }, 'POST');
+  }
+
+  /**
+   * Poll FVU generation job status.
+   * Endpoint: GET /tds/compliance/fvu/generate?job_id=...
+   * When status==="succeeded" → data.fvu_zip_file_url is populated.
+   */
+  async pollFVUGenerateJob(jobId: string): Promise<any> {
+    return this.makeAPICall(`/tds/compliance/fvu/generate?job_id=${encodeURIComponent(jobId)}`, undefined, 'GET');
+  }
+
+  // ============ SANDBOX API — COMPLIANCE: E-FILE ============
+
+  /**
+   * Submit e-file TDS return job.
+   * Endpoint: POST /tds/compliance/e-file
+   */
+  async submitEFileJob(params: {
+    tan: string;
+    financialYear: string;
+    form: '24Q' | '26Q' | '27Q';
+    quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+  }): Promise<any> {
+    return this.makeAPICall('/tds/compliance/e-file', {
+      '@entity': 'in.co.sandbox.tds.compliance.e-file.request',
+      financial_year: params.financialYear,
+      form: params.form,
+      quarter: params.quarter,
+      tan: params.tan,
+    }, 'POST');
+  }
+
+  /**
+   * Poll e-file job status.
+   * Endpoint: GET /tds/compliance/e-file?job_id=...
+   * When status==="succeeded" → data.receipt_number + data.receipt_file_url are populated.
+   */
+  async pollEFileJob(jobId: string): Promise<any> {
+    return this.makeAPICall(`/tds/compliance/e-file?job_id=${encodeURIComponent(jobId)}`, undefined, 'GET');
+  }
+
   getTDSFormTypes(): Array<{ form: string; description: string; applicableFor: string[] }> {
     return [
       { 
