@@ -808,6 +808,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   registerFamilyCollaborationRoutes(app);
   registerAlertSystemRoutes(app);
   registerSystemAdminRoutes(app);
+  registerAdminPanelRoutes(app);
   registerIrisKfintechRoutes(app);
   
   return server;
