@@ -199,15 +199,25 @@ export function EnhancedNavigation() {
     { name: "MLDs", href: "/mlds", description: "Market Linked Debentures" }
   ];
 
-  const tradingSubItems: NavigationSubItem[] = isKycComplete ? [
-    { name: "Equities (NSE/BSE)", href: "/broking", description: "Stock trading" },
-    { name: "F&O", href: "/derivatives", description: "Futures & options" },
-    { name: "Commodities", href: "/commodities", description: "MCX/NCDEX trading" },
-    { name: "Global Markets", href: "/global-trading", description: "International stocks" },
-    { name: "US Trading (Alpaca)", href: "/us-trading", description: "US equities, options & ETFs via Alpaca", badge: "LRS" }
-  ] : [
-    { name: "Complete KYC to Trade", href: "/onboarding", description: "Verify your identity to start trading", badge: "REQUIRED" },
-    { name: "US Trading (Alpaca)", href: "/us-trading", description: "US equities, options & ETFs via Alpaca", badge: "LRS" }
+  // Global Trading sub-items — always visible (KYC is checked at transaction time, not browse time)
+  const globalTradingSubItems: NavigationSubItem[] = [
+    {
+      name: "🇮🇳 India Markets",
+      description: "NSE / BSE / MCX",
+      subItems: [
+        { name: "Equities (NSE/BSE)", href: "/broking", description: "Indian stocks & ETFs" },
+        { name: "Derivatives (F&O)", href: "/derivatives", description: "Futures & options" },
+        { name: "Commodities", href: "/commodities", description: "MCX/NCDEX trading" },
+      ]
+    },
+    {
+      name: "🌍 Global & US Markets",
+      description: "NYSE / NASDAQ / International",
+      subItems: [
+        { name: "International Markets", href: "/global-trading", description: "Multi-country exchanges" },
+        { name: "US Stocks & ETFs", href: "/us-trading", description: "NYSE/NASDAQ via Alpaca broker", badge: "LRS" },
+      ]
+    }
   ];
 
   const navigationGroups: NavigationGroup[] = [
@@ -279,10 +289,10 @@ export function EnhancedNavigation() {
           subItems: fixedIncomeSubItems
         },
         {
-          name: "Trading",
+          name: "Global Trading",
           icon: TrendingUp,
-          description: isKycComplete ? "Equity & derivatives" : "Complete KYC to access trading",
-          subItems: tradingSubItems
+          description: "India & US markets — browse freely, KYC checked at order",
+          subItems: globalTradingSubItems
         },
         {
           name: "Insurance Hub",
@@ -562,14 +572,14 @@ export function EnhancedNavigation() {
                                     </Button>
                                   </Link>
                                 ) : subItem.subItems ? (
-                                  <Collapsible>
+                                  <Collapsible defaultOpen>
                                     <CollapsibleTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="w-full justify-between text-xs">
-                                        {subItem.name}
-                                        <ChevronRight className="h-3 w-3" />
+                                      <Button variant="ghost" size="sm" className="w-full justify-between text-xs font-semibold text-muted-foreground hover:text-foreground uppercase tracking-wide">
+                                        <span>{subItem.name}</span>
+                                        <ChevronRight className="h-3 w-3 transition-transform data-[state=open]:rotate-90" />
                                       </Button>
                                     </CollapsibleTrigger>
-                                    <CollapsibleContent className="pl-4 space-y-1">
+                                    <CollapsibleContent className="pl-3 space-y-0.5 border-l border-border/50 ml-2">
                                       {subItem.subItems.map((nestedItem) => (
                                         <Link key={nestedItem.name} href={nestedItem.href} onClick={inSheet ? handleMobileNavClick : undefined}>
                                           <Button
@@ -577,7 +587,12 @@ export function EnhancedNavigation() {
                                             size="sm"
                                             className="w-full justify-start text-xs"
                                           >
-                                            {nestedItem.name}
+                                            <span className="truncate">{nestedItem.name}</span>
+                                            {nestedItem.badge && (
+                                              <Badge variant="secondary" className="ml-auto text-[10px] shrink-0">
+                                                {nestedItem.badge}
+                                              </Badge>
+                                            )}
                                           </Button>
                                         </Link>
                                       ))}
