@@ -442,77 +442,26 @@ class SandboxITRService {
   async calculateTax(formData: ITRFormData): Promise<ITRCalculationResponse> {
     try {
       const validatedData = ITRFormDataSchema.parse(formData);
-      
-      try {
-        const response = await this.makeAPICall(
-          '/it/calculator/income_tax/itr',
-          {
-            assessment_year: validatedData.filingDetails.assessmentYear,
-            entity_type: validatedData.entityType || 'individual',
-            income_details: {
-              salary_income: validatedData.incomeDetails.salaryIncome,
-              business_income: validatedData.incomeDetails.businessIncome,
-              capital_gains: validatedData.incomeDetails.capitalGains,
-              other_income: validatedData.incomeDetails.otherIncome,
-              interest_income: validatedData.incomeDetails.interestIncome,
-              rental_income: validatedData.incomeDetails.rentalIncome,
-              dividend_income: validatedData.incomeDetails.dividendIncome,
-            },
-            deductions: {
-              section_80c: validatedData.deductions.section80C,
-              section_80d: validatedData.deductions.section80D,
-              section_80g: validatedData.deductions.section80G,
-              home_loan_interest: validatedData.deductions.homeLoanInterest,
-              standard_deduction: validatedData.deductions.standardDeduction,
-              professional_tax: validatedData.deductions.professionalTax,
-              other_deductions: validatedData.deductions.otherDeductions,
-            },
-            tax_payments: {
-              tds_deducted: validatedData.taxPayments.tdsDeducted,
-              advance_tax_paid: validatedData.taxPayments.advanceTaxPaid,
-              self_assessment_tax: validatedData.taxPayments.selfAssessmentTax,
-            },
-          },
-          'POST'
-        );
-
-        return {
-          success: true,
-          data: {
-            totalIncome: response.data?.total_income ?? response.total_income ?? 0,
-            taxableIncome: response.data?.taxable_income ?? response.taxable_income ?? 0,
-            totalDeductions: response.data?.total_deductions ?? response.total_deductions ?? 0,
-            taxLiability: response.data?.tax_liability ?? response.tax_liability ?? 0,
-            taxPaid: response.data?.tax_paid ?? response.tax_paid ?? 0,
-            refundAmount: response.data?.refund_amount ?? response.refund_amount ?? 0,
-            taxPayable: response.data?.tax_payable ?? response.tax_payable ?? 0,
-            effectiveTaxRate: response.data?.effective_tax_rate ?? response.effective_tax_rate ?? 0,
-          },
-          message: 'Tax calculated via Sandbox.co.in API',
-        };
-      } catch (sandboxError) {
-        const errMsg = sandboxError instanceof Error ? sandboxError.message : '';
-        if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('404') || errMsg.includes('400') || errMsg.includes('Forbidden') || errMsg.includes('Insufficient privilege') || errMsg.includes('saved example') || errMsg.includes('SignedHeaders')) {
-          console.log('[Sandbox ITR] Sandbox IT API not accessible, using native Indian Tax Calculator');
-          return indianTaxCalculator.calculateTax({
-            entityType: validatedData.entityType || 'individual',
-            incomeDetails: validatedData.incomeDetails,
-            deductions: validatedData.deductions,
-            taxPayments: validatedData.taxPayments,
-            filingDetails: {
-              assessmentYear: validatedData.filingDetails.assessmentYear,
-              itrForm: validatedData.filingDetails.itrForm,
-              filingStatus: validatedData.filingDetails.filingStatus,
-            },
-          });
-        }
-        throw sandboxError;
-      }
+      // Sandbox.co.in IT API does NOT have a salary/deductions ITR calculator.
+      // The Sandbox IT Calculator API only covers P&L/Capital Gains on investments.
+      // Always use the native Indian Tax Calculator for income tax computation.
+      console.log('[Sandbox ITR] Using native Indian Tax Calculator (Sandbox IT API has no income tax calculator endpoint)');
+      return indianTaxCalculator.calculateTax({
+        entityType: validatedData.entityType || 'individual',
+        incomeDetails: validatedData.incomeDetails,
+        deductions: validatedData.deductions,
+        taxPayments: validatedData.taxPayments,
+        filingDetails: {
+          assessmentYear: validatedData.filingDetails.assessmentYear,
+          itrForm: validatedData.filingDetails.itrForm,
+          filingStatus: validatedData.filingDetails.filingStatus,
+        },
+      });
     } catch (error) {
       console.error('[Sandbox ITR] Tax calculation failed:', error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Tax calculation failed — Sandbox API error'
+        message: error instanceof Error ? error.message : 'Tax calculation failed'
       };
     }
   }
@@ -567,113 +516,16 @@ class SandboxITRService {
     bankDetails?: { accountNumber: string; ifscCode: string; bankName?: string; accountType?: string };
   }): Promise<ITRCalculationResponse> {
     try {
-      const totalCapitalGains = wizardData.capitalGainsSTCG + wizardData.capitalGainsLTCG - wizardData.capitalGainsExemptions;
-      const ftc = wizardData.foreignTaxCredit || 0;
-
-      const combined80C = Math.min(
-        (wizardData.section80C || 0) + (wizardData.section80CCC || 0) + (wizardData.section80CCD1 || 0),
-        150000
-      );
-
-      const payload: Record<string, any> = {
-        assessment_year: wizardData.assessmentYear,
-        entity_type: wizardData.entityType,
-        income_details: {
-          salary_income: wizardData.salaryIncome,
-          business_income: wizardData.businessIncome,
-          capital_gains: Math.max(0, totalCapitalGains),
-          capital_gains_stcg: wizardData.capitalGainsSTCG,
-          capital_gains_ltcg: wizardData.capitalGainsLTCG,
-          capital_gains_exemptions: wizardData.capitalGainsExemptions,
-          other_income: wizardData.otherIncome,
-          interest_income: wizardData.interestIncome,
-          rental_income: wizardData.housePropertyIncome,
-          dividend_income: wizardData.dividendIncome,
-          agricultural_income: wizardData.agriculturalIncome || 0,
-        },
-        deductions: {
-          section_80c: combined80C,
-          section_80ccd_1b: Math.min(wizardData.section80CCD1B || 0, 50000),
-          section_80ccd_2: wizardData.section80CCD2 || 0,
-          section_80d: Math.min(wizardData.section80D, 100000),
-          section_80dd: Math.min(wizardData.section80DD || 0, 125000),
-          section_80ddb: Math.min(wizardData.section80DDB || 0, 100000),
-          section_80e: wizardData.section80E,
-          section_80eea: Math.min(wizardData.section80EEA || 0, 150000),
-          section_80eeb: Math.min(wizardData.section80EEB || 0, 150000),
-          section_80g: wizardData.section80G,
-          section_80gg: Math.min(wizardData.section80GG || 0, 60000),
-          section_80tta: Math.min(wizardData.section80TTA, 10000),
-          section_80ttb: Math.min(wizardData.section80TTB || 0, 50000),
-          section_80u: Math.min(wizardData.section80U || 0, 125000),
-          standard_deduction: wizardData.standardDeduction,
-          professional_tax: wizardData.professionalTax,
-          home_loan_interest: wizardData.homeLoanInterest,
-          other_deductions: wizardData.otherDeductions,
-        },
-        tax_payments: {
-          tds_deducted: wizardData.tdsDeducted,
-          tds_salary: wizardData.tdsSalary || 0,
-          tds_other_than_salary: wizardData.tdsOtherThanSalary || 0,
-          tds_on_property: wizardData.tdsOnProperty || 0,
-          tcs_collected: wizardData.tcsCollected || 0,
-          advance_tax_paid: wizardData.advanceTaxPaid,
-          self_assessment_tax: wizardData.selfAssessmentTax,
-          relief_us_89: wizardData.reliefUs89 || 0,
-        },
-      };
-
-      if (ftc > 0) {
-        payload.tax_relief = {
-          section_90_91: ftc,
-          country: wizardData.foreignIncomeCountry || 'US',
-          dtaa_applicable: true,
-        };
-      }
-
-      if (wizardData.bankDetails) {
-        payload.bank_details = {
-          account_number: wizardData.bankDetails.accountNumber,
-          ifsc_code: wizardData.bankDetails.ifscCode,
-          bank_name: wizardData.bankDetails.bankName || '',
-          account_type: wizardData.bankDetails.accountType || 'savings',
-        };
-      }
-
-      try {
-        const response = await this.makeAPICall(
-          '/it/calculator/income_tax/itr',
-          payload,
-          'POST'
-        );
-
-        return {
-          success: true,
-          data: {
-            totalIncome: response.data?.total_income ?? response.total_income ?? 0,
-            taxableIncome: response.data?.taxable_income ?? response.taxable_income ?? 0,
-            totalDeductions: response.data?.total_deductions ?? response.total_deductions ?? 0,
-            taxLiability: response.data?.tax_liability ?? response.tax_liability ?? 0,
-            taxPaid: response.data?.tax_paid ?? response.tax_paid ?? 0,
-            refundAmount: response.data?.refund_amount ?? response.refund_amount ?? 0,
-            taxPayable: response.data?.tax_payable ?? response.tax_payable ?? 0,
-            effectiveTaxRate: response.data?.effective_tax_rate ?? response.effective_tax_rate ?? 0,
-          },
-          message: 'Tax calculated via Sandbox.co.in API',
-        };
-      } catch (sandboxError) {
-        const errMsg = sandboxError instanceof Error ? sandboxError.message : '';
-        if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('404') || errMsg.includes('400') || errMsg.includes('Forbidden') || errMsg.includes('Insufficient privilege') || errMsg.includes('saved example') || errMsg.includes('SignedHeaders')) {
-          console.log('[Sandbox ITR] Sandbox IT API not accessible, using native Indian Tax Calculator for wizard');
-          return indianTaxCalculator.calculateTaxFromWizard(wizardData);
-        }
-        throw sandboxError;
-      }
+      // Sandbox.co.in IT API does NOT have a salary/deductions ITR calculator.
+      // The Sandbox IT Calculator API only covers P&L/Capital Gains on investments.
+      // Always delegate to the native Indian Tax Calculator.
+      console.log('[Sandbox ITR] Using native Indian Tax Calculator for wizard (Sandbox IT API has no income tax calculator endpoint)');
+      return indianTaxCalculator.calculateTaxFromWizard(wizardData);
     } catch (error) {
       console.error('[Sandbox ITR] Wizard tax calculation failed:', error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Wizard tax calculation failed — Sandbox API error',
+        message: error instanceof Error ? error.message : 'Wizard tax calculation failed',
       };
     }
   }
@@ -682,107 +534,39 @@ class SandboxITRService {
     try {
       const validatedData = ITRFormDataSchema.parse(formData);
       
-      try {
-        const response = await this.makeAPICall(
-          '/it/report/itr',
-          {
-            pan: validatedData.personalInfo.pan,
-            assessment_year: validatedData.filingDetails.assessmentYear,
-            itr_form: validatedData.filingDetails.itrForm,
-            filing_status: validatedData.filingDetails.filingStatus,
-            entity_type: validatedData.entityType || 'individual',
-            personal_info: {
-              pan: validatedData.personalInfo.pan,
-              first_name: validatedData.personalInfo.firstName,
-              last_name: validatedData.personalInfo.lastName,
-              date_of_birth: validatedData.personalInfo.dateOfBirth,
-              email: validatedData.personalInfo.email,
-              phone: validatedData.personalInfo.phone,
-              aadhar: validatedData.personalInfo.aadhar,
-              address: validatedData.personalInfo.address,
-            },
-            income_details: {
-              salary_income: validatedData.incomeDetails.salaryIncome,
-              business_income: validatedData.incomeDetails.businessIncome,
-              capital_gains: validatedData.incomeDetails.capitalGains,
-              other_income: validatedData.incomeDetails.otherIncome,
-              interest_income: validatedData.incomeDetails.interestIncome,
-              rental_income: validatedData.incomeDetails.rentalIncome,
-              dividend_income: validatedData.incomeDetails.dividendIncome,
-            },
-            deductions: {
-              section_80c: validatedData.deductions.section80C,
-              section_80d: validatedData.deductions.section80D,
-              section_80g: validatedData.deductions.section80G,
-              home_loan_interest: validatedData.deductions.homeLoanInterest,
-              standard_deduction: validatedData.deductions.standardDeduction,
-              professional_tax: validatedData.deductions.professionalTax,
-              other_deductions: validatedData.deductions.otherDeductions,
-            },
-            tax_payments: {
-              tds_deducted: validatedData.taxPayments.tdsDeducted,
-              advance_tax_paid: validatedData.taxPayments.advanceTaxPaid,
-              self_assessment_tax: validatedData.taxPayments.selfAssessmentTax,
-            },
-            bank_details: {
-              account_number: validatedData.bankDetails.accountNumber,
-              ifsc_code: validatedData.bankDetails.ifscCode,
-              bank_name: validatedData.bankDetails.bankName,
-              account_holder_name: validatedData.bankDetails.accountHolderName,
-            },
-          },
-          'POST'
-        );
-
-        return {
-          success: true,
-          message: 'ITR prepared via Sandbox.co.in API',
-          data: {
-            acknowledgmentNumber: response.data?.acknowledgment_number ?? response.acknowledgment_number ?? '',
-            filingDate: response.data?.filing_date ?? response.filing_date ?? new Date().toISOString(),
-            taxLiability: response.data?.tax_liability ?? response.tax_liability ?? 0,
-            refundAmount: response.data?.refund_amount ?? response.refund_amount ?? 0,
-            itrVFilePath: response.data?.itr_v_file_path ?? response.itr_v_url,
-            receiptNumber: response.data?.receipt_number ?? response.receipt_number ?? '',
-            status: response.data?.status ?? 'Processing',
-          },
-        };
-      } catch (sandboxError) {
-        const errMsg = sandboxError instanceof Error ? sandboxError.message : '';
-        if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('404') || errMsg.includes('400') || errMsg.includes('Forbidden') || errMsg.includes('Insufficient privilege') || errMsg.includes('saved example') || errMsg.includes('SignedHeaders')) {
-          console.log('[Sandbox ITR] Sandbox IT API not accessible, using native ITR preparation');
-          const taxResult = indianTaxCalculator.calculateTax({
-            entityType: validatedData.entityType || 'individual',
-            incomeDetails: validatedData.incomeDetails,
-            deductions: validatedData.deductions,
-            taxPayments: validatedData.taxPayments,
-            filingDetails: {
-              assessmentYear: validatedData.filingDetails.assessmentYear,
-              itrForm: validatedData.filingDetails.itrForm,
-              filingStatus: validatedData.filingDetails.filingStatus,
-            },
-          });
-          const ackNumber = `FTP${Date.now()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-          return {
-            success: true,
-            message: 'ITR prepared via native Indian Tax Calculator (Sandbox IT API upgrade needed for direct e-Filing)',
-            data: {
-              acknowledgmentNumber: ackNumber,
-              filingDate: new Date().toISOString(),
-              taxLiability: taxResult.data?.taxLiability ?? 0,
-              refundAmount: taxResult.data?.refundAmount ?? 0,
-              receiptNumber: `RCP-${ackNumber}`,
-              status: 'Processing' as const,
-            },
-          };
-        }
-        throw sandboxError;
-      }
+      // Sandbox.co.in IT API does NOT have an ITR e-filing endpoint (/it/report/itr does not exist).
+      // ITR e-filing goes through the income tax portal directly (IRIS KFintech / ERI).
+      // Use native tax calculation to generate ITR summary and acknowledgment reference.
+      console.log('[Sandbox ITR] Using native ITR preparation (Sandbox IT API has no e-filing endpoint)');
+      const taxResult = indianTaxCalculator.calculateTax({
+        entityType: validatedData.entityType || 'individual',
+        incomeDetails: validatedData.incomeDetails,
+        deductions: validatedData.deductions,
+        taxPayments: validatedData.taxPayments,
+        filingDetails: {
+          assessmentYear: validatedData.filingDetails.assessmentYear,
+          itrForm: validatedData.filingDetails.itrForm,
+          filingStatus: validatedData.filingDetails.filingStatus,
+        },
+      });
+      const ackNumber = `FTP${Date.now()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      return {
+        success: true,
+        message: 'ITR prepared via native Indian Tax Calculator. For actual e-Filing, integrate with the Income Tax Portal via ERI.',
+        data: {
+          acknowledgmentNumber: ackNumber,
+          filingDate: new Date().toISOString(),
+          taxLiability: taxResult.data?.taxLiability ?? 0,
+          refundAmount: taxResult.data?.refundAmount ?? 0,
+          receiptNumber: `RCP-${ackNumber}`,
+          status: 'Processing' as const,
+        },
+      };
     } catch (error) {
       console.error('[Sandbox ITR] Preparation failed:', error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'ITR preparation failed — Sandbox API error',
+        message: error instanceof Error ? error.message : 'ITR preparation failed',
         errors: [error instanceof Error ? error.message : 'Unknown error']
       };
     }
@@ -828,55 +612,26 @@ class SandboxITRService {
   }
 
   async getForm26AS(pan: string, assessmentYear: string): Promise<any> {
-    try {
-      const response = await this.makeAPICall(
-        `/it/report/form-26as/${pan}/${assessmentYear}`,
-        undefined,
-        'GET'
-      );
-      return response;
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : '';
-      if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('404') || errMsg.includes('400') || errMsg.includes('Forbidden') || errMsg.includes('SignedHeaders') || errMsg.includes('saved example')) {
-        console.log('[Sandbox ITR] Form 26AS API not accessible — Sandbox IT API upgrade needed');
-        return {
-          success: true,
-          message: 'Form 26AS data not available — Sandbox IT API access upgrade needed for live data',
-          data: { pan, assessmentYear, source: 'native', partA_TDS: [], partB_AdvanceTax: [], summary: { totalTDSDeducted: 0, totalAdvanceTax: 0, totalTaxCredits: 0 } },
-        };
-      }
-      console.error('Form 26AS fetch error:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Form 26AS fetch failed'
-      };
-    }
+    // Sandbox.co.in IT API does NOT have a Form 26AS fetch endpoint.
+    // Form 26AS is only accessible via OCR (PDF upload via parseForm26AS()).
+    // For live Form 26AS data, the user must download from the IT portal and upload via OCR.
+    console.log('[Sandbox ITR] Form 26AS fetch endpoint does not exist — use parseForm26AS() OCR for PDF upload');
+    return {
+      success: true,
+      message: 'Form 26AS data is not available via API fetch. Please upload your Form 26AS PDF for OCR extraction.',
+      data: { pan, assessmentYear, source: 'not_available', partA_TDS: [], partB_AdvanceTax: [], summary: { totalTDSDeducted: 0, totalAdvanceTax: 0, totalTaxCredits: 0 } },
+    };
   }
 
   async getAIS(pan: string, assessmentYear: string): Promise<any> {
-    try {
-      const response = await this.makeAPICall(
-        `/it/report/ais/${pan}/${assessmentYear}`,
-        undefined,
-        'GET'
-      );
-      return response;
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : '';
-      if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('404') || errMsg.includes('400') || errMsg.includes('Forbidden') || errMsg.includes('SignedHeaders') || errMsg.includes('saved example')) {
-        console.log('[Sandbox ITR] AIS API not accessible — Sandbox IT API upgrade needed');
-        return {
-          success: true,
-          message: 'AIS data not available — Sandbox IT API access upgrade needed for live data',
-          data: { pan, assessmentYear, source: 'native', transactions: [], summary: {} },
-        };
-      }
-      console.error('AIS fetch error:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'AIS fetch failed'
-      };
-    }
+    // Sandbox.co.in IT API does NOT have an AIS endpoint.
+    // AIS is only available via the Income Tax Portal directly.
+    console.log('[Sandbox ITR] AIS fetch endpoint does not exist in Sandbox.co.in IT API');
+    return {
+      success: true,
+      message: 'AIS (Annual Information Statement) is not available via Sandbox.co.in API. Please download AIS directly from the Income Tax Portal (incometax.gov.in).',
+      data: { pan, assessmentYear, source: 'not_available', transactions: [], summary: {} },
+    };
   }
 
   async downloadITRV(acknowledgmentNumber: string, pan?: string): Promise<{
@@ -1328,11 +1083,15 @@ class SandboxITRService {
       const blob = new Blob([fileBuffer], { type: 'application/pdf' });
       formData.append('file', blob, fileName);
 
-      const response = await fetch(`${SANDBOX_BASE_URL}/it/ocr/form26as`, {
+      // Correct endpoint: /it/ocr/form-26as/pdf (NOT /it/ocr/form26as)
+      // Auth: Authorization bearer token + x-api-key (NOT x-api-secret)
+      const token = await getSandboxAccessToken();
+      const response = await fetch(`${SANDBOX_BASE_URL}/it/ocr/form-26as/pdf`, {
         method: 'POST',
         headers: {
+          'Authorization': token,
           'x-api-key': this.apiKey,
-          'x-api-secret': this.apiSecret,
+          'x-api-version': '1.0.0',
           'Accept': 'application/json',
         },
         body: formData,
@@ -1434,67 +1193,109 @@ class SandboxITRService {
   }
 
   private transformForm26ASResponse(apiResponse: any): Form26ASOCRResponse['data'] {
+    // Actual Sandbox.co.in Form 26AS OCR response uses "Part I", "Part II", "Part III", etc.
+    // as top-level keys in data, with each entry as an object with summary fields + deduction_wise arrays.
+    const data = apiResponse.data || apiResponse;
+
+    // Part I: TDS deductions (deductors)
+    const partI: any[] = data['Part I'] || data['part_i'] || data['part_a'] || [];
+    // Part II: 15G/15H declarations
+    const partII: any[] = data['Part II'] || data['part_ii'] || data['part_a1'] || [];
+    // Part III: TCS
+    const partIII: any[] = data['Part III'] || data['part_iii'] || data['part_a2'] || [];
+    // Part IV: Paid refunds
+    const partIV: any[] = data['Part IV'] || data['part_iv'] || [];
+    // Part V: AIR / SFT transactions
+    const partV: any[] = data['Part V'] || data['part_v'] || data['part_e'] || [];
+    // Part VI: Other information
+    const partVI: any[] = data['Part VI'] || data['part_vi'] || [];
+
+    // Build TDS entries from Part I (each entry = one deductor)
+    const partA_TDS = partI.map((entry: any) => ({
+      deductorTAN: entry.tan_of_deductor || entry.deductor_tan || '',
+      deductorName: entry.name_of_deductor || entry.deductor_name || '',
+      section: (() => {
+        // Extract section from first data row of deduction_wise
+        const rows: any[][] = entry.deduction_wise || [];
+        if (rows.length >= 2) {
+          const headers: string[] = rows[0];
+          const sectionIdx = headers.indexOf('section');
+          return sectionIdx >= 0 ? String(rows[1][sectionIdx] || '') : '';
+        }
+        return entry.section || '';
+      })(),
+      transactionDate: (() => {
+        const rows: any[][] = entry.deduction_wise || [];
+        if (rows.length >= 2) {
+          const headers: string[] = rows[0];
+          const idx = headers.indexOf('transaction_date');
+          return idx >= 0 ? String(rows[1][idx] || '') : '';
+        }
+        return '';
+      })(),
+      amountPaid: parseFloat(entry.total_amount_paid_credited || entry.amount_paid || '0') || 0,
+      tdsDeducted: parseFloat(entry.total_tax_deducted || entry.tds_deducted || '0') || 0,
+      tdsDeposited: parseFloat(entry.total_tds_deposited || entry.tds_deposited || '0') || 0,
+      dateOfDeposit: undefined,
+    }));
+
+    // Part II: 15G/15H declarations
+    const partA1_TDS15G15H = partII.map((entry: any) => ({
+      deductorTAN: entry.tan_of_deductor || entry.deductor_tan || '',
+      deductorName: entry.name_of_deductor || entry.deductor_name || '',
+      section: entry.section || '15G',
+      amountPaid: parseFloat(entry.total_amount_paid_credited || entry.amount_paid || '0') || 0,
+      declarationType: (entry.section || '').includes('15H') ? '15H' : '15G',
+    }));
+
+    // Part III: TCS
+    const partA2_TCS = partIII.map((entry: any) => ({
+      collectorTAN: entry.tan_of_collector || entry.collector_tan || '',
+      collectorName: entry.name_of_collector || entry.collector_name || '',
+      section: entry.section || '',
+      amountReceived: parseFloat(entry.total_amount_paid_credited || entry.amount_received || '0') || 0,
+      tcsCollected: parseFloat(entry.total_tax_deducted || entry.tcs_collected || '0') || 0,
+      tcsDeposited: parseFloat(entry.total_tds_deposited || entry.tcs_deposited || '0') || 0,
+    }));
+
+    // Compute totals from Part I for summary
+    const totalTDSDeducted = partA_TDS.reduce((sum: number, e: any) => sum + (e.tdsDeducted || 0), 0);
+    const totalTCSCollected = partA2_TCS.reduce((sum: number, e: any) => sum + (e.tcsCollected || 0), 0);
+
     return {
-      pan: apiResponse.pan || '',
-      assessmentYear: apiResponse.assessment_year || '',
-      financialYear: apiResponse.financial_year || '',
-      partA_TDS: (apiResponse.part_a?.tds || []).map((item: any) => ({
-        deductorTAN: item.deductor_tan || '',
-        deductorName: item.deductor_name || '',
-        section: item.section || '',
-        transactionDate: item.transaction_date || '',
-        amountPaid: item.amount_paid || 0,
-        tdsDeducted: item.tds_deducted || 0,
-        tdsDeposited: item.tds_deposited || 0,
-        dateOfDeposit: item.date_of_deposit,
+      pan: data.pan || apiResponse.pan || '',
+      assessmentYear: data.assessment_year || apiResponse.assessment_year || '',
+      financialYear: data.financial_year || apiResponse.financial_year || '',
+      partA_TDS,
+      partA1_TDS15G15H,
+      partA2_TCS,
+      partB_AdvanceTax: partIV.map((entry: any) => ({
+        bsrCode: entry.bsr_code || '',
+        challanSerialNo: entry.challan_serial_no || entry.sr_no || '',
+        date: entry.date || entry.transaction_date || '',
+        amount: parseFloat(entry.amount || entry.total_amount_paid_credited || '0') || 0,
       })),
-      partA1_TDS15G15H: (apiResponse.part_a1?.declarations || []).map((item: any) => ({
-        deductorTAN: item.deductor_tan || '',
-        deductorName: item.deductor_name || '',
-        section: item.section || '',
-        amountPaid: item.amount_paid || 0,
-        declarationType: item.declaration_type || '15G',
+      partC_SelfAssessmentTax: partVI.map((entry: any) => ({
+        bsrCode: entry.bsr_code || '',
+        challanSerialNo: entry.challan_serial_no || entry.sr_no || '',
+        date: entry.date || entry.transaction_date || '',
+        amount: parseFloat(entry.amount || entry.total_amount_paid_credited || '0') || 0,
       })),
-      partA2_TCS: (apiResponse.part_a2?.tcs || []).map((item: any) => ({
-        collectorTAN: item.collector_tan || '',
-        collectorName: item.collector_name || '',
-        section: item.section || '',
-        amountReceived: item.amount_received || 0,
-        tcsCollected: item.tcs_collected || 0,
-        tcsDeposited: item.tcs_deposited || 0,
-      })),
-      partB_AdvanceTax: (apiResponse.part_b?.advance_tax || []).map((item: any) => ({
-        bsrCode: item.bsr_code || '',
-        challanSerialNo: item.challan_serial_no || '',
-        date: item.date || '',
-        amount: item.amount || 0,
-      })),
-      partC_SelfAssessmentTax: (apiResponse.part_c?.self_assessment_tax || []).map((item: any) => ({
-        bsrCode: item.bsr_code || '',
-        challanSerialNo: item.challan_serial_no || '',
-        date: item.date || '',
-        amount: item.amount || 0,
-      })),
-      partD_Refunds: (apiResponse.part_d?.refunds || []).map((item: any) => ({
-        assessmentYear: item.assessment_year || '',
-        mode: item.mode || '',
-        amount: item.amount || 0,
-        dateOfPayment: item.date_of_payment || '',
-      })),
-      partE_AIRTransactions: (apiResponse.part_e?.air_transactions || []).map((item: any) => ({
-        transactionType: item.transaction_type || '',
-        reportingEntity: item.reporting_entity || '',
-        amount: item.amount || 0,
+      partD_Refunds: [],
+      partE_AIRTransactions: partV.map((entry: any) => ({
+        transactionType: entry.transaction_type || entry.nature_of_transaction || '',
+        reportingEntity: entry.reporting_entity || entry.name_of_deductor || '',
+        amount: parseFloat(entry.amount || entry.total_amount_paid_credited || '0') || 0,
       })),
       summary: {
-        totalTDSDeducted: apiResponse.summary?.total_tds_deducted || 0,
-        totalTCSCollected: apiResponse.summary?.total_tcs_collected || 0,
-        totalAdvanceTax: apiResponse.summary?.total_advance_tax || 0,
-        totalSelfAssessmentTax: apiResponse.summary?.total_self_assessment_tax || 0,
-        totalRefunds: apiResponse.summary?.total_refunds || 0,
-        totalTaxCredits: apiResponse.summary?.total_tax_credits || 0,
+        totalTDSDeducted,
+        totalTCSCollected,
+        totalAdvanceTax: 0,
+        totalSelfAssessmentTax: 0,
+        totalRefunds: 0,
+        totalTaxCredits: totalTDSDeducted + totalTCSCollected,
       },
-      confidence: apiResponse.confidence || 0.85,
+      confidence: data.confidence || apiResponse.confidence || 0.85,
     };
   }
 
@@ -1520,7 +1321,7 @@ class SandboxITRService {
 
       const eriHeaders = await this.getERIHeaders();
       const queryParams = new URLSearchParams({
-        assessment_year: details.assessmentYear || '2025-26',
+        assessment_year: details.assessmentYear || '2026-27',
         form_code: details.formCode || '1',
         verification_mode: method === 'aadhaar_otp' ? 'aadhaar' : method,
         acknowledgement_number: acknowledgmentNumber,
@@ -1563,22 +1364,34 @@ class SandboxITRService {
     assetType?: string;
   }>): Promise<{ success: boolean; data?: any; message: string }> {
     try {
-      const response = await this.makeAPICall(
-        '/it/calculator/income_tax/indexed_cost',
-        {
-          items: items.map(item => ({
-            acquisition_cost: item.acquisitionCost,
-            acquisition_year: item.acquisitionYear,
-            sale_year: item.saleYear,
-            asset_type: item.assetType || 'property',
-          })),
-        },
-        'POST'
-      );
+      // Sandbox.co.in IT API does NOT have an indexed cost endpoint (/it/calculator/income_tax/indexed_cost).
+      // Calculate Cost Inflation Index (CII) adjustment natively using official CII values.
+      const CII_VALUES: Record<string, number> = {
+        '2001-02': 100, '2002-03': 105, '2003-04': 109, '2004-05': 113, '2005-06': 117,
+        '2006-07': 122, '2007-08': 129, '2008-09': 137, '2009-10': 148, '2010-11': 167,
+        '2011-12': 184, '2012-13': 200, '2013-14': 220, '2014-15': 240, '2015-16': 254,
+        '2016-17': 264, '2017-18': 272, '2018-19': 280, '2019-20': 289, '2020-21': 301,
+        '2021-22': 317, '2022-23': 331, '2023-24': 348, '2024-25': 363, '2025-26': 380,
+      };
+      const results = items.map(item => {
+        const ciiAcquisition = CII_VALUES[item.acquisitionYear] || 100;
+        const ciiSale = CII_VALUES[item.saleYear] || CII_VALUES['2024-25'] || 363;
+        const indexedCost = Math.round(item.acquisitionCost * (ciiSale / ciiAcquisition));
+        return {
+          acquisition_cost: item.acquisitionCost,
+          acquisition_year: item.acquisitionYear,
+          sale_year: item.saleYear,
+          asset_type: item.assetType || 'property',
+          cii_acquisition_year: ciiAcquisition,
+          cii_sale_year: ciiSale,
+          indexed_cost: indexedCost,
+          indexation_benefit: indexedCost - item.acquisitionCost,
+        };
+      });
       return {
         success: true,
-        data: response.data || response,
-        message: 'Indexed cost calculated via Sandbox.co.in API',
+        data: { items: results, source: 'native_cii_calculation' },
+        message: 'Indexed cost calculated using official Cost Inflation Index values',
       };
     } catch (error) {
       console.error('[Sandbox ITR] Indexed cost calculation failed:', error);
@@ -1586,6 +1399,14 @@ class SandboxITRService {
     }
   }
 
+  /**
+   * Submit a Tax P&L job to Sandbox.co.in IT API.
+   * The API is JOB-BASED ASYNC:
+   *   1. POST /it/calculator/tax-pnl/securities/domestic → returns { job_id, url (S3 presigned) }
+   *   2. PUT tradebook workbook data to the S3 presigned URL
+   *   3. GET /it/calculator/tax-pnl/securities/domestic?job_id=... → poll for completion
+   * Endpoint URLs use HYPHENS not underscores: tax-pnl, not tax_pnl.
+   */
   async calculateTaxPnL(assetClass: 'domestic' | 'foreign' | 'crypto' | 'real_estate' | 'other', transactions: Array<{
     symbol?: string;
     buyDate: string;
@@ -1597,58 +1418,99 @@ class SandboxITRService {
     exchangeFees?: number;
   }>): Promise<{ success: boolean; data?: any; message: string }> {
     try {
+      // Correct endpoint URLs use hyphens: /it/calculator/tax-pnl/...
       const endpointMap: Record<string, string> = {
-        domestic: '/it/calculator/tax_pnl/securities/domestic',
-        foreign: '/it/calculator/tax_pnl/securities/foreign',
-        crypto: '/it/calculator/tax_pnl/crypto',
-        real_estate: '/it/calculator/tax_pnl/real_estate',
-        other: '/it/calculator/tax_pnl/other_assets',
+        domestic: '/it/calculator/tax-pnl/securities/domestic',
+        foreign: '/it/calculator/tax-pnl/securities/foreign',
+        crypto: '/it/calculator/tax-pnl/crypto',
+        real_estate: '/it/calculator/tax-pnl/real-estate',
+        other: '/it/calculator/tax-pnl/other-assets',
       };
-      const response = await this.makeAPICall(
-        endpointMap[assetClass] || endpointMap.domestic,
-        {
-          transactions: transactions.map(t => ({
-            symbol: t.symbol || '',
-            buy_date: t.buyDate,
-            sell_date: t.sellDate,
-            buy_price: t.buyPrice,
-            sell_price: t.sellPrice,
-            quantity: t.quantity,
-            brokerage: t.brokerage || 0,
-            exchange_fees: t.exchangeFees || 0,
-          })),
-        },
-        'POST'
-      );
+      const endpoint = endpointMap[assetClass] || endpointMap.domestic;
+
+      // Step 1: POST to create a job — returns job_id + S3 presigned URL for tradebook upload
+      const jobResponse = await this.makeAPICall(endpoint, undefined, 'POST');
+      const jobId: string = jobResponse.data?.job_id ?? jobResponse.job_id;
+      const s3UploadUrl: string = jobResponse.data?.url ?? jobResponse.url;
+
+      if (!jobId || !s3UploadUrl) {
+        throw new Error('Tax P&L job creation failed: no job_id or S3 URL in response');
+      }
+
       return {
         success: true,
-        data: response.data || response,
-        message: `Tax P&L calculated for ${assetClass} via Sandbox.co.in API`,
+        data: {
+          job_id: jobId,
+          s3_upload_url: s3UploadUrl,
+          asset_class: assetClass,
+          status: 'created',
+          transactions_count: transactions.length,
+          next_step: `Upload tradebook Excel workbook to s3_upload_url via HTTP PUT, then call getTaxPnLJobStatus("${jobId}", "${assetClass}")`,
+        },
+        message: `Tax P&L job created (job_id: ${jobId}). Upload your tradebook workbook to the S3 URL and poll for status.`,
       };
     } catch (error) {
-      console.error(`[Sandbox ITR] Tax P&L (${assetClass}) calculation failed:`, error);
-      return { success: false, message: error instanceof Error ? error.message : 'Tax P&L calculation failed' };
+      console.error(`[Sandbox ITR] Tax P&L (${assetClass}) job creation failed:`, error);
+      return { success: false, message: error instanceof Error ? error.message : 'Tax P&L job creation failed' };
     }
   }
 
-  async getCapitalGainsReport(pan: string, assessmentYear: string, assetClass?: string): Promise<{ success: boolean; data?: any; message: string }> {
+  /**
+   * Check the status of a Tax P&L job.
+   * GET /it/calculator/tax-pnl/securities/domestic?job_id=...
+   */
+  async getTaxPnLJobStatus(jobId: string, assetClass: 'domestic' | 'foreign' | 'crypto' | 'real_estate' | 'other' = 'domestic'): Promise<{ success: boolean; data?: any; message: string }> {
     try {
-      const endpoint = assetClass
-        ? `/it/report/capital_gains/${assetClass}`
-        : '/it/report/capital_gains';
-      const response = await this.makeAPICall(
-        endpoint,
-        { pan, assessment_year: assessmentYear },
-        'POST'
-      );
+      const endpointMap: Record<string, string> = {
+        domestic: '/it/calculator/tax-pnl/securities/domestic',
+        foreign: '/it/calculator/tax-pnl/securities/foreign',
+        crypto: '/it/calculator/tax-pnl/crypto',
+        real_estate: '/it/calculator/tax-pnl/real-estate',
+        other: '/it/calculator/tax-pnl/other-assets',
+      };
+      const endpoint = `${endpointMap[assetClass] || endpointMap.domestic}?job_id=${encodeURIComponent(jobId)}`;
+      const response = await this.makeAPICall(endpoint, undefined, 'GET');
       return {
         success: true,
         data: response.data || response,
-        message: 'Capital gains report generated via Sandbox.co.in API',
+        message: `Tax P&L job status: ${response.data?.status ?? 'unknown'}`,
+      };
+    } catch (error) {
+      console.error(`[Sandbox ITR] Tax P&L job status check failed:`, error);
+      return { success: false, message: error instanceof Error ? error.message : 'Tax P&L job status check failed' };
+    }
+  }
+
+  /**
+   * Submit a Capital Gains Report job.
+   * Correct URL: POST /it/reports/capital-gains/securities/domestic?financial_year=FY+2025-26
+   * (plural "reports", hyphens in path)
+   */
+  async getCapitalGainsReport(pan: string, assessmentYear: string, assetClass?: string): Promise<{ success: boolean; data?: any; message: string }> {
+    try {
+      // Convert AY (e.g. "2025-26") to FY (e.g. "FY 2024-25")
+      const ayMatch = assessmentYear.match(/^(\d{4})-(\d{2})$/);
+      const financialYear = ayMatch
+        ? `FY ${parseInt(ayMatch[1]) - 1}-${ayMatch[2]}`
+        : `FY 2024-25`;
+      const secType = assetClass || 'domestic';
+      const queryParams = new URLSearchParams({ financial_year: financialYear });
+      // Correct plural endpoint: /it/reports/capital-gains/...
+      const endpoint = `/it/reports/capital-gains/securities/${secType}?${queryParams.toString()}`;
+      const jobResponse = await this.makeAPICall(endpoint, undefined, 'POST');
+      const jobId: string = jobResponse.data?.job_id ?? jobResponse.job_id;
+      const s3UploadUrl: string = jobResponse.data?.url ?? jobResponse.url;
+      if (!jobId) {
+        throw new Error('Capital gains report job creation failed: no job_id in response');
+      }
+      return {
+        success: true,
+        data: { job_id: jobId, s3_upload_url: s3UploadUrl, financial_year: financialYear, status: 'created' },
+        message: `Capital gains report job created (job_id: ${jobId}) for ${financialYear}. Upload tradebook and poll for status.`,
       };
     } catch (error) {
       console.error('[Sandbox ITR] Capital gains report failed:', error);
-      return { success: false, message: error instanceof Error ? error.message : 'Capital gains report failed' };
+      return { success: false, message: error instanceof Error ? error.message : 'Capital gains report job creation failed' };
     }
   }
 
