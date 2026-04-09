@@ -1,9 +1,12 @@
 import { Express } from 'express';
 import { storage } from '../storage';
 import { db } from '../db';
-import { eq, and, or, desc, gte, lte, sql, count } from 'drizzle-orm';
+import { eq, and, or, desc, gte, lte, sql, count, like } from 'drizzle-orm';
 import { z } from 'zod';
 import { requireAuth, requireAdmin } from '../middleware/roleMiddleware';
+import * as schema from '../../shared/schema';
+import { insertManualKycSubmissionSchema } from '../../shared/schema';
+import { complianceMonitor } from '../compliance-monitor';
 
 export function registerKYCAdminSupporPart1Routes(app: Express): void {
 app.post('/api/kyc/manual-submit', async (req: any, res) => {
