@@ -43,7 +43,7 @@ const bottomNavItems = [
 
 const moreMenuItems = [
   { name: "Discover", href: "/discover", icon: Sparkles },
-  { name: "US Trading (Alpaca)", href: "/us-trading", icon: Globe },
+  { name: "Global Trading", href: "/global-trading", icon: Globe },
   { name: "Smart Proposals", href: "/smart-proposals", icon: FileText },
   { name: "Profile", href: "/profile", icon: UserIcon },
   { name: "Settings", href: "/settings", icon: Settings },

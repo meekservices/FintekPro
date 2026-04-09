@@ -50,7 +50,7 @@ const mainNavItems = [
   { name: "Dashboard", href: "/dashboard", icon: PieChart },
   { name: "Investments", href: "/wealth-management", icon: TrendingUp },
   { name: "Portfolio", href: "/comprehensive-portfolio", icon: Briefcase },
-  { name: "US Trading", href: "/us-trading", icon: Globe },
+  { name: "Global Trading", href: "/global-trading", icon: Globe },
   { name: "Calculators", href: "/calculators", icon: Calculator },
   { name: "Tax", href: "/intelligent-tax-hub", icon: FileText },
 ];
