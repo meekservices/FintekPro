@@ -565,6 +565,58 @@ router.post("/broker/accounts/:accountId/fpsl/unenroll", async (req, res) => {
   }
 });
 
+// ─── Options Exercise ──────────────────────────────────────────────────────────
+
+/**
+ * List options exercise requests for an account.
+ * GET /api/broker/accounts/:accountId/options/exercises
+ */
+router.get("/broker/accounts/:accountId/options/exercises", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const exercises = await alpacaBrokerService.listOptionsExercises(req.params.accountId, {
+      symbol: req.query.symbol as string,
+      status: req.query.status as string,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+    });
+    res.json({ success: true, exercises });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * Exercise (or abandon) one or more options contracts.
+ * POST /api/broker/accounts/:accountId/options/exercises
+ * Body: {
+ *   type: "e" (exercise) | "a" (abandon),
+ *   contracts: [{ symbol: "AAPL241220C00175000", qty: 1 }]
+ * }
+ * India tax note: US options gains = USD income; reportable under Schedule FA of ITR-2/3.
+ * DTAA Article 13 applies for capital gains; withholding at 25% may apply via IRS Form W-8BEN.
+ */
+router.post("/broker/accounts/:accountId/options/exercises", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const { type = "e", contracts } = req.body;
+    if (!Array.isArray(contracts) || contracts.length === 0) {
+      return res.status(400).json({ success: false, error: "contracts array is required (e.g. [{ symbol, qty }])" });
+    }
+    if (!["e", "a"].includes(type)) {
+      return res.status(400).json({ success: false, error: "type must be 'e' (exercise) or 'a' (abandon)" });
+    }
+    const result = await alpacaBrokerService.exerciseOptions(req.params.accountId, contracts, type);
+    res.status(201).json({ success: true, exercise: result });
+  } catch (error: any) {
+    const status = error.response?.status || 500;
+    res.status(status).json({ success: false, error: error.response?.data?.message || error.message });
+  }
+});
+
 // ─── SSE Event Stream Proxy ────────────────────────────────────────────────────
 // Relays Alpaca SSE events to the browser client over a persistent connection.
 
