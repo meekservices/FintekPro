@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import apiRequest from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { RefreshCw, DollarSign, TrendingUp, GitMerge, Scissors, ArrowLeftRight, Info, Vote, CheckCircle } from "lucide-react";
 
 interface CorporateAction {
