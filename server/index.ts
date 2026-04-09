@@ -1585,6 +1585,27 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     console.warn('[Migration] agent_services/agent_notifications skipped:', e?.message);
   }
 
+  // agent_empanelment_status column on users (tracks empanelment workflow state)
+  try {
+    const { db: aeDb } = await import('./db');
+    const { sql: aeSql } = await import('drizzle-orm');
+    await aeDb.execute(aeSql`
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS agent_empanelment_status TEXT DEFAULT 'draft'
+    `);
+    // Backfill from agent_empanelments table
+    await aeDb.execute(aeSql`
+      UPDATE users u
+      SET agent_empanelment_status = e.status
+      FROM agent_empanelments e
+      WHERE e.agent_id = u.id
+        AND u.agent_empanelment_status IS DISTINCT FROM e.status
+    `);
+    console.log('✅ [Migration] agent_empanelment_status column verified/backfilled on users');
+  } catch (e: any) {
+    console.warn('[Migration] agent_empanelment_status skipped:', e?.message);
+  }
+
   // prospect_leads scoring engine columns — added after initial table creation
   try {
     const { db: plDb } = await import('./db');
