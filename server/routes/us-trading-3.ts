@@ -547,5 +547,43 @@ router.put("/broker/accounts/:accountId/watchlists/:watchlistId", async (req, re
   }
 });
 
+/** Add a single symbol to an existing watchlist */
+router.post("/broker/accounts/:accountId/watchlists/:watchlistId/symbols", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const { symbol } = req.body;
+    if (!symbol || typeof symbol !== "string") {
+      return res.status(400).json({ success: false, error: "symbol is required" });
+    }
+    const watchlist = await alpacaBrokerService.addToWatchlist(
+      req.params.accountId,
+      req.params.watchlistId,
+      symbol.toUpperCase().trim(),
+    );
+    res.json({ success: true, watchlist });
+  } catch (error: any) {
+    const status = error.response?.status || 500;
+    res.status(status).json({ success: false, error: error.response?.data?.message || error.message });
+  }
+});
+
+/** Remove a single symbol from a watchlist */
+router.delete("/broker/accounts/:accountId/watchlists/:watchlistId/symbols/:symbol", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    await alpacaBrokerService.removeFromWatchlist(
+      req.params.accountId,
+      req.params.watchlistId,
+      req.params.symbol.toUpperCase(),
+    );
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 export default router;
