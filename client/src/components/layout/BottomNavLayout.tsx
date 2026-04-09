@@ -19,7 +19,8 @@ import {
   Sun,
   Moon,
   Sparkles,
-  FileText
+  FileText,
+  Globe
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/contexts/theme-context";
@@ -42,6 +43,7 @@ const bottomNavItems = [
 
 const moreMenuItems = [
   { name: "Discover", href: "/discover", icon: Sparkles },
+  { name: "US Trading (Alpaca)", href: "/us-trading", icon: Globe },
   { name: "Smart Proposals", href: "/smart-proposals", icon: FileText },
   { name: "Profile", href: "/profile", icon: UserIcon },
   { name: "Settings", href: "/settings", icon: Settings },

@@ -203,9 +203,11 @@ export function EnhancedNavigation() {
     { name: "Equities (NSE/BSE)", href: "/broking", description: "Stock trading" },
     { name: "F&O", href: "/derivatives", description: "Futures & options" },
     { name: "Commodities", href: "/commodities", description: "MCX/NCDEX trading" },
-    { name: "Global Markets", href: "/global-trading", description: "International stocks" }
+    { name: "Global Markets", href: "/global-trading", description: "International stocks" },
+    { name: "US Trading (Alpaca)", href: "/us-trading", description: "US equities, options & ETFs via Alpaca", badge: "LRS" }
   ] : [
-    { name: "Complete KYC to Trade", href: "/onboarding", description: "Verify your identity to start trading", badge: "REQUIRED" }
+    { name: "Complete KYC to Trade", href: "/onboarding", description: "Verify your identity to start trading", badge: "REQUIRED" },
+    { name: "US Trading (Alpaca)", href: "/us-trading", description: "US equities, options & ETFs via Alpaca", badge: "LRS" }
   ];
 
   const navigationGroups: NavigationGroup[] = [
