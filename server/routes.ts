@@ -68,6 +68,7 @@ import userSignatureESignRoutes from './routes/user-signature-esign-routes';
 import { mcaFinancialRefreshScheduler } from "./services/mca-financial-refresh-scheduler";
 import { registerSandboxWebhookRoutes } from './routes/sandbox-webhooks';
 import { registerSandboxTDSRoutes } from './routes/sandbox-tds';
+import { registerSandboxGSTRoutes } from './routes/sandbox-gst';
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 
@@ -776,6 +777,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   registerStockExchangeRoutes(app);
   registerSandboxWebhookRoutes(app);
   registerSandboxTDSRoutes(app);
+  registerSandboxGSTRoutes(app);
   registerBankingRoutes(app);
   registerLoanRoutes(app);
   await registerLoanProcessingRoutes(app);
