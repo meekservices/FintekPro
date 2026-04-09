@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeftRight, Plus, Trash2, RefreshCw, AlertTriangle, DollarSign,
-  BarChart3, Info, CheckCircle2, Clock, XCircle,
+  BarChart3, Info, CheckCircle2, Clock, XCircle, RotateCcw,
 } from "lucide-react";
 
 interface Journal {
@@ -112,6 +112,18 @@ export default function JournalsPanel() {
     },
     onError: (err: any) => {
       toast({ title: "Cancel failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const reverseMutation = useMutation({
+    mutationFn: (journalId: string) =>
+      apiRequest(`/api/us-trading/broker/journals/${journalId}/reverse`, "POST", {}),
+    onSuccess: () => {
+      toast({ title: "Journal reversed", description: "A reversing entry has been created." });
+      queryClient.invalidateQueries({ queryKey: qKey });
+    },
+    onError: (err: any) => {
+      toast({ title: "Reverse failed", description: err.message, variant: "destructive" });
     },
   });
 
@@ -263,37 +275,71 @@ export default function JournalsPanel() {
                       {j.system_date ?? j.settle_date ?? "—"}
                     </TableCell>
                     <TableCell>
-                      {j.status === "pending" && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                              disabled={cancelMutation.isPending}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Cancel journal?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Cancel this pending {j.entry_type} journal entry? This cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Keep</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="bg-red-600 hover:bg-red-700"
-                                onClick={() => cancelMutation.mutate(j.id)}
+                      <div className="flex items-center gap-1">
+                        {j.status === "pending" && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                                disabled={cancelMutation.isPending}
                               >
-                                Cancel Journal
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Cancel journal?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Cancel this pending {j.entry_type} journal entry? This cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Keep</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-red-600 hover:bg-red-700"
+                                  onClick={() => cancelMutation.mutate(j.id)}
+                                >
+                                  Cancel Journal
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                        {j.status === "executed" && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-amber-500 hover:text-amber-700 hover:bg-amber-50"
+                                disabled={reverseMutation.isPending}
+                                title="Reverse journal"
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Reverse journal?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Create a reversing entry for this executed {j.entry_type} journal? This will move the funds/securities back to the originating account.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-amber-600 hover:bg-amber-700"
+                                  onClick={() => reverseMutation.mutate(j.id)}
+                                >
+                                  Reverse Journal
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

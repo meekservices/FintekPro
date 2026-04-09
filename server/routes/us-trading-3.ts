@@ -788,4 +788,177 @@ router.post("/broker/accounts/:accountId/reinstate", async (req, res) => {
   }
 });
 
+// ─── Get single order (account-scoped) ────────────────────────────────────────
+router.get("/broker/accounts/:accountId/orders/:orderId", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const order = await alpacaBrokerService.getAccountOrder(req.params.accountId, req.params.orderId);
+    if (!order) return res.status(404).json({ success: false, error: "Order not found" });
+    res.json({ success: true, order });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── Replace (modify) an open order ───────────────────────────────────────────
+router.patch("/broker/accounts/:accountId/orders/:orderId", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const order = await alpacaBrokerService.replaceOrder(
+      req.params.accountId,
+      req.params.orderId,
+      req.body,
+    );
+    res.json({ success: true, order });
+  } catch (error: any) {
+    const status = error.response?.status || 500;
+    res.status(status).json({ success: false, error: error.response?.data?.message || error.message });
+  }
+});
+
+// ─── Get single position (account-scoped) ─────────────────────────────────────
+router.get("/broker/accounts/:accountId/positions/:symbol", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const position = await alpacaBrokerService.getAccountPosition(
+      req.params.accountId,
+      req.params.symbol,
+    );
+    if (!position) return res.status(404).json({ success: false, error: "Position not found" });
+    res.json({ success: true, position });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── Trusted Contacts ──────────────────────────────────────────────────────────
+
+/** Get trusted contact for an account */
+router.get("/broker/accounts/:accountId/trusted-contact", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const contact = await alpacaBrokerService.getTrustedContact(req.params.accountId);
+    res.json({ success: true, contact });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/** Add or update trusted contact */
+router.post("/broker/accounts/:accountId/trusted-contact", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const contact = await alpacaBrokerService.updateTrustedContact(req.params.accountId, req.body);
+    res.json({ success: true, contact });
+  } catch (error: any) {
+    const status = error.response?.status || 500;
+    res.status(status).json({ success: false, error: error.response?.data?.message || error.message });
+  }
+});
+
+/** Delete trusted contact */
+router.delete("/broker/accounts/:accountId/trusted-contact", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    await alpacaBrokerService.deleteTrustedContact(req.params.accountId);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── Cash Interest Status ──────────────────────────────────────────────────────
+
+/** Get current cash interest enrollment status for an account */
+router.get("/broker/accounts/:accountId/cash-interest", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const status = await alpacaBrokerService.getCashInterestStatus(req.params.accountId);
+    res.json({ success: true, status });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── All Transfers (Admin) ─────────────────────────────────────────────────────
+
+/** List transfers across ALL accounts (broker admin view) */
+router.get("/broker/transfers", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const transfers = await alpacaBrokerService.listAllTransfers({
+      direction: req.query.direction as "INCOMING" | "OUTGOING" | undefined,
+      limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
+      offset: req.query.offset ? parseInt(req.query.offset as string) : undefined,
+    });
+    res.json({ success: true, transfers });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── Journal Reversal ──────────────────────────────────────────────────────────
+
+/** Reverse a journal entry */
+router.post("/broker/journals/:journalId/reverse", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const result = await alpacaBrokerService.reverseJournal(req.params.journalId);
+    res.json({ success: true, result });
+  } catch (error: any) {
+    const status = error.response?.status || 500;
+    res.status(status).json({ success: false, error: error.response?.data?.message || error.message });
+  }
+});
+
+// ─── Report Download ───────────────────────────────────────────────────────────
+
+/** Get download URL for a completed report */
+router.get("/broker/reports/:reportId/download", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    const url = await alpacaBrokerService.downloadReport(req.params.reportId);
+    if (!url) return res.status(404).json({ success: false, error: "Report not available for download" });
+    res.json({ success: true, url });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── Delete Rebalancing Portfolio ──────────────────────────────────────────────
+
+/** Delete a rebalancing portfolio */
+router.delete("/broker/rebalancing/portfolios/:portfolioId", async (req, res) => {
+  try {
+    if (!alpacaBrokerService.isConfigured()) {
+      return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
+    }
+    await alpacaBrokerService.deleteRebalancingPortfolio(req.params.portfolioId);
+    res.json({ success: true });
+  } catch (error: any) {
+    const status = error.response?.status || 500;
+    res.status(status).json({ success: false, error: error.response?.data?.message || error.message });
+  }
+});
+
 export default router;

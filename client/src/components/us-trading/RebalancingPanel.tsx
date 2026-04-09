@@ -18,6 +18,11 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Scale, Plus, RefreshCw, Play, Trash2, Info, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -122,6 +127,16 @@ export default function RebalancingPanel({ accountId }: RebalancingPanelProps) {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (portfolioId: string) =>
+      apiRequest(`/api/us-trading/broker/rebalancing/portfolios/${portfolioId}`, "DELETE", {}),
+    onSuccess: () => {
+      toast({ title: "Portfolio deleted" });
+      queryClient.invalidateQueries({ queryKey: ["/api/us-trading/broker/rebalancing/portfolios"] });
+    },
+    onError: (e: any) => toast({ title: "Delete failed", description: e.message, variant: "destructive" }),
+  });
+
   const totalPercent = weightsText.split("\n").filter(Boolean).reduce((s, line) => {
     const pct = parseFloat(line.split(":")[1] ?? "0");
     return s + (isNaN(pct) ? 0 : pct);
@@ -216,6 +231,35 @@ export default function RebalancingPanel({ accountId }: RebalancingPanelProps) {
                             : <Play className="h-3 w-3" />}
                           Run
                         </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              disabled={deleteMutation.isPending}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete portfolio?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Permanently delete <strong>{p.name}</strong>? All subscriptions to this portfolio will also be removed. This cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Keep</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-red-600 hover:bg-red-700"
+                                onClick={() => deleteMutation.mutate(p.id)}
+                              >
+                                Delete Portfolio
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </TableCell>
                   </TableRow>
