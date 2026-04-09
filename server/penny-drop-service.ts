@@ -17,21 +17,17 @@ export interface PennyDropResult {
   providerResponse?: any;
 }
 
-interface SandboxVerificationRequest {
-  account_number: string;
-  ifsc: string;
-  beneficiary_name: string;
-}
-
 interface SandboxVerificationResponse {
-  status: string;
+  code: number;
+  transaction_id?: string;
   message?: string;
   data?: {
-    transaction_id: string;
     account_exists: boolean;
     name_at_bank: string;
     account_status?: string;
-    amount_deposited?: number;
+    amount_deposited?: string | number;
+    utr?: string;
+    message?: string;
   };
   error?: {
     code: string;
@@ -169,24 +165,20 @@ export async function verifyBankAccountPennyDrop(
   try {
     const apiKey = sandboxApiKey;
 
-    const requestData: SandboxVerificationRequest = {
-      account_number: accountNumber,
-      ifsc: ifscCode.toUpperCase(),
-      beneficiary_name: accountHolderName
-    };
-
     console.log(`🏦 Initiating penny drop for account: ${accountNumber.slice(-4)} (${SANDBOX_BASE_URL})`);
 
     const token = await getSandboxAccessToken();
 
-    const response = await axios.post<SandboxVerificationResponse>(
-      `${SANDBOX_API_URL}/verification`,
-      requestData,
+    const queryParams: Record<string, string> = {};
+    if (accountHolderName) queryParams.name = accountHolderName;
+
+    const response = await axios.get<SandboxVerificationResponse>(
+      `${SANDBOX_BASE_URL}/bank/${ifscCode.toUpperCase()}/accounts/${accountNumber}/verify`,
       {
+        params: queryParams,
         headers: {
           'x-api-key': apiKey,
           'Authorization': token,
-          'Content-Type': 'application/json',
           'x-api-version': '1.0.0'
         },
         timeout: 30000
@@ -195,8 +187,9 @@ export async function verifyBankAccountPennyDrop(
 
     const apiResponse = response.data;
 
-    if (apiResponse.status === 'success' && apiResponse.data) {
-      const { transaction_id, account_exists, name_at_bank, account_status, amount_deposited } = apiResponse.data;
+    if (apiResponse.code === 200 && apiResponse.data) {
+      const { account_exists, name_at_bank, account_status, amount_deposited } = apiResponse.data;
+      const transaction_id = apiResponse.transaction_id;
 
       if (!account_exists) {
         return {
@@ -221,18 +214,9 @@ export async function verifyBankAccountPennyDrop(
       };
     }
 
-    if (apiResponse.error) {
-      console.error('❌ Sandbox Penny Drop API Error:', apiResponse.error);
-      return {
-        success: false,
-        errorMessage: apiResponse.error.message || 'Verification failed',
-        providerResponse: apiResponse
-      };
-    }
-
     return {
       success: false,
-      errorMessage: apiResponse.message || 'Unexpected response from bank verification service',
+      errorMessage: apiResponse.message || (apiResponse.error as any)?.message || 'Unexpected response from bank verification service',
       providerResponse: apiResponse
     };
 
