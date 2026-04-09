@@ -3,10 +3,18 @@ import axios from 'axios';
 const SANDBOX_API_KEY = process.env.SANDBOX_API_KEY || '';
 const SANDBOX_API_SECRET = process.env.SANDBOX_API_SECRET || '';
 
+let cachedToken: string | null = null;
+let tokenExpiry: number = 0;
+let baseUrlWarned = false;
+
 export function getSandboxBaseUrl(): string {
   const explicit = process.env.SANDBOX_BASE_URL;
   if (explicit) return explicit.replace(/\/$/, '');
-  console.warn('[Sandbox] SANDBOX_BASE_URL not set — set it to https://api.sandbox.co.in (prod) or https://test-api.sandbox.co.in (test). Defaulting to test.');
+  // Only warn when credentials are configured, and only once per process boot
+  if (SANDBOX_API_KEY && SANDBOX_API_SECRET && !baseUrlWarned) {
+    baseUrlWarned = true;
+    console.warn('[Sandbox] SANDBOX_BASE_URL not set — defaulting to test environment (https://test-api.sandbox.co.in). Set SANDBOX_BASE_URL=https://api.sandbox.co.in for production.');
+  }
   return 'https://test-api.sandbox.co.in';
 }
 
@@ -26,9 +34,6 @@ export function getSandboxApiKey(): string {
 export function getSandboxApiSecret(): string {
   return SANDBOX_API_SECRET;
 }
-
-let cachedToken: string | null = null;
-let tokenExpiry: number = 0;
 
 export async function getSandboxAccessToken(): Promise<string> {
   if (cachedToken && Date.now() < tokenExpiry) {
