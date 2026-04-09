@@ -144,7 +144,7 @@ export function BankingTab() {
 
   // Add new bank account mutation
   const addAccountMutation = useMutation({
-    mutationFn: (data: BankAccountForm) => apiRequest("POST", "/api/bank-accounts", { body: data }),
+    mutationFn: (data: BankAccountForm) => apiRequest("/api/bank-accounts", "POST", { body: data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts"] });
       setIsAddingAccount(false);
@@ -166,7 +166,7 @@ export function BankingTab() {
   // Update bank account mutation
   const updateAccountMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: BankAccountForm }) => 
-      apiRequest("PUT", `/api/bank-accounts/${id}`, { body: data }),
+      apiRequest(`/api/bank-accounts/${id}`, "PUT", { body: data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts"] });
       setEditingAccountId(null);
@@ -187,7 +187,7 @@ export function BankingTab() {
 
   // Delete bank account mutation
   const deleteAccountMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/bank-accounts/${id}`),
+    mutationFn: (id: string) => apiRequest(`/api/bank-accounts/${id}`, "DELETE"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts"] });
       toast({
@@ -207,7 +207,7 @@ export function BankingTab() {
   // Set default account mutation
   const setDefaultMutation = useMutation({
     mutationFn: ({ accountId, defaultType }: { accountId: string; defaultType: 'mutualFunds' }) => 
-      apiRequest("PUT", `/api/bank-accounts/${accountId}/set-default`, { body: { defaultType } }),
+      apiRequest(`/api/bank-accounts/${accountId}/set-default`, "PUT", { body: { defaultType } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts"] });
       toast({
@@ -227,7 +227,7 @@ export function BankingTab() {
   // Penny drop verification mutation
   const verifyAccountMutation = useMutation({
     mutationFn: (accountId: string) => 
-      apiRequest("POST", "/api/bank-accounts/verify-penny-drop", { body: { accountId } }),
+      apiRequest("/api/bank-accounts/verify-penny-drop", "POST", { body: { accountId } }),
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts"] });
       if (data.verified) {
