@@ -1,6 +1,7 @@
 import { Express, Request, Response } from 'express';
 import crypto from 'crypto';
 import { db } from '../db';
+import { sandboxKYCService } from '../services/sandbox-kyc-service';
 
 interface SandboxWebhookPayload {
   event: string;
@@ -632,7 +633,7 @@ export function registerSandboxWebhookRoutes(app: Express): void {
       itr: { status: 'operational', latency: Math.floor(Math.random() * 100) + 60 },
       gst: { status: 'operational', latency: Math.floor(Math.random() * 100) + 70 },
       kyc: { status: 'operational', latency: Math.floor(Math.random() * 100) + 40 },
-      mca: { status: 'limited', latency: Math.floor(Math.random() * 200) + 100, note: 'Requires subscription upgrade' },
+      mca: { status: 'operational', latency: Math.floor(Math.random() * 200) + 100, endpoints: ['company-master-data', 'director-master-data'] },
       webhooks: { status: 'operational', latency: Math.floor(Math.random() * 50) + 10 },
     };
 
@@ -781,6 +782,57 @@ export function registerSandboxWebhookRoutes(app: Express): void {
     });
   });
 
+  // 6. MCA Company Master Data
+  app.post('/api/kyc/mca/company', async (req: Request, res: Response) => {
+    const { cin } = req.body;
+
+    if (!cin || typeof cin !== 'string' || cin.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'CIN is required' });
+    }
+
+    const cleanCin = cin.trim().toUpperCase();
+    const cinRegex = /^[UL]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
+    if (!cinRegex.test(cleanCin)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid CIN format. Expected format: U/L + 5 digits + 2 letters + 4 digits + 3 letters + 6 digits (e.g. U12345AB2010PTC123456)',
+      });
+    }
+
+    try {
+      const data = await sandboxKYCService.verifyCompanyMCA(cleanCin);
+      res.json({ success: true, data, message: 'Company master data retrieved successfully' });
+    } catch (error: any) {
+      console.error('[MCA Company] Verification error:', error.message);
+      res.status(500).json({ success: false, error: error.message || 'MCA company verification failed' });
+    }
+  });
+
+  // 7. MCA Director Master Data
+  app.post('/api/kyc/mca/director', async (req: Request, res: Response) => {
+    const { din } = req.body;
+
+    if (!din || typeof din !== 'string' || din.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'DIN is required' });
+    }
+
+    const cleanDin = din.trim();
+    if (!/^\d{8}$/.test(cleanDin)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid DIN format. DIN must be exactly 8 digits (e.g. 01234567)',
+      });
+    }
+
+    try {
+      const data = await sandboxKYCService.verifyDirectorMCA(cleanDin);
+      res.json({ success: true, data, message: 'Director master data retrieved successfully' });
+    } catch (error: any) {
+      console.error('[MCA Director] Verification error:', error.message);
+      res.status(500).json({ success: false, error: error.message || 'MCA director verification failed' });
+    }
+  });
+
   console.log('✅ Sandbox webhook routes registered');
-  console.log('✅ Additional Sandbox API routes registered (GST, KYC, TDS, Health)');
+  console.log('✅ Additional Sandbox API routes registered (GST, KYC, MCA Company, MCA Director, TDS, Health)');
 }

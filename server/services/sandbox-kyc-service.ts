@@ -34,6 +34,25 @@ interface MCACompanyDetails {
   lastBalanceSheetDate?: string;
 }
 
+interface DirectorMCADetails {
+  din: string;
+  name: string;
+  companies: Array<{
+    companyName: string;
+    designation: string;
+    beginDate: string;
+    endDate: string;
+    cin: string;
+  }>;
+  llps: Array<{
+    llpName: string;
+    designation: string;
+    beginDate: string;
+    endDate: string;
+    llpin: string;
+  }>;
+}
+
 interface GSTINDetails {
   gstin: string;
   legalNameOfBusiness: string;
@@ -157,6 +176,69 @@ export class SandboxKYCService {
     } catch (error: any) {
       console.error('MCA verification error:', error.response?.data || error.message);
       throw new Error(`MCA verification failed: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  /**
+   * Verify director details via MCA using Director Identification Number (DIN)
+   * @param din - 8-digit Director Identification Number
+   */
+  async verifyDirectorMCA(din: string): Promise<DirectorMCADetails> {
+    if (!/^\d{8}$/.test(din)) {
+      throw new Error('Invalid DIN format. DIN must be exactly 8 digits.');
+    }
+
+    const token = await getSandboxAccessToken();
+
+    try {
+      const response = await axios.post(
+        `${SANDBOX_BASE_URL}/mca/director/master-data/search`,
+        {
+          '@entity': 'in.co.sandbox.kyc.mca.master_data.request',
+          id: din,
+          consent: 'y',
+          reason: 'Director KYC verification for financial services',
+        },
+        {
+          headers: {
+            'x-api-key': SANDBOX_API_KEY,
+            'Authorization': token,
+            'x-api-version': '1.0.0',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.code !== 200) {
+        throw new Error(response.data.message || 'Director MCA verification failed');
+      }
+
+      const raw = response.data.data;
+      const directorData = raw.director_data || {};
+      const companyData: any[] = raw.company_data || [];
+      const llpData: any[] = raw.llp_data || [];
+
+      return {
+        din: directorData.din || din,
+        name: directorData.name || '',
+        companies: companyData.map((c: any) => ({
+          companyName: c.company_name || '',
+          designation: c.designation || '',
+          beginDate: c.begin_date || '',
+          endDate: c.end_date || '-',
+          cin: c['cin/fcrn'] || c.cin || '',
+        })),
+        llps: llpData.map((l: any) => ({
+          llpName: l.llp_name || '',
+          designation: l.designation || '',
+          beginDate: l.begin_date || '',
+          endDate: l.end_date || '-',
+          llpin: l['llpin/fllpin'] || l.llpin || '',
+        })),
+      };
+    } catch (error: any) {
+      console.error('Director MCA verification error:', error.response?.data || error.message);
+      throw new Error(`Director MCA verification failed: ${error.response?.data?.message || error.message}`);
     }
   }
 

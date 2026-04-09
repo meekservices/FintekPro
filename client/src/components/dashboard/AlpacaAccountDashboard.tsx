@@ -38,6 +38,7 @@ import {
   ArrowUpCircle, ArrowDownCircle, Plus, Download, Globe, ChevronRight,
   Zap, Crown, Lock, Landmark, Send, Settings2, CalendarDays, Radio,
   ListOrdered, ShieldCheck, GitMerge, Scale, Info, Receipt, FilePlus,
+  Bookmark, ArrowLeftRight,
 } from "lucide-react";
 import FundingWalletPanel from "@/components/us-trading/FundingWalletPanel";
 import RecipientBanksPanel from "@/components/us-trading/RecipientBanksPanel";
@@ -48,6 +49,8 @@ import AlpacaEventFeed from "@/components/us-trading/AlpacaEventFeed";
 import MarketCalendarPanel from "@/components/us-trading/MarketCalendarPanel";
 import CorporateActionsPanel from "@/components/us-trading/CorporateActionsPanel";
 import RebalancingPanel from "@/components/us-trading/RebalancingPanel";
+import WatchlistsPanel from "@/components/us-trading/WatchlistsPanel";
+import JournalsPanel from "@/components/us-trading/JournalsPanel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1915,6 +1918,14 @@ export default function AlpacaAccountDashboard() {
             <Scale className="h-3.5 w-3.5" />
             Rebalance
           </TabsTrigger>
+          <TabsTrigger value="watchlists" className="flex items-center gap-1.5">
+            <Bookmark className="h-3.5 w-3.5" />
+            Watchlists
+          </TabsTrigger>
+          <TabsTrigger value="journals" className="flex items-center gap-1.5">
+            <ArrowLeftRight className="h-3.5 w-3.5" />
+            Journals
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-5 mt-0">
@@ -1994,6 +2005,18 @@ export default function AlpacaAccountDashboard() {
 
         <TabsContent value="rebalance" className="mt-0">
           <RebalancingPanel accountId={account?.id} />
+        </TabsContent>
+
+        <TabsContent value="watchlists" className="mt-0">
+          {account ? (
+            <WatchlistsPanel accountId={account.id} />
+          ) : (
+            <div className="py-8 text-center text-sm text-muted-foreground">Account data not loaded</div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="journals" className="mt-0">
+          <JournalsPanel />
         </TabsContent>
       </Tabs>
     </div>
