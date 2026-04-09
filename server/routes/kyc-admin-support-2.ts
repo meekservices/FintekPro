@@ -4,6 +4,8 @@ import { db } from '../db';
 import { eq, and, or, desc, gte, lte, sql, count } from 'drizzle-orm';
 import { z } from 'zod';
 import { requireAuth, requireAdmin } from '../middleware/roleMiddleware';
+import * as schema from '../../shared/schema';
+import { complianceMonitor } from '../compliance-monitor';
 
 export function registerKYCAdminSupporPart2Routes(app: Express): void {
 app.post('/api/admin/kyc/manual-submissions/:id/review', requireAdmin, async (req: any, res) => {
