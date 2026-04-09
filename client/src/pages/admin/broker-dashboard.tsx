@@ -632,6 +632,16 @@ function ReportsTab() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const downloadMutation = useMutation({
+    mutationFn: (reportId: string) =>
+      fetch(`${BASE}/broker/reports/${reportId}/download`).then(r => r.json()),
+    onSuccess: (data: any) => {
+      if (data?.url) window.open(data.url, "_blank");
+      else toast({ title: "Download unavailable", description: "Report may still be processing.", variant: "destructive" });
+    },
+    onError: (e: any) => toast({ title: "Download failed", description: e.message, variant: "destructive" }),
+  });
+
   const reports = data?.reports || [];
 
   return (
@@ -713,13 +723,26 @@ function ReportsTab() {
                       <TableCell>{statusBadge(r.status)}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{fmtDate(r.date || r.created_at)}</TableCell>
                       <TableCell className="text-right">
-                        {r.url && (
-                          <Button size="sm" variant="ghost" asChild>
-                            <a href={r.url} target="_blank" rel="noopener noreferrer">
-                              <Download className="h-4 w-4" />
-                            </a>
-                          </Button>
-                        )}
+                        {r.status === "complete" || r.url ? (
+                          r.url ? (
+                            <Button size="sm" variant="ghost" asChild>
+                              <a href={r.url} target="_blank" rel="noopener noreferrer">
+                                <Download className="h-4 w-4" />
+                              </a>
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => downloadMutation.mutate(r.id)}
+                              disabled={downloadMutation.isPending}
+                            >
+                              {downloadMutation.isPending
+                                ? <RefreshCw className="h-4 w-4 animate-spin" />
+                                : <Download className="h-4 w-4" />}
+                            </Button>
+                          )
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   ))

@@ -1725,6 +1725,172 @@ class AlpacaBrokerService {
     });
     return response.data;
   }
+
+  // ─── Order Replace ────────────────────────────────────────────────────────
+
+  /**
+   * Replace (modify) an open order for a broker account.
+   * Supports changing qty, limit_price, stop_price, time_in_force, client_order_id.
+   * PATCH /v1/trading/accounts/:accountId/orders/:orderId
+   */
+  async replaceOrder(accountId: string, orderId: string, updates: {
+    qty?: string;
+    limit_price?: string;
+    stop_price?: string;
+    trail?: string;
+    time_in_force?: string;
+    client_order_id?: string;
+  }): Promise<any> {
+    const response = await this.client.patch(
+      `/v1/trading/accounts/${accountId}/orders/${orderId}`,
+      updates,
+    );
+    return response.data;
+  }
+
+  /**
+   * Get a single order for a broker account.
+   * GET /v1/trading/accounts/:accountId/orders/:orderId
+   */
+  async getAccountOrder(accountId: string, orderId: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(
+        `/v1/trading/accounts/${accountId}/orders/${orderId}`,
+      );
+      return response.data;
+    } catch (e: any) {
+      if (e.response?.status === 404) return null;
+      throw e;
+    }
+  }
+
+  /**
+   * Get a single open position for a broker account.
+   * GET /v1/trading/accounts/:accountId/positions/:symbol
+   */
+  async getAccountPosition(accountId: string, symbol: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(
+        `/v1/trading/accounts/${accountId}/positions/${symbol}`,
+      );
+      return response.data;
+    } catch (e: any) {
+      if (e.response?.status === 404) return null;
+      throw e;
+    }
+  }
+
+  // ─── Trusted Contacts ─────────────────────────────────────────────────────
+
+  /**
+   * Get trusted contact for an account.
+   * GET /v1/accounts/:accountId/trusted_contact
+   */
+  async getTrustedContact(accountId: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(`/v1/accounts/${accountId}/trusted_contact`);
+      return response.data;
+    } catch (e: any) {
+      if (e.response?.status === 404) return null;
+      throw e;
+    }
+  }
+
+  /**
+   * Add or update trusted contact for an account.
+   * POST /v1/accounts/:accountId/trusted_contact
+   */
+  async updateTrustedContact(accountId: string, data: {
+    given_name: string;
+    family_name: string;
+    email_address?: string;
+    phone_number?: string;
+    street_address?: string[];
+    city?: string;
+    state?: string;
+    postal_code?: string;
+    country?: string;
+  }): Promise<any> {
+    const response = await this.client.post(`/v1/accounts/${accountId}/trusted_contact`, data);
+    return response.data;
+  }
+
+  /**
+   * Delete trusted contact for an account.
+   * DELETE /v1/accounts/:accountId/trusted_contact
+   */
+  async deleteTrustedContact(accountId: string): Promise<void> {
+    await this.client.delete(`/v1/accounts/${accountId}/trusted_contact`);
+  }
+
+  // ─── Reports Download ─────────────────────────────────────────────────────
+
+  /**
+   * Download the actual report file for a completed report.
+   * GET /v1/reports/:reportId/download → returns signed URL or binary
+   */
+  async downloadReport(reportId: string): Promise<string | null> {
+    try {
+      const response = await this.client.get(`/v1/reports/${reportId}/download`);
+      // Alpaca returns a signed S3 URL or redirect — capture URL from location header or body
+      return response.data?.url || response.headers?.location || null;
+    } catch (e: any) {
+      if (e.response?.status === 404) return null;
+      throw e;
+    }
+  }
+
+  // ─── All Transfers (Admin) ────────────────────────────────────────────────
+
+  /**
+   * List transfers across ALL broker accounts (admin-level view).
+   * GET /v1/transfers
+   */
+  async listAllTransfers(params?: {
+    direction?: "INCOMING" | "OUTGOING";
+    limit?: number;
+    offset?: number;
+  }): Promise<any[]> {
+    const response = await this.client.get("/v1/transfers", { params });
+    return Array.isArray(response.data) ? response.data : response.data?.transfers ?? [];
+  }
+
+  // ─── Journal Reversal ─────────────────────────────────────────────────────
+
+  /**
+   * Reverse a pending/completed journal entry.
+   * DELETE /v1/journals/:journalId  (Alpaca uses DELETE to reverse a journal)
+   */
+  async reverseJournal(journalId: string): Promise<any> {
+    const response = await this.client.delete(`/v1/journals/${journalId}`);
+    return response.data;
+  }
+
+  // ─── Rebalancing Portfolio Delete ─────────────────────────────────────────
+
+  /**
+   * Delete a rebalancing portfolio.
+   * DELETE /v1/rebalancing/portfolios/:portfolioId
+   */
+  async deleteRebalancingPortfolio(portfolioId: string): Promise<void> {
+    await this.client.delete(`/v1/rebalancing/portfolios/${portfolioId}`);
+  }
+
+  // ─── Cash Interest Status ─────────────────────────────────────────────────
+
+  /**
+   * Get current cash interest enrollment status and rate for an account.
+   * GET /v1/accounts/:accountId/interest
+   */
+  async getCashInterestStatus(accountId: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(`/v1/accounts/${accountId}/interest`);
+      return response.data;
+    } catch (e: any) {
+      if (e.response?.status === 404) return null;
+      throw e;
+    }
+  }
 }
 
 export const alpacaBrokerService = new AlpacaBrokerService();
