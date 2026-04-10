@@ -21,7 +21,12 @@ import {
   AlertCircle,
   GitBranch,
   Receipt,
-  UserCircle
+  UserCircle,
+  FileText,
+  Calculator,
+  Briefcase,
+  ClipboardList,
+  Building2
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -109,6 +114,41 @@ const partnerNavSections: NavSection[] = [
     ]
   },
   {
+    section: "CA Work Tools",
+    items: [
+      {
+        title: "CA Dashboard",
+        href: "/partner/ca-dashboard",
+        icon: Briefcase,
+        description: "Your cases, client overview & earnings"
+      },
+      {
+        title: "ITR Filing",
+        href: "/itr-tax-services",
+        icon: FileText,
+        description: "File ITR for clients — ITR-1 to ITR-6"
+      },
+      {
+        title: "TDS Compliance",
+        href: "/tds-compliance",
+        icon: Calculator,
+        description: "TDS returns, 26QB & TRACES reconciliation"
+      },
+      {
+        title: "Tax CA Desk",
+        href: "/tax/ca-desk",
+        icon: ClipboardList,
+        description: "Assigned tax advisory cases & filings"
+      },
+      {
+        title: "GST & Advisory",
+        href: "/professional-services?tab=specialized",
+        icon: Building2,
+        description: "GST registration, returns & tax advisory"
+      }
+    ]
+  },
+  {
     section: "Earnings & Compliance",
     items: [
       {
@@ -175,8 +215,9 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
   });
   const isCaQualified = caStatus?.isCaQualified ?? false;
 
+  const caOnlySections = ["CA Services", "CA Work Tools"];
   const visibleNavSections = partnerNavSections.filter(s =>
-    s.section !== "CA Services" || isCaQualified
+    !caOnlySections.includes(s.section) || isCaQualified
   );
 
   const toggleExpanded = (title: string) => {
