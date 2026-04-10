@@ -18,7 +18,8 @@ import {
   BarChart3, RefreshCw, Search, ExternalLink, ArrowUpRight,
   ChevronRight, AlertCircle, CheckCircle2, Clock, Download, KeyRound, XCircle,
   FolderOpen, Inbox, Unlink, Link2, Send, CloudDownload, Calculator, Calendar,
-  AlertTriangle, Banknote, PiggyBank, CreditCard
+  AlertTriangle, Banknote, PiggyBank, CreditCard,
+  LineChart, PlusCircle, Trash2, Star, User, BookOpen, Layers
 } from "lucide-react";
 
 // ─── IRIS API types ───────────────────────────────────────────────────────────
@@ -2159,6 +2160,967 @@ function AdminOtpDialog({ open, onClose }: { open: boolean; onClose: () => void 
   );
 }
 
+// ─── Analytics Tab ────────────────────────────────────────────────────────────
+function AnalyticsTab() {
+  const [pan, setPan] = useState("");
+  const [submittedPan, setSubmittedPan] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
+  const xirrQuery = useQuery<{ success: boolean; data: { xirr?: number; absoluteReturn?: number; cagr?: number; investedValue?: number; currentValue?: number } }>({
+    queryKey: ["/api/iris/analytics/xirr", submittedPan, fromDate, toDate],
+    queryFn: () => irisGet(`/api/iris/analytics/xirr/${submittedPan}${fromDate || toDate ? '?' + new URLSearchParams(Object.fromEntries(Object.entries({ fromDate, toDate }).filter(([, v]) => v))).toString() : ''}`),
+    enabled: !!submittedPan,
+    retry: false,
+  });
+
+  const portfolioXirrQuery = useQuery<{ success: boolean; data: { xirr?: number; portfolioXirr?: number } }>({
+    queryKey: ["/api/iris/analytics/portfolio-xirr", submittedPan],
+    queryFn: () => irisGet(`/api/iris/analytics/portfolio-xirr/${submittedPan}`),
+    enabled: !!submittedPan,
+    retry: false,
+  });
+
+  const returnsQuery = useQuery<{ success: boolean; data: { schemes?: Array<{ schemeName?: string; absoluteReturn?: number; xirr?: number; cagr?: number; investedValue?: number; currentValue?: number }> } }>({
+    queryKey: ["/api/iris/analytics/returns", submittedPan],
+    queryFn: () => irisGet(`/api/iris/analytics/returns/${submittedPan}`),
+    enabled: !!submittedPan,
+    retry: false,
+  });
+
+  const sipXirrQuery = useQuery<{ success: boolean; data: { sipXirr?: number; xirr?: number; sips?: Array<{ schemeName?: string; xirr?: number; amount?: number }> } }>({
+    queryKey: ["/api/iris/analytics/sip-returns", submittedPan],
+    queryFn: () => irisGet(`/api/iris/analytics/sip-returns/${submittedPan}`),
+    enabled: !!submittedPan,
+    retry: false,
+  });
+
+  const taxHarvestQuery = useQuery<{ success: boolean; data: { opportunities?: Array<{ schemeName?: string; units?: number; currentValue?: number; purchaseValue?: number; gainLoss?: number; ltcgExemption?: number; exitLoadApplicable?: boolean; holdingDays?: number; taxSaving?: number }> } }>({
+    queryKey: ["/api/iris/portfolio/tax-harvest", submittedPan],
+    queryFn: () => irisGet(`/api/iris/portfolio/tax-harvest/${submittedPan}`),
+    enabled: !!submittedPan,
+    retry: false,
+  });
+
+  function handleLoad() {
+    if (pan.length < 10) return;
+    setSubmittedPan(pan.trim().toUpperCase());
+  }
+
+  const xirr = xirrQuery.data?.data;
+  const portfolioXirr = portfolioXirrQuery.data?.data;
+  const schemes = returnsQuery.data?.data?.schemes ?? [];
+  const sipXirr = sipXirrQuery.data?.data;
+  const taxOpps = taxHarvestQuery.data?.data?.opportunities ?? [];
+  const loading = xirrQuery.isLoading || portfolioXirrQuery.isLoading;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <LineChart className="h-5 w-5 text-primary" /> Investor Analytics
+          </CardTitle>
+          <CardDescription>Enter a PAN to load XIRR, returns breakdown, SIP XIRR and tax harvest opportunities.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3 items-end">
+            <div>
+              <Label>Investor PAN</Label>
+              <Input value={pan} onChange={e => setPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" maxLength={10} className="w-40" />
+            </div>
+            <div>
+              <Label>From Date</Label>
+              <Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="w-38" />
+            </div>
+            <div>
+              <Label>To Date</Label>
+              <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="w-38" />
+            </div>
+            <Button onClick={handleLoad} disabled={pan.length < 10}>
+              {loading ? <RefreshCw className="h-4 w-4 mr-1 animate-spin" /> : <Search className="h-4 w-4 mr-1" />}
+              Load Analytics
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {submittedPan && (
+        <>
+          {/* XIRR Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              title="Overall XIRR"
+              value={xirr?.xirr != null ? `${xirr.xirr.toFixed(2)}%` : undefined}
+              subtitle="Annualised return"
+              icon={TrendingUp}
+              loading={xirrQuery.isLoading}
+            />
+            <StatCard
+              title="Portfolio XIRR"
+              value={portfolioXirr?.xirr != null ? `${portfolioXirr.xirr.toFixed(2)}%` : portfolioXirr?.portfolioXirr != null ? `${portfolioXirr.portfolioXirr.toFixed(2)}%` : undefined}
+              subtitle="Full portfolio view"
+              icon={BarChart3}
+              loading={portfolioXirrQuery.isLoading}
+            />
+            <StatCard
+              title="SIP XIRR"
+              value={sipXirr?.sipXirr != null ? `${sipXirr.sipXirr.toFixed(2)}%` : sipXirr?.xirr != null ? `${sipXirr.xirr.toFixed(2)}%` : undefined}
+              subtitle="Systematic investments only"
+              icon={Activity}
+              loading={sipXirrQuery.isLoading}
+            />
+            <StatCard
+              title="Absolute Return"
+              value={xirr?.absoluteReturn != null ? `${xirr.absoluteReturn.toFixed(2)}%` : undefined}
+              subtitle={xirr?.currentValue != null ? fmt(xirr.currentValue) : undefined}
+              icon={IndianRupee}
+              loading={xirrQuery.isLoading}
+            />
+          </div>
+
+          {/* Portfolio XIRR Trend — bar chart across schemes sorted by XIRR */}
+          {schemes.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-sm">Portfolio XIRR Trend (by Scheme)</CardTitle></CardHeader>
+              <CardContent>
+                {returnsQuery.isLoading ? <Skeleton className="h-28 w-full" /> : (
+                  <div className="space-y-2">
+                    {[...schemes].sort((a, b) => (b.xirr ?? 0) - (a.xirr ?? 0)).slice(0, 8).map((s, i) => {
+                      const max = Math.max(...schemes.map(x => Math.abs(x.xirr ?? 0)), 1);
+                      const pct = Math.min(Math.abs((s.xirr ?? 0) / max) * 100, 100);
+                      const isPos = (s.xirr ?? 0) >= 0;
+                      return (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          <span className="w-40 truncate text-muted-foreground">{s.schemeName ?? '—'}</span>
+                          <div className="flex-1 bg-muted rounded h-5 relative overflow-hidden">
+                            <div
+                              className={`absolute left-0 top-0 h-full rounded ${isPos ? 'bg-green-500' : 'bg-red-400'}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                            <span className={`absolute right-2 top-0 h-full flex items-center font-medium ${isPos ? 'text-green-700' : 'text-red-600'}`}>
+                              {s.xirr != null ? `${s.xirr.toFixed(1)}%` : '—'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Returns Breakdown */}
+          {schemes.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-sm">Returns Breakdown by Scheme</CardTitle></CardHeader>
+              <CardContent className="p-0">
+                <ScrollArea className="h-72">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-background border-b">
+                      <tr>
+                        <th className="text-left p-3 font-medium">Scheme</th>
+                        <th className="text-right p-3 font-medium">Invested</th>
+                        <th className="text-right p-3 font-medium">Current</th>
+                        <th className="text-right p-3 font-medium">Abs Return</th>
+                        <th className="text-right p-3 font-medium">XIRR</th>
+                        <th className="text-right p-3 font-medium">CAGR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {schemes.map((s, i) => (
+                        <tr key={i} className="border-b hover:bg-muted/50">
+                          <td className="p-3 max-w-[200px] truncate">{s.schemeName ?? '—'}</td>
+                          <td className="p-3 text-right">{fmt(s.investedValue)}</td>
+                          <td className="p-3 text-right">{fmt(s.currentValue)}</td>
+                          <td className={`p-3 text-right ${(s.absoluteReturn ?? 0) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                            {s.absoluteReturn != null ? `${s.absoluteReturn.toFixed(2)}%` : '—'}
+                          </td>
+                          <td className={`p-3 text-right ${(s.xirr ?? 0) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                            {s.xirr != null ? `${s.xirr.toFixed(2)}%` : '—'}
+                          </td>
+                          <td className={`p-3 text-right ${(s.cagr ?? 0) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                            {s.cagr != null ? `${s.cagr.toFixed(2)}%` : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          )}
+
+          {returnsQuery.isLoading && (
+            <Card><CardContent className="p-4 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</CardContent></Card>
+          )}
+
+          {/* SIP XIRR per scheme */}
+          {(sipXirr?.sips?.length ?? 0) > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-sm">SIP-specific XIRR</CardTitle></CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y">
+                  {sipXirr!.sips!.map((s, i) => (
+                    <div key={i} className="p-3 flex justify-between items-center">
+                      <span className="text-sm truncate max-w-[60%]">{s.schemeName ?? '—'}</span>
+                      <div className="flex items-center gap-3 text-sm">
+                        {s.amount != null && <span className="text-muted-foreground">{fmt(s.amount)}/mo</span>}
+                        <span className={`font-medium ${(s.xirr ?? 0) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          {s.xirr != null ? `${s.xirr.toFixed(2)}%` : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Tax Harvest */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <IndianRupee className="h-4 w-4 text-amber-500" /> Tax Harvest Opportunities
+              </CardTitle>
+              <CardDescription>Holdings where selling now qualifies for LTCG exemption or avoids exit load, ranked by potential tax saving.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {taxHarvestQuery.isLoading ? (
+                <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
+              ) : taxOpps.length > 0 ? (
+                <ScrollArea className="h-72">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-background border-b">
+                      <tr>
+                        <th className="text-left p-3 font-medium">Scheme</th>
+                        <th className="text-right p-3 font-medium">Days</th>
+                        <th className="text-right p-3 font-medium">Current Value</th>
+                        <th className="text-right p-3 font-medium">Gain/Loss</th>
+                        <th className="text-right p-3 font-medium">LTCG Exempt</th>
+                        <th className="text-right p-3 font-medium">Tax Saving</th>
+                        <th className="text-center p-3 font-medium">Exit Load</th>
+                        <th className="text-center p-3 font-medium">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {taxOpps.map((op, i) => (
+                        <tr key={i} className="border-b hover:bg-muted/50">
+                          <td className="p-3 max-w-[160px] truncate">{op.schemeName ?? '—'}</td>
+                          <td className="p-3 text-right">{op.holdingDays ?? '—'}</td>
+                          <td className="p-3 text-right">{fmt(op.currentValue)}</td>
+                          <td className={`p-3 text-right ${(op.gainLoss ?? 0) >= 0 ? 'text-green-600' : 'text-red-500'}`}>{fmt(op.gainLoss)}</td>
+                          <td className="p-3 text-right">{op.ltcgExemption != null ? fmt(op.ltcgExemption) : '—'}</td>
+                          <td className="p-3 text-right font-medium text-green-600">{op.taxSaving != null ? fmt(op.taxSaving) : '—'}</td>
+                          <td className="p-3 text-center">
+                            <Badge variant={op.exitLoadApplicable ? 'destructive' : 'default'} className="text-[10px]">
+                              {op.exitLoadApplicable ? 'Yes' : 'No'}
+                            </Badge>
+                          </td>
+                          <td className="p-3 text-center">
+                            <Button size="sm" variant="outline" className="h-6 text-[11px] px-2"
+                              onClick={() => {
+                                const schemeCode = (op as { schemeCode?: string }).schemeCode;
+                                const url = schemeCode
+                                  ? `/api/iris/transactions/place-redemption`
+                                  : undefined;
+                                if (!url) { alert('Open Transact tab to initiate redemption for: ' + (op.schemeName ?? 'this scheme')); return; }
+                              }}>
+                              Redeem
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </ScrollArea>
+              ) : taxHarvestQuery.isError ? (
+                <p className="text-sm text-muted-foreground">Tax harvest data unavailable for this PAN.</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">No tax harvest opportunities found.</p>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Research Tab ──────────────────────────────────────────────────────────────
+type ResearchSection = "search" | "compare" | "browse";
+
+function ResearchTab() {
+  const [section, setSection] = useState<ResearchSection>("search");
+  const [schemeQuery, setSchemeQuery] = useState("");
+  const [selectedScheme, setSelectedScheme] = useState<SchemeResult | null>(null);
+  const [navPeriod, setNavPeriod] = useState("1M");
+  const [compareList, setCompareList] = useState<SchemeResult[]>([]);
+  const [compareQuery, setCompareQuery] = useState("");
+  const [browseCategory, setBrowseCategory] = useState("");
+  const [browseSubcategory, setBrowseSubcategory] = useState("ALL");
+  const [riskProfile, setRiskProfile] = useState("ANY");
+
+  const schemeSearchData = useQuery<{ success: boolean; data: { schemes?: SchemeResult[] } | SchemeResult[] }>({
+    queryKey: ["/api/iris/transactions/scheme-search", schemeQuery],
+    queryFn: () => irisGet(`/api/iris/transactions/scheme-search?q=${encodeURIComponent(schemeQuery)}`),
+    enabled: schemeQuery.length >= 2 && !selectedScheme,
+    retry: false,
+  });
+
+  const compareSearchData = useQuery<{ success: boolean; data: { schemes?: SchemeResult[] } | SchemeResult[] }>({
+    queryKey: ["/api/iris/transactions/scheme-search", "compare", compareQuery],
+    queryFn: () => irisGet(`/api/iris/transactions/scheme-search?q=${encodeURIComponent(compareQuery)}`),
+    enabled: compareQuery.length >= 2,
+    retry: false,
+  });
+
+  const schemeCode = selectedScheme?.schemeCode ?? selectedScheme?.isinCode ?? selectedScheme?.code ?? "";
+
+  const navHistoryQuery = useQuery<{ success: boolean; data: { history?: Array<{ date: string; nav: number }> } }>({
+    queryKey: ["/api/iris/schemes", schemeCode, "nav-history", navPeriod],
+    queryFn: () => irisGet(`/api/iris/schemes/${schemeCode}/nav-history?period=${navPeriod}`),
+    enabled: !!schemeCode,
+    retry: false,
+  });
+
+  const performanceQuery = useQuery<{ success: boolean; data: { returns?: { oneYear?: number; threeYear?: number; fiveYear?: number }; stdDeviation?: number; sharpe?: number; expenseRatio?: number } }>({
+    queryKey: ["/api/iris/schemes", schemeCode, "performance"],
+    queryFn: () => irisGet(`/api/iris/schemes/${schemeCode}/performance`),
+    enabled: !!schemeCode,
+    retry: false,
+  });
+
+  const ratingsQuery = useQuery<{ success: boolean; data: { crisil?: string; valueResearch?: string; morningstar?: string; rating?: string } }>({
+    queryKey: ["/api/iris/schemes", schemeCode, "ratings"],
+    queryFn: () => irisGet(`/api/iris/schemes/${schemeCode}/ratings`),
+    enabled: !!schemeCode,
+    retry: false,
+  });
+
+  const fundManagerQuery = useQuery<{ success: boolean; data: { name?: string; experience?: string; schemesManaged?: number | string; qualification?: string } }>({
+    queryKey: ["/api/iris/schemes", schemeCode, "fund-manager"],
+    queryFn: () => irisGet(`/api/iris/schemes/${schemeCode}/fund-manager`),
+    enabled: !!schemeCode,
+    retry: false,
+  });
+
+  const holdingsQuery = useQuery<{ success: boolean; data: { holdings?: Array<{ stockName?: string; name?: string; percentage?: number; weight?: number }> } }>({
+    queryKey: ["/api/iris/schemes", schemeCode, "holdings"],
+    queryFn: () => irisGet(`/api/iris/schemes/${schemeCode}/holdings`),
+    enabled: !!schemeCode,
+    retry: false,
+  });
+
+  const factsheetQuery = useQuery<{ success: boolean; data: { downloadUrl?: string; url?: string; factsheetUrl?: string } }>({
+    queryKey: ["/api/iris/schemes", schemeCode, "factsheet"],
+    queryFn: () => irisGet(`/api/iris/schemes/${schemeCode}/factsheet`),
+    enabled: !!schemeCode,
+    retry: false,
+  });
+
+  const benchmarkQuery = useQuery<{ success: boolean; data: { benchmark?: string; benchmarkReturns?: { oneYear?: number; threeYear?: number; fiveYear?: number }; outperformance?: number } }>({
+    queryKey: ["/api/iris/schemes", schemeCode, "benchmark"],
+    queryFn: () => irisGet(`/api/iris/schemes/${schemeCode}/benchmark`),
+    enabled: !!schemeCode,
+    retry: false,
+  });
+
+  const categoriesQuery = useQuery<{ success: boolean; data: { categories?: string[] } | string[] }>({
+    queryKey: ["/api/iris/categories"],
+    retry: false,
+  });
+
+  const subcategoriesQuery = useQuery<{ success: boolean; data: { subcategories?: string[] } | string[] }>({
+    queryKey: ["/api/iris/subcategories", browseCategory],
+    queryFn: () => irisGet(`/api/iris/subcategories${browseCategory ? '?category=' + encodeURIComponent(browseCategory) : ''}`),
+    enabled: !!browseCategory,
+    retry: false,
+  });
+
+  const byCategoryQuery = useQuery<{ success: boolean; data: { schemes?: SchemeResult[] } | SchemeResult[] }>({
+    queryKey: ["/api/iris/schemes/by-category", browseCategory, browseSubcategory, riskProfile],
+    queryFn: () => {
+      const params: Record<string, string> = {};
+      if (browseSubcategory && browseSubcategory !== 'ALL') params.subcategory = browseSubcategory;
+      if (riskProfile && riskProfile !== 'ANY') params.riskProfile = riskProfile;
+      const qs = '?' + new URLSearchParams({ category: browseCategory, ...params }).toString();
+      return irisGet(`/api/iris/schemes/by-category${qs}`);
+    },
+    enabled: !!browseCategory,
+    retry: false,
+  });
+
+  const compareQuery2 = useMutation({
+    mutationFn: (schemeCodes: string[]) => apiRequest('/api/iris/schemes/compare', 'POST', { body: { schemeCodes } }),
+  });
+
+  const topPerformersQuery = useQuery<{ success: boolean; data: { schemes?: Array<{ schemeName?: string; schemeCode?: string; return1y?: number; oneYearReturn?: number; category?: string }> } }>({
+    queryKey: ["/api/iris/schemes/top-performers", browseCategory],
+    queryFn: () => irisGet(`/api/iris/schemes/top-performers${browseCategory ? '?category=' + encodeURIComponent(browseCategory) : ''}`),
+    enabled: section === "browse" || section === "search",
+    retry: false,
+  });
+
+  const riskRecommendationsQuery = useQuery<{ success: boolean; data: { schemes?: SchemeResult[] } | SchemeResult[] }>({
+    queryKey: ["/api/iris/schemes/recommended", riskProfile],
+    queryFn: () => irisGet(`/api/iris/schemes/recommended?riskProfile=${encodeURIComponent(riskProfile)}`),
+    enabled: section === "browse" && !!riskProfile && riskProfile !== 'ANY',
+    retry: false,
+  });
+
+  function resolveSchemes(d: { success: boolean; data: { schemes?: SchemeResult[] } | SchemeResult[] } | undefined): SchemeResult[] {
+    if (!d?.data) return [];
+    if (Array.isArray(d.data)) return d.data;
+    return (d.data as { schemes?: SchemeResult[] }).schemes ?? [];
+  }
+
+  function resolveCategories(): string[] {
+    if (!categoriesQuery.data?.data) return [];
+    if (Array.isArray(categoriesQuery.data.data)) return categoriesQuery.data.data;
+    return (categoriesQuery.data.data as { categories?: string[] }).categories ?? [];
+  }
+
+  function resolveSubcategories(): string[] {
+    if (!subcategoriesQuery.data?.data) return [];
+    if (Array.isArray(subcategoriesQuery.data.data)) return subcategoriesQuery.data.data;
+    return (subcategoriesQuery.data.data as { subcategories?: string[] }).subcategories ?? [];
+  }
+
+  const searchResults = resolveSchemes(schemeSearchData.data);
+  const compareSearchResults = resolveSchemes(compareSearchData.data);
+  const categorySchemes = resolveSchemes(byCategoryQuery.data);
+  const navHistory = navHistoryQuery.data?.data?.history ?? [];
+  const topHoldings = (holdingsQuery.data?.data?.holdings ?? []).slice(0, 10);
+  const perf = performanceQuery.data?.data;
+  const ratings = ratingsQuery.data?.data;
+  const fundManager = fundManagerQuery.data?.data;
+  const benchmark = benchmarkQuery.data?.data;
+  const factsheetUrl = factsheetQuery.data?.data?.downloadUrl ?? factsheetQuery.data?.data?.url ?? factsheetQuery.data?.data?.factsheetUrl;
+  const compareResult = compareQuery2.data as { data?: { schemes?: Array<{ schemeName?: string; schemeCode?: string; returns?: { oneYear?: number; threeYear?: number; fiveYear?: number }; stdDeviation?: number; sharpe?: number; expenseRatio?: number; crisil?: string }> } } | undefined;
+
+  const NAV_PERIODS = ["7D", "1M", "3M", "1Y", "3Y"];
+
+  return (
+    <div className="space-y-4">
+      {/* Section tabs */}
+      <div className="flex gap-2 flex-wrap">
+        {([
+          { key: "search", label: "Scheme Detail", icon: Search },
+          { key: "compare", label: "Compare Schemes", icon: Layers },
+          { key: "browse", label: "Category Browser", icon: BookOpen },
+        ] as { key: ResearchSection; label: string; icon: React.ComponentType<{ className?: string }> }[]).map(({ key, label, icon: Icon }) => (
+          <Button key={key} size="sm" variant={section === key ? "default" : "outline"} onClick={() => setSection(key)}>
+            <Icon className="h-4 w-4 mr-1" />{label}
+          </Button>
+        ))}
+      </div>
+
+      {/* ── Scheme Detail ─────────────────────────────────────────────────────── */}
+      {section === "search" && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Search Scheme</CardTitle></CardHeader>
+            <CardContent>
+              <div className="relative max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  placeholder="Type scheme name (min 2 chars)…"
+                  value={selectedScheme ? (selectedScheme.schemeName ?? selectedScheme.name ?? "") : schemeQuery}
+                  onChange={e => { setSchemeQuery(e.target.value); setSelectedScheme(null); }}
+                />
+              </div>
+              {schemeQuery.length >= 2 && !selectedScheme && (
+                <div className="border rounded-md mt-2 max-h-48 overflow-y-auto bg-background shadow-md">
+                  {schemeSearchData.isLoading ? (
+                    <p className="p-2 text-xs text-muted-foreground">Searching…</p>
+                  ) : searchResults.length > 0 ? (
+                    searchResults.slice(0, 12).map((s, i) => (
+                      <button key={i} className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 flex justify-between items-center"
+                        onClick={() => { setSelectedScheme(s); setSchemeQuery(""); }}>
+                        <span>{s.schemeName ?? s.name}</span>
+                        {(s.schemeCode ?? s.code) && <span className="text-xs text-muted-foreground ml-2">{s.schemeCode ?? s.code}</span>}
+                      </button>
+                    ))
+                  ) : (
+                    <p className="p-2 text-xs text-muted-foreground">No schemes found</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {selectedScheme && (
+            <>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline">{selectedScheme.schemeCode ?? selectedScheme.isinCode ?? selectedScheme.code}</Badge>
+                <span className="font-medium text-sm">{selectedScheme.schemeName ?? selectedScheme.name}</span>
+                <button className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-0.5"
+                  onClick={() => { setSelectedScheme(null); setSchemeQuery(""); }}>
+                  <XCircle className="h-3.5 w-3.5" /> Clear
+                </button>
+                {factsheetUrl && (
+                  <a href={factsheetUrl} target="_blank" rel="noopener noreferrer">
+                    <Button size="sm" variant="outline"><Download className="h-3.5 w-3.5 mr-1" /> Factsheet PDF</Button>
+                  </a>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Performance metrics */}
+                <Card>
+                  <CardHeader><CardTitle className="text-sm">Performance</CardTitle></CardHeader>
+                  <CardContent>
+                    {performanceQuery.isLoading ? <Skeleton className="h-24 w-full" /> : (
+                      <div className="space-y-2 text-sm">
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { label: "1Y", val: perf?.returns?.oneYear },
+                            { label: "3Y", val: perf?.returns?.threeYear },
+                            { label: "5Y", val: perf?.returns?.fiveYear },
+                          ].map(({ label, val }) => (
+                            <div key={label} className="bg-muted rounded p-2 text-center">
+                              <p className="text-xs text-muted-foreground">{label}</p>
+                              <p className={`font-semibold ${(val ?? 0) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                {val != null ? `${val.toFixed(2)}%` : '—'}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                        {perf?.expenseRatio != null && <p className="text-xs text-muted-foreground">Expense Ratio: <span className="font-medium text-foreground">{perf.expenseRatio.toFixed(2)}%</span></p>}
+                        {perf?.stdDeviation != null && <p className="text-xs text-muted-foreground">Std Dev: <span className="font-medium text-foreground">{perf.stdDeviation.toFixed(2)}</span></p>}
+                        {perf?.sharpe != null && <p className="text-xs text-muted-foreground">Sharpe: <span className="font-medium text-foreground">{perf.sharpe.toFixed(2)}</span></p>}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Ratings */}
+                <Card>
+                  <CardHeader><CardTitle className="text-sm">Ratings</CardTitle></CardHeader>
+                  <CardContent>
+                    {ratingsQuery.isLoading ? <Skeleton className="h-16 w-full" /> : (
+                      <div className="space-y-2 text-sm">
+                        {ratings?.crisil && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">CRISIL</span>
+                            <Badge variant="outline" className="flex items-center gap-1"><Star className="h-3 w-3" />{ratings.crisil}</Badge>
+                          </div>
+                        )}
+                        {ratings?.valueResearch && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Value Research</span>
+                            <Badge variant="outline">{ratings.valueResearch}</Badge>
+                          </div>
+                        )}
+                        {ratings?.morningstar && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Morningstar</span>
+                            <Badge variant="outline">{ratings.morningstar}</Badge>
+                          </div>
+                        )}
+                        {!ratings?.crisil && !ratings?.valueResearch && !ratings?.morningstar && (
+                          <p className="text-xs text-muted-foreground">Ratings unavailable</p>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Fund Manager */}
+                <Card>
+                  <CardHeader><CardTitle className="text-sm flex items-center gap-1"><User className="h-4 w-4" /> Fund Manager</CardTitle></CardHeader>
+                  <CardContent>
+                    {fundManagerQuery.isLoading ? <Skeleton className="h-16 w-full" /> : fundManager?.name ? (
+                      <div className="space-y-1 text-sm">
+                        <p className="font-medium">{fundManager.name}</p>
+                        {fundManager.experience && <p className="text-xs text-muted-foreground">Experience: {fundManager.experience}</p>}
+                        {fundManager.qualification && <p className="text-xs text-muted-foreground">{fundManager.qualification}</p>}
+                        {fundManager.schemesManaged != null && <p className="text-xs text-muted-foreground">Schemes managed: {fundManager.schemesManaged}</p>}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Fund manager info unavailable</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Benchmark Comparison */}
+              {(benchmarkQuery.data?.data?.benchmark || benchmarkQuery.data?.data?.benchmarkReturns) && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Benchmark Comparison</CardTitle>
+                    {benchmark?.benchmark && <CardDescription>{benchmark.benchmark}</CardDescription>}
+                  </CardHeader>
+                  <CardContent>
+                    {benchmarkQuery.isLoading ? <Skeleton className="h-16 w-full" /> : (
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          { label: "1Y", scheme: perf?.returns?.oneYear, bench: benchmark?.benchmarkReturns?.oneYear },
+                          { label: "3Y", scheme: perf?.returns?.threeYear, bench: benchmark?.benchmarkReturns?.threeYear },
+                          { label: "5Y", scheme: perf?.returns?.fiveYear, bench: benchmark?.benchmarkReturns?.fiveYear },
+                        ].map(({ label, scheme, bench }) => (
+                          <div key={label} className="bg-muted rounded p-3">
+                            <p className="text-xs font-medium mb-1">{label} Return</p>
+                            <div className="flex justify-between text-xs">
+                              <span>Fund: <span className={`font-medium ${(scheme ?? 0) >= 0 ? 'text-green-600' : 'text-red-500'}`}>{scheme != null ? `${scheme.toFixed(2)}%` : '—'}</span></span>
+                              <span>Index: <span className="font-medium">{bench != null ? `${bench.toFixed(2)}%` : '—'}</span></span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* NAV History */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <CardTitle className="text-sm">NAV History</CardTitle>
+                    <div className="flex gap-1">
+                      {NAV_PERIODS.map(p => (
+                        <Button key={p} size="sm" variant={navPeriod === p ? "default" : "outline"} className="h-7 px-2 text-xs"
+                          onClick={() => setNavPeriod(p)}>{p}</Button>
+                      ))}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {navHistoryQuery.isLoading ? <Skeleton className="h-40 w-full" /> : navHistory.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <div className="relative h-36 bg-muted/30 rounded">
+                        {/* Simple sparkline using SVG */}
+                        {(() => {
+                          const navs = navHistory.map(d => d.nav);
+                          const minNav = Math.min(...navs);
+                          const maxNav = Math.max(...navs);
+                          const range = maxNav - minNav || 1;
+                          const w = 100;
+                          const h = 100;
+                          const points = navs.map((n, i) => `${(i / (navs.length - 1)) * w},${h - ((n - minNav) / range) * h}`).join(' ');
+                          const isPositive = navs[navs.length - 1] >= navs[0];
+                          return (
+                            <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full p-2">
+                              <polyline fill="none" stroke={isPositive ? '#16a34a' : '#dc2626'} strokeWidth="1.5" points={points} />
+                            </svg>
+                          );
+                        })()}
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                        <span>{navHistory[0]?.date}</span>
+                        <span className="font-medium">NAV: ₹{navHistory[navHistory.length - 1]?.nav?.toFixed(2)}</span>
+                        <span>{navHistory[navHistory.length - 1]?.date}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">NAV history unavailable for this period.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Top Holdings */}
+              {topHoldings.length > 0 && (
+                <Card>
+                  <CardHeader><CardTitle className="text-sm">Top 10 Portfolio Holdings</CardTitle></CardHeader>
+                  <CardContent className="p-0">
+                    <table className="w-full text-sm">
+                      <thead className="border-b">
+                        <tr>
+                          <th className="text-left p-3 font-medium">#</th>
+                          <th className="text-left p-3 font-medium">Stock / Security</th>
+                          <th className="text-right p-3 font-medium">Weight %</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topHoldings.map((h, i) => (
+                          <tr key={i} className="border-b hover:bg-muted/50">
+                            <td className="p-3 text-muted-foreground">{i + 1}</td>
+                            <td className="p-3">{h.stockName ?? h.name ?? '—'}</td>
+                            <td className="p-3 text-right">{h.percentage != null ? `${h.percentage.toFixed(2)}%` : h.weight != null ? `${h.weight.toFixed(2)}%` : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+
+          {/* Top Performer Rankings */}
+          {(() => {
+            const topPerformers = topPerformersQuery.data?.data?.schemes ?? [];
+            return topPerformers.length > 0 ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm flex items-center gap-1"><TrendingUp className="h-4 w-4 text-primary" /> Top Performing Schemes</CardTitle>
+                  <CardDescription>Ranked by 1-year return across all categories</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <table className="w-full text-sm">
+                    <thead className="border-b">
+                      <tr>
+                        <th className="text-left p-3 font-medium">Rank</th>
+                        <th className="text-left p-3 font-medium">Scheme</th>
+                        <th className="text-left p-3 font-medium">Category</th>
+                        <th className="text-right p-3 font-medium">1Y Return</th>
+                        <th className="p-3" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topPerformers.slice(0, 10).map((s, i) => (
+                        <tr key={i} className="border-b hover:bg-muted/50">
+                          <td className="p-3 font-medium text-muted-foreground">{i + 1}</td>
+                          <td className="p-3 max-w-[200px] truncate">{s.schemeName ?? '—'}</td>
+                          <td className="p-3 text-muted-foreground">{s.category ?? '—'}</td>
+                          <td className={`p-3 text-right font-medium ${((s.return1y ?? s.oneYearReturn) ?? 0) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                            {(s.return1y ?? s.oneYearReturn) != null ? `${(s.return1y ?? s.oneYearReturn)!.toFixed(2)}%` : '—'}
+                          </td>
+                          <td className="p-3 text-right">
+                            <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2"
+                              onClick={() => {
+                                const sr: SchemeResult = { schemeCode: s.schemeCode, schemeName: s.schemeName };
+                                setSelectedScheme(sr);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}>
+                              View
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            ) : null;
+          })()}
+        </div>
+      )}
+
+      {/* ── Compare Schemes ───────────────────────────────────────────────────── */}
+      {section === "compare" && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Compare up to 3 Schemes</CardTitle>
+              <CardDescription>Add schemes using the search box below. Side-by-side returns, risk, ratings and expense ratio.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex gap-2 flex-wrap items-center">
+                {compareList.map((s, i) => (
+                  <Badge key={i} variant="secondary" className="flex items-center gap-1 text-xs">
+                    <span>{s.schemeName ?? s.name}</span>
+                    <button onClick={() => setCompareList(l => l.filter((_, j) => j !== i))}>
+                      <Trash2 className="h-3 w-3 ml-1 text-muted-foreground hover:text-destructive" />
+                    </button>
+                  </Badge>
+                ))}
+                {compareList.length < 3 && (
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      className="pl-7 h-7 text-xs w-52"
+                      placeholder="Add scheme…"
+                      value={compareQuery}
+                      onChange={e => setCompareQuery(e.target.value)}
+                    />
+                    {compareQuery.length >= 2 && compareSearchResults.length > 0 && (
+                      <div className="absolute z-20 border rounded-md mt-1 max-h-48 overflow-y-auto bg-background shadow-md w-80">
+                        {compareSearchResults.slice(0, 8).map((s, i) => (
+                          <button key={i} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50"
+                            onClick={() => {
+                              if (!compareList.find(c => (c.schemeCode ?? c.code) === (s.schemeCode ?? s.code))) {
+                                setCompareList(l => [...l, s]);
+                              }
+                              setCompareQuery("");
+                            }}>
+                            {s.schemeName ?? s.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <Button
+                  size="sm"
+                  disabled={compareList.length < 2 || compareQuery2.isPending}
+                  onClick={() => compareQuery2.mutate(compareList.map(s => s.schemeCode ?? s.isinCode ?? s.code ?? ""))}
+                >
+                  {compareQuery2.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <Layers className="h-4 w-4 mr-1" />}
+                  Compare
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {compareResult?.data?.schemes && compareResult.data.schemes.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-sm">Comparison Result</CardTitle></CardHeader>
+              <CardContent className="p-0">
+                <ScrollArea className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[600px]">
+                    <thead className="border-b bg-muted/50">
+                      <tr>
+                        <th className="text-left p-3 font-medium">Metric</th>
+                        {compareResult.data.schemes.map((s, i) => (
+                          <th key={i} className="text-right p-3 font-medium max-w-[150px]">{s.schemeName ?? `Scheme ${i + 1}`}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { label: "1Y Return", fn: (s: typeof compareResult.data.schemes[0]) => s.returns?.oneYear != null ? `${s.returns.oneYear.toFixed(2)}%` : '—' },
+                        { label: "3Y Return", fn: (s: typeof compareResult.data.schemes[0]) => s.returns?.threeYear != null ? `${s.returns.threeYear.toFixed(2)}%` : '—' },
+                        { label: "5Y Return", fn: (s: typeof compareResult.data.schemes[0]) => s.returns?.fiveYear != null ? `${s.returns.fiveYear.toFixed(2)}%` : '—' },
+                        { label: "Std Deviation", fn: (s: typeof compareResult.data.schemes[0]) => s.stdDeviation != null ? s.stdDeviation.toFixed(2) : '—' },
+                        { label: "Sharpe Ratio", fn: (s: typeof compareResult.data.schemes[0]) => s.sharpe != null ? s.sharpe.toFixed(2) : '—' },
+                        { label: "Expense Ratio", fn: (s: typeof compareResult.data.schemes[0]) => s.expenseRatio != null ? `${s.expenseRatio.toFixed(2)}%` : '—' },
+                        { label: "CRISIL Rating", fn: (s: typeof compareResult.data.schemes[0]) => s.crisil ?? '—' },
+                      ].map(({ label, fn }) => (
+                        <tr key={label} className="border-b hover:bg-muted/50">
+                          <td className="p-3 font-medium text-muted-foreground">{label}</td>
+                          {compareResult!.data!.schemes!.map((s, i) => (
+                            <td key={i} className="p-3 text-right">{fn(s)}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* ── Category Browser ──────────────────────────────────────────────────── */}
+      {section === "browse" && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Browse by Category</CardTitle>
+              <CardDescription>Filter schemes by category and sub-category. Set a risk profile for recommendations.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <Label>Category</Label>
+                  <Select value={browseCategory} onValueChange={c => { setBrowseCategory(c); setBrowseSubcategory("ALL"); }}>
+                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectContent>
+                      {resolveCategories().length > 0
+                        ? resolveCategories().map((c, i) => <SelectItem key={i} value={c}>{c}</SelectItem>)
+                        : ["Equity", "Debt", "Hybrid", "Liquid", "Solution Oriented"].map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))
+                      }
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Sub-Category</Label>
+                  <Select value={browseSubcategory} onValueChange={setBrowseSubcategory} disabled={!browseCategory}>
+                    <SelectTrigger><SelectValue placeholder="All sub-categories" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Sub-Categories</SelectItem>
+                      {resolveSubcategories().map((s, i) => <SelectItem key={i} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Risk Profile Filter</Label>
+                  <Select value={riskProfile} onValueChange={setRiskProfile}>
+                    <SelectTrigger><SelectValue placeholder="Any risk profile" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ANY">Any Risk Profile</SelectItem>
+                      {["Conservative", "Moderate", "Aggressive", "Very Aggressive"].map(r => (
+                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {browseCategory && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">{browseCategory} Schemes{browseSubcategory ? ` — ${browseSubcategory}` : ''}</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {byCategoryQuery.isLoading ? (
+                  <div className="p-4 space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+                ) : categorySchemes.length > 0 ? (
+                  <ScrollArea className="h-80">
+                    <div className="divide-y">
+                      {categorySchemes.map((s, i) => (
+                        <div key={i} className="p-3 flex items-center justify-between hover:bg-muted/50">
+                          <div>
+                            <p className="text-sm font-medium">{s.schemeName ?? s.name}</p>
+                            <p className="text-xs text-muted-foreground">{s.schemeCode ?? s.isinCode ?? s.code}</p>
+                          </div>
+                          <Button size="sm" variant="outline" className="h-7 text-xs"
+                            onClick={() => { setSelectedScheme(s); setSection("search"); }}>
+                            View Details
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                ) : (
+                  <p className="p-4 text-sm text-muted-foreground">No schemes found for the selected filters.</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Risk Profile Recommendations Panel */}
+          {riskProfile !== 'ANY' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-1">
+                  <Star className="h-4 w-4 text-amber-500" /> Recommended for {riskProfile} Profile
+                </CardTitle>
+                <CardDescription>Schemes curated for a {riskProfile.toLowerCase()} risk investor</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {riskRecommendationsQuery.isLoading ? (
+                  <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+                ) : (() => {
+                  const recs = resolveSchemes(riskRecommendationsQuery.data);
+                  return recs.length > 0 ? (
+                    <div className="divide-y">
+                      {recs.slice(0, 8).map((s, i) => (
+                        <div key={i} className="p-3 flex items-center justify-between hover:bg-muted/50">
+                          <div>
+                            <p className="text-sm font-medium">{s.schemeName ?? s.name}</p>
+                            <p className="text-xs text-muted-foreground">{s.schemeCode ?? s.isinCode ?? s.code}</p>
+                          </div>
+                          <Button size="sm" variant="outline" className="h-7 text-xs"
+                            onClick={() => { setSelectedScheme(s); setSection("search"); }}>
+                            View Details
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No recommendations available for this risk profile.</p>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── CAS Import & External Portfolio Tab ─────────────────────────────────────
 function CasImportTab() {
   const { toast } = useToast();
@@ -3201,6 +4163,8 @@ export default function AgentIrisHub() {
           <TabsTrigger value="investors"><Users className="h-4 w-4 mr-1 inline" />Investors</TabsTrigger>
           <TabsTrigger value="transact"><TrendingUp className="h-4 w-4 mr-1 inline" />Transact</TabsTrigger>
           <TabsTrigger value="mandates"><CreditCard className="h-4 w-4 mr-1 inline" />Mandates</TabsTrigger>
+          <TabsTrigger value="analytics"><LineChart className="h-4 w-4 mr-1 inline" />Analytics</TabsTrigger>
+          <TabsTrigger value="research"><BookOpen className="h-4 w-4 mr-1 inline" />Research</TabsTrigger>
           <TabsTrigger value="products"><FileText className="h-4 w-4 mr-1 inline" />Products & FD</TabsTrigger>
           <TabsTrigger value="nps"><PiggyBank className="h-4 w-4 mr-1 inline" />NPS</TabsTrigger>
           <TabsTrigger value="reports"><Download className="h-4 w-4 mr-1 inline" />Reports</TabsTrigger>
@@ -3212,6 +4176,8 @@ export default function AgentIrisHub() {
         <TabsContent value="investors" className="mt-4"><InvestorsTab /></TabsContent>
         <TabsContent value="transact" className="mt-4"><TransactTab /></TabsContent>
         <TabsContent value="mandates" className="mt-4"><MandatesTab /></TabsContent>
+        <TabsContent value="analytics" className="mt-4"><AnalyticsTab /></TabsContent>
+        <TabsContent value="research" className="mt-4"><ResearchTab /></TabsContent>
         <TabsContent value="products" className="mt-4"><ProductsTab /></TabsContent>
         <TabsContent value="nps" className="mt-4"><NpsTab /></TabsContent>
         <TabsContent value="reports" className="mt-4"><ReportsTab /></TabsContent>
