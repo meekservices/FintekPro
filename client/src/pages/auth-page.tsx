@@ -1149,6 +1149,220 @@ export default function AuthPage() {
           onForceLogout={handleForceLogout}
           isLoading={forceLogoutMutation.isPending}
         />
+
+        {/* Registration OTP Verification Dialog */}
+        <Dialog open={registrationOtpDialogOpen} onOpenChange={setRegistrationOtpDialogOpen}>
+          <DialogContent
+            className="sm:max-w-md"
+            onInteractOutside={(e) => e.preventDefault()}
+            onEscapeKeyDown={(e) => e.preventDefault()}
+          >
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-blue-600" />
+                Verify Your Email & Mobile
+              </DialogTitle>
+              <DialogDescription>
+                We've sent a 6-digit code to <strong>{registrationOtpChannel}</strong>
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const otp = formData.get('agent-registration-otp') as string;
+              if (otp && otp.length === 6) {
+                registrationOtpVerificationMutation.mutate(otp);
+              }
+            }} className="space-y-4">
+              <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-blue-700">
+                    <Clock className="h-4 w-4" />
+                    <span className="text-sm font-medium">
+                      {registrationOtpTimer > 0 ? `Code expires in ${formatTime(registrationOtpTimer)}` : "Code expired"}
+                    </span>
+                  </div>
+                  {canResendRegistrationOtp && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => resendRegistrationOtpMutation.mutate()}
+                      disabled={registrationOtpSending}
+                      className="text-blue-600"
+                    >
+                      {registrationOtpSending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <><RefreshCw className="h-3 w-3 mr-1" />Resend</>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="agent-registration-otp">6-Digit Code</Label>
+                <Input
+                  id="agent-registration-otp"
+                  name="agent-registration-otp"
+                  placeholder="000000"
+                  maxLength={6}
+                  autoFocus
+                  className="text-center text-2xl tracking-widest font-mono mt-1"
+                  required
+                />
+              </div>
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  Didn't receive the code? Check your spam folder or click Resend after the timer expires.
+                </AlertDescription>
+              </Alert>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setRegistrationOtpDialogOpen(false);
+                    setRegistrationStep("details");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  disabled={registrationOtpVerificationMutation.isPending}
+                >
+                  {registrationOtpVerificationMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Verify & Create Account
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Registration Success — show Agent User ID */}
+        <Dialog open={showUserIdDialog} onOpenChange={setShowUserIdDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <div className="flex justify-center mb-4">
+                <div className="rounded-full bg-green-100 p-3">
+                  <CheckCircle2 className="h-8 w-8 text-green-600" />
+                </div>
+              </div>
+              <DialogTitle className="text-center">Registration Successful!</DialogTitle>
+              <DialogDescription className="text-center">
+                Welcome to FintekPro Agent Portal! Your account has been created.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg border-2 border-blue-200 bg-blue-50">
+                <p className="text-sm text-muted-foreground mb-2 text-center">Your unique Agent ID:</p>
+                <div className="flex items-center justify-center gap-2">
+                  <Badge className="text-lg px-4 py-2 bg-blue-600 text-white">
+                    {registeredUserId}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Save this ID — you can use it to login along with email or mobile
+                </p>
+              </div>
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  You can now sign in using your email, mobile number, or this Agent ID with your password.
+                </AlertDescription>
+              </Alert>
+              <Button
+                className="w-full bg-blue-600 hover:bg-blue-700"
+                onClick={() => {
+                  setShowUserIdDialog(false);
+                  navigate(portalHomeRoute);
+                }}
+              >
+                Go to Agent Dashboard
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Duplicate account warning */}
+        <Dialog open={duplicateWarningOpen} onOpenChange={setDuplicateWarningOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <div className="flex justify-center mb-4">
+                <div className="rounded-full bg-yellow-100 p-3">
+                  <AlertCircle className="h-8 w-8 text-yellow-600" />
+                </div>
+              </div>
+              <DialogTitle className="text-center">Possible Duplicate Account</DialogTitle>
+              <DialogDescription className="text-center">
+                We found {duplicateWarnings.length} existing {duplicateWarnings.length === 1 ? 'account' : 'accounts'} with similar contact information.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="border rounded-lg divide-y">
+                {duplicateWarnings.map((duplicate, index) => (
+                  <div key={index} className="p-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{duplicate.name || "Unknown User"}</span>
+                      <Badge variant="outline" className="text-xs">User ID: {duplicate.userId}</Badge>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {duplicate.emailMatch && (
+                        <Badge variant="secondary" className="text-xs"><Mail className="h-3 w-3 mr-1" />Email Match</Badge>
+                      )}
+                      {duplicate.mobileMatch && (
+                        <Badge variant="secondary" className="text-xs"><Phone className="h-3 w-3 mr-1" />Mobile Match</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{duplicate.message}</p>
+                  </div>
+                ))}
+              </div>
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  If this is your existing account, please login instead. If you're a different agent, you can still proceed.
+                </AlertDescription>
+              </Alert>
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant="default"
+                  className="w-full"
+                  onClick={() => {
+                    setDuplicateWarningOpen(false);
+                    setAuthMode("login");
+                    toast({ title: "Switched to Login", description: "Please login with your existing account" });
+                  }}
+                >
+                  <LogIn className="h-4 w-4 mr-2" />
+                  Login Instead
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => {
+                    setDuplicateWarningOpen(false);
+                    if (pendingRegistrationData?.requiresOtp) {
+                      setRegistrationStep("otp");
+                      setRegistrationIdentifier(pendingRegistrationData.identifier || pendingRegistrationData.user?.email);
+                      setRegistrationOtpChannel(pendingRegistrationData.otpSentTo || "your email and mobile");
+                      setRegistrationToken(pendingRegistrationData.registrationToken || "");
+                      setRegistrationOtpTimer(300);
+                      setCanResendRegistrationOtp(false);
+                      setRegistrationOtpDialogOpen(true);
+                    }
+                  }}
+                >
+                  Proceed Anyway
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
