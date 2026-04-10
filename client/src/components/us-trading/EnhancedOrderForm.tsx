@@ -166,6 +166,7 @@ export default function EnhancedOrderForm({ defaultSymbol = "", onSuccess }: Enh
   );
 
   return (
+    <>
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2 flex-wrap">
@@ -421,5 +422,6 @@ export default function EnhancedOrderForm({ defaultSymbol = "", onSuccess }: Enh
       onClose={closeModal}
       onProceedToKyc={() => proceedToKyc()}
     />
+    </>
   );
 }
