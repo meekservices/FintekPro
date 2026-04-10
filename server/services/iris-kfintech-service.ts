@@ -254,7 +254,27 @@ class IrisKfintechService {
   async changeNpsScheme(pran: string, body: any) { return this.call(`/nps/subscriber/${pran}/scheme-change`, 'POST', body); }
   async npsPartialWithdrawal(pran: string, body: any) { return this.call(`/nps/subscriber/${pran}/partial-withdrawal`, 'POST', body); }
 
-  // Non-Financial Transactions
+  // Non-Financial Transactions — GET (read current values)
+  async getNomineeDetails(pan: string) { return this.call(`/sif/non-financial/${pan}/nominee`); }
+  async getBankDetails(pan: string) { return this.call(`/sif/non-financial/${pan}/bank`); }
+  async getFatcaDetails(pan: string) { return this.call(`/sif/non-financial/${pan}/fatca`); }
+  async getDividendHistory(pan: string, params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/user/investors/${pan}/dividend-history${qs}`);
+  }
+  async getEkycStatus(pan: string) { return this.call(`/user/investors/${pan}/ekyc-status`); }
+  async getDematAccounts(pan: string) { return this.call(`/user/investors/${pan}/demat-accounts`); }
+  async linkDematAccount(pan: string, body: any) { return this.call(`/user/investors/${pan}/demat-accounts`, 'POST', body); }
+  async getInvestorDocuments(pan: string) { return this.call(`/user/investors/${pan}/documents`); }
+  async uploadInvestorDocument(pan: string, body: any) { return this.call(`/user/investors/${pan}/documents`, 'POST', body); }
+
+  // Financial Goals (per investor)
+  async getGoals(pan: string) { return this.call(`/user/investors/${pan}/goals`); }
+  async createGoal(pan: string, body: any) { return this.call(`/user/investors/${pan}/goals`, 'POST', body); }
+  async updateGoal(pan: string, goalId: string, body: any) { return this.call(`/user/investors/${pan}/goals/${goalId}`, 'PUT', body); }
+  async deleteGoal(pan: string, goalId: string) { return this.call(`/user/investors/${pan}/goals/${goalId}`, 'DELETE'); }
+
+  // Non-Financial Transactions — POST (write)
   async updateNominee(pan: string, body: any) { return this.call(`/sif/non-financial/${pan}/nominee`, 'POST', body); }
   async updateEmail(pan: string, body: any) { return this.call(`/sif/non-financial/${pan}/email`, 'POST', body); }
   async updateMobile(pan: string, body: any) { return this.call(`/sif/non-financial/${pan}/mobile`, 'POST', body); }
