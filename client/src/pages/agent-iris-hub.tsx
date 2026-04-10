@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,7 +20,8 @@ import {
   ChevronRight, AlertCircle, CheckCircle2, Clock, Download, KeyRound, XCircle,
   FolderOpen, Inbox, Unlink, Link2, Send, CloudDownload, Calculator, Calendar,
   AlertTriangle, Banknote, PiggyBank, CreditCard,
-  LineChart, PlusCircle, Trash2, Star, User, BookOpen, Layers
+  LineChart, PlusCircle, Trash2, Star, User, BookOpen, Layers,
+  ArrowLeftRight, Repeat, MinusCircle
 } from "lucide-react";
 
 // ─── IRIS API types ───────────────────────────────────────────────────────────
@@ -1002,10 +1004,105 @@ function InvestorsTab() {
   );
 }
 
+// ─── Shared: Scheme Search Field ──────────────────────────────────────────────
+function SchemeSearchField({
+  label,
+  selected,
+  query,
+  onQueryChange,
+  onSelect,
+  onClear,
+}: {
+  label: string;
+  selected: SchemeResult | null;
+  query: string;
+  onQueryChange: (q: string) => void;
+  onSelect: (s: SchemeResult) => void;
+  onClear: () => void;
+}) {
+  const { data: schemeSearchData, isLoading } = useQuery<IrisApiResponse<{ schemes?: SchemeResult[] } | SchemeResult[]>>({
+    queryKey: ["/api/iris/transactions/scheme-search", query],
+    queryFn: () =>
+      irisGet<IrisApiResponse<{ schemes?: SchemeResult[] } | SchemeResult[]>>(`/api/iris/transactions/scheme-search?q=${encodeURIComponent(query)}`),
+    enabled: query.length >= 2 && !selected,
+    retry: false,
+  });
+
+  const schemes: SchemeResult[] = (() => {
+    if (!schemeSearchData?.data) return [];
+    if (Array.isArray(schemeSearchData.data)) return schemeSearchData.data;
+    return schemeSearchData.data.schemes ?? [];
+  })();
+
+  return (
+    <div>
+      <Label>{label}</Label>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          className="pl-9"
+          value={selected ? (selected.schemeName ?? selected.name ?? "") : query}
+          onChange={e => { onQueryChange(e.target.value); if (selected) onClear(); }}
+          placeholder="Type scheme name (min 2 chars)…"
+        />
+      </div>
+      {query.length >= 2 && !selected && (
+        <div className="border rounded-md mt-1 max-h-40 overflow-y-auto bg-background shadow-md z-10">
+          {isLoading ? (
+            <p className="p-2 text-xs text-muted-foreground">Searching…</p>
+          ) : schemes.length > 0 ? (
+            schemes.slice(0, 10).map((s, i) => (
+              <button key={i} className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 flex justify-between items-center"
+                onClick={() => { onSelect(s); }}>
+                <span>{s.schemeName ?? s.name}</span>
+                {(s.schemeCode ?? s.code) && <span className="text-xs text-muted-foreground ml-2">{s.schemeCode ?? s.code}</span>}
+              </button>
+            ))
+          ) : (
+            <p className="p-2 text-xs text-muted-foreground">No schemes found</p>
+          )}
+        </div>
+      )}
+      {selected && (
+        <div className="mt-1 flex items-center gap-2">
+          <Badge variant="outline" className="text-xs">{selected.schemeCode ?? selected.isinCode ?? selected.code}</Badge>
+          <button className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-0.5" onClick={onClear}>
+            <XCircle className="h-3 w-3" /> Clear
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Status Badge helper ───────────────────────────────────────────────────────
+function StatusBadge({ status }: { status?: string }) {
+  const s = status?.toUpperCase() ?? "";
+  const variant =
+    s === "ACTIVE" ? "default" :
+    s === "PAUSED" ? "secondary" :
+    s === "COMPLETED" ? "outline" :
+    s === "CANCELLED" || s === "CANCELED" ? "destructive" :
+    "secondary";
+  const color =
+    s === "ACTIVE" ? "bg-green-500 text-white" :
+    s === "PAUSED" ? "bg-yellow-500 text-white" :
+    s === "COMPLETED" ? "bg-blue-500 text-white" :
+    s === "CANCELLED" || s === "CANCELED" ? "bg-red-500 text-white" :
+    "";
+  return (
+    <Badge variant={variant} className={`text-[10px] h-5 ${color}`}>
+      {status ?? "—"}
+    </Badge>
+  );
+}
+
 // ─── Transact Tab ─────────────────────────────────────────────────────────────
 type TransactType = "lumpsum" | "sip" | "redemption";
+type TransactSubTab = "orders" | "switch" | "stp" | "swp";
 
-function TransactTab() {
+// ── Orders sub-panel (existing lumpsum/SIP/redemption) ───────────────────────
+function OrdersPanel() {
   const [modalOpen, setModalOpen] = useState(false);
   const [transactType, setTransactType] = useState<TransactType>("lumpsum");
   const [pan, setPan] = useState("");
@@ -1024,20 +1121,6 @@ function TransactTab() {
     if (!fundsData?.data) return [];
     if (Array.isArray(fundsData.data)) return fundsData.data;
     return fundsData.data.funds ?? [];
-  })();
-
-  const { data: schemeSearchData, isLoading: schemesLoading } = useQuery<IrisApiResponse<{ schemes?: SchemeResult[] } | SchemeResult[]>>({
-    queryKey: ["/api/iris/transactions/scheme-search", schemeQuery],
-    queryFn: () =>
-      irisGet<IrisApiResponse<{ schemes?: SchemeResult[] } | SchemeResult[]>>(`/api/iris/transactions/scheme-search?q=${encodeURIComponent(schemeQuery)}`),
-    enabled: schemeQuery.length >= 2 && !selectedScheme,
-    retry: false,
-  });
-
-  const schemes: SchemeResult[] = (() => {
-    if (!schemeSearchData?.data) return [];
-    if (Array.isArray(schemeSearchData.data)) return schemeSearchData.data;
-    return schemeSearchData.data.schemes ?? [];
   })();
 
   const placeOrder = useMutation({
@@ -1080,6 +1163,10 @@ function TransactTab() {
   function openModal(type: TransactType) {
     setTransactType(type);
     setModalOpen(true);
+    setSelectedScheme(null);
+    setSchemeQuery("");
+    setAmount("");
+    setPan("");
   }
 
   return (
@@ -1117,44 +1204,14 @@ function TransactTab() {
               <Input value={pan} onChange={e => setPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" maxLength={10} />
             </div>
 
-            <div>
-              <Label>Search Scheme *</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  className="pl-9"
-                  value={selectedScheme ? (selectedScheme.schemeName ?? selectedScheme.name ?? "") : schemeQuery}
-                  onChange={e => { setSchemeQuery(e.target.value); setSelectedScheme(null); }}
-                  placeholder="Type scheme name (min 2 chars)…"
-                />
-              </div>
-              {schemeQuery.length >= 2 && !selectedScheme && (
-                <div className="border rounded-md mt-1 max-h-40 overflow-y-auto bg-background shadow-md z-10">
-                  {schemesLoading ? (
-                    <p className="p-2 text-xs text-muted-foreground">Searching…</p>
-                  ) : schemes.length > 0 ? (
-                    schemes.slice(0, 10).map((s, i) => (
-                      <button key={i} className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 flex justify-between items-center"
-                        onClick={() => { setSelectedScheme(s); setSchemeQuery(""); }}>
-                        <span>{s.schemeName ?? s.name}</span>
-                        {(s.schemeCode ?? s.code) && <span className="text-xs text-muted-foreground ml-2">{s.schemeCode ?? s.code}</span>}
-                      </button>
-                    ))
-                  ) : (
-                    <p className="p-2 text-xs text-muted-foreground">No schemes found</p>
-                  )}
-                </div>
-              )}
-              {selectedScheme && (
-                <div className="mt-1 flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">{selectedScheme.schemeCode ?? selectedScheme.isinCode ?? selectedScheme.code}</Badge>
-                  <button className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-0.5"
-                    onClick={() => { setSelectedScheme(null); setSchemeQuery(""); }}>
-                    <XCircle className="h-3 w-3" /> Clear
-                  </button>
-                </div>
-              )}
-            </div>
+            <SchemeSearchField
+              label="Search Scheme *"
+              selected={selectedScheme}
+              query={schemeQuery}
+              onQueryChange={setSchemeQuery}
+              onSelect={s => { setSelectedScheme(s); setSchemeQuery(""); }}
+              onClear={() => { setSelectedScheme(null); setSchemeQuery(""); }}
+            />
 
             <div>
               <Label>Amount (₹) *</Label>
@@ -1183,6 +1240,676 @@ function TransactTab() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ── Switch sub-panel ──────────────────────────────────────────────────────────
+interface SwitchOrder {
+  orderId?: string;
+  id?: string;
+  pan?: string;
+  sourceSchemeName?: string;
+  targetSchemeName?: string;
+  amount?: number;
+  allUnits?: boolean;
+  status?: string;
+  transactionDate?: string;
+  date?: string;
+}
+
+function SwitchPanel() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  // Form state
+  const [pan, setPan] = useState("");
+  const [srcQuery, setSrcQuery] = useState("");
+  const [srcScheme, setSrcScheme] = useState<SchemeResult | null>(null);
+  const [tgtQuery, setTgtQuery] = useState("");
+  const [tgtScheme, setTgtScheme] = useState<SchemeResult | null>(null);
+  const [amount, setAmount] = useState("");
+  const [switchAll, setSwitchAll] = useState(false);
+
+  // History lookup state
+  const [historyPan, setHistoryPan] = useState("");
+  const [submittedHistoryPan, setSubmittedHistoryPan] = useState("");
+
+  const { data: historyData, isLoading: historyL } = useQuery<IrisApiResponse<{ transactions?: SwitchOrder[] } | SwitchOrder[]>>({
+    queryKey: ["/api/iris/investors", submittedHistoryPan, "transactions", "SWITCH"],
+    queryFn: () =>
+      irisGet<IrisApiResponse<{ transactions?: SwitchOrder[] } | SwitchOrder[]>>(
+        `/api/iris/investors/${submittedHistoryPan}/transactions?type=SWITCH`
+      ),
+    enabled: !!submittedHistoryPan,
+    retry: false,
+  });
+
+  const switchMutation = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiRequest("/api/iris/transactions/switch", "POST", { body }),
+    onSuccess: () => {
+      toast({ title: "Switch order submitted successfully" });
+      setPan(""); setSrcScheme(null); setSrcQuery(""); setTgtScheme(null); setTgtQuery(""); setAmount(""); setSwitchAll(false);
+      if (submittedHistoryPan) qc.invalidateQueries({ queryKey: ["/api/iris/investors", submittedHistoryPan, "transactions", "SWITCH"] });
+    },
+    onError: (err: Error) => toast({ title: "Switch failed", description: err.message, variant: "destructive" }),
+  });
+
+  function handleSubmit() {
+    if (!pan.trim()) { toast({ title: "PAN is required", variant: "destructive" }); return; }
+    if (!srcScheme) { toast({ title: "Please select the source scheme", variant: "destructive" }); return; }
+    if (!tgtScheme) { toast({ title: "Please select the target scheme", variant: "destructive" }); return; }
+    if (!switchAll && (!amount || Number(amount) <= 0)) { toast({ title: "Enter a valid amount or select Switch All", variant: "destructive" }); return; }
+
+    switchMutation.mutate({
+      pan,
+      fromSchemeCode: srcScheme.schemeCode ?? srcScheme.isinCode ?? srcScheme.code,
+      toSchemeCode: tgtScheme.schemeCode ?? tgtScheme.isinCode ?? tgtScheme.code,
+      amount: switchAll ? undefined : Number(amount),
+      allUnits: switchAll,
+    });
+  }
+
+  function resolveSwitchOrders(): SwitchOrder[] {
+    if (!historyData?.data) return [];
+    if (Array.isArray(historyData.data)) return historyData.data;
+    return historyData.data.transactions ?? [];
+  }
+
+  const orders = resolveSwitchOrders();
+
+  return (
+    <div className="space-y-6">
+      {/* Switch Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><ArrowLeftRight className="h-5 w-5 text-indigo-500" />Execute Switch</CardTitle>
+          <CardDescription>Same-AMC scheme-to-scheme switch (same-day at applicable NAV)</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Investor PAN *</Label>
+            <Input value={pan} onChange={e => setPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" maxLength={10} className="max-w-xs" />
+          </div>
+
+          <SchemeSearchField
+            label="Source Scheme (switch out) *"
+            selected={srcScheme}
+            query={srcQuery}
+            onQueryChange={setSrcQuery}
+            onSelect={s => { setSrcScheme(s); setSrcQuery(""); }}
+            onClear={() => { setSrcScheme(null); setSrcQuery(""); }}
+          />
+
+          <SchemeSearchField
+            label="Target Scheme (switch in) *"
+            selected={tgtScheme}
+            query={tgtQuery}
+            onQueryChange={setTgtQuery}
+            onSelect={s => { setTgtScheme(s); setTgtQuery(""); }}
+            onClear={() => { setTgtScheme(null); setTgtQuery(""); }}
+          />
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Checkbox id="switch-all" checked={switchAll} onCheckedChange={v => setSwitchAll(!!v)} />
+              <label htmlFor="switch-all" className="text-sm cursor-pointer select-none">Switch All Units</label>
+            </div>
+            {!switchAll && (
+              <div>
+                <Label>Amount (₹) *</Label>
+                <Input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="5000" min={1} className="max-w-xs" />
+              </div>
+            )}
+          </div>
+
+          <Button onClick={handleSubmit} disabled={switchMutation.isPending}>
+            {switchMutation.isPending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Submitting…</> : <><ArrowLeftRight className="h-4 w-4 mr-2" />Submit Switch</>}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Switch History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Switch Order History</CardTitle>
+          <CardDescription>View past switch orders for an investor</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Investor PAN"
+              value={historyPan}
+              onChange={e => setHistoryPan(e.target.value.toUpperCase())}
+              className="max-w-xs"
+              maxLength={10}
+            />
+            <Button variant="outline" onClick={() => setSubmittedHistoryPan(historyPan.trim())} disabled={historyPan.length < 10}>
+              <Search className="h-4 w-4 mr-1" /> Load History
+            </Button>
+          </div>
+          {historyL && <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>}
+          {!historyL && orders.length > 0 && (
+            <ScrollArea className="h-64 border rounded-md">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-background border-b">
+                  <tr>
+                    <th className="text-left p-2 font-medium">Date</th>
+                    <th className="text-left p-2 font-medium">From Scheme</th>
+                    <th className="text-left p-2 font-medium">To Scheme</th>
+                    <th className="text-right p-2 font-medium">Amount</th>
+                    <th className="text-center p-2 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((o, i) => (
+                    <tr key={i} className="border-b hover:bg-muted/50">
+                      <td className="p-2 text-xs">{o.transactionDate ?? o.date ?? "—"}</td>
+                      <td className="p-2 text-xs">{o.sourceSchemeName ?? "—"}</td>
+                      <td className="p-2 text-xs">{o.targetSchemeName ?? "—"}</td>
+                      <td className="p-2 text-right">{o.allUnits ? "All Units" : fmt(o.amount)}</td>
+                      <td className="p-2 text-center"><StatusBadge status={o.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ScrollArea>
+          )}
+          {submittedHistoryPan && !historyL && orders.length === 0 && (
+            <p className="text-sm text-muted-foreground">No switch orders found for {submittedHistoryPan}.</p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ── STP sub-panel ─────────────────────────────────────────────────────────────
+interface StpRecord {
+  stpId?: string;
+  id?: string;
+  sourceSchemeName?: string;
+  targetSchemeName?: string;
+  amount?: number;
+  frequency?: string;
+  status?: string;
+  nextInstallmentDate?: string;
+  nextDate?: string;
+  remainingInstallments?: number;
+  remainingCount?: number;
+  sourceSchemeCode?: string;
+}
+
+function StpPanel() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  // Form state
+  const [pan, setPan] = useState("");
+  const [srcQuery, setSrcQuery] = useState("");
+  const [srcScheme, setSrcScheme] = useState<SchemeResult | null>(null);
+  const [tgtQuery, setTgtQuery] = useState("");
+  const [tgtScheme, setTgtScheme] = useState<SchemeResult | null>(null);
+  const [amount, setAmount] = useState("");
+  const [frequency, setFrequency] = useState("MONTHLY");
+  const [installments, setInstallments] = useState("");
+  const [startDate, setStartDate] = useState("");
+
+  // List state
+  const [listPan, setListPan] = useState("");
+  const [submittedListPan, setSubmittedListPan] = useState("");
+
+  const { data: stpData, isLoading: stpL } = useQuery<IrisApiResponse<{ stps?: StpRecord[]; systematicPlans?: StpRecord[] } | StpRecord[]>>({
+    queryKey: ["/api/iris/investors", submittedListPan, "systematic-plans", "STP"],
+    queryFn: () =>
+      irisGet<IrisApiResponse<{ stps?: StpRecord[]; systematicPlans?: StpRecord[] } | StpRecord[]>>(
+        `/api/iris/investors/${submittedListPan}/systematic-plans?type=STP`
+      ),
+    enabled: !!submittedListPan,
+    retry: false,
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiRequest("/api/iris/transactions/stp/register", "POST", { body }),
+    onSuccess: () => {
+      toast({ title: "STP registered successfully" });
+      setPan(""); setSrcScheme(null); setSrcQuery(""); setTgtScheme(null); setTgtQuery(""); setAmount(""); setInstallments(""); setStartDate("");
+      if (submittedListPan) qc.invalidateQueries({ queryKey: ["/api/iris/investors", submittedListPan, "systematic-plans", "STP"] });
+    },
+    onError: (err: Error) => toast({ title: "STP registration failed", description: err.message, variant: "destructive" }),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiRequest("/api/iris/transactions/stp/cancel", "POST", { body }),
+    onSuccess: () => {
+      toast({ title: "STP cancellation submitted" });
+      qc.invalidateQueries({ queryKey: ["/api/iris/investors", submittedListPan, "systematic-plans", "STP"] });
+    },
+    onError: (err: Error) => toast({ title: "Cancel failed", description: err.message, variant: "destructive" }),
+  });
+
+  const pauseMutation = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiRequest("/api/iris/transactions/stp/pause", "POST", { body }),
+    onSuccess: () => {
+      toast({ title: "STP paused" });
+      qc.invalidateQueries({ queryKey: ["/api/iris/investors", submittedListPan, "systematic-plans", "STP"] });
+    },
+    onError: (err: Error) => toast({ title: "Pause failed", description: err.message, variant: "destructive" }),
+  });
+
+  function handleRegister() {
+    if (!pan.trim()) { toast({ title: "PAN is required", variant: "destructive" }); return; }
+    if (!srcScheme) { toast({ title: "Select the source scheme", variant: "destructive" }); return; }
+    if (!tgtScheme) { toast({ title: "Select the target scheme", variant: "destructive" }); return; }
+    if (!amount || Number(amount) <= 0) { toast({ title: "Enter a valid installment amount", variant: "destructive" }); return; }
+    if (!installments || Number(installments) < 1) { toast({ title: "Enter the number of installments", variant: "destructive" }); return; }
+
+    registerMutation.mutate({
+      pan,
+      fromSchemeCode: srcScheme.schemeCode ?? srcScheme.isinCode ?? srcScheme.code,
+      toSchemeCode: tgtScheme.schemeCode ?? tgtScheme.isinCode ?? tgtScheme.code,
+      amount: Number(amount),
+      frequency,
+      noOfInstallments: Number(installments),
+      startDate: startDate || undefined,
+    });
+  }
+
+  function resolveStps(): StpRecord[] {
+    if (!stpData?.data) return [];
+    if (Array.isArray(stpData.data)) return stpData.data;
+    return stpData.data.stps ?? stpData.data.systematicPlans ?? [];
+  }
+
+  const stps = resolveStps();
+
+  return (
+    <div className="space-y-6">
+      {/* STP Registration Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Repeat className="h-5 w-5 text-emerald-500" />Register STP</CardTitle>
+          <CardDescription>Systematic Transfer Plan — periodically transfer from one scheme to another</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Investor PAN *</Label>
+            <Input value={pan} onChange={e => setPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" maxLength={10} className="max-w-xs" />
+          </div>
+
+          <SchemeSearchField
+            label="Source Scheme *"
+            selected={srcScheme}
+            query={srcQuery}
+            onQueryChange={setSrcQuery}
+            onSelect={s => { setSrcScheme(s); setSrcQuery(""); }}
+            onClear={() => { setSrcScheme(null); setSrcQuery(""); }}
+          />
+
+          <SchemeSearchField
+            label="Target Scheme *"
+            selected={tgtScheme}
+            query={tgtQuery}
+            onQueryChange={setTgtQuery}
+            onSelect={s => { setTgtScheme(s); setTgtQuery(""); }}
+            onClear={() => { setTgtScheme(null); setTgtQuery(""); }}
+          />
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <Label>Installment Amount (₹) *</Label>
+              <Input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="1000" min={1} />
+            </div>
+            <div>
+              <Label>Frequency *</Label>
+              <Select value={frequency} onValueChange={setFrequency}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="WEEKLY">Weekly</SelectItem>
+                  <SelectItem value="MONTHLY">Monthly</SelectItem>
+                  <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>No. of Installments *</Label>
+              <Input type="number" value={installments} onChange={e => setInstallments(e.target.value)} placeholder="12" min={1} />
+            </div>
+            <div>
+              <Label>Start Date</Label>
+              <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+            </div>
+          </div>
+
+          <Button onClick={handleRegister} disabled={registerMutation.isPending}>
+            {registerMutation.isPending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Registering…</> : <><Repeat className="h-4 w-4 mr-2" />Register STP</>}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Active STPs List */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Active STPs</CardTitle>
+          <CardDescription>View and manage existing STP registrations</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Investor PAN"
+              value={listPan}
+              onChange={e => setListPan(e.target.value.toUpperCase())}
+              className="max-w-xs"
+              maxLength={10}
+            />
+            <Button variant="outline" onClick={() => setSubmittedListPan(listPan.trim())} disabled={listPan.length < 10}>
+              <Search className="h-4 w-4 mr-1" /> Load STPs
+            </Button>
+          </div>
+          {stpL && <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full" />)}</div>}
+          {!stpL && stps.length > 0 && (
+            <div className="divide-y border rounded-md">
+              {stps.map((s, i) => (
+                <div key={i} className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{s.sourceSchemeName ?? "Source Scheme"}</p>
+                      <p className="text-xs text-muted-foreground">→ {s.targetSchemeName ?? "Target Scheme"}</p>
+                      <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground mt-1">
+                        <span>{fmt(s.amount)}/{s.frequency?.toLowerCase()}</span>
+                        <span>Next: {s.nextInstallmentDate ?? s.nextDate ?? "—"}</span>
+                        <span>Remaining: {s.remainingInstallments ?? s.remainingCount ?? "—"}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                      <StatusBadge status={s.status} />
+                      {(s.status?.toUpperCase() === "ACTIVE" || s.status?.toUpperCase() === "PAUSED") && (
+                        <div className="flex gap-1">
+                          {s.status?.toUpperCase() === "ACTIVE" && (
+                            <Button size="sm" variant="outline" className="h-6 text-[11px] px-2"
+                              disabled={pauseMutation.isPending}
+                              onClick={() => pauseMutation.mutate({ pan: submittedListPan, stpId: s.stpId ?? s.id, sourceSchemeCode: s.sourceSchemeCode })}>
+                              Pause
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" className="h-6 text-[11px] px-2 text-destructive hover:text-destructive"
+                            disabled={cancelMutation.isPending}
+                            onClick={() => cancelMutation.mutate({ pan: submittedListPan, stpId: s.stpId ?? s.id, sourceSchemeCode: s.sourceSchemeCode })}>
+                            Cancel
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {submittedListPan && !stpL && stps.length === 0 && (
+            <p className="text-sm text-muted-foreground">No active STPs found for {submittedListPan}.</p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ── SWP sub-panel ─────────────────────────────────────────────────────────────
+interface SwpRecord {
+  swpId?: string;
+  id?: string;
+  schemeName?: string;
+  scheme?: string;
+  amount?: number;
+  frequency?: string;
+  status?: string;
+  nextWithdrawalDate?: string;
+  nextDate?: string;
+  remainingInstallments?: number;
+  remainingCount?: number;
+  schemeCode?: string;
+}
+
+function SwpPanel() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  // Form state
+  const [pan, setPan] = useState("");
+  const [schemeQuery, setSchemeQuery] = useState("");
+  const [selectedScheme, setSelectedScheme] = useState<SchemeResult | null>(null);
+  const [amount, setAmount] = useState("");
+  const [frequency, setFrequency] = useState("MONTHLY");
+  const [installments, setInstallments] = useState("");
+  const [startDate, setStartDate] = useState("");
+
+  // List state
+  const [listPan, setListPan] = useState("");
+  const [submittedListPan, setSubmittedListPan] = useState("");
+
+  const { data: swpData, isLoading: swpL } = useQuery<IrisApiResponse<{ swps?: SwpRecord[]; systematicPlans?: SwpRecord[] } | SwpRecord[]>>({
+    queryKey: ["/api/iris/investors", submittedListPan, "systematic-plans", "SWP"],
+    queryFn: () =>
+      irisGet<IrisApiResponse<{ swps?: SwpRecord[]; systematicPlans?: SwpRecord[] } | SwpRecord[]>>(
+        `/api/iris/investors/${submittedListPan}/systematic-plans?type=SWP`
+      ),
+    enabled: !!submittedListPan,
+    retry: false,
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiRequest("/api/iris/transactions/swp/register", "POST", { body }),
+    onSuccess: () => {
+      toast({ title: "SWP registered successfully" });
+      setPan(""); setSelectedScheme(null); setSchemeQuery(""); setAmount(""); setInstallments(""); setStartDate("");
+      if (submittedListPan) qc.invalidateQueries({ queryKey: ["/api/iris/investors", submittedListPan, "systematic-plans", "SWP"] });
+    },
+    onError: (err: Error) => toast({ title: "SWP registration failed", description: err.message, variant: "destructive" }),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiRequest("/api/iris/transactions/swp/cancel", "POST", { body }),
+    onSuccess: () => {
+      toast({ title: "SWP cancellation submitted" });
+      qc.invalidateQueries({ queryKey: ["/api/iris/investors", submittedListPan, "systematic-plans", "SWP"] });
+    },
+    onError: (err: Error) => toast({ title: "Cancel failed", description: err.message, variant: "destructive" }),
+  });
+
+  const pauseMutation = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiRequest("/api/iris/transactions/swp/pause", "POST", { body }),
+    onSuccess: () => {
+      toast({ title: "SWP paused" });
+      qc.invalidateQueries({ queryKey: ["/api/iris/investors", submittedListPan, "systematic-plans", "SWP"] });
+    },
+    onError: (err: Error) => toast({ title: "Pause failed", description: err.message, variant: "destructive" }),
+  });
+
+  function handleRegister() {
+    if (!pan.trim()) { toast({ title: "PAN is required", variant: "destructive" }); return; }
+    if (!selectedScheme) { toast({ title: "Select a scheme", variant: "destructive" }); return; }
+    if (!amount || Number(amount) <= 0) { toast({ title: "Enter a valid withdrawal amount", variant: "destructive" }); return; }
+    if (!installments || Number(installments) < 1) { toast({ title: "Enter the number of installments", variant: "destructive" }); return; }
+
+    registerMutation.mutate({
+      pan,
+      schemeCode: selectedScheme.schemeCode ?? selectedScheme.isinCode ?? selectedScheme.code,
+      schemeName: selectedScheme.schemeName ?? selectedScheme.name,
+      amount: Number(amount),
+      frequency,
+      noOfInstallments: Number(installments),
+      startDate: startDate || undefined,
+    });
+  }
+
+  function resolveSwps(): SwpRecord[] {
+    if (!swpData?.data) return [];
+    if (Array.isArray(swpData.data)) return swpData.data;
+    return swpData.data.swps ?? swpData.data.systematicPlans ?? [];
+  }
+
+  const swps = resolveSwps();
+
+  return (
+    <div className="space-y-6">
+      {/* SWP Registration Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><MinusCircle className="h-5 w-5 text-rose-500" />Register SWP</CardTitle>
+          <CardDescription>Systematic Withdrawal Plan — regular redemptions from a scheme</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Investor PAN *</Label>
+            <Input value={pan} onChange={e => setPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" maxLength={10} className="max-w-xs" />
+          </div>
+
+          <SchemeSearchField
+            label="Scheme *"
+            selected={selectedScheme}
+            query={schemeQuery}
+            onQueryChange={setSchemeQuery}
+            onSelect={s => { setSelectedScheme(s); setSchemeQuery(""); }}
+            onClear={() => { setSelectedScheme(null); setSchemeQuery(""); }}
+          />
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <Label>Withdrawal Amount (₹) *</Label>
+              <Input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="1000" min={1} />
+            </div>
+            <div>
+              <Label>Frequency *</Label>
+              <Select value={frequency} onValueChange={setFrequency}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="WEEKLY">Weekly</SelectItem>
+                  <SelectItem value="MONTHLY">Monthly</SelectItem>
+                  <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>No. of Installments *</Label>
+              <Input type="number" value={installments} onChange={e => setInstallments(e.target.value)} placeholder="12" min={1} />
+            </div>
+            <div>
+              <Label>Start Date</Label>
+              <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+            </div>
+          </div>
+
+          <Button onClick={handleRegister} disabled={registerMutation.isPending}>
+            {registerMutation.isPending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Registering…</> : <><MinusCircle className="h-4 w-4 mr-2" />Register SWP</>}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Active SWPs List */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Active SWPs</CardTitle>
+          <CardDescription>View and manage existing SWP registrations</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Investor PAN"
+              value={listPan}
+              onChange={e => setListPan(e.target.value.toUpperCase())}
+              className="max-w-xs"
+              maxLength={10}
+            />
+            <Button variant="outline" onClick={() => setSubmittedListPan(listPan.trim())} disabled={listPan.length < 10}>
+              <Search className="h-4 w-4 mr-1" /> Load SWPs
+            </Button>
+          </div>
+          {swpL && <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full" />)}</div>}
+          {!swpL && swps.length > 0 && (
+            <div className="divide-y border rounded-md">
+              {swps.map((s, i) => (
+                <div key={i} className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{s.schemeName ?? s.scheme ?? "Scheme"}</p>
+                      <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground mt-1">
+                        <span>{fmt(s.amount)}/{s.frequency?.toLowerCase()}</span>
+                        <span>Next: {s.nextWithdrawalDate ?? s.nextDate ?? "—"}</span>
+                        <span>Remaining: {s.remainingInstallments ?? s.remainingCount ?? "—"}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                      <StatusBadge status={s.status} />
+                      {(s.status?.toUpperCase() === "ACTIVE" || s.status?.toUpperCase() === "PAUSED") && (
+                        <div className="flex gap-1">
+                          {s.status?.toUpperCase() === "ACTIVE" && (
+                            <Button size="sm" variant="outline" className="h-6 text-[11px] px-2"
+                              disabled={pauseMutation.isPending}
+                              onClick={() => pauseMutation.mutate({ pan: submittedListPan, swpId: s.swpId ?? s.id, schemeCode: s.schemeCode })}>
+                              Pause
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" className="h-6 text-[11px] px-2 text-destructive hover:text-destructive"
+                            disabled={cancelMutation.isPending}
+                            onClick={() => cancelMutation.mutate({ pan: submittedListPan, swpId: s.swpId ?? s.id, schemeCode: s.schemeCode })}>
+                            Cancel
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {submittedListPan && !swpL && swps.length === 0 && (
+            <p className="text-sm text-muted-foreground">No active SWPs found for {submittedListPan}.</p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ── TransactTab wrapper with sub-tabs ─────────────────────────────────────────
+function TransactTab() {
+  const [subTab, setSubTab] = useState<TransactSubTab>("orders");
+
+  const subTabs: { value: TransactSubTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { value: "orders", label: "Purchase / SIP / Redeem", icon: ArrowUpRight },
+    { value: "switch", label: "Switch", icon: ArrowLeftRight },
+    { value: "stp", label: "STP", icon: Repeat },
+    { value: "swp", label: "SWP", icon: MinusCircle },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 flex-wrap border-b pb-2">
+        {subTabs.map(({ value, label, icon: Icon }) => (
+          <Button
+            key={value}
+            size="sm"
+            variant={subTab === value ? "default" : "ghost"}
+            onClick={() => setSubTab(value)}
+            className="h-8 text-xs"
+          >
+            <Icon className="h-3.5 w-3.5 mr-1" />
+            {label}
+          </Button>
+        ))}
+      </div>
+
+      {subTab === "orders" && <OrdersPanel />}
+      {subTab === "switch" && <SwitchPanel />}
+      {subTab === "stp" && <StpPanel />}
+      {subTab === "swp" && <SwpPanel />}
     </div>
   );
 }
