@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
-import { eq, and, sql, desc, ilike, or } from 'drizzle-orm';
+import { eq, and, sql, desc, ilike, or, inArray } from 'drizzle-orm';
 import { partners, caProfiles, agentItrCases, users } from '@shared/schema';
 import { caAssignmentService } from '../services/ca-assignment-service';
 import { verifyICAIMembership } from '../services/icai-verification-service';
@@ -725,6 +725,115 @@ router.get('/icai-status/:membershipNumber', requireAuth, async (req: Request, r
   } catch (error: any) {
     console.error('[ICAI] Status check error:', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /clients/:partnerId — list all clients whose cases are assigned to this CA
+router.get('/clients/:partnerId', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const caUserId = user.id; // agentItrCases.caId references users.id
+
+    const clientCases = await db
+      .select({
+        clientId: agentItrCases.clientId,
+        caseId: agentItrCases.id,
+        assessmentYear: agentItrCases.assessmentYear,
+        financialYear: agentItrCases.financialYear,
+        status: agentItrCases.status,
+        itrFormType: agentItrCases.itrFormType,
+        totalFee: agentItrCases.totalFee,
+        feeStatus: agentItrCases.feeStatus,
+        createdAt: agentItrCases.createdAt,
+      })
+      .from(agentItrCases)
+      .where(eq(agentItrCases.caId, caUserId))
+      .orderBy(desc(agentItrCases.createdAt));
+
+    const uniqueClientIds = [...new Set(clientCases.map(c => c.clientId))];
+    let clientUsers: any[] = [];
+    if (uniqueClientIds.length > 0) {
+      clientUsers = await db
+        .select({ id: users.id, username: users.username, email: users.email })
+        .from(users)
+        .where(inArray(users.id, uniqueClientIds));
+    }
+    const clientMap = Object.fromEntries(clientUsers.map(u => [u.id, u]));
+
+    const clientsMap = new Map<string, any>();
+    for (const c of clientCases) {
+      if (!clientsMap.has(c.clientId)) {
+        const u = clientMap[c.clientId] || {};
+        clientsMap.set(c.clientId, {
+          clientId: c.clientId,
+          name: u.username || u.email || 'Client',
+          email: u.email || '',
+          totalCases: 0,
+          activeCases: 0,
+          completedCases: 0,
+          totalFees: 0,
+          joinedAt: c.createdAt,
+          latestStatus: c.status,
+        });
+      }
+      const client = clientsMap.get(c.clientId)!;
+      client.totalCases++;
+      if (['completed', 'filed', 'acknowledged'].includes(c.status || '')) {
+        client.completedCases++;
+      } else {
+        client.activeCases++;
+      }
+      client.totalFees += parseFloat(String(c.totalFee || '0'));
+      client.latestStatus = c.status;
+    }
+
+    res.json({
+      success: true,
+      clients: Array.from(clientsMap.values()),
+      totalCases: clientCases.length,
+    });
+  } catch (error) {
+    console.error('Error fetching CA clients:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch clients' });
+  }
+});
+
+// POST /clients/invite — generate a shareable invite link for a new client
+router.post('/clients/invite', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { name, email, mobile } = req.body;
+
+    if (!email && !mobile) {
+      return res.status(400).json({ success: false, error: 'Email or mobile number is required' });
+    }
+
+    const [caPartner] = await db
+      .select({ id: partners.id })
+      .from(partners)
+      .where(and(eq(partners.contactEmail, user.email), eq(partners.partnerType, 'chartered_accountant')))
+      .limit(1);
+
+    const caRef = caPartner?.id || user.id;
+    const protocol = req.headers['x-forwarded-proto'] || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host || 'fintekpro.com';
+    const inviteLink = `${protocol}://${host}/itr-tax-services?ref=ca_${caRef}`;
+
+    res.json({
+      success: true,
+      inviteLink,
+      message: `Invite link generated${name ? ` for ${name}` : ''}`,
+      inviteDetails: {
+        clientName: name || null,
+        clientEmail: email || null,
+        clientMobile: mobile || null,
+        caRef,
+        generatedAt: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Error generating CA client invite:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate invite' });
   }
 });
 

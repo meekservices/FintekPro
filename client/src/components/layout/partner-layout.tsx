@@ -123,6 +123,12 @@ const partnerNavSections: NavSection[] = [
         description: "Your cases, client overview & earnings"
       },
       {
+        title: "My Clients",
+        href: "/partner/ca-dashboard?tab=clients",
+        icon: Users,
+        description: "Manage clients & send invite links"
+      },
+      {
         title: "ITR Filing",
         href: "/itr-tax-services",
         icon: FileText,
