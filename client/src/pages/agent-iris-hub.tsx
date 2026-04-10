@@ -16,6 +16,10 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend
+} from "recharts";
+import {
   TrendingUp, Users, IndianRupee, Activity, Shield, FileText,
   BarChart3, RefreshCw, Search, ExternalLink, ArrowUpRight,
   ChevronRight, AlertCircle, CheckCircle2, Clock, Download, KeyRound, XCircle,
@@ -23,7 +27,7 @@ import {
   AlertTriangle, Banknote, PiggyBank, CreditCard, Settings, Target,
   Upload, Trash2, Pencil, Plus, Fingerprint,
   LineChart, PlusCircle, Star, User, BookOpen, Layers,
-  ArrowLeftRight, Repeat, MinusCircle,
+  ArrowLeftRight, Repeat, MinusCircle, UserPlus, Brain,
   Building2, Bell, MessageSquare, ChevronDown, ChevronUp,
   TrendingDown, PieChart
 } from "lucide-react";
@@ -122,6 +126,102 @@ interface FundHouse { fundName?: string; name?: string }
 
 interface ProductLink { url?: string; link?: string; name?: string; title?: string; productName?: string }
 
+// ─── Onboarding types ─────────────────────────────────────────────────────────
+interface OnboardingApplication {
+  applicationId?: string;
+  id?: string;
+  name?: string;
+  investorName?: string;
+  pan?: string;
+  mobile?: string;
+  email?: string;
+  status?: string;
+  createdAt?: string;
+  applicationLink?: string;
+}
+
+// ─── NFO types ────────────────────────────────────────────────────────────────
+interface NfoScheme {
+  schemeCode?: string;
+  code?: string;
+  schemeName?: string;
+  name?: string;
+  amcName?: string;
+  amc?: string;
+  category?: string;
+  openDate?: string;
+  closeDate?: string;
+  minAmount?: number;
+  minimumAmount?: number;
+}
+
+interface NfoApplication {
+  applicationId?: string;
+  id?: string;
+  schemeName?: string;
+  scheme?: string;
+  pan?: string;
+  amount?: number;
+  status?: string;
+  paymentMode?: string;
+  createdAt?: string;
+}
+
+// ─── Application/Order tracking types ────────────────────────────────────────
+interface OrderApplication {
+  applicationId?: string;
+  id?: string;
+  type?: string;
+  transactionType?: string;
+  schemeName?: string;
+  scheme?: string;
+  amount?: number;
+  status?: string;
+  orderId?: string;
+  createdAt?: string;
+}
+
+interface TrackingEvent {
+  status?: string;
+  description?: string;
+  timestamp?: string;
+  date?: string;
+}
+
+// ─── Risk profile types ───────────────────────────────────────────────────────
+interface RiskProfile {
+  riskProfile?: string;
+  riskCategory?: string;
+  score?: number;
+  assessedAt?: string;
+  recommendedCategories?: string[];
+}
+
+interface RiskQuestion {
+  questionId?: string;
+  id?: string;
+  question?: string;
+  options?: { id?: string; value?: string; text?: string; label?: string }[];
+}
+
+// ─── Dashboard types ──────────────────────────────────────────────────────────
+interface InflowOutflowMonth {
+  month?: string;
+  period?: string;
+  inflow?: number;
+  outflow?: number;
+  netFlow?: number;
+}
+
+interface EuinRecord {
+  euinCode?: string;
+  euin?: string;
+  name?: string;
+  agentName?: string;
+  aum?: number;
+  investorCount?: number;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function irisGet<T>(url: string): Promise<T> {
@@ -139,6 +239,15 @@ function fmt(num: number | null | undefined): string {
   if (num >= 1e7) return "₹" + (num / 1e7).toFixed(2) + " Cr";
   if (num >= 1e5) return "₹" + (num / 1e5).toFixed(2) + " L";
   return "₹" + num.toLocaleString("en-IN");
+}
+
+function statusVariant(status?: string): "default" | "secondary" | "destructive" | "outline" {
+  if (!status) return "outline";
+  const s = status.toUpperCase();
+  if (["ACTIVE", "COMPLETED", "SUCCESS", "KYC_VERIFIED", "ALLOTTED"].includes(s)) return "default";
+  if (["PENDING", "IN_PROGRESS", "KYC_PENDING", "PROCESSING"].includes(s)) return "secondary";
+  if (["REJECTED", "CANCELLED", "FAILED"].includes(s)) return "destructive";
+  return "outline";
 }
 
 // ─── Components ───────────────────────────────────────────────────────────────
@@ -200,11 +309,59 @@ function IrisStatusBadge() {
 }
 
 // ─── Dashboard Tab ─────────────────────────────────────────────────────────────
+const RISK_COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+
 function DashboardTab() {
   const { data: aum, isLoading: aumL } = useQuery<IrisApiResponse<AumData>>({ queryKey: ["/api/iris/dashboard/aum-summary"], retry: false });
   const { data: earn, isLoading: earnL } = useQuery<IrisApiResponse<EarningsData>>({ queryKey: ["/api/iris/dashboard/fund-earnings"], retry: false });
   const { data: sip, isLoading: sipL } = useQuery<IrisApiResponse<SipSummaryData>>({ queryKey: ["/api/iris/dashboard/sip-summary"], retry: false });
   const { data: inv, isLoading: invL } = useQuery<IrisApiResponse<InvestorCountData>>({ queryKey: ["/api/iris/dashboard/unique-investors"], retry: false });
+  const { data: inflowData, isLoading: inflowL } = useQuery<IrisApiResponse<{ months?: InflowOutflowMonth[]; data?: InflowOutflowMonth[] }>>({
+    queryKey: ["/api/iris/dashboard/inflow-outflow"],
+    retry: false,
+  });
+  const { data: euinsData, isLoading: euinsL } = useQuery<IrisApiResponse<{ euins?: EuinRecord[]; data?: EuinRecord[] }>>({
+    queryKey: ["/api/iris/dashboard/euins"],
+    retry: false,
+  });
+
+  const inflowMonths: InflowOutflowMonth[] = (() => {
+    if (!inflowData?.data) return [];
+    if (Array.isArray(inflowData.data)) return inflowData.data;
+    return inflowData.data.months ?? inflowData.data.data ?? [];
+  })();
+
+  const euins: EuinRecord[] = (() => {
+    if (!euinsData?.data) return [];
+    if (Array.isArray(euinsData.data)) return euinsData.data;
+    return euinsData.data.euins ?? euinsData.data.data ?? [];
+  })();
+
+  const chartData = inflowMonths.map(m => ({
+    month: m.month ?? m.period ?? "",
+    Inflow: m.inflow ?? 0,
+    Outflow: m.outflow ?? 0,
+    "Net Flow": m.netFlow ?? ((m.inflow ?? 0) - (m.outflow ?? 0)),
+  }));
+
+  type RiskDistItem = { name: string; value: number };
+  const riskDistributionRaw = (() => {
+    const d = inflowData?.data as Record<string, unknown> | undefined;
+    if (!d) return null;
+    const dist = (d as { riskDistribution?: RiskDistItem[] }).riskDistribution;
+    if (Array.isArray(dist) && dist.length > 0) return dist as RiskDistItem[];
+    return null;
+  })();
+
+  const euinsRiskDist = (() => {
+    const d = euinsData?.data as Record<string, unknown> | undefined;
+    if (!d) return null;
+    const dist = (d as { riskDistribution?: RiskDistItem[] }).riskDistribution;
+    if (Array.isArray(dist) && dist.length > 0) return dist as RiskDistItem[];
+    return null;
+  })();
+
+  const riskDonutData: RiskDistItem[] = riskDistributionRaw ?? euinsRiskDist ?? [];
 
   return (
     <div className="space-y-6">
@@ -214,6 +371,111 @@ function DashboardTab() {
         <StatCard title="Active SIPs" value={sip?.data?.activeSips != null ? sip.data.activeSips.toLocaleString() : sip?.data?.sipCount?.toLocaleString()} icon={Activity} loading={sipL} subtitle="Running systematic plans" />
         <StatCard title="Unique Investors" value={inv?.data?.count != null ? inv.data.count.toLocaleString() : inv?.data?.uniqueInvestors?.toLocaleString()} icon={Users} loading={invL} subtitle="Total investor base" />
       </div>
+
+      {/* Inflow-Outflow Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Inflow vs Outflow — Trailing 12 Months</CardTitle>
+          <CardDescription>Monthly net flows across all clients</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {inflowL ? (
+            <Skeleton className="h-56 w-full" />
+          ) : chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={v => v >= 1e5 ? `${(v / 1e5).toFixed(0)}L` : String(v)} />
+                <Tooltip formatter={(v: number) => fmt(v)} />
+                <Legend />
+                <Bar dataKey="Inflow" fill="#10b981" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="Outflow" fill="#ef4444" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="Net Flow" fill="#6366f1" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-56 flex items-center justify-center text-sm text-muted-foreground">
+              No inflow/outflow data — IRIS credentials may need authentication
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* EUIN Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">EUIN Distribution</CardTitle>
+            <CardDescription>Agent EUINs and their AUM</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {euinsL ? (
+              <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
+            ) : euins.length > 0 ? (
+              <ScrollArea className="h-52">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-background border-b">
+                    <tr>
+                      <th className="text-left p-2 font-medium">EUIN</th>
+                      <th className="text-left p-2 font-medium">Agent</th>
+                      <th className="text-right p-2 font-medium">AUM</th>
+                      <th className="text-right p-2 font-medium">Investors</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {euins.map((e, i) => (
+                      <tr key={i} className="border-b hover:bg-muted/50">
+                        <td className="p-2 font-mono text-xs">{e.euinCode ?? e.euin ?? "—"}</td>
+                        <td className="p-2">{e.name ?? e.agentName ?? "—"}</td>
+                        <td className="p-2 text-right">{fmt(e.aum)}</td>
+                        <td className="p-2 text-right">{e.investorCount ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </ScrollArea>
+            ) : (
+              <div className="h-52 flex items-center justify-center text-sm text-muted-foreground">
+                No EUIN data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Risk Profile Donut */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Risk Profile Distribution</CardTitle>
+            <CardDescription>Book breakdown by investor risk category</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {(inflowL || euinsL) ? (
+              <Skeleton className="h-52 w-full" />
+            ) : riskDonutData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={210}>
+                <PieChart>
+                  <Pie data={riskDonutData} cx="50%" cy="50%" innerRadius={55} outerRadius={85}
+                    dataKey="value" nameKey="name" paddingAngle={2}>
+                    {riskDonutData.map((_, i) => (
+                      <Cell key={i} fill={RISK_COLORS[i % RISK_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => `${v}%`} />
+                  <Legend iconType="circle" iconSize={10} formatter={v => <span className="text-xs">{v}</span>} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-52 flex flex-col items-center justify-center text-sm text-muted-foreground gap-2">
+                <Brain className="h-8 w-8 text-muted-foreground/40" />
+                <p>Risk distribution data not available from IRIS</p>
+                <p className="text-xs">Data will appear when IRIS returns risk profile aggregates</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">IRIS / KFintech Status</CardTitle>
@@ -499,6 +761,85 @@ function NewSipDialog({ open, onClose, prefillPan }: { open: boolean; onClose: (
             {registerSip.isPending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Registering…</> : "Register SIP"}
           </Button>
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Risk Profiling Dialog ────────────────────────────────────────────────────
+function RiskProfileDialog({ pan, open, onClose }: { pan: string; open: boolean; onClose: () => void }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+
+  const { data: questData, isLoading: questL } = useQuery<IrisApiResponse<{ questions?: RiskQuestion[] }>>({
+    queryKey: ["/api/iris/risk-profile/questionnaire"],
+    enabled: open,
+    retry: false,
+  });
+
+  const questions: RiskQuestion[] = questData?.data?.questions ?? [];
+
+  const submitProfile = useMutation({
+    mutationFn: () => apiRequest(`/api/iris/investors/${pan}/risk-profile`, "POST", { body: { answers } }),
+    onSuccess: () => {
+      toast({ title: "Risk profile saved" });
+      qc.invalidateQueries({ queryKey: ["/api/iris/investors", pan, "risk-profile"] });
+      onClose();
+      setStep(0);
+      setAnswers({});
+    },
+    onError: (e: Error) => toast({ title: "Failed to save risk profile", description: e.message, variant: "destructive" }),
+  });
+
+  const currentQ = questions[step];
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Brain className="h-4 w-4" /> Risk Profile Assessment</DialogTitle>
+          <DialogDescription>Answer the questions to determine the investor's risk profile</DialogDescription>
+        </DialogHeader>
+        {questL ? (
+          <div className="space-y-3"><Skeleton className="h-12 w-full" /><Skeleton className="h-8 w-full" /></div>
+        ) : questions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No questionnaire available from IRIS</p>
+        ) : (
+          <div className="space-y-4 pt-2">
+            <p className="text-xs text-muted-foreground">Question {step + 1} of {questions.length}</p>
+            <p className="font-medium text-sm">{currentQ?.question}</p>
+            <div className="space-y-2">
+              {(currentQ?.options ?? []).map((opt, i) => {
+                const optId = opt.id ?? opt.value ?? String(i);
+                const optLabel = opt.text ?? opt.label ?? opt.value ?? "";
+                const qId = currentQ?.questionId ?? currentQ?.id ?? String(step);
+                return (
+                  <button key={i}
+                    className={`w-full text-left p-3 rounded border text-sm transition-colors ${answers[qId] === optId ? 'bg-primary/10 border-primary' : 'hover:bg-muted/50'}`}
+                    onClick={() => setAnswers(prev => ({ ...prev, [qId]: optId }))}>
+                    {optLabel}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0}>Back</Button>
+              {step < questions.length - 1 ? (
+                <Button className="flex-1" onClick={() => setStep(s => s + 1)}
+                  disabled={!answers[currentQ?.questionId ?? currentQ?.id ?? String(step)]}>
+                  Next
+                </Button>
+              ) : (
+                <Button className="flex-1" onClick={() => submitProfile.mutate()}
+                  disabled={submitProfile.isPending || !answers[currentQ?.questionId ?? currentQ?.id ?? String(step)]}>
+                  {submitProfile.isPending ? "Saving…" : "Submit"}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -896,6 +1237,49 @@ function ManageInvestorPanel({ pan, onClose }: ManagePanelProps) {
             </>
           )}
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Order Tracking Dialog ────────────────────────────────────────────────────
+function OrderTrackingDialog({ orderId, open, onClose }: { orderId: string; open: boolean; onClose: () => void }) {
+  const { data, isLoading } = useQuery<IrisApiResponse<{ events?: TrackingEvent[]; tracking?: TrackingEvent[] }>>({
+    queryKey: ["/api/iris/transactions", orderId, "tracking"],
+    queryFn: () => irisGet(`/api/iris/transactions/${orderId}/tracking`),
+    enabled: open && !!orderId,
+    retry: false,
+  });
+
+  const events: TrackingEvent[] = data?.data?.events ?? data?.data?.tracking ?? [];
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Order Tracking</DialogTitle>
+          <DialogDescription>Order ID: {orderId}</DialogDescription>
+        </DialogHeader>
+        {isLoading ? (
+          <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+        ) : events.length > 0 ? (
+          <div className="space-y-3 pt-2">
+            {events.map((ev, i) => (
+              <div key={i} className="flex gap-3 items-start">
+                <div className="flex flex-col items-center">
+                  <div className={`h-3 w-3 rounded-full mt-0.5 ${i === 0 ? 'bg-primary' : 'bg-muted-foreground/40'}`} />
+                  {i < events.length - 1 && <div className="w-0.5 h-8 bg-muted-foreground/20 mt-1" />}
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{ev.status ?? ev.description ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground">{ev.timestamp ?? ev.date ?? ""}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground py-4 text-center">No tracking events found</p>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -1440,7 +1824,7 @@ function PortalLinkButton({ pan }: { pan: string }) {
 }
 
 // ─── Investors Tab ────────────────────────────────────────────────────────────
-type InvestorDetailTab = "portfolio" | "holdings" | "transactions" | "sips" | "orders" | "folios" | "enrichment" | "goals" | "demat-docs" | "alerts" | "whatsapp";
+type InvestorDetailTab = "portfolio" | "holdings" | "transactions" | "sips" | "orders" | "folios" | "enrichment" | "goals" | "demat-docs" | "alerts" | "whatsapp" | "applications" | "risk-profile";
 
 function InvestorsTab() {
   const [search, setSearch] = useState("");
@@ -1453,6 +1837,8 @@ function InvestorsTab() {
   const [orderStatusId, setOrderStatusId] = useState("");
   const [failedOnly, setFailedOnly] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [riskDialogOpen, setRiskDialogOpen] = useState(false);
+  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -1515,6 +1901,20 @@ function InvestorsTab() {
     retry: false,
   });
 
+  const { data: appsData, isLoading: appsL } = useQuery<IrisApiResponse<{ applications?: OrderApplication[] } | OrderApplication[]>>({
+    queryKey: ["/api/iris/applications", selectedPan],
+    queryFn: () => irisGet<IrisApiResponse<{ applications?: OrderApplication[] } | OrderApplication[]>>(`/api/iris/applications?pan=${selectedPan}`),
+    enabled: !!selectedPan && detailTab === "applications",
+    retry: false,
+  });
+
+  const { data: riskData, isLoading: riskL } = useQuery<IrisApiResponse<RiskProfile>>({
+    queryKey: ["/api/iris/investors", selectedPan, "risk-profile"],
+    queryFn: () => irisGet<IrisApiResponse<RiskProfile>>(`/api/iris/investors/${selectedPan}/risk-profile`),
+    enabled: !!selectedPan && detailTab === "risk-profile",
+    retry: false,
+  });
+
   const sendEkyc = useMutation({
     mutationFn: (pan: string) => apiRequest(`/api/iris/investors/${pan}/send-ekyc-mail`, "POST"),
     onSuccess: () => toast({ title: "eKYC mail sent" }),
@@ -1567,12 +1967,21 @@ function InvestorsTab() {
     return [];
   }
 
+  function resolveApps(): OrderApplication[] {
+    if (!appsData?.data) return [];
+    if (Array.isArray(appsData.data)) return appsData.data;
+    if ('applications' in appsData.data) return appsData.data.applications ?? [];
+    return [];
+  }
+
   const investors = resolveInvestors();
   const holdings = resolveHoldings();
   const txns = resolveTxns();
   const sips = sipsData?.data?.sips ?? [];
   const orders = resolveOrders();
   const ekycStatus = ekycData?.data?.status ?? ekycData?.data?.ekycStatus ?? ekycData?.data?.completionStatus;
+  const applications = resolveApps();
+  const riskProfile = riskData?.data;
 
   const DETAIL_TABS: { key: InvestorDetailTab; label: string }[] = [
     { key: "portfolio", label: "Portfolio" },
@@ -1586,6 +1995,8 @@ function InvestorsTab() {
     { key: "demat-docs", label: "Demat & Docs" },
     { key: "alerts", label: "Alerts" },
     { key: "whatsapp", label: "WhatsApp" },
+    { key: "applications", label: "Applications" },
+    { key: "risk-profile", label: "Risk Profile" },
   ];
 
   return (
@@ -1745,7 +2156,7 @@ function InvestorsTab() {
                             </div>
                             <div className="flex justify-between text-xs text-muted-foreground mt-1">
                               <span>{t.transactionType ?? t.type} · {t.transactionDate ?? t.date}</span>
-                              <Badge variant={t.status === 'SUCCESS' ? 'default' : t.status === 'PENDING' ? 'secondary' : 'destructive'} className="text-[10px] h-4">
+                              <Badge variant={statusVariant(t.status)} className="text-[10px] h-4">
                                 {t.status}
                               </Badge>
                             </div>
@@ -1877,6 +2288,95 @@ function InvestorsTab() {
 
             {detailTab === "alerts" && <InvestorAlertsPanel pan={selectedPan!} />}
             {detailTab === "whatsapp" && <WhatsAppPanel pan={selectedPan!} />}
+
+            {detailTab === "applications" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Order Applications</CardTitle>
+                  <CardDescription>All order applications for {selectedPan}</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {appsL ? (
+                    <div className="p-4 space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+                  ) : (
+                    <ScrollArea className="h-[340px]">
+                      <div className="divide-y">
+                        {applications.map((app, i) => {
+                          const appId = app.applicationId ?? app.id ?? "";
+                          const orderId = app.orderId ?? appId;
+                          return (
+                            <div key={i} className="p-3">
+                              <div className="flex justify-between items-start">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium truncate">{app.schemeName ?? app.scheme ?? "—"}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {app.type ?? app.transactionType} · {fmt(app.amount)} · {appId}
+                                  </p>
+                                </div>
+                                <Badge variant={statusVariant(app.status)} className="text-[10px] ml-2 flex-shrink-0">{app.status}</Badge>
+                              </div>
+                              <div className="flex gap-1.5 mt-2">
+                                <Button size="sm" variant="outline" className="h-6 text-[11px] px-2"
+                                  onClick={() => setTrackingOrderId(orderId)}>
+                                  Track
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {!applications.length && <p className="p-4 text-sm text-muted-foreground">No order applications found</p>}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {detailTab === "risk-profile" && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-sm">Risk Profile</CardTitle>
+                    <CardDescription>Investor's assessed risk category</CardDescription>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => setRiskDialogOpen(true)}>
+                    <Brain className="h-3.5 w-3.5 mr-1" /> Re-assess
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {riskL ? <Skeleton className="h-24 w-full" /> : riskProfile?.riskProfile || riskProfile?.riskCategory ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Brain className="h-7 w-7 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-xl font-bold">{riskProfile.riskProfile ?? riskProfile.riskCategory}</p>
+                          {riskProfile.score != null && <p className="text-sm text-muted-foreground">Score: {riskProfile.score}</p>}
+                          {riskProfile.assessedAt && <p className="text-xs text-muted-foreground">Assessed: {riskProfile.assessedAt}</p>}
+                        </div>
+                      </div>
+                      {riskProfile.recommendedCategories && riskProfile.recommendedCategories.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-2">Recommended scheme categories</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {riskProfile.recommendedCategories.map((cat, i) => (
+                              <Badge key={i} variant="outline" className="text-xs">{cat}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 space-y-3">
+                      <Brain className="h-10 w-10 text-muted-foreground mx-auto" />
+                      <p className="text-sm text-muted-foreground">No risk profile assessed yet</p>
+                      <Button size="sm" onClick={() => setRiskDialogOpen(true)}>Launch Assessment</Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         ) : (
           <Card className="flex items-center justify-center min-h-[300px]">
@@ -1891,6 +2391,407 @@ function InvestorsTab() {
       {manageOpen && selectedPan && (
         <ManageInvestorPanel pan={selectedPan} onClose={() => setManageOpen(false)} />
       )}
+      {selectedPan && (
+        <RiskProfileDialog pan={selectedPan} open={riskDialogOpen} onClose={() => setRiskDialogOpen(false)} />
+      )}
+      {trackingOrderId && (
+        <OrderTrackingDialog orderId={trackingOrderId} open={!!trackingOrderId} onClose={() => setTrackingOrderId(null)} />
+      )}
+    </div>
+  );
+}
+
+// ─── Onboarding Tab ───────────────────────────────────────────────────────────
+type OnboardingStep = "personal" | "address";
+
+function OnboardingTab() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [step, setStep] = useState<OnboardingStep>("personal");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [form, setForm] = useState({
+    name: "", pan: "", dob: "", mobile: "", email: "",
+    addressLine1: "", addressLine2: "", city: "", state: "", pincode: ""
+  });
+
+  const { data: appsData, isLoading: appsL } = useQuery<IrisApiResponse<{ applications?: OnboardingApplication[] } | OnboardingApplication[]>>({
+    queryKey: ["/api/iris/onboarding/applications", statusFilter],
+    queryFn: () => irisGet(`/api/iris/onboarding/applications${statusFilter !== "ALL" ? `?status=${statusFilter}` : ""}`),
+    retry: false,
+  });
+
+  const initiateMutation = useMutation({
+    mutationFn: () => apiRequest("/api/iris/onboarding/initiate", "POST", { body: {
+      name: form.name, pan: form.pan, dob: form.dob, mobile: form.mobile, email: form.email,
+      address: { line1: form.addressLine1, line2: form.addressLine2, city: form.city, state: form.state, pincode: form.pincode }
+    }}),
+    onSuccess: () => {
+      toast({ title: "Onboarding initiated", description: "Application link sent to the investor" });
+      qc.invalidateQueries({ queryKey: ["/api/iris/onboarding/applications"] });
+      setDialogOpen(false);
+      setStep("personal");
+      setForm({ name: "", pan: "", dob: "", mobile: "", email: "", addressLine1: "", addressLine2: "", city: "", state: "", pincode: "" });
+    },
+    onError: (e: Error) => toast({ title: "Failed to initiate onboarding", description: e.message, variant: "destructive" }),
+  });
+
+  const resendMutation = useMutation({
+    mutationFn: (applicationId: string) => apiRequest(`/api/iris/onboarding/${applicationId}/resend-link`, "POST"),
+    onSuccess: () => toast({ title: "Onboarding link resent" }),
+    onError: (e: Error) => toast({ title: "Failed to resend link", description: e.message, variant: "destructive" }),
+  });
+
+  function resolveApps(): OnboardingApplication[] {
+    if (!appsData?.data) return [];
+    if (Array.isArray(appsData.data)) return appsData.data;
+    if ('applications' in appsData.data) return appsData.data.applications ?? [];
+    return [];
+  }
+
+  const apps = resolveApps();
+
+  const STATUS_OPTIONS = ["ALL", "IN_PROGRESS", "KYC_PENDING", "COMPLETED", "REJECTED"];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s.replace("_", " ")}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button onClick={() => setDialogOpen(true)}>
+          <UserPlus className="h-4 w-4 mr-2" /> New Investor
+        </Button>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Onboarding Applications</CardTitle>
+          <CardDescription>Digital investor onboarding — track status and resend links</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          {appsL ? (
+            <div className="p-4 space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full" />)}</div>
+          ) : apps.length > 0 ? (
+            <ScrollArea className="h-[420px]">
+              <div className="divide-y">
+                {apps.map((app, i) => {
+                  const appId = app.applicationId ?? app.id ?? "";
+                  return (
+                    <div key={i} className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm">{app.name ?? app.investorName ?? "—"}</p>
+                          <p className="text-xs text-muted-foreground">{app.pan} · {app.mobile} · {app.email}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">ID: {appId}</p>
+                        </div>
+                        <Badge variant={statusVariant(app.status)} className="ml-2 flex-shrink-0">{app.status ?? "—"}</Badge>
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <Button size="sm" variant="outline" className="h-7 text-xs"
+                          onClick={() => resendMutation.mutate(appId)}
+                          disabled={resendMutation.isPending || app.status === "COMPLETED"}>
+                          Resend Link
+                        </Button>
+                        {app.applicationLink && (
+                          <a href={app.applicationLink} target="_blank" rel="noopener noreferrer">
+                            <Button size="sm" variant="ghost" className="h-7 text-xs">
+                              <ExternalLink className="h-3 w-3 mr-1" /> Open Link
+                            </Button>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="p-8 text-center text-sm text-muted-foreground">
+              <UserPlus className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+              No onboarding applications found
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* New Investor Multi-step Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={v => { if (!v) { setDialogOpen(false); setStep("personal"); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>New Investor Onboarding</DialogTitle>
+            <DialogDescription>
+              {step === "personal" ? "Step 1 of 2 — Personal Details" : "Step 2 of 2 — Address Details"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {step === "personal" ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <Label>Full Name *</Label>
+                    <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Investor full name" />
+                  </div>
+                  <div>
+                    <Label>PAN *</Label>
+                    <Input value={form.pan} onChange={e => setForm(f => ({ ...f, pan: e.target.value.toUpperCase() }))} placeholder="ABCDE1234F" maxLength={10} />
+                  </div>
+                  <div>
+                    <Label>Date of Birth *</Label>
+                    <Input type="date" value={form.dob} onChange={e => setForm(f => ({ ...f, dob: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label>Mobile *</Label>
+                    <Input value={form.mobile} onChange={e => setForm(f => ({ ...f, mobile: e.target.value }))} placeholder="+91XXXXXXXXXX" />
+                  </div>
+                  <div>
+                    <Label>Email *</Label>
+                    <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="investor@email.com" />
+                  </div>
+                </div>
+                <Button className="w-full" onClick={() => setStep("address")}
+                  disabled={!form.name || !form.pan || !form.dob || !form.mobile || !form.email}>
+                  Next: Address →
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <Label>Address Line 1 *</Label>
+                    <Input value={form.addressLine1} onChange={e => setForm(f => ({ ...f, addressLine1: e.target.value }))} placeholder="House/Flat No., Street" />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Address Line 2</Label>
+                    <Input value={form.addressLine2} onChange={e => setForm(f => ({ ...f, addressLine2: e.target.value }))} placeholder="Locality, Area" />
+                  </div>
+                  <div>
+                    <Label>City *</Label>
+                    <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="Mumbai" />
+                  </div>
+                  <div>
+                    <Label>State *</Label>
+                    <Input value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} placeholder="Maharashtra" />
+                  </div>
+                  <div>
+                    <Label>Pincode *</Label>
+                    <Input value={form.pincode} onChange={e => setForm(f => ({ ...f, pincode: e.target.value }))} placeholder="400001" maxLength={6} />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={() => setStep("personal")}>← Back</Button>
+                  <Button className="flex-1" onClick={() => initiateMutation.mutate()}
+                    disabled={initiateMutation.isPending || !form.addressLine1 || !form.city || !form.state || !form.pincode}>
+                    {initiateMutation.isPending ? <><RefreshCw className="h-4 w-4 mr-1 animate-spin" />Initiating…</> : "Initiate Onboarding"}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ─── NFO Tab ──────────────────────────────────────────────────────────────────
+function NfoTab() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [subscribeScheme, setSubscribeScheme] = useState<NfoScheme | null>(null);
+  const [subPan, setSubPan] = useState("");
+  const [subAmount, setSubAmount] = useState("");
+  const [subPaymentMode, setSubPaymentMode] = useState("NETBANKING");
+  const [appsPan, setAppsPan] = useState("");
+  const [appsSubmittedPan, setAppsSubmittedPan] = useState("");
+
+  const { data: nfoData, isLoading: nfoL } = useQuery<IrisApiResponse<{ schemes?: NfoScheme[] } | NfoScheme[]>>({
+    queryKey: ["/api/iris/nfo/active"],
+    retry: false,
+  });
+
+  const { data: nfoAppsData, isLoading: nfoAppsL } = useQuery<IrisApiResponse<{ applications?: NfoApplication[] } | NfoApplication[]>>({
+    queryKey: ["/api/iris/nfo/applications", appsSubmittedPan],
+    queryFn: () => irisGet(`/api/iris/nfo/applications${appsSubmittedPan ? `?pan=${appsSubmittedPan}` : ""}`),
+    enabled: !!appsSubmittedPan,
+    retry: false,
+  });
+
+  const applyMutation = useMutation({
+    mutationFn: () => apiRequest("/api/iris/nfo/apply", "POST", { body: {
+      pan: subPan,
+      schemeCode: subscribeScheme?.schemeCode ?? subscribeScheme?.code,
+      schemeName: subscribeScheme?.schemeName ?? subscribeScheme?.name,
+      amount: Number(subAmount),
+      paymentMode: subPaymentMode,
+    }}),
+    onSuccess: () => {
+      toast({ title: "NFO subscription placed" });
+      qc.invalidateQueries({ queryKey: ["/api/iris/nfo/applications"] });
+      setSubscribeScheme(null);
+      setSubPan(""); setSubAmount(""); setSubPaymentMode("NETBANKING");
+    },
+    onError: (e: Error) => toast({ title: "NFO subscription failed", description: e.message, variant: "destructive" }),
+  });
+
+  const cancelNfoMutation = useMutation({
+    mutationFn: (applicationId: string) => apiRequest(`/api/iris/nfo/applications/${applicationId}/cancel`, "POST"),
+    onSuccess: () => {
+      toast({ title: "NFO application cancelled" });
+      qc.invalidateQueries({ queryKey: ["/api/iris/nfo/applications"] });
+    },
+    onError: (e: Error) => toast({ title: "Cancel failed", description: e.message, variant: "destructive" }),
+  });
+
+  function resolveSchemes(): NfoScheme[] {
+    if (!nfoData?.data) return [];
+    if (Array.isArray(nfoData.data)) return nfoData.data;
+    return nfoData.data.schemes ?? [];
+  }
+
+  function resolveApps(): NfoApplication[] {
+    if (!nfoAppsData?.data) return [];
+    if (Array.isArray(nfoAppsData.data)) return nfoAppsData.data;
+    if ('applications' in nfoAppsData.data) return nfoAppsData.data.applications ?? [];
+    return [];
+  }
+
+  const nfoSchemes = resolveSchemes();
+  const nfoApplications = resolveApps();
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Active NFOs</CardTitle>
+          <CardDescription>New Fund Offers currently open for subscription</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {nfoL ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-32 w-full" />)}
+            </div>
+          ) : nfoSchemes.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {nfoSchemes.map((s, i) => (
+                <Card key={i} className="border bg-card">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="min-w-0 mr-2">
+                        <p className="font-medium text-sm leading-snug">{s.schemeName ?? s.name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{s.amcName ?? s.amc}</p>
+                      </div>
+                      {s.category && <Badge variant="outline" className="text-[10px] flex-shrink-0">{s.category}</Badge>}
+                    </div>
+                    <div className="text-xs text-muted-foreground space-y-0.5 mb-3">
+                      {s.openDate && <p>Opens: {s.openDate}</p>}
+                      {s.closeDate && <p>Closes: {s.closeDate}</p>}
+                      {(s.minAmount ?? s.minimumAmount) && <p>Min: {fmt(s.minAmount ?? s.minimumAmount)}</p>}
+                    </div>
+                    <Button size="sm" className="w-full" onClick={() => setSubscribeScheme(s)}>
+                      Subscribe
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              <Layers className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+              No active NFOs at this time
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* NFO Applications section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">NFO Applications</CardTitle>
+          <CardDescription>View and manage NFO subscriptions by investor PAN</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Input placeholder="Investor PAN" value={appsPan} onChange={e => setAppsPan(e.target.value.toUpperCase())} className="max-w-xs" />
+            <Button onClick={() => setAppsSubmittedPan(appsPan)} disabled={appsPan.length < 10}>
+              <Search className="h-4 w-4 mr-1" /> View
+            </Button>
+          </div>
+          {nfoAppsL ? (
+            <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full" />)}</div>
+          ) : nfoApplications.length > 0 ? (
+            <div className="divide-y border rounded-md">
+              {nfoApplications.map((app, i) => {
+                const appId = app.applicationId ?? app.id ?? "";
+                return (
+                  <div key={i} className="p-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-sm font-medium">{app.schemeName ?? app.scheme ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground">{app.paymentMode} · {fmt(app.amount)} · {appId}</p>
+                      </div>
+                      <Badge variant={statusVariant(app.status)} className="ml-2 flex-shrink-0 text-[10px]">{app.status}</Badge>
+                    </div>
+                    {app.status === "PENDING" && (
+                      <Button size="sm" variant="outline" className="mt-2 h-7 text-xs text-destructive hover:text-destructive"
+                        onClick={() => cancelNfoMutation.mutate(appId)}
+                        disabled={cancelNfoMutation.isPending}>
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : appsSubmittedPan ? (
+            <p className="text-sm text-muted-foreground">No NFO applications found for {appsSubmittedPan}</p>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {/* Subscribe Dialog */}
+      <Dialog open={!!subscribeScheme} onOpenChange={v => { if (!v) setSubscribeScheme(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Subscribe to NFO</DialogTitle>
+            <DialogDescription>{subscribeScheme?.schemeName ?? subscribeScheme?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label>Investor PAN *</Label>
+              <Input value={subPan} onChange={e => setSubPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" maxLength={10} />
+            </div>
+            <div>
+              <Label>Amount (₹) *</Label>
+              <Input type="number" value={subAmount} onChange={e => setSubAmount(e.target.value)} placeholder={String(subscribeScheme?.minAmount ?? subscribeScheme?.minimumAmount ?? 5000)} min={1} />
+              {(subscribeScheme?.minAmount ?? subscribeScheme?.minimumAmount) && (
+                <p className="text-xs text-muted-foreground mt-1">Min: {fmt(subscribeScheme?.minAmount ?? subscribeScheme?.minimumAmount)}</p>
+              )}
+            </div>
+            <div>
+              <Label>Payment Mode</Label>
+              <Select value={subPaymentMode} onValueChange={setSubPaymentMode}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NETBANKING">Net Banking</SelectItem>
+                  <SelectItem value="UPI">UPI</SelectItem>
+                  <SelectItem value="MANDATE">eMandate</SelectItem>
+                  <SelectItem value="CHEQUE">Cheque</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full" onClick={() => applyMutation.mutate()}
+              disabled={applyMutation.isPending || !subPan || !subAmount || Number(subAmount) <= 0}>
+              {applyMutation.isPending ? <><RefreshCw className="h-4 w-4 mr-1 animate-spin" />Placing…</> : "Place NFO Subscription"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -4649,7 +5550,6 @@ function CasImportTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  // ── CAS from Registry ──────────────────────────────────────────────────────
   const [casPan, setCasPan] = useState('');
   const [casSubmittedPan, setCasSubmittedPan] = useState('');
   const [genEmail, setGenEmail] = useState('');
@@ -4684,7 +5584,6 @@ function CasImportTab() {
     onError: (e: Error) => toast({ title: 'Generation failed', description: e.message, variant: 'destructive' }),
   });
 
-  // ── External Portfolio ─────────────────────────────────────────────────────
   const [extPan, setExtPan] = useState('');
   const [extSubmittedPan, setExtSubmittedPan] = useState('');
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
@@ -4697,7 +5596,7 @@ function CasImportTab() {
   });
 
   const refreshMutation = useMutation({
-    mutationFn: (pan: string) => apiRequest(`/api/iris/portfolio/external/${pan}/refresh`, 'POST', {}),
+    mutationFn: (pan: string) => apiRequest(`/api/iris/portfolio/external/${pan}/refresh`, 'POST', { body: {} }),
     onSuccess: (_d, pan) => {
       toast({ title: 'Refreshed', description: `External portfolio refreshed for ${pan}.` });
       qc.invalidateQueries({ queryKey: ['/api/iris/portfolio/external', pan] });
@@ -4735,8 +5634,6 @@ function CasImportTab() {
 
   return (
     <div className="space-y-6">
-
-      {/* ── Section 1: Fetch CAS from Registry ──────────────────────────────── */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -4745,21 +5642,12 @@ function CasImportTab() {
           </CardTitle>
           <CardDescription>
             Pull a client's complete MF portfolio directly from KFintech by PAN — no PDF upload needed.
-            Data is sourced live from the registrar's registry.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
-            <Input
-              placeholder="PAN (e.g. ABCDE1234F)"
-              value={casPan}
-              onChange={e => setCasPan(e.target.value.toUpperCase())}
-              className="max-w-xs"
-            />
-            <Button
-              onClick={() => setCasSubmittedPan(casPan.trim())}
-              disabled={casPan.length < 10 || casQuery.isFetching}
-            >
+            <Input placeholder="PAN (e.g. ABCDE1234F)" value={casPan} onChange={e => setCasPan(e.target.value.toUpperCase())} className="max-w-xs" />
+            <Button onClick={() => setCasSubmittedPan(casPan.trim())} disabled={casPan.length < 10 || casQuery.isFetching}>
               {casQuery.isFetching ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <Search className="h-4 w-4 mr-1" />}
               Fetch from Registry
             </Button>
@@ -4792,7 +5680,6 @@ function CasImportTab() {
                   ))}
                 </div>
               )}
-
               <ScrollArea className="h-64 border rounded-md">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-background border-b">
@@ -4819,12 +5706,8 @@ function CasImportTab() {
                   </tbody>
                 </table>
               </ScrollArea>
-
               <div className="flex gap-2 flex-wrap">
-                <Button
-                  onClick={() => importMutation.mutate()}
-                  disabled={importMutation.isPending}
-                >
+                <Button onClick={() => importMutation.mutate()} disabled={importMutation.isPending}>
                   {importMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <Inbox className="h-4 w-4 mr-1" />}
                   Import All to IRIS Portfolio
                 </Button>
@@ -4841,32 +5724,20 @@ function CasImportTab() {
         </CardContent>
       </Card>
 
-      {/* ── Generate CAS Statement Dialog ─────────────────────────────────────── */}
       <Dialog open={genEmailDialogOpen} onOpenChange={setGenEmailDialogOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Generate CAS Statement</DialogTitle>
-            <DialogDescription>
-              Generate the Consolidated Account Statement for {casSubmittedPan}.
-              Optionally send it to the investor's email.
-            </DialogDescription>
+            <DialogDescription>Generate the Consolidated Account Statement for {casSubmittedPan}.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
               <Label>Send to Email (optional)</Label>
-              <Input
-                placeholder="investor@email.com"
-                value={genEmail}
-                onChange={e => setGenEmail(e.target.value)}
-              />
+              <Input placeholder="investor@email.com" value={genEmail} onChange={e => setGenEmail(e.target.value)} />
             </div>
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setGenEmailDialogOpen(false)}>Cancel</Button>
-              <Button
-                className="flex-1"
-                onClick={() => generateCasMutation.mutate()}
-                disabled={generateCasMutation.isPending}
-              >
+              <Button className="flex-1" onClick={() => generateCasMutation.mutate()} disabled={generateCasMutation.isPending}>
                 {generateCasMutation.isPending ? 'Generating…' : 'Generate'}
               </Button>
             </div>
@@ -4874,7 +5745,6 @@ function CasImportTab() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Section 2: External Portfolio ──────────────────────────────────────── */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -4883,31 +5753,18 @@ function CasImportTab() {
           </CardTitle>
           <CardDescription>
             View and manage externally linked folios for an investor — covers both CAMS and KFintech registrars.
-            Imported via CAS or manually linked.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2 flex-wrap">
-            <Input
-              placeholder="Investor PAN"
-              value={extPan}
-              onChange={e => setExtPan(e.target.value.toUpperCase())}
-              className="max-w-xs"
-            />
-            <Button
-              onClick={() => setExtSubmittedPan(extPan.trim())}
-              disabled={extPan.length < 10 || extQuery.isFetching}
-            >
+            <Input placeholder="Investor PAN" value={extPan} onChange={e => setExtPan(e.target.value.toUpperCase())} className="max-w-xs" />
+            <Button onClick={() => setExtSubmittedPan(extPan.trim())} disabled={extPan.length < 10 || extQuery.isFetching}>
               {extQuery.isFetching ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <Search className="h-4 w-4 mr-1" />}
               Load External Portfolio
             </Button>
             {extSubmittedPan && (
               <>
-                <Button
-                  variant="outline"
-                  onClick={() => refreshMutation.mutate(extSubmittedPan)}
-                  disabled={refreshMutation.isPending}
-                >
+                <Button variant="outline" onClick={() => refreshMutation.mutate(extSubmittedPan)} disabled={refreshMutation.isPending}>
                   <RefreshCw className={`h-4 w-4 mr-1 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
                   Refresh All
                 </Button>
@@ -4941,22 +5798,16 @@ function CasImportTab() {
                   {extFolios.map((f, i) => (
                     <tr key={i} className="border-b hover:bg-muted/50">
                       <td className="p-2 font-mono text-xs">{f.folioNo ?? '—'}</td>
-                      <td className="p-2">
-                        <Badge variant="outline" className="text-xs">{f.registrar ?? 'KFINTECH'}</Badge>
-                      </td>
+                      <td className="p-2"><Badge variant="outline" className="text-xs">{f.registrar ?? 'KFINTECH'}</Badge></td>
                       <td className="p-2">{f.amcName ?? f.amc ?? '—'}</td>
                       <td className="p-2 text-right">{f.schemeCount ?? '—'}</td>
                       <td className="p-2 text-right">
                         {f.currentValue !== undefined ? `₹${Number(f.currentValue).toLocaleString('en-IN')}` : '—'}
                       </td>
                       <td className="p-2 text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive hover:text-destructive h-7 px-2"
+                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive h-7 px-2"
                           onClick={() => f.folioNo && unlinkMutation.mutate(f.folioNo)}
-                          disabled={unlinkMutation.isPending}
-                        >
+                          disabled={unlinkMutation.isPending}>
                           <Unlink className="h-3.5 w-3.5" />
                         </Button>
                       </td>
@@ -4975,30 +5826,21 @@ function CasImportTab() {
         </CardContent>
       </Card>
 
-      {/* ── Link Folio Dialog ──────────────────────────────────────────────────── */}
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Link External Folio</DialogTitle>
-            <DialogDescription>
-              Manually link a folio from CAMS or KFintech to investor {extSubmittedPan}.
-            </DialogDescription>
+            <DialogDescription>Manually link a folio from CAMS or KFintech to investor {extSubmittedPan}.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
               <Label>Folio Number</Label>
-              <Input
-                placeholder="e.g. 1234567/89"
-                value={linkFolioNo}
-                onChange={e => setLinkFolioNo(e.target.value)}
-              />
+              <Input placeholder="e.g. 1234567/89" value={linkFolioNo} onChange={e => setLinkFolioNo(e.target.value)} />
             </div>
             <div>
               <Label>Registrar</Label>
               <Select value={linkRegistrar} onValueChange={setLinkRegistrar}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="KFINTECH">KFintech</SelectItem>
                   <SelectItem value="CAMS">CAMS</SelectItem>
@@ -5007,11 +5849,7 @@ function CasImportTab() {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setLinkDialogOpen(false)}>Cancel</Button>
-              <Button
-                className="flex-1"
-                onClick={() => linkMutation.mutate()}
-                disabled={linkMutation.isPending || !linkFolioNo.trim()}
-              >
+              <Button className="flex-1" onClick={() => linkMutation.mutate()} disabled={linkMutation.isPending || !linkFolioNo.trim()}>
                 {linkMutation.isPending ? 'Linking…' : 'Link Folio'}
               </Button>
             </div>
@@ -6668,6 +7506,8 @@ export default function AgentIrisHub() {
       <Tabs defaultValue="dashboard">
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="dashboard"><BarChart3 className="h-4 w-4 mr-1 inline" />Dashboard</TabsTrigger>
+          <TabsTrigger value="onboarding"><UserPlus className="h-4 w-4 mr-1 inline" />Onboarding</TabsTrigger>
+          <TabsTrigger value="nfo"><Layers className="h-4 w-4 mr-1 inline" />NFO</TabsTrigger>
           <TabsTrigger value="empanelment"><Shield className="h-4 w-4 mr-1 inline" />Empanelment</TabsTrigger>
           <TabsTrigger value="investors"><Users className="h-4 w-4 mr-1 inline" />Investors</TabsTrigger>
           <TabsTrigger value="transact"><TrendingUp className="h-4 w-4 mr-1 inline" />Transact</TabsTrigger>
@@ -6684,6 +7524,8 @@ export default function AgentIrisHub() {
         </TabsList>
 
         <TabsContent value="dashboard" className="mt-4"><DashboardTab /></TabsContent>
+        <TabsContent value="onboarding" className="mt-4"><OnboardingTab /></TabsContent>
+        <TabsContent value="nfo" className="mt-4"><NfoTab /></TabsContent>
         <TabsContent value="empanelment" className="mt-4"><EmpanelmentTab /></TabsContent>
         <TabsContent value="investors" className="mt-4"><InvestorsTab /></TabsContent>
         <TabsContent value="transact" className="mt-4"><TransactTab /></TabsContent>
