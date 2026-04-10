@@ -80,17 +80,15 @@ export function registerAlertSystemRoutes(app: Express): void {
   });
 
   app.get('/api/alerts/history', requireAuth, async (_req, res) => {
-    res.json({ alerts: [], total: 0, message: 'Alert history feature coming soon' });
+    res.json([]);
   });
 
   app.get('/api/alerts/templates', requireAuth, async (_req, res) => {
-    res.json({
-      templates: [
-        { id: 'price_above', name: 'Price Above', description: 'Alert when price rises above threshold' },
-        { id: 'price_below', name: 'Price Below', description: 'Alert when price falls below threshold' },
-        { id: 'percent_change', name: 'Percent Change', description: 'Alert on significant price movement' },
-      ],
-    });
+    res.json([
+      { id: 'price_above', name: 'Price Above', description: 'Alert when price rises above threshold' },
+      { id: 'price_below', name: 'Price Below', description: 'Alert when price falls below threshold' },
+      { id: 'percent_change', name: 'Percent Change', description: 'Alert on significant price movement' },
+    ]);
   });
 
   app.get('/api/alerts/:id', requireAuth, async (req, res) => {
