@@ -611,5 +611,36 @@ export function registerIrisKfintechRoutes(app: Express): void {
     await wrap(res, () => irisKfintechService.cancelNfoApplication(req.params.applicationId));
   });
 
+  // ─── External Portfolio / CAS Import ─────────────────────────────────────────
+  // Fetch live CAS data by PAN directly from KFintech registry — no PDF upload required.
+  app.get('/api/iris/portfolio/cas-fetch/:pan', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.fetchCasFromRegistry(req.params.pan, req.query as Record<string, string>));
+  });
+
+  // Import the fetched CAS data into IRIS portfolio tracking system.
+  app.post('/api/iris/portfolio/import', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.importExternalPortfolio(req.body));
+  });
+
+  // View all externally linked / imported holdings for a given PAN.
+  app.get('/api/iris/portfolio/external/:pan', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getExternalPortfolio(req.params.pan));
+  });
+
+  // Link a single external folio (CAMS or KFintech) to the investor's IRIS profile.
+  app.post('/api/iris/portfolio/external/link', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.linkExternalFolio(req.body));
+  });
+
+  // Unlink / remove an external folio from IRIS tracking.
+  app.delete('/api/iris/portfolio/external/:folioNo', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.unlinkExternalFolio(req.params.folioNo));
+  });
+
+  // Trigger a live refresh of all external portfolio data for a PAN.
+  app.post('/api/iris/portfolio/external/:pan/refresh', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.refreshExternalPortfolio(req.params.pan));
+  });
+
   console.log('✅ IRIS KFintech routes registered');
 }

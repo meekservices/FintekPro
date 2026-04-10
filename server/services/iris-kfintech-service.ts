@@ -431,6 +431,23 @@ class IrisKfintechService {
   async getNfoApplications(pan: string) { return this.call(`/sif/nfo/applications?pan=${encodeURIComponent(pan)}`); }
   async cancelNfoApplication(applicationId: string) { return this.call(`/sif/nfo/applications/${applicationId}/cancel`, 'POST'); }
 
+  // ─── External Portfolio / CAS Import ─────────────────────────────────────────
+  // Fetches structured CAS data direct from KFintech registry by PAN — no PDF upload needed.
+  async fetchCasFromRegistry(pan: string, params?: Record<string, string>) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/portfolio/cas-fetch/${encodeURIComponent(pan)}${qs}`);
+  }
+  // Imports fetched CAS holdings into IRIS portfolio tracking system.
+  async importExternalPortfolio(body: any) { return this.call('/portfolio/import', 'POST', body); }
+  // Returns all externally linked / imported holdings for a PAN.
+  async getExternalPortfolio(pan: string) { return this.call(`/portfolio/external/${encodeURIComponent(pan)}`); }
+  // Links a single external folio (cross-registrar — CAMS or KFintech) to the investor.
+  async linkExternalFolio(body: any) { return this.call('/portfolio/external/link', 'POST', body); }
+  // Unlinks / removes an external folio from IRIS tracking.
+  async unlinkExternalFolio(folioNo: string) { return this.call(`/portfolio/external/${encodeURIComponent(folioNo)}`, 'DELETE'); }
+  // Triggers a live refresh of all external portfolio data for a PAN.
+  async refreshExternalPortfolio(pan: string) { return this.call(`/portfolio/external/${encodeURIComponent(pan)}/refresh`, 'POST'); }
+
 }
 
 export const irisKfintechService = new IrisKfintechService();
