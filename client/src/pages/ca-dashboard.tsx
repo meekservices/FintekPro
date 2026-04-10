@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,6 +13,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient as qc } from '@/lib/queryClient';
 import {
@@ -36,7 +38,11 @@ import {
   Settings,
   Award,
   Target,
-  Shield
+  Shield,
+  UserPlus,
+  Copy,
+  Link2,
+  CheckCircle
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -109,8 +115,20 @@ export default function CADashboard() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('tab');
+      return p || 'overview';
+    }
+    return 'overview';
+  });
   const [statusFilter, setStatusFilter] = useState('all');
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteName, setInviteName] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteMobile, setInviteMobile] = useState('');
+  const [inviteLink, setInviteLink] = useState('');
+  const linkRef = useRef<HTMLInputElement>(null);
   
   const { data: caPartnerData } = useQuery<{ success: boolean; partnerId: string }>({
     queryKey: ['/api/ca/my-profile'],
@@ -134,6 +152,31 @@ export default function CADashboard() {
   }>({
     queryKey: [`/api/ca/cases/${partnerId}`, statusFilter],
     enabled: !!partnerId,
+  });
+
+  const { data: clientsData, isLoading: clientsLoading } = useQuery<{
+    success: boolean;
+    clients: { clientId: string; name: string; email: string; totalCases: number; activeCases: number; completedCases: number; totalFees: number; latestStatus: string; joinedAt: string }[];
+    totalCases: number;
+  }>({
+    queryKey: [`/api/ca/clients/${partnerId}`],
+    enabled: !!partnerId,
+  });
+
+  const inviteMutation = useMutation({
+    mutationFn: async (data: { name: string; email: string; mobile: string }) => {
+      return await apiRequest('/api/ca/clients/invite', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: (data: any) => {
+      setInviteLink(data.inviteLink || '');
+      toast({ title: 'Invite Link Ready', description: 'Share this link with your client to get started.' });
+    },
+    onError: () => {
+      toast({ title: 'Failed', description: 'Could not generate invite link. Try again.', variant: 'destructive' });
+    },
   });
   
   const updateAvailabilityMutation = useMutation({
@@ -271,6 +314,10 @@ export default function CADashboard() {
             <TabsTrigger value="performance" data-testid="tab-performance">
               <TrendingUp className="h-4 w-4 mr-2" />
               Performance
+            </TabsTrigger>
+            <TabsTrigger value="clients" data-testid="tab-clients">
+              <Users className="h-4 w-4 mr-2" />
+              My Clients
             </TabsTrigger>
           </ScrollableTabsList>
           
@@ -681,6 +728,216 @@ export default function CADashboard() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+          <TabsContent value="clients" className="mt-6 space-y-4">
+            {/* Header row */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">My Clients</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Clients whose tax cases are assigned to you
+                </p>
+              </div>
+              <Dialog open={inviteOpen} onOpenChange={(v) => { setInviteOpen(v); if (!v) { setInviteLink(''); setInviteName(''); setInviteEmail(''); setInviteMobile(''); } }}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2" data-testid="btn-invite-client">
+                    <UserPlus className="h-4 w-4" />
+                    Invite Client
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <UserPlus className="h-5 w-5 text-violet-600" />
+                      Invite a Client
+                    </DialogTitle>
+                  </DialogHeader>
+
+                  {!inviteLink ? (
+                    <div className="space-y-4 pt-2">
+                      <p className="text-sm text-muted-foreground">
+                        Generate a personalised invite link to share with your client. They'll land directly on the ITR filing page attributed to you.
+                      </p>
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="invite-name">Client Name</Label>
+                          <Input
+                            id="invite-name"
+                            placeholder="Rajesh Kumar"
+                            value={inviteName}
+                            onChange={e => setInviteName(e.target.value)}
+                            data-testid="input-invite-name"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="invite-email">Email Address</Label>
+                          <Input
+                            id="invite-email"
+                            type="email"
+                            placeholder="rajesh@example.com"
+                            value={inviteEmail}
+                            onChange={e => setInviteEmail(e.target.value)}
+                            data-testid="input-invite-email"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="invite-mobile">Mobile Number (optional)</Label>
+                          <Input
+                            id="invite-mobile"
+                            placeholder="9876543210"
+                            value={inviteMobile}
+                            onChange={e => setInviteMobile(e.target.value)}
+                            data-testid="input-invite-mobile"
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        className="w-full gap-2"
+                        disabled={(!inviteEmail && !inviteMobile) || inviteMutation.isPending}
+                        onClick={() => inviteMutation.mutate({ name: inviteName, email: inviteEmail, mobile: inviteMobile })}
+                        data-testid="btn-generate-invite"
+                      >
+                        {inviteMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                        Generate Invite Link
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 pt-2">
+                      <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                        <CheckCircle className="h-5 w-5" />
+                        <span className="font-medium">Invite link ready!</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Share this link with <strong>{inviteName || inviteEmail || inviteMobile}</strong>. When they sign up and file through this link, the case will be tracked under your CA dashboard.
+                      </p>
+                      <div className="flex gap-2">
+                        <Input
+                          ref={linkRef}
+                          value={inviteLink}
+                          readOnly
+                          className="font-mono text-xs"
+                          data-testid="input-invite-link"
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            navigator.clipboard.writeText(inviteLink);
+                            toast({ title: 'Copied!', description: 'Invite link copied to clipboard.' });
+                          }}
+                          data-testid="btn-copy-link"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <Button variant="outline" className="w-full" onClick={() => { setInviteLink(''); setInviteName(''); setInviteEmail(''); setInviteMobile(''); }}>
+                        Invite Another Client
+                      </Button>
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {/* Summary cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Card>
+                <CardContent className="pt-5">
+                  <p className="text-sm text-muted-foreground">Total Clients</p>
+                  <p className="text-3xl font-bold mt-1">{clientsData?.clients?.length ?? 0}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-5">
+                  <p className="text-sm text-muted-foreground">Active Cases</p>
+                  <p className="text-3xl font-bold mt-1 text-blue-600 dark:text-blue-400">
+                    {clientsData?.clients?.reduce((s, c) => s + c.activeCases, 0) ?? 0}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-5">
+                  <p className="text-sm text-muted-foreground">Total Fees Billed</p>
+                  <p className="text-3xl font-bold mt-1 text-green-600 dark:text-green-400">
+                    ₹{((clientsData?.clients?.reduce((s, c) => s + c.totalFees, 0) ?? 0)).toLocaleString('en-IN')}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Client table */}
+            {clientsLoading ? (
+              <div className="flex justify-center py-12">
+                <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : !clientsData?.clients?.length ? (
+              <Card>
+                <CardContent className="py-16 text-center">
+                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="font-semibold text-lg mb-2">No clients yet</h3>
+                  <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+                    Use the "Invite Client" button above to share a personalised link. When a client files through your link, they'll appear here.
+                  </p>
+                  <Button onClick={() => setInviteOpen(true)} className="gap-2">
+                    <UserPlus className="h-4 w-4" />
+                    Invite Your First Client
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Client</TableHead>
+                      <TableHead className="text-center">Total Cases</TableHead>
+                      <TableHead className="text-center">Active</TableHead>
+                      <TableHead className="text-center">Completed</TableHead>
+                      <TableHead className="text-right">Fees Billed</TableHead>
+                      <TableHead>Latest Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {clientsData.clients.map(client => (
+                      <TableRow key={client.clientId}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback className="text-xs bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300">
+                                {(client.name || 'C').charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium text-sm">{client.name}</p>
+                              <p className="text-xs text-muted-foreground">{client.email}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center font-medium">{client.totalCases}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                            {client.activeCases}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary" className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                            {client.completedCases}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          ₹{client.totalFees.toLocaleString('en-IN')}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize text-xs">
+                            {(client.latestStatus || '').replace(/_/g, ' ')}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>
