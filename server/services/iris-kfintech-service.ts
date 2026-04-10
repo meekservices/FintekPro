@@ -231,6 +231,15 @@ class IrisKfintechService {
   async placeFdOrder(body: any) { return this.call('/user/fixed-deposit/order', 'POST', body); }
   async getFdOrders(pan: string) { return this.call(`/user/fixed-deposit/orders?pan=${encodeURIComponent(pan)}`); }
   async getFdOrderDetails(orderId: string) { return this.call(`/user/fixed-deposit/orders/${orderId}`); }
+  async prematureCloseFd(orderId: string, body: any) { return this.call(`/user/fixed-deposit/orders/${orderId}/premature-closure`, 'POST', body); }
+  async getFdMaturityList(params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/user/fixed-deposit/maturity${qs}`);
+  }
+  async calculateFdInterest(params: any) {
+    const qs = '?' + new URLSearchParams(params).toString();
+    return this.call(`/user/fixed-deposit/interest-calculator${qs}`);
+  }
 
   // NPS (National Pension System)
   async getNpsSubscriberDetails(pran: string) { return this.call(`/nps/subscriber/${pran}`); }
@@ -238,6 +247,12 @@ class IrisKfintechService {
   async placeNpsContribution(body: any) { return this.call('/nps/transactions/contribution', 'POST', body); }
   async getNpsPortfolio(pran: string) { return this.call(`/nps/subscriber/${pran}/portfolio`); }
   async getNpsFundValues(pran: string) { return this.call(`/nps/subscriber/${pran}/fund-values`); }
+  async getNpsTransactions(pran: string, params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/nps/subscriber/${pran}/transactions${qs}`);
+  }
+  async changeNpsScheme(pran: string, body: any) { return this.call(`/nps/subscriber/${pran}/scheme-change`, 'POST', body); }
+  async npsPartialWithdrawal(pran: string, body: any) { return this.call(`/nps/subscriber/${pran}/partial-withdrawal`, 'POST', body); }
 
   // Non-Financial Transactions
   async updateNominee(pan: string, body: any) { return this.call(`/sif/non-financial/${pan}/nominee`, 'POST', body); }

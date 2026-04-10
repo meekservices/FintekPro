@@ -297,6 +297,18 @@ export function registerIrisKfintechRoutes(app: Express): void {
     await wrap(res, () => irisKfintechService.getFdOrderDetails(req.params.orderId));
   });
 
+  app.post('/api/iris/products/fixed-deposits/orders/:orderId/premature-closure', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.prematureCloseFd(req.params.orderId, req.body as Record<string, unknown>));
+  });
+
+  app.get('/api/iris/products/fixed-deposits/maturity', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getFdMaturityList(req.query as Record<string, string>));
+  });
+
+  app.get('/api/iris/products/fixed-deposits/interest-calculator', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.calculateFdInterest(req.query as Record<string, string>));
+  });
+
   // NPS
   app.get('/api/iris/nps/subscriber/:pran', requireAuth, requireAgent, async (req, res) => {
     await wrap(res, () => irisKfintechService.getNpsSubscriberDetails(req.params.pran));
@@ -308,6 +320,18 @@ export function registerIrisKfintechRoutes(app: Express): void {
 
   app.get('/api/iris/nps/subscriber/:pran/fund-values', requireAuth, requireAgent, async (req, res) => {
     await wrap(res, () => irisKfintechService.getNpsFundValues(req.params.pran));
+  });
+
+  app.get('/api/iris/nps/subscriber/:pran/transactions', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getNpsTransactions(req.params.pran, req.query as Record<string, string>));
+  });
+
+  app.post('/api/iris/nps/subscriber/:pran/scheme-change', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.changeNpsScheme(req.params.pran, req.body as Record<string, unknown>));
+  });
+
+  app.post('/api/iris/nps/subscriber/:pran/partial-withdrawal', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.npsPartialWithdrawal(req.params.pran, req.body as Record<string, unknown>));
   });
 
   app.post('/api/iris/nps/subscriber/onboarding', requireAuth, requireAgent, async (req, res) => {

@@ -17,7 +17,8 @@ import {
   TrendingUp, Users, IndianRupee, Activity, Shield, FileText,
   BarChart3, RefreshCw, Search, ExternalLink, ArrowUpRight,
   ChevronRight, AlertCircle, CheckCircle2, Clock, Download, KeyRound, XCircle,
-  FolderOpen, Inbox, Unlink, Link2, Send, CloudDownload
+  FolderOpen, Inbox, Unlink, Link2, Send, CloudDownload, Calculator, Calendar,
+  AlertTriangle, Banknote, PiggyBank
 } from "lucide-react";
 
 // ─── IRIS API types ───────────────────────────────────────────────────────────
@@ -823,12 +824,163 @@ function TransactTab() {
   );
 }
 
+// ─── FD Types ─────────────────────────────────────────────────────────────────
+interface FdOrder {
+  orderId?: string;
+  id?: string;
+  productName?: string;
+  name?: string;
+  pan?: string;
+  amount?: number;
+  maturityDate?: string;
+  maturityValue?: number;
+  status?: string;
+  tenureMonths?: number;
+  interestRate?: number;
+}
+
+interface FdMaturity {
+  orderId?: string;
+  pan?: string;
+  investorName?: string;
+  productName?: string;
+  amount?: number;
+  maturityDate?: string;
+  maturityValue?: number;
+}
+
+interface FdPrematureClose {
+  penalty?: number;
+  penaltyAmount?: number;
+  finalPayout?: number;
+  netPayout?: number;
+  effectiveRate?: number;
+  daysElapsed?: number;
+}
+
+interface FdInterestResult {
+  maturityAmount?: number;
+  interestEarned?: number;
+  effectiveYield?: number;
+}
+
 // ─── Products Tab ─────────────────────────────────────────────────────────────
 function ProductsTab() {
   const { data: aif, isLoading: aifL } = useQuery<IrisApiResponse<{ links?: ProductLink[] } | ProductLink[]>>({ queryKey: ["/api/iris/products/aif-links"], retry: false });
   const { data: pms, isLoading: pmsL } = useQuery<IrisApiResponse<{ links?: ProductLink[] } | ProductLink[]>>({ queryKey: ["/api/iris/products/pms-links"], retry: false });
   const { data: fd, isLoading: fdL } = useQuery<IrisApiResponse<{ products?: ProductLink[] } | ProductLink[]>>({ queryKey: ["/api/iris/products/fixed-deposits"], retry: false });
   const { data: nps, isLoading: npsL } = useQuery<IrisApiResponse<{ links?: ProductLink[] } | ProductLink[]>>({ queryKey: ["/api/iris/products/nps-links"], retry: false });
+
+  // FD order history state
+  const [fdPan, setFdPan] = useState("");
+  const [fdSubmittedPan, setFdSubmittedPan] = useState("");
+  const [prematureOrder, setPrematureOrder] = useState<FdOrder | null>(null);
+  const [prematureData, setPrematureData] = useState<FdPrematureClose | null>(null);
+  const [prematureDialogOpen, setPrematureDialogOpen] = useState(false);
+
+  // FD maturity calendar state
+  const [maturityDays, setMaturityDays] = useState("30");
+
+  // FD interest calculator state
+  const [calcAmount, setCalcAmount] = useState("");
+  const [calcTenure, setCalcTenure] = useState("");
+  const [calcRate, setCalcRate] = useState("");
+  const [calcCompounding, setCalcCompounding] = useState("QUARTERLY");
+  const [calcResult, setCalcResult] = useState<FdInterestResult | null>(null);
+  const [calcLoading, setCalcLoading] = useState(false);
+
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: fdOrdersData, isLoading: fdOrdersL } = useQuery<IrisApiResponse<{ orders?: FdOrder[] } | FdOrder[]>>({
+    queryKey: ["/api/iris/products/fixed-deposits/orders", fdSubmittedPan],
+    queryFn: () => irisGet<IrisApiResponse<{ orders?: FdOrder[] } | FdOrder[]>>(`/api/iris/products/fixed-deposits/orders?pan=${encodeURIComponent(fdSubmittedPan)}`),
+    enabled: !!fdSubmittedPan,
+    retry: false,
+  });
+
+  const { data: maturityData, isLoading: maturityL } = useQuery<IrisApiResponse<{ maturities?: FdMaturity[] } | FdMaturity[]>>({
+    queryKey: ["/api/iris/products/fixed-deposits/maturity", maturityDays],
+    queryFn: () => irisGet<IrisApiResponse<{ maturities?: FdMaturity[] } | FdMaturity[]>>(`/api/iris/products/fixed-deposits/maturity?days=${maturityDays}`),
+    retry: false,
+  });
+
+  const prematurePreviewMutation = useMutation({
+    mutationFn: (orderId: string) =>
+      apiRequest(`/api/iris/products/fixed-deposits/orders/${orderId}/premature-closure`, "POST", { body: { preview: true } }),
+    onSuccess: (data: any) => {
+      const d = data?.data ?? data;
+      setPrematureData(d as FdPrematureClose);
+    },
+    onError: (err: Error) => toast({ title: "Could not fetch premature closure details", description: err.message, variant: "destructive" }),
+  });
+
+  const prematureCloseMutation = useMutation({
+    mutationFn: (orderId: string) =>
+      apiRequest(`/api/iris/products/fixed-deposits/orders/${orderId}/premature-closure`, "POST", { body: { confirm: true } }),
+    onSuccess: () => {
+      toast({ title: "Premature closure initiated successfully" });
+      setPrematureDialogOpen(false);
+      setPrematureOrder(null);
+      setPrematureData(null);
+      qc.invalidateQueries({ queryKey: ["/api/iris/products/fixed-deposits/orders", fdSubmittedPan] });
+    },
+    onError: (err: Error) => toast({ title: "Premature closure failed", description: err.message, variant: "destructive" }),
+  });
+
+  function openPrematureDialog(order: FdOrder) {
+    setPrematureOrder(order);
+    setPrematureData(null);
+    setPrematureDialogOpen(true);
+    const id = order.orderId ?? order.id ?? "";
+    if (id) prematurePreviewMutation.mutate(id);
+  }
+
+  async function runInterestCalc() {
+    if (!calcAmount || !calcTenure || !calcRate) {
+      toast({ title: "Please fill all calculator fields", variant: "destructive" });
+      return;
+    }
+    setCalcLoading(true);
+    setCalcResult(null);
+    try {
+      const qs = new URLSearchParams({ amount: calcAmount, tenureMonths: calcTenure, rate: calcRate, compounding: calcCompounding });
+      const data = await irisGet<IrisApiResponse<FdInterestResult>>(`/api/iris/products/fixed-deposits/interest-calculator?${qs}`);
+      if (data?.data) {
+        setCalcResult(data.data);
+      } else {
+        const p = Number(calcAmount);
+        const r = Number(calcRate) / 100;
+        const n = calcCompounding === "MONTHLY" ? 12 : calcCompounding === "QUARTERLY" ? 4 : calcCompounding === "HALF_YEARLY" ? 2 : 1;
+        const t = Number(calcTenure) / 12;
+        const maturity = p * Math.pow(1 + r / n, n * t);
+        setCalcResult({ maturityAmount: maturity, interestEarned: maturity - p, effectiveYield: ((maturity - p) / p) * 100 });
+      }
+    } catch {
+      const p = Number(calcAmount);
+      const r = Number(calcRate) / 100;
+      const n = calcCompounding === "MONTHLY" ? 12 : calcCompounding === "QUARTERLY" ? 4 : calcCompounding === "HALF_YEARLY" ? 2 : 1;
+      const t = Number(calcTenure) / 12;
+      const maturity = p * Math.pow(1 + r / n, n * t);
+      setCalcResult({ maturityAmount: maturity, interestEarned: maturity - p, effectiveYield: ((maturity - p) / p) * 100 });
+    } finally {
+      setCalcLoading(false);
+    }
+  }
+
+  function resolveFdOrders(): FdOrder[] {
+    if (!fdOrdersData?.data) return [];
+    if (Array.isArray(fdOrdersData.data)) return fdOrdersData.data;
+    if ('orders' in fdOrdersData.data) return fdOrdersData.data.orders ?? [];
+    return [];
+  }
+
+  function resolveMaturities(): FdMaturity[] {
+    if (!maturityData?.data) return [];
+    if (Array.isArray(maturityData.data)) return maturityData.data;
+    if ('maturities' in maturityData.data) return maturityData.data.maturities ?? [];
+    return [];
+  }
 
   function resolveItems(d: IrisApiResponse<{ links?: ProductLink[] } | { products?: ProductLink[] } | ProductLink[]> | undefined): ProductLink[] {
     if (!d?.data) return [];
@@ -854,24 +1006,633 @@ function ProductsTab() {
     );
   }
 
+  const fdOrders = resolveFdOrders();
+  const maturities = resolveMaturities();
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="space-y-6">
+      {/* ── Product Links ──────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle className="text-sm">AIF Links</CardTitle><CardDescription>Alternative Investment Funds</CardDescription></CardHeader>
+          <CardContent><LinkList items={resolveItems(aif)} isLoading={aifL} /></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-sm">PMS Links</CardTitle><CardDescription>Portfolio Management Services</CardDescription></CardHeader>
+          <CardContent><LinkList items={resolveItems(pms)} isLoading={pmsL} /></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Fixed Deposits</CardTitle><CardDescription>FD product brochures</CardDescription></CardHeader>
+          <CardContent><LinkList items={resolveItems(fd)} isLoading={fdL} /></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-sm">NPS Links</CardTitle><CardDescription>National Pension System onboarding</CardDescription></CardHeader>
+          <CardContent><LinkList items={resolveItems(nps)} isLoading={npsL} /></CardContent>
+        </Card>
+      </div>
+
+      {/* ── FD Order History ──────────────────────────────────────────────────── */}
       <Card>
-        <CardHeader><CardTitle className="text-sm">AIF Links</CardTitle><CardDescription>Alternative Investment Funds</CardDescription></CardHeader>
-        <CardContent><LinkList items={resolveItems(aif)} isLoading={aifL} /></CardContent>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Banknote className="h-5 w-5 text-blue-500" />FD Order History</CardTitle>
+          <CardDescription>View placed FD orders by investor PAN. Initiate premature closure if needed.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Investor PAN (e.g. ABCDE1234F)"
+              value={fdPan}
+              onChange={e => setFdPan(e.target.value.toUpperCase())}
+              className="max-w-xs"
+            />
+            <Button onClick={() => setFdSubmittedPan(fdPan.trim())} disabled={fdPan.length < 10 || fdOrdersL}>
+              {fdOrdersL ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <Search className="h-4 w-4 mr-1" />}
+              Load Orders
+            </Button>
+          </div>
+          {fdSubmittedPan && (
+            fdOrdersL ? (
+              <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
+            ) : fdOrders.length > 0 ? (
+              <ScrollArea className="h-64 border rounded-md">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-background border-b">
+                    <tr>
+                      <th className="text-left p-2 font-medium">Order ID</th>
+                      <th className="text-left p-2 font-medium">Product</th>
+                      <th className="text-right p-2 font-medium">Amount</th>
+                      <th className="text-right p-2 font-medium">Maturity Date</th>
+                      <th className="text-center p-2 font-medium">Status</th>
+                      <th className="text-center p-2 font-medium">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fdOrders.map((o, i) => (
+                      <tr key={i} className="border-b hover:bg-muted/50">
+                        <td className="p-2 font-mono text-xs">{o.orderId ?? o.id ?? "—"}</td>
+                        <td className="p-2">{o.productName ?? o.name ?? "—"}</td>
+                        <td className="p-2 text-right">{fmt(o.amount)}</td>
+                        <td className="p-2 text-right text-xs">{o.maturityDate ?? "—"}</td>
+                        <td className="p-2 text-center">
+                          <Badge variant={o.status === "ACTIVE" ? "default" : o.status === "MATURED" ? "secondary" : "outline"} className="text-xs">
+                            {o.status ?? "—"}
+                          </Badge>
+                        </td>
+                        <td className="p-2 text-center">
+                          {o.status === "ACTIVE" && (
+                            <Button size="sm" variant="outline" className="h-7 text-xs text-destructive hover:text-destructive"
+                              onClick={() => openPrematureDialog(o)}>
+                              Premature Close
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </ScrollArea>
+            ) : (
+              <p className="text-sm text-muted-foreground">No FD orders found for {fdSubmittedPan}.</p>
+            )
+          )}
+        </CardContent>
       </Card>
+
+      {/* ── Premature Closure Dialog ───────────────────────────────────────────── */}
+      <Dialog open={prematureDialogOpen} onOpenChange={v => { if (!v) { setPrematureDialogOpen(false); setPrematureOrder(null); setPrematureData(null); } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> Premature FD Closure</DialogTitle>
+            <DialogDescription>
+              Order: <span className="font-mono">{prematureOrder?.orderId ?? prematureOrder?.id ?? "—"}</span> — {prematureOrder?.productName ?? prematureOrder?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            {prematurePreviewMutation.isPending ? (
+              <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
+            ) : prematureData ? (
+              <div className="space-y-2">
+                <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3 space-y-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Penalty</span>
+                    <span className="text-destructive font-medium">{fmt(prematureData.penalty ?? prematureData.penaltyAmount)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Final Payout</span>
+                    <span className="font-semibold">{fmt(prematureData.finalPayout ?? prematureData.netPayout)}</span>
+                  </div>
+                  {prematureData.effectiveRate != null && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Effective Rate</span>
+                      <span>{prematureData.effectiveRate.toFixed(2)}%</span>
+                    </div>
+                  )}
+                  {prematureData.daysElapsed != null && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Days Elapsed</span>
+                      <span>{prematureData.daysElapsed}</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">Penalty deducted from principal due to early withdrawal. This action is irreversible.</p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Penalty details not available from IRIS. Proceeding will initiate the closure.</p>
+            )}
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" className="flex-1" onClick={() => { setPrematureDialogOpen(false); setPrematureOrder(null); setPrematureData(null); }}>Cancel</Button>
+              <Button variant="destructive" className="flex-1"
+                onClick={() => { const id = prematureOrder?.orderId ?? prematureOrder?.id ?? ""; if (id) prematureCloseMutation.mutate(id); }}
+                disabled={prematureCloseMutation.isPending}>
+                {prematureCloseMutation.isPending ? "Closing…" : "Confirm Closure"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── FD Maturity Calendar ──────────────────────────────────────────────── */}
       <Card>
-        <CardHeader><CardTitle className="text-sm">PMS Links</CardTitle><CardDescription>Portfolio Management Services</CardDescription></CardHeader>
-        <CardContent><LinkList items={resolveItems(pms)} isLoading={pmsL} /></CardContent>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Calendar className="h-5 w-5 text-green-500" />FD Maturity Calendar</CardTitle>
+          <CardDescription>Upcoming FD maturities across the distributor's book</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2 items-center">
+            <span className="text-sm text-muted-foreground">Show maturities in next</span>
+            <Select value={maturityDays} onValueChange={setMaturityDays}>
+              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="30">30 days</SelectItem>
+                <SelectItem value="60">60 days</SelectItem>
+                <SelectItem value="90">90 days</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {maturityL ? (
+            <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : maturities.length > 0 ? (
+            <ScrollArea className="h-56 border rounded-md">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-background border-b">
+                  <tr>
+                    <th className="text-left p-2 font-medium">Maturity Date</th>
+                    <th className="text-left p-2 font-medium">Investor PAN</th>
+                    <th className="text-left p-2 font-medium">Product</th>
+                    <th className="text-right p-2 font-medium">Amount</th>
+                    <th className="text-right p-2 font-medium">Maturity Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {maturities.map((m, i) => (
+                    <tr key={i} className="border-b hover:bg-muted/50">
+                      <td className="p-2 text-xs font-medium">{m.maturityDate ?? "—"}</td>
+                      <td className="p-2 font-mono text-xs">{m.pan ?? "—"}</td>
+                      <td className="p-2">{m.productName ?? "—"}</td>
+                      <td className="p-2 text-right">{fmt(m.amount)}</td>
+                      <td className="p-2 text-right font-medium">{fmt(m.maturityValue)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ScrollArea>
+          ) : (
+            <p className="text-sm text-muted-foreground">No FD maturities in the next {maturityDays} days.</p>
+          )}
+        </CardContent>
       </Card>
+
+      {/* ── FD Interest Calculator ────────────────────────────────────────────── */}
       <Card>
-        <CardHeader><CardTitle className="text-sm">Fixed Deposits</CardTitle><CardDescription>FD product brochures</CardDescription></CardHeader>
-        <CardContent><LinkList items={resolveItems(fd)} isLoading={fdL} /></CardContent>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Calculator className="h-5 w-5 text-purple-500" />FD Interest Calculator</CardTitle>
+          <CardDescription>Estimate FD returns based on amount, tenure, rate, and compounding frequency</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <Label className="text-xs">Principal Amount (₹)</Label>
+              <Input type="number" placeholder="100000" value={calcAmount} onChange={e => setCalcAmount(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Tenure (months)</Label>
+              <Input type="number" placeholder="12" value={calcTenure} onChange={e => setCalcTenure(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Interest Rate (% p.a.)</Label>
+              <Input type="number" placeholder="7.5" step="0.01" value={calcRate} onChange={e => setCalcRate(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Compounding</Label>
+              <Select value={calcCompounding} onValueChange={setCalcCompounding}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MONTHLY">Monthly</SelectItem>
+                  <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                  <SelectItem value="HALF_YEARLY">Half-yearly</SelectItem>
+                  <SelectItem value="ANNUALLY">Annually</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <Button onClick={runInterestCalc} disabled={calcLoading}>
+            {calcLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <Calculator className="h-4 w-4 mr-1" />}
+            Calculate
+          </Button>
+          {calcResult && (
+            <div className="grid grid-cols-3 gap-3 mt-2">
+              <div className="bg-muted rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Maturity Amount</p>
+                <p className="font-bold text-base">{fmt(calcResult.maturityAmount)}</p>
+              </div>
+              <div className="bg-muted rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Interest Earned</p>
+                <p className="font-bold text-base text-green-600">{fmt(calcResult.interestEarned)}</p>
+              </div>
+              <div className="bg-muted rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Effective Yield</p>
+                <p className="font-bold text-base">{calcResult.effectiveYield != null ? calcResult.effectiveYield.toFixed(2) + "%" : "—"}</p>
+              </div>
+            </div>
+          )}
+        </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// ─── NPS Tab ──────────────────────────────────────────────────────────────────
+interface NpsSubscriber {
+  name?: string;
+  subscriberName?: string;
+  pran?: string;
+  status?: string;
+  tier?: string;
+  tierType?: string;
+  dateOfBirth?: string;
+  mobile?: string;
+  email?: string;
+}
+
+interface NpsAllocation {
+  assetClass?: string;
+  percentage?: number;
+  currentValue?: number;
+}
+
+interface NpsFundValue {
+  schemeName?: string;
+  scheme?: string;
+  nav?: number;
+  units?: number;
+  currentValue?: number;
+  tier?: string;
+}
+
+interface NpsTransaction {
+  date?: string;
+  transactionDate?: string;
+  type?: string;
+  transactionType?: string;
+  amount?: number;
+  status?: string;
+}
+
+function NpsTab() {
+  const [pranInput, setPranInput] = useState("");
+  const [pran, setPran] = useState("");
+  const [schemeChangeOpen, setSchemeChangeOpen] = useState(false);
+  const [withdrawalOpen, setWithdrawalOpen] = useState(false);
+
+  // Scheme change form state
+  const [newFundManager, setNewFundManager] = useState("");
+  const [newAssetClass, setNewAssetClass] = useState("");
+
+  // Partial withdrawal form state
+  const [withdrawalReason, setWithdrawalReason] = useState("");
+  const [withdrawalAmount, setWithdrawalAmount] = useState("");
+
+  const { toast } = useToast();
+
+  const { data: subscriberData, isLoading: subL } = useQuery<IrisApiResponse<NpsSubscriber>>({
+    queryKey: ["/api/iris/nps/subscriber", pran],
+    queryFn: () => irisGet<IrisApiResponse<NpsSubscriber>>(`/api/iris/nps/subscriber/${pran}`),
+    enabled: !!pran,
+    retry: false,
+  });
+
+  const { data: portfolioData, isLoading: portfolioL } = useQuery<IrisApiResponse<{ allocations?: NpsAllocation[]; allocation?: NpsAllocation[] }>>({
+    queryKey: ["/api/iris/nps/subscriber", pran, "portfolio"],
+    queryFn: () => irisGet<IrisApiResponse<{ allocations?: NpsAllocation[]; allocation?: NpsAllocation[] }>>(`/api/iris/nps/subscriber/${pran}/portfolio`),
+    enabled: !!pran,
+    retry: false,
+  });
+
+  const { data: fundValuesData, isLoading: fundL } = useQuery<IrisApiResponse<{ funds?: NpsFundValue[]; fundValues?: NpsFundValue[] } | NpsFundValue[]>>({
+    queryKey: ["/api/iris/nps/subscriber", pran, "fund-values"],
+    queryFn: () => irisGet<IrisApiResponse<{ funds?: NpsFundValue[]; fundValues?: NpsFundValue[] } | NpsFundValue[]>>(`/api/iris/nps/subscriber/${pran}/fund-values`),
+    enabled: !!pran,
+    retry: false,
+  });
+
+  const { data: txnsData, isLoading: txnL } = useQuery<IrisApiResponse<{ transactions?: NpsTransaction[] } | NpsTransaction[]>>({
+    queryKey: ["/api/iris/nps/subscriber", pran, "transactions"],
+    queryFn: () => irisGet<IrisApiResponse<{ transactions?: NpsTransaction[] } | NpsTransaction[]>>(`/api/iris/nps/subscriber/${pran}/transactions`),
+    enabled: !!pran,
+    retry: false,
+  });
+
+  const schemeChangeMutation = useMutation({
+    mutationFn: () => apiRequest(`/api/iris/nps/subscriber/${pran}/scheme-change`, "POST", {
+      body: { newFundManager, assetClass: newAssetClass },
+    }),
+    onSuccess: () => {
+      toast({ title: "Scheme change request submitted" });
+      setSchemeChangeOpen(false);
+      setNewFundManager("");
+      setNewAssetClass("");
+    },
+    onError: (err: Error) => toast({ title: "Scheme change failed", description: err.message, variant: "destructive" }),
+  });
+
+  const withdrawalMutation = useMutation({
+    mutationFn: () => apiRequest(`/api/iris/nps/subscriber/${pran}/partial-withdrawal`, "POST", {
+      body: { reason: withdrawalReason, amount: Number(withdrawalAmount) },
+    }),
+    onSuccess: () => {
+      toast({ title: "Partial withdrawal request submitted" });
+      setWithdrawalOpen(false);
+      setWithdrawalReason("");
+      setWithdrawalAmount("");
+    },
+    onError: (err: Error) => toast({ title: "Withdrawal request failed", description: err.message, variant: "destructive" }),
+  });
+
+  function resolveAllocations(): NpsAllocation[] {
+    const d = portfolioData?.data;
+    if (!d) return [];
+    return d.allocations ?? d.allocation ?? [];
+  }
+
+  function resolveFundValues(): NpsFundValue[] {
+    const d = fundValuesData?.data;
+    if (!d) return [];
+    if (Array.isArray(d)) return d;
+    return d.funds ?? d.fundValues ?? [];
+  }
+
+  function resolveNpsTxns(): NpsTransaction[] {
+    const d = txnsData?.data;
+    if (!d) return [];
+    if (Array.isArray(d)) return d;
+    return d.transactions ?? [];
+  }
+
+  const subscriber = subscriberData?.data;
+  const allocations = resolveAllocations();
+  const fundValues = resolveFundValues();
+  const npsTxns = resolveNpsTxns();
+
+  return (
+    <div className="space-y-6">
+      {/* ── PRAN Search ────────────────────────────────────────────────────────── */}
       <Card>
-        <CardHeader><CardTitle className="text-sm">NPS Links</CardTitle><CardDescription>National Pension System onboarding</CardDescription></CardHeader>
-        <CardContent><LinkList items={resolveItems(nps)} isLoading={npsL} /></CardContent>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><PiggyBank className="h-5 w-5 text-orange-500" />NPS Subscriber Lookup</CardTitle>
+          <CardDescription>Enter PRAN to view subscriber details, portfolio allocation, and fund values</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              placeholder="PRAN (12-digit number)"
+              value={pranInput}
+              onChange={e => setPranInput(e.target.value.replace(/\D/g, "").slice(0, 12))}
+              className="max-w-xs font-mono"
+            />
+            <Button onClick={() => setPran(pranInput.trim())} disabled={pranInput.length !== 12 || subL}>
+              {subL ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <Search className="h-4 w-4 mr-1" />}
+              Search
+            </Button>
+          </div>
+
+          {pran && subscriber && (
+            <div className="space-y-4">
+              {/* Subscriber Detail Card */}
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-semibold text-base">{subscriber.name ?? subscriber.subscriberName ?? "—"}</p>
+                    <p className="text-sm text-muted-foreground font-mono">{pran}</p>
+                    <div className="flex gap-2 mt-1">
+                      <Badge variant={subscriber.status === "ACTIVE" ? "default" : "secondary"}>{subscriber.status ?? "Unknown"}</Badge>
+                      {(subscriber.tier ?? subscriber.tierType) && <Badge variant="outline">{subscriber.tier ?? subscriber.tierType}</Badge>}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setSchemeChangeOpen(true)}>
+                      <RefreshCw className="h-3.5 w-3.5 mr-1" /> Change Scheme
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setWithdrawalOpen(true)}>
+                      <IndianRupee className="h-3.5 w-3.5 mr-1" /> Partial Withdrawal
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                  {subscriber.dateOfBirth && <div><span className="text-muted-foreground">DOB: </span>{subscriber.dateOfBirth}</div>}
+                  {subscriber.mobile && <div><span className="text-muted-foreground">Mobile: </span>{subscriber.mobile}</div>}
+                  {subscriber.email && <div><span className="text-muted-foreground">Email: </span>{subscriber.email}</div>}
+                </div>
+              </div>
+
+              {/* Portfolio Allocation */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm">Portfolio Allocation</CardTitle></CardHeader>
+                  <CardContent>
+                    {portfolioL ? <Skeleton className="h-24 w-full" /> : allocations.length > 0 ? (
+                      <div className="space-y-2">
+                        {allocations.map((a, i) => (
+                          <div key={i} className="space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span className="font-medium">{a.assetClass ?? "—"}</span>
+                              <span>{a.percentage != null ? a.percentage.toFixed(1) + "%" : "—"}</span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-1.5">
+                              <div className="bg-primary rounded-full h-1.5" style={{ width: `${a.percentage ?? 0}%` }} />
+                            </div>
+                            {a.currentValue != null && (
+                              <p className="text-xs text-muted-foreground text-right">{fmt(a.currentValue)}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : <p className="text-sm text-muted-foreground">No allocation data</p>}
+                  </CardContent>
+                </Card>
+
+                {/* Fund Values Table */}
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm">Fund Values</CardTitle></CardHeader>
+                  <CardContent>
+                    {fundL ? <Skeleton className="h-24 w-full" /> : fundValues.length > 0 ? (
+                      <div className="divide-y">
+                        {fundValues.map((f, i) => (
+                          <div key={i} className="py-2 text-sm">
+                            <p className="font-medium truncate">{f.schemeName ?? f.scheme ?? "—"}</p>
+                            <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
+                              <span>NAV: {f.nav != null ? "₹" + f.nav.toFixed(4) : "—"} · Units: {f.units != null ? f.units.toFixed(3) : "—"}</span>
+                              <span className="font-medium text-foreground">{fmt(f.currentValue)}</span>
+                            </div>
+                            {f.tier && <Badge variant="outline" className="text-[10px] h-4 mt-0.5">{f.tier}</Badge>}
+                          </div>
+                        ))}
+                      </div>
+                    ) : <p className="text-sm text-muted-foreground">No fund value data</p>}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* NPS Transaction History */}
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">Transaction History</CardTitle></CardHeader>
+                <CardContent>
+                  {txnL ? (
+                    <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+                  ) : npsTxns.length > 0 ? (
+                    <ScrollArea className="h-52 border rounded-md">
+                      <table className="w-full text-sm">
+                        <thead className="sticky top-0 bg-background border-b">
+                          <tr>
+                            <th className="text-left p-2 font-medium">Date</th>
+                            <th className="text-left p-2 font-medium">Type</th>
+                            <th className="text-right p-2 font-medium">Amount</th>
+                            <th className="text-center p-2 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {npsTxns.map((t, i) => (
+                            <tr key={i} className="border-b hover:bg-muted/50">
+                              <td className="p-2 text-xs">{t.date ?? t.transactionDate ?? "—"}</td>
+                              <td className="p-2">{t.type ?? t.transactionType ?? "—"}</td>
+                              <td className="p-2 text-right">{fmt(t.amount)}</td>
+                              <td className="p-2 text-center">
+                                <Badge variant={t.status === "SUCCESS" ? "default" : t.status === "PENDING" ? "secondary" : "destructive"} className="text-[10px] h-4">
+                                  {t.status ?? "—"}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </ScrollArea>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No transaction history available</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {pran && !subL && !subscriber && (
+            <p className="text-sm text-muted-foreground">No subscriber found for PRAN {pran}.</p>
+          )}
+          {subL && <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>}
+        </CardContent>
       </Card>
+
+      {/* ── NPS Scheme Change Dialog ──────────────────────────────────────────── */}
+      <Dialog open={schemeChangeOpen} onOpenChange={setSchemeChangeOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>NPS Scheme Change</DialogTitle>
+            <DialogDescription>Change the fund manager or asset class allocation for PRAN {pran}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label>New Fund Manager</Label>
+              <Select value={newFundManager} onValueChange={setNewFundManager}>
+                <SelectTrigger><SelectValue placeholder="Select fund manager" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SBI">SBI Pension Funds</SelectItem>
+                  <SelectItem value="LIC">LIC Pension Fund</SelectItem>
+                  <SelectItem value="UTI">UTI Retirement Solutions</SelectItem>
+                  <SelectItem value="HDFC">HDFC Pension Management</SelectItem>
+                  <SelectItem value="ICICI">ICICI Prudential Pension Funds</SelectItem>
+                  <SelectItem value="KOTAK">Kotak Mahindra Pension Fund</SelectItem>
+                  <SelectItem value="ADITYA_BIRLA">Aditya Birla Sun Life Pension</SelectItem>
+                  <SelectItem value="TATA">Tata Pension Management</SelectItem>
+                  <SelectItem value="MAX_LIFE">Max Life Pension Fund</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Asset Class (optional)</Label>
+              <Select value={newAssetClass} onValueChange={setNewAssetClass}>
+                <SelectTrigger><SelectValue placeholder="Select asset class" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="E">Class E (Equity)</SelectItem>
+                  <SelectItem value="C">Class C (Corporate Bonds)</SelectItem>
+                  <SelectItem value="G">Class G (Government Securities)</SelectItem>
+                  <SelectItem value="A">Class A (Alternative Assets)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setSchemeChangeOpen(false)}>Cancel</Button>
+              <Button className="flex-1"
+                onClick={() => schemeChangeMutation.mutate()}
+                disabled={schemeChangeMutation.isPending || !newFundManager}>
+                {schemeChangeMutation.isPending ? "Submitting…" : "Submit Request"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── NPS Partial Withdrawal Dialog ────────────────────────────────────── */}
+      <Dialog open={withdrawalOpen} onOpenChange={setWithdrawalOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>NPS Partial Withdrawal</DialogTitle>
+            <DialogDescription>Raise a partial withdrawal request for PRAN {pran}. Up to 25% of own contributions allowed after 3 years.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label>Withdrawal Reason *</Label>
+              <Select value={withdrawalReason} onValueChange={setWithdrawalReason}>
+                <SelectTrigger><SelectValue placeholder="Select reason" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="HIGHER_EDUCATION">Higher Education of children</SelectItem>
+                  <SelectItem value="MARRIAGE">Marriage of children</SelectItem>
+                  <SelectItem value="HOUSE_PURCHASE">Purchase / construction of house</SelectItem>
+                  <SelectItem value="CRITICAL_ILLNESS">Treatment of critical illness</SelectItem>
+                  <SelectItem value="DISABILITY">Disability (≥75%)</SelectItem>
+                  <SelectItem value="SKILL_DEVELOPMENT">Skill development / self-employment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Withdrawal Amount (₹) *</Label>
+              <Input
+                type="number"
+                placeholder="Enter amount"
+                value={withdrawalAmount}
+                onChange={e => setWithdrawalAmount(e.target.value)}
+                min={1}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">Supporting documents (e.g., medical certificate, admission letter) must be uploaded via the PFRDA portal separately.</p>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setWithdrawalOpen(false)}>Cancel</Button>
+              <Button className="flex-1"
+                onClick={() => withdrawalMutation.mutate()}
+                disabled={withdrawalMutation.isPending || !withdrawalReason || !withdrawalAmount}>
+                {withdrawalMutation.isPending ? "Submitting…" : "Submit Request"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1472,7 +2233,8 @@ export default function AgentIrisHub() {
           <TabsTrigger value="empanelment"><Shield className="h-4 w-4 mr-1 inline" />Empanelment</TabsTrigger>
           <TabsTrigger value="investors"><Users className="h-4 w-4 mr-1 inline" />Investors</TabsTrigger>
           <TabsTrigger value="transact"><TrendingUp className="h-4 w-4 mr-1 inline" />Transact</TabsTrigger>
-          <TabsTrigger value="products"><FileText className="h-4 w-4 mr-1 inline" />Products</TabsTrigger>
+          <TabsTrigger value="products"><FileText className="h-4 w-4 mr-1 inline" />Products & FD</TabsTrigger>
+          <TabsTrigger value="nps"><PiggyBank className="h-4 w-4 mr-1 inline" />NPS</TabsTrigger>
           <TabsTrigger value="reports"><Download className="h-4 w-4 mr-1 inline" />Reports</TabsTrigger>
           <TabsTrigger value="cas-import"><FolderOpen className="h-4 w-4 mr-1 inline" />CAS Import</TabsTrigger>
         </TabsList>
@@ -1482,6 +2244,7 @@ export default function AgentIrisHub() {
         <TabsContent value="investors" className="mt-4"><InvestorsTab /></TabsContent>
         <TabsContent value="transact" className="mt-4"><TransactTab /></TabsContent>
         <TabsContent value="products" className="mt-4"><ProductsTab /></TabsContent>
+        <TabsContent value="nps" className="mt-4"><NpsTab /></TabsContent>
         <TabsContent value="reports" className="mt-4"><ReportsTab /></TabsContent>
         <TabsContent value="cas-import" className="mt-4"><CasImportTab /></TabsContent>
       </Tabs>
