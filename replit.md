@@ -658,4 +658,40 @@ FintekPro employs a subdomain-based portal architecture for Admin, Partner, Agen
 - Date-fns
 - Class Variance Authority
 - Zod
-- Nanoid
+
+## Alpaca Broker API — Session Closure (April 2026)
+
+### T001–T005: Earlier Session
+- FPSL + Cash Interest enroll/unenroll + APR tier selection (AccountConfigPanel.tsx)
+- Corporate Actions Panel (CorporateActionsPanel.tsx) — DIV/DIVNRA/split/merger/spinoff/name-change with DTAA note
+- Tax Center + Report Generation (DocumentsTab) — 1099-B/DIV/INT, P&L, Schedule C
+- LRS Tracker card in Overview tab (uses /api/global-advisory/lrs/status)
+- Activities tab expansion (INT, SSO/SSOI, REORG, PTC, DIVNRA, ACATC/ACATS, NC, JNLC, JNLS)
+- Rebalancing Panel (RebalancingPanel.tsx) — create/subscribe/run flows
+
+### T006–T008: This Session
+**T006 — Crypto Trading Panel** (`client/src/components/us-trading/CryptoTradingPanel.tsx`)
+- Supports BTC/ETH/SOL/USDC/AVAX/DOGE/LINK/BCH/LTC/SHIB via Alpaca Broker API
+- Market + limit orders, qty-by-USD or qty-by-shares modes
+- Crypto positions table with P&L
+- India/LRS compliance note (FEMA, 20% TCS above ₹7L)
+- Backend: GET /api/us-trading/crypto/assets, GET /api/us-trading/crypto/positions, POST /api/us-trading/crypto/orders
+
+**T007 — Account Restrictions + Compliance Panel** (`client/src/components/us-trading/AccountRestrictionsPanel.tsx`)
+- Trading restriction toggles: restrict_trading, restrict_short_selling, restrict_options_trading, restrict_margin
+- Max margin multiplier editor
+- PDT status badge + DTBP check display + no_shorting flag
+- Account suspend/reinstate controls (with reason textarea + confirmation dialog)
+- India note: PDT $25K minimum, cash account alternative
+- Backend: GET/PATCH /api/us-trading/broker/accounts/:id/restrictions, POST /api/us-trading/broker/accounts/:id/suspend|reinstate
+
+**T008 — ACH Verify + Order Replace + Journal Reversal**
+- ACH micro-deposit verification: verify button for PENDING/PENDING_MICRO_DEPOSITS relationships in WalletTab, 2-amount dialog
+- Backend: POST /api/us-trading/broker/accounts/:accountId/ach/:achId/verify
+- Order replace/modify: gear icon on open limit/stop orders in OrdersTable, dialog for qty/limit_price/stop_price changes
+- Backend: PATCH /api/us-trading/broker/accounts/:accountId/orders/:orderId
+- Journal reversal: RotateCcw button on executed journals in JournalsPanel (was already built, backend route added)
+- Backend: POST /api/us-trading/broker/journals/:journalId/reverse, GET /api/us-trading/broker/transfers
+
+### AlpacaAccountDashboard Tabs (Complete)
+overview | trade | wallet | deposit | withdraw | options | activities | calendar | config | events | documents | corp-actions | rebalance | watchlists | journals | tax-lots | trusted-contact | **crypto** (new) | **compliance** (new)
