@@ -38,7 +38,7 @@ import {
   ArrowUpCircle, ArrowDownCircle, Plus, Download, Globe, ChevronRight,
   Zap, Crown, Lock, Landmark, Send, Settings2, CalendarDays, Radio,
   ListOrdered, ShieldCheck, GitMerge, Scale, Info, Receipt, FilePlus,
-  Bookmark, ArrowLeftRight, Calculator, UserCheck,
+  Bookmark, ArrowLeftRight, Calculator, UserCheck, Bitcoin, ShieldAlert,
 } from "lucide-react";
 import FundingWalletPanel from "@/components/us-trading/FundingWalletPanel";
 import RecipientBanksPanel from "@/components/us-trading/RecipientBanksPanel";
@@ -53,6 +53,8 @@ import WatchlistsPanel from "@/components/us-trading/WatchlistsPanel";
 import JournalsPanel from "@/components/us-trading/JournalsPanel";
 import TaxLotsPanel from "@/components/us-trading/TaxLotsPanel";
 import TrustedContactPanel from "@/components/us-trading/TrustedContactPanel";
+import CryptoTradingPanel from "@/components/us-trading/CryptoTradingPanel";
+import AccountRestrictionsPanel from "@/components/us-trading/AccountRestrictionsPanel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -91,6 +93,8 @@ interface AlpacaOrder {
   created_at: string;
   submitted_at: string;
   filled_at: string | null;
+  limit_price?: string;
+  stop_price?: string;
 }
 
 interface AlpacaPosition {
@@ -444,9 +448,15 @@ function PositionsTable({ isPaper }: { isPaper: boolean }) {
   );
 }
 
-function OrdersTable({ isPaper }: { isPaper: boolean }) {
+function OrdersTable({ isPaper, accountId }: { isPaper: boolean; accountId?: string }) {
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState("open");
+  const [modifyOpen, setModifyOpen] = useState(false);
+  const [modifyOrder, setModifyOrder] = useState<AlpacaOrder | null>(null);
+  const [modifyQty, setModifyQty] = useState("");
+  const [modifyLimitPrice, setModifyLimitPrice] = useState("");
+  const [modifyStopPrice, setModifyStopPrice] = useState("");
+
   const { data, isLoading, refetch } = useQuery<{ configured: boolean; orders: AlpacaOrder[] }>({
     queryKey: ["/api/us-trading/alpaca/orders", statusFilter],
     queryFn: () =>
@@ -463,6 +473,35 @@ function OrdersTable({ isPaper }: { isPaper: boolean }) {
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  const replaceOrderMutation = useMutation({
+    mutationFn: ({ orderId, updates }: { orderId: string; updates: any }) =>
+      apiRequest(`/api/us-trading/broker/accounts/${accountId}/orders/${orderId}`, "PATCH", updates),
+    onSuccess: () => {
+      toast({ title: "Order Modified", description: "Order has been updated." });
+      setModifyOpen(false);
+      setModifyOrder(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/us-trading/alpaca/orders"] });
+    },
+    onError: (e: any) => toast({ title: "Modify Failed", description: e.message, variant: "destructive" }),
+  });
+
+  function openModify(order: AlpacaOrder) {
+    setModifyOrder(order);
+    setModifyQty(order.qty || "");
+    setModifyLimitPrice(order.limit_price || "");
+    setModifyStopPrice(order.stop_price || "");
+    setModifyOpen(true);
+  }
+
+  function handleModify() {
+    if (!modifyOrder || !accountId) return;
+    const updates: any = {};
+    if (modifyQty && modifyQty !== modifyOrder.qty) updates.qty = modifyQty;
+    if (modifyLimitPrice && modifyLimitPrice !== modifyOrder.limit_price) updates.limit_price = modifyLimitPrice;
+    if (modifyStopPrice && modifyStopPrice !== modifyOrder.stop_price) updates.stop_price = modifyStopPrice;
+    replaceOrderMutation.mutate({ orderId: modifyOrder.id, updates });
+  }
 
   const cancelAllMutation = useMutation({
     mutationFn: () => apiRequest("/api/us-trading/alpaca/orders", { method: "DELETE" }),
@@ -591,15 +630,28 @@ function OrdersTable({ isPaper }: { isPaper: boolean }) {
                     </TableCell>
                     <TableCell>
                       {isOpen && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
-                          onClick={() => cancelOneMutation.mutate(o.id)}
-                          disabled={cancelOneMutation.isPending}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-center gap-0.5">
+                          {accountId && ["limit", "stop", "stop_limit", "trailing_stop"].includes(o.order_type) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+                              onClick={() => openModify(o)}
+                              title="Modify order"
+                            >
+                              <Settings2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                            onClick={() => cancelOneMutation.mutate(o.id)}
+                            disabled={cancelOneMutation.isPending}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -609,6 +661,70 @@ function OrdersTable({ isPaper }: { isPaper: boolean }) {
           </Table>
         )}
       </CardContent>
+
+      {/* Modify Order Dialog */}
+      <Dialog open={modifyOpen} onOpenChange={setModifyOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings2 className="h-4 w-4" />
+              Modify Order — {modifyOrder?.symbol}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-xs text-muted-foreground">
+              Update the qty, limit price, or stop price. Leave fields unchanged to keep current values.
+            </p>
+            <div className="space-y-1">
+              <Label className="text-xs">Quantity</Label>
+              <Input
+                type="number"
+                step="any"
+                value={modifyQty}
+                onChange={e => setModifyQty(e.target.value)}
+                className="h-8 text-xs"
+                placeholder="Shares"
+              />
+            </div>
+            {["limit", "stop_limit"].includes(modifyOrder?.order_type || "") && (
+              <div className="space-y-1">
+                <Label className="text-xs">Limit Price ($)</Label>
+                <Input
+                  type="number"
+                  step="any"
+                  value={modifyLimitPrice}
+                  onChange={e => setModifyLimitPrice(e.target.value)}
+                  className="h-8 text-xs"
+                  placeholder="0.00"
+                />
+              </div>
+            )}
+            {["stop", "stop_limit"].includes(modifyOrder?.order_type || "") && (
+              <div className="space-y-1">
+                <Label className="text-xs">Stop Price ($)</Label>
+                <Input
+                  type="number"
+                  step="any"
+                  value={modifyStopPrice}
+                  onChange={e => setModifyStopPrice(e.target.value)}
+                  className="h-8 text-xs"
+                  placeholder="0.00"
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setModifyOpen(false)}>Cancel</Button>
+            <Button
+              size="sm"
+              onClick={handleModify}
+              disabled={replaceOrderMutation.isPending}
+            >
+              {replaceOrderMutation.isPending ? <><RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" />Saving…</> : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -649,6 +765,10 @@ function WalletTab({ accountId }: { accountId: string }) {
   const [direction, setDirection] = useState<"INCOMING" | "OUTGOING">("INCOMING");
   const [amount, setAmount] = useState("");
   const [relId, setRelId] = useState("");
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [verifyRelId, setVerifyRelId] = useState("");
+  const [verifyAmt1, setVerifyAmt1] = useState("");
+  const [verifyAmt2, setVerifyAmt2] = useState("");
 
   const { data: achData, isLoading: achLoading, refetch: refetchAch } = useQuery<{ relationships: AchRelationship[] }>({
     queryKey: ["/api/us-trading/broker/accounts", accountId, "ach-relationships"],
@@ -670,6 +790,19 @@ function WalletTab({ accountId }: { accountId: string }) {
       toast({ title: "ACH relationship removed" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const verifyAchMutation = useMutation({
+    mutationFn: ({ achId, amount1, amount2 }: { achId: string; amount1: number; amount2: number }) =>
+      apiRequest(`/api/us-trading/broker/accounts/${accountId}/ach/${achId}/verify`, "POST", { amount1, amount2 }),
+    onSuccess: () => {
+      toast({ title: "ACH Verified", description: "Bank account successfully verified via micro-deposits." });
+      setVerifyOpen(false);
+      setVerifyAmt1("");
+      setVerifyAmt2("");
+      queryClient.invalidateQueries({ queryKey: ["/api/us-trading/broker/accounts", accountId, "ach-relationships"] });
+    },
+    onError: (e: any) => toast({ title: "Verification Failed", description: e.message, variant: "destructive" }),
   });
 
   const transferMutation = useMutation({
@@ -744,15 +877,28 @@ function WalletTab({ accountId }: { accountId: string }) {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-red-500 hover:text-red-600"
-                        onClick={() => deleteAchMutation.mutate(r.id)}
-                        disabled={deleteAchMutation.isPending}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        {(r.status === "PENDING" || r.status === "PENDING_MICRO_DEPOSITS") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-blue-500 hover:text-blue-600 text-xs"
+                            onClick={() => { setVerifyRelId(r.id); setVerifyOpen(true); }}
+                            title="Verify with micro-deposits"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-red-500 hover:text-red-600"
+                          onClick={() => deleteAchMutation.mutate(r.id)}
+                          disabled={deleteAchMutation.isPending}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -761,6 +907,65 @@ function WalletTab({ accountId }: { accountId: string }) {
           )}
         </CardContent>
       </Card>
+
+      {/* ACH Micro-deposit Verification Dialog */}
+      <Dialog open={verifyOpen} onOpenChange={setVerifyOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-blue-500" />
+              Verify Bank Account
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-xs text-muted-foreground">
+              Alpaca sent two small deposits to your bank account (usually $0.01–$0.99). Enter both amounts below to verify ownership.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">First Amount ($)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max="0.99"
+                  placeholder="0.12"
+                  value={verifyAmt1}
+                  onChange={e => setVerifyAmt1(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Second Amount ($)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max="0.99"
+                  placeholder="0.34"
+                  value={verifyAmt2}
+                  onChange={e => setVerifyAmt2(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setVerifyOpen(false)}>Cancel</Button>
+            <Button
+              size="sm"
+              onClick={() => verifyAchMutation.mutate({
+                achId: verifyRelId,
+                amount1: parseFloat(verifyAmt1),
+                amount2: parseFloat(verifyAmt2),
+              })}
+              disabled={!verifyAmt1 || !verifyAmt2 || verifyAchMutation.isPending}
+            >
+              {verifyAchMutation.isPending ? <><RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" />Verifying…</> : "Verify Account"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Transfers */}
       <Card>
@@ -1936,6 +2141,14 @@ export default function AlpacaAccountDashboard() {
             <UserCheck className="h-3.5 w-3.5" />
             Trusted Contact
           </TabsTrigger>
+          <TabsTrigger value="crypto" className="flex items-center gap-1.5">
+            <Bitcoin className="h-3.5 w-3.5" />
+            Crypto
+          </TabsTrigger>
+          <TabsTrigger value="compliance" className="flex items-center gap-1.5">
+            <ShieldAlert className="h-3.5 w-3.5" />
+            Compliance
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-5 mt-0">
@@ -1950,7 +2163,7 @@ export default function AlpacaAccountDashboard() {
           <Separator />
           <PositionsTable isPaper={isPaper} />
           <Separator />
-          <OrdersTable isPaper={isPaper} />
+          <OrdersTable isPaper={isPaper} accountId={account?.id} />
         </TabsContent>
 
         <TabsContent value="wallet" className="mt-0">
@@ -2035,6 +2248,14 @@ export default function AlpacaAccountDashboard() {
 
         <TabsContent value="trusted-contact" className="mt-0">
           <TrustedContactPanel accountId={account?.id} />
+        </TabsContent>
+
+        <TabsContent value="crypto" className="mt-0">
+          <CryptoTradingPanel accountId={account?.id} />
+        </TabsContent>
+
+        <TabsContent value="compliance" className="mt-0">
+          <AccountRestrictionsPanel accountId={account?.id} accountStatus={account?.status} />
         </TabsContent>
       </Tabs>
     </div>

@@ -663,5 +663,154 @@ router.get("/events/recent", async (req, res) => {
   res.json({ success: true, events, total: events.length });
 });
 
+// ─── Crypto Trading ─────────────────────────────────────────────────────────
+
+router.get("/crypto/assets", async (_req, res) => {
+  try {
+    const assets = await alpacaBrokerService.listAssets({
+      status: "active",
+      asset_class: "crypto",
+    });
+    res.json({ success: true, assets });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.get("/crypto/positions", async (req, res) => {
+  try {
+    const accountId = req.query.account_id as string | undefined;
+    const positions = await alpacaBrokerService.getPositions(accountId);
+    const cryptoPositions = positions.filter(
+      (p: any) => p.asset_class === "crypto"
+    );
+    res.json({ success: true, positions: cryptoPositions });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.post("/crypto/orders", async (req, res) => {
+  try {
+    const { symbol, qty, notional, side, type, limit_price, time_in_force, account_id } = req.body;
+    const order = await alpacaBrokerService.placeOrder({
+      symbol,
+      qty: qty?.toString(),
+      notional: notional?.toString(),
+      side,
+      type: type || "market",
+      time_in_force: time_in_force || "gtc",
+      limit_price: limit_price?.toString(),
+      account_id,
+    });
+    res.json({ success: true, order });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ─── Account Restrictions & Compliance ─────────────────────────────────────
+
+router.get("/broker/accounts/:accountId/restrictions", async (req, res) => {
+  try {
+    const restrictions = await alpacaBrokerService.getAccountRestrictions(req.params.accountId);
+    res.json({ success: true, restrictions });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.patch("/broker/accounts/:accountId/restrictions", async (req, res) => {
+  try {
+    const result = await alpacaBrokerService.updateAccountRestrictions(
+      req.params.accountId,
+      req.body
+    );
+    res.json({ success: true, restrictions: result });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.post("/broker/accounts/:accountId/suspend", async (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason) return res.status(400).json({ success: false, error: "reason is required" });
+    const result = await alpacaBrokerService.suspendAccount(req.params.accountId, reason);
+    res.json({ success: true, account: result });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.post("/broker/accounts/:accountId/reinstate", async (req, res) => {
+  try {
+    const result = await alpacaBrokerService.reinstateAccount(req.params.accountId);
+    res.json({ success: true, account: result });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ─── ACH Micro-deposit Verification ────────────────────────────────────────
+
+router.post("/broker/accounts/:accountId/ach/:achId/verify", async (req, res) => {
+  try {
+    const { amount1, amount2 } = req.body;
+    if (!amount1 || !amount2) {
+      return res.status(400).json({ success: false, error: "amount1 and amount2 are required" });
+    }
+    const result = await alpacaBrokerService.verifyAchRelationship(
+      req.params.accountId,
+      req.params.achId,
+      parseFloat(amount1),
+      parseFloat(amount2)
+    );
+    res.json({ success: true, relationship: result });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ─── Order Replace / Modify ─────────────────────────────────────────────────
+
+router.patch("/broker/accounts/:accountId/orders/:orderId", async (req, res) => {
+  try {
+    const result = await alpacaBrokerService.replaceOrder(
+      req.params.accountId,
+      req.params.orderId,
+      req.body
+    );
+    res.json({ success: true, order: result });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ─── All Transfers (broker-level) ──────────────────────────────────────────
+
+router.get("/broker/transfers", async (req, res) => {
+  try {
+    const params: any = {};
+    if (req.query.direction) params.direction = req.query.direction as string;
+    if (req.query.limit) params.limit = parseInt(req.query.limit as string);
+    if (req.query.offset) params.offset = parseInt(req.query.offset as string);
+    const transfers = await alpacaBrokerService.listAllTransfers(params);
+    res.json({ success: true, transfers });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ─── Journal Reversal ───────────────────────────────────────────────────────
+
+router.post("/broker/journals/:journalId/reverse", async (req, res) => {
+  try {
+    const result = await alpacaBrokerService.reverseJournal(req.params.journalId);
+    res.json({ success: true, journal: result });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
 
 export default router;
