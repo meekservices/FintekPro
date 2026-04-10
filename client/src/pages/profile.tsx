@@ -1031,17 +1031,19 @@ export default function ProfilePage() {
                               </div>
                               <div className="flex items-center gap-2">
                                 {isKycComplete ? (
-                                  <span className="flex items-center gap-1.5 bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-400 text-xs font-semibold px-3 py-1 rounded-full border border-green-200 dark:border-green-800">
-                                    <CheckCircle2 className="h-3.5 w-3.5" /> KYC Verified
-                                  </span>
+                                  <>
+                                    <span className="flex items-center gap-1.5 bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-400 text-xs font-semibold px-3 py-1 rounded-full border border-green-200 dark:border-green-800">
+                                      <CheckCircle2 className="h-3.5 w-3.5" /> KYC Verified
+                                    </span>
+                                    <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => setLocation('/onboarding?mode=edit')}>
+                                      <Edit className="h-3 w-3 mr-1" /> Edit KYC
+                                    </Button>
+                                  </>
                                 ) : (
                                   <Button size="sm" onClick={() => setLocation('/onboarding')} className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-7 px-3">
                                     Complete KYC
                                   </Button>
                                 )}
-                                <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => setLocation('/onboarding?mode=edit')}>
-                                  <Edit className="h-3 w-3 mr-1" /> Edit KYC
-                                </Button>
                               </div>
                             </div>
                           </CardHeader>
@@ -1550,9 +1552,15 @@ export default function ProfilePage() {
                               {getTierIcon(kycProfileData?.kycTier || 'basic')}
                               <span className="ml-1.5">{formatTierName(kycProfileData?.kycTier || 'basic')}</span>
                             </Badge>
-                            <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => setLocation('/onboarding?mode=edit')}>
-                              <Edit className="h-3 w-3 mr-1" /> Edit KYC
-                            </Button>
+                            {kycProfileData?.kycStatus === 'approved' ? (
+                              <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => setLocation('/onboarding?mode=edit')}>
+                                <Edit className="h-3 w-3 mr-1" /> Edit KYC
+                              </Button>
+                            ) : (
+                              <Button size="sm" className="text-xs h-8 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setLocation('/onboarding')}>
+                                Complete KYC
+                              </Button>
+                            )}
                           </div>
                         </div>
 
@@ -1725,15 +1733,26 @@ export default function ProfilePage() {
 
                             {/* Edit KYC Button */}
                             <div className="flex justify-end">
-                              <Button 
-                                variant="outline" 
-                                className="gap-2" 
-                                data-testid="button-edit-kyc"
-                                onClick={() => setLocation('/onboarding?mode=edit')}
-                              >
-                                <Edit className="h-4 w-4" />
-                                Edit KYC Details
-                              </Button>
+                              {kycProfileData?.kycStatus === 'approved' ? (
+                                <Button 
+                                  variant="outline" 
+                                  className="gap-2" 
+                                  data-testid="button-edit-kyc"
+                                  onClick={() => setLocation('/onboarding?mode=edit')}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                  Edit KYC Details
+                                </Button>
+                              ) : (
+                                <Button 
+                                  className="gap-2 bg-blue-600 hover:bg-blue-700 text-white" 
+                                  data-testid="button-complete-kyc"
+                                  onClick={() => setLocation('/onboarding')}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                  Complete KYC
+                                </Button>
+                              )}
                             </div>
                           </CardContent>
                         </Card>

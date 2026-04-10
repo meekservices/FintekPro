@@ -67,7 +67,7 @@ app.get("/api/kyc/notification-status", async (req, res) => {
     res.json(status);
   } catch (error) {
     console.error("Error getting KYC notification status:", error);
-    res.status(500).json({
+    res.json({
       hasIncompleteKyc: false,
       currentTier: 'none',
       percentComplete: 0,
