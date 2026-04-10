@@ -26,8 +26,21 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeftRight, Plus, Trash2, RefreshCw, AlertTriangle, DollarSign,
-  BarChart3, Info, CheckCircle2, Clock, XCircle, RotateCcw,
+  BarChart3, Info, CheckCircle2, Clock, XCircle, RotateCcw, Send, ArrowDownCircle, ArrowUpCircle,
 } from "lucide-react";
+
+interface BrokerTransfer {
+  id: string;
+  account_id?: string;
+  type: string;
+  status: string;
+  direction: string;
+  amount: string;
+  currency?: string;
+  created_at?: string;
+  updated_at?: string;
+  reason?: string;
+}
 
 interface Journal {
   id: string;
@@ -126,6 +139,20 @@ export default function JournalsPanel() {
       toast({ title: "Reverse failed", description: err.message, variant: "destructive" });
     },
   });
+
+  const [transferDirection, setTransferDirection] = useState("all");
+  const transferQKey = ["/api/us-trading/broker/transfers", transferDirection];
+  const { data: transferData, isLoading: transfersLoading, refetch: refetchTransfers } =
+    useQuery<{ success: boolean; transfers: BrokerTransfer[] }>({
+      queryKey: transferQKey,
+      queryFn: () => {
+        const params = new URLSearchParams({ limit: "50" });
+        if (transferDirection !== "all") params.set("direction", transferDirection);
+        return fetch(`/api/us-trading/broker/transfers?${params}`).then(r => r.json());
+      },
+      staleTime: 30_000,
+    });
+  const allTransfers = transferData?.transfers ?? [];
 
   function handleCreate() {
     if (!form.to_account.trim()) return;
@@ -348,6 +375,115 @@ export default function JournalsPanel() {
           )}
         </CardContent>
       </Card>
+
+      {/* ─── All Transfers (broker-wide) ─────────────────────────────── */}
+      <div className="pt-2">
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+          <div>
+            <h3 className="font-semibold text-base flex items-center gap-2">
+              <Send className="h-4 w-4" />
+              All Transfers
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Broker-wide ACH and wire transfers across all accounts (latest 50)
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={transferDirection} onValueChange={setTransferDirection}>
+              <SelectTrigger className="h-8 w-36 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All directions</SelectItem>
+                <SelectItem value="INCOMING">Incoming</SelectItem>
+                <SelectItem value="OUTGOING">Outgoing</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="sm" onClick={() => refetchTransfers()}>
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+
+        <Card>
+          <CardContent className="p-0">
+            {transfersLoading ? (
+              <div className="p-4 space-y-2">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+              </div>
+            ) : allTransfers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2 text-muted-foreground">
+                <Send className="h-8 w-8 opacity-30" />
+                <p className="text-sm">No transfers found</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Direction</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Account</TableHead>
+                    <TableHead>Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allTransfers.map(t => {
+                    const isIn = t.direction?.toUpperCase() === "INCOMING";
+                    return (
+                      <TableRow key={t.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            {isIn
+                              ? <ArrowDownCircle className="h-4 w-4 text-emerald-600" />
+                              : <ArrowUpCircle className="h-4 w-4 text-red-500" />}
+                            <span className={`text-xs font-medium ${isIn ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                              {isIn ? "Incoming" : "Outgoing"}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs font-mono">
+                          {t.type ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {t.amount ? `$${parseFloat(t.amount).toFixed(2)}` : "—"}
+                          {t.currency && t.currency !== "USD" && (
+                            <span className="text-xs text-muted-foreground ml-1">{t.currency}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={`text-xs ${
+                            t.status === "COMPLETE" || t.status === "executed"
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
+                              : t.status === "PENDING" || t.status === "queued"
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
+                              : t.status === "CANCELED" || t.status === "rejected"
+                              ? "bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300"
+                              : "bg-gray-100 text-gray-600"
+                          }`} variant="outline">
+                            {t.status ?? "—"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs font-mono text-muted-foreground">
+                          {t.account_id ? t.account_id.slice(0, 8) + "…" : "—"}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {t.created_at
+                            ? new Date(t.created_at).toLocaleDateString("en-US", {
+                                month: "short", day: "numeric", year: "numeric",
+                              })
+                            : "—"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent>
