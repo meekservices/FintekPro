@@ -155,6 +155,90 @@ export function registerKYCWizardPart1Routes(app: Express) {
     }
   });
 
+  // ─── Transaction KYC Check ───────────────────────────────────────────────
+  // Returns the minimum KYC requirements for a specific transaction type.
+  // Used by the KycGuard system on the frontend to intercept transactions
+  // and prompt only for the fields needed — never more.
+  app.get("/api/kyc/transaction-check", requireClientOrHigher, async (req: any, res) => {
+    const TRANSACTION_REQUIREMENTS: Record<string, { level: number; label: string; steps: string[]; sebiRef?: string }> = {
+      // Level 1 (PAN only)
+      mutual_funds:  { level: 1, label: "Mutual Funds",        steps: ["PAN verification"],                         sebiRef: "AMFI Circular" },
+      insurance:     { level: 1, label: "Insurance",            steps: ["PAN verification"],                         sebiRef: "IRDAI Reg." },
+      loans:         { level: 1, label: "Loans",                steps: ["PAN verification"],                         sebiRef: "RBI KYC Norms" },
+      bonds:         { level: 1, label: "Bonds & NCDs",         steps: ["PAN verification"],                         sebiRef: "SEBI Reg." },
+      ipo:           { level: 1, label: "IPO Applications",     steps: ["PAN verification", "Demat account"],        sebiRef: "SEBI ICDR Reg." },
+      nps:           { level: 1, label: "NPS",                  steps: ["PAN verification"],                         sebiRef: "PFRDA Reg." },
+      unlisted:      { level: 1, label: "Unlisted Shares",      steps: ["PAN verification"],                         sebiRef: "SEBI Reg." },
+      reit:          { level: 1, label: "REIT / InvIT",         steps: ["PAN verification"],                         sebiRef: "SEBI REIT Reg." },
+      // Level 2 (Full KYC)
+      equity_india:  { level: 2, label: "Indian Equities",      steps: ["PAN verification", "Aadhaar verification", "CKYC registration"],                        sebiRef: "SEBI KRA Reg." },
+      fno:           { level: 2, label: "F&O Trading",          steps: ["PAN verification", "Aadhaar verification", "CKYC registration", "Risk profiling"],      sebiRef: "SEBI F&O Circular" },
+      commodities:   { level: 2, label: "Commodities",          steps: ["PAN verification", "Aadhaar verification", "CKYC registration"],                        sebiRef: "MCX/NCDEX Reg." },
+      us_equity:     { level: 2, label: "US Stocks & ETFs",     steps: ["PAN verification", "Aadhaar verification", "CKYC registration", "LRS declaration", "Bank account proof"], sebiRef: "FEMA LRS / RBI" },
+      pms:           { level: 2, label: "Portfolio Management", steps: ["PAN verification", "Aadhaar verification", "CKYC registration", "Net worth declaration"], sebiRef: "SEBI PMS Reg." },
+      aif:           { level: 2, label: "AIF",                  steps: ["PAN verification", "Aadhaar verification", "CKYC registration", "Accredited investor verification"], sebiRef: "SEBI AIF Reg." },
+      mld:           { level: 2, label: "MLDs",                 steps: ["PAN verification", "Aadhaar verification", "CKYC registration"],                        sebiRef: "SEBI Reg." },
+    };
+
+    try {
+      const transactionType = (req.query.type as string) || '';
+      const requirement = TRANSACTION_REQUIREMENTS[transactionType];
+
+      if (!requirement) {
+        return res.status(400).json({ success: false, error: `Unknown transaction type: ${transactionType}` });
+      }
+
+      const { level, profile } = await getUserKYCLevel(req.user!.id);
+      const currentLevel = parseInt(level, 10);
+      const requiredLevel = requirement.level;
+      const canProceed = currentLevel >= requiredLevel;
+
+      // Build list of steps still missing
+      const missingSteps: string[] = [];
+      if (!profile?.panVerifiedViaSandbox && !profile?.panVerifiedViaSmartKyc) {
+        missingSteps.push('PAN verification');
+      }
+      if (requiredLevel >= 2) {
+        if (!profile?.aadhaarVerifiedViaSmartKyc) missingSteps.push('Aadhaar verification');
+        if (!profile?.ckycFetchedViaAuthBridge) missingSteps.push('CKYC registration');
+        if (!profile?.isProfileCompleted) missingSteps.push('Risk profiling');
+        // Add transaction-specific steps beyond base Level 2
+        const txSpecific = requirement.steps.filter(s =>
+          !['PAN verification', 'Aadhaar verification', 'CKYC registration', 'Risk profiling'].includes(s)
+        );
+        missingSteps.push(...txSpecific);
+      }
+
+      // Determine first onboarding step the user needs to complete
+      let kycPath = '/onboarding';
+      if (!profile?.panVerifiedViaSandbox && !profile?.panVerifiedViaSmartKyc) {
+        kycPath = '/onboarding?step=pan';
+      } else if (requiredLevel >= 2 && !profile?.aadhaarVerifiedViaSmartKyc) {
+        kycPath = '/onboarding?step=aadhaar';
+      } else if (requiredLevel >= 2 && !profile?.ckycFetchedViaAuthBridge) {
+        kycPath = '/onboarding?step=ckyc';
+      } else if (requiredLevel >= 2 && !profile?.isProfileCompleted) {
+        kycPath = '/onboarding?step=risk';
+      }
+
+      res.json({
+        success: true,
+        canProceed,
+        transactionType,
+        productLabel: requirement.label,
+        sebiRef: requirement.sebiRef,
+        currentLevel,
+        requiredLevel,
+        missingSteps: canProceed ? [] : missingSteps.filter(s => requirement.steps.includes(s)),
+        kycPath,
+        allRequiredSteps: requirement.steps,
+      });
+    } catch (error) {
+      console.error('[KYC Guard] transaction-check error:', error);
+      res.status(500).json({ success: false, error: 'Failed to check KYC requirements' });
+    }
+  });
+
   app.get("/api/kyc/my-profile", requireClientOrHigher, async (req: any, res) => {
     try {
       const userId = req.user!.id;

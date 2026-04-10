@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useKycGuard } from "@/hooks/use-kyc-guard";
+import { KycGuardModal } from "@/components/kyc/KycGuardModal";
 
 interface EnhancedOrderFormProps {
   defaultSymbol?: string;
@@ -47,6 +49,7 @@ const TIF_OPTIONS = [
 
 export default function EnhancedOrderForm({ defaultSymbol = "", onSuccess }: EnhancedOrderFormProps) {
   const { toast } = useToast();
+  const { guardAction, isChecking, modalState, closeModal, proceedToKyc } = useKycGuard();
   const [symbol, setSymbol] = useState(defaultSymbol);
   const [side, setSide] = useState<"buy" | "sell" | "sell_short">("buy");
   const [orderType, setOrderType] = useState("market");
@@ -403,13 +406,20 @@ export default function EnhancedOrderForm({ defaultSymbol = "", onSuccess }: Enh
 
         <Button
           className="w-full"
-          onClick={() => orderMutation.mutate()}
-          disabled={!canSubmit || orderMutation.isPending}
+          onClick={() => guardAction("us_equity", () => orderMutation.mutate())}
+          disabled={!canSubmit || orderMutation.isPending || isChecking}
         >
-          {orderMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
-          {side === "buy" ? "Place Buy Order" : side === "sell" ? "Place Sell Order" : "Place Short Order"}
+          {orderMutation.isPending || isChecking ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
+          {isChecking ? "Checking KYC..." : side === "buy" ? "Place Buy Order" : side === "sell" ? "Place Sell Order" : "Place Short Order"}
         </Button>
       </CardContent>
     </Card>
+
+    <KycGuardModal
+      open={modalState.open}
+      checkResult={modalState.checkResult}
+      onClose={closeModal}
+      onProceedToKyc={() => proceedToKyc()}
+    />
   );
 }
