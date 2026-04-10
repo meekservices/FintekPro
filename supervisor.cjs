@@ -4,34 +4,39 @@
  * Production-grade process monitor with:
  *  - HTTP health checks (/api/health)
  *  - Exponential-backoff auto-restart
- *  - Memory threshold watchdog (500 MB)
- *  - Crash-pattern detection (ECONNREFUSED, DB timeout)
+ *  - Post-restart grace window (no false health-check loops)
+ *  - Memory threshold watchdog with warn + restart tiers
+ *  - Crash-pattern detection (filtered to genuine fatal signals)
+ *  - Consecutive-health-check gate before resetting restart counter
+ *  - MAX_RESTARTS alert via crash-event endpoint
  *  - ENV validation on startup
- *
- * Usage (Replit workflow or Railway override):
- *   node supervisor.cjs
  */
 
 const { spawn, execSync } = require('child_process');
 const http = require('http');
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const MAX_RESTARTS          = 10;
-const HEALTH_CHECK_INTERVAL = 15_000;   // ms between checks once running
-const STARTUP_GRACE         = 8_000;    // ms to wait before first health check
-const BASE_BACKOFF          = 3_000;    // ms — multiplied by attempt number
-const MEMORY_CHECK_INTERVAL = 30_000;   // ms between memory snapshots
-const MEMORY_LIMIT_MB       = 700;      // restart if RSS exceeds this
+const MAX_RESTARTS            = 10;
+const HEALTH_CHECK_INTERVAL   = 15_000;   // ms between health probes once running
+const STARTUP_GRACE           = 8_000;    // ms before the FIRST health check at boot
+const RESTART_GRACE           = 12_000;   // ms to ignore health failures after each restart
+const BASE_BACKOFF            = 3_000;    // ms × restart number = delay before re-launch
+const MEMORY_CHECK_INTERVAL   = 30_000;   // ms between memory snapshots
+const MEMORY_WARN_MB          = 500;      // log a warning at this RSS level
+const MEMORY_LIMIT_MB         = 700;      // restart if RSS exceeds this
+const HEALTHY_STREAK_REQUIRED = 3;        // consecutive healthy checks before resetting restartCount
 
-const PORT         = parseInt(process.env.PORT || '5000', 10);
-const IS_PROD      = process.env.NODE_ENV === 'production';
-const HEALTH_PATH  = '/api/health';
+const PORT        = parseInt(process.env.PORT || '5000', 10);
+const IS_PROD     = process.env.NODE_ENV === 'production';
+const HEALTH_PATH = '/api/health';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let appProcess    = null;
-let appPgid       = null;   // process group ID for full-tree kill
+let appPgid       = null;     // process group id for full-tree kill
 let restartCount  = 0;
 let restarting    = false;
+let lastStartTime = 0;        // epoch ms of last startApp() call — for restart grace
+let healthyStreak = 0;        // consecutive passing health checks
 
 // ── Logging ───────────────────────────────────────────────────────────────────
 function log(msg) {
@@ -40,29 +45,25 @@ function log(msg) {
 
 // ── ENV validation ────────────────────────────────────────────────────────────
 function validateEnv() {
-  const required = IS_PROD
-    ? ['PORT', 'DATABASE_URL', 'SESSION_SECRET']
-    : [];
-
+  const required = IS_PROD ? ['PORT', 'DATABASE_URL', 'SESSION_SECRET'] : [];
   for (const key of required) {
     if (!process.env[key]) log(`⚠️  WARNING: ${key} is not set`);
   }
-
   if (!process.env.DATABASE_URL && !process.env.PRODUCTION_DATABASE_URL) {
     log('⚠️  WARNING: Neither DATABASE_URL nor PRODUCTION_DATABASE_URL is set');
   }
 }
 
 // ── Crash-pattern scanner ─────────────────────────────────────────────────────
-// NOTE: EADDRINUSE is handled separately below — do NOT add it here
-// or it creates a restart loop when a previous process still holds the port.
+// Only patterns that indicate the process is genuinely broken and needs a
+// restart. EPIPE is intentionally excluded — it is a normal HTTP event that
+// occurs when a client disconnects before the response finishes.
 const CRASH_PATTERNS = [
-  // Network / connectivity
+  // Network / connectivity (fatal variants only)
   'ECONNREFUSED',
   'ETIMEDOUT',
   'ENOTFOUND',
   'ECONNRESET',
-  'EPIPE',
   // Database
   'DB timeout',
   'relation does not exist',
@@ -85,15 +86,15 @@ const CRASH_PATTERNS = [
 ];
 
 // ── Supervisor DB bridge (best-effort, non-blocking) ──────────────────────────
-// Reports crash events to the self-healing events table via the running app's
-// REST endpoint. Silently skipped if the app is not yet up.
-function reportCrashEvent(triggerMessage, context) {
+function reportCrashEvent(triggerMessage, context, isFatal = false) {
   const body = JSON.stringify({
-    eventType: 'supervisor_restart',
+    eventType: isFatal ? 'supervisor_fatal' : 'supervisor_restart',
     trigger: (triggerMessage || '').substring(0, 300),
-    action: 'restart_scheduled',
-    success: true,
-    message: `Supervisor detected crash pattern and scheduled restart #${restartCount + 1}`,
+    action: isFatal ? 'max_restarts_reached' : 'restart_scheduled',
+    success: !isFatal,
+    message: isFatal
+      ? `Supervisor GAVE UP after ${MAX_RESTARTS} restarts — manual intervention required`
+      : `Supervisor detected crash and scheduled restart #${restartCount + 1}`,
     context: context || 'supervisor',
   });
 
@@ -106,7 +107,7 @@ function reportCrashEvent(triggerMessage, context) {
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
       timeout: 2000,
     },
-    () => { /* fire-and-forget — we don't read the response */ }
+    () => { /* fire-and-forget */ }
   );
   postReq.on('error', () => { /* silently ignore if app is down */ });
   postReq.write(body);
@@ -114,7 +115,7 @@ function reportCrashEvent(triggerMessage, context) {
 }
 
 function scanForCrashPattern(line) {
-  // Special handling for EADDRINUSE — hard-kill then restart, don't loop
+  // Special handling for EADDRINUSE — hard-kill orphan then restart, not loop
   if (line.includes('EADDRINUSE')) {
     log('🔍 EADDRINUSE detected — hard-killing orphan server processes then restarting');
     reportCrashEvent('EADDRINUSE — port already in use', 'supervisor:port_conflict');
@@ -133,7 +134,7 @@ function scanForCrashPattern(line) {
   }
 }
 
-// ── Hard-kill all tsx/server processes (pkill-based, not just the tracked pid) ─
+// ── Hard-kill all tsx/server processes (pkill-based, not just tracked pid) ────
 function hardKillServerProcesses() {
   const cmds = [
     `pkill -9 -f 'server/index.ts' 2>/dev/null || true`,
@@ -148,45 +149,39 @@ function hardKillServerProcesses() {
 // ── Kill the tracked process group ───────────────────────────────────────────
 function killProcessGroup(pgid, signal) {
   if (!pgid) return;
-  try {
-    process.kill(-pgid, signal);
-  } catch {
-    // process group already gone
-  }
+  try { process.kill(-pgid, signal); } catch { /* group already gone */ }
 }
 
 // ── Process management ────────────────────────────────────────────────────────
 function getStartCommand() {
-  if (IS_PROD) {
-    return { cmd: 'node', args: ['dist/index.js'] };
-  }
-  return { cmd: 'npm', args: ['run', 'dev'] };
+  return IS_PROD
+    ? { cmd: 'node', args: ['dist/index.js'] }
+    : { cmd: 'npm', args: ['run', 'dev'] };
 }
 
 function startApp() {
   if (restarting) return;
 
-  // Ensure port is free before binding
   hardKillServerProcesses();
 
   const { cmd, args } = getStartCommand();
   log(`🚀 Starting app: ${cmd} ${args.join(' ')}`);
+  lastStartTime = Date.now();
+  healthyStreak = 0;
 
   appProcess = spawn(cmd, args, {
     stdio: ['inherit', 'pipe', 'pipe'],
     env: process.env,
-    detached: true,   // creates its own process group so we can kill all descendants
+    detached: true,   // own process group so we can kill all descendants
   });
 
-  appPgid = appProcess.pid; // process group id == pid when detached:true
+  appPgid = appProcess.pid;
 
-  // Pipe stdout — scan for crash patterns
   appProcess.stdout.on('data', (data) => {
     process.stdout.write(data);
     scanForCrashPattern(data.toString());
   });
 
-  // Pipe stderr — scan for crash patterns
   appProcess.stderr.on('data', (data) => {
     process.stderr.write(data);
     scanForCrashPattern(data.toString());
@@ -213,7 +208,7 @@ function stopApp() {
   log('🛑 Sending SIGTERM to process group...');
   killProcessGroup(pgid, 'SIGTERM');
 
-  // After 4s, escalate to SIGKILL for the whole group + hard pkill
+  // Escalate to SIGKILL after 4s + hard pkill sweep
   setTimeout(() => {
     killProcessGroup(pgid, 'SIGKILL');
     hardKillServerProcesses();
@@ -225,10 +220,19 @@ function scheduleRestart() {
 
   if (restartCount >= MAX_RESTARTS) {
     log(`🔥 MAX RESTART LIMIT (${MAX_RESTARTS}) REACHED — manual intervention required`);
-    process.exit(1);
+    // Best-effort alert to the DB / on-call webhook before giving up
+    reportCrashEvent(
+      `App failed to stay up after ${MAX_RESTARTS} restart attempts`,
+      'supervisor:fatal',
+      true
+    );
+    // Give the event 2s to POST before we exit
+    setTimeout(() => process.exit(1), 2000);
+    return;
   }
 
   restarting = true;
+  healthyStreak = 0;
   restartCount++;
   const delay = BASE_BACKOFF * restartCount;
   log(`🔁 Restart ${restartCount}/${MAX_RESTARTS} in ${delay / 1000}s...`);
@@ -250,15 +254,9 @@ function healthCheck(callback) {
   }
 
   const req = http.get(
-    {
-      hostname: '127.0.0.1',
-      port: PORT,
-      path: HEALTH_PATH,
-      timeout: 4000,
-    },
+    { hostname: '127.0.0.1', port: PORT, path: HEALTH_PATH, timeout: 4000 },
     (res) => {
-      // Consume the body so the socket closes cleanly — prevents double-callback
-      res.resume();
+      res.resume(); // consume body so socket closes cleanly
       done(res.statusCode === 200);
     }
   );
@@ -269,50 +267,70 @@ function healthCheck(callback) {
 function startHealthMonitor() {
   setInterval(() => {
     if (restarting) return;
+
+    // Do not act on failures during the post-restart grace window.
+    // The app needs time to bind the port and complete boot before
+    // we start treating failures as real crashes.
+    const timeSinceStart = Date.now() - lastStartTime;
+    const inGrace = timeSinceStart < RESTART_GRACE;
+
     healthCheck((healthy) => {
       if (healthy) {
-        restartCount = 0; // reset on confirmed healthy
+        healthyStreak++;
+        // Require several consecutive healthy checks before clearing the
+        // restart counter — prevents a flapping app from resetting indefinitely.
+        if (healthyStreak >= HEALTHY_STREAK_REQUIRED && restartCount > 0) {
+          log(`✅ ${HEALTHY_STREAK_REQUIRED} consecutive healthy checks — resetting restart counter`);
+          restartCount = 0;
+        }
       } else {
-        log('💥 Health check failed — triggering restart');
-        scheduleRestart();
+        healthyStreak = 0;
+        if (inGrace) {
+          log(`⏳ Health check failed but within ${RESTART_GRACE / 1000}s restart grace (${Math.round(timeSinceStart / 1000)}s elapsed) — ignoring`);
+        } else {
+          log('💥 Health check failed — triggering restart');
+          scheduleRestart();
+        }
       }
     });
   }, HEALTH_CHECK_INTERVAL);
 }
 
 // ── Memory watchdog ───────────────────────────────────────────────────────────
+function readAppGroupRssMB() {
+  const fs = require('fs');
+  let totalMB = 0;
+  if (!appPgid) return 0;
+  try {
+    const pids = fs.readdirSync('/proc').filter(f => /^\d+$/.test(f));
+    for (const pid of pids) {
+      try {
+        const status = fs.readFileSync(`/proc/${pid}/status`, 'utf8');
+        const procPgidMatch = status.match(/NSpgid:\s+(\d+)/);
+        const vmRss = status.match(/VmRSS:\s+(\d+)/);
+        if (procPgidMatch && parseInt(procPgidMatch[1]) === appPgid && vmRss) {
+          totalMB += parseInt(vmRss[1], 10) / 1024;
+        }
+      } catch { /* process gone mid-scan */ }
+    }
+  } catch {
+    // /proc not available (macOS/Windows) — skip
+  }
+  return totalMB;
+}
+
 function startMemoryWatchdog() {
   setInterval(() => {
-    const usedMB = process.memoryUsage().heapUsed / 1024 / 1024;
-    log(`📊 Supervisor heap: ${usedMB.toFixed(1)} MB`);
-
-    if (appPgid) {
-      try {
-        // Sum RSS of all processes in the group via /proc
-        const fs = require('fs');
-        let totalMB = 0;
-        const pids = fs.readdirSync('/proc').filter(f => /^\d+$/.test(f));
-        for (const pid of pids) {
-          try {
-            const status = fs.readFileSync(`/proc/${pid}/status`, 'utf8');
-            const pgidLine = status.match(/NSpgid:\s+(\d+)|Tgid:\s+(\d+)/);
-            const vmRss = status.match(/VmRSS:\s+(\d+)/);
-            // Only count if same process group
-            const procPgidMatch = status.match(/NSpgid:\s+(\d+)/);
-            if (procPgidMatch && parseInt(procPgidMatch[1]) === appPgid && vmRss) {
-              totalMB += parseInt(vmRss[1], 10) / 1024;
-            }
-          } catch { /* process gone */ }
-        }
-        if (totalMB > 0) {
-          log(`📊 App group RSS: ${totalMB.toFixed(0)} MB`);
-          if (totalMB > MEMORY_LIMIT_MB) {
-            log(`⚠️  App memory ${totalMB.toFixed(0)} MB exceeds ${MEMORY_LIMIT_MB} MB — restarting`);
-            scheduleRestart();
-          }
-        }
-      } catch {
-        // /proc not available (macOS/Windows) — skip
+    const appMB = readAppGroupRssMB();
+    if (appMB > 0) {
+      if (appMB > MEMORY_LIMIT_MB) {
+        log(`🔴 App memory ${appMB.toFixed(0)} MB exceeds limit (${MEMORY_LIMIT_MB} MB) — restarting`);
+        reportCrashEvent(`Memory limit exceeded: ${appMB.toFixed(0)} MB`, 'supervisor:memory');
+        scheduleRestart();
+      } else if (appMB > MEMORY_WARN_MB) {
+        log(`⚠️  App memory ${appMB.toFixed(0)} MB approaching limit (warn=${MEMORY_WARN_MB} MB, limit=${MEMORY_LIMIT_MB} MB)`);
+      } else {
+        log(`📊 App memory: ${appMB.toFixed(0)} MB`);
       }
     }
   }, MEMORY_CHECK_INTERVAL);
@@ -320,13 +338,13 @@ function startMemoryWatchdog() {
 
 // ── Graceful supervisor shutdown ──────────────────────────────────────────────
 process.on('SIGTERM', () => {
-  log('🛑 Supervisor SIGTERM received — shutting down gracefully');
+  log('🛑 Supervisor SIGTERM — shutting down gracefully');
   stopApp();
   setTimeout(() => process.exit(0), 5000);
 });
 
 process.on('SIGINT', () => {
-  log('🛑 Supervisor SIGINT received — shutting down gracefully');
+  log('🛑 Supervisor SIGINT — shutting down gracefully');
   stopApp();
   setTimeout(() => process.exit(0), 5000);
 });
@@ -337,6 +355,8 @@ function init() {
   log(`   Mode:        ${IS_PROD ? 'production' : 'development'}`);
   log(`   Port:        ${PORT}`);
   log(`   Max retries: ${MAX_RESTARTS}`);
+  log(`   Restart grace: ${RESTART_GRACE / 1000}s`);
+  log(`   Healthy streak to reset counter: ${HEALTHY_STREAK_REQUIRED}`);
 
   validateEnv();
   startApp();
@@ -344,11 +364,7 @@ function init() {
   setTimeout(() => {
     log('🩺 Starting health monitor...');
     startHealthMonitor();
-    if (IS_PROD) {
-      startMemoryWatchdog();
-    } else {
-      log('ℹ️  Memory watchdog disabled (development mode)');
-    }
+    startMemoryWatchdog();
   }, STARTUP_GRACE);
 }
 
