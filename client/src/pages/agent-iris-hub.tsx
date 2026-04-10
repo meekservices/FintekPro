@@ -16,7 +16,8 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   TrendingUp, Users, IndianRupee, Activity, Shield, FileText,
   BarChart3, RefreshCw, Search, ExternalLink, ArrowUpRight,
-  ChevronRight, AlertCircle, CheckCircle2, Clock, Download, KeyRound, XCircle
+  ChevronRight, AlertCircle, CheckCircle2, Clock, Download, KeyRound, XCircle,
+  FolderOpen, Inbox, Unlink, Link2, Send, CloudDownload
 } from "lucide-react";
 
 // ─── IRIS API types ───────────────────────────────────────────────────────────
@@ -1035,6 +1036,407 @@ function AdminOtpDialog({ open, onClose }: { open: boolean; onClose: () => void 
   );
 }
 
+// ─── CAS Import & External Portfolio Tab ─────────────────────────────────────
+function CasImportTab() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  // ── CAS from Registry ──────────────────────────────────────────────────────
+  const [casPan, setCasPan] = useState('');
+  const [casSubmittedPan, setCasSubmittedPan] = useState('');
+  const [genEmail, setGenEmail] = useState('');
+  const [genEmailDialogOpen, setGenEmailDialogOpen] = useState(false);
+
+  const casQuery = useQuery<{ success: boolean; data: { holdings?: CasHolding[]; summary?: CasSummary } }>({
+    queryKey: ['/api/iris/portfolio/cas-fetch', casSubmittedPan],
+    enabled: !!casSubmittedPan,
+  });
+
+  const importMutation = useMutation({
+    mutationFn: () => apiRequest('/api/iris/portfolio/import', 'POST', {
+      pan: casSubmittedPan,
+      holdings: casQuery.data?.data?.holdings ?? [],
+    }),
+    onSuccess: () => {
+      toast({ title: 'Portfolio imported', description: `Holdings for ${casSubmittedPan} saved to IRIS.` });
+      qc.invalidateQueries({ queryKey: ['/api/iris/portfolio/external', casSubmittedPan] });
+    },
+    onError: (e: Error) => toast({ title: 'Import failed', description: e.message, variant: 'destructive' }),
+  });
+
+  const generateCasMutation = useMutation({
+    mutationFn: () => apiRequest('/api/iris/reports/cas/generate', 'POST', {
+      pan: casSubmittedPan,
+      email: genEmail || undefined,
+    }),
+    onSuccess: () => {
+      toast({ title: 'CAS statement generated', description: genEmail ? `Sent to ${genEmail}` : 'Available for download.' });
+      setGenEmailDialogOpen(false);
+    },
+    onError: (e: Error) => toast({ title: 'Generation failed', description: e.message, variant: 'destructive' }),
+  });
+
+  // ── External Portfolio ─────────────────────────────────────────────────────
+  const [extPan, setExtPan] = useState('');
+  const [extSubmittedPan, setExtSubmittedPan] = useState('');
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkFolioNo, setLinkFolioNo] = useState('');
+  const [linkRegistrar, setLinkRegistrar] = useState('KFINTECH');
+
+  const extQuery = useQuery<{ success: boolean; data: { folios?: ExternalFolio[] } }>({
+    queryKey: ['/api/iris/portfolio/external', extSubmittedPan],
+    enabled: !!extSubmittedPan,
+  });
+
+  const refreshMutation = useMutation({
+    mutationFn: (pan: string) => apiRequest(`/api/iris/portfolio/external/${pan}/refresh`, 'POST', {}),
+    onSuccess: (_d, pan) => {
+      toast({ title: 'Refreshed', description: `External portfolio refreshed for ${pan}.` });
+      qc.invalidateQueries({ queryKey: ['/api/iris/portfolio/external', pan] });
+    },
+    onError: (e: Error) => toast({ title: 'Refresh failed', description: e.message, variant: 'destructive' }),
+  });
+
+  const unlinkMutation = useMutation({
+    mutationFn: (folioNo: string) => apiRequest(`/api/iris/portfolio/external/${folioNo}`, 'DELETE'),
+    onSuccess: () => {
+      toast({ title: 'Folio unlinked' });
+      qc.invalidateQueries({ queryKey: ['/api/iris/portfolio/external', extSubmittedPan] });
+    },
+    onError: (e: Error) => toast({ title: 'Unlink failed', description: e.message, variant: 'destructive' }),
+  });
+
+  const linkMutation = useMutation({
+    mutationFn: () => apiRequest('/api/iris/portfolio/external/link', 'POST', {
+      pan: extSubmittedPan,
+      folioNo: linkFolioNo,
+      registrar: linkRegistrar,
+    }),
+    onSuccess: () => {
+      toast({ title: 'Folio linked' });
+      qc.invalidateQueries({ queryKey: ['/api/iris/portfolio/external', extSubmittedPan] });
+      setLinkDialogOpen(false);
+      setLinkFolioNo('');
+    },
+    onError: (e: Error) => toast({ title: 'Link failed', description: e.message, variant: 'destructive' }),
+  });
+
+  const casHoldings: CasHolding[] = casQuery.data?.data?.holdings ?? [];
+  const casSummary: CasSummary | undefined = casQuery.data?.data?.summary;
+  const extFolios: ExternalFolio[] = extQuery.data?.data?.folios ?? [];
+
+  return (
+    <div className="space-y-6">
+
+      {/* ── Section 1: Fetch CAS from Registry ──────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CloudDownload className="h-5 w-5 text-blue-500" />
+            Fetch CAS from KFintech Registry
+          </CardTitle>
+          <CardDescription>
+            Pull a client's complete MF portfolio directly from KFintech by PAN — no PDF upload needed.
+            Data is sourced live from the registrar's registry.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              placeholder="PAN (e.g. ABCDE1234F)"
+              value={casPan}
+              onChange={e => setCasPan(e.target.value.toUpperCase())}
+              className="max-w-xs"
+            />
+            <Button
+              onClick={() => setCasSubmittedPan(casPan.trim())}
+              disabled={casPan.length < 10 || casQuery.isFetching}
+            >
+              {casQuery.isFetching ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <Search className="h-4 w-4 mr-1" />}
+              Fetch from Registry
+            </Button>
+          </div>
+
+          {casQuery.isError && (
+            <div className="flex items-center gap-2 text-destructive text-sm">
+              <AlertCircle className="h-4 w-4" /> Could not fetch CAS data — check PAN or IRIS credentials.
+            </div>
+          )}
+
+          {casHoldings.length > 0 && (
+            <>
+              {casSummary && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
+                  {[
+                    { label: 'Current Value', val: casSummary.currentValue },
+                    { label: 'Invested', val: casSummary.investedValue },
+                    { label: 'Gain/Loss', val: casSummary.gainLoss },
+                    { label: 'XIRR', val: casSummary.xirr ? `${casSummary.xirr.toFixed(2)}%` : undefined },
+                  ].map(item => (
+                    <div key={item.label} className="bg-muted rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground">{item.label}</p>
+                      <p className="font-semibold text-sm">
+                        {item.val !== undefined
+                          ? typeof item.val === 'string' ? item.val : `₹${Number(item.val).toLocaleString('en-IN')}`
+                          : '—'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <ScrollArea className="h-64 border rounded-md">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-background border-b">
+                    <tr>
+                      <th className="text-left p-2 font-medium">Scheme</th>
+                      <th className="text-right p-2 font-medium">Units</th>
+                      <th className="text-right p-2 font-medium">Current Value</th>
+                      <th className="text-right p-2 font-medium">Gain %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {casHoldings.map((h, i) => (
+                      <tr key={i} className="border-b hover:bg-muted/50">
+                        <td className="p-2">{h.schemeName ?? h.scheme ?? '—'}</td>
+                        <td className="p-2 text-right">{h.units?.toFixed(3) ?? '—'}</td>
+                        <td className="p-2 text-right">
+                          {h.currentValue !== undefined ? `₹${Number(h.currentValue).toLocaleString('en-IN')}` : '—'}
+                        </td>
+                        <td className={`p-2 text-right ${(h.gainLossPercentage ?? 0) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          {h.gainLossPercentage !== undefined ? `${h.gainLossPercentage.toFixed(2)}%` : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </ScrollArea>
+
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  onClick={() => importMutation.mutate()}
+                  disabled={importMutation.isPending}
+                >
+                  {importMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <Inbox className="h-4 w-4 mr-1" />}
+                  Import All to IRIS Portfolio
+                </Button>
+                <Button variant="outline" onClick={() => setGenEmailDialogOpen(true)}>
+                  <Send className="h-4 w-4 mr-1" /> Generate CAS Statement
+                </Button>
+              </div>
+            </>
+          )}
+
+          {casSubmittedPan && !casQuery.isFetching && casHoldings.length === 0 && !casQuery.isError && (
+            <p className="text-sm text-muted-foreground">No holdings found for PAN {casSubmittedPan}.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Generate CAS Statement Dialog ─────────────────────────────────────── */}
+      <Dialog open={genEmailDialogOpen} onOpenChange={setGenEmailDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Generate CAS Statement</DialogTitle>
+            <DialogDescription>
+              Generate the Consolidated Account Statement for {casSubmittedPan}.
+              Optionally send it to the investor's email.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Send to Email (optional)</Label>
+              <Input
+                placeholder="investor@email.com"
+                value={genEmail}
+                onChange={e => setGenEmail(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setGenEmailDialogOpen(false)}>Cancel</Button>
+              <Button
+                className="flex-1"
+                onClick={() => generateCasMutation.mutate()}
+                disabled={generateCasMutation.isPending}
+              >
+                {generateCasMutation.isPending ? 'Generating…' : 'Generate'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Section 2: External Portfolio ──────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FolderOpen className="h-5 w-5 text-emerald-500" />
+            External Portfolio (Cross-Registrar)
+          </CardTitle>
+          <CardDescription>
+            View and manage externally linked folios for an investor — covers both CAMS and KFintech registrars.
+            Imported via CAS or manually linked.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2 flex-wrap">
+            <Input
+              placeholder="Investor PAN"
+              value={extPan}
+              onChange={e => setExtPan(e.target.value.toUpperCase())}
+              className="max-w-xs"
+            />
+            <Button
+              onClick={() => setExtSubmittedPan(extPan.trim())}
+              disabled={extPan.length < 10 || extQuery.isFetching}
+            >
+              {extQuery.isFetching ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <Search className="h-4 w-4 mr-1" />}
+              Load External Portfolio
+            </Button>
+            {extSubmittedPan && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => refreshMutation.mutate(extSubmittedPan)}
+                  disabled={refreshMutation.isPending}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-1 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
+                  Refresh All
+                </Button>
+                <Button variant="outline" onClick={() => setLinkDialogOpen(true)}>
+                  <Link2 className="h-4 w-4 mr-1" /> Link Folio
+                </Button>
+              </>
+            )}
+          </div>
+
+          {extQuery.isError && (
+            <div className="flex items-center gap-2 text-destructive text-sm">
+              <AlertCircle className="h-4 w-4" /> Could not load external portfolio.
+            </div>
+          )}
+
+          {extFolios.length > 0 && (
+            <ScrollArea className="h-64 border rounded-md">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-background border-b">
+                  <tr>
+                    <th className="text-left p-2 font-medium">Folio No</th>
+                    <th className="text-left p-2 font-medium">Registrar</th>
+                    <th className="text-left p-2 font-medium">AMC</th>
+                    <th className="text-right p-2 font-medium">Schemes</th>
+                    <th className="text-right p-2 font-medium">Current Value</th>
+                    <th className="text-right p-2 font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {extFolios.map((f, i) => (
+                    <tr key={i} className="border-b hover:bg-muted/50">
+                      <td className="p-2 font-mono text-xs">{f.folioNo ?? '—'}</td>
+                      <td className="p-2">
+                        <Badge variant="outline" className="text-xs">{f.registrar ?? 'KFINTECH'}</Badge>
+                      </td>
+                      <td className="p-2">{f.amcName ?? f.amc ?? '—'}</td>
+                      <td className="p-2 text-right">{f.schemeCount ?? '—'}</td>
+                      <td className="p-2 text-right">
+                        {f.currentValue !== undefined ? `₹${Number(f.currentValue).toLocaleString('en-IN')}` : '—'}
+                      </td>
+                      <td className="p-2 text-right">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive h-7 px-2"
+                          onClick={() => f.folioNo && unlinkMutation.mutate(f.folioNo)}
+                          disabled={unlinkMutation.isPending}
+                        >
+                          <Unlink className="h-3.5 w-3.5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ScrollArea>
+          )}
+
+          {extSubmittedPan && !extQuery.isFetching && extFolios.length === 0 && !extQuery.isError && (
+            <p className="text-sm text-muted-foreground">
+              No external folios linked for {extSubmittedPan}. Use "Link Folio" to add one, or import via CAS fetch above.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Link Folio Dialog ──────────────────────────────────────────────────── */}
+      <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Link External Folio</DialogTitle>
+            <DialogDescription>
+              Manually link a folio from CAMS or KFintech to investor {extSubmittedPan}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Folio Number</Label>
+              <Input
+                placeholder="e.g. 1234567/89"
+                value={linkFolioNo}
+                onChange={e => setLinkFolioNo(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Registrar</Label>
+              <Select value={linkRegistrar} onValueChange={setLinkRegistrar}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="KFINTECH">KFintech</SelectItem>
+                  <SelectItem value="CAMS">CAMS</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setLinkDialogOpen(false)}>Cancel</Button>
+              <Button
+                className="flex-1"
+                onClick={() => linkMutation.mutate()}
+                disabled={linkMutation.isPending || !linkFolioNo.trim()}
+              >
+                {linkMutation.isPending ? 'Linking…' : 'Link Folio'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ─── Types used by CasImportTab ───────────────────────────────────────────────
+interface CasHolding {
+  schemeName?: string;
+  scheme?: string;
+  units?: number;
+  currentValue?: number;
+  gainLossPercentage?: number;
+}
+interface CasSummary {
+  currentValue?: number;
+  investedValue?: number;
+  gainLoss?: number;
+  xirr?: number;
+}
+interface ExternalFolio {
+  folioNo?: string;
+  registrar?: string;
+  amcName?: string;
+  amc?: string;
+  schemeCount?: number;
+  currentValue?: number;
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AgentIrisHub() {
   const [otpDialogOpen, setOtpDialogOpen] = useState(false);
@@ -1072,6 +1474,7 @@ export default function AgentIrisHub() {
           <TabsTrigger value="transact"><TrendingUp className="h-4 w-4 mr-1 inline" />Transact</TabsTrigger>
           <TabsTrigger value="products"><FileText className="h-4 w-4 mr-1 inline" />Products</TabsTrigger>
           <TabsTrigger value="reports"><Download className="h-4 w-4 mr-1 inline" />Reports</TabsTrigger>
+          <TabsTrigger value="cas-import"><FolderOpen className="h-4 w-4 mr-1 inline" />CAS Import</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="mt-4"><DashboardTab /></TabsContent>
@@ -1080,6 +1483,7 @@ export default function AgentIrisHub() {
         <TabsContent value="transact" className="mt-4"><TransactTab /></TabsContent>
         <TabsContent value="products" className="mt-4"><ProductsTab /></TabsContent>
         <TabsContent value="reports" className="mt-4"><ReportsTab /></TabsContent>
+        <TabsContent value="cas-import" className="mt-4"><CasImportTab /></TabsContent>
       </Tabs>
 
       {isAdmin && <AdminOtpDialog open={otpDialogOpen} onClose={() => setOtpDialogOpen(false)} />}
