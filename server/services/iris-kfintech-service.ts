@@ -114,7 +114,7 @@ class IrisKfintechService {
     return result.success;
   }
 
-  async call<T = any>(endpoint: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET', body?: any): Promise<T> {
+  async call<T = any>(endpoint: string, method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'GET', body?: any): Promise<T> {
     const authed = await this.ensureAuth();
     if (!authed) throw new Error('IRIS authentication failed');
     const resp = await this.client.request<T>({
@@ -288,6 +288,32 @@ class IrisKfintechService {
   async getBulkPortfolioReport(params?: any) {
     const qs = params ? '?' + new URLSearchParams(params).toString() : '';
     return this.call(`/reports/bulk/portfolio${qs}`);
+  }
+
+  // ─── SIP Lifecycle ────────────────────────────────────────────────────────────
+  async registerSip(body: any) { return this.call('/sif/transactions/sip/register', 'POST', body); }
+  async modifySip(sipId: string, body: any) { return this.call(`/sif/transactions/sip/${sipId}`, 'PATCH', body); }
+  async getSipDetails(sipId: string) { return this.call(`/sif/transactions/sip/${sipId}`); }
+
+  // ─── Order / Transaction Status ───────────────────────────────────────────────
+  async listOrdersByPan(pan: string, params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/sif/transactions/orders?pan=${encodeURIComponent(pan)}${qs ? '&' + qs.slice(1) : ''}`);
+  }
+  async getOrderDetails(orderId: string) { return this.call(`/sif/transactions/orders/${orderId}`); }
+  async getSwitchStatus(orderId: string) { return this.call(`/sif/transactions/switch/${orderId}/status`); }
+
+  // ─── STP Status ───────────────────────────────────────────────────────────────
+  async listStpsByPan(pan: string) { return this.call(`/sif/transactions/stp?pan=${encodeURIComponent(pan)}`); }
+  async getStpDetails(stpId: string) { return this.call(`/sif/transactions/stp/${stpId}`); }
+
+  // ─── SWP Status ───────────────────────────────────────────────────────────────
+  async listSwpsByPan(pan: string) { return this.call(`/sif/transactions/swp?pan=${encodeURIComponent(pan)}`); }
+  async getSwpDetails(swpId: string) { return this.call(`/sif/transactions/swp/${swpId}`); }
+
+  // ─── Failed Transactions ──────────────────────────────────────────────────────
+  async listFailedTransactions(pan: string) {
+    return this.call(`/sif/transactions/orders?pan=${encodeURIComponent(pan)}&status=FAILED,REJECTED`);
   }
 
   // ─── Phase 1: Switch ─────────────────────────────────────────────────────────

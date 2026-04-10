@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -316,13 +316,300 @@ interface SipActionPayload {
   action: "pause" | "cancel";
 }
 
+interface MandateRecord {
+  mandateId?: string;
+  id?: string;
+  bankName?: string;
+  bank?: string;
+  status?: string;
+  amount?: number;
+}
+
+interface OrderRecord {
+  orderId?: string;
+  id?: string;
+  orderType?: string;
+  type?: string;
+  schemeName?: string;
+  scheme?: string;
+  amount?: number;
+  status?: string;
+  orderDate?: string;
+  date?: string;
+  transactionType?: string;
+}
+
+// ─── New SIP Dialog ──────────────────────────────────────────────────────────
+function NewSipDialog({ open, onClose, prefillPan }: { open: boolean; onClose: () => void; prefillPan: string }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [pan, setPan] = useState(prefillPan);
+  const [schemeQuery, setSchemeQuery] = useState("");
+  const [selectedScheme, setSelectedScheme] = useState<SchemeResult | null>(null);
+  const [amount, setAmount] = useState("");
+  const [frequency, setFrequency] = useState("MONTHLY");
+  const [sipDate, setSipDate] = useState("");
+  const [mandateId, setMandateId] = useState("none");
+
+  // Sync PAN when the dialog is opened with a different investor
+  useEffect(() => {
+    if (open) setPan(prefillPan);
+  }, [open, prefillPan]);
+
+  const { data: schemeSearchData, isLoading: schemesLoading } = useQuery<IrisApiResponse<{ schemes?: SchemeResult[] } | SchemeResult[]>>({
+    queryKey: ["/api/iris/transactions/scheme-search", schemeQuery],
+    queryFn: () => irisGet<IrisApiResponse<{ schemes?: SchemeResult[] } | SchemeResult[]>>(`/api/iris/transactions/scheme-search?q=${encodeURIComponent(schemeQuery)}`),
+    enabled: schemeQuery.length >= 2 && !selectedScheme,
+    retry: false,
+  });
+
+  const { data: mandatesData } = useQuery<IrisApiResponse<{ mandates?: MandateRecord[] } | MandateRecord[]>>({
+    queryKey: ["/api/iris/transactions/mandates", pan],
+    queryFn: () => irisGet<IrisApiResponse<{ mandates?: MandateRecord[] } | MandateRecord[]>>(`/api/iris/transactions/mandates?pan=${encodeURIComponent(pan)}`),
+    enabled: pan.length === 10,
+    retry: false,
+  });
+
+  const schemes: SchemeResult[] = (() => {
+    if (!schemeSearchData?.data) return [];
+    if (Array.isArray(schemeSearchData.data)) return schemeSearchData.data;
+    return schemeSearchData.data.schemes ?? [];
+  })();
+
+  const mandates: MandateRecord[] = (() => {
+    if (!mandatesData?.data) return [];
+    if (Array.isArray(mandatesData.data)) return mandatesData.data;
+    return mandatesData.data.mandates ?? [];
+  })();
+
+  const registerSip = useMutation({
+    mutationFn: (body: Record<string, unknown>) => apiRequest("/api/iris/transactions/sip/register", "POST", { body }),
+    onSuccess: () => {
+      toast({ title: "SIP registered successfully" });
+      qc.invalidateQueries({ queryKey: ["/api/iris/investors", pan, "systematic-plans"] });
+      onClose();
+      setPan(prefillPan); setSchemeQuery(""); setSelectedScheme(null); setAmount(""); setFrequency("MONTHLY"); setSipDate(""); setMandateId("none");
+    },
+    onError: (err: Error) => toast({ title: "SIP registration failed", description: err.message, variant: "destructive" }),
+  });
+
+  function handleSubmit() {
+    if (!pan.trim()) { toast({ title: "PAN is required", variant: "destructive" }); return; }
+    if (!selectedScheme) { toast({ title: "Please select a scheme", variant: "destructive" }); return; }
+    if (!amount || Number(amount) <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
+    registerSip.mutate({
+      pan,
+      schemeCode: selectedScheme.schemeCode ?? selectedScheme.isinCode ?? selectedScheme.code,
+      schemeName: selectedScheme.schemeName ?? selectedScheme.name,
+      amount: Number(amount),
+      frequency,
+      sipDate: sipDate || undefined,
+      mandateId: mandateId !== "none" ? mandateId : undefined,
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Register New SIP</DialogTitle>
+          <DialogDescription>Set up a systematic investment plan for the investor</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
+          <div>
+            <Label>Investor PAN *</Label>
+            <Input value={pan} onChange={e => setPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" maxLength={10} />
+          </div>
+          <div>
+            <Label>Search Scheme *</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input className="pl-9"
+                value={selectedScheme ? (selectedScheme.schemeName ?? selectedScheme.name ?? "") : schemeQuery}
+                onChange={e => { setSchemeQuery(e.target.value); setSelectedScheme(null); }}
+                placeholder="Type scheme name (min 2 chars)…" />
+            </div>
+            {schemeQuery.length >= 2 && !selectedScheme && (
+              <div className="border rounded-md mt-1 max-h-40 overflow-y-auto bg-background shadow-md">
+                {schemesLoading ? <p className="p-2 text-xs text-muted-foreground">Searching…</p>
+                  : schemes.length > 0 ? schemes.slice(0, 10).map((s, i) => (
+                    <button key={i} className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 flex justify-between"
+                      onClick={() => { setSelectedScheme(s); setSchemeQuery(""); }}>
+                      <span>{s.schemeName ?? s.name}</span>
+                      {(s.schemeCode ?? s.code) && <span className="text-xs text-muted-foreground">{s.schemeCode ?? s.code}</span>}
+                    </button>
+                  )) : <p className="p-2 text-xs text-muted-foreground">No schemes found</p>}
+              </div>
+            )}
+            {selectedScheme && (
+              <div className="mt-1 flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">{selectedScheme.schemeCode ?? selectedScheme.code}</Badge>
+                <button className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-0.5"
+                  onClick={() => { setSelectedScheme(null); setSchemeQuery(""); }}>
+                  <XCircle className="h-3 w-3" /> Clear
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Amount (₹) *</Label>
+              <Input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="5000" min={1} />
+            </div>
+            <div>
+              <Label>Frequency</Label>
+              <Select value={frequency} onValueChange={setFrequency}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MONTHLY">Monthly</SelectItem>
+                  <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                  <SelectItem value="WEEKLY">Weekly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>SIP Start Date</Label>
+              <Input type="date" value={sipDate} onChange={e => setSipDate(e.target.value)} />
+            </div>
+            <div>
+              <Label>Mandate</Label>
+              <Select value={mandateId} onValueChange={setMandateId}>
+                <SelectTrigger><SelectValue placeholder="Select mandate…" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No mandate</SelectItem>
+                  {mandates.map((m, i) => (
+                    <SelectItem key={i} value={m.mandateId ?? m.id ?? `m${i}`}>
+                      {m.bankName ?? m.bank ?? "Mandate"} {m.mandateId ?? m.id} {m.status ? `(${m.status})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <Button className="w-full" onClick={handleSubmit} disabled={registerSip.isPending}>
+            {registerSip.isPending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Registering…</> : "Register SIP"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Modify SIP Dialog ────────────────────────────────────────────────────────
+function ModifySipDialog({ open, onClose, sip, pan }: { open: boolean; onClose: () => void; sip: SipRecord | null; pan: string }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [amount, setAmount] = useState("");
+  const [sipDate, setSipDate] = useState("");
+
+  // Sync pre-filled values when the sip target changes
+  useEffect(() => {
+    if (sip) {
+      setAmount(sip.amount?.toString() ?? "");
+      setSipDate(sip.nextInstallmentDate ?? sip.nextDate ?? "");
+    }
+  }, [sip]);
+
+  const modifySip = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiRequest(`/api/iris/transactions/sip/${sip?.sipRegistrationNo}/modify`, "PATCH", { body }),
+    onSuccess: () => {
+      toast({ title: "SIP modified successfully" });
+      qc.invalidateQueries({ queryKey: ["/api/iris/investors", pan, "systematic-plans"] });
+      onClose();
+    },
+    onError: (err: Error) => toast({ title: "SIP modification failed", description: err.message, variant: "destructive" }),
+  });
+
+  function handleSubmit() {
+    if (!sip?.sipRegistrationNo) { toast({ title: "SIP registration number missing", variant: "destructive" }); return; }
+    if (!amount || Number(amount) <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
+    modifySip.mutate({ pan, amount: Number(amount), sipDate: sipDate || undefined });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Modify SIP</DialogTitle>
+          <DialogDescription>{sip?.schemeName ?? sip?.scheme ?? "SIP"} — {sip?.sipRegistrationNo}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
+          <div>
+            <Label>New Amount (₹)</Label>
+            <Input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="5000" min={1} />
+          </div>
+          <div>
+            <Label>New SIP Date</Label>
+            <Input type="date" value={sipDate} onChange={e => setSipDate(e.target.value)} />
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+            <Button className="flex-1" onClick={handleSubmit} disabled={modifySip.isPending}>
+              {modifySip.isPending ? "Saving…" : "Save Changes"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Order Status Dialog ──────────────────────────────────────────────────────
+function OrderStatusDialog({ open, onClose, orderId }: { open: boolean; onClose: () => void; orderId: string }) {
+  const { data, isLoading } = useQuery<IrisApiResponse<OrderRecord>>({
+    queryKey: ["/api/iris/transactions/orders", orderId],
+    queryFn: () => irisGet<IrisApiResponse<OrderRecord>>(`/api/iris/transactions/orders/${orderId}`),
+    enabled: open && !!orderId,
+    retry: false,
+  });
+
+  const order = data?.data;
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Order Status</DialogTitle>
+          <DialogDescription>Order ID: {orderId}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 pt-2">
+          {isLoading ? <Skeleton className="h-24 w-full" /> : order ? (
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-muted-foreground">Scheme</span><span className="font-medium text-right max-w-[60%]">{order.schemeName ?? order.scheme ?? "—"}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Type</span><span>{order.orderType ?? order.type ?? order.transactionType ?? "—"}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span>{order.amount != null ? fmt(order.amount) : "—"}</span></div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Status</span>
+                <Badge variant={order.status === 'SUCCESS' ? 'default' : order.status === 'PENDING' ? 'secondary' : 'destructive'}>
+                  {order.status ?? "—"}
+                </Badge>
+              </div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Date</span><span>{order.orderDate ?? order.date ?? "—"}</span></div>
+            </div>
+          ) : <p className="text-sm text-muted-foreground">No order data found</p>}
+          <Button variant="outline" className="w-full mt-2" onClick={onClose}>Close</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Investors Tab ────────────────────────────────────────────────────────────
-type InvestorDetailTab = "portfolio" | "holdings" | "transactions" | "sips";
+type InvestorDetailTab = "portfolio" | "holdings" | "transactions" | "sips" | "orders";
 
 function InvestorsTab() {
   const [search, setSearch] = useState("");
   const [selectedPan, setSelectedPan] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<InvestorDetailTab>("portfolio");
+  const [newSipOpen, setNewSipOpen] = useState(false);
+  const [modifySipOpen, setModifySipOpen] = useState(false);
+  const [modifySipTarget, setModifySipTarget] = useState<SipRecord | null>(null);
+  const [orderStatusOpen, setOrderStatusOpen] = useState(false);
+  const [orderStatusId, setOrderStatusId] = useState("");
+  const [failedOnly, setFailedOnly] = useState(false);
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -364,6 +651,17 @@ function InvestorsTab() {
     queryKey: ["/api/iris/investors", selectedPan, "systematic-plans"],
     queryFn: () => irisGet<IrisApiResponse<{ sips?: SipRecord[] }>>(`/api/iris/investors/${selectedPan}/systematic-plans`),
     enabled: !!selectedPan && (detailTab === "sips" || detailTab === "portfolio"),
+    retry: false,
+  });
+
+  const { data: ordersData, isLoading: ordersL } = useQuery<IrisApiResponse<{ orders?: OrderRecord[] } | OrderRecord[]>>({
+    queryKey: ["/api/iris/transactions/orders", selectedPan, failedOnly],
+    queryFn: () => irisGet<IrisApiResponse<{ orders?: OrderRecord[] } | OrderRecord[]>>(
+      failedOnly
+        ? `/api/iris/transactions/failed?pan=${encodeURIComponent(selectedPan!)}`
+        : `/api/iris/transactions/orders?pan=${encodeURIComponent(selectedPan!)}`
+    ),
+    enabled: !!selectedPan && detailTab === "orders",
     retry: false,
   });
 
@@ -412,10 +710,18 @@ function InvestorsTab() {
     return [];
   }
 
+  function resolveOrders(): OrderRecord[] {
+    if (!ordersData?.data) return [];
+    if (Array.isArray(ordersData.data)) return ordersData.data;
+    if ('orders' in ordersData.data) return ordersData.data.orders ?? [];
+    return [];
+  }
+
   const investors = resolveInvestors();
   const holdings = resolveHoldings();
   const txns = resolveTxns();
   const sips = sipsData?.data?.sips ?? [];
+  const orders = resolveOrders();
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -474,7 +780,7 @@ function InvestorsTab() {
             </div>
 
             <div className="flex gap-1 flex-wrap">
-              {(["portfolio", "holdings", "transactions", "sips"] as InvestorDetailTab[]).map(tab => (
+              {(["portfolio", "holdings", "transactions", "sips", "orders"] as InvestorDetailTab[]).map(tab => (
                 <Button key={tab} size="sm" variant={detailTab === tab ? "default" : "outline"}
                   onClick={() => setDetailTab(tab)} className="capitalize text-xs">
                   {tab === "sips" ? "SIPs/STPs" : tab}
@@ -580,7 +886,12 @@ function InvestorsTab() {
 
             {detailTab === "sips" && (
               <Card>
-                <CardHeader><CardTitle className="text-sm">SIPs / STPs / SWPs</CardTitle></CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between pb-3">
+                  <CardTitle className="text-sm">SIPs / STPs / SWPs</CardTitle>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setNewSipOpen(true)}>
+                    <Activity className="h-3 w-3 mr-1" /> New SIP
+                  </Button>
+                </CardHeader>
                 <CardContent className="p-0">
                   {sipsL ? (
                     <div className="p-4 space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
@@ -607,6 +918,10 @@ function InvestorsTab() {
                               {s.status === 'ACTIVE' && (
                                 <div className="flex gap-1.5 mt-2">
                                   <Button size="sm" variant="outline" className="h-6 text-[11px] px-2"
+                                    onClick={() => { setModifySipTarget(s); setModifySipOpen(true); }}>
+                                    Modify
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="h-6 text-[11px] px-2"
                                     disabled={sipPause.isPending}
                                     onClick={() => sipPause.mutate({ ...sipPayloadBase, action: "pause" })}>
                                     Pause
@@ -628,6 +943,49 @@ function InvestorsTab() {
                 </CardContent>
               </Card>
             )}
+
+            {detailTab === "orders" && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-3">
+                  <CardTitle className="text-sm">Order Ledger</CardTitle>
+                  <Button size="sm" variant={failedOnly ? "destructive" : "outline"} className="h-7 text-xs"
+                    onClick={() => setFailedOnly(f => !f)}>
+                    {failedOnly ? "Showing: Failed" : "Show Failed Only"}
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {ordersL ? (
+                    <div className="p-4 space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+                  ) : (
+                    <ScrollArea className="h-[320px]">
+                      <div className="divide-y">
+                        {orders.map((o, i) => (
+                          <div key={i} className="p-3">
+                            <div className="flex justify-between items-start">
+                              <p className="text-sm font-medium truncate max-w-[55%]">{o.schemeName ?? o.scheme ?? "—"}</p>
+                              <div className="flex items-center gap-1.5">
+                                <Badge variant={o.status === 'SUCCESS' ? 'default' : o.status === 'PENDING' ? 'secondary' : 'destructive'} className="text-[10px] h-4">
+                                  {o.status ?? "—"}
+                                </Badge>
+                                <Button size="sm" variant="outline" className="h-6 text-[11px] px-2"
+                                  onClick={() => { setOrderStatusId(o.orderId ?? o.id ?? ""); setOrderStatusOpen(true); }}>
+                                  View
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                              <span>{o.orderType ?? o.type ?? o.transactionType ?? "Order"} · {o.orderDate ?? o.date ?? "—"}</span>
+                              <span className="font-medium text-foreground">{o.amount != null ? fmt(o.amount) : "—"}</span>
+                            </div>
+                          </div>
+                        ))}
+                        {!orders.length && <p className="p-4 text-sm text-muted-foreground">{failedOnly ? "No failed transactions found" : "No orders found"}</p>}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         ) : (
           <Card className="flex items-center justify-center min-h-[300px]">
@@ -635,6 +993,10 @@ function InvestorsTab() {
           </Card>
         )}
       </div>
+
+      <NewSipDialog open={newSipOpen} onClose={() => setNewSipOpen(false)} prefillPan={selectedPan ?? ""} />
+      <ModifySipDialog open={modifySipOpen} onClose={() => setModifySipOpen(false)} sip={modifySipTarget} pan={selectedPan ?? ""} />
+      <OrderStatusDialog open={orderStatusOpen} onClose={() => setOrderStatusOpen(false)} orderId={orderStatusId} />
     </div>
   );
 }
