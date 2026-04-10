@@ -703,6 +703,31 @@ export function registerIrisKfintechRoutes(app: Express): void {
     await wrap(res, () => irisKfintechService.cancelNfoApplication(req.params.applicationId));
   });
 
+  // ─── Analytics: Tax Harvesting ────────────────────────────────────────────────
+  app.get('/api/iris/portfolio/tax-harvest/:pan', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getTaxHarvestingOpportunities(req.params.pan));
+  });
+
+  // ─── Analytics: SIP XIRR ──────────────────────────────────────────────────────
+  app.get('/api/iris/analytics/sip-returns/:pan', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSipXirr(req.params.pan, req.query as Record<string, string>));
+  });
+
+  // ─── Scheme Intelligence: Ratings ─────────────────────────────────────────────
+  app.get('/api/iris/schemes/:schemeCode/ratings', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSchemeRatings(req.params.schemeCode));
+  });
+
+  // ─── Scheme Intelligence: Fund Manager ────────────────────────────────────────
+  app.get('/api/iris/schemes/:schemeCode/fund-manager', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSchemeFundManager(req.params.schemeCode));
+  });
+
+  // ─── Scheme Intelligence: Benchmark Comparison ───────────────────────────────
+  app.get('/api/iris/schemes/:schemeCode/benchmark', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSchemeBenchmarkComparison(req.params.schemeCode, req.query as Record<string, string>));
+  });
+
   // ─── External Portfolio / CAS Import ─────────────────────────────────────────
   // Fetch live CAS data by PAN directly from KFintech registry — no PDF upload required.
   app.get('/api/iris/portfolio/cas-fetch/:pan', requireAuth, requireAgent, async (req, res) => {

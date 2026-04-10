@@ -476,6 +476,33 @@ class IrisKfintechService {
   async getNfoApplications(pan: string) { return this.call(`/sif/nfo/applications?pan=${encodeURIComponent(pan)}`); }
   async cancelNfoApplication(applicationId: string) { return this.call(`/sif/nfo/applications/${applicationId}/cancel`, 'POST'); }
 
+  // ─── Analytics: Tax Harvesting ────────────────────────────────────────────────
+  async getTaxHarvestingOpportunities(pan: string) {
+    return this.call(`/portfolio/tax-harvest/${encodeURIComponent(pan)}`);
+  }
+
+  // ─── Analytics: SIP XIRR ──────────────────────────────────────────────────────
+  async getSipXirr(pan: string, params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/analytics/sip-returns/${encodeURIComponent(pan)}${qs}`);
+  }
+
+  // ─── Scheme Intelligence: Ratings ─────────────────────────────────────────────
+  async getSchemeRatings(schemeCode: string) {
+    return this.call(`/sif/schemes/${encodeURIComponent(schemeCode)}/ratings`);
+  }
+
+  // ─── Scheme Intelligence: Fund Manager ────────────────────────────────────────
+  async getSchemeFundManager(schemeCode: string) {
+    return this.call(`/sif/schemes/${encodeURIComponent(schemeCode)}/fund-manager`);
+  }
+
+  // ─── Scheme Intelligence: Benchmark Comparison ───────────────────────────────
+  async getSchemeBenchmarkComparison(schemeCode: string, params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/sif/schemes/${encodeURIComponent(schemeCode)}/benchmark${qs}`);
+  }
+
   // ─── External Portfolio / CAS Import ─────────────────────────────────────────
   // Fetches structured CAS data direct from KFintech registry by PAN — no PDF upload needed.
   async fetchCasFromRegistry(pan: string, params?: Record<string, string>) {
