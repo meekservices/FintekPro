@@ -497,6 +497,24 @@ export function registerIrisKfintechRoutes(app: Express): void {
     await wrap(res, () => irisKfintechService.listUpiMandates(req.query.pan as string));
   });
 
+  // ─── Physical NACH Mandate ────────────────────────────────────────────────────
+  app.post('/api/iris/mandates/physical', requireAuth, requireAgent, async (req, res) => {
+    const { pan, bankName, accountNumber, ifscCode, fileContent } = req.body as Record<string, string>;
+    if (!pan || !bankName || !accountNumber || !ifscCode || !fileContent) {
+      res.status(400).json({ success: false, message: 'pan, bankName, accountNumber, ifscCode, and fileContent are required' });
+      return;
+    }
+    await wrap(res, () => irisKfintechService.uploadPhysicalMandate(req.body));
+  });
+  app.get('/api/iris/mandates/physical', requireAuth, requireAgent, async (req, res) => {
+    const pan = req.query.pan as string;
+    if (!pan) {
+      res.status(400).json({ success: false, message: 'pan query parameter is required' });
+      return;
+    }
+    await wrap(res, () => irisKfintechService.listPhysicalMandates(pan));
+  });
+
   // ─── Phase 1: Folio Management ───────────────────────────────────────────────
   app.get('/api/iris/investors/:pan/folios', requireAuth, async (req, res) => {
     await wrap(res, () => irisKfintechService.listFolios(req.params.pan));

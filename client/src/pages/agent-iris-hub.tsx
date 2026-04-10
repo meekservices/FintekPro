@@ -18,7 +18,7 @@ import {
   BarChart3, RefreshCw, Search, ExternalLink, ArrowUpRight,
   ChevronRight, AlertCircle, CheckCircle2, Clock, Download, KeyRound, XCircle,
   FolderOpen, Inbox, Unlink, Link2, Send, CloudDownload, Calculator, Calendar,
-  AlertTriangle, Banknote, PiggyBank
+  AlertTriangle, Banknote, PiggyBank, CreditCard
 } from "lucide-react";
 
 // ─── IRIS API types ───────────────────────────────────────────────────────────
@@ -2537,6 +2537,611 @@ function CasImportTab() {
   );
 }
 
+// ─── Mandates Tab ─────────────────────────────────────────────────────────────
+
+interface EnachMandate {
+  mandateId?: string;
+  id?: string;
+  bankName?: string;
+  bank?: string;
+  accountNumber?: string;
+  accountNo?: string;
+  ifscCode?: string;
+  ifsc?: string;
+  maxAmount?: number;
+  amount?: number;
+  frequency?: string;
+  status?: string;
+}
+
+interface UpiMandate {
+  umrn?: string;
+  id?: string;
+  upiId?: string;
+  vpa?: string;
+  maxAmount?: number;
+  amount?: number;
+  frequency?: string;
+  status?: string;
+}
+
+interface PhysicalMandate {
+  mandateId?: string;
+  id?: string;
+  bankName?: string;
+  bank?: string;
+  accountNumber?: string;
+  status?: string;
+  uploadedAt?: string;
+  createdAt?: string;
+}
+
+function mandateStatusVariant(status?: string): "default" | "secondary" | "destructive" | "outline" {
+  if (!status) return "outline";
+  const s = status.toUpperCase();
+  if (s === "ACTIVE" || s === "APPROVED") return "default";
+  if (s === "PENDING" || s === "REGISTERED") return "secondary";
+  if (s === "CANCELLED" || s === "REJECTED" || s === "FAILED") return "destructive";
+  return "outline";
+}
+
+function MandatesTab() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  // ── Shared PAN search ──────────────────────────────────────────────────────
+  const [pan, setPan] = useState("");
+  const [submittedPan, setSubmittedPan] = useState("");
+
+  // ── eNACH ─────────────────────────────────────────────────────────────────
+  const [createEnachOpen, setCreateEnachOpen] = useState(false);
+  const [enachBank, setEnachBank] = useState("");
+  const [enachIfsc, setEnachIfsc] = useState("");
+  const [enachAccount, setEnachAccount] = useState("");
+  const [enachAmount, setEnachAmount] = useState("");
+  const [enachFreq, setEnachFreq] = useState("MONTHLY");
+  const [cancelEnachId, setCancelEnachId] = useState<string | null>(null);
+
+  const enachQuery = useQuery<{ success: boolean; data: { mandates?: EnachMandate[] } | EnachMandate[] }>({
+    queryKey: ["/api/iris/enach", submittedPan],
+    queryFn: () => irisGet(`/api/iris/enach?pan=${encodeURIComponent(submittedPan)}`),
+    enabled: !!submittedPan,
+    retry: false,
+  });
+
+  const createEnach = useMutation({
+    mutationFn: (body: Record<string, unknown>) => apiRequest("/api/iris/enach/create", "POST", { body }),
+    onSuccess: () => {
+      toast({ title: "eNACH mandate created successfully" });
+      setCreateEnachOpen(false);
+      setEnachBank(""); setEnachIfsc(""); setEnachAccount(""); setEnachAmount("");
+      qc.invalidateQueries({ queryKey: ["/api/iris/enach", submittedPan] });
+    },
+    onError: (e: Error) => toast({ title: "Failed to create eNACH", description: e.message, variant: "destructive" }),
+  });
+
+  const cancelEnach = useMutation({
+    mutationFn: (mandateId: string) => apiRequest(`/api/iris/enach/${mandateId}/cancel`, "POST"),
+    onSuccess: () => {
+      toast({ title: "eNACH mandate cancelled" });
+      setCancelEnachId(null);
+      qc.invalidateQueries({ queryKey: ["/api/iris/enach", submittedPan] });
+    },
+    onError: (e: Error) => toast({ title: "Failed to cancel eNACH", description: e.message, variant: "destructive" }),
+  });
+
+  const regenEnachLink = useMutation({
+    mutationFn: (mandateId: string) => apiRequest(`/api/iris/enach/${mandateId}/regenerate-link`, "POST"),
+    onSuccess: () => toast({ title: "eSign link regenerated and sent" }),
+    onError: (e: Error) => toast({ title: "Failed to regenerate link", description: e.message, variant: "destructive" }),
+  });
+
+  function resolveEnachMandates(): EnachMandate[] {
+    const d = enachQuery.data?.data;
+    if (!d) return [];
+    if (Array.isArray(d)) return d;
+    return d.mandates ?? [];
+  }
+
+  // ── UPI Autopay ───────────────────────────────────────────────────────────
+  const [createUpiOpen, setCreateUpiOpen] = useState(false);
+  const [upiId, setUpiId] = useState("");
+  const [upiAmount, setUpiAmount] = useState("");
+  const [upiFreq, setUpiFreq] = useState("MONTHLY");
+  const [cancelUpiUmrn, setCancelUpiUmrn] = useState<string | null>(null);
+
+  const upiQuery = useQuery<{ success: boolean; data: { mandates?: UpiMandate[] } | UpiMandate[] }>({
+    queryKey: ["/api/iris/mandates/upi", submittedPan],
+    queryFn: () => irisGet(`/api/iris/mandates/upi?pan=${encodeURIComponent(submittedPan)}`),
+    enabled: !!submittedPan,
+    retry: false,
+  });
+
+  const createUpi = useMutation({
+    mutationFn: (body: Record<string, unknown>) => apiRequest("/api/iris/mandates/upi", "POST", { body }),
+    onSuccess: () => {
+      toast({ title: "UPI autopay mandate created" });
+      setCreateUpiOpen(false);
+      setUpiId(""); setUpiAmount("");
+      qc.invalidateQueries({ queryKey: ["/api/iris/mandates/upi", submittedPan] });
+    },
+    onError: (e: Error) => toast({ title: "Failed to create UPI mandate", description: e.message, variant: "destructive" }),
+  });
+
+  const cancelUpi = useMutation({
+    mutationFn: (umrn: string) => apiRequest(`/api/iris/mandates/upi/${umrn}/cancel`, "POST"),
+    onSuccess: () => {
+      toast({ title: "UPI mandate cancelled" });
+      setCancelUpiUmrn(null);
+      qc.invalidateQueries({ queryKey: ["/api/iris/mandates/upi", submittedPan] });
+    },
+    onError: (e: Error) => toast({ title: "Failed to cancel UPI mandate", description: e.message, variant: "destructive" }),
+  });
+
+  function resolveUpiMandates(): UpiMandate[] {
+    const d = upiQuery.data?.data;
+    if (!d) return [];
+    if (Array.isArray(d)) return d;
+    return d.mandates ?? [];
+  }
+
+  // ── Physical NACH ─────────────────────────────────────────────────────────
+  const [physFile, setPhysFile] = useState<File | null>(null);
+  const [physBank, setPhysBank] = useState("");
+  const [physAccount, setPhysAccount] = useState("");
+  const [physIfsc, setPhysIfsc] = useState("");
+  const [physDragging, setPhysDragging] = useState(false);
+
+  const physQuery = useQuery<{ success: boolean; data: { mandates?: PhysicalMandate[] } | PhysicalMandate[] }>({
+    queryKey: ["/api/iris/mandates/physical", submittedPan],
+    queryFn: () => irisGet(`/api/iris/mandates/physical?pan=${encodeURIComponent(submittedPan)}`),
+    enabled: !!submittedPan,
+    retry: false,
+  });
+
+  const uploadPhys = useMutation({
+    mutationFn: async () => {
+      if (!physFile) throw new Error("No file selected");
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(",")[1] ?? result);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(physFile);
+      });
+      return apiRequest("/api/iris/mandates/physical", "POST", {
+        body: {
+          pan: submittedPan,
+          bankName: physBank,
+          accountNumber: physAccount,
+          ifscCode: physIfsc,
+          fileName: physFile.name,
+          fileContent: base64,
+          mimeType: physFile.type,
+        },
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Physical NACH mandate uploaded" });
+      setPhysFile(null); setPhysBank(""); setPhysAccount(""); setPhysIfsc("");
+      qc.invalidateQueries({ queryKey: ["/api/iris/mandates/physical", submittedPan] });
+    },
+    onError: (e: Error) => toast({ title: "Upload failed", description: e.message, variant: "destructive" }),
+  });
+
+  function resolvePhysMandates(): PhysicalMandate[] {
+    const d = physQuery.data?.data;
+    if (!d) return [];
+    if (Array.isArray(d)) return d;
+    return d.mandates ?? [];
+  }
+
+  const enachMandates = resolveEnachMandates();
+  const upiMandates = resolveUpiMandates();
+  const physMandates = resolvePhysMandates();
+
+  return (
+    <div className="space-y-6">
+      {/* PAN Search */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Mandate Management</CardTitle>
+          <CardDescription>Enter investor PAN to view and manage all mandates (eNACH, UPI Autopay, Physical NACH)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <div className="relative max-w-xs w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Investor PAN (e.g. ABCDE1234F)"
+                className="pl-9"
+                value={pan}
+                onChange={e => setPan(e.target.value.toUpperCase())}
+                maxLength={10}
+              />
+            </div>
+            <Button
+              onClick={() => setSubmittedPan(pan.trim())}
+              disabled={pan.length < 10}
+            >
+              <Search className="h-4 w-4 mr-1" /> Search
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── eNACH Section ─────────────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+          <div>
+            <CardTitle className="text-sm font-semibold">eNACH Mandates</CardTitle>
+            <CardDescription>Electronic NACH bank mandates for SIP auto-debit</CardDescription>
+          </div>
+          {submittedPan && (
+            <Button size="sm" onClick={() => setCreateEnachOpen(true)}>
+              + Create eNACH
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          {!submittedPan ? (
+            <p className="text-sm text-muted-foreground">Enter PAN above to load mandates</p>
+          ) : enachQuery.isLoading ? (
+            <div className="space-y-2">{[1, 2].map(i => <Skeleton key={i} className="h-14 w-full" />)}</div>
+          ) : enachMandates.length > 0 ? (
+            <div className="divide-y rounded-md border">
+              {enachMandates.map((m, i) => {
+                const id = m.mandateId ?? m.id ?? "";
+                return (
+                  <div key={i} className="p-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium font-mono">{id || "—"}</span>
+                        <Badge variant={mandateStatusVariant(m.status)} className="text-[10px] h-4">
+                          {m.status ?? "Unknown"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {m.bankName ?? m.bank ?? "—"} · {m.accountNumber ?? m.accountNo ?? "—"} · {m.ifscCode ?? m.ifsc ?? "—"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Max: {m.maxAmount != null ? fmt(m.maxAmount) : m.amount != null ? fmt(m.amount) : "—"} · {m.frequency ?? "—"}
+                      </p>
+                    </div>
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      {m.status?.toUpperCase() === "PENDING" && id && (
+                        <Button size="sm" variant="outline" className="h-7 text-xs px-2"
+                          disabled={regenEnachLink.isPending}
+                          onClick={() => regenEnachLink.mutate(id)}>
+                          Resend Link
+                        </Button>
+                      )}
+                      {(m.status?.toUpperCase() === "ACTIVE" || m.status?.toUpperCase() === "PENDING") && id && (
+                        <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-destructive hover:text-destructive"
+                          onClick={() => setCancelEnachId(id)}>
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {enachQuery.isError ? "Failed to load eNACH mandates" : `No eNACH mandates found for ${submittedPan}`}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── UPI Autopay Section ───────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+          <div>
+            <CardTitle className="text-sm font-semibold">UPI Autopay Mandates</CardTitle>
+            <CardDescription>UPI-based recurring payment mandates (UMRN)</CardDescription>
+          </div>
+          {submittedPan && (
+            <Button size="sm" onClick={() => setCreateUpiOpen(true)}>
+              + Create UPI Mandate
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          {!submittedPan ? (
+            <p className="text-sm text-muted-foreground">Enter PAN above to load mandates</p>
+          ) : upiQuery.isLoading ? (
+            <div className="space-y-2">{[1, 2].map(i => <Skeleton key={i} className="h-14 w-full" />)}</div>
+          ) : upiMandates.length > 0 ? (
+            <div className="divide-y rounded-md border">
+              {upiMandates.map((m, i) => {
+                const umrn = m.umrn ?? m.id ?? "";
+                return (
+                  <div key={i} className="p-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium font-mono">{umrn || "—"}</span>
+                        <Badge variant={mandateStatusVariant(m.status)} className="text-[10px] h-4">
+                          {m.status ?? "Unknown"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        UPI: {m.upiId ?? m.vpa ?? "—"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Max: {m.maxAmount != null ? fmt(m.maxAmount) : m.amount != null ? fmt(m.amount) : "—"} · {m.frequency ?? "—"}
+                      </p>
+                    </div>
+                    {(m.status?.toUpperCase() === "ACTIVE" || m.status?.toUpperCase() === "PENDING") && umrn && (
+                      <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-destructive hover:text-destructive flex-shrink-0"
+                        onClick={() => setCancelUpiUmrn(umrn)}>
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {upiQuery.isError ? "Failed to load UPI mandates" : `No UPI mandates found for ${submittedPan}`}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Physical NACH Section ─────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Physical NACH Upload</CardTitle>
+          <CardDescription>Upload a scanned NACH mandate form (PDF or image)</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!submittedPan ? (
+            <p className="text-sm text-muted-foreground">Enter PAN above to upload physical NACH</p>
+          ) : (
+            <>
+              <div
+                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${physDragging ? "border-primary bg-primary/5" : "border-muted-foreground/30 hover:border-primary/50"}`}
+                onDragOver={e => { e.preventDefault(); setPhysDragging(true); }}
+                onDragLeave={() => setPhysDragging(false)}
+                onDrop={e => {
+                  e.preventDefault();
+                  setPhysDragging(false);
+                  const file = e.dataTransfer.files[0];
+                  if (file) {
+                    if (file.size > 5 * 1024 * 1024) { toast({ title: "File too large", description: "Maximum allowed size is 5 MB", variant: "destructive" }); return; }
+                    setPhysFile(file);
+                  }
+                }}
+                onClick={() => document.getElementById("phys-file-input")?.click()}
+              >
+                <input
+                  id="phys-file-input"
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.tiff"
+                  className="hidden"
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      if (f.size > 5 * 1024 * 1024) { toast({ title: "File too large", description: "Maximum allowed size is 5 MB", variant: "destructive" }); return; }
+                      setPhysFile(f);
+                    }
+                  }}
+                />
+                {physFile ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    <span className="text-sm font-medium">{physFile.name}</span>
+                    <span className="text-xs text-muted-foreground">({(physFile.size / 1024).toFixed(1)} KB)</span>
+                  </div>
+                ) : (
+                  <div>
+                    <Download className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Drag & drop or click to select scanned NACH form</p>
+                    <p className="text-xs text-muted-foreground mt-1">PDF, PNG, JPG, TIFF supported</p>
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <Label>Bank Name *</Label>
+                  <Input value={physBank} onChange={e => setPhysBank(e.target.value)} placeholder="HDFC Bank" />
+                </div>
+                <div>
+                  <Label>Account Number *</Label>
+                  <Input value={physAccount} onChange={e => setPhysAccount(e.target.value)} placeholder="XXXXXXXX1234" />
+                </div>
+                <div>
+                  <Label>IFSC Code *</Label>
+                  <Input value={physIfsc} onChange={e => setPhysIfsc(e.target.value.toUpperCase())} placeholder="HDFC0001234" maxLength={11} />
+                </div>
+              </div>
+              <Button
+                onClick={() => uploadPhys.mutate()}
+                disabled={uploadPhys.isPending || !physFile || !physBank || !physAccount || !physIfsc}
+              >
+                {uploadPhys.isPending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Uploading…</> : "Upload Physical NACH"}
+              </Button>
+
+              {/* Previously uploaded physical mandates */}
+              {physQuery.isLoading ? (
+                <div className="space-y-2 mt-2">{[1].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+              ) : physMandates.length > 0 ? (
+                <div className="mt-2">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Previously Uploaded</p>
+                  <div className="divide-y rounded-md border">
+                    {physMandates.map((m, i) => (
+                      <div key={i} className="p-3 flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono">{m.mandateId ?? m.id ?? "—"}</span>
+                            <Badge variant={mandateStatusVariant(m.status)} className="text-[10px] h-4">
+                              {m.status ?? "Unknown"}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {m.bankName ?? m.bank ?? "—"} · {m.accountNumber ?? "—"} · {m.uploadedAt ?? m.createdAt ?? ""}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Create eNACH Dialog ───────────────────────────────────────────────── */}
+      <Dialog open={createEnachOpen} onOpenChange={setCreateEnachOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create eNACH Mandate</DialogTitle>
+            <DialogDescription>Register a new electronic NACH mandate for {submittedPan}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center gap-2 p-2 rounded bg-muted/50 text-sm">
+              <span className="text-muted-foreground text-xs">Investor PAN:</span>
+              <span className="font-mono font-medium">{submittedPan}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <Label>Bank Name *</Label>
+                <Input value={enachBank} onChange={e => setEnachBank(e.target.value)} placeholder="HDFC Bank" />
+              </div>
+              <div>
+                <Label>Account Number *</Label>
+                <Input value={enachAccount} onChange={e => setEnachAccount(e.target.value)} placeholder="XXXXXXXXXX1234" />
+              </div>
+              <div>
+                <Label>IFSC Code *</Label>
+                <Input value={enachIfsc} onChange={e => setEnachIfsc(e.target.value.toUpperCase())} placeholder="HDFC0001234" maxLength={11} />
+              </div>
+              <div>
+                <Label>Maximum Amount (₹) *</Label>
+                <Input type="number" value={enachAmount} onChange={e => setEnachAmount(e.target.value)} placeholder="25000" min={1} />
+              </div>
+              <div>
+                <Label>Frequency</Label>
+                <Select value={enachFreq} onValueChange={setEnachFreq}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MONTHLY">Monthly</SelectItem>
+                    <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                    <SelectItem value="HALF_YEARLY">Half-Yearly</SelectItem>
+                    <SelectItem value="YEARLY">Yearly</SelectItem>
+                    <SelectItem value="AS_AND_WHEN_PRESENTED">As Presented</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => createEnach.mutate({ pan: submittedPan, bankName: enachBank, accountNumber: enachAccount, ifscCode: enachIfsc, maxAmount: Number(enachAmount), frequency: enachFreq })}
+              disabled={createEnach.isPending || !enachBank || !enachAccount || !enachIfsc || !enachAmount}
+            >
+              {createEnach.isPending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Creating…</> : "Create eNACH Mandate"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Cancel eNACH Confirmation Dialog ─────────────────────────────────── */}
+      <Dialog open={!!cancelEnachId} onOpenChange={v => { if (!v) setCancelEnachId(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Cancel eNACH Mandate</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel mandate <span className="font-mono font-medium">{cancelEnachId}</span>?
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setCancelEnachId(null)}>Keep Mandate</Button>
+            <Button variant="destructive" className="flex-1"
+              disabled={cancelEnach.isPending}
+              onClick={() => cancelEnachId && cancelEnach.mutate(cancelEnachId)}>
+              {cancelEnach.isPending ? "Cancelling…" : "Yes, Cancel"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Create UPI Mandate Dialog ──────────────────────────────────────────── */}
+      <Dialog open={createUpiOpen} onOpenChange={setCreateUpiOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create UPI Autopay Mandate</DialogTitle>
+            <DialogDescription>Register a new UPI autopay mandate for {submittedPan}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center gap-2 p-2 rounded bg-muted/50 text-sm">
+              <span className="text-muted-foreground text-xs">Investor PAN:</span>
+              <span className="font-mono font-medium">{submittedPan}</span>
+            </div>
+            <div>
+              <Label>UPI ID (VPA) *</Label>
+              <Input value={upiId} onChange={e => setUpiId(e.target.value)} placeholder="investor@upi" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Maximum Amount (₹) *</Label>
+                <Input type="number" value={upiAmount} onChange={e => setUpiAmount(e.target.value)} placeholder="25000" min={1} />
+              </div>
+              <div>
+                <Label>Frequency</Label>
+                <Select value={upiFreq} onValueChange={setUpiFreq}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MONTHLY">Monthly</SelectItem>
+                    <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                    <SelectItem value="HALF_YEARLY">Half-Yearly</SelectItem>
+                    <SelectItem value="YEARLY">Yearly</SelectItem>
+                    <SelectItem value="AS_AND_WHEN_PRESENTED">As Presented</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => createUpi.mutate({ pan: submittedPan, upiId, maxAmount: Number(upiAmount), frequency: upiFreq })}
+              disabled={createUpi.isPending || !upiId || !upiAmount}
+            >
+              {createUpi.isPending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Creating…</> : "Create UPI Mandate"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Cancel UPI Mandate Confirmation Dialog ────────────────────────────── */}
+      <Dialog open={!!cancelUpiUmrn} onOpenChange={v => { if (!v) setCancelUpiUmrn(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Cancel UPI Mandate</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel UPI mandate <span className="font-mono font-medium">{cancelUpiUmrn}</span>?
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setCancelUpiUmrn(null)}>Keep Mandate</Button>
+            <Button variant="destructive" className="flex-1"
+              disabled={cancelUpi.isPending}
+              onClick={() => cancelUpiUmrn && cancelUpi.mutate(cancelUpiUmrn)}>
+              {cancelUpi.isPending ? "Cancelling…" : "Yes, Cancel"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ─── Types used by CasImportTab ───────────────────────────────────────────────
 interface CasHolding {
   schemeName?: string;
@@ -2595,6 +3200,7 @@ export default function AgentIrisHub() {
           <TabsTrigger value="empanelment"><Shield className="h-4 w-4 mr-1 inline" />Empanelment</TabsTrigger>
           <TabsTrigger value="investors"><Users className="h-4 w-4 mr-1 inline" />Investors</TabsTrigger>
           <TabsTrigger value="transact"><TrendingUp className="h-4 w-4 mr-1 inline" />Transact</TabsTrigger>
+          <TabsTrigger value="mandates"><CreditCard className="h-4 w-4 mr-1 inline" />Mandates</TabsTrigger>
           <TabsTrigger value="products"><FileText className="h-4 w-4 mr-1 inline" />Products & FD</TabsTrigger>
           <TabsTrigger value="nps"><PiggyBank className="h-4 w-4 mr-1 inline" />NPS</TabsTrigger>
           <TabsTrigger value="reports"><Download className="h-4 w-4 mr-1 inline" />Reports</TabsTrigger>
@@ -2605,6 +3211,7 @@ export default function AgentIrisHub() {
         <TabsContent value="empanelment" className="mt-4"><EmpanelmentTab /></TabsContent>
         <TabsContent value="investors" className="mt-4"><InvestorsTab /></TabsContent>
         <TabsContent value="transact" className="mt-4"><TransactTab /></TabsContent>
+        <TabsContent value="mandates" className="mt-4"><MandatesTab /></TabsContent>
         <TabsContent value="products" className="mt-4"><ProductsTab /></TabsContent>
         <TabsContent value="nps" className="mt-4"><NpsTab /></TabsContent>
         <TabsContent value="reports" className="mt-4"><ReportsTab /></TabsContent>

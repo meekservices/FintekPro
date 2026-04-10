@@ -334,6 +334,10 @@ class IrisKfintechService {
   async cancelUpiMandate(umrn: string) { return this.call(`/sif/mandates/upi/${umrn}/cancel`, 'POST'); }
   async listUpiMandates(pan: string) { return this.call(`/sif/mandates/upi?pan=${encodeURIComponent(pan)}`); }
 
+  // ─── Physical NACH Mandate ────────────────────────────────────────────────────
+  async uploadPhysicalMandate(body: any) { return this.call('/sif/mandates/physical', 'POST', body); }
+  async listPhysicalMandates(pan: string) { return this.call(`/sif/mandates/physical?pan=${encodeURIComponent(pan)}`); }
+
   // ─── Phase 1: Folio Management ───────────────────────────────────────────────
   async listFolios(pan: string) { return this.call(`/user/investors/${pan}/folios`); }
   async getFolioDetails(pan: string, folioNo: string) { return this.call(`/user/investors/${pan}/folios/${folioNo}`); }
