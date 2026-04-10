@@ -438,6 +438,10 @@ export function registerIrisKfintechRoutes(app: Express): void {
     await wrap(res, () => irisKfintechService.getSubBrokerDetails(req.params.euinCode));
   });
 
+  app.get('/api/iris/hierarchy/sub-brokers/:euinCode/aum', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSubBrokerAum(req.params.euinCode, req.query as Record<string, string>));
+  });
+
   app.post('/api/iris/hierarchy/employees', requireAuth, requireAdmin, async (req, res) => {
     await wrap(res, () => irisKfintechService.addEmployee(req.body as Record<string, unknown>));
   });
