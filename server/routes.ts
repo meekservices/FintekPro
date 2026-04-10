@@ -770,6 +770,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   registerInvestmentIdeasRoutes(app);
   registerKYCAdminSupportRoutes(app);
   registerKYCWizardRoutes(app);
+  registerKycV2ExtensionRoutes(app);
   registerAgentProspectAcquisitionRoutes(app);
   registerUserProfileKYCRoutes(app);
   registerFinancialGoalsRoutes(app);
