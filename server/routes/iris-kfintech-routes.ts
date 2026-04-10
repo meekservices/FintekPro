@@ -342,7 +342,65 @@ export function registerIrisKfintechRoutes(app: Express): void {
     await wrap(res, () => irisKfintechService.placeNpsContribution(req.body as Record<string, unknown>));
   });
 
-  // Non-Financial Transactions
+  // Non-Financial Transactions — GET (read current values)
+  app.get('/api/iris/non-financial/:pan/nominee', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getNomineeDetails(req.params.pan));
+  });
+
+  app.get('/api/iris/non-financial/:pan/bank', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getBankDetails(req.params.pan));
+  });
+
+  app.get('/api/iris/non-financial/:pan/fatca', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getFatcaDetails(req.params.pan));
+  });
+
+  // Dividend History
+  app.get('/api/iris/investors/:pan/dividend-history', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getDividendHistory(req.params.pan, req.query as Record<string, string>));
+  });
+
+  // eKYC Status
+  app.get('/api/iris/investors/:pan/ekyc-status', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getEkycStatus(req.params.pan));
+  });
+
+  // Demat Accounts
+  app.get('/api/iris/investors/:pan/demat-accounts', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getDematAccounts(req.params.pan));
+  });
+
+  app.post('/api/iris/investors/:pan/demat-accounts', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.linkDematAccount(req.params.pan, req.body as Record<string, unknown>));
+  });
+
+  // Investor Documents
+  app.get('/api/iris/investors/:pan/documents', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getInvestorDocuments(req.params.pan));
+  });
+
+  app.post('/api/iris/investors/:pan/documents', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.uploadInvestorDocument(req.params.pan, req.body as Record<string, unknown>));
+  });
+
+  // Financial Goals
+  app.get('/api/iris/investors/:pan/goals', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getGoals(req.params.pan));
+  });
+
+  app.post('/api/iris/investors/:pan/goals', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.createGoal(req.params.pan, req.body as Record<string, unknown>));
+  });
+
+  app.put('/api/iris/investors/:pan/goals/:goalId', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.updateGoal(req.params.pan, req.params.goalId, req.body as Record<string, unknown>));
+  });
+
+  app.delete('/api/iris/investors/:pan/goals/:goalId', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.deleteGoal(req.params.pan, req.params.goalId));
+  });
+
+  // Non-Financial Transactions — POST (write)
   app.post('/api/iris/non-financial/:pan/nominee', requireAuth, requireAgent, async (req, res) => {
     await wrap(res, () => irisKfintechService.updateNominee(req.params.pan, req.body as Record<string, unknown>));
   });

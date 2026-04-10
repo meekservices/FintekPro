@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,8 +20,9 @@ import {
   BarChart3, RefreshCw, Search, ExternalLink, ArrowUpRight,
   ChevronRight, AlertCircle, CheckCircle2, Clock, Download, KeyRound, XCircle,
   FolderOpen, Inbox, Unlink, Link2, Send, CloudDownload, Calculator, Calendar,
-  AlertTriangle, Banknote, PiggyBank, CreditCard,
-  LineChart, PlusCircle, Trash2, Star, User, BookOpen, Layers,
+  AlertTriangle, Banknote, PiggyBank, CreditCard, Settings, Target,
+  Upload, Trash2, Pencil, Plus, Fingerprint,
+  LineChart, PlusCircle, Star, User, BookOpen, Layers,
   ArrowLeftRight, Repeat, MinusCircle
 } from "lucide-react";
 
@@ -600,8 +602,843 @@ function OrderStatusDialog({ open, onClose, orderId }: { open: boolean; onClose:
   );
 }
 
+// ─── Non-Financial Manage Dialog ──────────────────────────────────────────────
+interface ManagePanelProps { pan: string; onClose: () => void }
+
+function ManageInvestorPanel({ pan, onClose }: ManagePanelProps) {
+  const [tab, setTab] = useState<"nominee" | "bank" | "contact" | "fatca" | "idcw" | "mandate">("nominee");
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const nomineeQ = useQuery<IrisApiResponse<Record<string, unknown>>>({
+    queryKey: ["/api/iris/non-financial", pan, "nominee"],
+    queryFn: () => irisGet(`/api/iris/non-financial/${pan}/nominee`),
+    retry: false,
+  });
+  const bankQ = useQuery<IrisApiResponse<Record<string, unknown>>>({
+    queryKey: ["/api/iris/non-financial", pan, "bank"],
+    queryFn: () => irisGet(`/api/iris/non-financial/${pan}/bank`),
+    retry: false,
+  });
+  const fatcaQ = useQuery<IrisApiResponse<Record<string, unknown>>>({
+    queryKey: ["/api/iris/non-financial", pan, "fatca"],
+    queryFn: () => irisGet(`/api/iris/non-financial/${pan}/fatca`),
+    retry: false,
+  });
+
+  const [nomineeForm, setNomineeForm] = useState({ nomineeName: "", nomineeRelation: "", nomineePercentage: "100" });
+  const [bankForm, setBankForm] = useState({ accountNumber: "", ifscCode: "", accountType: "SAVINGS", bankName: "" });
+  const [contactForm, setContactForm] = useState({ email: "", mobile: "" });
+  const [fatcaForm, setFatcaForm] = useState({ taxResidency: "", taxIdNumber: "" });
+  const [idcwOption, setIdcwOption] = useState("PAYOUT");
+  const [mandateForm, setMandateForm] = useState({ bankAccountNo: "", ifscCode: "", amount: "", action: "CREATE" });
+
+  // Pre-fill forms from fetched current values
+  useEffect(() => {
+    const d = nomineeQ.data?.data as { nomineeName?: string; nomineeRelation?: string; nomineePercentage?: string } | undefined;
+    if (d) {
+      setNomineeForm({
+        nomineeName: d.nomineeName ?? "",
+        nomineeRelation: d.nomineeRelation ?? "",
+        nomineePercentage: d.nomineePercentage ?? "100",
+      });
+    }
+  }, [nomineeQ.data]);
+
+  useEffect(() => {
+    const d = bankQ.data?.data as { accountNumber?: string; ifscCode?: string; accountType?: string; bankName?: string } | undefined;
+    if (d) {
+      setBankForm({
+        accountNumber: d.accountNumber ?? "",
+        ifscCode: d.ifscCode ?? "",
+        accountType: d.accountType ?? "SAVINGS",
+        bankName: d.bankName ?? "",
+      });
+    }
+  }, [bankQ.data]);
+
+  useEffect(() => {
+    const d = fatcaQ.data?.data as { taxResidency?: string; taxIdNumber?: string } | undefined;
+    if (d) {
+      setFatcaForm({
+        taxResidency: d.taxResidency ?? "",
+        taxIdNumber: d.taxIdNumber ?? "",
+      });
+    }
+  }, [fatcaQ.data]);
+
+  const updateNominee = useMutation({
+    mutationFn: () => apiRequest(`/api/iris/non-financial/${pan}/nominee`, "POST", { body: nomineeForm }),
+    onSuccess: () => { toast({ title: "Nominee updated" }); qc.invalidateQueries({ queryKey: ["/api/iris/non-financial", pan, "nominee"] }); },
+    onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
+  });
+  const updateBank = useMutation({
+    mutationFn: () => apiRequest(`/api/iris/non-financial/${pan}/bank`, "POST", { body: bankForm }),
+    onSuccess: () => { toast({ title: "Bank details updated" }); qc.invalidateQueries({ queryKey: ["/api/iris/non-financial", pan, "bank"] }); },
+    onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
+  });
+  const updateEmail = useMutation({
+    mutationFn: () => apiRequest(`/api/iris/non-financial/${pan}/email`, "POST", { body: { email: contactForm.email } }),
+    onSuccess: () => toast({ title: "Email updated" }),
+    onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
+  });
+  const updateMobile = useMutation({
+    mutationFn: () => apiRequest(`/api/iris/non-financial/${pan}/mobile`, "POST", { body: { mobile: contactForm.mobile } }),
+    onSuccess: () => toast({ title: "Mobile updated" }),
+    onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
+  });
+  const updateFatca = useMutation({
+    mutationFn: () => apiRequest(`/api/iris/non-financial/${pan}/fatca`, "POST", { body: fatcaForm }),
+    onSuccess: () => { toast({ title: "FATCA updated" }); qc.invalidateQueries({ queryKey: ["/api/iris/non-financial", pan, "fatca"] }); },
+    onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
+  });
+  const updateIdcw = useMutation({
+    mutationFn: () => apiRequest(`/api/iris/non-financial/${pan}/idcw`, "POST", { body: { idcwOption } }),
+    onSuccess: () => toast({ title: "IDCW option updated" }),
+    onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
+  });
+  const manageMandate = useMutation({
+    mutationFn: () => apiRequest(`/api/iris/non-financial/${pan}/bank-mandate`, "POST", { body: mandateForm }),
+    onSuccess: () => toast({ title: "Bank mandate request submitted" }),
+    onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
+  });
+
+  const TABS: { key: typeof tab; label: string }[] = [
+    { key: "nominee", label: "Nominee" },
+    { key: "bank", label: "Bank" },
+    { key: "contact", label: "Contact" },
+    { key: "fatca", label: "FATCA" },
+    { key: "idcw", label: "IDCW" },
+    { key: "mandate", label: "Mandate" },
+  ];
+
+  function DataRow({ label, value }: { label: string; value?: unknown }) {
+    return (
+      <div className="flex justify-between text-sm py-1 border-b last:border-0">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-medium">{value != null ? String(value) : "—"}</span>
+      </div>
+    );
+  }
+
+  return (
+    <Dialog open onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Settings className="h-4 w-4" /> Manage Investor — {pan}</DialogTitle>
+          <DialogDescription>View and update non-financial details. Current values are pre-loaded where available.</DialogDescription>
+        </DialogHeader>
+
+        <div className="flex gap-1 flex-wrap border-b pb-2">
+          {TABS.map(t => (
+            <Button key={t.key} size="sm" variant={tab === t.key ? "default" : "ghost"}
+              onClick={() => setTab(t.key)} className="text-xs h-7">
+              {t.label}
+            </Button>
+          ))}
+        </div>
+
+        <div className="space-y-4 pt-2">
+          {tab === "nominee" && (
+            <>
+              <div className="bg-muted/30 rounded p-3 text-sm">
+                <p className="font-medium mb-2 text-xs text-muted-foreground uppercase tracking-wide">Current Nominee</p>
+                {nomineeQ.isLoading ? <Skeleton className="h-12 w-full" /> : nomineeQ.data?.data ? (
+                  <>
+                    <DataRow label="Name" value={(nomineeQ.data.data as {nomineeName?: string}).nomineeName} />
+                    <DataRow label="Relation" value={(nomineeQ.data.data as {nomineeRelation?: string}).nomineeRelation} />
+                    <DataRow label="Allocation %" value={(nomineeQ.data.data as {nomineePercentage?: string}).nomineePercentage} />
+                  </>
+                ) : <p className="text-muted-foreground text-xs">No data available</p>}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label className="text-xs">Nominee Name</Label>
+                  <Input value={nomineeForm.nomineeName} onChange={e => setNomineeForm(p => ({ ...p, nomineeName: e.target.value }))} placeholder="Full name" /></div>
+                <div><Label className="text-xs">Relation</Label>
+                  <Select value={nomineeForm.nomineeRelation} onValueChange={v => setNomineeForm(p => ({ ...p, nomineeRelation: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      {["SPOUSE","CHILD","PARENT","SIBLING","OTHER"].map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                    </SelectContent>
+                  </Select></div>
+                <div><Label className="text-xs">Allocation %</Label>
+                  <Input type="number" value={nomineeForm.nomineePercentage} min={1} max={100}
+                    onChange={e => setNomineeForm(p => ({ ...p, nomineePercentage: e.target.value }))} /></div>
+              </div>
+              <Button onClick={() => updateNominee.mutate()} disabled={updateNominee.isPending} className="w-full">
+                {updateNominee.isPending ? "Saving…" : "Update Nominee"}
+              </Button>
+            </>
+          )}
+
+          {tab === "bank" && (
+            <>
+              <div className="bg-muted/30 rounded p-3 text-sm">
+                <p className="font-medium mb-2 text-xs text-muted-foreground uppercase tracking-wide">Current Bank Account</p>
+                {bankQ.isLoading ? <Skeleton className="h-12 w-full" /> : bankQ.data?.data ? (
+                  <>
+                    <DataRow label="Account No" value={(bankQ.data.data as {accountNumber?: string}).accountNumber} />
+                    <DataRow label="IFSC" value={(bankQ.data.data as {ifscCode?: string}).ifscCode} />
+                    <DataRow label="Bank" value={(bankQ.data.data as {bankName?: string}).bankName} />
+                    <DataRow label="Type" value={(bankQ.data.data as {accountType?: string}).accountType} />
+                  </>
+                ) : <p className="text-muted-foreground text-xs">No data available</p>}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label className="text-xs">Account Number</Label>
+                  <Input value={bankForm.accountNumber} onChange={e => setBankForm(p => ({ ...p, accountNumber: e.target.value }))} /></div>
+                <div><Label className="text-xs">IFSC Code</Label>
+                  <Input value={bankForm.ifscCode} onChange={e => setBankForm(p => ({ ...p, ifscCode: e.target.value.toUpperCase() }))} /></div>
+                <div><Label className="text-xs">Bank Name</Label>
+                  <Input value={bankForm.bankName} onChange={e => setBankForm(p => ({ ...p, bankName: e.target.value }))} /></div>
+                <div><Label className="text-xs">Account Type</Label>
+                  <Select value={bankForm.accountType} onValueChange={v => setBankForm(p => ({ ...p, accountType: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SAVINGS">Savings</SelectItem>
+                      <SelectItem value="CURRENT">Current</SelectItem>
+                      <SelectItem value="NRE">NRE</SelectItem>
+                      <SelectItem value="NRO">NRO</SelectItem>
+                    </SelectContent>
+                  </Select></div>
+              </div>
+              <Button onClick={() => updateBank.mutate()} disabled={updateBank.isPending} className="w-full">
+                {updateBank.isPending ? "Saving…" : "Update Bank Account"}
+              </Button>
+            </>
+          )}
+
+          {tab === "contact" && (
+            <>
+              <div className="grid grid-cols-1 gap-3">
+                <div><Label className="text-xs">New Email Address</Label>
+                  <Input type="email" value={contactForm.email} onChange={e => setContactForm(p => ({ ...p, email: e.target.value }))} placeholder="investor@email.com" /></div>
+                <Button onClick={() => updateEmail.mutate()} disabled={updateEmail.isPending || !contactForm.email}>
+                  {updateEmail.isPending ? "Saving…" : "Update Email"}
+                </Button>
+                <div className="border-t pt-3">
+                  <Label className="text-xs">New Mobile Number</Label>
+                  <Input value={contactForm.mobile} onChange={e => setContactForm(p => ({ ...p, mobile: e.target.value }))} placeholder="+91XXXXXXXXXX" /></div>
+                <Button onClick={() => updateMobile.mutate()} disabled={updateMobile.isPending || !contactForm.mobile}>
+                  {updateMobile.isPending ? "Saving…" : "Update Mobile"}
+                </Button>
+              </div>
+            </>
+          )}
+
+          {tab === "fatca" && (
+            <>
+              <div className="bg-muted/30 rounded p-3 text-sm">
+                <p className="font-medium mb-2 text-xs text-muted-foreground uppercase tracking-wide">Current FATCA</p>
+                {fatcaQ.isLoading ? <Skeleton className="h-10 w-full" /> : fatcaQ.data?.data ? (
+                  <>
+                    <DataRow label="Tax Residency" value={(fatcaQ.data.data as {taxResidency?: string}).taxResidency} />
+                    <DataRow label="Tax ID" value={(fatcaQ.data.data as {taxIdNumber?: string}).taxIdNumber} />
+                  </>
+                ) : <p className="text-muted-foreground text-xs">No data available</p>}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label className="text-xs">Country of Tax Residency</Label>
+                  <Input value={fatcaForm.taxResidency} onChange={e => setFatcaForm(p => ({ ...p, taxResidency: e.target.value }))} placeholder="US, UK, IN…" /></div>
+                <div><Label className="text-xs">Tax Identification Number</Label>
+                  <Input value={fatcaForm.taxIdNumber} onChange={e => setFatcaForm(p => ({ ...p, taxIdNumber: e.target.value }))} /></div>
+              </div>
+              <Button onClick={() => updateFatca.mutate()} disabled={updateFatca.isPending} className="w-full">
+                {updateFatca.isPending ? "Saving…" : "Update FATCA"}
+              </Button>
+            </>
+          )}
+
+          {tab === "idcw" && (
+            <>
+              <p className="text-sm text-muted-foreground">Set dividend / IDCW payout preference for this investor.</p>
+              <div>
+                <Label className="text-xs">IDCW Option</Label>
+                <Select value={idcwOption} onValueChange={setIdcwOption}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PAYOUT">Payout</SelectItem>
+                    <SelectItem value="REINVESTMENT">Reinvestment</SelectItem>
+                    <SelectItem value="GROWTH">Growth</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={() => updateIdcw.mutate()} disabled={updateIdcw.isPending} className="w-full">
+                {updateIdcw.isPending ? "Saving…" : "Update IDCW Option"}
+              </Button>
+            </>
+          )}
+
+          {tab === "mandate" && (
+            <>
+              <p className="text-sm text-muted-foreground">Create or cancel a bank mandate (eNACH) for auto-debit.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label className="text-xs">Bank Account No</Label>
+                  <Input value={mandateForm.bankAccountNo} onChange={e => setMandateForm(p => ({ ...p, bankAccountNo: e.target.value }))} /></div>
+                <div><Label className="text-xs">IFSC Code</Label>
+                  <Input value={mandateForm.ifscCode} onChange={e => setMandateForm(p => ({ ...p, ifscCode: e.target.value.toUpperCase() }))} /></div>
+                <div><Label className="text-xs">Max Mandate Amount (₹)</Label>
+                  <Input type="number" value={mandateForm.amount} onChange={e => setMandateForm(p => ({ ...p, amount: e.target.value }))} /></div>
+                <div><Label className="text-xs">Action</Label>
+                  <Select value={mandateForm.action} onValueChange={v => setMandateForm(p => ({ ...p, action: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CREATE">Create Mandate</SelectItem>
+                      <SelectItem value="CANCEL">Cancel Mandate</SelectItem>
+                    </SelectContent>
+                  </Select></div>
+              </div>
+              <Button onClick={() => manageMandate.mutate()} disabled={manageMandate.isPending} className="w-full">
+                {manageMandate.isPending ? "Submitting…" : "Submit Mandate Request"}
+              </Button>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Folio Browser ────────────────────────────────────────────────────────────
+interface Folio { folioNo?: string; amcName?: string; amc?: string; schemeCount?: number; currentValue?: number }
+interface FolioTxn { schemeName?: string; scheme?: string; amount?: number; transactionType?: string; type?: string; date?: string; transactionDate?: string; status?: string; units?: number }
+
+function FolioBrowser({ pan }: { pan: string }) {
+  const [selectedFolio, setSelectedFolio] = useState<string | null>(null);
+
+  const foliosQ = useQuery<IrisApiResponse<{ folios?: Folio[] } | Folio[]>>({
+    queryKey: ["/api/iris/investors", pan, "folios"],
+    queryFn: () => irisGet(`/api/iris/investors/${pan}/folios`),
+    retry: false,
+  });
+
+  const txnsQ = useQuery<IrisApiResponse<{ transactions?: FolioTxn[] } | FolioTxn[]>>({
+    queryKey: ["/api/iris/investors", pan, "folios", selectedFolio, "transactions"],
+    queryFn: () => irisGet(`/api/iris/investors/${pan}/folios/${selectedFolio}/transactions`),
+    enabled: !!selectedFolio,
+    retry: false,
+  });
+
+  function resolveFolios(): Folio[] {
+    if (!foliosQ.data?.data) return [];
+    if (Array.isArray(foliosQ.data.data)) return foliosQ.data.data;
+    return (foliosQ.data.data as { folios?: Folio[] }).folios ?? [];
+  }
+
+  function resolveTxns(): FolioTxn[] {
+    if (!txnsQ.data?.data) return [];
+    if (Array.isArray(txnsQ.data.data)) return txnsQ.data.data;
+    return (txnsQ.data.data as { transactions?: FolioTxn[] }).transactions ?? [];
+  }
+
+  const folios = resolveFolios();
+  const txns = resolveTxns();
+
+  return (
+    <div className="space-y-3">
+      <Card>
+        <CardHeader><CardTitle className="text-sm">Folio Browser</CardTitle><CardDescription>Click a folio to view transaction history</CardDescription></CardHeader>
+        <CardContent className="p-0">
+          {foliosQ.isLoading ? (
+            <div className="p-4 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : folios.length > 0 ? (
+            <ScrollArea className="h-48">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-background border-b">
+                  <tr>
+                    <th className="text-left p-2 font-medium">Folio No</th>
+                    <th className="text-left p-2 font-medium">AMC</th>
+                    <th className="text-right p-2 font-medium">Schemes</th>
+                    <th className="text-right p-2 font-medium">Current Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {folios.map((f, i) => (
+                    <tr key={i}
+                      className={`border-b cursor-pointer hover:bg-muted/50 ${selectedFolio === f.folioNo ? 'bg-muted' : ''}`}
+                      onClick={() => setSelectedFolio(f.folioNo ?? null)}>
+                      <td className="p-2 font-mono text-xs">{f.folioNo ?? "—"}</td>
+                      <td className="p-2">{f.amcName ?? f.amc ?? "—"}</td>
+                      <td className="p-2 text-right">{f.schemeCount ?? "—"}</td>
+                      <td className="p-2 text-right">{fmt(f.currentValue)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ScrollArea>
+          ) : (
+            <p className="p-4 text-sm text-muted-foreground">No folios found</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {selectedFolio && (
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Transactions — Folio {selectedFolio}</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            {txnsQ.isLoading ? (
+              <div className="p-4 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+            ) : txns.length > 0 ? (
+              <ScrollArea className="h-52">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-background border-b">
+                    <tr>
+                      <th className="text-left p-2 font-medium">Scheme</th>
+                      <th className="text-left p-2 font-medium">Type</th>
+                      <th className="text-right p-2 font-medium">Amount</th>
+                      <th className="text-right p-2 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {txns.map((t, i) => (
+                      <tr key={i} className="border-b hover:bg-muted/50">
+                        <td className="p-2 max-w-[160px] truncate">{t.schemeName ?? t.scheme ?? "—"}</td>
+                        <td className="p-2 text-xs">{t.transactionType ?? t.type ?? "—"}</td>
+                        <td className="p-2 text-right">{fmt(t.amount)}</td>
+                        <td className="p-2 text-right">
+                          <Badge variant={t.status === 'SUCCESS' ? 'default' : 'secondary'} className="text-[10px]">{t.status ?? "—"}</Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </ScrollArea>
+            ) : (
+              <p className="p-4 text-sm text-muted-foreground">No transactions for this folio</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ─── Dividend History ─────────────────────────────────────────────────────────
+interface DividendRecord { schemeName?: string; scheme?: string; dividendDate?: string; date?: string; dividendPerUnit?: number; totalAmount?: number; amount?: number }
+
+function DividendHistory({ pan }: { pan: string }) {
+  const q = useQuery<IrisApiResponse<{ dividends?: DividendRecord[] } | DividendRecord[]>>({
+    queryKey: ["/api/iris/investors", pan, "dividend-history"],
+    queryFn: () => irisGet(`/api/iris/investors/${pan}/dividend-history`),
+    retry: false,
+  });
+
+  function resolve(): DividendRecord[] {
+    if (!q.data?.data) return [];
+    if (Array.isArray(q.data.data)) return q.data.data;
+    return (q.data.data as { dividends?: DividendRecord[] }).dividends ?? [];
+  }
+
+  const records = resolve();
+
+  if (q.isLoading) return <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>;
+
+  return (
+    <Card>
+      <CardHeader><CardTitle className="text-sm">Dividend History</CardTitle></CardHeader>
+      <CardContent className="p-0">
+        {records.length > 0 ? (
+          <ScrollArea className="h-48">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-background border-b">
+                <tr>
+                  <th className="text-left p-2 font-medium">Scheme</th>
+                  <th className="text-left p-2 font-medium">Date</th>
+                  <th className="text-right p-2 font-medium">Per Unit</th>
+                  <th className="text-right p-2 font-medium">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {records.map((r, i) => (
+                  <tr key={i} className="border-b hover:bg-muted/50">
+                    <td className="p-2 truncate max-w-[140px]">{r.schemeName ?? r.scheme ?? "—"}</td>
+                    <td className="p-2 text-xs">{r.dividendDate ?? r.date ?? "—"}</td>
+                    <td className="p-2 text-right text-xs">{r.dividendPerUnit != null ? "₹" + r.dividendPerUnit : "—"}</td>
+                    <td className="p-2 text-right">{fmt(r.totalAmount ?? r.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </ScrollArea>
+        ) : (
+          <p className="p-4 text-sm text-muted-foreground">No dividend history found</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Goals Panel ──────────────────────────────────────────────────────────────
+interface Goal { goalId?: string; id?: string; goalName?: string; name?: string; targetAmount?: number; targetDate?: string; currentSavings?: number; status?: string }
+
+function GoalsPanel({ pan }: { pan: string }) {
+  const [showForm, setShowForm] = useState(false);
+  const [editGoal, setEditGoal] = useState<Goal | null>(null);
+  const [form, setForm] = useState({ goalName: "", targetAmount: "", targetDate: "", currentSavings: "" });
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const goalsQ = useQuery<IrisApiResponse<{ goals?: Goal[] } | Goal[]>>({
+    queryKey: ["/api/iris/investors", pan, "goals"],
+    queryFn: () => irisGet(`/api/iris/investors/${pan}/goals`),
+    retry: false,
+  });
+
+  const createGoal = useMutation({
+    mutationFn: () => apiRequest(`/api/iris/investors/${pan}/goals`, "POST", { body: {
+      goalName: form.goalName,
+      targetAmount: Number(form.targetAmount),
+      targetDate: form.targetDate,
+      currentSavings: Number(form.currentSavings),
+    }}),
+    onSuccess: () => {
+      toast({ title: "Goal created" });
+      qc.invalidateQueries({ queryKey: ["/api/iris/investors", pan, "goals"] });
+      setShowForm(false);
+      setForm({ goalName: "", targetAmount: "", targetDate: "", currentSavings: "" });
+    },
+    onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
+  });
+
+  const updateGoal = useMutation({
+    mutationFn: () => {
+      const id = editGoal?.goalId ?? editGoal?.id ?? "";
+      return apiRequest(`/api/iris/investors/${pan}/goals/${id}`, "PUT", { body: {
+        goalName: form.goalName,
+        targetAmount: Number(form.targetAmount),
+        targetDate: form.targetDate,
+        currentSavings: Number(form.currentSavings),
+      }});
+    },
+    onSuccess: () => {
+      toast({ title: "Goal updated" });
+      qc.invalidateQueries({ queryKey: ["/api/iris/investors", pan, "goals"] });
+      setEditGoal(null);
+      setForm({ goalName: "", targetAmount: "", targetDate: "", currentSavings: "" });
+    },
+    onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteGoal = useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/iris/investors/${pan}/goals/${id}`, "DELETE"),
+    onSuccess: () => {
+      toast({ title: "Goal deleted" });
+      qc.invalidateQueries({ queryKey: ["/api/iris/investors", pan, "goals"] });
+    },
+    onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
+  });
+
+  function resolveGoals(): Goal[] {
+    if (!goalsQ.data?.data) return [];
+    if (Array.isArray(goalsQ.data.data)) return goalsQ.data.data;
+    return (goalsQ.data.data as { goals?: Goal[] }).goals ?? [];
+  }
+
+  const goals = resolveGoals();
+
+  function startEdit(g: Goal) {
+    setEditGoal(g);
+    setForm({
+      goalName: g.goalName ?? g.name ?? "",
+      targetAmount: String(g.targetAmount ?? ""),
+      targetDate: g.targetDate ?? "",
+      currentSavings: String(g.currentSavings ?? ""),
+    });
+    setShowForm(true);
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium flex items-center gap-2"><Target className="h-4 w-4" /> Financial Goals</h3>
+        <Button size="sm" variant="outline" onClick={() => { setEditGoal(null); setForm({ goalName: "", targetAmount: "", targetDate: "", currentSavings: "" }); setShowForm(!showForm); }}>
+          <Plus className="h-3 w-3 mr-1" /> Add Goal
+        </Button>
+      </div>
+
+      {showForm && (
+        <Card className="border-dashed">
+          <CardContent className="pt-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs">Goal Name</Label>
+                <Input value={form.goalName} onChange={e => setForm(p => ({ ...p, goalName: e.target.value }))} placeholder="Retirement, Education…" /></div>
+              <div><Label className="text-xs">Target Amount (₹)</Label>
+                <Input type="number" value={form.targetAmount} onChange={e => setForm(p => ({ ...p, targetAmount: e.target.value }))} /></div>
+              <div><Label className="text-xs">Target Date</Label>
+                <Input type="date" value={form.targetDate} onChange={e => setForm(p => ({ ...p, targetDate: e.target.value }))} /></div>
+              <div><Label className="text-xs">Current Savings (₹)</Label>
+                <Input type="number" value={form.currentSavings} onChange={e => setForm(p => ({ ...p, currentSavings: e.target.value }))} /></div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button className="flex-1"
+                disabled={editGoal ? updateGoal.isPending : createGoal.isPending}
+                onClick={() => editGoal ? updateGoal.mutate() : createGoal.mutate()}>
+                {(editGoal ? updateGoal.isPending : createGoal.isPending) ? "Saving…" : editGoal ? "Update Goal" : "Create Goal"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {goalsQ.isLoading ? (
+        <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-14 w-full" />)}</div>
+      ) : goals.length > 0 ? (
+        <div className="space-y-2">
+          {goals.map((g, i) => {
+            const id = g.goalId ?? g.id ?? String(i);
+            const progress = g.targetAmount && g.currentSavings ? Math.min(100, Math.round((g.currentSavings / g.targetAmount) * 100)) : 0;
+            return (
+              <Card key={i}>
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{g.goalName ?? g.name}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Target: {fmt(g.targetAmount)} by {g.targetDate ?? "—"} · Saved: {fmt(g.currentSavings)}
+                      </p>
+                      <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full bg-primary rounded-full" style={{ width: `${progress}%` }} />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{progress}% complete</p>
+                    </div>
+                    <div className="flex gap-1 ml-2 shrink-0">
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => startEdit(g)}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                        onClick={() => deleteGoal.mutate(id)} disabled={deleteGoal.isPending}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">No goals set for this investor</p>
+      )}
+    </div>
+  );
+}
+
+// ─── Demat & Docs Panel ───────────────────────────────────────────────────────
+interface DematAccount { dpId?: string; clientId?: string; dpName?: string; accountNo?: string; status?: string }
+interface InvestorDoc { documentId?: string; id?: string; documentType?: string; type?: string; fileName?: string; url?: string; uploadedAt?: string }
+
+function DematDocsPanel({ pan }: { pan: string }) {
+  const [linkForm, setLinkForm] = useState({ dpId: "", clientId: "", dpName: "" });
+  const [docType, setDocType] = useState("PAN_CARD");
+  const [docUrl, setDocUrl] = useState("");
+  const [showLinkForm, setShowLinkForm] = useState(false);
+  const [showDocForm, setShowDocForm] = useState(false);
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const dematQ = useQuery<IrisApiResponse<{ accounts?: DematAccount[] } | DematAccount[]>>({
+    queryKey: ["/api/iris/investors", pan, "demat-accounts"],
+    queryFn: () => irisGet(`/api/iris/investors/${pan}/demat-accounts`),
+    retry: false,
+  });
+
+  const docsQ = useQuery<IrisApiResponse<{ documents?: InvestorDoc[] } | InvestorDoc[]>>({
+    queryKey: ["/api/iris/investors", pan, "documents"],
+    queryFn: () => irisGet(`/api/iris/investors/${pan}/documents`),
+    retry: false,
+  });
+
+  const linkDemat = useMutation({
+    mutationFn: () => apiRequest(`/api/iris/investors/${pan}/demat-accounts`, "POST", { body: linkForm }),
+    onSuccess: () => {
+      toast({ title: "Demat account linked" });
+      qc.invalidateQueries({ queryKey: ["/api/iris/investors", pan, "demat-accounts"] });
+      setShowLinkForm(false);
+      setLinkForm({ dpId: "", clientId: "", dpName: "" });
+    },
+    onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
+  });
+
+  const uploadDoc = useMutation({
+    mutationFn: () => apiRequest(`/api/iris/investors/${pan}/documents`, "POST", { body: { documentType: docType, url: docUrl } }),
+    onSuccess: () => {
+      toast({ title: "Document uploaded" });
+      qc.invalidateQueries({ queryKey: ["/api/iris/investors", pan, "documents"] });
+      setShowDocForm(false);
+      setDocUrl("");
+    },
+    onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
+  });
+
+  function resolveDemat(): DematAccount[] {
+    if (!dematQ.data?.data) return [];
+    if (Array.isArray(dematQ.data.data)) return dematQ.data.data;
+    return (dematQ.data.data as { accounts?: DematAccount[] }).accounts ?? [];
+  }
+
+  function resolveDocs(): InvestorDoc[] {
+    if (!docsQ.data?.data) return [];
+    if (Array.isArray(docsQ.data.data)) return docsQ.data.data;
+    return (docsQ.data.data as { documents?: InvestorDoc[] }).documents ?? [];
+  }
+
+  const demat = resolveDemat();
+  const docs = resolveDocs();
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium flex items-center gap-2"><CreditCard className="h-4 w-4" /> Demat Accounts</h3>
+          <Button size="sm" variant="outline" onClick={() => setShowLinkForm(!showLinkForm)}>
+            <Link2 className="h-3 w-3 mr-1" /> Link Demat
+          </Button>
+        </div>
+        {showLinkForm && (
+          <Card className="border-dashed">
+            <CardContent className="pt-4 space-y-3">
+              <div className="grid grid-cols-3 gap-2">
+                <div><Label className="text-xs">DP ID</Label>
+                  <Input value={linkForm.dpId} onChange={e => setLinkForm(p => ({ ...p, dpId: e.target.value }))} /></div>
+                <div><Label className="text-xs">Client ID</Label>
+                  <Input value={linkForm.clientId} onChange={e => setLinkForm(p => ({ ...p, clientId: e.target.value }))} /></div>
+                <div><Label className="text-xs">DP Name</Label>
+                  <Input value={linkForm.dpName} onChange={e => setLinkForm(p => ({ ...p, dpName: e.target.value }))} /></div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setShowLinkForm(false)}>Cancel</Button>
+                <Button className="flex-1" onClick={() => linkDemat.mutate()} disabled={linkDemat.isPending}>
+                  {linkDemat.isPending ? "Linking…" : "Link Account"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {dematQ.isLoading ? <Skeleton className="h-10 w-full" /> : demat.length > 0 ? (
+          <div className="divide-y border rounded-md">
+            {demat.map((d, i) => (
+              <div key={i} className="flex justify-between items-center p-2 text-sm">
+                <div>
+                  <span className="font-mono text-xs">{d.dpId ?? "—"}:{d.clientId ?? d.accountNo ?? "—"}</span>
+                  {d.dpName && <span className="ml-2 text-muted-foreground text-xs">({d.dpName})</span>}
+                </div>
+                <Badge variant={d.status === 'ACTIVE' ? 'default' : 'secondary'} className="text-[10px]">{d.status ?? "—"}</Badge>
+              </div>
+            ))}
+          </div>
+        ) : <p className="text-sm text-muted-foreground">No demat accounts linked</p>}
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium flex items-center gap-2"><Upload className="h-4 w-4" /> Document Vault</h3>
+          <Button size="sm" variant="outline" onClick={() => setShowDocForm(!showDocForm)}>
+            <Plus className="h-3 w-3 mr-1" /> Add Document
+          </Button>
+        </div>
+        {showDocForm && (
+          <Card className="border-dashed">
+            <CardContent className="pt-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label className="text-xs">Document Type</Label>
+                  <Select value={docType} onValueChange={setDocType}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PAN_CARD">PAN Card</SelectItem>
+                      <SelectItem value="ADDRESS_PROOF">Address Proof</SelectItem>
+                      <SelectItem value="BANK_PROOF">Bank Proof</SelectItem>
+                      <SelectItem value="PHOTO">Photograph</SelectItem>
+                      <SelectItem value="SIGNATURE">Signature</SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select></div>
+                <div><Label className="text-xs">Document URL / Path</Label>
+                  <Input value={docUrl} onChange={e => setDocUrl(e.target.value)} placeholder="https://…" /></div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setShowDocForm(false)}>Cancel</Button>
+                <Button className="flex-1" onClick={() => uploadDoc.mutate()} disabled={uploadDoc.isPending || !docUrl.trim()}>
+                  {uploadDoc.isPending ? "Uploading…" : "Upload Document"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {docsQ.isLoading ? <Skeleton className="h-10 w-full" /> : docs.length > 0 ? (
+          <div className="divide-y border rounded-md">
+            {docs.map((d, i) => (
+              <div key={i} className="flex justify-between items-center p-2 text-sm">
+                <div>
+                  <Badge variant="outline" className="text-[10px] mr-2">{d.documentType ?? d.type}</Badge>
+                  <span className="text-xs text-muted-foreground">{d.fileName ?? d.url ?? "—"}</span>
+                </div>
+                {d.url && (
+                  <a href={d.url} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : <p className="text-sm text-muted-foreground">No documents uploaded</p>}
+      </div>
+    </div>
+  );
+}
+
+// ─── Investor Portal Link ─────────────────────────────────────────────────────
+function PortalLinkButton({ pan }: { pan: string }) {
+  const { toast } = useToast();
+  const [link, setLink] = useState<string | null>(null);
+
+  const getLink = useQuery<IrisApiResponse<{ url?: string; link?: string; portalUrl?: string }>>({
+    queryKey: ["/api/iris/investors", pan, "portal-link"],
+    queryFn: () => irisGet(`/api/iris/investors/${pan}/portal-link`),
+    enabled: false,
+    retry: false,
+  });
+
+  const sendLink = useMutation({
+    mutationFn: (via: "email" | "sms") => apiRequest(`/api/iris/investors/${pan}/portal-link/send`, "POST", { body: { via } }),
+    onSuccess: (_d, via) => toast({ title: `Portal link sent via ${via}` }),
+    onError: (e: Error) => toast({ title: "Failed to send", description: e.message, variant: "destructive" }),
+  });
+
+  async function fetchLink() {
+    const r = await getLink.refetch();
+    const d = r.data?.data;
+    if (d) setLink(d.url ?? d.link ?? d.portalUrl ?? null);
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><ExternalLink className="h-4 w-4" /> Investor Portal</CardTitle></CardHeader>
+      <CardContent>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={fetchLink} disabled={getLink.isFetching}>
+            {getLink.isFetching ? <RefreshCw className="h-3 w-3 animate-spin mr-1" /> : null}
+            Get Portal Link
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => sendLink.mutate("email")} disabled={sendLink.isPending}>
+            <Send className="h-3 w-3 mr-1" /> Send via Email
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => sendLink.mutate("sms")} disabled={sendLink.isPending}>
+            <Send className="h-3 w-3 mr-1" /> Send via SMS
+          </Button>
+        </div>
+        {link && (
+          <a href={link} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-1 text-xs text-blue-500 hover:underline break-all">
+            <ExternalLink className="h-3 w-3 flex-shrink-0" /> {link}
+          </a>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Investors Tab ────────────────────────────────────────────────────────────
-type InvestorDetailTab = "portfolio" | "holdings" | "transactions" | "sips" | "orders";
+type InvestorDetailTab = "portfolio" | "holdings" | "transactions" | "sips" | "orders" | "folios" | "enrichment" | "goals" | "demat-docs";
 
 function InvestorsTab() {
   const [search, setSearch] = useState("");
@@ -613,6 +1450,7 @@ function InvestorsTab() {
   const [orderStatusOpen, setOrderStatusOpen] = useState(false);
   const [orderStatusId, setOrderStatusId] = useState("");
   const [failedOnly, setFailedOnly] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -625,6 +1463,13 @@ function InvestorsTab() {
   const { data: kycData, isLoading: kycL } = useQuery<IrisApiResponse<KycData>>({
     queryKey: ["/api/iris/investors", selectedPan, "kyc"],
     queryFn: () => irisGet<IrisApiResponse<KycData>>(`/api/iris/investors/${selectedPan}/kyc`),
+    enabled: !!selectedPan,
+    retry: false,
+  });
+
+  const { data: ekycData } = useQuery<IrisApiResponse<{ status?: string; ekycStatus?: string; completionStatus?: string }>>({
+    queryKey: ["/api/iris/investors", selectedPan, "ekyc-status"],
+    queryFn: () => irisGet(`/api/iris/investors/${selectedPan}/ekyc-status`),
     enabled: !!selectedPan,
     retry: false,
   });
@@ -725,6 +1570,19 @@ function InvestorsTab() {
   const txns = resolveTxns();
   const sips = sipsData?.data?.sips ?? [];
   const orders = resolveOrders();
+  const ekycStatus = ekycData?.data?.status ?? ekycData?.data?.ekycStatus ?? ekycData?.data?.completionStatus;
+
+  const DETAIL_TABS: { key: InvestorDetailTab; label: string }[] = [
+    { key: "portfolio", label: "Portfolio" },
+    { key: "holdings", label: "Holdings" },
+    { key: "transactions", label: "Transactions" },
+    { key: "sips", label: "SIPs/STPs" },
+    { key: "orders", label: "Orders" },
+    { key: "folios", label: "Folios" },
+    { key: "enrichment", label: "Enrichment" },
+    { key: "goals", label: "Goals" },
+    { key: "demat-docs", label: "Demat & Docs" },
+  ];
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -766,27 +1624,37 @@ function InvestorsTab() {
       <div className="md:col-span-3">
         {selectedPan ? (
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <p className="font-semibold">{selectedPan}</p>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   {kycL ? <Skeleton className="h-5 w-24" /> : (
                     <Badge variant={kycData?.data?.kycStatus === 'KYC_VERIFIED' ? 'default' : 'secondary'}>
                       {kycData?.data?.kycStatus ?? 'KYC Unknown'}
                     </Badge>
                   )}
+                  {ekycStatus && (
+                    <Badge variant={ekycStatus === 'COMPLETED' ? 'default' : 'secondary'} className="flex items-center gap-1">
+                      <Fingerprint className="h-3 w-3" /> eKYC: {ekycStatus}
+                    </Badge>
+                  )}
                 </div>
               </div>
-              <Button size="sm" variant="outline" onClick={() => sendEkyc.mutate(selectedPan)} disabled={sendEkyc.isPending}>
-                Send eKYC Mail
-              </Button>
+              <div className="flex gap-2 flex-wrap">
+                <Button size="sm" variant="outline" onClick={() => setManageOpen(true)}>
+                  <Settings className="h-3 w-3 mr-1" /> Manage
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => sendEkyc.mutate(selectedPan)} disabled={sendEkyc.isPending}>
+                  Send eKYC Mail
+                </Button>
+              </div>
             </div>
 
             <div className="flex gap-1 flex-wrap">
-              {(["portfolio", "holdings", "transactions", "sips", "orders"] as InvestorDetailTab[]).map(tab => (
-                <Button key={tab} size="sm" variant={detailTab === tab ? "default" : "outline"}
-                  onClick={() => setDetailTab(tab)} className="capitalize text-xs">
-                  {tab === "sips" ? "SIPs/STPs" : tab}
+              {DETAIL_TABS.map(t => (
+                <Button key={t.key} size="sm" variant={detailTab === t.key ? "default" : "outline"}
+                  onClick={() => setDetailTab(t.key)} className="text-xs h-7">
+                  {t.label}
                 </Button>
               ))}
             </div>
@@ -989,6 +1857,19 @@ function InvestorsTab() {
                 </CardContent>
               </Card>
             )}
+
+            {detailTab === "folios" && <FolioBrowser pan={selectedPan} />}
+
+            {detailTab === "enrichment" && (
+              <div className="space-y-3">
+                <PortalLinkButton pan={selectedPan} />
+                <DividendHistory pan={selectedPan} />
+              </div>
+            )}
+
+            {detailTab === "goals" && <GoalsPanel pan={selectedPan} />}
+
+            {detailTab === "demat-docs" && <DematDocsPanel pan={selectedPan} />}
           </div>
         ) : (
           <Card className="flex items-center justify-center min-h-[300px]">
@@ -1000,6 +1881,9 @@ function InvestorsTab() {
       <NewSipDialog open={newSipOpen} onClose={() => setNewSipOpen(false)} prefillPan={selectedPan ?? ""} />
       <ModifySipDialog open={modifySipOpen} onClose={() => setModifySipOpen(false)} sip={modifySipTarget} pan={selectedPan ?? ""} />
       <OrderStatusDialog open={orderStatusOpen} onClose={() => setOrderStatusOpen(false)} orderId={orderStatusId} />
+      {manageOpen && selectedPan && (
+        <ManageInvestorPanel pan={selectedPan} onClose={() => setManageOpen(false)} />
+      )}
     </div>
   );
 }
@@ -3865,10 +4749,10 @@ function CasImportTab() {
   });
 
   const importMutation = useMutation({
-    mutationFn: () => apiRequest('/api/iris/portfolio/import', 'POST', {
+    mutationFn: () => apiRequest('/api/iris/portfolio/import', 'POST', { body: {
       pan: casSubmittedPan,
       holdings: casQuery.data?.data?.holdings ?? [],
-    }),
+    }}),
     onSuccess: () => {
       toast({ title: 'Portfolio imported', description: `Holdings for ${casSubmittedPan} saved to IRIS.` });
       qc.invalidateQueries({ queryKey: ['/api/iris/portfolio/external', casSubmittedPan] });
@@ -3877,10 +4761,10 @@ function CasImportTab() {
   });
 
   const generateCasMutation = useMutation({
-    mutationFn: () => apiRequest('/api/iris/reports/cas/generate', 'POST', {
+    mutationFn: () => apiRequest('/api/iris/reports/cas/generate', 'POST', { body: {
       pan: casSubmittedPan,
       email: genEmail || undefined,
-    }),
+    }}),
     onSuccess: () => {
       toast({ title: 'CAS statement generated', description: genEmail ? `Sent to ${genEmail}` : 'Available for download.' });
       setGenEmailDialogOpen(false);
@@ -3919,11 +4803,11 @@ function CasImportTab() {
   });
 
   const linkMutation = useMutation({
-    mutationFn: () => apiRequest('/api/iris/portfolio/external/link', 'POST', {
+    mutationFn: () => apiRequest('/api/iris/portfolio/external/link', 'POST', { body: {
       pan: extSubmittedPan,
       folioNo: linkFolioNo,
       registrar: linkRegistrar,
-    }),
+    }}),
     onSuccess: () => {
       toast({ title: 'Folio linked' });
       qc.invalidateQueries({ queryKey: ['/api/iris/portfolio/external', extSubmittedPan] });
