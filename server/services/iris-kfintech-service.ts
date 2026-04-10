@@ -289,6 +289,10 @@ class IrisKfintechService {
     return this.call(`/user/hierarchy/sub-brokers${qs}`);
   }
   async getSubBrokerDetails(euinCode: string) { return this.call(`/user/hierarchy/sub-brokers/${euinCode}`); }
+  async getSubBrokerAum(euinCode: string, params?: any) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.call(`/user/hierarchy/sub-brokers/${euinCode}/aum${qs}`);
+  }
   async addEmployee(body: any) { return this.call('/user/hierarchy/employees', 'POST', body); }
   async updateEmployee(euinCode: string, body: any) { return this.call(`/user/hierarchy/employees/${euinCode}`, 'PUT', body); }
 

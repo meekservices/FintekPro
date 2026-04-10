@@ -23,7 +23,9 @@ import {
   AlertTriangle, Banknote, PiggyBank, CreditCard, Settings, Target,
   Upload, Trash2, Pencil, Plus, Fingerprint,
   LineChart, PlusCircle, Star, User, BookOpen, Layers,
-  ArrowLeftRight, Repeat, MinusCircle
+  ArrowLeftRight, Repeat, MinusCircle,
+  Building2, Bell, MessageSquare, ChevronDown, ChevronUp,
+  TrendingDown, PieChart
 } from "lucide-react";
 
 // ─── IRIS API types ───────────────────────────────────────────────────────────
@@ -1438,7 +1440,7 @@ function PortalLinkButton({ pan }: { pan: string }) {
 }
 
 // ─── Investors Tab ────────────────────────────────────────────────────────────
-type InvestorDetailTab = "portfolio" | "holdings" | "transactions" | "sips" | "orders" | "folios" | "enrichment" | "goals" | "demat-docs";
+type InvestorDetailTab = "portfolio" | "holdings" | "transactions" | "sips" | "orders" | "folios" | "enrichment" | "goals" | "demat-docs" | "alerts" | "whatsapp";
 
 function InvestorsTab() {
   const [search, setSearch] = useState("");
@@ -1582,6 +1584,8 @@ function InvestorsTab() {
     { key: "enrichment", label: "Enrichment" },
     { key: "goals", label: "Goals" },
     { key: "demat-docs", label: "Demat & Docs" },
+    { key: "alerts", label: "Alerts" },
+    { key: "whatsapp", label: "WhatsApp" },
   ];
 
   return (
@@ -1870,6 +1874,9 @@ function InvestorsTab() {
             {detailTab === "goals" && <GoalsPanel pan={selectedPan} />}
 
             {detailTab === "demat-docs" && <DematDocsPanel pan={selectedPan} />}
+
+            {detailTab === "alerts" && <InvestorAlertsPanel pan={selectedPan!} />}
+            {detailTab === "whatsapp" && <WhatsAppPanel pan={selectedPan!} />}
           </div>
         ) : (
           <Card className="flex items-center justify-center min-h-[300px]">
@@ -3607,101 +3614,6 @@ function NpsTab() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-// ─── Reports Tab ──────────────────────────────────────────────────────────────
-type ReportType = "capital-gains" | "client-statement" | "transaction-statement" | "portfolio-summary";
-
-const REPORT_TYPES: { value: ReportType; label: string }[] = [
-  { value: "capital-gains", label: "Capital Gains Statement" },
-  { value: "client-statement", label: "Client Statement" },
-  { value: "transaction-statement", label: "Transaction Statement" },
-  { value: "portfolio-summary", label: "Portfolio Summary" },
-];
-
-function ReportsTab() {
-  const [pan, setPan] = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [reportType, setReportType] = useState<ReportType>("capital-gains");
-  const [result, setResult] = useState<{ success: boolean; data?: { downloadUrl?: string }; message?: string } | null>(null);
-  const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-
-  async function runReport() {
-    if (!pan) { toast({ title: "PAN is required", variant: "destructive" }); return; }
-    setLoading(true);
-    setResult(null);
-    try {
-      const qs = new URLSearchParams();
-      if (fromDate) qs.set("fromDate", fromDate);
-      if (toDate) qs.set("toDate", toDate);
-      const json = await irisGet<typeof result>(`/api/iris/reports/${reportType}/${pan}${qs.toString() ? '?' + qs.toString() : ''}`);
-      setResult(json);
-    } catch {
-      toast({ title: "Report fetch failed", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader><CardTitle className="text-sm">Download Reports</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <Label>Investor PAN</Label>
-              <Input value={pan} onChange={e => setPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" />
-            </div>
-            <div>
-              <Label>Report Type</Label>
-              <Select value={reportType} onValueChange={v => setReportType(v as ReportType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {REPORT_TYPES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>From Date</Label>
-              <Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} />
-            </div>
-            <div>
-              <Label>To Date</Label>
-              <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} />
-            </div>
-          </div>
-          <Button onClick={runReport} disabled={loading}>
-            {loading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-            {loading ? "Fetching…" : "Get Report"}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {result && (
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Report Result</CardTitle></CardHeader>
-          <CardContent>
-            {result.success ? (
-              result.data?.downloadUrl ? (
-                <a href={result.data.downloadUrl} target="_blank" rel="noopener noreferrer">
-                  <Button variant="outline"><Download className="h-4 w-4 mr-2" /> Download PDF</Button>
-                </a>
-              ) : (
-                <pre className="text-xs bg-muted/30 rounded p-3 overflow-auto max-h-64">
-                  {JSON.stringify(result.data, null, 2)}
-                </pre>
-              )
-            ) : (
-              <p className="text-sm text-destructive">{result.message}</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
@@ -5715,6 +5627,992 @@ function MandatesTab() {
   );
 }
 
+
+// ─── Commissions Tab ──────────────────────────────────────────────────────────
+function CommissionsTab() {
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [amcCode, setAmcCode] = useState("");
+
+  const params = new URLSearchParams();
+  if (fromDate) params.set("fromDate", fromDate);
+  if (toDate) params.set("toDate", toDate);
+  if (amcCode) params.set("amcCode", amcCode);
+  const qs = params.toString() ? "?" + params.toString() : "";
+
+  const { data: summary, isLoading: sumL } = useQuery<IrisApiResponse<{ totalEarned?: number; thisMonth?: number; pending?: number }>>({
+    queryKey: ["/api/iris/reports/commission/summary", fromDate, toDate, amcCode],
+    queryFn: () => irisGet(`/api/iris/reports/commission/summary${qs}`),
+    retry: false,
+  });
+
+  const { data: statement, isLoading: stmtL } = useQuery<IrisApiResponse<{ commissions?: CommissionRow[] } | CommissionRow[]>>({
+    queryKey: ["/api/iris/reports/commission", fromDate, toDate, amcCode],
+    queryFn: () => irisGet(`/api/iris/reports/commission${qs}`),
+    retry: false,
+  });
+
+  const { data: trail, isLoading: trailL } = useQuery<IrisApiResponse<{ trail?: TrailRow[] } | TrailRow[]>>({
+    queryKey: ["/api/iris/reports/trail-commission", fromDate, toDate, amcCode],
+    queryFn: () => irisGet(`/api/iris/reports/trail-commission${qs}`),
+    retry: false,
+  });
+
+  const { data: amcWise, isLoading: amcL } = useQuery<IrisApiResponse<{ breakdown?: AmcCommission[] } | AmcCommission[]>>({
+    queryKey: ["/api/iris/reports/commission/amc-wise", fromDate, toDate, amcCode],
+    queryFn: () => irisGet(`/api/iris/reports/commission/amc-wise${qs}`),
+    retry: false,
+  });
+
+  function resolveArr<T>(d: IrisApiResponse<{ commissions?: T[]; trail?: T[]; breakdown?: T[] } | T[]> | undefined, key: "commissions" | "trail" | "breakdown"): T[] {
+    if (!d?.data) return [];
+    if (Array.isArray(d.data)) return d.data as T[];
+    return (d.data as Record<string, T[] | undefined>)[key] ?? [];
+  }
+
+  const commissions = resolveArr<CommissionRow>(statement as IrisApiResponse<{ commissions?: CommissionRow[] } | CommissionRow[]>, "commissions");
+  const trailRows = resolveArr<TrailRow>(trail as IrisApiResponse<{ trail?: TrailRow[] } | TrailRow[]>, "trail");
+  const amcRows = resolveArr<AmcCommission>(amcWise as IrisApiResponse<{ breakdown?: AmcCommission[] } | AmcCommission[]>, "breakdown");
+
+  const sumData = summary?.data;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader><CardTitle className="text-sm">Filters</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div><Label>From Date</Label><Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} /></div>
+            <div><Label>To Date</Label><Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} /></div>
+            <div><Label>AMC Code (optional)</Label><Input placeholder="e.g. HDFC" value={amcCode} onChange={e => setAmcCode(e.target.value.toUpperCase())} /></div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard title="Total Earned" value={fmt(sumData?.totalEarned)} icon={CreditCard} loading={sumL} subtitle="All time commissions" />
+        <StatCard title="This Month" value={fmt(sumData?.thisMonth)} icon={TrendingUp} loading={sumL} subtitle="Current month earnings" />
+        <StatCard title="Pending" value={fmt(sumData?.pending)} icon={Clock} loading={sumL} subtitle="Awaiting clearance" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Commission Statement</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            {stmtL ? <div className="p-4 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div> : (
+              <ScrollArea className="h-60">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-background border-b">
+                    <tr>
+                      <th className="text-left p-2 font-medium">Scheme</th>
+                      <th className="text-right p-2 font-medium">Amount</th>
+                      <th className="text-right p-2 font-medium">Type</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {commissions.map((c, i) => (
+                      <tr key={i} className="border-b hover:bg-muted/50">
+                        <td className="p-2">{c.schemeName ?? c.scheme ?? "—"}</td>
+                        <td className="p-2 text-right">{fmt(c.commissionAmount ?? c.amount)}</td>
+                        <td className="p-2 text-right"><Badge variant="outline" className="text-xs">{c.commissionType ?? c.type ?? "—"}</Badge></td>
+                      </tr>
+                    ))}
+                    {!commissions.length && <tr><td colSpan={3} className="p-4 text-center text-muted-foreground text-sm">No commission data</td></tr>}
+                  </tbody>
+                </table>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Trail Commission</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            {trailL ? <div className="p-4 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div> : (
+              <ScrollArea className="h-60">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-background border-b">
+                    <tr>
+                      <th className="text-left p-2 font-medium">Scheme</th>
+                      <th className="text-right p-2 font-medium">AUM</th>
+                      <th className="text-right p-2 font-medium">Trail %</th>
+                      <th className="text-right p-2 font-medium">Trail Amt</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trailRows.map((t, i) => (
+                      <tr key={i} className="border-b hover:bg-muted/50">
+                        <td className="p-2">{t.schemeName ?? t.scheme ?? "—"}</td>
+                        <td className="p-2 text-right">{fmt(t.aum)}</td>
+                        <td className="p-2 text-right">{t.trailRate != null ? t.trailRate + "%" : "—"}</td>
+                        <td className="p-2 text-right">{fmt(t.trailAmount ?? t.amount)}</td>
+                      </tr>
+                    ))}
+                    {!trailRows.length && <tr><td colSpan={4} className="p-4 text-center text-muted-foreground text-sm">No trail commission data</td></tr>}
+                  </tbody>
+                </table>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm">AMC-wise Breakdown</CardTitle>
+            <Button size="sm" variant="outline" onClick={() => {
+              const csv = ["AMC,AUM,Commission,Trail"].concat(amcRows.map(r => `${r.amcName ?? r.amc ?? ""},${r.aum ?? ""},${r.commission ?? ""},${r.trail ?? ""}`)).join("\n");
+              const blob = new Blob([csv], { type: "text/csv" });
+              const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "amc-commissions.csv"; a.click();
+            }}>
+              <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {amcL ? <div className="p-4 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div> : (
+            <ScrollArea className="h-56">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-background border-b">
+                  <tr>
+                    <th className="text-left p-2 font-medium">AMC</th>
+                    <th className="text-right p-2 font-medium">AUM</th>
+                    <th className="text-right p-2 font-medium">Commission</th>
+                    <th className="text-right p-2 font-medium">Trail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {amcRows.map((r, i) => (
+                    <tr key={i} className="border-b hover:bg-muted/50">
+                      <td className="p-2 font-medium">{r.amcName ?? r.amc ?? "—"}</td>
+                      <td className="p-2 text-right">{fmt(r.aum)}</td>
+                      <td className="p-2 text-right">{fmt(r.commission)}</td>
+                      <td className="p-2 text-right">{fmt(r.trail)}</td>
+                    </tr>
+                  ))}
+                  {!amcRows.length && <tr><td colSpan={4} className="p-4 text-center text-muted-foreground text-sm">No AMC breakdown data</td></tr>}
+                </tbody>
+              </table>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+interface CommissionRow { schemeName?: string; scheme?: string; commissionAmount?: number; amount?: number; commissionType?: string; type?: string; }
+interface TrailRow { schemeName?: string; scheme?: string; aum?: number; trailRate?: number; trailAmount?: number; amount?: number; }
+interface AmcCommission { amcName?: string; amc?: string; aum?: number; commission?: number; trail?: number; }
+
+// ─── Enhanced Reports Tab ─────────────────────────────────────────────────────
+type ReportType = "capital-gains" | "client-statement" | "transaction-statement" | "portfolio-summary";
+type BulkReportSection = "per-investor" | "bulk-cg" | "dividend-tracker" | "sip-calendar" | "bulk-portfolio";
+
+const REPORT_TYPES: { value: ReportType; label: string }[] = [
+  { value: "capital-gains", label: "Capital Gains Statement" },
+  { value: "client-statement", label: "Client Statement" },
+  { value: "transaction-statement", label: "Transaction Statement" },
+  { value: "portfolio-summary", label: "Portfolio Summary" },
+];
+
+function ReportsTab() {
+  const [section, setSection] = useState<BulkReportSection>("per-investor");
+  const [pan, setPan] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [reportType, setReportType] = useState<ReportType>("capital-gains");
+  const [result, setResult] = useState<{ success: boolean; data?: { downloadUrl?: string }; message?: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [fySelector, setFySelector] = useState("2024-25");
+  const [sipWindow, setSipWindow] = useState("30");
+  const [amcFilter, setAmcFilter] = useState("");
+  const { toast } = useToast();
+
+  async function runReport() {
+    if (!pan) { toast({ title: "PAN is required", variant: "destructive" }); return; }
+    setLoading(true); setResult(null);
+    try {
+      const qs = new URLSearchParams();
+      if (fromDate) qs.set("fromDate", fromDate);
+      if (toDate) qs.set("toDate", toDate);
+      const json = await irisGet<typeof result>(`/api/iris/reports/${reportType}/${pan}${qs.toString() ? "?" + qs.toString() : ""}`);
+      setResult(json);
+    } catch { toast({ title: "Report fetch failed", variant: "destructive" }); }
+    finally { setLoading(false); }
+  }
+
+  const bulkCgParams = new URLSearchParams({ fy: fySelector }); if (amcFilter) bulkCgParams.set("amcCode", amcFilter);
+  const { data: bulkCg, isLoading: bcgL, refetch: refetchBcg } = useQuery<IrisApiResponse<{ downloadUrl?: string; records?: unknown[] }>>({
+    queryKey: ["/api/iris/reports/bulk/capital-gains", fySelector, amcFilter],
+    queryFn: () => irisGet(`/api/iris/reports/bulk/capital-gains?${bulkCgParams.toString()}`),
+    enabled: section === "bulk-cg",
+    retry: false,
+  });
+
+  const divParams = new URLSearchParams(); if (fromDate) divParams.set("fromDate", fromDate); if (toDate) divParams.set("toDate", toDate); if (amcFilter) divParams.set("amcCode", amcFilter);
+  const { data: dividends, isLoading: divL, refetch: refetchDiv } = useQuery<IrisApiResponse<{ dividends?: DividendRow[] } | DividendRow[]>>({
+    queryKey: ["/api/iris/reports/dividend-tracker", fromDate, toDate, amcFilter],
+    queryFn: () => irisGet(`/api/iris/reports/dividend-tracker${divParams.toString() ? "?" + divParams.toString() : ""}`),
+    enabled: section === "dividend-tracker",
+    retry: false,
+  });
+
+  const sipParams = new URLSearchParams({ days: sipWindow });
+  const { data: sipCal, isLoading: sipCalL, refetch: refetchSipCal } = useQuery<IrisApiResponse<{ sips?: SipCalRow[] } | SipCalRow[]>>({
+    queryKey: ["/api/iris/reports/sip-maturity-calendar", sipWindow],
+    queryFn: () => irisGet(`/api/iris/reports/sip-maturity-calendar?${sipParams.toString()}`),
+    enabled: section === "sip-calendar",
+    retry: false,
+  });
+
+  const bpParams = new URLSearchParams(); if (toDate) bpParams.set("asOfDate", toDate);
+  const { data: bulkPortfolio, isLoading: bpL, refetch: refetchBp } = useQuery<IrisApiResponse<{ downloadUrl?: string }>>({
+    queryKey: ["/api/iris/reports/bulk/portfolio", toDate],
+    queryFn: () => irisGet(`/api/iris/reports/bulk/portfolio${bpParams.toString() ? "?" + bpParams.toString() : ""}`),
+    enabled: section === "bulk-portfolio",
+    retry: false,
+  });
+
+  function resolveDivArr(): DividendRow[] {
+    if (!dividends?.data) return [];
+    if (Array.isArray(dividends.data)) return dividends.data;
+    return (dividends.data as { dividends?: DividendRow[] }).dividends ?? [];
+  }
+  function resolveSipCalArr(): SipCalRow[] {
+    if (!sipCal?.data) return [];
+    if (Array.isArray(sipCal.data)) return sipCal.data;
+    return (sipCal.data as { sips?: SipCalRow[] }).sips ?? [];
+  }
+
+  const sections: { value: BulkReportSection; label: string }[] = [
+    { value: "per-investor", label: "Per-Investor" },
+    { value: "bulk-cg", label: "Bulk Capital Gains" },
+    { value: "dividend-tracker", label: "Dividend Tracker" },
+    { value: "sip-calendar", label: "SIP Maturity Calendar" },
+    { value: "bulk-portfolio", label: "Bulk Portfolio" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 flex-wrap">
+        {sections.map(s => (
+          <Button key={s.value} size="sm" variant={section === s.value ? "default" : "outline"} onClick={() => setSection(s.value)}>{s.label}</Button>
+        ))}
+      </div>
+
+      {section === "per-investor" && (
+        <>
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Per-Investor Report</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div><Label>Investor PAN</Label><Input value={pan} onChange={e => setPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" /></div>
+                <div>
+                  <Label>Report Type</Label>
+                  <Select value={reportType} onValueChange={v => setReportType(v as ReportType)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{REPORT_TYPES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div><Label>From Date</Label><Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} /></div>
+                <div><Label>To Date</Label><Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} /></div>
+              </div>
+              <Button onClick={runReport} disabled={loading}>
+                {loading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                {loading ? "Fetching…" : "Get Report"}
+              </Button>
+            </CardContent>
+          </Card>
+          {result && (
+            <Card>
+              <CardHeader><CardTitle className="text-sm">Report Result</CardTitle></CardHeader>
+              <CardContent>
+                {result.success ? (
+                  result.data?.downloadUrl
+                    ? <a href={result.data.downloadUrl} target="_blank" rel="noopener noreferrer"><Button variant="outline"><Download className="h-4 w-4 mr-2" /> Download PDF</Button></a>
+                    : <pre className="text-xs bg-muted/30 rounded p-3 overflow-auto max-h-64">{JSON.stringify(result.data, null, 2)}</pre>
+                ) : <p className="text-sm text-destructive">{result.message}</p>}
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
+      {section === "bulk-cg" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2"><TrendingDown className="h-4 w-4" /> Bulk Capital Gains Report</CardTitle>
+            <CardDescription>All investors — capital gains for the selected financial year</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-3 flex-wrap items-end">
+              <div><Label>Financial Year</Label>
+                <Select value={fySelector} onValueChange={setFySelector}>
+                  <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["2024-25","2023-24","2022-23","2021-22"].map(fy => <SelectItem key={fy} value={fy}>{fy}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label>AMC Filter (optional)</Label><Input placeholder="AMC code" value={amcFilter} onChange={e => setAmcFilter(e.target.value.toUpperCase())} className="w-32" /></div>
+              <Button onClick={() => refetchBcg()} disabled={bcgL}>{bcgL ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <Download className="h-4 w-4 mr-1" />} Generate</Button>
+            </div>
+            {bcgL && <Skeleton className="h-16 w-full" />}
+            {bulkCg?.data?.downloadUrl && (
+              <a href={bulkCg.data.downloadUrl} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline"><Download className="h-4 w-4 mr-2" /> Download Report</Button>
+              </a>
+            )}
+            {bulkCg && !bulkCg.data?.downloadUrl && (
+              <pre className="text-xs bg-muted/30 rounded p-3 overflow-auto max-h-48">{JSON.stringify(bulkCg.data, null, 2)}</pre>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {section === "dividend-tracker" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2"><IndianRupee className="h-4 w-4" /> Dividend Tracker</CardTitle>
+            <CardDescription>Upcoming dividends across your book</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-3 flex-wrap items-end">
+              <div><Label>From Date</Label><Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} /></div>
+              <div><Label>To Date</Label><Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} /></div>
+              <div><Label>AMC Filter</Label><Input placeholder="AMC code" value={amcFilter} onChange={e => setAmcFilter(e.target.value.toUpperCase())} className="w-32" /></div>
+              <Button onClick={() => refetchDiv()} disabled={divL}>{divL ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />} Refresh</Button>
+              {resolveDivArr().length > 0 && (
+                <Button variant="outline" onClick={() => {
+                  const csv = ["Scheme,Dividend,Record Date,AMC"].concat(resolveDivArr().map(d => `"${d.schemeName ?? d.scheme ?? ""}",${d.dividendAmount ?? ""},${d.recordDate ?? ""},"${d.amcName ?? d.amc ?? ""}"`)).join("\n");
+                  const blob = new Blob([csv], { type: "text/csv" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "dividend-tracker.csv"; a.click();
+                }}><Download className="h-4 w-4 mr-1" /> Export CSV</Button>
+              )}
+            </div>
+            {divL ? <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div> : (
+              <ScrollArea className="h-64 border rounded-md">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-background border-b">
+                    <tr><th className="text-left p-2">Scheme</th><th className="text-right p-2">Dividend</th><th className="text-right p-2">Record Date</th><th className="text-right p-2">AMC</th></tr>
+                  </thead>
+                  <tbody>
+                    {resolveDivArr().map((d, i) => (
+                      <tr key={i} className="border-b hover:bg-muted/50">
+                        <td className="p-2">{d.schemeName ?? d.scheme ?? "—"}</td>
+                        <td className="p-2 text-right">{d.dividendAmount != null ? `₹${d.dividendAmount}` : "—"}</td>
+                        <td className="p-2 text-right">{d.recordDate ?? "—"}</td>
+                        <td className="p-2 text-right">{d.amcName ?? d.amc ?? "—"}</td>
+                      </tr>
+                    ))}
+                    {!resolveDivArr().length && <tr><td colSpan={4} className="p-4 text-center text-muted-foreground text-sm">No dividend data</td></tr>}
+                  </tbody>
+                </table>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {section === "sip-calendar" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2"><Calendar className="h-4 w-4" /> SIP Maturity Calendar</CardTitle>
+            <CardDescription>SIPs maturing within the selected window</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-3 flex-wrap items-end">
+              <div>
+                <Label>Maturity Window</Label>
+                <Select value={sipWindow} onValueChange={setSipWindow}>
+                  <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30">30 Days</SelectItem>
+                    <SelectItem value="60">60 Days</SelectItem>
+                    <SelectItem value="90">90 Days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={() => refetchSipCal()} disabled={sipCalL}>{sipCalL ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />} Refresh</Button>
+              {resolveSipCalArr().length > 0 && (
+                <Button variant="outline" onClick={() => {
+                  const csv = ["Investor/PAN,Scheme,Amount,Maturity Date"].concat(resolveSipCalArr().map(s => `"${s.investorName ?? s.pan ?? ""}","${s.schemeName ?? s.scheme ?? ""}",${s.amount ?? ""},${s.maturityDate ?? s.endDate ?? ""}`)).join("\n");
+                  const blob = new Blob([csv], { type: "text/csv" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "sip-maturity-calendar.csv"; a.click();
+                }}><Download className="h-4 w-4 mr-1" /> Export CSV</Button>
+              )}
+            </div>
+            {sipCalL ? <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div> : (
+              <ScrollArea className="h-64 border rounded-md">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-background border-b">
+                    <tr><th className="text-left p-2">Investor</th><th className="text-left p-2">Scheme</th><th className="text-right p-2">Amount</th><th className="text-right p-2">Maturity Date</th></tr>
+                  </thead>
+                  <tbody>
+                    {resolveSipCalArr().map((s, i) => (
+                      <tr key={i} className="border-b hover:bg-muted/50">
+                        <td className="p-2">{s.investorName ?? s.pan ?? "—"}</td>
+                        <td className="p-2">{s.schemeName ?? s.scheme ?? "—"}</td>
+                        <td className="p-2 text-right">{fmt(s.amount)}</td>
+                        <td className="p-2 text-right">{s.maturityDate ?? s.endDate ?? "—"}</td>
+                      </tr>
+                    ))}
+                    {!resolveSipCalArr().length && <tr><td colSpan={4} className="p-4 text-center text-muted-foreground text-sm">No SIP maturities in this window</td></tr>}
+                  </tbody>
+                </table>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {section === "bulk-portfolio" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2"><PieChart className="h-4 w-4" /> Bulk Portfolio Report</CardTitle>
+            <CardDescription>Portfolio report for all investors — downloadable</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-3 flex-wrap items-end">
+              <div><Label>As-of Date (optional)</Label><Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} /></div>
+              <Button onClick={() => refetchBp()} disabled={bpL}>{bpL ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <Download className="h-4 w-4 mr-1" />} Generate</Button>
+            </div>
+            {bpL && <Skeleton className="h-16 w-full" />}
+            {bulkPortfolio?.data?.downloadUrl && (
+              <a href={bulkPortfolio.data.downloadUrl} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline"><Download className="h-4 w-4 mr-2" /> Download Portfolio Report</Button>
+              </a>
+            )}
+            {bulkPortfolio && !bulkPortfolio.data?.downloadUrl && (
+              <pre className="text-xs bg-muted/30 rounded p-3 overflow-auto max-h-48">{JSON.stringify(bulkPortfolio.data, null, 2)}</pre>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+interface DividendRow { schemeName?: string; scheme?: string; dividendAmount?: number; recordDate?: string; amcName?: string; amc?: string; }
+interface SipCalRow { investorName?: string; pan?: string; schemeName?: string; scheme?: string; amount?: number; maturityDate?: string; endDate?: string; }
+
+// ─── Compliance Tab (admin-only) ──────────────────────────────────────────────
+function ComplianceTab() {
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
+  const qs = new URLSearchParams();
+  if (fromDate) qs.set("fromDate", fromDate);
+  if (toDate) qs.set("toDate", toDate);
+  const qsStr = qs.toString() ? "?" + qs.toString() : "";
+
+  const { data: pmla, isLoading: pmlaL } = useQuery<IrisApiResponse<{ records?: ComplianceRecord[] } | ComplianceRecord[]>>({
+    queryKey: ["/api/iris/reports/pmla", fromDate, toDate],
+    queryFn: () => irisGet(`/api/iris/reports/pmla${qsStr}`),
+    retry: false,
+  });
+  const { data: aml, isLoading: amlL } = useQuery<IrisApiResponse<{ records?: AmlRecord[] } | AmlRecord[]>>({
+    queryKey: ["/api/iris/reports/aml", fromDate, toDate],
+    queryFn: () => irisGet(`/api/iris/reports/aml${qsStr}`),
+    retry: false,
+  });
+  const { data: compliance, isLoading: compL } = useQuery<IrisApiResponse<{ records?: ComplianceRecord[] } | ComplianceRecord[]>>({
+    queryKey: ["/api/iris/reports/compliance", fromDate, toDate],
+    queryFn: () => irisGet(`/api/iris/reports/compliance${qsStr}`),
+    retry: false,
+  });
+
+  function resolveRecords<T>(d: IrisApiResponse<{ records?: T[] } | T[]> | undefined): T[] {
+    if (!d?.data) return [];
+    if (Array.isArray(d.data)) return d.data as T[];
+    return ((d.data as { records?: T[] }).records) ?? [];
+  }
+
+  const pmlaRecs = resolveRecords<ComplianceRecord>(pmla);
+  const amlRecs = resolveRecords<AmlRecord>(aml);
+  const compRecs = resolveRecords<ComplianceRecord>(compliance);
+
+  function ReportTable({ rows, cols, loading }: { rows: Record<string, unknown>[]; cols: { key: string; label: string }[]; loading: boolean }) {
+    if (loading) return <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>;
+    return (
+      <ScrollArea className="h-52 border rounded-md">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-background border-b">
+            <tr>{cols.map(c => <th key={c.key} className="text-left p-2 font-medium">{c.label}</th>)}</tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} className="border-b hover:bg-muted/50">
+                {cols.map(c => <td key={c.key} className="p-2">{String(r[c.key] ?? "—")}</td>)}
+              </tr>
+            ))}
+            {!rows.length && <tr><td colSpan={cols.length} className="p-4 text-center text-muted-foreground text-sm">No records found</td></tr>}
+          </tbody>
+        </table>
+      </ScrollArea>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Shield className="h-4 w-4 text-amber-500" /> Compliance & AML Reports (Admin Only)</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div><Label>From Date</Label><Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} /></div>
+            <div><Label>To Date</Label><Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} /></div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-sm">PMLA Report</CardTitle><CardDescription>Prevention of Money Laundering Act — flagged transactions</CardDescription></CardHeader>
+        <CardContent>
+          <ReportTable rows={pmlaRecs as unknown as Record<string, unknown>[]} cols={[{key:"pan",label:"PAN"},{key:"investorName",label:"Investor"},{key:"amount",label:"Amount"},{key:"transactionDate",label:"Date"},{key:"flag",label:"Flag"}]} loading={pmlaL} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-sm">AML Flag Report</CardTitle><CardDescription>Anti-money laundering — flagged investor accounts</CardDescription></CardHeader>
+        <CardContent>
+          <ReportTable rows={amlRecs as unknown as Record<string, unknown>[]} cols={[{key:"pan",label:"PAN"},{key:"investorName",label:"Investor"},{key:"flagReason",label:"Reason"},{key:"flagDate",label:"Flagged On"},{key:"status",label:"Status"}]} loading={amlL} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-sm">General Compliance Summary</CardTitle><CardDescription>Overall compliance records</CardDescription></CardHeader>
+        <CardContent>
+          <ReportTable rows={compRecs as unknown as Record<string, unknown>[]} cols={[{key:"pan",label:"PAN"},{key:"investorName",label:"Investor"},{key:"complianceType",label:"Type"},{key:"date",label:"Date"},{key:"status",label:"Status"}]} loading={compL} />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+interface ComplianceRecord { pan?: string; investorName?: string; amount?: number; transactionDate?: string; flag?: string; complianceType?: string; date?: string; status?: string; }
+interface AmlRecord { pan?: string; investorName?: string; flagReason?: string; flagDate?: string; status?: string; }
+
+// ─── Hierarchy Tab ─────────────────────────────────────────────────────────────
+function HierarchyTab({ isAdmin }: { isAdmin: boolean }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [expandedEuin, setExpandedEuin] = useState<string | null>(null);
+  const [empDialogOpen, setEmpDialogOpen] = useState(false);
+  const [editingEuin, setEditingEuin] = useState<string | null>(null);
+  const [empForm, setEmpForm] = useState({ name: "", mobile: "", email: "", euinCode: "" });
+
+  const { data: subBrokers, isLoading: sbL } = useQuery<IrisApiResponse<{ subBrokers?: SubBroker[] } | SubBroker[]>>({
+    queryKey: ["/api/iris/hierarchy/sub-brokers"],
+    retry: false,
+  });
+
+  const { data: aumData, isLoading: aumL } = useQuery<IrisApiResponse<SubBrokerAum>>({
+    queryKey: ["/api/iris/hierarchy/sub-brokers", expandedEuin, "aum"],
+    queryFn: () => irisGet(`/api/iris/hierarchy/sub-brokers/${expandedEuin}/aum`),
+    enabled: !!expandedEuin,
+    retry: false,
+  });
+
+  const addEmp = useMutation({
+    mutationFn: (body: Record<string, unknown>) => apiRequest("/api/iris/hierarchy/employees", "POST", { body }),
+    onSuccess: () => { toast({ title: "Employee added" }); setEmpDialogOpen(false); qc.invalidateQueries({ queryKey: ["/api/iris/hierarchy/sub-brokers"] }); },
+    onError: (e: Error) => toast({ title: "Failed to add employee", description: e.message, variant: "destructive" }),
+  });
+
+  const updateEmp = useMutation({
+    mutationFn: ({ euinCode, body }: { euinCode: string; body: Record<string, unknown> }) =>
+      apiRequest(`/api/iris/hierarchy/employees/${euinCode}`, "PUT", { body }),
+    onSuccess: () => { toast({ title: "Employee updated" }); setEmpDialogOpen(false); qc.invalidateQueries({ queryKey: ["/api/iris/hierarchy/sub-brokers"] }); },
+    onError: (e: Error) => toast({ title: "Failed to update", description: e.message, variant: "destructive" }),
+  });
+
+  function resolveSB(): SubBroker[] {
+    if (!subBrokers?.data) return [];
+    if (Array.isArray(subBrokers.data)) return subBrokers.data;
+    return (subBrokers.data as { subBrokers?: SubBroker[] }).subBrokers ?? [];
+  }
+
+  const brokers = resolveSB();
+  const aum = aumData?.data;
+
+  function openAdd() { setEditingEuin(null); setEmpForm({ name: "", mobile: "", email: "", euinCode: "" }); setEmpDialogOpen(true); }
+  function openEdit(b: SubBroker) { setEditingEuin(b.euinCode ?? ""); setEmpForm({ name: b.name ?? "", mobile: b.mobile ?? "", email: b.email ?? "", euinCode: b.euinCode ?? "" }); setEmpDialogOpen(true); }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold">Sub-Broker Hierarchy</h3>
+          <p className="text-sm text-muted-foreground">Click a sub-broker to view their AUM drilldown</p>
+        </div>
+        {isAdmin && (
+          <Button size="sm" onClick={openAdd}><Plus className="h-4 w-4 mr-1" /> Add Employee</Button>
+        )}
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          {sbL ? (
+            <div className="p-4 space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
+          ) : brokers.length > 0 ? (
+            <div className="divide-y">
+              {brokers.map((b, i) => {
+                const euin = b.euinCode ?? b.euin ?? "";
+                const isExpanded = expandedEuin === euin;
+                return (
+                  <div key={i}>
+                    <button className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+                      onClick={() => setExpandedEuin(isExpanded ? null : euin)}>
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Building2 className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-medium">{b.name ?? b.subBrokerName ?? "—"}</p>
+                          <p className="text-xs text-muted-foreground">EUIN: {euin} · {b.mobile ?? ""}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {b.status && <Badge variant={b.status === "ACTIVE" ? "default" : "secondary"} className="text-xs">{b.status}</Badge>}
+                        {isAdmin && (
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={e => { e.stopPropagation(); openEdit(b); }}><Pencil className="h-3.5 w-3.5" /></Button>
+                        )}
+                        {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="bg-muted/20 border-t p-4 space-y-4">
+                        {aumL ? (
+                          <div className="space-y-2">{[1,2,3].map(j => <Skeleton key={j} className="h-10 w-full" />)}</div>
+                        ) : aum ? (
+                          <>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                              <div className="bg-background rounded-lg p-3 border">
+                                <p className="text-xs text-muted-foreground">Total AUM</p>
+                                <p className="font-semibold">{fmt(aum.totalAum)}</p>
+                              </div>
+                              <div className="bg-background rounded-lg p-3 border">
+                                <p className="text-xs text-muted-foreground">SIP Book</p>
+                                <p className="font-semibold">{fmt(aum.sipBook)}</p>
+                              </div>
+                              <div className="bg-background rounded-lg p-3 border">
+                                <p className="text-xs text-muted-foreground">Investors</p>
+                                <p className="font-semibold">{aum.investorCount ?? "—"}</p>
+                              </div>
+                            </div>
+
+                            {aum.amcWise && aum.amcWise.length > 0 && (
+                              <div>
+                                <p className="text-xs font-medium text-muted-foreground mb-2">AMC-wise AUM</p>
+                                <div className="space-y-1">
+                                  {aum.amcWise.slice(0, 8).map((a, j) => (
+                                    <div key={j} className="flex justify-between text-xs">
+                                      <span>{a.amcName ?? a.amc ?? "—"}</span>
+                                      <span className="font-medium">{fmt(a.aum)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {aum.categoryWise && aum.categoryWise.length > 0 && (
+                              <div>
+                                <p className="text-xs font-medium text-muted-foreground mb-2">Category-wise AUM</p>
+                                <div className="space-y-1">
+                                  {aum.categoryWise.slice(0, 8).map((c, j) => (
+                                    <div key={j} className="flex justify-between text-xs">
+                                      <span>{c.categoryName ?? c.category ?? "—"}</span>
+                                      <span className="font-medium">{fmt(c.aum)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {aum.topSchemes && aum.topSchemes.length > 0 && (
+                              <div>
+                                <p className="text-xs font-medium text-muted-foreground mb-2">Top Schemes</p>
+                                <div className="space-y-1">
+                                  {aum.topSchemes.slice(0, 5).map((s, j) => (
+                                    <div key={j} className="flex justify-between text-xs">
+                                      <span className="truncate max-w-[65%]">{s.schemeName ?? s.scheme ?? "—"}</span>
+                                      <span className="font-medium">{fmt(s.aum)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No AUM data available for this sub-broker</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="p-4 text-sm text-muted-foreground">No sub-brokers found</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {isAdmin && (
+        <Dialog open={empDialogOpen} onOpenChange={setEmpDialogOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>{editingEuin ? "Update Employee" : "Add Employee"}</DialogTitle>
+              <DialogDescription>{editingEuin ? `Editing EUIN: ${editingEuin}` : "Add a new sub-broker / employee to the hierarchy"}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              {!editingEuin && (
+                <div><Label>EUIN Code</Label><Input value={empForm.euinCode} onChange={e => setEmpForm(f => ({ ...f, euinCode: e.target.value }))} placeholder="E123456" /></div>
+              )}
+              <div><Label>Full Name</Label><Input value={empForm.name} onChange={e => setEmpForm(f => ({ ...f, name: e.target.value }))} placeholder="John Doe" /></div>
+              <div><Label>Mobile</Label><Input value={empForm.mobile} onChange={e => setEmpForm(f => ({ ...f, mobile: e.target.value }))} placeholder="+91XXXXXXXXXX" /></div>
+              <div><Label>Email</Label><Input value={empForm.email} onChange={e => setEmpForm(f => ({ ...f, email: e.target.value }))} placeholder="john@example.com" /></div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setEmpDialogOpen(false)}>Cancel</Button>
+                <Button className="flex-1"
+                  onClick={() => {
+                    if (editingEuin) { updateEmp.mutate({ euinCode: editingEuin, body: { name: empForm.name, mobile: empForm.mobile, email: empForm.email } }); }
+                    else { addEmp.mutate({ euinCode: empForm.euinCode, name: empForm.name, mobile: empForm.mobile, email: empForm.email }); }
+                  }}
+                  disabled={addEmp.isPending || updateEmp.isPending}>
+                  {(addEmp.isPending || updateEmp.isPending) ? "Saving…" : "Save"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
+}
+
+
+interface SubBroker { euinCode?: string; euin?: string; name?: string; subBrokerName?: string; mobile?: string; email?: string; status?: string; }
+interface SubBrokerAum { totalAum?: number; sipBook?: number; investorCount?: number; amcWise?: { amcName?: string; amc?: string; aum?: number }[]; topSchemes?: { schemeName?: string; scheme?: string; aum?: number }[]; categoryWise?: { category?: string; categoryName?: string; aum?: number }[]; }
+
+// ─── Investor Alerts Panel ─────────────────────────────────────────────────────
+function InvestorAlertsPanel({ pan }: { pan: string }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editAlert, setEditAlert] = useState<AlertRecord | null>(null);
+  const [alertForm, setAlertForm] = useState({ alertType: "NAV", schemeCode: "", threshold: "", condition: "ABOVE" });
+
+  const { data: alerts, isLoading } = useQuery<IrisApiResponse<{ alerts?: AlertRecord[] } | AlertRecord[]>>({
+    queryKey: ["/api/iris/alerts", pan],
+    queryFn: () => irisGet(`/api/iris/alerts?pan=${encodeURIComponent(pan)}`),
+    retry: false,
+  });
+
+  const createMut = useMutation({
+    mutationFn: (body: Record<string, unknown>) => apiRequest("/api/iris/alerts", "POST", { body }),
+    onSuccess: () => { toast({ title: "Alert created" }); setCreateOpen(false); qc.invalidateQueries({ queryKey: ["/api/iris/alerts", pan] }); },
+    onError: (e: Error) => toast({ title: "Failed to create alert", description: e.message, variant: "destructive" }),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) => apiRequest(`/api/iris/alerts/${id}`, "PUT", { body }),
+    onSuccess: () => { toast({ title: "Alert updated" }); setEditAlert(null); qc.invalidateQueries({ queryKey: ["/api/iris/alerts", pan] }); },
+    onError: (e: Error) => toast({ title: "Failed to update alert", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/iris/alerts/${id}`, "DELETE"),
+    onSuccess: () => { toast({ title: "Alert deleted" }); qc.invalidateQueries({ queryKey: ["/api/iris/alerts", pan] }); },
+    onError: (e: Error) => toast({ title: "Failed to delete alert", description: e.message, variant: "destructive" }),
+  });
+
+  function resolveAlerts(): AlertRecord[] {
+    if (!alerts?.data) return [];
+    if (Array.isArray(alerts.data)) return alerts.data;
+    return (alerts.data as { alerts?: AlertRecord[] }).alerts ?? [];
+  }
+
+  const rows = resolveAlerts();
+
+  function openCreate() { setAlertForm({ alertType: "NAV", schemeCode: "", threshold: "", condition: "ABOVE" }); setCreateOpen(true); }
+  function openEdit(a: AlertRecord) { setEditAlert(a); setAlertForm({ alertType: a.alertType ?? "NAV", schemeCode: a.schemeCode ?? "", threshold: String(a.threshold ?? ""), condition: a.condition ?? "ABOVE" }); }
+
+  const AlertForm = ({ onSave, onCancel, pending }: { onSave: () => void; onCancel: () => void; pending: boolean }) => (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label>Alert Type</Label>
+          <Select value={alertForm.alertType} onValueChange={v => setAlertForm(f => ({ ...f, alertType: v }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="NAV">NAV</SelectItem><SelectItem value="PRICE">Price</SelectItem></SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Condition</Label>
+          <Select value={alertForm.condition} onValueChange={v => setAlertForm(f => ({ ...f, condition: v }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="ABOVE">Above</SelectItem><SelectItem value="BELOW">Below</SelectItem></SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div><Label>Scheme Code</Label><Input value={alertForm.schemeCode} onChange={e => setAlertForm(f => ({ ...f, schemeCode: e.target.value }))} placeholder="e.g. INF204K01036" /></div>
+      <div><Label>Threshold Value</Label><Input type="number" value={alertForm.threshold} onChange={e => setAlertForm(f => ({ ...f, threshold: e.target.value }))} placeholder="e.g. 50.00" /></div>
+      <div className="flex gap-2">
+        <Button variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
+        <Button className="flex-1" onClick={onSave} disabled={pending}>{pending ? "Saving…" : "Save Alert"}</Button>
+      </div>
+    </div>
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2"><Bell className="h-4 w-4" /> Price / NAV Alerts</CardTitle>
+          <Button size="sm" variant="outline" onClick={openCreate}><Plus className="h-3.5 w-3.5 mr-1" /> New Alert</Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {createOpen && (
+          <div className="border rounded-md p-3 bg-muted/20">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Create Alert</p>
+            <AlertForm
+              onSave={() => createMut.mutate({ pan, alertType: alertForm.alertType, schemeCode: alertForm.schemeCode, threshold: Number(alertForm.threshold), condition: alertForm.condition })}
+              onCancel={() => setCreateOpen(false)}
+              pending={createMut.isPending}
+            />
+          </div>
+        )}
+
+        {editAlert && (
+          <div className="border rounded-md p-3 bg-muted/20">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Edit Alert</p>
+            <AlertForm
+              onSave={() => updateMut.mutate({ id: editAlert.alertId!, body: { alertType: alertForm.alertType, schemeCode: alertForm.schemeCode, threshold: Number(alertForm.threshold), condition: alertForm.condition } })}
+              onCancel={() => setEditAlert(null)}
+              pending={updateMut.isPending}
+            />
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+        ) : rows.length > 0 ? (
+          <div className="divide-y">
+            {rows.map((a, i) => (
+              <div key={i} className="flex items-center justify-between py-2 text-sm">
+                <div>
+                  <p className="font-medium text-xs">{a.schemeCode ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground">{a.alertType} · {a.condition} {a.threshold}</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Badge variant={a.status === "ACTIVE" ? "default" : "secondary"} className="text-[10px]">{a.status ?? "—"}</Badge>
+                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => openEdit(a)}><Pencil className="h-3 w-3" /></Button>
+                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive hover:text-destructive" onClick={() => a.alertId && deleteMut.mutate(a.alertId)} disabled={deleteMut.isPending}><Trash2 className="h-3 w-3" /></Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No alerts set for this investor</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+interface AlertRecord { alertId?: string; alertType?: string; schemeCode?: string; threshold?: number; condition?: string; status?: string; }
+
+// ─── WhatsApp Panel ───────────────────────────────────────────────────────────
+function WhatsAppPanel({ pan }: { pan: string }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [extraMessage, setExtraMessage] = useState("");
+
+  const { data: templates, isLoading: tplL } = useQuery<IrisApiResponse<{ templates?: WaTemplate[] } | WaTemplate[]>>({
+    queryKey: ["/api/iris/notifications/templates"],
+    retry: false,
+  });
+
+  const { data: history, isLoading: histL } = useQuery<IrisApiResponse<{ messages?: WaMessage[] } | WaMessage[]>>({
+    queryKey: ["/api/iris/notifications/history", pan],
+    queryFn: () => irisGet(`/api/iris/notifications/history?pan=${encodeURIComponent(pan)}`),
+    retry: false,
+  });
+
+  const sendMut = useMutation({
+    mutationFn: (body: Record<string, unknown>) => apiRequest("/api/iris/notifications/whatsapp", "POST", { body }),
+    onSuccess: () => {
+      toast({ title: "WhatsApp message sent" });
+      setExtraMessage("");
+      qc.invalidateQueries({ queryKey: ["/api/iris/notifications/history", pan] });
+    },
+    onError: (e: Error) => toast({ title: "Failed to send", description: e.message, variant: "destructive" }),
+  });
+
+  function resolveTemplates(): WaTemplate[] {
+    if (!templates?.data) return [];
+    if (Array.isArray(templates.data)) return templates.data;
+    return (templates.data as { templates?: WaTemplate[] }).templates ?? [];
+  }
+
+  function resolveHistory(): WaMessage[] {
+    if (!history?.data) return [];
+    if (Array.isArray(history.data)) return history.data;
+    return (history.data as { messages?: WaMessage[] }).messages ?? [];
+  }
+
+  const tpls = resolveTemplates();
+  const msgs = resolveHistory();
+
+  return (
+    <Card>
+      <CardHeader><CardTitle className="text-sm flex items-center gap-2"><MessageSquare className="h-4 w-4 text-green-600" /> WhatsApp Notifications</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>Select Template</Label>
+          {tplL ? <Skeleton className="h-10 w-full" /> : (
+            <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+              <SelectTrigger><SelectValue placeholder="Choose a template…" /></SelectTrigger>
+              <SelectContent>
+                {tpls.map((t, i) => <SelectItem key={i} value={t.templateId ?? t.id ?? String(i)}>{t.templateName ?? t.name ?? "Template " + (i+1)}</SelectItem>)}
+                {!tpls.length && <SelectItem value="none" disabled>No templates available</SelectItem>}
+              </SelectContent>
+            </Select>
+          )}
+          <div><Label>Additional Message (optional)</Label><Input value={extraMessage} onChange={e => setExtraMessage(e.target.value)} placeholder="Custom message or variable…" /></div>
+          <Button onClick={() => sendMut.mutate({ pan, templateId: selectedTemplate, message: extraMessage || undefined })}
+            disabled={sendMut.isPending || !selectedTemplate || selectedTemplate === "none"}>
+            {sendMut.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
+            Send Message
+          </Button>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Sent History</p>
+          {histL ? <Skeleton className="h-16 w-full" /> : msgs.length > 0 ? (
+            <div className="space-y-1 max-h-40 overflow-y-auto">
+              {msgs.map((m, i) => (
+                <div key={i} className="flex justify-between text-xs border rounded p-2">
+                  <span className="truncate max-w-[60%]">{m.templateName ?? m.template ?? "—"}</span>
+                  <span className="text-muted-foreground">{m.sentAt ?? m.date ?? "—"}</span>
+                  <Badge variant={m.status === "DELIVERED" ? "default" : "secondary"} className="text-[10px]">{m.status ?? "—"}</Badge>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-sm text-muted-foreground">No messages sent yet</p>}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface WaTemplate { templateId?: string; id?: string; templateName?: string; name?: string; }
+interface WaMessage { templateName?: string; template?: string; sentAt?: string; date?: string; status?: string; }
+
 // ─── Types used by CasImportTab ───────────────────────────────────────────────
 interface CasHolding {
   schemeName?: string;
@@ -5778,7 +6676,10 @@ export default function AgentIrisHub() {
           <TabsTrigger value="research"><BookOpen className="h-4 w-4 mr-1 inline" />Research</TabsTrigger>
           <TabsTrigger value="products"><FileText className="h-4 w-4 mr-1 inline" />Products & FD</TabsTrigger>
           <TabsTrigger value="nps"><PiggyBank className="h-4 w-4 mr-1 inline" />NPS</TabsTrigger>
+          <TabsTrigger value="commissions"><CreditCard className="h-4 w-4 mr-1 inline" />Commissions</TabsTrigger>
           <TabsTrigger value="reports"><Download className="h-4 w-4 mr-1 inline" />Reports</TabsTrigger>
+          <TabsTrigger value="hierarchy"><Building2 className="h-4 w-4 mr-1 inline" />Hierarchy</TabsTrigger>
+          {isAdmin && <TabsTrigger value="compliance"><Shield className="h-4 w-4 mr-1 inline" />Compliance</TabsTrigger>}
           <TabsTrigger value="cas-import"><FolderOpen className="h-4 w-4 mr-1 inline" />CAS Import</TabsTrigger>
         </TabsList>
 
@@ -5791,7 +6692,10 @@ export default function AgentIrisHub() {
         <TabsContent value="research" className="mt-4"><ResearchTab /></TabsContent>
         <TabsContent value="products" className="mt-4"><ProductsTab /></TabsContent>
         <TabsContent value="nps" className="mt-4"><NpsTab /></TabsContent>
+        <TabsContent value="commissions" className="mt-4"><CommissionsTab /></TabsContent>
         <TabsContent value="reports" className="mt-4"><ReportsTab /></TabsContent>
+        <TabsContent value="hierarchy" className="mt-4"><HierarchyTab isAdmin={isAdmin} /></TabsContent>
+        {isAdmin && <TabsContent value="compliance" className="mt-4"><ComplianceTab /></TabsContent>}
         <TabsContent value="cas-import" className="mt-4"><CasImportTab /></TabsContent>
       </Tabs>
 
