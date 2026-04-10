@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Heart, ShoppingCart, Star, TrendingUp, Shield, Clock, CheckCircle, Info } from "lucide-react";
+import { useKycGuard, TransactionType } from "@/hooks/use-kyc-guard";
+import { KycGuardModal } from "@/components/kyc/KycGuardModal";
 
 interface Product {
   id: string;
@@ -29,6 +31,20 @@ interface ProductDetailsModalProps {
   isWishlisted: boolean;
 }
 
+// Map product categories to KYC transaction types
+function categoryToTxType(category: string): TransactionType {
+  const c = category?.toLowerCase() || '';
+  if (c.includes('bond') || c.includes('fixed income') || c.includes('ncd') || c.includes('debt')) return 'bonds';
+  if (c.includes('insurance')) return 'insurance';
+  if (c.includes('pms')) return 'pms';
+  if (c.includes('aif')) return 'aif';
+  if (c.includes('nps')) return 'nps';
+  if (c.includes('reit') || c.includes('invit')) return 'reit';
+  if (c.includes('mld')) return 'mld';
+  if (c.includes('unlisted')) return 'unlisted';
+  return 'mutual_funds'; // default
+}
+
 export function ProductDetailsModal({ 
   product, 
   isOpen, 
@@ -36,7 +52,25 @@ export function ProductDetailsModal({
   onWishlistToggle, 
   isWishlisted 
 }: ProductDetailsModalProps) {
+  // Hooks must be called before any early returns
+  const { guardAction, isChecking, modalState, closeModal, proceedToKyc } = useKycGuard();
+
   if (!product) return null;
+
+  const txType = categoryToTxType(product.category);
+
+  const handleInvestNow = () => {
+    guardAction(txType, () => {
+      // Actual invest logic — currently a placeholder; replace with real action
+      console.log('[KYC Guard] Proceeding with Invest Now for', product.name);
+    });
+  };
+
+  const handleStartSip = () => {
+    guardAction(txType, () => {
+      console.log('[KYC Guard] Proceeding with Start SIP for', product.name);
+    });
+  };
 
   const getRiskColor = (risk: string) => {
     switch(risk) {
@@ -66,6 +100,7 @@ export function ProductDetailsModal({
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="product-details-modal">
         <DialogHeader>
@@ -227,14 +262,25 @@ export function ProductDetailsModal({
                 </div>
 
                 <div className="space-y-3">
-                  <Button className="w-full bg-finance-blue hover:bg-finance-blue/90" data-testid="button-invest-now">
+                  <Button
+                    className="w-full bg-finance-blue hover:bg-finance-blue/90"
+                    data-testid="button-invest-now"
+                    onClick={handleInvestNow}
+                    disabled={isChecking}
+                  >
                     <ShoppingCart className="h-4 w-4 mr-2" />
-                    Invest Now
+                    {isChecking ? "Checking KYC..." : "Invest Now"}
                   </Button>
                   
-                  <Button variant="outline" className="w-full" data-testid="button-start-sip">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    data-testid="button-start-sip"
+                    onClick={handleStartSip}
+                    disabled={isChecking}
+                  >
                     <Clock className="h-4 w-4 mr-2" />
-                    Start SIP
+                    {isChecking ? "Checking KYC..." : "Start SIP"}
                   </Button>
                   
                   <Button variant="outline" className="w-full" data-testid="button-get-info">
@@ -256,5 +302,13 @@ export function ProductDetailsModal({
         </div>
       </DialogContent>
     </Dialog>
+
+    <KycGuardModal
+      open={modalState.open}
+      checkResult={modalState.checkResult}
+      onClose={closeModal}
+      onProceedToKyc={() => proceedToKyc()}
+    />
+    </>
   );
 }

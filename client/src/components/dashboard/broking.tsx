@@ -12,6 +12,8 @@ import { Activity, BarChart3, TrendingUp, Globe, Building2, Coins, Wheat, Refres
 import { apiRequest } from "@/lib/queryClient";
 import { IBTrading } from "@/components/dashboard/ib-trading";
 import { KYCWarningBanner } from "@/components/KYCWarningBanner";
+import { useKycGuard } from "@/hooks/use-kyc-guard";
+import { KycGuardModal } from "@/components/kyc/KycGuardModal";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 
 interface StockQuote {
@@ -35,6 +37,7 @@ interface OrderFormData {
 }
 
 export function BrokingDashboard() {
+  const { guardAction, isChecking, modalState, closeModal, proceedToKyc } = useKycGuard();
   const [selectedStock, setSelectedStock] = useState<string>("");
   const [orderForm, setOrderForm] = useState<OrderFormData>({
     exchange: 'NSE',
@@ -468,11 +471,14 @@ export function BrokingDashboard() {
                 </div>
                 <Button 
                   className="w-full" 
-                  onClick={handlePlaceOrder}
-                  disabled={placeOrderMutation.isPending || !orderForm.symbol || orderForm.quantity <= 0}
+                  onClick={() => {
+                    const txType = (orderForm.exchange === 'MCX' || orderForm.exchange === 'NCDEX') ? 'commodities' : 'equity_india';
+                    guardAction(txType as any, handlePlaceOrder);
+                  }}
+                  disabled={placeOrderMutation.isPending || isChecking || !orderForm.symbol || orderForm.quantity <= 0}
                   data-testid="button-place-order"
                 >
-                  {placeOrderMutation.isPending ? 'Placing Order...' : `${orderForm.action} ${orderForm.quantity} ${orderForm.symbol}`}
+                  {placeOrderMutation.isPending ? 'Placing Order...' : isChecking ? 'Checking KYC...' : `${orderForm.action} ${orderForm.quantity} ${orderForm.symbol}`}
                 </Button>
               </CardContent>
             </Card>
@@ -1241,6 +1247,13 @@ export function BrokingDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <KycGuardModal
+        open={modalState.open}
+        checkResult={modalState.checkResult}
+        onClose={closeModal}
+        onProceedToKyc={() => proceedToKyc()}
+      />
     </div>
   );
 }

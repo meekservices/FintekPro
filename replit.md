@@ -1,5 +1,27 @@
 # FintekPro - Financial Services Platform
 
+## Platform-Wide KYC Transaction Guard (April 2026)
+
+### Design Philosophy
+Browse freely without KYC. KYC is checked only at transaction time — never on page load. Users are shown the **minimum** fields needed for their specific transaction type, not a generic "complete your KYC" wall.
+
+### Components
+- **`GET /api/kyc/transaction-check?type=<type>`** (server/routes/kyc/index-1.ts) — Returns `{ canProceed, productLabel, currentLevel, requiredLevel, missingSteps, kycPath, sebiRef }` per transaction type. 16 types covered.
+- **`client/src/hooks/use-kyc-guard.ts`** — `useKycGuard()` hook. Call `guardAction(transactionType, callback)` on any action; it checks KYC first, runs callback if OK, or shows the modal if not.
+- **`client/src/components/kyc/KycGuardModal.tsx`** — Dialog showing missing steps as a checklist (✓ done, ○ pending), progress bar, SEBI regulatory reference, "Complete Verification" CTA + "Continue Browsing" dismiss.
+- **`client/src/components/kyc/KycGuardButton.tsx`** — Drop-in `<Button>` replacement that auto-runs KYC check before the `onGuardedClick` action.
+
+### Transaction Types & Required KYC Level
+| Type | Level | Key Reg |
+|---|---|---|
+| `mutual_funds`, `insurance`, `loans`, `bonds`, `ipo`, `nps`, `unlisted`, `reit` | **1** (PAN only) | AMFI, IRDAI, RBI, SEBI |
+| `equity_india`, `fno`, `commodities`, `us_equity`, `pms`, `aif`, `mld` | **2** (Full KYC) | SEBI KRA, FEMA/LRS |
+
+### Wired Entry Points
+- **`EnhancedOrderForm.tsx`** — US equity orders (type: `us_equity`)
+- **`broking.tsx`** — India equity/commodity orders (type: `equity_india` for NSE/BSE, `commodities` for MCX/NCDEX)
+- **`product-details-modal.tsx`** — Invest Now / Start SIP (type auto-detected from `product.category`)
+
 ## Universal KYC Compliance Gate — All Roles (April 2026)
 
 ### What it does
