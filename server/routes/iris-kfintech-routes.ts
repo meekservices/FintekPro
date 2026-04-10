@@ -405,6 +405,56 @@ export function registerIrisKfintechRoutes(app: Express): void {
     await wrap(res, () => irisKfintechService.getBulkPortfolioReport(req.query as Record<string, string>));
   });
 
+  // ─── SIP Lifecycle ────────────────────────────────────────────────────────────
+  app.post('/api/iris/transactions/sip/register', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.registerSip(req.body as Record<string, unknown>));
+  });
+
+  app.patch('/api/iris/transactions/sip/:sipId/modify', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.modifySip(req.params.sipId, req.body as Record<string, unknown>));
+  });
+
+  app.get('/api/iris/transactions/sip/:sipId', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSipDetails(req.params.sipId));
+  });
+
+  // ─── Order Status / Ledger ────────────────────────────────────────────────────
+  app.get('/api/iris/transactions/orders', requireAuth, requireAgent, async (req, res) => {
+    const { pan, ...rest } = req.query as Record<string, string>;
+    await wrap(res, () => irisKfintechService.listOrdersByPan(pan, Object.keys(rest).length ? rest : undefined));
+  });
+
+  app.get('/api/iris/transactions/orders/:orderId', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getOrderDetails(req.params.orderId));
+  });
+
+  app.get('/api/iris/transactions/switch/:orderId/status', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSwitchStatus(req.params.orderId));
+  });
+
+  // ─── STP Status ───────────────────────────────────────────────────────────────
+  app.get('/api/iris/transactions/stp', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.listStpsByPan(req.query.pan as string));
+  });
+
+  app.get('/api/iris/transactions/stp/:stpId', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getStpDetails(req.params.stpId));
+  });
+
+  // ─── SWP Status ───────────────────────────────────────────────────────────────
+  app.get('/api/iris/transactions/swp', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.listSwpsByPan(req.query.pan as string));
+  });
+
+  app.get('/api/iris/transactions/swp/:swpId', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSwpDetails(req.params.swpId));
+  });
+
+  // ─── Failed/Rejected Transactions ────────────────────────────────────────────
+  app.get('/api/iris/transactions/failed', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.listFailedTransactions(req.query.pan as string));
+  });
+
   // ─── Phase 1: Switch (IRIS namespace) ────────────────────────────────────────
   app.post('/api/iris/transactions/switch', requireAuth, async (req, res) => {
     await wrap(res, () => irisKfintechService.placeSwitch(req.body));
