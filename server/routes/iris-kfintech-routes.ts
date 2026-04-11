@@ -14,6 +14,11 @@ async function wrap(res: Response, fn: () => Promise<unknown>): Promise<void> {
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string }; status?: number }; message?: string };
     const msg = e?.response?.data?.message ?? e?.message ?? 'IRIS API error';
+    // When IRIS is not yet authenticated/configured, return empty 200 instead of 500
+    // so the agent dashboard loads gracefully without error toasts
+    if (msg === 'IRIS authentication failed' || msg?.includes('IRIS_USERNAME') || msg?.includes('IRIS_PASSWORD')) {
+      return res.json({ success: true, data: null, unconfigured: true, message: 'IRIS/KFintech credentials not configured. Complete OTP login via Admin → IRIS settings.' });
+    }
     const status = e?.response?.status ?? 500;
     res.status(status).json({ success: false, message: msg });
   }

@@ -76,15 +76,15 @@ function getUserTaxRole(req: Request): TaxRole {
   const sessionRole = session.userRole?.toLowerCase();
   if (sessionRole === "admin" || sessionRole === "superadmin") return "admin";
   if (sessionRole === "ca" || sessionRole === "chartered_accountant") return "ca";
-  if (sessionRole === "agent") return "agent";
+  if (sessionRole === "agent" || sessionRole === "partner") return "agent";
 
   const reqUser = (req as any).user;
   if (reqUser) {
-    const userRoles: string[] = reqUser.roles || [];
+    const userRoles: string[] = reqUser.roles || (reqUser.role ? [reqUser.role] : []);
     const userRole = (reqUser.role || "").toLowerCase();
     if (userRole === "admin" || userRole === "superadmin" || userRoles.includes("admin") || userRoles.includes("superadmin")) return "admin";
     if (userRole === "ca" || userRoles.includes("ca")) return "ca";
-    if (userRole === "agent" || userRoles.includes("agent") || reqUser.isAgent === true) return "agent";
+    if (userRole === "agent" || userRole === "partner" || userRoles.includes("agent") || userRoles.includes("partner") || reqUser.isAgent === true) return "agent";
   }
 
   return "client";
