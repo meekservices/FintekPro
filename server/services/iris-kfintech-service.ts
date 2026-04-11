@@ -1,4 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
+import { db } from '../db';
+import { irisSessions } from '@shared/schema';
+import { desc } from 'drizzle-orm';
 
 const IRIS_BASE_URL = 'https://iris-api.kfintech.com/v2';
 
@@ -11,6 +14,7 @@ class IrisKfintechService {
   private client: AxiosInstance;
   private tokenData: IrisToken | null = null;
   private pendingOtp: { mobile?: string; txnId?: string } | null = null;
+  private dbTokenLoaded = false;
 
   constructor() {
     this.client = axios.create({
@@ -19,6 +23,50 @@ class IrisKfintechService {
       headers: { 'Content-Type': 'application/json' },
     });
     console.log('✅ IRIS KFintech service initialized');
+  }
+
+  /**
+   * Persist the current token to the iris_sessions table so it survives
+   * server restarts (Railway container recycles, development restarts, etc.)
+   */
+  private async saveTokenToDb(token: string, expiresAt: number): Promise<void> {
+    try {
+      await db.delete(irisSessions);
+      await db.insert(irisSessions).values({
+        token,
+        expiresAt: new Date(expiresAt),
+        refreshedAt: new Date(),
+      });
+    } catch (err: any) {
+      console.warn('[IRIS] Token DB save failed (non-fatal):', err?.message);
+    }
+  }
+
+  /**
+   * Load a persisted IRIS token from the DB on first ensureAuth() call.
+   * If a valid token is found, restores it to memory and sets the HTTP header.
+   */
+  private async loadTokenFromDb(): Promise<void> {
+    if (this.dbTokenLoaded) return;
+    this.dbTokenLoaded = true;
+    try {
+      const [row] = await db
+        .select()
+        .from(irisSessions)
+        .orderBy(desc(irisSessions.refreshedAt))
+        .limit(1);
+      if (!row) return;
+      const expiresAt = row.expiresAt.getTime();
+      if (Date.now() < expiresAt - 60_000) {
+        this.tokenData = { token: row.token, expiresAt };
+        this.client.defaults.headers.common['Authorization'] = `Bearer ${row.token}`;
+        console.log('[IRIS] Token restored from DB — expires', new Date(expiresAt).toISOString());
+      } else {
+        console.log('[IRIS] Persisted token expired — re-authentication required');
+      }
+    } catch (err: any) {
+      console.warn('[IRIS] Token DB load failed (non-fatal):', err?.message);
+    }
   }
 
   private isTokenValid(): boolean {
@@ -36,11 +84,10 @@ class IrisKfintechService {
       const resp = await this.client.post('/auth/login', { username, password });
       const data = resp.data;
       if (data?.token) {
-        this.tokenData = {
-          token: data.token,
-          expiresAt: Date.now() + (data.expiresIn ?? 3600) * 1000,
-        };
+        const expiresAt = Date.now() + (data.expiresIn ?? 3600) * 1000;
+        this.tokenData = { token: data.token, expiresAt };
         this.client.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+        await this.saveTokenToDb(data.token, expiresAt);
         return { success: true };
       }
       if (data?.requiresOtp || data?.otpRequired) {
@@ -72,12 +119,11 @@ class IrisKfintechService {
       });
       const data = resp.data;
       if (data?.token) {
-        this.tokenData = {
-          token: data.token,
-          expiresAt: Date.now() + (data.expiresIn ?? 3600) * 1000,
-        };
+        const expiresAt = Date.now() + (data.expiresIn ?? 3600) * 1000;
+        this.tokenData = { token: data.token, expiresAt };
         this.client.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
         this.pendingOtp = null;
+        await this.saveTokenToDb(data.token, expiresAt);
         return { success: true };
       }
       return { success: false, message: data?.message || 'OTP verification failed' };
@@ -91,11 +137,10 @@ class IrisKfintechService {
       const resp = await this.client.post('/auth/refresh-token');
       const data = resp.data;
       if (data?.token) {
-        this.tokenData = {
-          token: data.token,
-          expiresAt: Date.now() + (data.expiresIn ?? 3600) * 1000,
-        };
+        const expiresAt = Date.now() + (data.expiresIn ?? 3600) * 1000;
+        this.tokenData = { token: data.token, expiresAt };
         this.client.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+        await this.saveTokenToDb(data.token, expiresAt);
         return true;
       }
       return false;
@@ -105,6 +150,7 @@ class IrisKfintechService {
   }
 
   async ensureAuth(): Promise<boolean> {
+    await this.loadTokenFromDb();
     if (this.isTokenValid()) return true;
     if (this.tokenData) {
       const refreshed = await this.refreshToken();

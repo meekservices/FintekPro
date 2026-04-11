@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from 'express';
 import { irisKfintechService } from '../services/iris-kfintech-service';
+import { scheduleIrisPortfolioRefresh } from '../services/iris-portfolio-sync-service';
 import { isAuthenticated } from '../replitAuth';
 import { requireAdmin, requireAgent } from '../middleware/auth';
 
@@ -184,11 +185,15 @@ export function registerIrisKfintechRoutes(app: Express): void {
   });
 
   app.post('/api/iris/transactions/place-order', requireAuth, requireAgent, async (req, res) => {
+    const pan = (req.body as any)?.pan;
     await wrap(res, () => irisKfintechService.placeOrder(req.body as Record<string, unknown>));
+    if (pan) scheduleIrisPortfolioRefresh(pan, (req as any).user?.id);
   });
 
   app.post('/api/iris/transactions/place-redemption', requireAuth, requireAgent, async (req, res) => {
+    const pan = (req.body as any)?.pan;
     await wrap(res, () => irisKfintechService.placeRedemption(req.body as Record<string, unknown>));
+    if (pan) scheduleIrisPortfolioRefresh(pan, (req as any).user?.id);
   });
 
   app.post('/api/iris/transactions/sip/cancel', requireAuth, requireAgent, async (req, res) => {
@@ -474,7 +479,9 @@ export function registerIrisKfintechRoutes(app: Express): void {
 
   // ─── SIP Lifecycle ────────────────────────────────────────────────────────────
   app.post('/api/iris/transactions/sip/register', requireAuth, requireAgent, async (req, res) => {
+    const pan = (req.body as any)?.pan;
     await wrap(res, () => irisKfintechService.registerSip(req.body as Record<string, unknown>));
+    if (pan) scheduleIrisPortfolioRefresh(pan, (req as any).user?.id);
   });
 
   app.patch('/api/iris/transactions/sip/:sipId/modify', requireAuth, requireAgent, async (req, res) => {

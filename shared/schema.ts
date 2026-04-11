@@ -33192,3 +33192,36 @@ export type AiPromptVersion = typeof aiPromptVersions.$inferSelect;
 export type InsertAiPromptVersion = typeof aiPromptVersions.$inferInsert;
 export const insertAiPromptVersionSchema = createInsertSchema(aiPromptVersions).omit({ id: true, usedAt: true });
 
+
+// ── IRIS Session Store ────────────────────────────────────────────────────────
+// Persists the KFintech IRIS JWT across server restarts (Railway container recycles).
+// Single-row table: only the latest token is kept.
+export const irisSessions = pgTable("iris_sessions", {
+  id: serial("id").primaryKey(),
+  token: text("token").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  refreshedAt: timestamp("refreshed_at").defaultNow().notNull(),
+});
+export type IrisSession = typeof irisSessions.$inferSelect;
+export const insertIrisSessionSchema = createInsertSchema(irisSessions).omit({ id: true });
+
+// ── LRS Remittance Log ────────────────────────────────────────────────────────
+// Per-user annual LRS utilisation log. Populated on every Alpaca ACH transfer approval.
+export const lrsRemittanceLogs = pgTable("lrs_remittance_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  alpacaAccountId: varchar("alpaca_account_id"),
+  transferId: varchar("transfer_id").unique(), // Alpaca transfer UUID — prevents double-counting
+  amountUsd: decimal("amount_usd", { precision: 15, scale: 2 }).notNull(),
+  amountInr: decimal("amount_inr", { precision: 15, scale: 2 }),
+  usdInrRate: decimal("usd_inr_rate", { precision: 10, scale: 4 }),
+  financialYear: varchar("financial_year", { length: 7 }).notNull(), // e.g. "2024-25"
+  purpose: varchar("purpose", { length: 100 }).default("S0001"), // RBI purpose code
+  transferDate: timestamp("transfer_date").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_lrs_logs_user_fy").on(table.userId, table.financialYear),
+  index("idx_lrs_logs_transfer").on(table.transferId),
+]);
+export type LrsRemittanceLog = typeof lrsRemittanceLogs.$inferSelect;
+export const insertLrsRemittanceLogSchema = createInsertSchema(lrsRemittanceLogs).omit({ id: true, createdAt: true });
