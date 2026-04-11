@@ -367,6 +367,7 @@ const AdminAIInsights = lazyWithRetry(() => import("@/pages/admin/ai-insights"))
 const AdminAgentOversightPage = lazyWithRetry(() => import("@/pages/admin/agent-oversight"));
 const AdminAppointmentsDashboard = lazyWithRetry(() => import("@/pages/admin/appointments-dashboard"));
 const AdminBrokerDashboard = lazyWithRetry(() => import("@/pages/admin/broker-dashboard"));
+const AdminIrisOverview = lazyWithRetry(() => import("@/pages/admin/iris-overview"));
 const OpenAccountPage = lazyWithRetry(() => import("@/pages/us-trading/open-account"));
 const ClientTasks = lazyWithRetry(() => import("@/pages/client-tasks"));
 const ClientAIRecommendations = lazyWithRetry(() => import("@/pages/client-ai-recommendations"));
@@ -1249,6 +1250,15 @@ function AdminRoutes() {
           <AdminLayout>
             <Suspense fallback={<LoadingState variant="dashboard" />}>
               <AdminBrokerDashboard />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/iris">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <AdminIrisOverview />
             </Suspense>
           </AdminLayout>
         )}
