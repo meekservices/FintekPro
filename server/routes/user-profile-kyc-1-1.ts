@@ -5,8 +5,12 @@ import { eq, and, or, gte, sql, count, inArray } from 'drizzle-orm';
 import { requireAdmin } from '../middleware/roleMiddleware';
 
 function hasRole(user: any, roles: string[]): boolean {
-  const userRole = user?.role || user?.userRole || '';
-  return roles.includes(userRole);
+  const userRoles: string[] = [
+    ...(Array.isArray(user?.roles) ? user.roles : []),
+    ...(user?.role ? [user.role] : []),
+    ...(user?.userRole ? [user.userRole] : []),
+  ];
+  return userRoles.some(r => roles.includes(r));
 }
 
 
