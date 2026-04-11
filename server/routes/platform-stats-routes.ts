@@ -171,7 +171,7 @@ app.post("/api/consent", async (req, res) => {
   }
 });
 
-// Authentication endpoints are now handled by replitAuth.ts
+// Authentication endpoints are now handled by auth-setup.ts
 // Old local auth routes removed - using Replit Auth instead
 
 // Seed products endpoint

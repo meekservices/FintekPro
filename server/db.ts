@@ -5,7 +5,7 @@ import * as schema from "@shared/schema";
 import { logger } from './logger';
 
 // Determine environment first — URL selection depends on it.
-const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
+const isProduction = process.env.NODE_ENV === 'production';
 
 // Connection strategy:
 //   PRODUCTION_DATABASE_URL set → always use Railway/Neon Postgres (both dev and prod)

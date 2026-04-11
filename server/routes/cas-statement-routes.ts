@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
-import { isAuthenticated } from '../replitAuth';
+import { isAuthenticated } from '../auth-setup';
 import { casStatementService } from '../services/cas-statement-service';
 import { unifiedPDFParser } from '../services/unified-pdf-parser';
 import { unifiedPortfolioImportService } from '../services/unified-portfolio-import-service';

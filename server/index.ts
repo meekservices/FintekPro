@@ -72,7 +72,7 @@ import { setupVite, serveStatic, log as viteLog } from "./vite";
 import { logger } from "./logger";
 import { complianceMiddleware } from "./compliance-monitor";
 import { storage } from "./storage";
-import { setupAuth as setupReplitAuth } from "./replitAuth";
+import { setupAuth as setupSessionAuth } from "./auth-setup";
 import { setupAuth as setupLocalAuth } from "./auth";
 import { subdomainDetection, validateSessionPortal } from "./subdomain-middleware";
 import { initializeCronJobs } from "./cron-jobs";
@@ -185,7 +185,7 @@ app.use(helmet({
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
-      frameAncestors: ["'self'", "https://*.replit.dev", "https://*.replit.com", "https://*.railway.app"],
+      frameAncestors: ["'self'", "https://*.railway.app"],
     },
   },
   hsts: {
@@ -239,18 +239,11 @@ app.use(cors({
       return callback(null, true);
     }
     
-    // Allow Replit domains (for development and deployed app)
-    const replitDomains = process.env.REPLIT_DOMAINS?.split(',').map(d => d.trim()) || [];
-    const isReplitOrigin = replitDomains.some(domain => origin.includes(domain)) ||
-        origin.endsWith('.replit.dev') ||
-        origin.endsWith('.repl.co') ||
-        origin.endsWith('.replit.app');
-
     // Allow Railway domains
     const isRailwayOrigin = origin.endsWith('.railway.app') ||
         origin.endsWith('.up.railway.app');
 
-    if (isReplitOrigin || isRailwayOrigin) {
+    if (isRailwayOrigin) {
       return callback(null, true);
     }
     
@@ -375,9 +368,6 @@ const createCsrfProtection = () => (req: Request, res: Response, next: NextFunct
       'https://agent.fintekpro.com',
       'https://partner.fintekpro.com',
     ];
-    
-    const replitDomains = process.env.REPLIT_DOMAINS?.split(',').map(d => `https://${d.trim()}`) || [];
-    allowedOrigins.push(...replitDomains);
 
     if (process.env.RAILWAY_PUBLIC_DOMAIN) {
       allowedOrigins.push(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);

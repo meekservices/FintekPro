@@ -109,7 +109,7 @@ const KycV2ManagementPage = lazyWithRetry(() => import("@/pages/admin/kyc-v2-man
 const FinancialOperationsPage = lazyWithRetry(() => import("@/pages/admin/financial-operations"));
 const APIConfiguration = lazyWithRetry(() => import("@/pages/admin/api-configuration"));
 const ProductionReadiness = lazyWithRetry(() => import("@/pages/admin/production-readiness"));
-const ReplitSuggestions = lazyWithRetry(() => import("@/pages/admin/replit-suggestions"));
+
 const ActivityCentre = lazyWithRetry(() => import("@/pages/admin/activity-centre"));
 const CkycDeferredDashboard = lazyWithRetry(() => import("@/pages/admin/ckyc-deferred-dashboard"));
 const ZohoDashboardPage = lazyWithRetry(() => import("@/pages/admin/zoho-dashboard"));
