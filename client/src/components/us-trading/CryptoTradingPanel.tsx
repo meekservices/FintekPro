@@ -71,15 +71,15 @@ export default function CryptoTradingPanel({ accountId }: Props) {
   const [limitPrice, setLimitPrice] = useState("");
 
   const { data: assetsData, isLoading: loadingAssets } = useQuery<{ success: boolean; assets: any[] }>({
-    queryKey: ["/api/crypto/assets"],
+    queryKey: ["/api/us-trading/crypto/assets"],
     staleTime: 10 * 60 * 1000,
   });
 
   const { data: posData, isLoading: loadingPositions, refetch: refetchPositions } = useQuery<{
     success: boolean; positions: CryptoPosition[];
   }>({
-    queryKey: ["/api/crypto/positions", accountId],
-    queryFn: () => fetch(`/api/crypto/positions${accountId ? `?account_id=${accountId}` : ""}`).then(r => r.json()),
+    queryKey: ["/api/us-trading/crypto/positions", accountId],
+    queryFn: () => fetch(`/api/us-trading/crypto/positions${accountId ? `?account_id=${accountId}` : ""}`).then(r => r.json()),
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
@@ -88,7 +88,7 @@ export default function CryptoTradingPanel({ accountId }: Props) {
 
   const orderMutation = useMutation({
     mutationFn: async (payload: any) => {
-      const res = await apiRequest("/api/crypto/orders", "POST", payload);
+      const res = await apiRequest("/api/us-trading/crypto/orders", "POST", payload);
       return res;
     },
     onSuccess: (data: any) => {
@@ -99,7 +99,7 @@ export default function CryptoTradingPanel({ accountId }: Props) {
       setQty("");
       setNotional("");
       setLimitPrice("");
-      queryClient.invalidateQueries({ queryKey: ["/api/crypto/positions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/us-trading/crypto/positions"] });
     },
     onError: (e: any) => {
       toast({ title: "Order Failed", description: e.message, variant: "destructive" });

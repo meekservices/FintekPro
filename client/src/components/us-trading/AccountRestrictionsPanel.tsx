@@ -44,8 +44,8 @@ export default function AccountRestrictionsPanel({ accountId, accountStatus }: P
   const [pendingRestrictions, setPendingRestrictions] = useState<Restrictions | null>(null);
 
   const { data, isLoading, refetch } = useQuery<{ success: boolean; restrictions: Restrictions }>({
-    queryKey: ["/api/broker/accounts", accountId, "restrictions"],
-    queryFn: () => fetch(`/api/broker/accounts/${accountId}/restrictions`).then(r => r.json()),
+    queryKey: ["/api/us-trading/broker/accounts", accountId, "restrictions"],
+    queryFn: () => fetch(`/api/us-trading/broker/accounts/${accountId}/restrictions`).then(r => r.json()),
     enabled: !!accountId,
     staleTime: 60_000,
   });
@@ -55,13 +55,13 @@ export default function AccountRestrictionsPanel({ accountId, accountStatus }: P
 
   const updateMutation = useMutation({
     mutationFn: async (updates: Restrictions) => {
-      const res = await apiRequest(`/api/broker/accounts/${accountId}/restrictions`, "PATCH", updates);
+      const res = await apiRequest(`/api/us-trading/broker/accounts/${accountId}/restrictions`, "PATCH", updates);
       return res;
     },
     onSuccess: () => {
       toast({ title: "Restrictions Updated", description: "Account restrictions saved successfully." });
       setPendingRestrictions(null);
-      queryClient.invalidateQueries({ queryKey: ["/api/broker/accounts", accountId, "restrictions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/us-trading/broker/accounts", accountId, "restrictions"] });
     },
     onError: (e: any) => {
       toast({ title: "Update Failed", description: e.message, variant: "destructive" });
@@ -70,7 +70,7 @@ export default function AccountRestrictionsPanel({ accountId, accountStatus }: P
 
   const suspendMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest(`/api/broker/accounts/${accountId}/suspend`, "POST", { reason: suspendReason });
+      const res = await apiRequest(`/api/us-trading/broker/accounts/${accountId}/suspend`, "POST", { reason: suspendReason });
       return res;
     },
     onSuccess: () => {
@@ -85,7 +85,7 @@ export default function AccountRestrictionsPanel({ accountId, accountStatus }: P
 
   const reinstateMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest(`/api/broker/accounts/${accountId}/reinstate`, "POST", {});
+      const res = await apiRequest(`/api/us-trading/broker/accounts/${accountId}/reinstate`, "POST", {});
       return res;
     },
     onSuccess: () => {

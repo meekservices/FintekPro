@@ -88,11 +88,11 @@ export default function JournalsPanel() {
     description: "",
   });
 
-  const qKey = ["/api/broker/journals"];
+  const qKey = ["/api/us-trading/broker/journals"];
 
   const { data, isLoading, error, refetch } = useQuery<{ success: boolean; journals: Journal[] }>({
     queryKey: qKey,
-    queryFn: () => fetch("/api/broker/journals").then(r => r.json()),
+    queryFn: () => fetch("/api/us-trading/broker/journals").then(r => r.json()),
     staleTime: 30_000,
   });
 
@@ -104,7 +104,7 @@ export default function JournalsPanel() {
 
   const createMutation = useMutation({
     mutationFn: (body: Record<string, any>) =>
-      apiRequest("/api/broker/journals", "POST", body),
+      apiRequest("/api/us-trading/broker/journals", "POST", body),
     onSuccess: () => {
       toast({ title: "Journal submitted", description: "Journal entry is pending settlement." });
       queryClient.invalidateQueries({ queryKey: qKey });
@@ -118,7 +118,7 @@ export default function JournalsPanel() {
 
   const cancelMutation = useMutation({
     mutationFn: (journalId: string) =>
-      apiRequest(`/api/broker/journals/${journalId}`, "DELETE", {}),
+      apiRequest(`/api/us-trading/broker/journals/${journalId}`, "DELETE", {}),
     onSuccess: () => {
       toast({ title: "Journal cancelled" });
       queryClient.invalidateQueries({ queryKey: qKey });
