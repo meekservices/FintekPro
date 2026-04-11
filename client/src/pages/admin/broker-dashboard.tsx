@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useSearch } from "wouter";
 import {
   Card, CardContent, CardHeader, CardTitle, CardDescription,
 } from "@/components/ui/card";
@@ -1355,8 +1356,22 @@ function AppRegistrationTab() {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
+const VALID_TABS = ["accounts", "activities", "journals", "reports", "corporate-actions", "app-registration", "revenue"] as const;
+type TabValue = (typeof VALID_TABS)[number];
+
+function tabFromSearch(search: string): TabValue {
+  const tab = new URLSearchParams(search).get("tab");
+  return (VALID_TABS as readonly string[]).includes(tab ?? "") ? (tab as TabValue) : "accounts";
+}
+
 export default function BrokerDashboard() {
   const { toast } = useToast();
+  const search = useSearch();
+  const [activeTab, setActiveTab] = useState<TabValue>(() => tabFromSearch(search));
+
+  useEffect(() => {
+    setActiveTab(tabFromSearch(search));
+  }, [search]);
 
   const { data: configData, isLoading: configLoading, refetch: refetchConfig } = useQuery<{
     configured: boolean; authOk: boolean; authError?: string;
@@ -1527,7 +1542,7 @@ export default function BrokerDashboard() {
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="accounts">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="accounts" className="gap-1.5"><Users className="h-3.5 w-3.5" /> Accounts</TabsTrigger>
           <TabsTrigger value="activities" className="gap-1.5"><Activity className="h-3.5 w-3.5" /> Activities</TabsTrigger>

@@ -159,12 +159,19 @@ const agentNavCategories: NavCategory[] = [
     ]
   },
   {
+    title: "US Equity (Alpaca)",
+    icon: TrendingUp,
+    items: [
+      { title: "US Client Accounts", href: "/agent/us-client-accounts", icon: Wallet, description: "Alpaca broker-managed US trading accounts" },
+      { title: "Open US Account", href: "/us-trading/open-account", icon: UserPlus, description: "Onboard client for US equity trading" },
+    ]
+  },
+  {
     title: "Operations",
     icon: Wallet,
     items: [
       { title: "Revenue", href: "/agent/revenue", icon: Wallet, description: "AUM and commissions" },
       { title: "My Payouts", href: "/agent/payouts", icon: DollarSign, description: "Earnings & payouts" },
-      { title: "US Client Accounts", href: "/agent/us-client-accounts", icon: Wallet, description: "Alpaca broker-managed US trading accounts" },
       { title: "Reports", href: "/agent/reports", icon: BarChart3, description: "Client reports" },
       { title: "AI Advisory", href: "/agent/investment-advisory", icon: Brain, description: "AI recommendations" },
       { title: "ITR Services", href: "/agent/tax-cases", icon: FileText, description: "ITR filing & tax services" },

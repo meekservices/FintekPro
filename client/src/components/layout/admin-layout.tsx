@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import fintekproLogo from "@assets/fintekpro_admin_1772539048012.png";
 import { PortalLogo } from "@/components/portal/PortalLogo";
 import { Button } from "@/components/ui/button";
@@ -81,6 +81,7 @@ import {
   Scale,
   ShieldAlert,
   GitBranch,
+  ArrowRightLeft,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -174,7 +175,20 @@ const navCategories: NavCategory[] = [
         icon: Wallet,
         description: "Fully-disclosed broker-dealer",
         children: [
-          { title: "Broker Dashboard", href: "/admin/broker-dashboard", icon: Wallet, description: "Accounts, journals, reports" },
+          { title: "Accounts & Compliance", href: "/admin/broker-dashboard?tab=accounts", icon: Users, description: "Account list & compliance status" },
+          { title: "Journals & Transfers", href: "/admin/broker-dashboard?tab=journals", icon: ArrowRightLeft, description: "Journal entries & fund transfers" },
+          { title: "Corporate Actions", href: "/admin/broker-dashboard?tab=corporate-actions", icon: FileText, description: "Dividends, splits & reorgs" },
+          { title: "Revenue & Pricing", href: "/admin/broker-dashboard?tab=revenue", icon: TrendingUp, description: "Revenue, MRR & tier breakdown" },
+          { title: "BD Setup & Config", href: "/admin/broker-dashboard?tab=app-registration", icon: Settings, description: "Broker-dealer registration & config" },
+        ]
+      },
+      {
+        title: "KFintech / IRIS",
+        href: "/admin/iris",
+        icon: Landmark,
+        description: "MF, SIP & investor oversight",
+        children: [
+          { title: "IRIS Overview", href: "/admin/iris", icon: Landmark, description: "Investor & SIP oversight dashboard" },
         ]
       },
     ]
@@ -271,6 +285,7 @@ interface Notification {
 export function AdminLayout({ children }: AdminLayoutProps) {
   const { user, isLoading } = useAuth();
   const [location, navigate] = useLocation();
+  const currentSearch = useSearch();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['dashboard']));
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
@@ -338,19 +353,34 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  const hrefPath = (href: string) => href.split('?')[0];
+
+  const isHrefActive = (href: string): boolean => {
+    const path = hrefPath(href);
+    if (location !== path && !location.startsWith(path + '/')) return false;
+    const queryPart = href.includes('?') ? href.split('?')[1] : null;
+    if (!queryPart) return true;
+    const hrefParams = new URLSearchParams(queryPart);
+    const currentParams = new URLSearchParams(currentSearch);
+    for (const [key, value] of hrefParams.entries()) {
+      if (currentParams.get(key) !== value) return false;
+    }
+    return true;
+  };
+
   useEffect(() => {
     navCategories.forEach(category => {
       category.items.forEach(item => {
         if (item.children) {
           const isChildActive = item.children.some(child => 
-            location === child.href || location.startsWith(child.href + '/')
+            location === hrefPath(child.href) || location.startsWith(hrefPath(child.href) + '/')
           );
           if (isChildActive) {
             setExpandedCategories(prev => new Set([...prev, category.id]));
             setExpandedMenus(prev => new Set([...prev, item.title]));
           }
         }
-        if (location === item.href) {
+        if (location === hrefPath(item.href)) {
           setExpandedCategories(prev => new Set([...prev, category.id]));
         }
       });
@@ -678,8 +708,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 const CategoryIcon = category.icon;
                 const isCategoryExpanded = expandedCategories.has(category.id);
                 const hasActiveItem = category.items.some(item => 
-                  location === item.href || 
-                  item.children?.some(child => location === child.href || location.startsWith(child.href + '/'))
+                  location === hrefPath(item.href) || 
+                  item.children?.some(child => location === hrefPath(child.href) || location.startsWith(hrefPath(child.href) + '/'))
                 );
                 
                 return (
@@ -709,9 +739,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                           const Icon = item.icon;
                           const hasChildren = item.children && item.children.length > 0;
                           const isExpanded = expandedMenus.has(item.title);
-                          const isActive = location === item.href;
+                          const isActive = location === hrefPath(item.href);
                           const isChildActive = hasChildren && item.children?.some(
-                            child => location === child.href || location.startsWith(child.href + '/')
+                            child => location === hrefPath(child.href) || location.startsWith(hrefPath(child.href) + '/')
                           );
                           
                           if (hasChildren) {
@@ -740,7 +770,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                                   <div className="ml-4 mt-1 space-y-0.5 border-l border-border pl-3">
                                     {item.children?.map(child => {
                                       const ChildIcon = child.icon;
-                                      const isChildItemActive = location === child.href;
+                                      const isChildItemActive = isHrefActive(child.href);
                                       
                                       return (
                                         <Link
