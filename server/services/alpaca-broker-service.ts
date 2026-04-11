@@ -728,6 +728,46 @@ class AlpacaBrokerService {
     await this.client.delete(`/v1/accounts/${accountId}/transfers/${transferId}`);
   }
 
+  // ─── Real-time Payments (RTP) ─────────────────────────────────────────────
+
+  async createRtpTransfer(accountId: string, data: {
+    amount: string;
+    direction: "INCOMING" | "OUTGOING";
+    relationship_id: string;
+  }): Promise<AlpacaTransfer> {
+    const response = await this.client.post(`/v1/accounts/${accountId}/transfers/rtp`, data);
+    return response.data;
+  }
+
+  // ─── Bank Accounts (Unified) ─────────────────────────────────────────────
+
+  async listBankAccounts(accountId: string): Promise<any[]> {
+    try {
+      const response = await this.client.get(`/v1/accounts/${accountId}/bank_accounts`);
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error: any) {
+      console.error("Error listing bank accounts:", error.message);
+      return [];
+    }
+  }
+
+  async createWiredRelationship(accountId: string, data: {
+    name: string;
+    bank_name: string;
+    bank_account_number: string;
+    bank_routing_number?: string;
+    bank_swift_code?: string;
+    bank_address?: string;
+    country: string;
+    currency: string;
+  }): Promise<any> {
+    const response = await this.client.post(`/v1/accounts/${accountId}/recipient_banks`, {
+      ...data,
+      bank_account_type: "INTERNATIONAL"
+    });
+    return response.data;
+  }
+
   // ─── Journals ─────────────────────────────────────────────────────────────
 
   async createJournal(data: {
@@ -1129,6 +1169,29 @@ class AlpacaBrokerService {
       return response.data;
     } catch (error: any) {
       console.error("Error fetching portfolio history:", error.message);
+      return null;
+    }
+  }
+
+  /**
+   * High-resolution portfolio history (e.g. for intraday charts)
+   */
+  async getPortfolioHistoryWithResolution(
+    accountId: string,
+    params: {
+      period?: string;
+      timeframe?: "1Min" | "5Min" | "15Min" | "1H" | "1D";
+      date_start?: string;
+      date_end?: string;
+      extended_hours?: boolean;
+    }
+  ): Promise<AlpacaPortfolioHistory | null> {
+    if (!this.isConfigured()) return null;
+    try {
+      const response = await this.client.get(`${this._tradingBase(accountId)}/account/portfolio/history`, { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error fetching high-res portfolio history:", error.message);
       return null;
     }
   }

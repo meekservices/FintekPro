@@ -223,6 +223,13 @@ class IrisKfintechService {
   async getAvailablePaymentModes(pan: string, schemeCode: string) {
     return this.call(`/sif/transactions/payment-modes?pan=${pan}&schemeCode=${schemeCode}`);
   }
+
+  /**
+   * Check if a specific bank supports Direct Pay (instant settlement) for MF transactions.
+   */
+  async getDirectPayStatus(pan: string, bankAccountNo: string) {
+    return this.call(`/sif/transactions/direct-pay-status?pan=${pan}&accountNo=${bankAccountNo}`);
+  }
   async validateInvestment(body: any) { return this.call('/sif/transactions/validate', 'POST', body); }
   async placeOrder(body: any) { return this.call('/sif/transactions/purchase', 'POST', body); }
   async placeRedemption(body: any) { return this.call('/sif/transactions/redemption', 'POST', body); }
@@ -272,6 +279,13 @@ class IrisKfintechService {
   // eNACH / Mandate Creation
   async createMandate(body: any) { return this.call('/sif/mandates', 'POST', body); }
   async getMandateStatus(mandateId: string) { return this.call(`/sif/mandates/${mandateId}`); }
+
+  /**
+   * List all active mandates associated with a specific bank account for an investor.
+   */
+  async listActiveMandatesByBank(pan: string, bankAccountNo: string) {
+    return this.call(`/sif/mandates/active?pan=${pan}&accountNo=${bankAccountNo}`);
+  }
 
   // Fixed Deposit Orders
   async placeFdOrder(body: any) { return this.call('/user/fixed-deposit/order', 'POST', body); }
