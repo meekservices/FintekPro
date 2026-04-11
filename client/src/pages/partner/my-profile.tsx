@@ -574,9 +574,24 @@ export default function PartnerMyProfile() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-            <div className="space-y-1">
+            <div className="space-y-1 sm:col-span-2">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">Partner ID</p>
-              <p className="text-xs font-mono bg-muted px-2 py-1 rounded truncate">{profile.id}</p>
+              <div className="flex items-center gap-1.5">
+                <code className="text-[11px] font-mono bg-muted px-2 py-1 rounded break-all flex-1 select-all" title={profile.id}>
+                  {profile.id}
+                </code>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-7 w-7 text-muted-foreground" 
+                  onClick={() => {
+                    navigator.clipboard.writeText(profile.id);
+                    toast({ title: "ID Copied", description: "Partner ID copied to clipboard." });
+                  }}
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">Partner Level</p>
