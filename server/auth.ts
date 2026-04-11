@@ -127,7 +127,7 @@ export async function generateUniqueUserId(email?: string, firstName?: string): 
 }
 
 export function setupAuth(app: Express) {
-  // Note: Session and passport are already initialized by setupReplitAuth
+  // Note: Session and passport are already initialized by setupSessionAuth (auth-setup.ts)
   // We only configure the local strategies here
   
   // Configure passport for email login
@@ -241,8 +241,8 @@ export function setupAuth(app: Express) {
     )
   );
 
-  // Note: serializeUser and deserializeUser are already configured by setupReplitAuth
-  // The Replit Auth serializes the entire user object, which works for both OAuth and local auth
+  // Note: serializeUser and deserializeUser are already configured by setupSessionAuth
+  // See auth-setup.ts for the Passport serialization/deserialization logic
 
   // Register endpoint - Step 1: Send OTP for verification
   app.post("/api/register", async (req, res) => {
