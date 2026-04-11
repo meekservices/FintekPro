@@ -15,6 +15,8 @@ export interface CashfreePaymentRequest {
   name?: string;
   email?: string;
   returnUrl?: string;
+  orderNote?: string;
+  terminalId?: string;
 }
 
 export interface CashfreeOrderResponse {
@@ -64,12 +66,13 @@ export class CashfreeService {
     this.baseUrl = getCashfreePGBaseUrl();
 
     // Create axios instance with default headers
+    // UPGRADED to API Version 2025-01-01 (v5)
     this.apiClient = axios.create({
       baseURL: this.baseUrl,
       headers: {
         'x-client-id': this.appId,
         'x-client-secret': this.secretKey,
-        'x-api-version': '2023-08-01',
+        'x-api-version': '2025-01-01',
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
@@ -91,7 +94,7 @@ export class CashfreeService {
   }
 
   /**
-   * Create a new order
+   * Create a new order (v5 compliant)
    */
   async createOrder(paymentRequest: CashfreePaymentRequest): Promise<CashfreeOrderResponse> {
     try {
@@ -110,10 +113,12 @@ export class CashfreeService {
         },
         order_meta: {
           return_url: `${returnUrl}?order_id={order_id}`
-        }
+        },
+        order_note: paymentRequest.orderNote,
+        terminal_id: paymentRequest.terminalId
       };
 
-      console.log('Creating Cashfree order:', { orderId, amount: paymentRequest.amount });
+      console.log('Creating Cashfree v5 order:', { orderId, amount: paymentRequest.amount });
 
       const response = await this.apiClient.post('/orders', requestBody);
 
@@ -136,16 +141,12 @@ export class CashfreeService {
     } catch (error: any) {
       const errorData = error.response?.data;
       const statusCode = error.response?.status;
-      console.error('Cashfree order creation error:', {
+      console.error('Cashfree v5 order creation error:', {
         status: statusCode,
         data: errorData,
-        message: error.message,
-        appIdLength: this.appId?.length || 0,
-        secretKeyLength: this.secretKey?.length || 0,
-        environment: this.environment
+        message: error.message
       });
       
-      // Provide more specific error messages
       let userMessage = 'Failed to create order';
       if (statusCode === 401 || statusCode === 403) {
         userMessage = 'Payment gateway authentication failed. Please verify API credentials.';
@@ -159,9 +160,25 @@ export class CashfreeService {
         success: false,
         message: userMessage,
         statusCode,
-        // No statusCode means no HTTP response received → network/transport failure
         errorType: statusCode === undefined ? 'network' : statusCode >= 400 && statusCode < 500 ? 'business' : 'network',
       };
+    }
+  }
+
+  /**
+   * Create a payment session (for mobile/headless SDK flows)
+   */
+  async createPaymentSession(orderId: string): Promise<{ success: boolean; sessionId?: string; message?: string }> {
+    try {
+      const response = await this.apiClient.post(`/orders/${orderId}/sessions`);
+      return {
+        success: true,
+        sessionId: response.data.payment_session_id,
+        message: 'Session created successfully'
+      };
+    } catch (error: any) {
+      console.error('Cashfree session creation error:', error.response?.data || error.message);
+      return { success: false, message: error.response?.data?.message || error.message };
     }
   }
 
@@ -190,12 +207,68 @@ export class CashfreeService {
   }
 
   /**
-   * Verify webhook signature
-   * Cashfree uses HMAC-SHA256 for webhook signature verification
+   * Fetch all payments for an order
+   */
+  async fetchPaymentsForOrder(orderId: string): Promise<any[]> {
+    try {
+      const response = await this.apiClient.get(`/orders/${orderId}/payments`);
+      return response.data || [];
+    } catch (error: any) {
+      console.error('Cashfree fetch payments error:', error.response?.data || error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Create a refund
+   */
+  async createRefund(orderId: string, refundAmount: number, refundId?: string, refundNote?: string): Promise<any> {
+    try {
+      const payload = {
+        refund_amount: refundAmount,
+        refund_id: refundId || `ref_${Date.now()}`,
+        refund_note: refundNote
+      };
+      const response = await this.apiClient.post(`/orders/${orderId}/refunds`, payload);
+      return { success: true, data: response.data };
+    } catch (error: any) {
+      console.error('Cashfree refund error:', error.response?.data || error.message);
+      return { success: false, message: error.response?.data?.message || error.message };
+    }
+  }
+
+  /**
+   * Fetch settlements
+   */
+  async getSettlements(orderId?: string): Promise<any[]> {
+    try {
+      const path = orderId ? `/settlements?order_id=${orderId}` : '/settlements';
+      const response = await this.apiClient.get(path);
+      return response.data || [];
+    } catch (error: any) {
+      console.error('Cashfree settlements error:', error.response?.data || error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch reconciliation report
+   */
+  async getReconciliation(params: { from: string; to: string; contentType?: string }): Promise<any> {
+    try {
+      const response = await this.apiClient.post('/recon', params);
+      return response.data;
+    } catch (error: any) {
+      console.error('Cashfree reconciliation error:', error.response?.data || error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Verify webhook signature (HMAC-SHA256)
    */
   verifyWebhookSignature(signature: string, rawBody: string, timestamp: string): boolean {
     try {
-      // Cashfree webhook signature format: timestamp.rawBody
       const signatureData = `${timestamp}.${rawBody}`;
       const computedSignature = crypto
         .createHmac('sha256', this.secretKey)
@@ -210,42 +283,19 @@ export class CashfreeService {
   }
 
   /**
-   * Get test credentials info
-   */
-  getTestCredentials() {
-    return {
-      appId: this.appId,
-      environment: this.environment,
-      testCards: {
-        cardNumber: '4111111111111111',
-        expiryMonth: '12',
-        expiryYear: '30',
-        cvv: '123',
-        cardHolder: 'Test User'
-      },
-      testUPI: 'test@payu'
-    };
-  }
-
-  /**
-   * Bank Account Verification (Penny Drop) using Cashfree Verification Suite
+   * Legacy penny drop verification - using secureIDBaseUrl
    */
   async verifyBankAccount(
     accountNumber: string,
     ifsc: string,
     accountHolderName: string
   ): Promise<BankVerificationResult> {
-    // Check if running in production without credentials
-    if (this.environment === 'PRODUCTION' && !this.hasValidCredentials()) {
-      throw new Error('Cashfree credentials required for bank verification in production');
-    }
-
     if (!this.hasValidCredentials()) {
-      throw new Error('Cashfree credentials not configured. Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY for bank verification.');
+      throw new Error('Cashfree credentials not configured.');
     }
 
     try {
-      // Cashfree Verification Suite - Bank Account Verification endpoint
+      // Note: Penny drop usually sits on Verification API, but we keep the logic here for context
       const verificationUrl = this.environment === 'PRODUCTION'
         ? 'https://api.cashfree.com/verification/bank-account'
         : 'https://sandbox.cashfree.com/verification/bank-account';
@@ -253,11 +303,8 @@ export class CashfreeService {
       const requestBody = {
         bank_account: accountNumber,
         ifsc: ifsc.toUpperCase(),
-        name: accountHolderName,
-        phone: '' // Optional for some banks
+        name: accountHolderName
       };
-
-      console.log(`🏦 Cashfree: Verifying bank account ${accountNumber.slice(-4)} with IFSC ${ifsc}`);
 
       const response = await axios.post(verificationUrl, requestBody, {
         headers: {
@@ -274,8 +321,6 @@ export class CashfreeService {
         const verifiedName = data.registered_name || data.name_at_bank || '';
         const nameMatchScore = this.calculateNameMatchScore(accountHolderName, verifiedName);
 
-        console.log(`✅ Bank verified. Name match: ${nameMatchScore}%`);
-
         return {
           success: true,
           verified: true,
@@ -288,91 +333,36 @@ export class CashfreeService {
         };
       }
 
-      return {
-        success: false,
-        verified: false,
-        accountExists: false,
-        message: data.message || 'Bank account verification failed'
-      };
-
+      return { success: false, verified: false, accountExists: false, message: data.message || 'Verification failed' };
     } catch (error: any) {
-      console.error('❌ Cashfree bank verification error:', error.response?.data || error.message);
-
-      if (error.response?.data) {
-        return {
-          success: false,
-          verified: false,
-          accountExists: false,
-          message: error.response.data.message || 'Verification failed',
-          errorCode: error.response.data.code
-        };
-      }
-
-      return {
-        success: false,
-        verified: false,
-        accountExists: false,
-        message: error.message || 'Bank verification service unavailable'
-      };
+      console.error('Cashfree bank verification error:', error.response?.data || error.message);
+      return { success: false, verified: false, accountExists: false, message: error.message || 'Verification service error' };
     }
   }
 
-  /**
-   * Calculate name match score using Levenshtein distance
-   * Returns similarity percentage (0-100)
-   */
   private calculateNameMatchScore(name1: string, name2: string): number {
     if (!name1 || !name2) return 0;
-
-    // Normalize: uppercase, remove special chars, trim
-    const normalize = (str: string) =>
-      str.toUpperCase()
-        .replace(/[^A-Z0-9\s]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-
+    const normalize = (str: string) => str.toUpperCase().replace(/[^A-Z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
     const n1 = normalize(name1);
     const n2 = normalize(name2);
-
     if (n1 === n2) return 100;
 
-    // Levenshtein distance
-    const matrix: number[][] = [];
-    
-    for (let i = 0; i <= n1.length; i++) {
-      matrix[i] = [i];
-    }
-    
-    for (let j = 0; j <= n2.length; j++) {
-      matrix[0][j] = j;
-    }
-    
+    const matrix = Array(n1.length + 1).fill(null).map(() => Array(n2.length + 1).fill(null));
+    for (let i = 0; i <= n1.length; i++) matrix[i][0] = i;
+    for (let j = 0; j <= n2.length; j++) matrix[0][j] = j;
     for (let i = 1; i <= n1.length; i++) {
       for (let j = 1; j <= n2.length; j++) {
-        if (n1[i - 1] === n2[j - 1]) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j] + 1
-          );
-        }
+        if (n1[i - 1] === n2[j - 1]) matrix[i][j] = matrix[i - 1][j - 1];
+        else matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
       }
     }
-    
     const distance = matrix[n1.length][n2.length];
     const maxLength = Math.max(n1.length, n2.length);
-    
-    if (maxLength === 0) return 100;
-    
-    const similarity = ((maxLength - distance) / maxLength) * 100;
-    return Math.round(similarity);
+    return Math.round(((maxLength - distance) / maxLength) * 100);
   }
 
   /**
-   * Create eMandate for NACH (National Automated Clearing House)
-   * Used for SIP (Systematic Investment Plan) auto-debit
+   * v5 Eligible eMandate initiation
    */
   async createEMandate(
     userId: string,
@@ -384,24 +374,16 @@ export class CashfreeService {
     startDate?: Date,
     endDate?: Date
   ): Promise<EMandateCreateResult> {
-    // Check if running in production without credentials
-    if (this.environment === 'PRODUCTION' && !this.hasValidCredentials()) {
-      throw new Error('Cashfree credentials required for eMandate creation in production');
-    }
-
-    if (!this.hasValidCredentials()) {
-      throw new Error('Cashfree credentials not configured. Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY for eMandate services.');
-    }
+    if (!this.hasValidCredentials()) throw new Error('Cashfree credentials not configured.');
 
     try {
-      // Cashfree eMandate creation endpoint
       const eMandateUrl = this.environment === 'PRODUCTION'
         ? 'https://api.cashfree.com/pg/eligibility/emandate'
         : 'https://sandbox.cashfree.com/pg/eligibility/emandate';
 
       const mandateId = `mandate_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       const start = startDate || new Date();
-      const end = endDate || new Date(start.getTime() + 10 * 365 * 24 * 60 * 60 * 1000); // 10 years default
+      const end = endDate || new Date(start.getTime() + 10 * 365 * 24 * 60 * 60 * 1000);
 
       const requestBody = {
         mandate_id: mandateId,
@@ -415,11 +397,9 @@ export class CashfreeService {
           ifsc: ifscCode.toUpperCase(),
           account_holder_name: accountHolderName
         },
-        authorization_mode: 'DEBIT_CARD', // or NET_BANKING
+        authorization_mode: 'DEBIT_CARD',
         return_url: `${getAppBaseUrl()}/api/kyc/wizard/emandate-callback`
       };
-
-      console.log(`📝 Cashfree: Creating eMandate for user ${userId}, max amount ₹${maxAmount}`);
 
       const response = await axios.post(eMandateUrl, requestBody, {
         headers: {
@@ -430,131 +410,59 @@ export class CashfreeService {
         timeout: 30000
       });
 
-      const data = response.data;
-
-      if (data.status === 'SUCCESS' || data.mandate_url) {
-        console.log(`✅ eMandate created successfully: ${mandateId}`);
-
+      if (response.data.status === 'SUCCESS' || response.data.mandate_url) {
         return {
           success: true,
-          mandateId: data.mandate_id || mandateId,
-          mandateUrl: data.mandate_url,
+          mandateId: response.data.mandate_id || mandateId,
+          mandateUrl: response.data.mandate_url,
           status: 'PENDING_AUTHORIZATION',
-          message: 'eMandate created. User needs to authorize via bank'
+          message: 'eMandate created'
         };
       }
-
-      return {
-        success: false,
-        status: 'FAILED',
-        message: data.message || 'eMandate creation failed'
-      };
-
+      return { success: false, status: 'FAILED', message: response.data.message || 'eMandate creation failed' };
     } catch (error: any) {
-      console.error('❌ Cashfree eMandate creation error:', error.response?.data || error.message);
-
-      if (error.response?.data) {
-        return {
-          success: false,
-          status: 'FAILED',
-          message: error.response.data.message || 'eMandate creation failed',
-          errorCode: error.response.data.code
-        };
-      }
-
-      return {
-        success: false,
-        status: 'FAILED',
-        message: error.message || 'eMandate service unavailable'
-      };
+      console.error('Cashfree eMandate error:', error.response?.data || error.message);
+      return { success: false, status: 'FAILED', message: error.message };
     }
   }
 
-  /**
-   * Get eMandate status
-   */
   async getEMandateStatus(mandateId: string): Promise<EMandateStatusResult> {
-    if (!this.hasValidCredentials()) {
-      throw new Error('Cashfree credentials not configured. Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY for eMandate services.');
-    }
-
     try {
       const statusUrl = this.environment === 'PRODUCTION'
         ? `https://api.cashfree.com/pg/eligibility/emandate/${mandateId}`
         : `https://sandbox.cashfree.com/pg/eligibility/emandate/${mandateId}`;
-
       const response = await axios.get(statusUrl, {
-        headers: {
-          'x-client-id': this.appId,
-          'x-client-secret': this.secretKey
-        },
+        headers: { 'x-client-id': this.appId, 'x-client-secret': this.secretKey },
         timeout: 15000
       });
-
-      const data = response.data;
-
       return {
         success: true,
-        mandateId: data.mandate_id,
-        status: data.status || 'PENDING',
-        authorizationDate: data.authorization_date,
-        expiryDate: data.end_date,
-        maxAmount: data.mandate_amount,
-        frequency: data.frequency
+        mandateId: response.data.mandate_id,
+        status: response.data.status || 'PENDING',
+        authorizationDate: response.data.authorization_date,
+        expiryDate: response.data.end_date,
+        maxAmount: response.data.mandate_amount,
+        frequency: response.data.frequency
       };
-
     } catch (error: any) {
-      console.error('❌ eMandate status check error:', error.response?.data || error.message);
-
-      return {
-        success: false,
-        status: 'UNKNOWN',
-        message: error.response?.data?.message || error.message || 'Failed to fetch mandate status'
-      };
+      return { success: false, status: 'UNKNOWN', message: error.message };
     }
   }
 
-  /**
-   * Cancel eMandate
-   */
   async cancelEMandate(mandateId: string): Promise<{ success: boolean; message: string }> {
-    if (!this.hasValidCredentials()) {
-      return {
-        success: true,
-        message: `[MOCK] eMandate ${mandateId} cancelled successfully`
-      };
-    }
-
     try {
       const cancelUrl = this.environment === 'PRODUCTION'
         ? `https://api.cashfree.com/pg/eligibility/emandate/${mandateId}/cancel`
         : `https://sandbox.cashfree.com/pg/eligibility/emandate/${mandateId}/cancel`;
-
       await axios.post(cancelUrl, {}, {
-        headers: {
-          'x-client-id': this.appId,
-          'x-client-secret': this.secretKey
-        },
+        headers: { 'x-client-id': this.appId, 'x-client-secret': this.secretKey },
         timeout: 15000
       });
-
-      console.log(`✅ eMandate cancelled: ${mandateId}`);
-
-      return {
-        success: true,
-        message: 'eMandate cancelled successfully'
-      };
-
+      return { success: true, message: 'eMandate cancelled successfully' };
     } catch (error: any) {
-      console.error('❌ eMandate cancellation error:', error.response?.data || error.message);
-
-      return {
-        success: false,
-        message: error.response?.data?.message || error.message || 'Failed to cancel mandate'
-      };
+      return { success: false, message: error.message };
     }
   }
-
 }
 
 export interface BankVerificationResult {
