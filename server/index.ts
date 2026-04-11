@@ -646,7 +646,7 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
   app.get('/live', livenessCheck);
   
   // Initialize authentication (Passport & sessions must be set up first)
-  await setupReplitAuth(app);
+  await setupSessionAuth(app);
   
   // Then add local email/mobile authentication routes
   setupLocalAuth(app);
