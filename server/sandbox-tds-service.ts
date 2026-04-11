@@ -1265,6 +1265,129 @@ class SandboxTDSService {
     return this.makeAPICall(`/tds/compliance/e-file?job_id=${encodeURIComponent(jobId)}`, undefined, 'GET');
   }
 
+  // ============ SANDBOX API — TDS ANALYTICS: SALARY PAYMENTS (GAP 2) ============
+
+  /**
+   * Submit TDS Salary Payments potential-notices analytics job.
+   * Endpoint: POST /tds/analytics/salary-payments/potential-notices
+   * Form 24Q — TDS on salary deducted by employer.
+   */
+  async submitSalaryTDSAnalyticsJob(params: {
+    tan: string;
+    quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+    financialYear: string;
+  }): Promise<any> {
+    return this.makeAPICall('/tds/analytics/salary-payments/potential-notices', {
+      '@entity': 'in.co.sandbox.tds.analytics.salary_payments.request',
+      quarter: params.quarter,
+      tan: params.tan,
+      financial_year: params.financialYear,
+    }, 'POST');
+  }
+
+  /**
+   * Poll TDS Salary Payments analytics job status.
+   * Endpoint: GET /tds/analytics/salary-payments/potential-notices?job_id=...
+   * When status==="succeeded" → data.potential_notice_report_url is populated.
+   */
+  async pollSalaryTDSAnalyticsJob(jobId: string): Promise<any> {
+    return this.makeAPICall(`/tds/analytics/salary-payments/potential-notices?job_id=${encodeURIComponent(jobId)}`, undefined, 'GET');
+  }
+
+  // ============ SANDBOX API — TDS ANALYTICS: NRI PAYMENTS (GAP 3) ============
+
+  /**
+   * Submit TDS NRI Payments potential-notices analytics job.
+   * Endpoint: POST /tds/analytics/nri-payments/potential-notices
+   * Section 195 — TDS on payments to NRIs / foreign companies (Form 27Q).
+   */
+  async submitNRITDSAnalyticsJob(params: {
+    tan: string;
+    quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+    financialYear: string;
+  }): Promise<any> {
+    return this.makeAPICall('/tds/analytics/nri-payments/potential-notices', {
+      '@entity': 'in.co.sandbox.tds.analytics.nri_payments.request',
+      quarter: params.quarter,
+      tan: params.tan,
+      financial_year: params.financialYear,
+    }, 'POST');
+  }
+
+  /**
+   * Poll TDS NRI Payments analytics job status.
+   * Endpoint: GET /tds/analytics/nri-payments/potential-notices?job_id=...
+   * When status==="succeeded" → data.potential_notice_report_url is populated.
+   */
+  async pollNRITDSAnalyticsJob(jobId: string): Promise<any> {
+    return this.makeAPICall(`/tds/analytics/nri-payments/potential-notices?job_id=${encodeURIComponent(jobId)}`, undefined, 'GET');
+  }
+
+  // ============ SANDBOX API — IT REPORT: TAX P&L + CAPITAL GAINS (GAP 4) ============
+
+  /**
+   * Submit async Tax Profit & Loss report job.
+   * Endpoint: POST /it/report/tax-profit-loss
+   * Body: { pan, financialYear, outputFormat? }
+   * Returns: { job_id, status } — poll until status==="succeeded" → report_url.
+   */
+  async submitTaxPLReportJob(params: {
+    pan: string;
+    financialYear: string;
+    outputFormat?: 'excel' | 'json';
+    includeIntraday?: boolean;
+    includeFno?: boolean;
+  }): Promise<any> {
+    return this.makeAPICall('/it/report/tax-profit-loss', {
+      '@entity': 'in.co.sandbox.it.report.tax_pl.request',
+      pan: params.pan,
+      financial_year: params.financialYear,
+      output_format: params.outputFormat ?? 'json',
+      include_intraday: params.includeIntraday ?? true,
+      include_fno: params.includeFno ?? true,
+    }, 'POST');
+  }
+
+  /**
+   * Poll Tax P&L report job status.
+   * Endpoint: GET /it/report/tax-profit-loss?job_id=...
+   * When status==="succeeded" → data.report_url is the download link.
+   */
+  async pollTaxPLReportJob(jobId: string): Promise<any> {
+    return this.makeAPICall(`/it/report/tax-profit-loss?job_id=${encodeURIComponent(jobId)}`, undefined, 'GET');
+  }
+
+  /**
+   * Submit async Capital Gains report job.
+   * Endpoint: POST /it/report/capital-gains
+   * Body: { pan, financialYear, outputFormat? }
+   * Returns: { job_id, status } — poll until status==="succeeded" → report_url.
+   * Covers LTCG / STCG per section 111A, 112, 112A of Income Tax Act.
+   */
+  async submitCapitalGainsReportJob(params: {
+    pan: string;
+    financialYear: string;
+    outputFormat?: 'excel' | 'json';
+    assetClasses?: string[];
+  }): Promise<any> {
+    return this.makeAPICall('/it/report/capital-gains', {
+      '@entity': 'in.co.sandbox.it.report.capital_gains.request',
+      pan: params.pan,
+      financial_year: params.financialYear,
+      output_format: params.outputFormat ?? 'json',
+      ...(params.assetClasses && { asset_classes: params.assetClasses }),
+    }, 'POST');
+  }
+
+  /**
+   * Poll Capital Gains report job status.
+   * Endpoint: GET /it/report/capital-gains?job_id=...
+   * When status==="succeeded" → data.report_url is the download link.
+   */
+  async pollCapitalGainsReportJob(jobId: string): Promise<any> {
+    return this.makeAPICall(`/it/report/capital-gains?job_id=${encodeURIComponent(jobId)}`, undefined, 'GET');
+  }
+
   getTDSFormTypes(): Array<{ form: string; description: string; applicableFor: string[] }> {
     return [
       { 

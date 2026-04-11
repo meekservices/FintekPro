@@ -69,6 +69,8 @@ import { mcaFinancialRefreshScheduler } from "./services/mca-financial-refresh-s
 import { registerSandboxWebhookRoutes } from './routes/sandbox-webhooks';
 import { registerSandboxTDSRoutes } from './routes/sandbox-tds';
 import { registerSandboxGSTRoutes } from './routes/sandbox-gst';
+import { registerEntityLockerRoutes } from './routes/sandbox-entitylocker';
+import { registerSandboxITReportRoutes } from './routes/sandbox-it-report';
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 
@@ -779,6 +781,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   registerSandboxWebhookRoutes(app);
   registerSandboxTDSRoutes(app);
   registerSandboxGSTRoutes(app);
+  registerEntityLockerRoutes(app);
+  registerSandboxITReportRoutes(app);
   registerBankingRoutes(app);
   registerLoanRoutes(app);
   await registerLoanProcessingRoutes(app);
