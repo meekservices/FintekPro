@@ -875,6 +875,21 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
         console.error('[ML Cron] Auto-training failed:', e);
       }
     }, { timezone: 'UTC' });
+    // Nightly IRIS CAS portfolio sync at 01:00 UTC (6:30 AM IST) — reconciles MF holdings from KFintech
+    if (process.env.NODE_ENV === 'production') {
+      cron.schedule('0 1 * * *', async () => {
+        console.log('[IRISSync] Starting nightly IRIS CAS sync (01:00 UTC)…');
+        try {
+          const { runNightlyIrisCasSync } = await import('./services/iris-portfolio-sync-service');
+          await runNightlyIrisCasSync();
+          console.log('✅ [IRISSync] Nightly CAS sync completed');
+        } catch (e: any) {
+          console.error('[IRISSync] Nightly CAS sync failed:', e?.message);
+        }
+      }, { timezone: 'UTC' });
+      console.log('✅ [IRISSync] Nightly IRIS CAS sync cron registered (01:00 UTC, production only)');
+    }
+
     // Daily pick expiry sweep at 01:30 UTC (7:00 AM IST) — expires picks past their expiry_date
     cron.schedule('30 1 * * *', async () => {
       console.log('[PicksExpiry] Running daily expiry sweep...');
@@ -1847,6 +1862,51 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     console.log('✅ [Migration] self_healing_feedback table verified/created');
   } catch (e: any) {
     console.error('[Migration] self_healing_feedback table error:', e?.message);
+  }
+
+  // iris_sessions — persist IRIS/KFintech JWT tokens across restarts
+  try {
+    const { db: mainDb } = await import('./db');
+    const { sql: migSql } = await import('drizzle-orm');
+    await mainDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS iris_sessions (
+        id           VARCHAR PRIMARY KEY,
+        pan          VARCHAR NOT NULL UNIQUE,
+        access_token TEXT    NOT NULL,
+        refresh_token TEXT,
+        expires_at   TIMESTAMPTZ,
+        created_at   TIMESTAMPTZ DEFAULT NOW(),
+        updated_at   TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_iris_sessions_pan ON iris_sessions (pan);
+    `);
+    console.log('✅ [Migration] iris_sessions table verified/created');
+  } catch (e: any) {
+    console.error('[Migration] iris_sessions table error:', e?.message);
+  }
+
+  // lrs_remittance_logs — track LRS remittances (USD transfers under FEMA/LRS)
+  try {
+    const { db: mainDb } = await import('./db');
+    const { sql: migSql } = await import('drizzle-orm');
+    await mainDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS lrs_remittance_logs (
+        id                   VARCHAR PRIMARY KEY,
+        user_id              VARCHAR NOT NULL REFERENCES users(id),
+        alpaca_account_id    VARCHAR,
+        transfer_id          VARCHAR NOT NULL UNIQUE,
+        amount_usd           NUMERIC(18,4) NOT NULL,
+        amount_inr           NUMERIC(18,2),
+        usd_inr_rate         NUMERIC(10,4),
+        financial_year       VARCHAR(10) NOT NULL,
+        transfer_date        TIMESTAMPTZ  DEFAULT NOW(),
+        created_at           TIMESTAMPTZ  DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_lrs_logs_user_fy ON lrs_remittance_logs (user_id, financial_year);
+    `);
+    console.log('✅ [Migration] lrs_remittance_logs table verified/created');
+  } catch (e: any) {
+    console.error('[Migration] lrs_remittance_logs table error:', e?.message);
   }
 
   // Init auto-recovery service (circuit breaker registry + service registration)

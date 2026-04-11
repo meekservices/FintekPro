@@ -2,7 +2,8 @@ import { Router } from "express";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
-import { users, kycVault } from "@shared/schema";
+import { users, kycVault, usBrokerAccounts } from "@shared/schema";
+import { currencyExchangeService } from "../services/currency-exchange-service";
 import { usTradingService } from "../services/us-trading-service";
 import { alpacaMarketDataService } from "../services/alpaca-market-data-service";
 import { alpacaBrokerService } from "../services/alpaca-broker-service";
@@ -720,6 +721,67 @@ router.get("/funding/swift-instructions", async (req, res) => {
     };
 
     res.json({ success: true, instructions });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── Enhanced LRS Status (Gap 5: LRS Utilisation Tracker) ───────────────────
+// Returns full LRS status with INR equivalent, TCS threshold, and FY breakdown.
+router.get("/lrs/status", async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+
+    const LRS_LIMIT_USD = 250_000;
+    const TCS_THRESHOLD_INR = 700_000;
+
+    // Current financial year (Apr–Mar)
+    const now = new Date();
+    const fyStart = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    const currentFY = `${fyStart}-${String(fyStart + 1).slice(-2)}`;
+
+    const [brokerAccount] = await db
+      .select({
+        lrsUsedUsd: usBrokerAccounts.lrsUsedUsd,
+        lrsFinancialYear: usBrokerAccounts.lrsFinancialYear,
+        alpacaAccountId: usBrokerAccounts.alpacaAccountId,
+      })
+      .from(usBrokerAccounts)
+      .where(eq(usBrokerAccounts.clientId, userId))
+      .limit(1);
+
+    let usdInrRate = 84;
+    try {
+      usdInrRate = await currencyExchangeService.getExchangeRate('USD', 'INR');
+    } catch { /* use fallback */ }
+
+    const usedUsd   = parseFloat(brokerAccount?.lrsUsedUsd ?? '0');
+    const usedInr   = usedUsd * usdInrRate;
+    const remaining = LRS_LIMIT_USD - usedUsd;
+    const usedPct   = (usedUsd / LRS_LIMIT_USD) * 100;
+    const tcsApplies = usedInr > TCS_THRESHOLD_INR;
+    const tcsAmountInr = tcsApplies ? (usedInr - TCS_THRESHOLD_INR) * 0.20 : 0;
+
+    res.json({
+      success: true,
+      financialYear: brokerAccount?.lrsFinancialYear || currentFY,
+      limitUsd: LRS_LIMIT_USD,
+      usedUsd,
+      remainingUsd: remaining,
+      usedPercent: Math.min(usedPct, 100),
+      usedInr: Math.round(usedInr),
+      remainingInr: Math.round(remaining * usdInrRate),
+      usdInrRate,
+      tcsThresholdInr: TCS_THRESHOLD_INR,
+      tcsApplies,
+      tcsAmountInr: Math.round(tcsAmountInr),
+      warning: usedPct >= 80
+        ? usedPct >= 100
+          ? 'LRS annual limit exhausted. No further remittances allowed this financial year.'
+          : `LRS limit ${usedPct.toFixed(1)}% used. Approaching ₹70L TCS threshold.`
+        : null,
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }

@@ -23,10 +23,13 @@ import {
   portfolioHoldings,
   dataSourceConsents,
   aaConsentSessions,
+  usBrokerAccounts,
   type ComprehensiveHolding
 } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { currencyExchangeService } from './currency-exchange-service';
+import { alpacaBrokerService } from './alpaca-broker-service';
 
 export interface UnifiedHolding {
   id: string;
@@ -151,8 +154,9 @@ class UnifiedHoldingsReaderService {
   }
 
   /**
-   * Get unified holdings for any client (prospect or registered)
-   * This is the single entry point for all engines
+   * Get unified holdings for any client (prospect or registered).
+   * For registered clients, also merges live Alpaca US positions (USD→INR).
+   * This is the single entry point for all engines.
    */
   async getHoldings(clientId: string): Promise<UnifiedHolding[]> {
     const clientType = await this.getClientType(clientId);
@@ -162,10 +166,77 @@ class UnifiedHoldingsReaderService {
     }
 
     if (clientType.isRegistered) {
-      return this.getRegisteredClientHoldings(clientId);
+      const [domestic, alpaca] = await Promise.allSettled([
+        this.getRegisteredClientHoldings(clientId),
+        this.getAlpacaHoldings(clientId),
+      ]);
+      const domesticHoldings = domestic.status === 'fulfilled' ? domestic.value : [];
+      const alpacaHoldings  = alpaca.status  === 'fulfilled' ? alpaca.value  : [];
+      return [...domesticHoldings, ...alpacaHoldings];
     }
 
     return [];
+  }
+
+  /**
+   * Fetch live Alpaca US equity / crypto positions for a user,
+   * converting USD → INR at the current spot rate, and returning
+   * them as UnifiedHolding objects tagged with broker='Alpaca'.
+   */
+  async getAlpacaHoldings(userId: string): Promise<UnifiedHolding[]> {
+    try {
+      const [brokerAccount] = await db
+        .select({
+          alpacaAccountId: usBrokerAccounts.alpacaAccountId,
+          status: usBrokerAccounts.status,
+          alpacaStatus: usBrokerAccounts.alpacaStatus,
+        })
+        .from(usBrokerAccounts)
+        .where(eq(usBrokerAccounts.clientId, userId))
+        .limit(1);
+
+      if (!brokerAccount?.alpacaAccountId) return [];
+      if (!['live', 'paper'].includes(brokerAccount.status ?? '')) return [];
+
+      const [positions, usdInrRate] = await Promise.allSettled([
+        alpacaBrokerService.getPositions(brokerAccount.alpacaAccountId),
+        currencyExchangeService.getExchangeRate('USD', 'INR'),
+      ]);
+      if (positions.status === 'rejected') return [];
+      const rate = usdInrRate.status === 'fulfilled' ? usdInrRate.value : 84;
+
+      return positions.value.map((pos): UnifiedHolding => {
+        const qty          = parseFloat(pos.qty ?? '0');
+        const mktValueUsd  = parseFloat(pos.market_value ?? '0');
+        const avgPriceUsd  = parseFloat(pos.avg_entry_price ?? '0');
+        const plUsd        = parseFloat((pos as any).unrealized_pl ?? '0');
+        const plPct        = parseFloat((pos as any).unrealized_plpc ?? '0');
+        const isCrypto     = (pos as any).asset_class === 'crypto';
+
+        return {
+          id: `alpaca-${pos.symbol}-${userId}`,
+          name: pos.symbol,
+          symbol: pos.symbol,
+          assetType: isCrypto ? 'crypto' : 'equity',
+          assetClass: isCrypto ? 'Crypto (US)' : 'US Equity',
+          quantity: qty,
+          averageCost: avgPriceUsd * rate,
+          currentPrice: (mktValueUsd / (qty || 1)) * rate,
+          currentValue: mktValueUsd * rate,
+          investedValue: avgPriceUsd * qty * rate,
+          unrealizedGain: plUsd * rate,
+          unrealizedGainPercent: plPct * 100,
+          broker: 'Alpaca',
+          source: 'api',
+          dataProvider: 'alpaca',
+          lastUpdated: new Date().toISOString(),
+          confidenceScore: 100,
+        };
+      });
+    } catch (err: any) {
+      console.warn('[UnifiedHoldings] Alpaca fetch skipped:', err?.message);
+      return [];
+    }
   }
 
   /**
@@ -415,11 +486,12 @@ class UnifiedHoldingsReaderService {
     if (!type) return 'equity';
     const lower = type.toLowerCase();
     if (['mutual_fund', 'mf', 'mutualfund'].includes(lower)) return 'mutual_fund';
-    if (['equity', 'stock', 'stocks'].includes(lower)) return 'equity';
+    if (['equity', 'stock', 'stocks', 'us_equity', 'us equity'].includes(lower)) return 'equity';
     if (['debt', 'bond', 'bonds', 'ncd'].includes(lower)) return 'debt';
     if (['gold', 'sgb'].includes(lower)) return 'gold';
     if (['etf'].includes(lower)) return 'etf';
     if (['reit', 'invit'].includes(lower)) return 'reit';
+    if (['crypto', 'cryptocurrency'].includes(lower)) return 'equity'; // crypto treated as equity for allocation
     return type;
   }
 }
