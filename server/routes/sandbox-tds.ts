@@ -134,6 +134,98 @@ export function registerSandboxTDSRoutes(app: Express): void {
   });
 
   // ============================================================
+  // TDS ANALYTICS — SALARY PAYMENTS (GAP 2, JOB-BASED)
+  // ============================================================
+
+  /**
+   * POST /api/tds/analytics/salary-payments/potential-notices
+   * Submit TDS salary-payments potential-notices analytics job (Form 24Q).
+   * Body: { tan, quarter, financialYear }
+   * Returns: { job_id, status }
+   */
+  app.post('/api/tds/analytics/salary-payments/potential-notices', async (req: Request, res: Response) => {
+    try {
+      const { tan, quarter, financialYear } = req.body;
+      if (!tan || !quarter || !financialYear) {
+        return res.status(400).json({ success: false, message: 'tan, quarter and financialYear are required' });
+      }
+      if (!['Q1', 'Q2', 'Q3', 'Q4'].includes(quarter)) {
+        return res.status(400).json({ success: false, message: 'quarter must be Q1, Q2, Q3 or Q4' });
+      }
+      const result = await sandboxTDSService.submitSalaryTDSAnalyticsJob({ tan, quarter, financialYear });
+      return res.json(result);
+    } catch (error) {
+      console.error('[TDS Salary Analytics] submit job error:', error);
+      return res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Failed to submit salary analytics job' });
+    }
+  });
+
+  /**
+   * GET /api/tds/analytics/salary-payments/potential-notices?job_id=...
+   * Poll TDS salary-payments analytics job status.
+   * When status==="succeeded" → data.potential_notice_report_url is set.
+   */
+  app.get('/api/tds/analytics/salary-payments/potential-notices', async (req: Request, res: Response) => {
+    try {
+      const { job_id } = req.query;
+      if (!job_id) {
+        return res.status(400).json({ success: false, message: 'job_id query param is required' });
+      }
+      const result = await sandboxTDSService.pollSalaryTDSAnalyticsJob(String(job_id));
+      return res.json(result);
+    } catch (error) {
+      console.error('[TDS Salary Analytics] poll job error:', error);
+      return res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Failed to poll salary analytics job' });
+    }
+  });
+
+  // ============================================================
+  // TDS ANALYTICS — NRI PAYMENTS / SECTION 195 (GAP 3, JOB-BASED)
+  // ============================================================
+
+  /**
+   * POST /api/tds/analytics/nri-payments/potential-notices
+   * Submit TDS NRI-payments potential-notices analytics job (Section 195 / Form 27Q).
+   * Body: { tan, quarter, financialYear }
+   * Returns: { job_id, status }
+   */
+  app.post('/api/tds/analytics/nri-payments/potential-notices', async (req: Request, res: Response) => {
+    try {
+      const { tan, quarter, financialYear } = req.body;
+      if (!tan || !quarter || !financialYear) {
+        return res.status(400).json({ success: false, message: 'tan, quarter and financialYear are required' });
+      }
+      if (!['Q1', 'Q2', 'Q3', 'Q4'].includes(quarter)) {
+        return res.status(400).json({ success: false, message: 'quarter must be Q1, Q2, Q3 or Q4' });
+      }
+      const result = await sandboxTDSService.submitNRITDSAnalyticsJob({ tan, quarter, financialYear });
+      return res.json(result);
+    } catch (error) {
+      console.error('[TDS NRI Analytics] submit job error:', error);
+      return res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Failed to submit NRI analytics job' });
+    }
+  });
+
+  /**
+   * GET /api/tds/analytics/nri-payments/potential-notices?job_id=...
+   * Poll TDS NRI-payments analytics job status (Section 195 / Form 27Q).
+   * When status==="succeeded" → data.potential_notice_report_url is set.
+   */
+  app.get('/api/tds/analytics/nri-payments/potential-notices', async (req: Request, res: Response) => {
+    try {
+      const { job_id } = req.query;
+      if (!job_id) {
+        return res.status(400).json({ success: false, message: 'job_id query param is required' });
+      }
+      const result = await sandboxTDSService.pollNRITDSAnalyticsJob(String(job_id));
+      return res.json(result);
+    } catch (error) {
+      console.error('[TDS NRI Analytics] poll job error:', error);
+      return res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Failed to poll NRI analytics job' });
+    }
+  });
+
+  // ============================================================
   // TDS REPORTS — TXT GENERATION (JOB-BASED)
   // ============================================================
 
@@ -439,6 +531,10 @@ export function registerSandboxTDSRoutes(app: Express): void {
           'GET  /api/tds/analytics/potential-notices?job_id=',
           'POST /api/tcs/analytics/potential-notices',
           'GET  /api/tcs/analytics/potential-notices?job_id=',
+          'POST /api/tds/analytics/salary-payments/potential-notices',
+          'GET  /api/tds/analytics/salary-payments/potential-notices?job_id=',
+          'POST /api/tds/analytics/nri-payments/potential-notices',
+          'GET  /api/tds/analytics/nri-payments/potential-notices?job_id=',
         ],
         reports: [
           'POST /api/tds/reports/txt',
