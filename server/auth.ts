@@ -21,6 +21,7 @@ declare global {
   namespace Express {
     interface User {
       id: string;
+      userId: string | null;
       email?: string | null;
       mobile?: string | null;
       password: string;
@@ -1256,6 +1257,7 @@ export function setupAuth(app: Express) {
 
     return apiResponse.success(res, {
       id: req.user.id,
+      userId: req.user.userId,
       email: req.user.email,
       mobile: req.user.mobile,
       firstName: req.user.firstName,
