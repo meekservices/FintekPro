@@ -1478,6 +1478,19 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     console.error('[Migration] prospect_id columns error:', e?.message);
   }
 
+  // Migrate created_by_agent_id into tables that link agent-created records
+  try {
+    const { db: mainDb } = await import('./db');
+    const { sql: migSql } = await import('drizzle-orm');
+    await mainDb.execute(migSql`
+      ALTER TABLE tax_reminder_subscriptions ADD COLUMN IF NOT EXISTS created_by_agent_id VARCHAR REFERENCES users(id);
+      ALTER TABLE capital_gains_tax_reminders ADD COLUMN IF NOT EXISTS created_by_agent_id VARCHAR REFERENCES users(id)
+    `);
+    console.log('✅ [Migration] created_by_agent_id columns verified/added (tax_reminder_subscriptions, capital_gains_tax_reminders)');
+  } catch (e: any) {
+    console.error('[Migration] created_by_agent_id columns error:', e?.message);
+  }
+
   try {
     const { db: mainDb } = await import('./db');
     const { sql: migSql } = await import('drizzle-orm');
