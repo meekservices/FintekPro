@@ -215,6 +215,30 @@ const generateProposalId = (source: 'ai' | 'agent' | 'client' | 'hybrid'): strin
       return `PROPOSAL-${timestamp}-${randomSuffix}`;
   }
 };
+  // Migration: Update User-Friendly ID for a specific user
+  app.post('/api/admin/migrate-user-id', requireAdmin, async (req, res) => {
+    try {
+      const { email, newUserId } = req.body;
+      if (!email || !newUserId) {
+        return res.status(400).json({ success: false, error: 'email and newUserId are required' });
+      }
 
+      const { users } = await import('@shared/schema');
+      const user = await db.query.users.findFirst({
+        where: eq(users.email, email),
+      });
 
+      if (!user) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+      }
+
+      await db.update(users)
+        .set({ userId: newUserId })
+        .where(eq(users.id, user.id));
+
+      res.json({ success: true, message: `Updated user ${email} to ID ${newUserId}` });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
 }

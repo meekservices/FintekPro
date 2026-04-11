@@ -80,14 +80,22 @@ async function getOtpChannelOrder(userId?: string): Promise<string[]> {
   return [...DEFAULT_OTP_CHANNEL_ORDER];
 }
 
-export async function generateUniqueUserId(email?: string): Promise<string> {
+export async function generateUniqueUserId(email?: string, firstName?: string): Promise<string> {
   // Generate userId in format: XXX123456
-  // First 3 characters: first 3 alphabetic letters from email (uppercase), fallback to "FTP"
+  // First 3 characters: first 3 alphabetic letters from firstName, fallback to email prefix, fallback to "FTP"
   // Next 6 characters: system-generated random digits
   
   let prefix = "FTP";
   
-  if (email) {
+  // Try to use firstName first as requested by user
+  if (firstName && firstName.trim().length >= 3) {
+    const alphabeticChars = firstName.replace(/[^a-zA-Z]/g, '').toUpperCase();
+    if (alphabeticChars.length >= 3) {
+      prefix = alphabeticChars.substring(0, 3);
+    }
+  } 
+  // Fallback to email if firstName not available or too short
+  else if (email) {
     // Extract first 3 alphabetic characters from the email (before @)
     const emailLocalPart = email.split('@')[0] || '';
     const alphabeticChars = emailLocalPart.replace(/[^a-zA-Z]/g, '').toUpperCase();
@@ -95,7 +103,6 @@ export async function generateUniqueUserId(email?: string): Promise<string> {
     if (alphabeticChars.length >= 3) {
       prefix = alphabeticChars.substring(0, 3);
     }
-    // If less than 3 alphabetic characters found, keep "FTP" as fallback
   }
   
   let attempts = 0;
@@ -437,13 +444,13 @@ export function setupAuth(app: Express) {
       const registeredName = registeredFullName || email.split('@')[0];
       const roleForPortal = registeredPortal === 'agent' ? ['agent'] : registeredPortal === 'partner' ? ['partner'] : ['user'];
 
-      // Generate unique userId with email-based prefix
-      const userId = await generateUniqueUserId(email);
-
       // Split registered name into first/last for the user record
       const nameParts = registeredName.trim().split(/\s+/);
       const firstNameFromReg = nameParts[0] || null;
       const lastNameFromReg = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null;
+
+      // Generate unique userId with appropriate prefix
+      const userId = await generateUniqueUserId(email, firstNameFromReg || undefined);
 
       // Create user with verified status
       const user = await storage.createUser({
@@ -728,8 +735,8 @@ export function setupAuth(app: Express) {
         strategy = "email-local";
         usernameField = "email";
       } 
-      // Check if it's a userId (starts with FTP)
-      else if (identifier.startsWith("FTP")) {
+      // Check if it's a userId (Format: Prefix + 6 digits, e.g. FTP001234, SAN852412)
+      else if (/^[A-Z]{3}[0-9]{6}$/.test(identifier) || identifier.startsWith("FTP")) {
         strategy = "userId-local";
         usernameField = "userId";
       }

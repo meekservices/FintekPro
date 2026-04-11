@@ -69,7 +69,7 @@ export function registerPartnerPortalPart2Routes(app: Express): void {
 
       // Fetch from users table
       const userRows = await db.execute(sql`
-        SELECT first_name, last_name, email, mobile, created_at, profile_image_url, roles
+        SELECT user_id, first_name, last_name, email, mobile, created_at, profile_image_url, roles
         FROM users WHERE id = ${userId} LIMIT 1
       `);
       const u = userRows.rows[0] as any || {};
@@ -102,6 +102,7 @@ export function registerPartnerPortalPart2Routes(app: Express): void {
 
       res.json({
         id: userId,
+        userId: u.user_id || req.user.userId || null,
         firstName: u.first_name || req.user.firstName || "",
         lastName: u.last_name || req.user.lastName || "",
         email: u.email || req.user.email || "",
