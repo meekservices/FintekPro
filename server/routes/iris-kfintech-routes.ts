@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from 'express';
 import { irisKfintechService } from '../services/iris-kfintech-service';
 import { scheduleIrisPortfolioRefresh } from '../services/iris-portfolio-sync-service';
-import { isAuthenticated } from '../replitAuth';
+import { isAuthenticated } from '../auth-setup';
 import { requireAdmin, requireAgent } from '../middleware/auth';
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {

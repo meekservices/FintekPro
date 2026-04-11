@@ -4,7 +4,7 @@ import fetch from 'node-fetch';
 import { db } from '../db';
 import { prospectClients, portfolios, portfolioHoldings } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
-import { isAuthenticated } from '../replitAuth';
+import { isAuthenticated } from '../auth-setup';
 import { createPortfolioSnapshot, clearParseCache, TransactionLot } from '../services/portfolio-parser';
 import { holdingLotsStorageService, LotStorageInput } from '../services/holding-lots-storage-service';
 

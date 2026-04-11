@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '../db';
 import { userSignatures, insertUserSignatureSchema } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
-import { isAuthenticated } from '../replitAuth';
+import { isAuthenticated } from '../auth-setup';
 
 const router = Router();
 
