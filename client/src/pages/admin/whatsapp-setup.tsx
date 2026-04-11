@@ -51,7 +51,8 @@ export default function WhatsAppSetupPage() {
 
   const { data: status, isLoading, refetch } = useQuery<WhatsAppStatus>({
     queryKey: ['/api/admin/whatsapp/status'],
-    refetchInterval: polling ? 5000 : false,
+    // Poll every 5s whenever not yet connected — catches the post-scan ready event automatically
+    refetchInterval: !status?.isReady ? 5000 : false,
   });
 
   const { data: otpPriority, isLoading: priorityLoading } = useQuery<OtpPriorityData>({
@@ -67,6 +68,7 @@ export default function WhatsAppSetupPage() {
   useEffect(() => {
     if (status?.isReady && polling) {
       setPolling(false);
+      toast({ title: '✅ WhatsApp Connected', description: 'Your device is now linked and ready to send messages.' });
     }
   }, [status?.isReady, polling]);
 

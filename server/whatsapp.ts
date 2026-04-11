@@ -128,10 +128,16 @@ export class WhatsAppService {
     this.client.on('ready', () => {
       console.log('WhatsApp Client is ready!');
       this.isReady = true;
+      // Clear QR code once connected so the UI transitions to "Connected" state
+      this.qrCode = null;
+      this.qrCodeDataUrl = null;
     });
 
     this.client.on('authenticated', () => {
       console.log('WhatsApp Client authenticated');
+      // Clear QR code on authentication so hasQrCode becomes false immediately
+      this.qrCode = null;
+      this.qrCodeDataUrl = null;
     });
 
     this.client.on('auth_failure', (msg: string) => {
