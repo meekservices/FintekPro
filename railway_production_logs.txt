@@ -1,0 +1,200 @@
+Alert check complete at 2026-04-11T13:32:39.890Z
+2026-04-11T13:32:42.006164441Z [INFO] GET /api/version 200 in 215ms timestamp="2026-04-11T13:32:41.859Z"
+🚀 [StaggeredStart] Starting Exit Load sync...
+📊 [ExitLoadSync] Exit load sync scheduler started
+   Schedule: 1st of every month at 3:00 AM IST
+   Next run: 2026-04-30T21:30:00.000Z
+📊 [ExitLoad Sync] Exit load sync started (monthly on 1st at 3 AM IST)
+2026-04-11T13:33:43.183220134Z [INFO] GET /api/version 200 in 14ms timestamp="2026-04-11T13:33:41.286Z"
+🚀 [StaggeredStart] Starting Zoho bidirectional sync...
+[ZohoSyncScheduler] Starting Zoho sync scheduler...
+[ZohoSyncScheduler] Scheduled: incremental sync every 30min, webhook processing every 2min, reconciliation daily at 6:00 AM IST
+[ExitLoadSync] Exit load data exists (6676 funds), skipping initial run
+[ExitLoadSync] Skipping initial enrichment (recent run exists)
+2026-04-11T13:35:49.797136407Z [INFO] GET /api/version 200 in 192ms timestamp="2026-04-11T13:35:41.461Z"
+[PMS Sync] Running startup catch-up for stale funds...
+[PMS Sync] Found 0 PMS funds needing refresh
+2026-04-11T13:36:42.884590843Z [INFO] GET /api/version 200 in 19ms timestamp="2026-04-11T13:36:41.281Z"
+🚀 [StaggeredStart] Starting AMFI Official NAV sync...
+[AMFI NAV Scheduler] Initialized - daily sync at 11:30 PM IST
+[AMFI NAV Scheduler] Next scheduled run: 2026-04-11T18:00:00.000Z
+📊 [AMFI NAV] Official NAV sync started (daily 11:30 PM IST)
+[2026-04-11T13:37:39.885Z] Checking alerts...
+Found 0 active alerts to check
+Alert check complete at 2026-04-11T13:37:39.889Z
+2026-04-11T13:37:45.487771779Z [INFO] GET /api/version 200 in 203ms timestamp="2026-04-11T13:37:41.846Z"
+2026-04-11T13:38:48.089070181Z [INFO] GET /api/version 200 in 19ms timestamp="2026-04-11T13:38:41.317Z"
+🚀 [StaggeredStart] Starting Data Enrichment Scheduler...
+[DataEnrichmentScheduler] Already initialized
+📊 [DataEnrichment] Master enrichment scheduler started (daily 5 AM IST)
+[CommoditySync] Starting 3-tier price refresh...
+[CommoditySync] 18 stale commodities → starting tiered refresh
+[CommoditySync] Tier 1 — Alpha Vantage for 9 metals/energy
+[CommoditySync] AV fetched 0/9
+[CommoditySync] Tier 1.5 — AV Physical for 4 LME metals
+[CommoditySync] Tier 2 — Python/yfinance batch for 16 symbols
+2026-04-11T13:40:41.645737158Z [INFO] GET /api/version 200 in 196ms timestamp="2026-04-11T13:40:41.478Z"
+[CommoditySync] Python filled 0/16
+[CommoditySync] Tier 3 — Yahoo last-resort for 16 symbols
+[CommoditySync] ℹ️  MENTHA_OIL, CASTOR_SEED — MCX India only; no free global API available. Set up a BSE/NSE commodity feed to price these.
+[CommoditySync] Refresh complete — updated: 12, errors: 4
+[CommoditySync] 4 symbols had no price from any tier: ZINC, NICKEL, LEAD, TIN
+🚀 [StaggeredStart] Starting Financial Metrics Refresh...
+[MetricsScheduler] Starting financial metrics refresh scheduler...
+[MetricsScheduler] Scheduler started with fixed IST times
+[MetricsScheduler] - Mutual fund refresh: Daily at 11:00 PM IST
+[MetricsScheduler] - Stock metrics refresh: Weekdays at 6:00 PM IST
+📊 [MetricsRefresh] MF returns + stock metrics scheduler started
+2026-04-11T13:41:43.282915699Z [INFO] GET /api/version 200 in 25ms timestamp="2026-04-11T13:41:41.322Z"
+[2026-04-11T13:42:39.886Z] Checking alerts...
+Found 0 active alerts to check
+Alert check complete at 2026-04-11T13:42:39.890Z
+2026-04-11T13:42:44.323436412Z [INFO] GET /api/version 200 in 190ms timestamp="2026-04-11T13:42:41.830Z"
+2026-04-11T13:43:45.333083087Z [INFO] GET /api/version 200 in 16ms timestamp="2026-04-11T13:43:41.280Z"
+🚀 [StaggeredStart] Starting Benchmark Sync...
+📊 [BenchmarkSync] Weekly benchmark sync scheduled (Sunday 1 AM UTC)
+2026-04-11T13:45:48.589276384Z [INFO] GET /api/version 200 in 199ms timestamp="2026-04-11T13:45:41.464Z"
+2026-04-11T13:46:50.031706483Z [INFO] GET /api/version 200 in 13ms timestamp="2026-04-11T13:46:41.284Z"
+Found 0 active alerts to check
+Alert check complete at 2026-04-11T13:47:39.890Z
+🚀 [StaggeredStart] Starting AMFI Benchmark Ingestion...
+📊 [AMFIBenchmark] Weekly AMFI benchmark ingestion scheduled (Monday 2 AM UTC)
+[2026-04-11T13:47:39.886Z] Checking alerts...
+2026-04-11T13:47:41.840576567Z [INFO] GET /api/version 200 in 198ms timestamp="2026-04-11T13:47:41.835Z"
+2026-04-11T13:48:43.032192340Z [INFO] GET /api/version 200 in 15ms timestamp="2026-04-11T13:48:41.294Z"
+🚀 [StaggeredStart] Starting BSE Benchmark Seed...
+[BseBenchmark] Seeding BSE indices to market_indices table...
+[BseBenchmark] BSE indices seeded: 0 new, 7 existing
+📊 [BSEBenchmark] BSE indices seeded: 0 new, 7 existing
+2026-04-11T13:50:45.811402461Z [INFO] GET /api/version 200 in 197ms timestamp="2026-04-11T13:50:41.495Z"
+2026-04-11T13:51:49.049478708Z [INFO] GET /api/version 200 in 13ms timestamp="2026-04-11T13:51:41.279Z"
+🚀 [StaggeredStart] Starting Benchmark Auto-Mapping...
+[MfBenchmarkMapping] Auto-mapping unmapped funds (batch mode)...
+[MfBenchmarkMapping] 4027 existing mappings loaded
+[MfBenchmarkMapping] Mapped: 0, Skipped: 5000
+📊 [BenchmarkAutoMap] Auto-mapped 0 funds, 5000 skipped
+🔄 [MarketMoversCache] Background refresh triggered
+📊 [MarketMoversCache] Fetching fresh market data...
+🔄 [MarketMoversCache] Trying NSE India (primary)...
+[CacheWarming] Starting warming cycle...
+[CacheWarming] Warming 20 popular stocks...
+[StockPrice] Warming cache with 20 popular symbols...
+[StockPrice] Batch fetching 20 symbols (0 from cache)
+[2026-04-11T13:52:39.886Z] Checking alerts...
+Found 0 active alerts to check
+Alert check complete at 2026-04-11T13:52:39.890Z
+✅ [MarketMoversCache] NSE India succeeded with 15 stocks
+✅ [MarketMoversCache] Cache refreshed in 302ms via nse (15 stocks)
+💾 [MarketMoversCache] Saved 15 stocks to database
+2026-04-11T13:52:43.425174635Z [INFO] GET /api/version 200 in 199ms timestamp="2026-04-11T13:52:42.798Z"
+[CacheWarming] Cycle complete: 20 stocks warmed
+[StockPriceCache] Cleaned 20 expired entries
+🚀 [StaggeredStart] Starting Stock Financial Enrichment...
+📊 [StockEnrichment] Daily stock PE/EPS enrichment scheduled (6 PM IST weekdays)
+2026-04-11T13:53:42.001769069Z [INFO] GET /api/version 200 in 15ms timestamp="2026-04-11T13:53:41.288Z"
+🚀 [StaggeredStart] Starting MF Extended Enrichment...
+📊 [MFExtended] Daily MF TER/AUM enrichment scheduled (11:30 PM IST)
+2026-04-11T13:55:43.987831756Z [INFO] GET /api/version 200 in 32ms timestamp="2026-04-11T13:55:41.297Z"
+2026-04-11T13:56:45.181651017Z [INFO] GET /api/version 200 in 19ms timestamp="2026-04-11T13:56:41.289Z"
+🚀 [StaggeredStart] Starting Data Lake Archival...
+📊 [DataLake Cron] Daily archival scheduled (6:30 PM & 7:00 PM IST)
+[2026-04-11T13:57:39.887Z] Checking alerts...
+Found 0 active alerts to check
+Alert check complete at 2026-04-11T13:57:39.891Z
+2026-04-11T13:57:47.206404701Z [INFO] GET /api/version 200 in 208ms timestamp="2026-04-11T13:57:41.846Z"
+2026-04-11T13:58:49.573830267Z [INFO] GET /api/version 200 in 15ms timestamp="2026-04-11T13:58:41.295Z"
+🚀 [StaggeredStart] Starting Corporate Actions Sync...
+📊 [CorpActions] Daily corporate actions sync scheduled (7:10 PM IST)
+[ZohoSyncScheduler] Running scheduled incremental sync...
+[SyncOrchestrator] Starting incremental sync at 2026-04-11T14:00:00.466Z
+[AuditIntegrity] Running scheduled integrity check...
+    at ZohoOAuthService.getValidAccessToken (file:///app/dist/index.js:65326:55)
+    at async Timeout._onTimeout (/app/node_modules/node-cron/dist/esm/scheduler/runner.js:70:44)
+Decryption error: Error: Unsupported state or unable to authenticate data
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[Zoho OAuth] Decrypt error, trying raw token: Error: Failed to decrypt data
+    at Decipheriv.final (node:internal/crypto/cipher:193:29)
+    at async file:///app/dist/index.js:65588:33
+    at EncryptionService.decrypt (file:///app/dist/index.js:65136:17)
+    at EncryptionService.decrypt (file:///app/dist/index.js:65132:33)
+    at async ZohoApiClient.request (file:///app/dist/index.js:65652:28)
+    at async _ZohoSyncOrchestrator.runIncrementalSync (file:///app/dist/index.js:66602:30)
+    at async cron6.schedule.timezone (file:///app/dist/index.js:67136:22)
+    at async _ZohoSyncOrchestrator.pullFromZoho (file:///app/dist/index.js:66721:30)
+    at async _ZohoSyncOrchestrator.syncModuleIncremental (file:///app/dist/index.js:66698:13)
+    at async Axios.request (file:///app/node_modules/axios/lib/core/Axios.js:41:14)
+    at ZohoOAuthService.getValidAccessToken (file:///app/dist/index.js:65326:55)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async file:///app/dist/index.js:65588:33
+    at async Axios.request (file:///app/node_modules/axios/lib/core/Axios.js:41:14)
+    at async ZohoApiClient.request (file:///app/dist/index.js:65652:28)
+    at async _ZohoSyncOrchestrator.pullFromZoho (file:///app/dist/index.js:66721:30)
+    at async _ZohoSyncOrchestrator.syncModuleIncremental (file:///app/dist/index.js:66698:13)
+    at async _ZohoSyncOrchestrator.runIncrementalSync (file:///app/dist/index.js:66602:30)
+    at async cron6.schedule.timezone (file:///app/dist/index.js:67136:22)
+    at async Timeout._onTimeout (/app/node_modules/node-cron/dist/esm/scheduler/runner.js:70:44)
+Decryption error: Error: Unsupported state or unable to authenticate data
+    at Decipheriv.final (node:internal/crypto/cipher:193:29)
+    at EncryptionService.decrypt (file:///app/dist/index.js:65132:33)
+    at ZohoOAuthService.getValidAccessToken (file:///app/dist/index.js:65326:55)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async file:///app/dist/index.js:65588:33
+    at async Axios.request (file:///app/node_modules/axios/lib/core/Axios.js:41:14)
+    at async ZohoApiClient.request (file:///app/dist/index.js:65652:28)
+    at async _ZohoSyncOrchestrator.pullFromZoho (file:///app/dist/index.js:66721:30)
+    at async _ZohoSyncOrchestrator.syncModuleIncremental (file:///app/dist/index.js:66698:13)
+    at async _ZohoSyncOrchestrator.runIncrementalSync (file:///app/dist/index.js:66602:30)
+    at async cron6.schedule.timezone (file:///app/dist/index.js:67136:22)
+    at async Timeout._onTimeout (/app/node_modules/node-cron/dist/esm/scheduler/runner.js:70:44)
+[Zoho OAuth] Decrypt error, trying raw token: Error: Failed to decrypt data
+    at EncryptionService.decrypt (file:///app/dist/index.js:65136:17)
+    at ZohoOAuthService.getValidAccessToken (file:///app/dist/index.js:65326:55)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async file:///app/dist/index.js:65588:33
+    at async Axios.request (file:///app/node_modules/axios/lib/core/Axios.js:41:14)
+    at async ZohoApiClient.request (file:///app/dist/index.js:65652:28)
+    at async _ZohoSyncOrchestrator.pullFromZoho (file:///app/dist/index.js:66721:30)
+    at async _ZohoSyncOrchestrator.syncModuleIncremental (file:///app/dist/index.js:66698:13)
+    at async _ZohoSyncOrchestrator.runIncrementalSync (file:///app/dist/index.js:66602:30)
+    at async cron6.schedule.timezone (file:///app/dist/index.js:67136:22)
+    at async Timeout._onTimeout (/app/node_modules/node-cron/dist/esm/scheduler/runner.js:70:44)
+Decryption error: Error: Unsupported state or unable to authenticate data
+    at Decipheriv.final (node:internal/crypto/cipher:193:29)
+    at EncryptionService.decrypt (file:///app/dist/index.js:65132:33)
+    at ZohoOAuthService.getValidAccessToken (file:///app/dist/index.js:65326:55)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async file:///app/dist/index.js:65588:33
+    at async Axios.request (file:///app/node_modules/axios/lib/core/Axios.js:41:14)
+    at async ZohoApiClient.request (file:///app/dist/index.js:65652:28)
+    at async _ZohoSyncOrchestrator.pullFromZoho (file:///app/dist/index.js:66721:30)
+    at async _ZohoSyncOrchestrator.syncModuleIncremental (file:///app/dist/index.js:66698:13)
+    at async _ZohoSyncOrchestrator.runIncrementalSync (file:///app/dist/index.js:66602:30)
+    at async cron6.schedule.timezone (file:///app/dist/index.js:67136:22)
+    at async Timeout._onTimeout (/app/node_modules/node-cron/dist/esm/scheduler/runner.js:70:44)
+[Zoho OAuth] Decrypt error, trying raw token: Error: Failed to decrypt data
+    at EncryptionService.decrypt (file:///app/dist/index.js:65136:17)
+    at ZohoOAuthService.getValidAccessToken (file:///app/dist/index.js:65326:55)
+    at async cron6.schedule.timezone (file:///app/dist/index.js:67136:22)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Timeout._onTimeout (/app/node_modules/node-cron/dist/esm/scheduler/runner.js:70:44)
+    at async file:///app/dist/index.js:65588:33
+[ZohoSyncScheduler] Incremental sync done: 0 processed, 0 updated, 0 conflicts, 3 errors
+    at async Axios.request (file:///app/node_modules/axios/lib/core/Axios.js:41:14)
+    at async ZohoApiClient.request (file:///app/dist/index.js:65652:28)
+    at async _ZohoSyncOrchestrator.pullFromZoho (file:///app/dist/index.js:66721:30)
+    at async _ZohoSyncOrchestrator.syncModuleIncremental (file:///app/dist/index.js:66698:13)
+    at async _ZohoSyncOrchestrator.runIncrementalSync (file:///app/dist/index.js:66602:30)
+2026-04-11T14:00:47.912614363Z [INFO] GET /api/version 200 in 196ms timestamp="2026-04-11T14:00:41.464Z"
+🚀 [StaggeredStart] Starting Corporate Actions Apply...
+📊 [CorpActions] Daily corporate actions apply scheduled (7:20 PM IST)
+2026-04-11T14:01:48.774595735Z [INFO] GET /api/version 200 in 19ms timestamp="2026-04-11T14:01:41.284Z"
+[2026-04-11T14:02:39.887Z] Checking alerts...
+Found 0 active alerts to check
+Alert check complete at 2026-04-11T14:02:39.895Z
+2026-04-11T14:02:42.221530273Z [INFO] GET /api/version 200 in 210ms timestamp="2026-04-11T14:02:41.857Z"
+🚀 [StaggeredStart] Starting Golden Source Pricing Engine...
+2026-04-11T14:03:44.301291566Z [INFO] GET /api/version 200 in 13ms timestamp="2026-04-11T14:03:41.287Z"
+🚀 [StaggeredStart] Starting Golden Price Stale Marker...
+💰 [GoldenPricing] Daily run (9 PM IST Mon-Fri) + Weekly stale marker (8 PM IST Sun) scheduled
+2026-04-11T14:05:49.876845242Z [INFO] GET /api/version 200 in 189ms timestamp="2026-04-11T14:05:41.568Z"
+2026-04-11T14:06:51.187266487Z [INFO] GET /api/version 200 in 16ms timestamp="2026-04-11T14:06:41.290Z"
