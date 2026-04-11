@@ -23,6 +23,7 @@ import {
 
 interface Partner {
   id: string;
+  userId?: string;
   companyName: string;
   contactEmail: string;
   contactPhone?: string;
@@ -101,6 +102,10 @@ function PartnerRow({ partner, onAction }: { partner: Partner; onAction: (action
             ))}
           </div>
         )}
+        <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1 font-mono">
+          <Hash className="h-3 w-3" />
+          <span className="select-all" title={`Reference UUID: ${partner.id}`}>{partner.userId || partner.id}</span>
+        </div>
       </TableCell>
       <TableCell>
         <div className="text-sm">{partner.hierarchyPartnerType || partner.partnerType || "—"}</div>

@@ -17,6 +17,7 @@ import {
 
 interface PartnerProfile {
   id: string;
+  userId: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -577,15 +578,15 @@ export default function PartnerMyProfile() {
             <div className="space-y-1 sm:col-span-2">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">Partner ID</p>
               <div className="flex items-center gap-1.5">
-                <code className="text-[11px] font-mono bg-muted px-2 py-1 rounded break-all flex-1 select-all" title={profile.id}>
-                  {profile.id}
+                <code className="text-[11px] font-mono bg-muted px-2 py-1 rounded break-all flex-1 select-all" title={`Reference UUID: ${profile.id}`}>
+                  {profile.userId || profile.id}
                 </code>
                 <Button 
                   variant="ghost" 
                   size="icon" 
                   className="h-7 w-7 text-muted-foreground" 
                   onClick={() => {
-                    navigator.clipboard.writeText(profile.id);
+                    navigator.clipboard.writeText(profile.userId || profile.id);
                     toast({ title: "ID Copied", description: "Partner ID copied to clipboard." });
                   }}
                 >
