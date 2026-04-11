@@ -1806,6 +1806,24 @@ function PartnerRoutes() {
           </PartnerLayout>
         )}
       </Route>
+      {/* KYC & Profile — partners share the same full profile/KYC page */}
+      <Route path="/profile">
+        {() => (
+          <PartnerLayout>
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <Profile />
+            </Suspense>
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/onboarding" component={OnboardingPage} />
+      <Route path="/video-kyc" component={VideoKYC} />
+      <Route path="/kyc-dashboard">
+        <Redirect to="/profile?tab=kyc-dashboard" />
+      </Route>
+      <Route path="/kyc/complete">
+        <Redirect to="/profile?tab=kyc-dashboard" />
+      </Route>
       <Route>
         {() => (
           <PartnerLayout>
