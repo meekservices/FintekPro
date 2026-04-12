@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from 'express';
 import { irisKfintechService } from '../services/iris-kfintech-service';
 import { scheduleIrisPortfolioRefresh } from '../services/iris-portfolio-sync-service';
+import { ComplianceAuditPackService } from '../services/compliance-audit-pack-service';
 import { isAuthenticated } from '../auth-setup';
 import { requireAdmin, requireAgent } from '../middleware/auth';
 
@@ -186,8 +187,24 @@ export function registerIrisKfintechRoutes(app: Express): void {
 
   app.post('/api/iris/transactions/place-order', requireAuth, requireAgent, async (req, res) => {
     const pan = (req.body as any)?.pan;
-    await wrap(res, () => irisKfintechService.placeOrder(req.body as Record<string, unknown>));
-    if (pan) scheduleIrisPortfolioRefresh(pan, (req as any).user?.id);
+    const userId = (req as any).user?.id;
+    
+    await wrap(res, async () => {
+      const result = await irisKfintechService.placeOrder(req.body as Record<string, unknown>);
+      
+      // Generate Audit Pack for this trade
+      if (userId) {
+        await ComplianceAuditPackService.generateAuditPack(
+          userId,
+          "order_placement",
+          result?.orderId || "MF-ORDER",
+          { provider: "Iris", ...req.body }
+        );
+      }
+      return result;
+    });
+    
+    if (pan && userId) scheduleIrisPortfolioRefresh(pan, userId);
   });
 
   app.post('/api/iris/transactions/place-redemption', requireAuth, requireAgent, async (req, res) => {

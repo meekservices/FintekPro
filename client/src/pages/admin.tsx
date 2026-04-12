@@ -24,6 +24,7 @@ import { CapitalGainsReportViewer } from "@/components/reports/capital-gains-rep
 import { TransactionReportViewer } from "@/components/reports/transaction-report-viewer";
 import CkycManagement from "./admin/ckyc-management";
 import SupplierDashboard from "./admin/supplier-dashboard";
+import RevenueSettingsTab from "./admin/revenue-settings";
 
 function AIGovernancePanel() {
   const { data, isLoading } = useQuery<any>({
@@ -1584,6 +1585,39 @@ export default function AdminPanel() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              {/* Revenue & Compliance Group */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant={["revenue", "commission-ledger"].includes(selectedTab) ? "default" : "outline"}
+                    className="gap-2"
+                    data-testid="nav-revenue"
+                  >
+                    <IndianRupee className="w-4 h-4" />
+                    Revenue & Fees
+                    <ChevronDown className="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("revenue")}
+                    className={selectedTab === "revenue" ? "bg-accent" : ""}
+                    data-testid="nav-revenue-settings"
+                  >
+                    <TrendingUp className="w-4 h-4 mr-2" />
+                    Fee Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("commission-ledger")}
+                    className={selectedTab === "commission-ledger" ? "bg-accent" : ""}
+                    data-testid="nav-commission-ledger"
+                  >
+                    <Receipt className="w-4 h-4 mr-2" />
+                    Commission Ledger
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               {/* System & Monitoring Group */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -2765,6 +2799,11 @@ export default function AdminPanel() {
           {/* Database Governance Tab */}
           <TabsContent value="database-governance" className="space-y-6" data-testid="database-governance-content">
             <DatabaseGovernanceTab />
+          </TabsContent>
+
+          {/* Revenue Settings Tab */}
+          <TabsContent value="revenue" className="space-y-6" data-testid="revenue-content">
+            <RevenueSettingsTab />
           </TabsContent>
         </Tabs>
       </div>

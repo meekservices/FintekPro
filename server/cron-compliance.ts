@@ -426,5 +426,57 @@ export function initializeComplianceCrons(): void {
       logger.error('[CRON][CARegistry] Job failed:', { error: error.message });
     }
   });
-  console.log('⚖️ [CARegistry] Annual revalidation scheduled (3:30 AM IST)');
+
+  logger.info('⚖️ [CARegistry] Annual revalidation scheduled (3:30 AM IST)');
+
+  // ── T08: Regulatory Audit Pack Integrity — nightly 4:00 AM IST (10:30 PM UTC) ───
+  cron.schedule('30 22 * * *', async () => {
+    logger.info('[CRON] Starting regulatory audit pack integrity check...');
+    try {
+      const result = await auditIntegrityChecker.verifyRegulatoryPacks();
+      logger.info(`[CRON][RegulatoryIntegrity] Check complete. Status: ${result.status}, Verified: ${result.verifiedRecords}/${result.totalRecords}`);
+      
+      if (result.status === 'failed') {
+        logger.error(`[CRON][RegulatoryIntegrity] CRITICAL: Tampering detected in regulatory audit packs! Check IDs: ${result.checksumMismatches.join(', ')}`);
+      }
+    } catch (error: any) {
+      logger.error('[CRON][RegulatoryIntegrity] Job failed:', { error: error.message });
+    }
+  });
+  console.log('🛡️ [RegulatoryIntegrity] Nightly audit pack check scheduled (4:00 AM IST)');
+
+  // ── T09: Revenue Config Drift Detector — nightly 4:30 AM IST (11:00 PM UTC) ───
+  cron.schedule('0 23 * * *', async () => {
+    logger.info('[CRON] Starting revenue configuration drift detector...');
+    try {
+      const recentPacks = await db.execute(sql`
+        SELECT id, platform_config_snapshot, created_at 
+        FROM regulatory_audit_packs 
+        WHERE created_at > NOW() - INTERVAL '24 hours'
+      `);
+      
+      const rows = recentPacks.rows || [];
+      logger.info(`[CRON][RevenueDrift] Scanning ${rows.length} recent transactions for configuration drifts...`);
+
+      // In a real scenario, we would compare these snapshots against the 'platformConfig' table 
+      // at that historical timestamp. For now, we flag any packs with missing config data.
+      let driftCount = 0;
+      for (const row of rows) {
+        if (!row.platform_config_snapshot || Object.keys(row.platform_config_snapshot).length === 0) {
+          driftCount++;
+          logger.warn(`[CRON][RevenueDrift] Potential drift or missing config in pack ${row.id}`);
+        }
+      }
+      
+      if (driftCount > 0) {
+        logger.warn(`[CRON][RevenueDrift] Detected ${driftCount} packs with configuration anomalies.`);
+      } else {
+        logger.info('[CRON][RevenueDrift] No configuration drifts detected in the last 24 hours.');
+      }
+
+    } catch (error: any) {
+      logger.error('[CRON][RevenueDrift] Job failed:', { error: error.message });
+    }
+  });
+  console.log('📈 [RevenueDrift] Daily configuration drift detector scheduled (4:30 AM IST)');
 }

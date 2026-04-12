@@ -15,8 +15,8 @@
  */
 
 import { db } from '../db';
-import { complianceAuditTrail, users, unlistedDeals } from '@shared/schema';
-import { eq, and, gte, lte, desc, sql, or, isNull } from 'drizzle-orm';
+import { complianceAuditTrail, users, unlistedDeals, regulatoryAuditPacks } from '@shared/schema';
+import { eq, and, gte, lte, desc, sql, or, isNull, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { auditLogArchivalService } from './audit-log-archival';
 
@@ -565,6 +565,30 @@ class RegulatoryReportingService {
     }
 
     return events.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  /**
+   * Retrieves immutable evidence packs (Regulatory Audit Packs) for a specific report.
+   * This is used during audits to prove compliance state at the time of each transaction.
+   */
+  async getEvidencePacksForReport(reportId: string): Promise<any[]> {
+    const report = this.reports.get(reportId);
+    if (!report || !report.transactionIds || report.transactionIds.length === 0) {
+      return [];
+    }
+
+    try {
+      const packs = await db
+        .select()
+        .from(regulatoryAuditPacks)
+        .where(inArray(regulatoryAuditPacks.transactionId, report.transactionIds))
+        .orderBy(desc(regulatoryAuditPacks.createdAt));
+      
+      return packs;
+    } catch (error) {
+      console.error(`[Regulatory Reporting] Failed to fetch evidence packs for report ${reportId}:`, error);
+      return [];
+    }
   }
 
   private async persistReport(report: RegulatoryReport, action: string): Promise<void> {

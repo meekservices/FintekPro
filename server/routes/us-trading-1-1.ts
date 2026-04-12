@@ -12,7 +12,7 @@ import { alpacaWsStreamingService } from "../services/alpaca-ws-streaming-servic
 import { usOrderNotificationService } from "../services/us-order-notification-service";
 import { usRebalancingEngine } from "../services/us-rebalancing-engine";
 import { orderAuditHook } from "../services/order-audit-hook";
-import { kycEncryptionService } from "../services/kyc-encryption-service";
+import { ComplianceAuditPackService } from "../services/compliance-audit-pack-service";
 import crypto from "crypto";
 
 const router = Router();
@@ -294,6 +294,9 @@ router.post("/account/apply", async (req, res) => {
     const alpacaPayload: any = {
       // account_type: "trading" is required for standard brokerage accounts
       account_type: "trading",
+      
+      // Commission Rooting: Ensures FintekPro captures revenue for this account
+      account_referrer: "fintekpro_app",
 
       // Top-level risk profile fields (not nested under identity)
       // Valid values: "conservative" | "moderate" | "significant_risk"
@@ -457,6 +460,14 @@ router.post("/account/apply", async (req, res) => {
         console.warn("[AccountApply] CIP submission failed:", cipErr?.message);
       }
     }
+
+    // 8) Generate Regulatory Audit Pack
+    await ComplianceAuditPackService.generateAuditPack(
+      userId,
+      "account_opening",
+      alpacaAccount.id,
+      { provider: "Alpaca", status: alpacaAccount.status }
+    );
 
     res.json({
       success: true,

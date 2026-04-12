@@ -1,6 +1,7 @@
 import { db } from "../db";
-import { partners, partnerCommissionRules, partnerCommissionLedger, partnerWallets } from "@shared/schema";
+import { partners, partnerCommissionRules, partnerCommissionLedger, partnerWallets, platformConfig, fintekproCaRegistry } from "@shared/schema";
 import { eq, and, sql, isNull, lte, gte, desc } from "drizzle-orm";
+import { logger } from "../logger";
 
 export class CommissionWaterfallEngine {
   private static instance: CommissionWaterfallEngine;
@@ -20,6 +21,11 @@ export class CommissionWaterfallEngine {
     transactionAmount: number;
     sellingPartnerId: string;
   }): Promise<{ success: boolean; ledgerEntries?: any[]; error?: string }> {
+    // ── CA Marketplace Special Handling ─────────────────────────────────────
+    if (data.productType === 'ca_consultation') {
+      return this.processCaMarketplaceCommission(data);
+    }
+
     const [rule] = await db.select().from(partnerCommissionRules)
       .where(and(
         eq(partnerCommissionRules.productType, data.productType),
@@ -282,6 +288,120 @@ export class CommissionWaterfallEngine {
       return { valid: false, error: "Commission on partner onboarding/recruitment is not allowed (Anti-MLM)" };
     }
     return { valid: true };
+  }
+
+  /**
+   * Special Waterfall for CA Marketplace
+   * [1] Platform Fee (dynamic from config)
+   * [2] Referral Bonus (dynamic from config)
+   * [3] CA Payout (Remainder)
+   */
+  private async processCaMarketplaceCommission(data: {
+    transactionId: string;
+    orderId?: string;
+    productType: string;
+    transactionAmount: number;
+    sellingPartnerId: string;
+  }): Promise<{ success: boolean; ledgerEntries?: any[]; error?: string }> {
+    try {
+      // 1. Fetch dynamic config
+      let [config] = await db.select().from(platformConfig).limit(1);
+      if (!config) {
+        // Fallback to defaults if no config row exists yet
+        config = {
+          caPlatformFeePct: "10.00",
+          caReferralBonusPct: "5.00",
+        } as any;
+      }
+
+      const platformPct = parseFloat(config!.caPlatformFeePct?.toString() || '10.00');
+      const referralPct = parseFloat(config!.caReferralBonusPct?.toString() || '5.00');
+
+      // 2. Resolve the CA and their referring partner
+      const [caRegistry] = await db.select()
+        .from(fintekproCaRegistry)
+        .where(eq(fintekproCaRegistry.partnersTableId, data.sellingPartnerId))
+        .limit(1);
+
+      const referrerCode = caRegistry?.referredByCode;
+      let referrerPartnerId: string | null = null;
+
+      if (referrerCode) {
+        const [referrer] = await db.select({ id: fintekproCaRegistry.partnersTableId })
+          .from(fintekproCaRegistry)
+          .where(eq(fintekproCaRegistry.referralCode, referrerCode))
+          .limit(1);
+        referrerPartnerId = referrer?.id || null;
+      }
+
+      const ledgerEntries: any[] = [];
+      const totalAmount = data.transactionAmount;
+
+      // 3. Platform Payout
+      const platformAmount = (totalAmount * platformPct) / 100;
+      const [platformEntry] = await db.insert(partnerCommissionLedger).values({
+        partnerId: 'PLATFORM',
+        transactionId: data.transactionId,
+        orderId: data.orderId || null,
+        productType: 'ca_consultation',
+        transactionAmount: totalAmount.toString(),
+        commissionAmount: platformAmount.toFixed(2),
+        waterfallLevel: 'PLATFORM',
+        status: 'ELIGIBLE',
+        metadata: { pctApplied: platformPct, type: 'marketplace_fee' },
+      }).returning();
+      ledgerEntries.push(platformEntry);
+
+      // 4. Referrer Payout (if exists)
+      let allocatedToReferrer = 0;
+      if (referrerPartnerId && referralPct > 0) {
+        allocatedToReferrer = (totalAmount * referralPct) / 100;
+        const [referrerEntry] = await db.insert(partnerCommissionLedger).values({
+          partnerId: referrerPartnerId,
+          transactionId: data.transactionId,
+          orderId: data.orderId || null,
+          productType: 'ca_consultation',
+          transactionAmount: totalAmount.toString(),
+          commissionAmount: allocatedToReferrer.toFixed(2),
+          waterfallLevel: 'REFERRAL',
+          status: 'ELIGIBLE',
+          metadata: { pctApplied: referralPct, type: 'referral_bonus' },
+        }).returning();
+        ledgerEntries.push(referrerEntry);
+        await this.creditWallet(referrerPartnerId, allocatedToReferrer);
+      }
+
+      // 5. CA Payout (Remainder)
+      const caPayoutPct = 100 - platformPct - (referrerPartnerId ? referralPct : 0);
+      const caPayoutAmount = (totalAmount * caPayoutPct) / 100;
+      
+      const [caEntry] = await db.insert(partnerCommissionLedger).values({
+        partnerId: data.sellingPartnerId,
+        transactionId: data.transactionId,
+        orderId: data.orderId || null,
+        productType: 'ca_consultation',
+        transactionAmount: totalAmount.toString(),
+        commissionAmount: caPayoutAmount.toFixed(2),
+        waterfallLevel: 'L1',
+        status: 'ELIGIBLE',
+        metadata: { pctApplied: caPayoutPct, type: 'ca_payout' },
+      }).returning();
+      ledgerEntries.push(caEntry);
+      
+      await this.creditWallet(data.sellingPartnerId, caPayoutAmount);
+
+      logger.info('[Commission] CA Marketplace transaction processed', {
+        transactionId: data.transactionId,
+        platformAmount,
+        caPayoutAmount,
+        referrerAmount: allocatedToReferrer
+      });
+
+      return { success: true, ledgerEntries };
+    } catch (err: any) {
+      logger.error('[Commission] CA Marketplace processing failed', { error: err.message });
+      return { success: false, error: err.message };
+    }
   }
 }
 

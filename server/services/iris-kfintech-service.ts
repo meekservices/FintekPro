@@ -231,7 +231,9 @@ class IrisKfintechService {
     return this.call(`/sif/transactions/direct-pay-status?pan=${pan}&accountNo=${bankAccountNo}`);
   }
   async validateInvestment(body: any) { return this.call('/sif/transactions/validate', 'POST', body); }
-  async placeOrder(body: any) { return this.call('/sif/transactions/purchase', 'POST', body); }
+  async placeOrder(body: any) { 
+    return this.call('/sif/transactions/purchase', 'POST', { ...body, partnerCode: "FINTEKPRO" }); 
+  }
   async placeRedemption(body: any) { return this.call('/sif/transactions/redemption', 'POST', body); }
   async cancelSip(body: any) { return this.call('/sif/transactions/sip/cancel', 'POST', body); }
   async pauseSip(body: any) { return this.call('/sif/transactions/sip/pause', 'POST', body); }
@@ -303,7 +305,9 @@ class IrisKfintechService {
 
   // NPS (National Pension System)
   async getNpsSubscriberDetails(pran: string) { return this.call(`/nps/subscriber/${pran}`); }
-  async initiateNpsOnboarding(body: any) { return this.call('/nps/subscriber/onboarding', 'POST', body); }
+  async initiateNpsOnboarding(body: any) { 
+    return this.call('/nps/subscriber/onboarding', 'POST', { ...body, partnerCode: "FINTEKPRO" }); 
+  }
   async placeNpsContribution(body: any) { return this.call('/nps/transactions/contribution', 'POST', body); }
   async getNpsPortfolio(pran: string) { return this.call(`/nps/subscriber/${pran}/portfolio`); }
   async getNpsFundValues(pran: string) { return this.call(`/nps/subscriber/${pran}/fund-values`); }
@@ -375,7 +379,9 @@ class IrisKfintechService {
   }
 
   // ─── SIP Lifecycle ────────────────────────────────────────────────────────────
-  async registerSip(body: any) { return this.call('/sif/transactions/sip/register', 'POST', body); }
+  async registerSip(body: any) { 
+    return this.call('/sif/transactions/sip/register', 'POST', { ...body, partnerCode: "FINTEKPRO" }); 
+  }
   async modifySip(sipId: string, body: any) { return this.call(`/sif/transactions/sip/${sipId}`, 'PATCH', body); }
   async getSipDetails(sipId: string) { return this.call(`/sif/transactions/sip/${sipId}`); }
 
@@ -453,7 +459,9 @@ class IrisKfintechService {
   }
 
   // ─── Phase 2: Digital Investor Onboarding ────────────────────────────────────
-  async initiateInvestorOnboarding(body: any) { return this.call('/user/onboarding/initiate', 'POST', body); }
+  async initiateInvestorOnboarding(body: any) { 
+    return this.call('/user/onboarding/initiate', 'POST', { ...body, partnerCode: "FINTEKPRO" }); 
+  }
   async getOnboardingStatus(applicationId: string) { return this.call(`/user/onboarding/${applicationId}/status`); }
   async verifyOnboardingKyc(applicationId: string, body: any) { return this.call(`/user/onboarding/${applicationId}/kyc-verify`, 'POST', body); }
   async listOnboardingApplications(params?: any) {
