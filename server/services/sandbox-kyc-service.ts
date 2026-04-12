@@ -126,9 +126,13 @@ export class SandboxKYCService {
   async verifyCompanyMCA(cin: string): Promise<MCACompanyDetails> {
     const token = await getSandboxAccessToken();
 
+    // CINs are exactly 21 chars. LLPINs are typically 7-8 chars with a hyphen (e.g., AAA-1234).
+    const isLLP = cin.length < 15 && cin.includes('-');
+    const endpoint = isLLP ? '/mca/llp/master-data/search' : '/mca/company/master-data/search';
+
     try {
       const response = await axios.post(
-        `${SANDBOX_BASE_URL}/mca/company/master-data/search`,
+        `${SANDBOX_BASE_URL}${endpoint}`,
         {
           '@entity': 'in.co.sandbox.kyc.mca.master_data.request',
           id: cin,
@@ -150,23 +154,23 @@ export class SandboxKYCService {
       }
 
       const raw = response.data.data;
-      const cmd = raw.company_master_data || raw;
+      const cmd = raw.company_master_data || raw.llp_master_data || raw;
 
       return {
-        cin: cmd.cin || cin,
-        companyName: cmd.company_name || '',
-        companyStatus: cmd['company_status(for_efiling)'] || cmd.company_status || '',
-        companyClass: cmd.class_of_company || cmd.company_class || '',
-        companyCategory: cmd.company_category || '',
+        cin: cmd.cin || cmd.llpin || cin,
+        companyName: cmd.company_name || cmd.llp_name || '',
+        companyStatus: cmd['company_status(for_efiling)'] || cmd.company_status || cmd.llp_status || '',
+        companyClass: cmd.class_of_company || cmd.company_class || (isLLP ? 'LLP' : ''),
+        companyCategory: cmd.company_category || (isLLP ? 'LLP' : ''),
         dateOfIncorporation: cmd.date_of_incorporation || '',
         registeredAddress: cmd.registered_address || '',
-        paidUpCapital: cmd['paid_up_capital(rs)'] || cmd.paid_up_capital || '',
+        paidUpCapital: cmd['paid_up_capital(rs)'] || cmd.paid_up_capital || cmd.total_obligation_of_contribution || '',
         authorizedCapital: cmd['authorised_capital(rs)'] || cmd.authorized_capital || '',
-        directors: (raw.directors || raw.signatory || []).map((d: any) => ({
-          din: d.din || d.director_identification_number || '',
-          name: d.name || d.director_name || '',
-          designation: d.designation || '',
-          appointmentDate: d.begin_date || d.appointment_date || '',
+        directors: (raw.directors || raw.signatory || raw.partners_directors || []).map((d: any) => ({
+          din: d.din || d.director_identification_number || d.dpins || d.dpin || '',
+          name: d.name || d.director_name || d.partner_name || '',
+          designation: d.designation || d.partner_type || '',
+          appointmentDate: d.begin_date || d.appointment_date || d.date_of_appointment || '',
         })),
         registrationNumber: cmd.registration_number || '',
         emailId: cmd.email_id || '',
