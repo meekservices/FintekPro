@@ -434,3 +434,23 @@ export async function universalKycGate(
     next();
   }
 }
+
+/**
+ * Invalidate the compliance cache for a user.
+ * Call this after auto-KYC writes new verification flags to the DB,
+ * so the next request immediately picks up the new KYC level without
+ * waiting for the 5-minute cache TTL to expire.
+ */
+export async function invalidateComplianceCache(userId: string): Promise<void> {
+  try {
+    const cacheKey = COMPLIANCE_CACHE_KEY(userId);
+    await distributedCache.del(cacheKey);
+    logger.info('[UniversalKycGate] Compliance cache invalidated', { userId });
+  } catch (err) {
+    // Non-fatal — cache miss on next request forces a fresh DB lookup
+    logger.warn('[UniversalKycGate] Failed to invalidate compliance cache', {
+      userId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}

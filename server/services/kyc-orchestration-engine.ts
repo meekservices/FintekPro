@@ -686,6 +686,81 @@ class KycOrchestrationEngine {
         };
       }
 
+      // ─── GSTIN VERIFICATION ───────────────────────────────────────────────
+      case "sandbox_gstin": {
+        console.log(`[KYC-ENGINE] Calling Sandbox.co.in GSTIN verification`);
+        const gstin = (p.gstin || '').toUpperCase();
+        if (!gstin) {
+          return { success: false, errorCode: 'MISSING_PAYLOAD', errorMessage: 'gstin is required for sandbox_gstin' };
+        }
+        try {
+          const result = await sandboxKYCService.verifyGSTIN(gstin);
+          if (result.valid) {
+            return {
+              success: true,
+              data: {
+                verified: true,
+                source: 'sandbox_gstin',
+                gstin,
+                legalName: result.legalName,
+                tradeName: result.tradeName,
+                registrationDate: result.registrationDate,
+                status: result.status,
+                businessType: result.businessType,
+                address: result.principalAddress,
+              },
+            };
+          }
+          return {
+            success: false,
+            errorCode: 'GSTIN_INVALID',
+            errorMessage: result.message || 'GSTIN is not valid or not registered',
+          };
+        } catch (err: any) {
+          return { success: false, errorCode: 'PROVIDER_ERROR', errorMessage: err.message };
+        }
+      }
+
+      // ─── MCA / CIN VERIFICATION ───────────────────────────────────────────
+      case "sandbox_mca": {
+        console.log(`[KYC-ENGINE] Calling Sandbox.co.in MCA company verification`);
+        const cin = (p.cin || '').toUpperCase();
+        const companyName = p.companyName || '';
+        if (!cin && !companyName) {
+          return { success: false, errorCode: 'MISSING_PAYLOAD', errorMessage: 'cin or companyName is required for sandbox_mca' };
+        }
+        try {
+          const result = cin
+            ? await sandboxKYCService.getCompanyByCIN(cin)
+            : await sandboxKYCService.searchMCACompany(companyName);
+          if (result && (result.cin || result.companyStatus)) {
+            return {
+              success: true,
+              data: {
+                verified: true,
+                source: 'sandbox_mca',
+                cin: result.cin,
+                companyName: result.companyName,
+                companyStatus: result.companyStatus,
+                registrationDate: result.dateOfIncorporation,
+                registeredAddress: result.registeredAddress,
+                authorizedCapital: result.authorizedCapital,
+                paidUpCapital: result.paidUpCapital,
+                companyCategory: result.companyCategory,
+                companySubCategory: result.companySubCategory,
+              },
+            };
+          }
+          return {
+            success: false,
+            errorCode: 'MCA_NOT_FOUND',
+            errorMessage: `Company not found in MCA registry: ${cin || companyName}`,
+          };
+        } catch (err: any) {
+          return { success: false, errorCode: 'PROVIDER_ERROR', errorMessage: err.message };
+        }
+      }
+
       default:
         console.error(`[KYC-ENGINE] Unknown provider code: ${providerCode} — no implementation registered`);
         return { success: false, errorCode: 'UNKNOWN_PROVIDER', errorMessage: `No implementation for provider code: ${providerCode}` };
