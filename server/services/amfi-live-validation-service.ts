@@ -175,36 +175,39 @@ class AmfiLiveValidationService {
 
         const { data: records, meta } = resp.data as {
           data: any[];
-          meta: { total: number; page: number; pageSize: number };
+          meta: { total: number; page: number; pageSize: number; pageCount: number };
         };
 
         if (!Array.isArray(records) || records.length === 0) break;
 
-        totalPages = Math.ceil((meta?.total ?? records.length) / PAGE_SIZE);
+        totalPages = meta?.pageCount ?? Math.ceil((meta?.total ?? records.length) / PAGE_SIZE);
 
         for (const rec of records) {
-          const arnCode = (rec.ARN_Number || '').trim().toUpperCase();
+          // Real AMFI API field names (verified via live API call 2026-04-12):
+          // ARN, ARNHolderName, ARNValidFrom, ARNValidTill, EUIN, City, Pin
+          const arnCode = `ARN-${(rec.ARN || '').trim()}`.toUpperCase();
           if (!arnCode || !this.arnPattern.test(arnCode)) continue;
 
-          const isActive = (rec.Status || '').toLowerCase() === 'active';
-          const expiryDate = rec.Valid_Till ? new Date(rec.Valid_Till) : null;
-          // If expiry is set and in the past, treat as lapsed regardless of Status field
+          const expiryDate = rec.ARNValidTill ? new Date(rec.ARNValidTill) : null;
           const isExpired = expiryDate ? new Date() > expiryDate : false;
-          const effectiveStatus = isExpired ? 'lapsed' : (isActive ? 'active' : 'lapsed');
+          // No Status field in response — derive from expiry date
+          const effectiveStatus = isExpired ? 'lapsed' : 'active';
 
           try {
             await db.insert(schema.amfiDistributors).values({
               arnCode,
-              distributorName: (rec.ARN_Name || '').trim() || null,
+              distributorName: (rec.ARNHolderName || '').trim() || null,
+              euinNumber: rec.EUIN?.trim() || null,
               status: effectiveStatus,
               arnExpiryDate: expiryDate,
-              registrationDate: rec.Valid_From ? new Date(rec.Valid_From) : null,
+              registrationDate: rec.ARNValidFrom ? new Date(rec.ARNValidFrom) : null,
               city: rec.City?.trim() || null,
               lastSyncedAt: new Date(),
             }).onConflictDoUpdate({
               target: schema.amfiDistributors.arnCode,
               set: {
-                distributorName: (rec.ARN_Name || '').trim() || null,
+                distributorName: (rec.ARNHolderName || '').trim() || null,
+                euinNumber: rec.EUIN?.trim() || null,
                 status: effectiveStatus,
                 arnExpiryDate: expiryDate,
                 lastSyncedAt: new Date(),
@@ -219,13 +222,13 @@ class AmfiLiveValidationService {
         logger.info('[AmfiSync] Page synced', { page, totalPages, synced, errors });
         page++;
 
-        // Polite delay between pages — avoid hammering AMFI's server
+        // Polite delay — avoid hammering AMFI's server
         await new Promise(r => setTimeout(r, 2000));
 
       } catch (fetchErr) {
         logger.error('[AmfiSync] Failed to fetch page from AMFI API', { page, error: fetchErr });
         errors++;
-        break; // Stop on network error — will resume on next nightly run
+        break;
       }
     } while (page <= totalPages);
 
@@ -267,7 +270,8 @@ class AmfiLiveValidationService {
 
     try {
       const resp = await axios.get(AMFI_API, {
-        params: { search: arnCode, strOpt: 'ALL', page: 1, pageSize: 5 },
+        // AMFI search works on bare ARN number (digits only, e.g. "15083" not "ARN-15083")
+        params: { search: arnCode.replace(/^ARN-/i, ''), strOpt: 'ALL', page: 1, pageSize: 10 },
         timeout: 15_000,
         headers: {
           'Accept': 'application/json',
@@ -277,23 +281,25 @@ class AmfiLiveValidationService {
       });
 
       const records: any[] = resp.data?.data ?? [];
-      const match = records.find((r: any) =>
-        (r.ARN_Number || '').trim().toUpperCase() === arnCode
-      );
+      // Match by exact ARN number (with or without ARN- prefix in response)
+      const match = records.find((r: any) => {
+        const recArn = `ARN-${(r.ARN || '').trim()}`.toUpperCase();
+        return recArn === arnCode;
+      });
 
       if (!match) return null;
 
-      const isActive = (match.Status || '').toLowerCase() === 'active';
-      const expiryDate = match.Valid_Till ? new Date(match.Valid_Till) : null;
+      // Derive status from expiry date (no Status field in AMFI API response)
+      const expiryDate = match.ARNValidTill ? new Date(match.ARNValidTill) : null;
       const isExpired = expiryDate ? new Date() > expiryDate : false;
-      const effectiveStatus: LiveArnResult['status'] = isExpired ? 'lapsed' : (isActive ? 'active' : 'lapsed');
+      const effectiveStatus: LiveArnResult['status'] = isExpired ? 'lapsed' : 'active';
 
       return {
         valid: effectiveStatus === 'active',
         status: effectiveStatus,
-        distributorName: (match.ARN_Name || '').trim() || undefined,
+        distributorName: (match.ARNHolderName || '').trim() || undefined,
         expiryDate: expiryDate ?? undefined,
-        source: 'kfintech_api', // reusing source label for API
+        source: 'kfintech_api', // reusing source label for API fallback
       };
     } catch (err) {
       logger.warn('[AmfiLive] AMFI API lookup failed (slow server?)', { arnCode, err });
