@@ -199,15 +199,72 @@ export function registerPartnerPortalPart2Routes(app: Express): void {
         });
       }
 
-      // --- Karza API integration (real-time ICAI verification) ---
+      // ── Primary: Surepass ICAI API (most reliable, no CAPTCHA) ──────────────
+      const surepassKey = process.env.SUREPASS_API_TOKEN;
+      if (surepassKey) {
+        try {
+          const spRes = await fetch('https://kyc-api.surepass.io/api/v1/icai/icai-verification', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${surepassKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ id_number: cleaned }),
+            signal: AbortSignal.timeout(12000),
+          });
+          const spData: any = await spRes.json();
+          console.log(`[CAVerify] Surepass response for ${cleaned}:`, JSON.stringify(spData).slice(0, 200));
+
+          const d = spData?.data;
+          const isActive = d?.member_status === 'ACTIVE' || d?.status === 'Active' || d?.is_valid === true;
+          const memberName = d?.name || d?.full_name || null;
+          const memberType = d?.membership_type || d?.member_type || null;
+
+          if (isActive) {
+            await db.execute(sql`
+              UPDATE agent_empanelments
+              SET ca_verification_status = 'verified',
+                  ca_membership_number = ${cleaned},
+                  ca_verified_at = NOW(),
+                  ca_verified_by = 'surepass',
+                  updated_at = NOW()
+              WHERE agent_id = ${userId}
+            `);
+            return res.json({
+              status: 'verified',
+              membershipNumber: cleaned,
+              memberName,
+              memberType,
+              source: 'surepass',
+              message: `ICAI membership ${cleaned} verified successfully via ICAI registry.`,
+            });
+          } else if (spData?.status_code === 200 || spData?.success === false) {
+            // Got a valid response but membership not active
+            await db.execute(sql`
+              UPDATE agent_empanelments
+              SET ca_verification_status = 'failed', updated_at = NOW()
+              WHERE agent_id = ${userId}
+            `);
+            return res.status(422).json({
+              status: 'not_found',
+              error: `Membership number ${cleaned} was not found in the ICAI registry, or the membership is inactive. Please verify the number and retry.`,
+            });
+          }
+          // else fall through to next provider
+        } catch (spErr: any) {
+          console.warn('[CAVerify] Surepass API error, trying Karza:', spErr.message);
+        }
+      }
+
+      // ── Fallback: Karza ICAI API ──────────────────────────────────────────
       const karzaKey = process.env.KARZA_API_KEY;
       if (karzaKey) {
         try {
-          const karzaRes = await fetch("https://api.karza.in/v3/sync/icai-member-check", {
-            method: "POST",
+          const karzaRes = await fetch('https://api.karza.in/v3/sync/icai-member-check', {
+            method: 'POST',
             headers: {
-              "x-karza-key": karzaKey,
-              "Content-Type": "application/json",
+              'x-karza-key': karzaKey,
+              'Content-Type': 'application/json',
             },
             body: JSON.stringify({ membershipNo: cleaned }),
             signal: AbortSignal.timeout(8000),
@@ -215,9 +272,9 @@ export function registerPartnerPortalPart2Routes(app: Express): void {
           const karzaData: any = await karzaRes.json();
           console.log(`[CAVerify] Karza response for ${cleaned}:`, JSON.stringify(karzaData).slice(0, 200));
 
-          const isVerified = karzaData?.statusCode === 101 || karzaData?.result?.memberStatus === "Active";
+          const isVerified = karzaData?.statusCode === 101 || karzaData?.result?.memberStatus === 'Active';
           const memberName = karzaData?.result?.memberName || karzaData?.result?.name || null;
-          const memberType = karzaData?.result?.membershipType || null; // ACA / FCA
+          const memberType = karzaData?.result?.membershipType || null;
 
           if (isVerified) {
             await db.execute(sql`
@@ -230,10 +287,11 @@ export function registerPartnerPortalPart2Routes(app: Express): void {
               WHERE agent_id = ${userId}
             `);
             return res.json({
-              status: "verified",
+              status: 'verified',
               membershipNumber: cleaned,
               memberName,
               memberType,
+              source: 'karza',
               message: `ICAI membership ${cleaned} verified successfully via ICAI registry.`,
             });
           } else {
@@ -243,14 +301,57 @@ export function registerPartnerPortalPart2Routes(app: Express): void {
               WHERE agent_id = ${userId}
             `);
             return res.status(422).json({
-              status: "not_found",
-              error: `Membership number ${cleaned} was not found in the ICAI registry, or the membership is inactive. Please verify the number and retry.`,
+              status: 'not_found',
+              error: `Membership number ${cleaned} was not found in the ICAI registry, or the membership is inactive.`,
             });
           }
         } catch (karzaErr: any) {
-          console.warn("[CAVerify] Karza API error, falling back:", karzaErr.message);
-          // Fall through to format-valid fallback
+          console.warn('[CAVerify] Karza API error, trying ICAI scraper:', karzaErr.message);
         }
+      }
+
+      // ── Last resort: ICAI scraper (headless) ──────────────────────────────
+      try {
+        const { verifyICAIMembership } = await import('../../services/icai-verification-service');
+        const scraperResult = await verifyICAIMembership(cleaned, undefined, userId);
+        if (scraperResult.success && scraperResult.membershipStatus === 'ACTIVE') {
+          await db.execute(sql`
+            UPDATE agent_empanelments
+            SET ca_verification_status = 'verified',
+                ca_membership_number = ${cleaned},
+                ca_verified_at = NOW(),
+                ca_verified_by = 'icai_scraper',
+                updated_at = NOW()
+            WHERE agent_id = ${userId}
+          `);
+          return res.json({
+            status: 'verified',
+            membershipNumber: cleaned,
+            memberName: scraperResult.nameAtICAI,
+            memberType: scraperResult.membershipType,
+            source: 'icai_scraper',
+            confidence: scraperResult.confidenceScore,
+            message: `ICAI membership ${cleaned} verified via ICAI member portal.`,
+          });
+        }
+      } catch (scraperErr: any) {
+        console.warn('[CAVerify] ICAI scraper also failed:', scraperErr.message);
+      }
+
+      // ── No API key available — submit for pending_review + notify admin ───
+      if (!surepassKey && !karzaKey) {
+        // Notify admin that ICAI verification API key is missing
+        try {
+          const { notifyGatewayNotConfigured } = await import('../../services/admin-parallel-notifier');
+          notifyGatewayNotConfigured({
+            instrumentType: 'CA/ICAI Verification',
+            provider: 'Surepass',
+            missingKeys: ['SUREPASS_API_TOKEN', 'KARZA_API_KEY'],
+            comingSoon: false,
+            affectedUserId: userId,
+            adminNote: 'CA partner cannot verify ICAI membership automatically. Set SUREPASS_API_TOKEN (surepass.io) or KARZA_API_KEY to enable live ICAI verification.',
+          });
+        } catch { /* non-fatal */ }
       }
 
       // --- Fallback: format is valid, update to 'pending_review' (admin will manually verify) ---
