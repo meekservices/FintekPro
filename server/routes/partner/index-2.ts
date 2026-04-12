@@ -199,7 +199,42 @@ export function registerPartnerPortalPart2Routes(app: Express): void {
         });
       }
 
+      // ── Layer 1: FintekPro CA Registry (local DB, free) ─────────────────
+      try {
+        const { caRegistryService } = await import('../../services/ca-registry-service');
+        const cached = await caRegistryService.lookupFromRegistry(cleaned);
+        if (cached && cached.membershipStatus === 'ACTIVE') {
+          // Valid cache hit — update empanelment record and return immediately (no API cost)
+          await db.execute(sql`
+            UPDATE agent_empanelments
+            SET ca_verification_status = 'verified',
+                ca_membership_number = ${cleaned},
+                ca_verified_at = NOW(),
+                ca_verified_by = 'registry_cache',
+                updated_at = NOW()
+            WHERE agent_id = ${userId}
+          `);
+          return res.json({
+            status: 'verified',
+            membershipNumber: cleaned,
+            memberName: cached.nameAtIcai,
+            memberType: cached.membershipType,
+            source: 'registry_cache',
+            tier: cached.tier,
+            message: `ICAI membership ${cleaned} verified from FintekPro CA Registry.`,
+          });
+        }
+        if (cached && cached.membershipStatus === 'INACTIVE') {
+          return res.status(422).json({
+            status: 'not_found',
+            source: 'registry_cache',
+            error: `Membership ${cleaned} is INACTIVE in ICAI registry. Please renew before re-registering.`,
+          });
+        }
+      } catch { /* non-fatal — fall through to API */ }
+
       // ── Primary: Surepass ICAI API (most reliable, no CAPTCHA) ──────────────
+
       const surepassKey = process.env.SUREPASS_API_TOKEN;
       if (surepassKey) {
         try {
@@ -230,6 +265,20 @@ export function registerPartnerPortalPart2Routes(app: Express): void {
                   updated_at = NOW()
               WHERE agent_id = ${userId}
             `);
+            // ── Building local cache: upsert to FintekPro CA Registry ────────
+            try {
+              const { caRegistryService } = await import('../../services/ca-registry-service');
+              caRegistryService.upsertToRegistry({
+                icaiMembershipNumber: cleaned,
+                nameAtIcai: memberName,
+                membershipType: memberType,
+                membershipStatus: 'ACTIVE',
+                verifiedBy: 'surepass',
+                partnersTableId: undefined, // Will be linked in Phase 2
+                userId: userId,
+              }).catch(e => console.warn('[CAVerify] Registry upsert failed:', e.message));
+            } catch { /* non-fatal */ }
+
             return res.json({
               status: 'verified',
               membershipNumber: cleaned,
@@ -286,6 +335,20 @@ export function registerPartnerPortalPart2Routes(app: Express): void {
                   updated_at = NOW()
               WHERE agent_id = ${userId}
             `);
+            // ── Building local cache: upsert to FintekPro CA Registry ────────
+            try {
+              const { caRegistryService } = await import('../../services/ca-registry-service');
+              caRegistryService.upsertToRegistry({
+                icaiMembershipNumber: cleaned,
+                nameAtIcai: memberName,
+                membershipType: memberType,
+                membershipStatus: 'ACTIVE',
+                verifiedBy: 'karza',
+                partnersTableId: undefined,
+                userId: userId,
+              }).catch(e => console.warn('[CAVerify] Registry upsert failed:', e.message));
+            } catch { /* non-fatal */ }
+
             return res.json({
               status: 'verified',
               membershipNumber: cleaned,

@@ -381,4 +381,50 @@ export function initializeComplianceCrons(): void {
     }
   });
   console.log('📅 [VCIPExpiryReminder] Monthly reminder scheduled (1st of each month, 9:00 AM IST)');
+
+  // ── T07: CA Registry Revalidation — nightly 3:30 AM IST (10:00 PM UTC) ─────
+  // Identifies CA registry entries that are due for their annual revalidation
+  // and re-verifies them to ensure membership is still ACTIVE.
+  cron.schedule('0 22 * * *', async () => {
+    logger.info('[CRON] Starting CA Registry revalidation...');
+    try {
+      const { caRegistryService } = await import('./services/ca-registry-service');
+      const { verifyICAIMembership } = await import('./services/icai-verification-service');
+      
+      const expiredEntries = await caRegistryService.getExpiredRegistryEntries(50);
+      logger.info(`[CRON][CARegistry] Found ${expiredEntries.length} entries due for revalidation`);
+
+      let successCount = 0;
+      let failureCount = 0;
+
+      for (const entry of expiredEntries) {
+        try {
+          // Re-verify using live APIs (forceRefresh = true to skip local lookup loop)
+          const result = await verifyICAIMembership(
+            entry.icaiMembershipNumber,
+            entry.nameAtIcai ?? undefined,
+            entry.partnersTableId ?? undefined,
+            true
+          );
+          
+          if (result.success && (result.membershipStatus === 'ACTIVE' || result.membershipStatus === 'FELLOW')) {
+            successCount++;
+          } else {
+            failureCount++;
+            await caRegistryService.markRevalidationFailed(entry.icaiMembershipNumber);
+          }
+          // Small delay to avoid hammering Surepass API
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } catch (err: any) {
+          failureCount++;
+          console.error(`[CRON][CARegistry] Revalidation error for ${entry.icaiMembershipNumber}:`, err.message);
+        }
+      }
+
+      logger.info(`[CRON][CARegistry] Revalidation complete: ${successCount} re-verified, ${failureCount} failed/stale`);
+    } catch (error: any) {
+      logger.error('[CRON][CARegistry] Job failed:', { error: error.message });
+    }
+  });
+  console.log('⚖️ [CARegistry] Annual revalidation scheduled (3:30 AM IST)');
 }
