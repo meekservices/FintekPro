@@ -41,11 +41,18 @@ export interface ICAIVerificationResult {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const ICAI_SEARCH_URL       = 'https://www.icai.org/post.html?post_id=2492';
-const ICAI_FINDCA_URL       = 'https://findca.icai.org/';
-const CACHE_TTL_HOURS       = 24;
-const MAX_RETRIES           = 3;
-const SCRAPER_TIMEOUT_MS    = 45_000;
+// ── ICAI endpoints (verified 2026-04-12) ──────────────────────────────────────
+// icai.org/post.html?post_id=2492 → redirects to HTTP and connection refused (dead)
+// findca.icai.org → DNS not found (dead)
+// member_search_result.php → 404 (dead)
+// Active: https://www.icai.org/new-post.html?post_id=2492 (CAPTCHA protected)
+// Active: https://selfservice.icai.org/ (member self-service portal)
+// Programmatic option: Surepass (surepass.io) or Karza icai-member-check API
+const ICAI_SEARCH_URL    = process.env.ICAI_SEARCH_URL || 'https://www.icai.org/new-post.html?post_id=2492';
+const ICAI_SELFSERVICE_URL = 'https://selfservice.icai.org/';
+const CACHE_TTL_HOURS    = 24;
+const MAX_RETRIES        = 3;
+const SCRAPER_TIMEOUT_MS = 45_000;
 
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -237,38 +244,52 @@ async function fetchViaHttp(membershipNumber: string): Promise<{
   });
 
   const attempts = [
+    // Attempt 1: Surepass ICAI API (JSON response, no CAPTCHA, most reliable in 2025)
     async () => {
+      const surepassKey = process.env.SUREPASS_API_TOKEN;
+      if (!surepassKey) throw new Error('SUREPASS_API_TOKEN not set');
       const resp = await axios.post(
-        'https://www.icai.org/member_search_result.php',
-        formPayload.toString(),
+        'https://kyc-api.surepass.io/api/v1/icai/icai-verification',
+        { id_number: membershipNumber },
         {
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': ua,
-            'Referer': ICAI_SEARCH_URL,
-            'Accept': 'text/html,application/xhtml+xml',
-            'Origin': 'https://www.icai.org',
+            'Authorization': `Bearer ${surepassKey}`,
+            'Content-Type': 'application/json',
           },
-          timeout: 20_000,
+          timeout: 12_000,
         }
       );
-      return resp.data as string;
+      // Surepass returns HTML-style data in JSON wrapper — convert to HTML for parseICAIHtml
+      const d = resp.data?.data;
+      if (!d) throw new Error('Empty Surepass response');
+      // Build pseudo-HTML that parseICAIHtml can parse
+      return [
+        `<table><tr><td>Member Name</td><td>${d.name || d.full_name || ''}</td></tr>`,
+        `<tr><td>Membership Status</td><td>${d.member_status || d.status || (d.is_valid ? 'ACTIVE' : 'INACTIVE')}</td></tr>`,
+        `<tr><td>Membership Type</td><td>${d.membership_type || d.member_type || ''}</td></tr>`,
+        `<tr><td>COP Status</td><td>${d.cop_status || ''}</td></tr>`,
+        `</table>`,
+      ].join('\n');
     },
+    // Attempt 2: ICAI new member search page (CAPTCHA-protected, may work without CAPTCHA on first visit)
     async () => {
       const resp = await axios.get(
-        `https://www.icai.org/post.html?post_id=2492&member_no=${membershipNumber}`,
-        {
-          headers: { 'User-Agent': ua, 'Accept': 'text/html' },
-          timeout: 20_000,
-        }
-      );
-      return resp.data as string;
-    },
-    async () => {
-      const resp = await axios.get(
-        `https://findca.icai.org/`,
+        ICAI_SEARCH_URL,
         {
           params: { member_no: membershipNumber },
+          headers: { 'User-Agent': ua, 'Accept': 'text/html' },
+          timeout: 20_000,
+          maxRedirects: 5,
+        }
+      );
+      return resp.data as string;
+    },
+    // Attempt 3: ICAI self-service portal
+    async () => {
+      const resp = await axios.get(
+        ICAI_SELFSERVICE_URL,
+        {
+          params: { memberNo: membershipNumber },
           headers: { 'User-Agent': ua, 'Accept': 'text/html' },
           timeout: 20_000,
         }
@@ -280,7 +301,7 @@ async function fetchViaHttp(membershipNumber: string): Promise<{
   for (const attempt of attempts) {
     try {
       const html = await attempt();
-      if (html && html.length > 500) {
+      if (html && html.length > 200) {
         return { html, success: true };
       }
     } catch {}
