@@ -798,6 +798,66 @@ router.get('/clients/:partnerId', requireAuth, injectRoleInfo, requirePartnerPor
   }
 });
 
+// GET /referral-stats — get current CA's referral code and metrics
+router.get('/referral-stats', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { caRegistryService } = await import('../services/ca-registry-service');
+
+    // Find the ICAI number for this user
+    const [emp] = await db.execute(sql`
+      SELECT ca_membership_number FROM agent_empanelments WHERE agent_id = ${user.id} LIMIT 1
+    `);
+    const icaiNumber = (emp as any)?.ca_membership_number;
+
+    if (!icaiNumber) {
+      return res.status(404).json({ success: false, error: 'CA membership not linked to this account' });
+    }
+
+    const entry = await caRegistryService.lookupFromRegistry(icaiNumber);
+    if (!entry) {
+      return res.status(404).json({ success: false, error: 'Registry entry not found' });
+    }
+
+    res.json({
+      success: true,
+      referralCode: entry.referralCode,
+      referralCount: entry.referralCount || 0,
+      tier: entry.tier,
+      isPubliclyListed: entry.isPubliclyListed,
+    });
+  } catch (error) {
+    console.error('Error fetching CA referral stats:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch referral stats' });
+  }
+});
+
+// POST /redeem-referral — use a referral code (usually called during or after signup)
+router.post('/redeem-referral', async (req: Request, res: Response) => {
+  try {
+    const { code, targetUserId } = req.body;
+    if (!code) return res.status(400).json({ success: false, error: 'Referral code is required' });
+
+    const { caRegistryService } = await import('../services/ca-registry-service');
+    const result = await caRegistryService.redeemReferralCode(code);
+
+    if (!result) {
+      return res.status(404).json({ success: false, error: 'Invalid or expired referral code' });
+    }
+
+    // If targetUserId provided, we could store the link in a separate referrals table if needed
+    // For Phase 1, we just increment the counter as per the reward logic
+
+    res.json({
+      success: true,
+      message: 'Referral code redeemed successfully',
+    });
+  } catch (error) {
+    console.error('Error redeeming referral code:', error);
+    res.status(500).json({ success: false, error: 'Failed to redeem code' });
+  }
+});
+
 // POST /clients/invite — generate a shareable invite link for a new client
 router.post('/clients/invite', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
   try {
@@ -817,7 +877,15 @@ router.post('/clients/invite', requireAuth, injectRoleInfo, requirePartnerPortal
     const caRef = caPartner?.id || user.id;
     const protocol = req.headers['x-forwarded-proto'] || 'https';
     const host = req.headers['x-forwarded-host'] || req.headers.host || 'fintekpro.com';
-    const inviteLink = `${protocol}://${host}/itr-tax-services?ref=ca_${caRef}`;
+    
+    // Check if CA has a registry referral code to use that instead
+    const { caRegistryService } = await import('../services/ca-registry-service');
+    const [emp] = await db.execute(sql`SELECT ca_membership_number FROM agent_empanelments WHERE agent_id = ${user.id} LIMIT 1`);
+    const icai = (emp as any)?.ca_membership_number;
+    const registryEntry = icai ? await caRegistryService.lookupFromRegistry(icai) : null;
+    
+    const code = registryEntry?.referralCode || `ca_${caRef}`;
+    const inviteLink = `${protocol}://${host}/itr-tax-services?ref=${code}`;
 
     res.json({
       success: true,
@@ -827,7 +895,7 @@ router.post('/clients/invite', requireAuth, injectRoleInfo, requirePartnerPortal
         clientName: name || null,
         clientEmail: email || null,
         clientMobile: mobile || null,
-        caRef,
+        referralCode: code,
         generatedAt: new Date().toISOString(),
       },
     });

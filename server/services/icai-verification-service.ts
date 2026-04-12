@@ -5,13 +5,15 @@
  * Runs as the automatic fallback in the CA empanelment workflow; also callable
  * by admins on demand.
  *
- * Architecture:
- *   1. HTTP-first (axios + cheerio) — fast, no browser overhead
- *   2. Puppeteer fallback — handles JS-rendered responses
- *   3. 24-hour result cache in ca_verification_status (DB)
- *   4. Rate limiter: max 10 req / min per worker
- *   5. Confidence scoring: 0.75 (scraper only) → 0.95 (API + scraper match)
- *   6. Full audit trail: raw HTML snapshot stored for compliance
+ * Verification chain:
+ *   1. FintekPro CA Registry (local DB, free, instant) ← NEW
+ *   2. Surepass API (paid, ~200ms, no CAPTCHA) ← primary for first-time checks
+ *   3. HTTP scraper (axios + cheerio) against ICAI portal
+ *   4. Puppeteer fallback — handles JS-rendered responses
+ *   5. 24-hour ca_verification_status cache (legacy, kept for compatibility)
+ *   6. Rate limiter: max 10 req / min per worker
+ *   7. Confidence scoring: 0.75 (scraper only) → 0.95 (API + scraper match)
+ *   8. Full audit trail: raw HTML snapshot stored for compliance
  */
 
 import axios from 'axios';
@@ -21,6 +23,7 @@ import { sql } from 'drizzle-orm';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import { guardedExecution, validateICAIResult } from './guarded-execution';
+import { caRegistryService } from './ca-registry-service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -607,6 +610,21 @@ export async function verifyICAIMembership(
   };
 
   await persistResult(cleaned, result, html, partnerId);
+
+  // ── Upsert into FintekPro CA Registry (Layer 1 cache for future lookups) ──
+  if (result.success && membershipStatus !== 'UNKNOWN') {
+    caRegistryService.upsertToRegistry({
+      icaiMembershipNumber: cleaned,
+      nameAtIcai: parsed.name,
+      membershipType: parsed.membershipType,
+      membershipStatus,
+      copStatus: parsed.copStatus,
+      verifiedBy: source === 'ICAI_HTTP' ? 'icai_scraper' : source === 'ICAI_PUPPETEER' ? 'icai_scraper' : 'icai_scraper',
+      confidenceScore,
+      userId: undefined,
+      partnersTableId: partnerId,
+    }).catch(e => console.warn('[ICAI] Registry upsert failed (non-fatal):', e?.message));
+  }
 
   // Schema validation: warn if scraper output is missing expected fields (ICAI DOM may have changed)
   try {

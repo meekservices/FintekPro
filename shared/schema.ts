@@ -33286,3 +33286,91 @@ export const aadhaarConsentArtifacts = pgTable("aadhaar_consent_artifacts", {
 export type AadhaarConsentArtifact = typeof aadhaarConsentArtifacts.$inferSelect;
 export const insertAadhaarConsentArtifactSchema = createInsertSchema(aadhaarConsentArtifacts).omit({ id: true, createdAt: true });
 
+// ─── FintekPro CA Registry ─────────────────────────────────────────────────────
+//
+// Local cache of verified ICAI membership records. Built organically through:
+//  1. CA self-registration on FintekPro partner portal
+//  2. Upsert on every successful Surepass/Karza/scraper verification
+//  3. Admin manual seeding
+//
+// Benefits:
+//  - Layer 1 lookup before any paid API call (85%+ cache hit once 500+ CAs registered)
+//  - Enables CA discovery marketplace (find CA by city/specialization/availability)
+//  - Powers CA tier system (Bronze → Elite) based on verified track record
+//  - Annual revalidation via cron (nextRevalidationDue field)
+//
+// Design: one record per unique ICAI number.
+// isFintekProPartner = true → CA has completed full partner onboarding.
+// isFintekProPartner = false → ICAI record cached for lookup only (not yet a partner).
+
+export const fintekproCaRegistry = pgTable("fintekpro_ca_registry", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // ── ICAI Identity ──────────────────────────────────────────────────────────
+  icaiMembershipNumber: varchar("icai_membership_number", { length: 20 }).notNull().unique(),
+  nameAtIcai: varchar("name_at_icai", { length: 255 }),
+  membershipType: varchar("membership_type", { length: 10 }),   // ACA | FCA
+  membershipStatus: varchar("membership_status", { length: 20 }), // ACTIVE | INACTIVE
+  copStatus: varchar("cop_status", { length: 20 }),             // ACTIVE | INACTIVE | NOT_APPLICABLE
+
+  // ── FintekPro Partner Link ─────────────────────────────────────────────────
+  isFintekProPartner: boolean("is_fintekpro_partner").default(false),
+  partnersTableId: varchar("partners_table_id"),                // FK → partners.id (set when CA completes onboarding)
+  userId: varchar("user_id"),                                   // FK → users.id (set when CA creates platform account)
+
+  // ── CA Partner Profile (populated on full partner onboarding) ─────────────
+  firmName: varchar("firm_name", { length: 255 }),
+  city: varchar("city", { length: 100 }),
+  state: varchar("state", { length: 100 }),
+  specializations: jsonb("specializations"),                    // ["ITR", "GST", "Audit", "Form15CB", "FEMA"]
+  experienceYears: integer("experience_years"),
+  availability: varchar("availability", { length: 20 }).default("unknown"), // available | busy | on_leave | unknown
+  maxCasesPerMonth: integer("max_cases_per_month"),
+  averageRating: decimal("average_rating", { precision: 3, scale: 2 }),
+  totalCasesCompleted: integer("total_cases_completed").default(0),
+  responseTimeHours: integer("response_time_hours"),            // SLA in hours (4 | 12 | 24 | 48)
+
+  // ── Tier System ───────────────────────────────────────────────────────────
+  // Bronze: ICAI verified, <2yr   Silver: 2yr+ + 20 cases   Gold: FCA, 5yr+, 4.5★   Elite: 10yr+ firm
+  tier: varchar("tier", { length: 20 }).default("bronze"),     // bronze | silver | gold | elite
+  tierUpgradedAt: timestamp("tier_upgraded_at"),
+
+  // ── Referral System ───────────────────────────────────────────────────────
+  referralCode: varchar("referral_code", { length: 20 }).unique(), // Unique code for CA to invite clients / other CAs
+  referredByCode: varchar("referred_by_code", { length: 20 }),     // Code used when this CA joined
+  referralCount: integer("referral_count").default(0),             // Number of successful referrals made
+
+  // ── Verification Audit ────────────────────────────────────────────────────
+  verifiedAt: timestamp("verified_at"),
+  verifiedBy: varchar("verified_by", { length: 50 }),           // surepass | karza | icai_scraper | admin | self
+  confidenceScore: decimal("confidence_score", { precision: 4, scale: 2 }), // 0.00–1.00
+  verificationSource: varchar("verification_source", { length: 50 }), // duplicates verifiedBy for clarity
+  rawVerificationResponse: jsonb("raw_verification_response"),   // Sanitised API response stored for audit
+
+  // ── Annual Revalidation ───────────────────────────────────────────────────
+  lastRevalidatedAt: timestamp("last_revalidated_at"),
+  nextRevalidationDue: timestamp("next_revalidation_due"),       // Cron checks this; 12 months after lastRevalidatedAt
+  revalidationFailureCount: integer("revalidation_failure_count").default(0),
+  revalidationStatus: varchar("revalidation_status", { length: 20 }).default("ok"), // ok | due | failed | suspended
+
+  // ── Source Tracking ───────────────────────────────────────────────────────
+  source: varchar("source", { length: 30 }).default("self_registered"), // self_registered | admin_seeded | auto_cache
+  isPubliclyListed: boolean("is_publicly_listed").default(false), // Show in CA discovery marketplace
+  listedAt: timestamp("listed_at"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ca_registry_icai").on(table.icaiMembershipNumber),
+  index("idx_ca_registry_partner").on(table.partnersTableId),
+  index("idx_ca_registry_user").on(table.userId),
+  index("idx_ca_registry_city_state").on(table.city, table.state),
+  index("idx_ca_registry_tier").on(table.tier),
+  index("idx_ca_registry_revalidation").on(table.nextRevalidationDue),
+  index("idx_ca_registry_referral").on(table.referralCode),
+]);
+
+export type FintekproCaRegistry = typeof fintekproCaRegistry.$inferSelect;
+export const insertFintekproCaRegistrySchema = createInsertSchema(fintekproCaRegistry).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
