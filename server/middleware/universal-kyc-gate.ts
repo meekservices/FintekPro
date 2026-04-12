@@ -253,14 +253,6 @@ function hasRequiredLevel(current: '0' | '1' | '2', required: '0' | '1' | '2'): 
   return parseInt(current) >= parseInt(required);
 }
 
-/**
- * Invalidate the cached compliance status for a user.
- * Works across pods (Redis) or locally (LRU fallback).
- */
-export function invalidateComplianceCache(userId: string): void {
-  distributedCache.del(COMPLIANCE_CACHE_KEY(userId)).catch(() => {});
-}
-
 interface CachedCompliance {
   compliant: boolean;
   currentLevel: '0' | '1' | '2';
