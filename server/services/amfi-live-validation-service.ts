@@ -60,11 +60,19 @@ class AmfiLiveValidationService {
       logger.warn('[AmfiLive] Local DB ARN lookup failed, trying API fallback', { arnCode, err });
     }
 
-    // 3. KFintech Iris real-time fallback
+    // 2. AMFI API real-time lookup (Layer 2 — live AMFI server)
+    try {
+      const apiResult = await this.lookupArnViaAmfiApi(normalizedArn);
+      if (apiResult) return apiResult;
+    } catch (err) {
+      logger.warn('[AmfiLive] AMFI API lookup failed', { arnCode, err });
+    }
+
+    // 3. KFintech Iris real-time fallback (Layer 3 — only if key configured)
     if (process.env.KFINTECH_API_KEY) {
       try {
-        const apiResult = await this.lookupArnViaKfintech(normalizedArn);
-        if (apiResult) return apiResult;
+        const ktResult = await this.lookupArnViaKfintech(normalizedArn);
+        if (ktResult) return ktResult;
       } catch (err) {
         logger.warn('[AmfiLive] KFintech ARN API fallback failed', { arnCode, err });
       }
@@ -127,63 +135,101 @@ class AmfiLiveValidationService {
     };
   }
 
-  // ─── AMFI Bulk Sync (called by daily cron) ─────────────────────────────────
+  // ─── AMFI Distributor Registry Sync (called by daily cron) ──────────────────
 
   /**
-   * Downloads AMFI's distributor bulk CSV and upserts into amfiDistributors table.
-   * AMFI publishes this at: https://www.amfiindia.com/modules/AMFIDistributors
-   * The file format: ARN,Name,ExpiryDate,Status
+   * Syncs all AMFI distributors via the AMFI locate-distributor REST API.
    *
-   * NOTE: AMFI restricts automated scraping — use a data vendor (e.g., KFintech,
-   * Karvy, or a licensed data aggregator) for production use.
+   * Endpoint discovered via browser inspection of https://www.amfiindia.com/locate-distributor
+   * API: GET https://www.amfiindia.com/api/distributor-agent?strOpt=ALL&page=N&pageSize=100
+   * Response: { data: [...], meta: { total, page, pageSize } }
+   *
+   * Response fields per record:
+   *   ARN_Number, ARN_Name, Valid_From, Valid_Till, City, PinCode, Status (Active/Inactive)
+   *
+   * NOTE: AMFI's server is slow for server-to-server calls (~30-60s per page).
+   * Use high pageSize (100) and a long axios timeout (90s) to avoid retries.
    */
   async syncAmfiDistributors(): Promise<{ synced: number; errors: number }> {
-    const AMFI_BULK_URL = process.env.AMFI_DISTRIBUTOR_BULK_URL;
-    if (!AMFI_BULK_URL) {
-      logger.warn('[AmfiSync] AMFI_DISTRIBUTOR_BULK_URL not set — skipping bulk sync. Set this to the licensed AMFI data endpoint.');
-      return { synced: 0, errors: 0 };
-    }
-
+    const AMFI_API = process.env.AMFI_DISTRIBUTOR_API_URL
+      || 'https://www.amfiindia.com/api/distributor-agent';
+    const PAGE_SIZE = 100;
+    let page = 1;
     let synced = 0;
     let errors = 0;
+    let totalPages = 1;
 
-    try {
-      const response = await axios.get(AMFI_BULK_URL, { timeout: 30_000 });
-      const lines: string[] = (response.data as string).split('\n').filter(Boolean);
+    logger.info('[AmfiSync] Starting AMFI distributor registry sync via API', { endpoint: AMFI_API });
 
-      for (const line of lines.slice(1)) { // skip header
-        const [arnCode, distributorName, expiryStr, status, euinNumber] = line.split(',').map(f => f.trim());
-        if (!arnCode || !this.arnPattern.test(arnCode)) continue;
+    do {
+      try {
+        const resp = await axios.get(AMFI_API, {
+          params: { strOpt: 'ALL', page, pageSize: PAGE_SIZE },
+          timeout: 90_000,
+          headers: {
+            'Accept': 'application/json',
+            'Referer': 'https://www.amfiindia.com/locate-distributor',
+            'User-Agent': 'FintekPro-Compliance-Sync/1.0 (regulatory-arn-validation)',
+          },
+        });
 
-        try {
-          await db.insert(schema.amfiDistributors).values({
-            arnCode,
-            distributorName,
-            euinNumber: euinNumber || null,
-            status: status?.toLowerCase() === 'active' ? 'active' : 'lapsed',
-            arnExpiryDate: expiryStr ? new Date(expiryStr) : null,
-            lastSyncedAt: new Date(),
-          }).onConflictDoUpdate({
-            target: schema.amfiDistributors.arnCode,
-            set: {
-              distributorName,
-              status: status?.toLowerCase() === 'active' ? 'active' : 'lapsed',
-              arnExpiryDate: expiryStr ? new Date(expiryStr) : null,
+        const { data: records, meta } = resp.data as {
+          data: any[];
+          meta: { total: number; page: number; pageSize: number };
+        };
+
+        if (!Array.isArray(records) || records.length === 0) break;
+
+        totalPages = Math.ceil((meta?.total ?? records.length) / PAGE_SIZE);
+
+        for (const rec of records) {
+          const arnCode = (rec.ARN_Number || '').trim().toUpperCase();
+          if (!arnCode || !this.arnPattern.test(arnCode)) continue;
+
+          const isActive = (rec.Status || '').toLowerCase() === 'active';
+          const expiryDate = rec.Valid_Till ? new Date(rec.Valid_Till) : null;
+          // If expiry is set and in the past, treat as lapsed regardless of Status field
+          const isExpired = expiryDate ? new Date() > expiryDate : false;
+          const effectiveStatus = isExpired ? 'lapsed' : (isActive ? 'active' : 'lapsed');
+
+          try {
+            await db.insert(schema.amfiDistributors).values({
+              arnCode,
+              distributorName: (rec.ARN_Name || '').trim() || null,
+              status: effectiveStatus,
+              arnExpiryDate: expiryDate,
+              registrationDate: rec.Valid_From ? new Date(rec.Valid_From) : null,
+              city: rec.City?.trim() || null,
               lastSyncedAt: new Date(),
-            },
-          });
-          synced++;
-        } catch (upsertErr) {
-          errors++;
+            }).onConflictDoUpdate({
+              target: schema.amfiDistributors.arnCode,
+              set: {
+                distributorName: (rec.ARN_Name || '').trim() || null,
+                status: effectiveStatus,
+                arnExpiryDate: expiryDate,
+                lastSyncedAt: new Date(),
+              },
+            });
+            synced++;
+          } catch (upsertErr) {
+            errors++;
+          }
         }
+
+        logger.info('[AmfiSync] Page synced', { page, totalPages, synced, errors });
+        page++;
+
+        // Polite delay between pages — avoid hammering AMFI's server
+        await new Promise(r => setTimeout(r, 2000));
+
+      } catch (fetchErr) {
+        logger.error('[AmfiSync] Failed to fetch page from AMFI API', { page, error: fetchErr });
+        errors++;
+        break; // Stop on network error — will resume on next nightly run
       }
+    } while (page <= totalPages);
 
-      logger.info('[AmfiSync] AMFI distributor sync complete', { synced, errors });
-    } catch (fetchErr) {
-      logger.error('[AmfiSync] Failed to fetch AMFI bulk distributor data', { error: fetchErr });
-      errors++;
-    }
-
+    logger.info('[AmfiSync] AMFI distributor sync complete', { synced, errors });
     return { synced, errors };
   }
 
@@ -210,6 +256,55 @@ class AmfiLiveValidationService {
     };
   }
 
+  /**
+   * Real-time single ARN lookup via AMFI API.
+   * Used as Layer 2 fallback when local DB has no record.
+   * Endpoint: GET https://www.amfiindia.com/api/distributor-agent?search=ARN-XXXXX&strOpt=ALL
+   */
+  private async lookupArnViaAmfiApi(arnCode: string): Promise<LiveArnResult | null> {
+    const AMFI_API = process.env.AMFI_DISTRIBUTOR_API_URL
+      || 'https://www.amfiindia.com/api/distributor-agent';
+
+    try {
+      const resp = await axios.get(AMFI_API, {
+        params: { search: arnCode, strOpt: 'ALL', page: 1, pageSize: 5 },
+        timeout: 15_000,
+        headers: {
+          'Accept': 'application/json',
+          'Referer': 'https://www.amfiindia.com/locate-distributor',
+          'User-Agent': 'FintekPro-Compliance/1.0',
+        },
+      });
+
+      const records: any[] = resp.data?.data ?? [];
+      const match = records.find((r: any) =>
+        (r.ARN_Number || '').trim().toUpperCase() === arnCode
+      );
+
+      if (!match) return null;
+
+      const isActive = (match.Status || '').toLowerCase() === 'active';
+      const expiryDate = match.Valid_Till ? new Date(match.Valid_Till) : null;
+      const isExpired = expiryDate ? new Date() > expiryDate : false;
+      const effectiveStatus: LiveArnResult['status'] = isExpired ? 'lapsed' : (isActive ? 'active' : 'lapsed');
+
+      return {
+        valid: effectiveStatus === 'active',
+        status: effectiveStatus,
+        distributorName: (match.ARN_Name || '').trim() || undefined,
+        expiryDate: expiryDate ?? undefined,
+        source: 'kfintech_api', // reusing source label for API
+      };
+    } catch (err) {
+      logger.warn('[AmfiLive] AMFI API lookup failed (slow server?)', { arnCode, err });
+      return null;
+    }
+  }
+
+  /**
+   * KFintech Iris distributor API fallback (Layer 3).
+   * Only used if KFINTECH_API_KEY is set.
+   */
   private async lookupArnViaKfintech(arnCode: string): Promise<LiveArnResult | null> {
     const baseUrl = process.env.KFINTECH_BASE_URL || 'https://mfapi.kfintech.com';
     const apiKey = process.env.KFINTECH_API_KEY!;
