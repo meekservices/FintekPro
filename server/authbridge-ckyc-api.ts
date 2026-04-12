@@ -103,7 +103,8 @@ class AuthBridgeCKYCService {
     const result = await this.adapter.verify(verifyRequest);
 
     if (!result.success || !result.found || !result.data) {
-      console.log(`ℹ️ [TruthScreen CKYC] Record not found for PAN: ${request.pan} — ${result.message}`);
+      const maskedPan = `${request.pan.slice(0, 4)}${'*'.repeat(5)}${request.pan.slice(-1)}`;
+      console.log(`ℹ️ [TruthScreen CKYC] Record not found for PAN: ${maskedPan} — ${result.message}`);
       return {
         status: 'failure',
         message: result.message || 'CKYC record not found',
@@ -111,7 +112,8 @@ class AuthBridgeCKYCService {
       };
     }
 
-    console.log(`✅ [TruthScreen CKYC] Record found — PAN: ${request.pan}, KIN: ${result.kin}`);
+    const maskedPan = `${request.pan.slice(0, 4)}${'*'.repeat(5)}${request.pan.slice(-1)}`;
+    console.log(`✅ [TruthScreen CKYC] Record found — PAN: ${maskedPan}, KIN: ${result.kin}`);
     return {
       status: 'success',
       data: {

@@ -267,32 +267,53 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "Cache-Control", "X-CSRF-Token"]
 }));
 
-// Rate limiting with proper proxy configuration
+// ── Rate Limiting (GAP-5: SEBI CSCRF 2023 §5.1) ───────────────────────────────
+// Global IP-based limit: 500 req/15min (was 5000 — reduced to prevent credential stuffing)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5000, // Limit each IP to 5000 requests per windowMs (increased for SPA with multiple concurrent API calls and retries)
-  message: { message: "Too many requests, please try again later." },
+  max: 500, // 500 per IP per 15 min (sufficient for genuine SPA usage; blocks bots)
+  message: { message: "Too many requests from this IP. Please try again after 15 minutes.", code: "RATE_LIMIT_EXCEEDED" },
   standardHeaders: true,
   legacyHeaders: false,
-  // Skip proxy configuration here - handled by app.set('trust proxy', 1)
   skip: (req) => {
-    // Skip rate limiting for health checks and static assets
-    return req.path.includes('/health') || req.path.includes('/static')
+    return req.path.includes('/health') || req.path.includes('/static') || req.path.includes('/live');
   }
 });
 
 app.use("/api", limiter);
 
-// Stricter rate limiting for authentication endpoints
+// Stricter rate limiting for authentication endpoints (unchanged — already correct)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 auth requests per windowMs
-  message: { message: "Too many authentication attempts, please try again later." },
+  max: 5, // 5 auth attempts per IP per 15 min (prevents brute-force)
+  message: { message: "Too many authentication attempts. Please try again after 15 minutes.", code: "AUTH_RATE_LIMIT_EXCEEDED" },
   skipSuccessfulRequests: true,
-  // Skip proxy configuration here - handled by app.set('trust proxy', 1)
 });
 
 app.use(["/api/login", "/api/register"], authLimiter);
+
+// Financial transaction rate limit: 10 orders/min per IP (prevents order spam / market manipulation)
+// Applies to all order submission endpoints (MF, SIP, Bond, US stocks, IPO)
+const transactionLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10,
+  message: { message: "Too many order requests. Please wait a moment before placing another order.", code: "TRANSACTION_RATE_LIMIT_EXCEEDED" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use([
+  "/api/mf-orders",
+  "/api/orders",
+  "/api/iris/orders",
+  "/api/bonds/orders",
+  "/api/broker/orders",
+  "/api/unlisted/orders",
+  "/api/payments/create-order",
+  "/api/payments/cashfree/create-order",
+  "/api/payments/phonepe/create-order",
+], transactionLimiter);
+
 
 // Raw body capture for webhook signature verification (Cashfree and PhonePe)
 app.use('/api/payments/cashfree/webhook', express.raw({ type: 'application/json' }));
@@ -502,6 +523,14 @@ app.use(auditTrailMiddleware);
 // Exempt paths: /api/auth, /api/kyc, /api/user, health checks, webhooks, onboarding.
 app.use('/api', universalKycGate);
 
+// MFA Enforcement Gate (GAP-2: SEBI CSCRF 2023 §4.3)
+// Privileged roles (superadmin, admin, compliance, finance, regulatory) must complete
+// WebAuthn or TOTP before any API access is granted.
+import('./middleware/mfa-enforcement').then(({ requireMFA }) => {
+  app.use('/api', requireMFA);
+}).catch(() => { /* non-fatal if MFA module unavailable — logged at module load */ });
+
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -661,8 +690,41 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
     logGatewayReadinessSummary();
   } catch { /* non-fatal */ }
 
+  // ── Regulatory environment variable audit (boot-time) ──────────────────────
+  // These variables are required for regulatory compliance features.
+  // Missing vars → silent failures in compliance-critical paths.
+  const REQUIRED_COMPLIANCE_ENVS: { key: string; purpose: string; severity: 'critical' | 'high' | 'medium' }[] = [
+    { key: 'FIELD_ENCRYPTION_KEY', purpose: 'PII encryption (PAN/Aadhaar at-rest) — DPDP Act §8', severity: 'critical' },
+    { key: 'SESSION_SECRET', purpose: 'Session integrity — SEBI CSCRF §4', severity: 'critical' },
+    { key: 'SANDBOX_BASE_URL', purpose: 'KYC verification API (PAN/Bank/GSTIN) — PMLA §12', severity: 'high' },
+    { key: 'TRUTHSCREEN_USERNAME', purpose: 'CKYC verification (TruthScreen) — SEBI/PMLA', severity: 'high' },
+    { key: 'TRUTHSCREEN_PASSWORD', purpose: 'CKYC verification (TruthScreen) — SEBI/PMLA', severity: 'high' },
+    { key: 'PHONEPE_SALT_KEY', purpose: 'PhonePe webhook signature verification — PCI-DSS', severity: 'high' },
+    { key: 'COMPLIANCE_HEAD_EMAIL', purpose: 'Admin parallel notifications — admin alerting', severity: 'medium' },
+    { key: 'COMPLIANCE_HEAD_MOBILE', purpose: 'WhatsApp alerts for high-value/critical events', severity: 'medium' },
+    { key: 'KFINTECH_API_KEY', purpose: 'Iris KFintech MF order gateway', severity: 'medium' },
+    { key: 'ALPACA_API_KEY', purpose: 'Alpaca US stock trading gateway', severity: 'medium' },
+  ];
+  const missingCritical: string[] = [];
+  const missingHigh: string[] = [];
+  const missingMedium: string[] = [];
+  for (const env of REQUIRED_COMPLIANCE_ENVS) {
+    if (!process.env[env.key]) {
+      const msg = `[EnvAudit] ⚠️  Missing ${env.severity.toUpperCase()}: ${env.key} — ${env.purpose}`;
+      if (env.severity === 'critical') { console.error(msg); missingCritical.push(env.key); }
+      else if (env.severity === 'high') { console.warn(msg); missingHigh.push(env.key); }
+      else { console.warn(msg); missingMedium.push(env.key); }
+    }
+  }
+  if (missingCritical.length > 0) {
+    console.error(`[EnvAudit] ❌ ${missingCritical.length} CRITICAL compliance env vars missing. Platform is operating in a degraded, non-compliant state.`);
+  } else {
+    console.log(`[EnvAudit] ✅ All critical compliance env vars present. ${missingHigh.length} high + ${missingMedium.length} medium warnings.`);
+  }
+
   // Register auth event consumers (structured logging + high-risk DB persistence)
   registerAuthEventConsumers();
+
   
   // CSRF token endpoint (must be after session middleware)
   app.get('/api/csrf-token', (req: Request, res: Response) => {

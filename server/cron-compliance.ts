@@ -176,6 +176,25 @@ export function initializeComplianceCrons(): void {
   });
   console.log('🔑 [ARN/EUIN] Daily preflight scheduled (7:30 AM IST)');
 
+  // ── T05: AMFI Distributor Registry Sync — daily 3:00 AM IST (9:30 PM UTC) ──
+  // Downloads AMFI bulk ARN/EUIN data and upserts into amfiDistributors table.
+  // Powers live ARN validation (replaces hardcoded test-ARN list).
+  // Ref: AMFI Circular 135/BP/22/2018-19 — ARN renewal mandatory every 3 years.
+  cron.schedule('30 21 * * *', async () => {
+    console.log('[CRON] Starting AMFI distributor registry sync...');
+    try {
+      const { amfiLiveValidationService } = await import('./services/amfi-live-validation-service');
+      const result = await amfiLiveValidationService.syncAmfiDistributors();
+      console.log(`[CRON][AmfiSync] Sync complete: ${result.synced} synced, ${result.errors} errors`);
+      if (result.errors > 0) {
+        console.warn('[CRON][AmfiSync] Some records failed to sync — check AMFI_DISTRIBUTOR_BULK_URL config');
+      }
+    } catch (error: any) {
+      console.error('[CRON] AMFI distributor sync failed:', error.message);
+    }
+  });
+  console.log('📋 [AmfiSync] Daily AMFI distributor registry sync scheduled (3:00 AM IST)');
+
   // ── T06: SEBI quarterly report export — 1st Jan/Apr/Jul/Oct at 6 AM IST ────
   // Generates and persists a quarterly SEBI/FIU-IND regulatory report pack.
   // The compliance officer can then review and submit through the admin portal.

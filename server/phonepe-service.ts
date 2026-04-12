@@ -195,8 +195,16 @@ export class PhonePeService {
    */
   verifyCallback(base64Response: string, receivedSignature: string): boolean {
     try {
+      if (!this.saltKey) {
+        console.error('[PhonePe] PHONEPE_SALT_KEY is not set — cannot verify callback signature');
+        return false;
+      }
       const expectedSignature = this.generateSignature(base64Response, '/pg/v1/callback');
-      return expectedSignature === receivedSignature;
+      // Use timing-safe comparison to prevent timing-oracle attacks (SEBI CSCRF requirement)
+      const expectedBuf = Buffer.from(expectedSignature, 'utf8');
+      const receivedBuf = Buffer.from(receivedSignature, 'utf8');
+      if (expectedBuf.length !== receivedBuf.length) return false;
+      return crypto.timingSafeEqual(expectedBuf, receivedBuf);
     } catch (error) {
       console.error('Signature verification failed:', error);
       return false;

@@ -6,6 +6,24 @@ import { z } from "zod";
 
 const router = Router();
 
+// ── SEBI/AMFI Upfront Commission Ban ─────────────────────────────────────────
+// SEBI/AMFI circular (Aug 2018) permanently banned upfront commissions for MF
+// distribution. Only trail commissions (AUM-based) are permitted.
+// Reference: AMFI circular 135/BP/22/2018-19
+const MAX_TRAIL_COMMISSION_PERCENT = 2.0; // AMFI capped trail at ~1-2% for most categories
+
+function enforceCommissionCompliance(body: any): string | null {
+  const upfront = parseFloat(body.upfrontCommission ?? body.upfrontCommissionRate ?? '0');
+  if (upfront > 0) {
+    return 'Upfront commissions for mutual fund distribution are permanently prohibited under SEBI/AMFI circular 135/BP/22/2018-19. Only trail commissions (AUM-based) are permitted.';
+  }
+  const trail = parseFloat(body.trailCommission ?? body.regularTrailCommission ?? '0');
+  if (trail > MAX_TRAIL_COMMISSION_PERCENT) {
+    return `Trail commission ${trail}% exceeds the AMFI regulatory cap of ${MAX_TRAIL_COMMISSION_PERCENT}%. Please verify with AMFI before proceeding.`;
+  }
+  return null; // compliant
+}
+
 const seedMutualFundSchema = z.object({
   schemeName: z.string().min(1),
   schemeCode: z.string().min(1),
@@ -99,7 +117,13 @@ router.get("/mutual-funds", async (req: Request, res: Response) => {
 router.post("/mutual-funds", async (req: Request, res: Response) => {
   try {
     const data = req.body;
-    
+
+    // ── SEBI/AMFI upfront commission ban ────────────────────────────────────
+    const commissionError = enforceCommissionCompliance(data);
+    if (commissionError) {
+      return res.status(422).json({ success: false, error: commissionError, regulatoryViolation: true });
+    }
+
     const [newFund] = await db.insert(storeProducts).values({
       name: data.name,
       shortDescription: data.shortDescription,
@@ -357,7 +381,13 @@ router.put("/mutual-funds/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
-    
+
+    // ── SEBI/AMFI upfront commission ban ────────────────────────────────────
+    const commissionError = enforceCommissionCompliance(updateData);
+    if (commissionError) {
+      return res.status(422).json({ success: false, error: commissionError, regulatoryViolation: true });
+    }
+
     const [updatedFund] = await db.update(storeProducts)
       .set({
         ...updateData,

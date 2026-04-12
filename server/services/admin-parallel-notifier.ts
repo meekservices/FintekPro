@@ -242,3 +242,21 @@ export function notifyPartnerKycSubmitted(params: {
     metadata: params,
   });
 }
+
+export function notifyGrievanceSubmitted(params: {
+  ticketId: string;
+  userId: string;
+  category: string;
+  subject: string;
+  expectedResolutionDate: Date;
+}): void {
+  adminParallelNotifier.dispatch({
+    taskType: 'GRIEVANCE_SUBMITTED' as any,
+    title: `Grievance submitted: ${params.subject}`,
+    body: `A client has submitted a grievance (${params.category}).\\n\\nTicket ID: ${params.ticketId}\\nSubject: ${params.subject}\\nExpected Resolution: ${params.expectedResolutionDate.toLocaleDateString('en-IN')} (T+30 per SEBI mandate).\\n\\nPlease review and respond within 30 calendar days.`,
+    affectedUserId: params.userId,
+    priority: 'medium',
+    metadata: params,
+  });
+}
+
