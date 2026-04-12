@@ -93,6 +93,11 @@ class RoleService {
    * Check if user has required role(s) for an action
    */
   checkRoleAccess(userRoles: RoleId[], requiredRoles: RoleId[]): RoleCheckResult {
+    // Tester role is universal and bypasses all role checks
+    if (userRoles.includes('tester')) {
+      return { allowed: true, userRoles, reason: 'Tester role grants universal access' };
+    }
+
     // Check if user has any of the required roles
     const hasRole = userRoles.some(role => requiredRoles.includes(role));
     
@@ -121,6 +126,11 @@ class RoleService {
    * Check if user has required permission(s)
    */
   checkPermissionAccess(userRoles: RoleId[], requiredPermissions: string[], requireAll = false): RoleCheckResult {
+    // Tester role is universal and bypasses all permission checks
+    if (userRoles.includes('tester')) {
+      return { allowed: true, userRoles, reason: 'Tester role grants universal permissions' };
+    }
+
     const hasAccess = requireAll
       ? hasAllPermissions(userRoles, requiredPermissions)
       : hasAnyPermission(userRoles, requiredPermissions);
