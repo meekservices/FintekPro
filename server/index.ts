@@ -655,6 +655,12 @@ server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
   bootState.authReady = true;
   console.log(`✅ Auth ready (${bootState.getBootTime()}ms)`);
 
+  // Log API gateway readiness (instrument-specific: MF=Iris, US=Alpaca, Indian=IIFL, etc.)
+  try {
+    const { logGatewayReadinessSummary } = await import('./services/api-gateway-readiness');
+    logGatewayReadinessSummary();
+  } catch { /* non-fatal */ }
+
   // Register auth event consumers (structured logging + high-risk DB persistence)
   registerAuthEventConsumers();
   

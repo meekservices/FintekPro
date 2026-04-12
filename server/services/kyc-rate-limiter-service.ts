@@ -34,6 +34,32 @@ const RATE_LIMIT_CONFIGS: Record<string, RateLimitConfig> = {
     maxAllowed: 10,
     windowMinutes: 1440,
   },
+  // ── Re-KYC limits (per calendar year) ─────────────────────────────────────
+  rekyc_attempt_user: {
+    limitType: 'rekyc_attempt_user',
+    identifierType: 'user',
+    maxAllowed: 3,
+    windowMinutes: 365 * 24 * 60, // 365 days rolling
+  },
+  rekyc_attempt_partner: {
+    limitType: 'rekyc_attempt_partner',
+    identifierType: 'user',
+    maxAllowed: 2,
+    windowMinutes: 365 * 24 * 60, // 365 days rolling
+  },
+  // ── Business entity verification limits ───────────────────────────────────
+  gstin_verify: {
+    limitType: 'gstin_verify',
+    identifierType: 'user',
+    maxAllowed: 5,
+    windowMinutes: 1440,
+  },
+  mca_lookup: {
+    limitType: 'mca_lookup',
+    identifierType: 'user',
+    maxAllowed: 5,
+    windowMinutes: 1440,
+  },
 };
 
 class KycRateLimiterService {
