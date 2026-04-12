@@ -309,7 +309,15 @@ export const userProfiles = pgTable("user_profiles", {
   updatedAt: timestamp("updated_at").defaultNow(),
   aadhaarVerifiedViaSmartKyc: boolean("aadhaar_verified_via_smart_kyc").default(false),
   panVerifiedViaSmartKyc: boolean("pan_verified_via_smart_kyc").default(false),
+
+  // Nominee Management (H-4: SEBI Circular SEBI/HO/IMD/IMD-II-DOF3/P/CIR/2022/0093)
+  // 100% of MF folios must have nominee OR explicit opt-out before transacting.
+  nomineeCount: integer("nominee_count").default(0),        // Number of nominees added (0-3)
+  nomineeOptOut: boolean("nominee_opt_out").default(false), // User explicitly chose not to add nominee
+  nomineeOptOutAt: timestamp("nominee_opt_out_at"),         // Timestamp of opt-out decision
+  nomineeOptOutReason: text("nominee_opt_out_reason"),      // User-provided reason for opt-out
 });
+
 
 // User Bank Accounts table - Multiple bank accounts per user (max 5)
 export const userBankAccounts = pgTable("user_bank_accounts", {
@@ -33225,3 +33233,56 @@ export const lrsRemittanceLogs = pgTable("lrs_remittance_logs", {
 ]);
 export type LrsRemittanceLog = typeof lrsRemittanceLogs.$inferSelect;
 export const insertLrsRemittanceLogSchema = createInsertSchema(lrsRemittanceLogs).omit({ id: true, createdAt: true });
+
+// ── AMFI Distributor Registry (GAP-1: Live ARN/EUIN validation) ───────────────
+// Synced daily from AMFI bulk download / KFintech Iris distributor API.
+// Replaces hardcoded test-ARN list in amfi-validation-service.ts.
+// AMFI Regulatory Ref: Circular 135/BP/22/2018-19 — ARN renewal mandatory every 3 years.
+export const amfiDistributors = pgTable("amfi_distributors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  arnCode: varchar("arn_code", { length: 20 }).notNull().unique(),    // e.g. ARN-123456
+  euinNumber: varchar("euin_number", { length: 20 }).unique(),        // e.g. E123456
+  distributorName: varchar("distributor_name", { length: 255 }),
+  distributorType: varchar("distributor_type", { length: 50 }),       // 'individual' | 'corporate'
+  status: varchar("status", { length: 20 }).notNull().default('active'), // 'active' | 'lapsed' | 'suspended'
+  arnExpiryDate: timestamp("arn_expiry_date"),
+  registrationDate: timestamp("registration_date"),
+  city: varchar("city", { length: 100 }),
+  state: varchar("state", { length: 100 }),
+  email: varchar("email", { length: 255 }),
+  mobile: varchar("mobile", { length: 15 }),
+  lastSyncedAt: timestamp("last_synced_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_amfi_distributors_arn").on(table.arnCode),
+  index("idx_amfi_distributors_euin").on(table.euinNumber),
+  index("idx_amfi_distributors_status").on(table.status),
+]);
+export type AmfiDistributor = typeof amfiDistributors.$inferSelect;
+export const insertAmfiDistributorSchema = createInsertSchema(amfiDistributors).omit({ id: true, createdAt: true, updatedAt: true });
+
+// ── Aadhaar Consent Artifacts (H-7: UIDAI per-verification consent log) ────────
+// UIDAI mandates explicit, purpose-specific, timestamped consent stored per
+// every Aadhaar OTP authentication. This table is auditable by UIDAI.
+// Ref: UIDAI Guidelines for Authentication User Agencies (AUA), §5.3
+export const aadhaarConsentArtifacts = pgTable("aadhaar_consent_artifacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  aadhaarLast4: varchar("aadhaar_last4", { length: 4 }),              // Last 4 digits only — never full Aadhaar
+  purpose: varchar("purpose", { length: 255 }).notNull(),             // e.g. "KYC verification for investing"
+  consentText: text("consent_text").notNull(),                        // Full consent text shown to user
+  consentGivenAt: timestamp("consent_given_at").defaultNow().notNull(),
+  otpReference: varchar("otp_reference", { length: 100 }),            // Reference from Aadhaar OTP session
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id", { length: 100 }),
+  verificationOutcome: varchar("verification_outcome", { length: 20 }), // 'success' | 'failed'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_aadhaar_consent_user").on(table.userId),
+  index("idx_aadhaar_consent_date").on(table.consentGivenAt),
+]);
+export type AadhaarConsentArtifact = typeof aadhaarConsentArtifacts.$inferSelect;
+export const insertAadhaarConsentArtifactSchema = createInsertSchema(aadhaarConsentArtifacts).omit({ id: true, createdAt: true });
+

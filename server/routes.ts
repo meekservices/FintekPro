@@ -262,6 +262,7 @@ import stockIntersectionRoutes from './routes/stock-intersection';
 import overlapIntelligenceRoutes from './routes/overlap-intelligence';
 import sipSimulatorRoutes from './routes/sip-simulator';
 import sebiAuditRoutes from './routes/sebi-audit';
+import regulatoryComplianceRoutes from './routes/regulatory-compliance-routes';
 export async function registerRoutes(app: Express, existingServer?: Server): Promise<Server> {
   const server = existingServer || createServer(app);
   registerSecurityMasterCreditRatingRoutes(app);
@@ -708,7 +709,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // SIP Simulator and SEBI Audit routes
   app.use("/api/sip", sipSimulatorRoutes);
   app.use("/api/sebi-audit", sebiAuditRoutes);
-  console.log("✅ SIP Simulator and SEBI Audit routes registered");
+  // Regulatory compliance routes (grievance/SCORES, data erasure, ARN/EUIN, MFA, nominee)
+  app.use("/api", regulatoryComplianceRoutes);
+  console.log("✅ SIP Simulator, SEBI Audit, and Regulatory Compliance routes registered");
   registerReportsInlineRoutes(app);
   registerMFMonthwiseRoutes(app);
   registerAgentCapitalGainsRoutes(app);
