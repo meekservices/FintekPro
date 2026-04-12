@@ -83,12 +83,13 @@ export const ROLE_KYC_MINIMUM: Record<string, '0' | '1' | '2'> = {
 
   // External distribution — regulatory KYC still required (AMFI/SEBI rules)
   // They distribute products to clients and handle client money; they must
-  // complete KYC before these regulated activities, but not to log in.
-  partner: '1',
-  partner_ops: '1',
-  agent: '1',
-  sub_agent: '1',
-  associate: '1',
+  // complete KYC before these regulated activities.
+  // BROWSE is allowed; KYC gate fires at transaction time (handled in explore logic below).
+  partner: '0',
+  partner_ops: '0',
+  agent: '0',
+  sub_agent: '0',
+  associate: '0',
 
   // Client types — Level 0 so they can explore freely.
   // Transaction endpoints enforce Level 1 separately via isClientTransactionPath().
@@ -101,9 +102,57 @@ export const ROLE_KYC_MINIMUM: Record<string, '0' | '1' | '2'> = {
 };
 
 /**
- * Roles that are pure end-clients — they can explore freely but need KYC to transact.
+ * Roles that can explore the platform freely but need KYC before transacting.
+ * Partners and agents are included — they must submit KYC before placing client
+ * orders, but should NOT be blocked from browsing the platform while their KYC
+ * is pending admin review/approval. Blocking browse access creates an infinite
+ * redirect loop for users who have already submitted their KYC.
  */
-const CLIENT_EXPLORE_ROLES = new Set(['client', 'user', 'business_client']);
+const CLIENT_EXPLORE_ROLES = new Set(['client', 'user', 'business_client', 'partner', 'partner_ops', 'agent', 'sub_agent', 'associate']);
+
+/**
+ * PARTNER_TRANSACTION_PATHS: paths where partner/agent KYC must be verified
+ * before they can act on behalf of a client or commit a financial transaction.
+ */
+const PARTNER_TRANSACTION_PATHS = [
+  '/api/mf/purchase',
+  '/api/mf/redeem',
+  '/api/mf/switch',
+  '/api/mf/lumpsum',
+  '/api/mf/sip',
+  '/api/sip',
+  '/api/orders',
+  '/api/bonds/orders',
+  '/api/bonds/purchase',
+  '/api/unlisted/orders',
+  '/api/unlisted/purchase',
+  '/api/investments',
+  '/api/payments/cashfree/create-order',
+  '/api/payments/create',
+  '/api/payments/initiate',
+  '/api/ipo/apply',
+  '/api/nps/invest',
+  '/api/portfolio/rebalance',
+  '/api/portfolio/buy',
+  '/api/portfolio/sell',
+  '/api/fixed-deposits/book',
+  '/api/insurance/purchase',
+  '/api/loan/apply',
+  '/api/gold/buy',
+  '/api/gold/sell',
+  '/api/us-trading/accounts',
+  '/api/us-trading/orders',
+  '/api/us-trading/activate',
+  '/api/agent/place-order',
+  '/api/agent/sip',
+  '/api/agent/transaction',
+];
+
+const PARTNER_EXPLORE_ROLES = new Set(['partner', 'partner_ops', 'agent', 'sub_agent', 'associate']);
+
+function isPartnerTransactionPath(path: string): boolean {
+  return PARTNER_TRANSACTION_PATHS.some(prefix => path.startsWith(prefix));
+}
 
 /**
  * Transaction paths that require KYC Level 1 even for explore-mode client roles.
@@ -309,33 +358,58 @@ export async function universalKycGate(
   // Exempt paths — KYC completion flows, webhooks, health checks
   if (isExempt(req.path)) return next();
 
-  // ── Client / user / business_client explore-mode logic ──────────────────────
-  // These roles can browse the platform freely. KYC is only enforced when they
-  // attempt an actual financial transaction (order, investment, payment, etc.).
+  // ── Partner / Agent / Client explore-mode logic ───────────────────────────
+  // Partners, agents, and clients can BROWSE the platform freely.
+  // KYC is only enforced when they attempt an actual financial transaction.
+  //
+  // This prevents the infinite-redirect bug where a partner who has SUBMITTED
+  // their KYC (and is pending admin approval) gets locked out of the platform
+  // because their KYC hasn't been "approved" yet in the system.
   const userRolesEarly: string[] = (req.user as any).roles
     || ((req.user as any).role ? [(req.user as any).role] : ['user']);
   const isPureClientRole = userRolesEarly.every(r => CLIENT_EXPLORE_ROLES.has(r));
+  const isPartnerAgentRole = userRolesEarly.some(r => PARTNER_EXPLORE_ROLES.has(r));
 
   if (isPureClientRole) {
-    if (!isClientTransactionPath(req.path)) {
-      return next(); // Exploration allowed without KYC
+    // Partner/Agent: transaction path enforcement
+    if (isPartnerAgentRole && isPartnerTransactionPath(req.path)) {
+      try {
+        const { level: currentLevel } = await getUserKYCLevel((req.user as any).id);
+        if (parseInt(currentLevel) >= 1) return next();
+        res.status(403).json({
+          code: 'KYC_PENDING_APPROVAL',
+          message: 'Your KYC submission is under review by our compliance team. You will be notified once approved. Financial transactions will be enabled after approval.',
+          requiredLevel: '1',
+          currentLevel,
+          redirectTo: '/profile?tab=kyc-dashboard',
+          transactionBlocked: true,
+        });
+        return;
+      } catch {
+        return next(); // fail-open
+      }
     }
-    // Transaction path — enforce Level 1 KYC
-    try {
-      const { level: currentLevel } = await getUserKYCLevel((req.user as any).id);
-      if (parseInt(currentLevel) >= 1) return next();
-      res.status(403).json({
-        code: 'KYC_REQUIRED',
-        message: 'Please complete your KYC verification before placing orders or investing.',
-        requiredLevel: '1',
-        currentLevel,
-        redirectTo: '/onboarding',
-        transactionBlocked: true,
-      });
-      return;
-    } catch {
-      return next(); // fail-open
+
+    // Client transaction path enforcement (non-partner)
+    if (!isPartnerAgentRole && isClientTransactionPath(req.path)) {
+      try {
+        const { level: currentLevel } = await getUserKYCLevel((req.user as any).id);
+        if (parseInt(currentLevel) >= 1) return next();
+        res.status(403).json({
+          code: 'KYC_REQUIRED',
+          message: 'Please complete your KYC verification before placing orders or investing.',
+          requiredLevel: '1',
+          currentLevel,
+          redirectTo: '/onboarding',
+          transactionBlocked: true,
+        });
+        return;
+      } catch {
+        return next(); // fail-open
+      }
     }
+
+    return next(); // Browsing — allow through
   }
   // ────────────────────────────────────────────────────────────────────────────
 
