@@ -7,6 +7,7 @@ import { registerAdminPanelPart5Routes } from './index-5';
 import { registerAdminPanelPart6Routes } from './index-6';
 import { registerAdminPanelPart7Routes } from './index-7';
 import { registerDbGovernanceRoutes } from './db-governance';
+import revenueConfigRoutes from './revenue-config-routes';
 
 export function registerAdminPanelRoutes(app: Express): void {
   registerAdminPanelPart1Routes(app);
@@ -17,4 +18,5 @@ export function registerAdminPanelRoutes(app: Express): void {
   registerAdminPanelPart6Routes(app);
   registerAdminPanelPart7Routes(app);
   registerDbGovernanceRoutes(app);
+  app.use("/api/admin/revenue-config", revenueConfigRoutes);
 }

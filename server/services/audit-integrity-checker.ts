@@ -168,6 +168,78 @@ class AuditIntegrityChecker {
     return result;
   }
 
+  /**
+   * Specifically verifies the integrity of Regulatory Audit Packs.
+   * Compares stored hash with recalculated hash of the snapshot payload.
+   */
+  async verifyRegulatoryPacks(): Promise<IntegrityCheckResult> {
+    const startTime = Date.now();
+    const checkId = `reg-check-${Date.now()}`;
+    const result: IntegrityCheckResult = {
+      id: checkId,
+      timestamp: new Date(),
+      status: 'passed',
+      totalRecords: 0,
+      verifiedRecords: 0,
+      brokenLinks: [],
+      checksumMismatches: [],
+      missingRecords: [],
+      executionTimeMs: 0,
+      details: ''
+    };
+
+    try {
+      const packs = await db.execute(sql`
+        SELECT id, user_id, pack_type, transaction_id, kyc_snapshot, 
+               suitability_snapshot, order_snapshot, platform_config_snapshot, audit_hash
+        FROM regulatory_audit_packs
+        ORDER BY created_at DESC
+      `);
+      
+      const rows = packs.rows || [];
+      result.totalRecords = rows.length;
+
+      for (const row of rows) {
+        // Recalculate hash (Must match the logic in ComplianceAuditPackService)
+        const payloadString = JSON.stringify({
+          userId: row.user_id,
+          packType: row.pack_type,
+          kycSnapshot: row.kyc_snapshot,
+          suitabilitySnapshot: row.suitability_snapshot,
+          orderSnapshot: row.order_snapshot,
+          configSnapshot: row.platform_config_snapshot
+        });
+        
+        const expectedHash = crypto
+          .createHash("sha256")
+          .update(payloadString)
+          .digest("hex");
+
+        if (expectedHash !== row.audit_hash) {
+          result.checksumMismatches.push(row.id.toString());
+          result.status = 'failed';
+        } else {
+          result.verifiedRecords++;
+        }
+      }
+
+      if (result.status === 'failed') {
+        result.details = `Tamper detection in regulatory packs: ${result.checksumMismatches.length} mismatches found.`;
+        await this.handleIntegrityFailure(result);
+      } else {
+        result.details = `All ${result.verifiedRecords} regulatory audit packs verified successfully.`;
+      }
+
+    } catch (error: any) {
+      result.status = 'failed';
+      result.details = `Regulatory integrity check error: ${error.message}`;
+    }
+
+    result.executionTimeMs = Date.now() - startTime;
+    this.storeResult(result);
+    return result;
+  }
+
   private async fetchAllAuditLogs(): Promise<any[]> {
     try {
       const result = await db.execute(sql`

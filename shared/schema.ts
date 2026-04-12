@@ -33374,3 +33374,63 @@ export type FintekproCaRegistry = typeof fintekproCaRegistry.$inferSelect;
 export const insertFintekproCaRegistrySchema = createInsertSchema(fintekproCaRegistry).omit({
   id: true, createdAt: true, updatedAt: true,
 });
+
+// ─── Platform Global Configuration ───────────────────────────────────────────
+//
+// Dynamic configuration for revenue, commissions, and regulatory thresholds.
+// Adjusted by super-admins via the Admin Panel. Changes take effect immediately.
+
+export const platformConfig = pgTable("platform_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // ── CA Marketplace Revenue Model ──────────────────────────────────────────
+  caPlatformFeePct: decimal("ca_platform_fee_pct", { precision: 5, scale: 2 }).default("10.00"),
+  caReferralBonusPct: decimal("ca_referral_bonus_pct", { precision: 5, scale: 2 }).default("5.00"),
+  
+  // ── Commissions & Payouts ──────────────────────────────────────────────────
+  defaultCommissionStrategy: varchar("default_commission_strategy", { length: 50 }).default("standard_waterfall"),
+  autoApproveCommissionsBelow: decimal("auto_approve_commissions_below", { precision: 12, scale: 2 }).default("500.00"),
+  
+  // ── Global Operational Flags ────────────────────────────────────────────────
+  isCaMarketplaceActive: boolean("is_ca_marketplace_active").default(true),
+  enableAiAlphaRecommendations: boolean("enable_ai_alpha_recommendations").default(true),
+  enforceStrictSuitability: boolean("enforce_strict_suitability").default(false), // Soft-gate by default
+  
+  // ── Gateway Rooting (Iris/Alpaca) ──────────────────────────────────────────
+  irisPartnerCode: varchar("iris_partner_code", { length: 50 }).default("FINTEKPRO"),
+  alpacaReferrerCode: varchar("alpaca_referrer_code", { length: 50 }).default("fintekpro_app"),
+
+  updatedBy: varchar("updated_by"), // admin user_id
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type PlatformConfig = typeof platformConfig.$inferSelect;
+export const insertPlatformConfigSchema = createInsertSchema(platformConfig).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+
+// ─── Regulatory Audit Packs ──────────────────────────────────────────────────
+// Consolidated snapshots of KYC, Suitability, and Order data for regulatory reviews.
+export const regulatoryAuditPacks = pgTable("regulatory_audit_packs", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  packType: varchar("pack_type").notNull(), // account_opening, order_placement, risk_update
+  transactionId: varchar("transaction_id"), // Order ID or Application ID
+  kycSnapshot: jsonb("kyc_snapshot").notNull(),
+  suitabilitySnapshot: jsonb("suitability_snapshot").notNull(),
+  orderSnapshot: jsonb("order_snapshot"),
+  platformConfigSnapshot: jsonb("platform_config_snapshot"), // Record fees at time of transaction
+  auditHash: text("audit_hash").notNull(), // Integrity check
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_audit_pack_user").on(table.userId),
+  index("idx_audit_pack_type").on(table.packType),
+  index("idx_audit_pack_tx").on(table.transactionId),
+]);
+
+export const insertRegulatoryAuditPackSchema = createInsertSchema(regulatoryAuditPacks).omit({
+  id: true, createdAt: true,
+});
+export type RegulatoryAuditPack = typeof regulatoryAuditPacks.$inferSelect;
+export type InsertRegulatoryAuditPack = z.infer<typeof insertRegulatoryAuditPackSchema>;
