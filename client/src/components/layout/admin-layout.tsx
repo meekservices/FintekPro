@@ -135,8 +135,8 @@ const navCategories: NavCategory[] = [
     title: "Operations",
     icon: Briefcase,
     items: [
-      { title: "KYC Management", href: "/admin/kyc-compliance", icon: FileCheck, description: "Review KYC submissions" },
-      { title: "KYC V2 Management", href: "/admin/kyc-v2-management", icon: ShieldAlert, description: "Video KYC, approvals & direct rejection" },
+      { title: "Manual KYC Reviews", href: "/admin/kyc-compliance", icon: FileCheck, description: "Review manual document submissions" },
+      { title: "Smart KYC Sessions", href: "/admin/kyc-v2-management", icon: ShieldAlert, description: "Video KYC, automated sessions & approvals" },
       { title: "Institutional Data", href: "/admin/institutional-data", icon: Database, description: "Corp actions, ratings & master" },
       { title: "Transaction Queue", href: "/admin/financial-operations", icon: ClipboardList, description: "Pending transactions" },
       { title: "E-Sign Documents", href: "/admin/esign-management", icon: FileSignature, description: "Electronic signatures" },
