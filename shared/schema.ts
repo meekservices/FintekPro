@@ -663,6 +663,10 @@ export const users = pgTable("users", {
   planExpiresAt: timestamp("plan_expires_at"),              // null = never for free
   cashfreeSubscriptionId: varchar("cashfree_subscription_id"), // latest subscription order id
   
+  // KYC Status Tracking
+  kycStatus: varchar("kyc_status"), // pending/verified/rejected/expired
+  ckycStatus: varchar("ckyc_status"), // found/not_found/failed
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -733,6 +737,7 @@ export const kycVerificationSessions = pgTable("kyc_verification_sessions", {
   aadhaarRequired: boolean("aadhaar_required").default(true),
   videoKycRequired: boolean("video_kyc_required").default(false),
   currentStep: varchar("current_step").notNull().default("pan_verification"), // pan_verification/aadhaar_otp/aadhaar_verification/data_collection/completed
+  sessionOutcome: varchar("session_outcome"), // completed/failed/abandoned/reset_by_admin
   stepStatus: jsonb("step_status").default({}), // Status for each step: {pan_verified: true, aadhaar_otp_sent: true, etc.}
   
   // PAN Verification Data
