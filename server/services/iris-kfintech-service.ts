@@ -25,6 +25,13 @@ class IrisKfintechService {
     console.log('✅ IRIS KFintech service initialized');
   }
 
+  get isConfigured(): boolean {
+    return !!(
+      (process.env.IRIS_USERNAME || process.env.KFINTECH_USERNAME) &&
+      (process.env.IRIS_PASSWORD || process.env.KFINTECH_PASSWORD)
+    );
+  }
+
   /**
    * Persist the current token to the iris_sessions table so it survives
    * server restarts (Railway container recycles, development restarts, etc.)
@@ -75,10 +82,10 @@ class IrisKfintechService {
   }
 
   async login(): Promise<{ success: boolean; requiresOtp?: boolean; message?: string }> {
-    const username = process.env.IRIS_USERNAME;
-    const password = process.env.IRIS_PASSWORD;
+    const username = process.env.IRIS_USERNAME || process.env.KFINTECH_USERNAME;
+    const password = process.env.IRIS_PASSWORD || process.env.KFINTECH_PASSWORD;
     if (!username || !password) {
-      return { success: false, message: 'IRIS_USERNAME and IRIS_PASSWORD env vars not set' };
+      return { success: false, message: 'IRIS_USERNAME/IRIS_PASSWORD (or KFINTECH_ counterparts) not set' };
     }
     try {
       const resp = await this.client.post('/auth/login', { username, password });
