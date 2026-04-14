@@ -50,16 +50,16 @@ const INSTRUMENT_GATEWAYS: Record<InstrumentType, GatewayConfig> = {
   mutual_fund: {
     provider:    'iris_kfintech',
     displayName: 'KFintech (Iris) — Mutual Funds',
-    envKeys:     ['KFINTECH_USERNAME', 'KFINTECH_PASSWORD'],
+    envKeys:     ['IRIS_USERNAME', 'IRIS_PASSWORD'],
     clientMessage: 'Mutual fund orders are being set up. Please check back shortly.',
-    adminNote:   'Missing Iris/KFintech credentials. Add KFINTECH_USERNAME and KFINTECH_PASSWORD to Railway variables.',
+    adminNote:   'Missing Iris/KFintech credentials. Add IRIS_USERNAME and IRIS_PASSWORD to Railway variables.',
   },
   sip: {
     provider:    'iris_kfintech',
     displayName: 'KFintech (Iris) — SIP',
-    envKeys:     ['KFINTECH_USERNAME', 'KFINTECH_PASSWORD'],
+    envKeys:     ['IRIS_USERNAME', 'IRIS_PASSWORD'],
     clientMessage: 'SIP registration is being set up. Please check back shortly.',
-    adminNote:   'Missing Iris/KFintech credentials. Add KFINTECH_USERNAME and KFINTECH_PASSWORD.',
+    adminNote:   'Missing Iris/KFintech credentials. Add IRIS_USERNAME and IRIS_PASSWORD.',
   },
   us_stock: {
     provider:    'alpaca',

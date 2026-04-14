@@ -3,7 +3,7 @@
  * 
  * Powered by:
  *  - Local data in comprehensive_holdings (from CAS imports)
- *  - MFCentral CAS API for live client portfolio fetch
+ *  - IRIS KFintech API for live client portfolio and CAS fetch
  */
 
 import { Router } from "express";
@@ -11,6 +11,7 @@ import { db } from "../db";
 import { comprehensiveHoldings, users, portfolios, kycProfiles } from "@shared/schema";
 import { eq, and, sql, inArray, gte, isNotNull } from "drizzle-orm";
 import { mfCentralService } from "../services/mfcentral-service";
+import { irisKfintechService } from "../services/iris-kfintech-service";
 
 const router = Router();
 
@@ -238,6 +239,7 @@ router.get("/api/agent/tracker", requireAuth, async (req, res) => {
         totalActions: expiringSips,
       },
       mfcentralEnabled: mfCentralService.isConfigured,
+      irisEnabled: irisKfintechService.isConfigured,
       generatedAt: new Date().toISOString(),
     };
 
@@ -315,6 +317,7 @@ function emptyTrackerResponse() {
     clientConnectivity: { total: 0, withHoldings: 0, mfcentralCapable: 0 },
     pendingActions: { sigsExpiring: 0, kycPending: 0, totalActions: 0 },
     mfcentralEnabled: mfCentralService.isConfigured,
+    irisEnabled: irisKfintechService.isConfigured,
     generatedAt: new Date().toISOString(),
   };
 }

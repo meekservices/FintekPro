@@ -14,6 +14,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader,
   DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -50,6 +51,7 @@ interface TrackerData {
   clientConnectivity: { total: number; withHoldings: number; mfcentralCapable: number };
   pendingActions: { sigsExpiring: number; kycPending: number; totalActions: number };
   mfcentralEnabled: boolean;
+  irisEnabled: boolean;
   generatedAt: string;
 }
 
@@ -130,6 +132,50 @@ export default function AgentTracker() {
     }
   };
 
+  const handleIrisSync = async () => {
+    if (!pan) {
+      toast({ title: "PAN is required", variant: "destructive" });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      // Step 1: Fetch live CAS data from registry
+      const fetchResp = await apiRequest("GET", `/api/iris/portfolio/cas-fetch/${pan}`);
+      const fetchData = await fetchResp.json();
+      
+      if (!fetchData.success) {
+        throw new Error(fetchData.message || "Registry fetch failed");
+      }
+
+      // Step 2: Import into Iris tracking (this triggers local sync on backend)
+      const importResp = await apiRequest("POST", "/api/iris/portfolio/import", {
+        pan,
+        holdings: fetchData.data?.holdings || []
+      });
+      const importData = await importResp.json();
+
+      if (importData.success) {
+        toast({ 
+          title: "Iris Sync Successful", 
+          description: `Portfolio for ${pan} has been synced to your business tracker.` 
+        });
+        setConnectOpen(false);
+        setPan(""); setMobile("");
+        refetch();
+      } else {
+        toast({ title: "Sync Failed", description: importData.message, variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ 
+        title: "Iris Error", 
+        description: err.message || "Failed to sync via Iris KFintech", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="p-6 space-y-6">
@@ -162,15 +208,21 @@ export default function AgentTracker() {
             Business Tracker
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Your complete MF book — AUM, SIPs, trail income, powered by MFCentral
+            Your complete MF book — AUM, SIPs, trail income, powered by IRIS KFintech
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {t?.mfcentralEnabled ? (
+          {t?.mfcentralEnabled && (
             <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
-              <CheckCircle2 className="w-3 h-3 mr-1" /> MFCentral Live
+              <CheckCircle2 className="w-3 h-3 mr-1" /> MFCentral Ready
             </Badge>
-          ) : (
+          )}
+          {t?.irisEnabled && (
+            <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
+              <RefreshCw className="w-3 h-3 mr-1" /> Iris Sync Ready
+            </Badge>
+          )}
+          {!t?.mfcentralEnabled && !t?.irisEnabled && (
             <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
               <Info className="w-3 h-3 mr-1" /> Stub Mode
             </Badge>
@@ -179,52 +231,75 @@ export default function AgentTracker() {
           <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-2">
-                <Plug className="w-4 h-4" /> Connect Client via MFCentral
+                <Plug className="w-4 h-4" /> Connect Client Portfolio
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Import Client Portfolio via MFCentral</DialogTitle>
+                <DialogTitle>Connect Client via IRIS (KFintech)</DialogTitle>
                 <DialogDescription>
-                  MFCentral will send an OTP to the client's registered mobile. Once verified, all their MF holdings across CAMS + KFintech will be imported.
+                  Import external holdings into your business tracker engine.
                 </DialogDescription>
               </DialogHeader>
-              {!otpStep ? (
-                <div className="space-y-4 pt-2">
-                  <div>
-                    <Label>Client PAN</Label>
-                    <Input placeholder="ABCDE1234F" value={pan} onChange={(e) => setPan(e.target.value.toUpperCase())} maxLength={10} />
-                  </div>
-                  <div>
-                    <Label>Client Registered Mobile</Label>
-                    <Input placeholder="9876543210" value={mobile} onChange={(e) => setMobile(e.target.value)} maxLength={10} type="tel" />
-                  </div>
-                  <Button onClick={handleInitiate} disabled={isSubmitting} className="w-full">
-                    {isSubmitting ? "Sending OTP..." : "Send OTP to Client"}
-                  </Button>
-                  {!t?.mfcentralEnabled && (
-                    <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
-                      MFCentral credentials not configured. Set environment variables to enable live import.
-                    </p>
+
+              <Tabs defaultValue={t?.irisEnabled ? "iris" : "mfcentral"} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="iris" disabled={!t?.irisEnabled}>IRIS (Registry)</TabsTrigger>
+                  <TabsTrigger value="mfcentral" disabled={!t?.mfcentralEnabled}>MFCentral (OTP)</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="mfcentral" className="pt-4">
+                  {!otpStep ? (
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Client PAN</Label>
+                        <Input placeholder="ABCDE1234F" value={pan} onChange={(e) => setPan(e.target.value.toUpperCase())} maxLength={10} />
+                      </div>
+                      <div>
+                        <Label>Client Registered Mobile</Label>
+                        <Input placeholder="9876543210" value={mobile} onChange={(e) => setMobile(e.target.value)} maxLength={10} type="tel" />
+                      </div>
+                      <Button onClick={handleInitiate} disabled={isSubmitting} className="w-full">
+                        {isSubmitting ? "Sending OTP..." : "Send OTP to Client"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        OTP sent to client's mobile via MFCentral.
+                      </p>
+                      <div>
+                        <Label>OTP</Label>
+                        <Input placeholder="6-digit OTP" value={otp} onChange={(e) => setOtp(e.target.value)} maxLength={6} />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setOtpStep(false)} className="flex-1">Back</Button>
+                        <Button onClick={handleVerify} disabled={isSubmitting} className="flex-1">
+                          {isSubmitting ? "Verifying..." : "Verify & Import"}
+                        </Button>
+                      </div>
+                    </div>
                   )}
-                </div>
-              ) : (
-                <div className="space-y-4 pt-2">
-                  <p className="text-sm text-muted-foreground">
-                    OTP sent to client's mobile. Ask them to share it with you.
-                  </p>
-                  <div>
-                    <Label>OTP (from client)</Label>
-                    <Input placeholder="6-digit OTP" value={otp} onChange={(e) => setOtp(e.target.value)} maxLength={6} />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setOtpStep(false)} className="flex-1">Back</Button>
-                    <Button onClick={handleVerify} disabled={isSubmitting} className="flex-1">
-                      {isSubmitting ? "Verifying..." : "Verify & Import"}
+                </TabsContent>
+
+                <TabsContent value="iris" className="pt-4">
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-4">
+                      <p className="text-sm text-blue-700 font-medium">Registry Direct Fetch</p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        Fetches structured KFintech + CAMS holdings directly via the IRIS API. Fast, reliable, and OTP-less for previously linked clients.
+                      </p>
+                    </div>
+                    <div>
+                      <Label>Client PAN</Label>
+                      <Input placeholder="ABCDE1234F" value={pan} onChange={(e) => setPan(e.target.value.toUpperCase())} maxLength={10} />
+                    </div>
+                    <Button onClick={handleIrisSync} disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-700">
+                      {isSubmitting ? "Communicating with IRIS..." : "Sync via IRIS Registry"}
                     </Button>
                   </div>
-                </div>
-              )}
+                </TabsContent>
+              </Tabs>
             </DialogContent>
           </Dialog>
 
@@ -330,7 +405,7 @@ export default function AgentTracker() {
               />
             </div>
             <p className="text-xs text-teal-600 mt-2">
-              {t?.clientConnectivity.mfcentralCapable ?? 0} MFCentral-linked
+              {t?.clientConnectivity.mfcentralCapable ?? 0} IRIS/KFintech linked
             </p>
           </CardContent>
         </Card>
@@ -367,7 +442,7 @@ export default function AgentTracker() {
               <div className="h-[220px] flex flex-col items-center justify-center text-muted-foreground">
                 <BarChart2 className="w-10 h-10 mb-2 opacity-30" />
                 <p className="text-sm">No holding-date data yet</p>
-                <p className="text-xs mt-1">Import portfolios via MFCentral to see trend</p>
+                <p className="text-xs mt-1">Import portfolios via IRIS Registry to see trend</p>
               </div>
             )}
           </CardContent>
@@ -460,7 +535,7 @@ export default function AgentTracker() {
               <div className="p-8 text-center text-muted-foreground">
                 <Layers className="w-10 h-10 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">No portfolio data yet</p>
-                <p className="text-xs mt-1">Use the "Connect Client via MFCentral" button above</p>
+                <p className="text-xs mt-1">Use the "Connect Client Portfolio" button above</p>
               </div>
             )}
           </CardContent>
@@ -527,7 +602,7 @@ export default function AgentTracker() {
                   <Users className="w-4 h-4 text-blue-500" />
                   <div>
                     <p className="text-sm font-medium">No Holdings</p>
-                    <p className="text-xs text-muted-foreground">Connect via MFCentral</p>
+                    <p className="text-xs text-muted-foreground">Sync via IRIS Registry</p>
                   </div>
                 </div>
                 <span className="text-lg font-bold text-blue-600">
@@ -574,7 +649,7 @@ export default function AgentTracker() {
       {/* Footer note */}
       <p className="text-xs text-muted-foreground text-center">
         Trail commission is an estimate based on AUM × standard trail rates (0.8% equity, 0.1% debt p.a.).
-        Actual payouts depend on AMC commission structures. Data from MFCentral CAS last updated:{" "}
+        Actual payouts depend on AMC commission structures. Data from IRIS (CAS Fetch) last updated:{" "}
         {t?.generatedAt ? new Date(t.generatedAt).toLocaleString("en-IN") : "—"}
       </p>
     </div>

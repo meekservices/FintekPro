@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from 'express';
 import { irisKfintechService } from '../services/iris-kfintech-service';
-import { scheduleIrisPortfolioRefresh } from '../services/iris-portfolio-sync-service';
+import { scheduleIrisPortfolioRefresh, syncIrisHoldingsForPan } from '../services/iris-portfolio-sync-service';
 import { ComplianceAuditPackService } from '../services/compliance-audit-pack-service';
 import { isAuthenticated } from '../auth-setup';
 import { requireAdmin, requireAgent } from '../middleware/auth';
@@ -827,7 +827,17 @@ export function registerIrisKfintechRoutes(app: Express): void {
 
   // Import the fetched CAS data into IRIS portfolio tracking system.
   app.post('/api/iris/portfolio/import', requireAuth, requireAgent, async (req, res) => {
-    await wrap(res, () => irisKfintechService.importExternalPortfolio(req.body));
+    try {
+      const data = await irisKfintechService.importExternalPortfolio(req.body);
+      const pan = req.body.pan || req.body.investor?.pan;
+      if (pan) {
+        await syncIrisHoldingsForPan(pan);
+      }
+      res.json({ success: true, data });
+    } catch (err: any) {
+      console.error('[IRIS Import] Error:', err?.message);
+      res.status(500).json({ success: false, message: err?.message || 'Import failed' });
+    }
   });
 
   // View all externally linked / imported holdings for a given PAN.
@@ -847,7 +857,15 @@ export function registerIrisKfintechRoutes(app: Express): void {
 
   // Trigger a live refresh of all external portfolio data for a PAN.
   app.post('/api/iris/portfolio/external/:pan/refresh', requireAuth, requireAgent, async (req, res) => {
-    await wrap(res, () => irisKfintechService.refreshExternalPortfolio(req.params.pan));
+    try {
+      const data = await irisKfintechService.refreshExternalPortfolio(req.params.pan);
+      // After fresh data is pushed to IRIS, bridge it to our local comprehensiveHoldings tracker
+      const syncResult = await syncIrisHoldingsForPan(req.params.pan);
+      res.json({ success: true, data, syncResult });
+    } catch (err: any) {
+      console.error('[IRIS Refresh] Error:', err?.message);
+      res.status(500).json({ success: false, message: err?.message || 'Refresh failed' });
+    }
   });
 
   console.log('✅ IRIS KFintech routes registered');
