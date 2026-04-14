@@ -190,6 +190,7 @@ app.get('/api/admin/kyc/submissions', requireAdmin, async (req, res) => {
       filters.push(or(
         like(schema.manualKycSubmissions.firstName, `%${search}%`),
         like(schema.manualKycSubmissions.lastName, `%${search}%`),
+        like(schema.manualKycSubmissions.companyName, `%${search}%`),
         like(schema.manualKycSubmissions.email, `%${search}%`),
         like(schema.manualKycSubmissions.pan, `%${search}%`)
       ));
@@ -202,6 +203,7 @@ app.get('/api/admin/kyc/submissions', requireAdmin, async (req, res) => {
       userId: schema.manualKycSubmissions.userId,
       firstName: schema.manualKycSubmissions.firstName,
       lastName: schema.manualKycSubmissions.lastName,
+      companyName: schema.manualKycSubmissions.companyName,
       userEmail: schema.manualKycSubmissions.email,
       type: schema.manualKycSubmissions.applicantType,
       status: schema.manualKycSubmissions.status,
@@ -232,7 +234,7 @@ app.get('/api/admin/kyc/submissions', requireAdmin, async (req, res) => {
     res.json({
       success: true,
       data: submissions.map((s: any) => ({
-        userName: [s.firstName, s.lastName].filter(Boolean).join(' ') || 'N/A',
+        userName: s.companyName || [s.firstName, s.lastName].filter(Boolean).join(' ') || 'N/A',
         ...s,
         tier: 'tier1', // Default tier since users table has no kycStatus
         submittedAt: s.submittedAt?.toISOString() || null,

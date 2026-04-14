@@ -489,6 +489,7 @@ export function registerKycV2ExtensionPart2Routes(app: Express) {
             u.email,
             u.first_name AS "firstName",
             u.last_name AS "lastName",
+            u.company_name AS "companyName",
             u.kyc_status AS "kycStatus"
           FROM kyc_verification_sessions kvs
           LEFT JOIN users u ON u.id = kvs.user_id
@@ -510,11 +511,14 @@ export function registerKycV2ExtensionPart2Routes(app: Express) {
               kvs.is_active AS "isActive",
               kvs.started_at AS "startedAt",
               kvs.completed_at AS "completedAt",
+              kvs.aml_risk_level AS "amlRiskLevel",
               kvs.pan_verified AS "panVerified",
               kvs.aadhaar_otp_verified AS "aadhaarOtpVerified",
+              kvs.entity_type_detected AS "entityType",
               u.email,
               u.first_name AS "firstName",
-              u.last_name AS "lastName"
+              u.last_name AS "lastName",
+              u.company_name AS "companyName"
             FROM kyc_verification_sessions kvs
             LEFT JOIN users u ON u.id = kvs.user_id
             ORDER BY kvs.started_at DESC
