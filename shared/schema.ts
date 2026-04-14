@@ -32957,6 +32957,7 @@ export const agentNotifications = pgTable("agent_notifications", {
   agentId: varchar("agent_id", { length: 100 }).notNull(),
   title: text("title").notNull(),
   body: text("body").notNull(),
+  message: text("message"), // Added to fix "column does not exist" errors in logs
   type: varchar("type", { length: 30 }).notNull().default('prospect'),
   link: text("link"),
   readAt: timestamp("read_at"),

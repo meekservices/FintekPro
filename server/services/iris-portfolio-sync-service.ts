@@ -62,7 +62,7 @@ export function scheduleIrisPortfolioRefresh(pan: string, userId?: string): void
 /**
  * Fetch the full portfolio summary from IRIS for a PAN and upsert into
  * comprehensiveHoldings with dataSource='kfintech'.
- * Idempotent — running multiple times is safe (delete-then-insert per user).
+ * Idempotent — running multiple times is safe.
  */
 export async function syncIrisHoldingsForPan(pan: string, userId?: string): Promise<{
   synced: number;
@@ -81,83 +81,91 @@ export async function syncIrisHoldingsForPan(pan: string, userId?: string): Prom
   }
 
   if (!resolvedUserId) {
-    errors.push(`No user found for PAN ${pan}`);
-    return { synced: 0, errors };
+    console.warn(`[IRISSync] No user found for PAN ${pan}. Aborting sync.`);
+    return { synced: 0, errors: [`No user found with PAN ${pan}`] };
   }
+
+  console.log(`[IRISSync] Starting sync for PAN ${pan} (User: ${resolvedUserId})`);
 
   let portfolioData: any;
   try {
     portfolioData = await irisKfintechService.getPortfolioSummary(pan);
   } catch (err: any) {
-    errors.push(`IRIS portfolio fetch failed: ${err?.message}`);
-    return { synced: 0, errors };
+    console.error(`[IRISSync] IRIS portfolio fetch failed for PAN ${pan}:`, err?.message);
+    return { synced: 0, errors: [`IRIS fetch failed: ${err?.message}`] };
   }
 
   const holdings: any[] = portfolioData?.holdings ?? portfolioData?.data?.holdings ?? [];
-  if (!holdings.length) return { synced: 0, errors };
+  if (!holdings.length) {
+    console.log(`[IRISSync] IRIS returned 0 holdings for PAN ${pan}`);
+    return { synced: 0, errors: [] };
+  }
 
   // Look up (or create) the user's default portfolio
   let portfolioId: string;
   try {
     portfolioId = await getOrCreateDefaultPortfolio(resolvedUserId);
   } catch (e: any) {
-    errors.push(`Portfolio lookup failed: ${e?.message}`);
-    return { synced: 0, errors };
+    console.error(`[IRISSync] Portfolio lookup failed for user ${resolvedUserId}:`, e?.message);
+    return { synced: 0, errors: [`Portfolio link failed: ${e?.message}`] };
   }
 
-  // Full-sync strategy: delete stale kfintech holdings then re-insert fresh ones
-  await db
-    .delete(comprehensiveHoldings)
-    .where(and(
-      eq(comprehensiveHoldings.userId, resolvedUserId),
-      eq(comprehensiveHoldings.dataSource, 'kfintech'),
-    ));
-
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-
   let synced = 0;
+
   for (const h of holdings) {
     try {
       const isin        = h.isin ?? h.ISIN ?? null;
-      const folioNo     = h.folioNumber ?? h.folio ?? h.folioNo ?? null;
-      const schemeName  = h.schemeName ?? h.scheme_name ?? h.name ?? 'Unknown';
-      const schemeCode  = h.schemeCode ?? h.scheme_code ?? isin ?? schemeName.slice(0, 20);
+      const folioNo     = h.folioNumber ?? h.folio ?? h.folioNo ?? 'N/A';
+      const schemeName  = h.schemeName ?? h.scheme_name ?? h.name ?? h.fundName ?? 'Mutual Fund';
+      const symbol      = h.schemeCode ?? h.scheme_code ?? isin ?? schemeName.slice(0, 20);
+      
       const units       = parseFloat(h.units ?? h.qty ?? h.balance ?? '0');
       const nav         = parseFloat(h.nav ?? h.currentNav ?? h.navValue ?? '0');
       const mktValue    = parseFloat(h.marketValue ?? h.currentValue ?? (units * nav).toString());
       const invested    = parseFloat(h.investedValue ?? h.costBasis ?? h.purchaseValue ?? '0');
-      const gainLoss    = mktValue - invested;
-      const gainLossPct = invested > 0 ? (gainLoss / invested) * 100 : 0;
-      const avgPrice    = units > 0 ? invested / units : 0;
 
-      await db.insert(comprehensiveHoldings).values({
-        portfolioId,
-        userId: resolvedUserId,
-        holdingDate: today,
-        symbol:     schemeCode,
-        isin,
-        assetName:  schemeName,
-        assetType:  'mutual_fund',
-        assetClass: h.category ?? h.assetClass ?? null,
-        units:          String(units),
-        avgPrice:       String(avgPrice),
-        currentPrice:   String(nav),
-        marketValue:    String(mktValue),
-        investedValue:  String(invested),
-        gainLoss:       String(gainLoss),
-        gainLossPercent: String(gainLossPct),
-        dataSource:     'kfintech',
-        folio:          folioNo,
-        lastUpdated:    new Date(),
-        metadata: {
-          amcName:    h.amcName ?? h.amc ?? null,
-          registrar:  'kfintech',
-          syncedAt:   new Date().toISOString(),
-        },
-      });
+      await db
+        .insert(comprehensiveHoldings)
+        .values({
+          id:             nanoid(),
+          portfolioId,
+          userId:         resolvedUserId,
+          holdingDate:    today,
+          symbol,
+          isin,
+          assetName:      schemeName,
+          assetType:      'mutual_fund',
+          assetClass:     h.category ?? h.assetClass ?? null,
+          units:          String(units),
+          avgPrice:       units > 0 ? String(invested / units) : '0',
+          currentPrice:   String(nav),
+          marketValue:    String(mktValue),
+          investedValue:  String(invested),
+          dataSource:     'kfintech',
+          folio:          folioNo,
+          lastUpdated:    new Date(),
+          metadata: {
+            amcName:      h.amcName || h.amc || null,
+            registrar:    'kfintech',
+            syncedAt:     new Date().toISOString(),
+          },
+        })
+        .onConflictDoUpdate({
+          target: [comprehensiveHoldings.userId, comprehensiveHoldings.isin, comprehensiveHoldings.folio],
+          set: {
+            units:          String(units),
+            marketValue:    String(mktValue),
+            currentPrice:   String(nav),
+            lastUpdated:    new Date(),
+            updatedAt:      new Date(),
+          }
+        });
+
       synced++;
     } catch (e: any) {
-      errors.push(`Holding insert failed (${h.isin ?? '?'}): ${e?.message}`);
+      console.error(`[IRISSync] Holding record failed for ISIN ${h.isin}:`, e.message);
+      errors.push(`Holding record failed (${h.isin ?? '?'}): ${e?.message}`);
     }
   }
 
@@ -165,15 +173,10 @@ export async function syncIrisHoldingsForPan(pan: string, userId?: string): Prom
   return { synced, errors };
 }
 
-// ─── Nightly CAS sync (Gap 4: scheduled reconciliation) ──────────────────────
+// ─── Nightly CAS sync ────────────────────────────────────────────────────────
 
 /**
- * Nightly job: iterate all registered users whose panNumber is set and who have
- * a usBrokerAccount (indicating they are active on the platform), then sync
- * their IRIS portfolio into comprehensiveHoldings.
- *
- * Runs in production only (called from server/index.ts cron scheduler).
- * Staggers each call by 2 seconds to avoid IRIS rate limits.
+ * Nightly job: sync IRIS portfolio for all active investors.
  */
 export async function runNightlyIrisCasSync(): Promise<void> {
   console.log('[IRISSync] Starting nightly CAS sync…');
@@ -202,11 +205,6 @@ export async function runNightlyIrisCasSync(): Promise<void> {
 
 // ─── LRS Remittance Logging ───────────────────────────────────────────────────
 
-/**
- * Record a new ACH transfer in lrs_remittance_logs and update usBrokerAccounts.lrsUsedUsd.
- * Called from the ACH transfer confirmation webhook / status update handler.
- * Uses the transferId as a unique key to prevent double-counting.
- */
 export async function recordLrsRemittance(params: {
   userId: string;
   alpacaAccountId: string;
