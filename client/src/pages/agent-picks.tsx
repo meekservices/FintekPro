@@ -2508,9 +2508,9 @@ function PickCard({
             <Icon className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1">
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-base leading-tight break-words">{pick.instrumentName}</h3>
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+              <div className="min-w-0 flex-1 space-y-1">
+                <h3 className="font-bold text-base sm:text-lg leading-tight break-words text-foreground">{pick.instrumentName}</h3>
                 <div className="flex items-center gap-2 flex-wrap">
                   {pick.symbol && (
                     <span className="text-sm text-muted-foreground font-mono">{pick.symbol}</span>
@@ -2546,20 +2546,20 @@ function PickCard({
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0 self-start mt-0.5">
+              <div className="flex items-center gap-1.5 shrink-0 self-start">
                 {pick.confidenceScore !== undefined && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger>
-                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-muted/50 border">
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/5 border border-primary/10">
                           <BrainCircuit className="h-3 w-3 text-primary" />
-                          <span className={`text-[10px] font-bold ${getConfidenceColor(pick.confidenceScore)}`}>
+                          <span className={`text-[10px] sm:text-xs font-bold ${getConfidenceColor(pick.confidenceScore)}`}>
                             {pick.confidenceScore}%
                           </span>
                         </div>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-[220px] space-y-1.5 text-xs p-3">
-                        <p className="font-semibold flex items-center gap-1">
+                        <p className="font-semibold flex items-center gap-1 text-primary">
                           <BrainCircuit className="h-3.5 w-3.5" />
                           AI Confidence: {pick.confidenceScore}%
                         </p>
@@ -2574,7 +2574,7 @@ function PickCard({
                     </Tooltip>
                   </TooltipProvider>
                 )}
-                <Badge className={`${status.color} text-foreground text-[10px] px-1.5 py-0 h-5`}>
+                <Badge variant="outline" className={`${status.color} bg-opacity-10 text-foreground text-[10px] px-2 py-0 h-5 font-semibold`}>
                   <StatusIcon className="h-3 w-3 mr-1" />
                   {status.label}
                 </Badge>
@@ -2616,26 +2616,26 @@ function PickCard({
               </div>
             )}
 
-            <div className="grid grid-cols-2 xs:grid-cols-3 gap-3 mt-4">
-              <div className="bg-muted/30 p-2 rounded-md">
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Entry</div>
-                <div className="font-bold text-sm">{formatPrice(pick.recoPrice, pick.category)}</div>
+            <div className="grid grid-cols-1 xs:grid-cols-3 gap-2 sm:gap-3 mt-4">
+              <div className="bg-muted/30 p-2 sm:p-3 rounded-lg border border-transparent hover:border-border transition-colors">
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">Entry Price</div>
+                <div className="font-bold text-sm sm:text-base">{formatPrice(pick.recoPrice, pick.category)}</div>
               </div>
-              <div className="bg-green-50 dark:bg-green-900/10 p-2 rounded-md border border-green-100 dark:border-green-900/20">
-                <div className="text-[10px] uppercase tracking-wider text-green-600 dark:text-green-400 font-semibold flex items-center gap-1">
-                  <ArrowUpRight className="h-3 w-3" />
+              <div className="bg-green-50/50 dark:bg-green-900/5 p-2 sm:p-3 rounded-lg border border-green-100 dark:border-green-900/10">
+                <div className="text-[10px] uppercase tracking-widest text-green-600 dark:text-green-400 font-bold mb-1 flex items-center gap-1">
+                  <ArrowUpRight className="h-3.5 w-3.5" />
                   Target
                 </div>
-                <div className="font-bold text-sm text-green-600">{formatPrice(pick.targetPrice, pick.category)}</div>
-                <div className="text-[9px] text-green-600/70">+{upside}%</div>
+                <div className="font-bold text-sm sm:text-base text-green-600">{formatPrice(pick.targetPrice, pick.category)}</div>
+                <div className="text-[10px] font-medium text-green-600/80 mt-1">+{upside}% Potential</div>
               </div>
-              <div className="bg-red-50 dark:bg-red-900/10 p-2 rounded-md border border-red-100 dark:border-red-900/20">
-                <div className="text-[10px] uppercase tracking-wider text-red-600 dark:text-red-400 font-semibold flex items-center gap-1">
-                  <ArrowDownRight className="h-3 w-3" />
+              <div className="bg-red-50/50 dark:bg-red-900/5 p-2 sm:p-3 rounded-lg border border-red-100 dark:border-red-900/10">
+                <div className="text-[10px] uppercase tracking-widest text-red-600 dark:text-red-400 font-bold mb-1 flex items-center gap-1">
+                  <ArrowDownRight className="h-3.5 w-3.5" />
                   Stoploss
                 </div>
-                <div className="font-bold text-sm text-red-600">{formatPrice(pick.stoplossPrice, pick.category)}</div>
-                <div className="text-[9px] text-red-600/70">-{downside}%</div>
+                <div className="font-bold text-sm sm:text-base text-red-600">{formatPrice(pick.stoplossPrice, pick.category)}</div>
+                <div className="text-[10px] font-medium text-red-600/80 mt-1">-{downside}% Max Risk</div>
               </div>
             </div>
 
@@ -2740,34 +2740,34 @@ function PickCard({
               const risks = sentences.filter((_, i) => i >= Math.ceil(sentences.length * 0.5) && i < Math.ceil(sentences.length * 0.75));
               const exits = sentences.filter((_, i) => i >= Math.ceil(sentences.length * 0.75));
               return (
-                <div className="mt-3 space-y-2">
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 border-t pt-4">
                   {whyLike.length > 0 && (
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-primary flex items-center gap-1 mb-1">
-                        <TrendingUp className="h-3 w-3" /> Why We Like It
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-primary flex items-center gap-1.5 opacity-80">
+                        <TrendingUp className="h-3.5 w-3.5" /> High Conviction
                       </p>
-                      <ul className="text-xs text-foreground/80 space-y-0.5 pl-3">
-                        {whyLike.map((s, i) => <li key={i} className="list-disc list-outside">{s}</li>)}
+                      <ul className="text-xs text-foreground/90 space-y-1.5 pl-4">
+                        {whyLike.map((s, i) => <li key={i} className="list-decimal list-outside leading-relaxed">{s}</li>)}
                       </ul>
                     </div>
                   )}
                   {risks.length > 0 && (
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400 flex items-center gap-1 mb-1">
-                        <AlertTriangle className="h-3 w-3" /> Key Risks
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 flex items-center gap-1.5 opacity-80">
+                        <AlertTriangle className="h-3.5 w-3.5" /> Market Risks
                       </p>
-                      <ul className="text-xs text-foreground/80 space-y-0.5 pl-3">
-                        {risks.map((s, i) => <li key={i} className="list-disc list-outside">{s}</li>)}
+                      <ul className="text-xs text-foreground/90 space-y-1.5 pl-4">
+                        {risks.map((s, i) => <li key={i} className="list-decimal list-outside leading-relaxed">{s}</li>)}
                       </ul>
                     </div>
                   )}
                   {exits.length > 0 && (
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1 mb-1">
-                        <Target className="h-3 w-3" /> Exit Conditions
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 opacity-80">
+                        <Target className="h-3.5 w-3.5" /> Execution Guide
                       </p>
-                      <ul className="text-xs text-foreground/80 space-y-0.5 pl-3">
-                        {exits.map((s, i) => <li key={i} className="list-disc list-outside">{s}</li>)}
+                      <ul className="text-xs text-foreground/90 space-y-1.5 pl-4">
+                        {exits.map((s, i) => <li key={i} className="list-decimal list-outside leading-relaxed">{s}</li>)}
                       </ul>
                     </div>
                   )}
