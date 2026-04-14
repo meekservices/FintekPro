@@ -1423,7 +1423,10 @@ export const comprehensiveHoldings = pgTable("comprehensive_holdings", {
   lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("idx_comprehensive_holdings_unique").on(table.userId, table.isin, table.folio),
+  index("idx_comprehensive_holdings_user_date").on(table.userId, table.holdingDate),
+]);
 
 // EPF Holdings table for tracking Employee Provident Fund data
 export const epfHoldings = pgTable("epf_holdings", {

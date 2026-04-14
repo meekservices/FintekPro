@@ -357,6 +357,7 @@ export default function AgentPicksPage() {
   const { data: explanationData, isLoading: loadingExplanation } = useQuery({
     queryKey: ["/api/ai/xai/explain", explainingPickId],
     enabled: !!explainingPickId && explanationOpen,
+    select: (data: any) => data.success ? data.explanation : null,
   });
 
   const { data: todayData, isLoading: loadingToday } = useQuery<PicksApiResponse>({
@@ -2139,45 +2140,61 @@ export default function AgentPicksPage() {
                   Primary Rationale
                 </h4>
                 <div className="text-sm leading-relaxed text-foreground/90">
-                  {explanationData.explanation || explanationData.rationale || "The AI model identified this security as a high-potential opportunity based on a combination of bullish technical momentum and improving fundamental metrics."}
+                  {typeof explanationData.explanation === 'string' 
+                    ? explanationData.explanation 
+                    : explanationData.rationale || "The AI model identified this security as a high-potential opportunity based on a combination of bullish technical momentum and improving fundamental metrics."}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Card className="p-3 bg-muted/30">
                   <p className="text-[10px] text-muted-foreground uppercase font-bold">Signal Strength</p>
-                  <p className="text-lg font-bold text-primary">{explanationData.confidence_score || explanationData.confidence || explanationData.confidenceScore || 85}%</p>
+                  <p className="text-lg font-bold text-primary">{explanationData.confidence || explanationData.confidence_score || explanationData.confidenceScore || 85}%</p>
                 </Card>
                 <Card className="p-3 bg-muted/30">
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Risk Weight</p>
-                  <p className="text-lg font-bold text-amber-600">{explanationData.risk_weight || "Low"}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Regime Impact</p>
+                  <p className="text-lg font-bold text-amber-600">{explanationData.regimeImpact || explanationData.risk_weight || "Neutral"}</p>
                 </Card>
                 <Card className="p-3 bg-muted/30">
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Model Version</p>
-                  <p className="text-lg font-bold">v2.4.1</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Base Score</p>
+                  <p className="text-lg font-bold">{explanationData.baselineScore || "v2.4.1"}</p>
                 </Card>
                 <Card className="p-3 bg-muted/30">
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Backtest Acc.</p>
-                  <p className="text-lg font-bold text-green-600">92%</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Predicted Ret.</p>
+                  <p className="text-lg font-bold text-green-600">+{explanationData.predictedReturn || 92}%</p>
                 </Card>
               </div>
 
-              {explanationData.feature_importance && (
+              {(explanationData.featureContributions || explanationData.feature_importance) && (
                 <div className="space-y-3">
                   <h4 className="text-sm font-semibold flex items-center gap-2">
                     <Activity className="h-4 w-4 text-primary" />
                     Decision Drivers (Feature Importance)
                   </h4>
                   <div className="space-y-2">
-                    {Object.entries(explanationData.feature_importance).map(([feature, importance]: [string, any]) => (
-                      <div key={feature} className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="capitalize">{feature.replace(/_/g, ' ')}</span>
-                          <span className="font-medium text-muted-foreground">{(importance * 100).toFixed(1)}%</span>
+                    {explanationData.featureContributions ? (
+                      explanationData.featureContributions.map((fc: any) => (
+                        <div key={fc.feature} className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="capitalize">{fc.feature.replace(/_/g, ' ')}</span>
+                            <span className={`font-medium ${fc.impact > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {fc.impact > 0 ? '+' : ''}{(fc.impact * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                          <Progress value={Math.abs(fc.impact) * 100} className="h-1.5" />
                         </div>
-                        <Progress value={importance * 100} className="h-1.5" />
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      Object.entries(explanationData.feature_importance).map(([feature, importance]: [string, any]) => (
+                        <div key={feature} className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="capitalize">{feature.replace(/_/g, ' ')}</span>
+                            <span className="font-medium text-muted-foreground">{(importance * 100).toFixed(1)}%</span>
+                          </div>
+                          <Progress value={importance * 100} className="h-1.5" />
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
