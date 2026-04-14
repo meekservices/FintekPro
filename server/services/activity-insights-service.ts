@@ -3,7 +3,7 @@ import {
   users, errorLedger, immutableAuditLogs, auditTrail,
   kycAuditLogs, storeAuditLogs, aiAuditLogs, agentComplianceAuditLogs,
   knowledgeAuditLogs, bondMarketplaceAuditLogs, bondOrders, unlistedDeals,
-  mfOrders
+  mfOrders, kycVerificationSessions, manualKycSubmissions
 } from "@shared/schema";
 import { eq, sql, desc, gte, and, count, lt, isNotNull, isNull, or, notInArray, ne, inArray } from "drizzle-orm";
 import { aiService } from "./ai-service";
@@ -546,6 +546,94 @@ IMPORTANT:
 
   getLastAnalysisTime(): Date | null {
     return this.lastAnalysisTime;
+  }
+
+  async getStuckKycUsers(): Promise<any[]> {
+    try {
+      // Find users who are not verified/approved and have some KYC activity
+      // Using raw SQL for a complex join between users, sessions and manual submissions
+      const rows = await db.execute(sql`
+        SELECT 
+          u.id as "userId",
+          u.first_name as "firstName",
+          u.last_name as "lastName",
+          u.company_name as "companyName",
+          u.email,
+          u.kyc_status as "kycStatus",
+          u.last_login_at as "lastLoginAt",
+          u.created_at as "userCreatedAt",
+          kvs.current_step as "smartKycStep",
+          kvs.session_outcome as "smartKycOutcome",
+          kvs.updated_at as "smartKycLastActive",
+          mks.status as "manualKycStatus",
+          mks.updated_at as "manualKycLastActive",
+          mks.id as "manualSubmissionId"
+        FROM users u
+        LEFT JOIN (
+          SELECT DISTINCT ON (user_id) * 
+          FROM kyc_verification_sessions 
+          ORDER BY user_id, updated_at DESC
+        ) kvs ON kvs.user_id = u.id
+        LEFT JOIN (
+          SELECT DISTINCT ON (user_id) *
+          FROM manual_kyc_submissions
+          ORDER BY user_id, updated_at DESC
+        ) mks ON mks.user_id = u.id
+        WHERE u.is_active = true 
+          AND (u.kyc_status IS NULL OR u.kyc_status NOT IN ('verified', 'approved'))
+          AND (kvs.id IS NOT NULL OR mks.id IS NOT NULL)
+        ORDER BY COALESCE(kvs.updated_at, mks.updated_at, u.created_at) DESC
+        LIMIT 50
+      `);
+
+      return (rows.rows || []).map((row: any) => ({
+        ...row,
+        userName: row.companyName || [row.firstName, row.lastName].filter(Boolean).join(' ') || row.email,
+        recommendation: this.getKycActionRecommendation(row)
+      }));
+    } catch (error) {
+      console.error("[ActivityInsights] Error fetching stuck KYC users:", error);
+      return [];
+    }
+  }
+
+  private getKycActionRecommendation(user: any): { action: string, priority: string, helperText: string } {
+    // Logic to determine priority and helper text
+    if (user.manualKycStatus === 'pending') {
+      return { 
+        action: 'REVIEW_MANUAL', 
+        priority: 'high', 
+        helperText: 'Manual KYC documents are pending your review.' 
+      };
+    }
+    
+    if (user.smartKycStep === 'completed' && user.smartKycOutcome === 'failed') {
+      return { 
+        action: 'STUCK_IN_SMART', 
+        priority: 'high', 
+        helperText: 'Smart KYC failed. Check documentation or aml risk level.' 
+      };
+    }
+
+    if (user.smartKycStep) {
+      const stepNames: Record<string, string> = {
+        'pan_verification': 'PAN Verification',
+        'aadhaar_otp': 'Aadhaar OTP',
+        'aadhaar_verification': 'Aadhaar Verification',
+        'data_collection': 'Profile Completion'
+      };
+      return { 
+        action: 'ASSIST_USER', 
+        priority: 'medium', 
+        helperText: `User is stuck at ${stepNames[user.smartKycStep] || user.smartKycStep} step.` 
+      };
+    }
+
+    return { 
+      action: 'NUDGE_USER', 
+      priority: 'low', 
+      helperText: 'User has not started the KYC process recently.' 
+    };
   }
 }
 

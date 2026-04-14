@@ -92,4 +92,14 @@ router.get("/latency", async (req, res) => {
   }
 });
 
+router.get("/kyc/stuck-users", async (req, res) => {
+  try {
+    const users = await activityInsightsService.getStuckKycUsers();
+    res.json({ success: true, users });
+  } catch (error) {
+    console.error("[ActivityCentre] Error fetching stuck KYC users:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch stuck KYC users" });
+  }
+});
+
 export default router;

@@ -47,6 +47,26 @@ interface ErrorEntry {
   resolutionNote?: string;
 }
 
+
+interface StuckKycUser {
+  userId: string;
+  userName: string;
+  email: string;
+  kycStatus: string;
+  lastLoginAt: string;
+  smartKycStep?: string;
+  smartKycOutcome?: string;
+  smartKycLastActive?: string;
+  manualKycStatus?: string;
+  manualKycLastActive?: string;
+  manualSubmissionId?: string;
+  recommendation: {
+    action: string;
+    priority: string;
+    helperText: string;
+  };
+}
+
 interface ErrorMetrics {
   totalErrors: number;
   bySeverity: Record<string, number>;
@@ -618,13 +638,16 @@ function AIInsightsPanel() {
               <p className="text-xs text-muted-foreground">{metrics.users.newThisWeek} new this week</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card 
+            className="cursor-pointer hover:border-orange-500 transition-colors"
+            onClick={() => setIsStuckKycOpen(true)}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Incomplete KYC</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-500">{metrics.users.incompleteKyc}</div>
-              <p className="text-xs text-muted-foreground">Potential revenue blocked</p>
+              <p className="text-xs text-muted-foreground">Potential revenue blocked (Click to view)</p>
             </CardContent>
           </Card>
           <Card>
@@ -770,6 +793,12 @@ export default function ActivityCentre() {
   const [resolutionNote, setResolutionNote] = useState("");
   const [supportReportOpen, setSupportReportOpen] = useState(false);
   const [supportReportData, setSupportReportData] = useState<SupportReportData | null>(null);
+  const [isStuckKycOpen, setIsStuckKycOpen] = useState(false);
+  
+  const { data: stuckKycUsers, isLoading: loadingStuckKyc } = useQuery<StuckKycUser[]>({
+    queryKey: ["/api/activity-centre/kyc/stuck-users"],
+    enabled: isStuckKycOpen
+  });
   
   const [filters, setFilters] = useState({
     severity: "all",
@@ -1642,6 +1671,88 @@ export default function ActivityCentre() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      {/* Stuck KYC Users Dialog */}
+      <Dialog open={isStuckKycOpen} onOpenChange={setIsStuckKycOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Stuck & Incomplete KYC Users</DialogTitle>
+            <DialogDescription>
+              These users have started the KYC process but have not completed it.
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingStuckKyc ? (
+            <div className="flex items-center justify-center p-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <ScrollArea className="h-[500px] mt-4">
+              <div className="space-y-4 pr-4">
+                {stuckKycUsers?.length === 0 ? (
+                  <div className="text-center p-8 text-muted-foreground">
+                    No stuck users found with recent activity.
+                  </div>
+                ) : (
+                  stuckKycUsers?.map((user) => (
+                    <div key={user.userId} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">{user.userName}</span>
+                          <Badge variant={user.recommendation.priority === 'high' ? 'destructive' : 'secondary'}>
+                            {user.recommendation.priority.toUpperCase()}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground">{user.email}</div>
+                        <div className="flex items-center gap-4 text-xs">
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Last login: {user.lastLoginAt ? formatDistanceToNow(new Date(user.lastLoginAt), { addSuffix: true }) : 'Never'}
+                          </span>
+                          {user.smartKycStep && (
+                            <span className="flex items-center gap-1 text-blue-600">
+                              <Zap className="h-3 w-3" />
+                              Step: {user.smartKycStep}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm font-medium text-orange-600 mt-2">
+                          💡 {user.recommendation.helperText}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-2 min-w-[150px]">
+                        {user.recommendation.action === 'REVIEW_MANUAL' ? (
+                          <Button size="sm" onClick={() => window.location.href = `/admin/kyc-v2-management`}>
+                            Review Documents
+                          </Button>
+                        ) : user.recommendation.action === 'STUCK_IN_SMART' ? (
+                          <Button size="sm" variant="outline" onClick={() => window.location.href = `/admin/kyc-v2-management`}>
+                            View Session
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="secondary" onClick={() => window.location.href = `/admin/kyc-v2-management`}>
+                            Assist User
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => {
+                          // Copy email to clipboard
+                          navigator.clipboard.writeText(user.email);
+                        }}>
+                          Copy Email
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          )}
+
+          <DialogFooter>
+            <Button onClick={() => setIsStuckKycOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
