@@ -1428,6 +1428,47 @@ export const comprehensiveHoldings = pgTable("comprehensive_holdings", {
   index("idx_comprehensive_holdings_user_date").on(table.userId, table.holdingDate),
 ]);
 
+// ===== NEW KYC-AS-A-SERVICE & CONSENT ARCHITECTURE =====
+
+// KYC Consent Logs - Critical for "Auto-fill" compliance with Alpaca, IIFL, etc.
+export const kycConsentLogs = pgTable("kyc_consent_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  partnerId: varchar("partner_id").notNull(), // 'alpaca', 'iifl', 'iris', 'kfintech'
+  purpose: text("purpose").notNull(), // 'account_opening', 'portfolio_sync', 'trade_execution'
+  consentType: varchar("consent_type").notNull(), // 'digital_signature', 'otp_auth', 'clickwrap'
+  dataShared: jsonb("data_shared").notNull(), // Array of field names shared (e.g., ['pan', 'name'])
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  consentTimestamp: timestamp("consent_timestamp").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"), // Consent expiry for periodic re-verification
+  isRevoked: boolean("is_revoked").default(false),
+  revokedAt: timestamp("revoked_at"),
+  metadata: jsonb("metadata"), // Extra context like DigiLocker reference IDs used
+}, (table) => [
+  index("idx_kyc_consent_user_partner").on(table.userId, table.partnerId),
+]);
+
+// Regulatory API Audit Logs - For SEBI/RBI/SEC audit readiness
+export const kycRegulatoryAuditLogs = pgTable("kyc_regulatory_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  serviceProvider: varchar("service_provider").notNull(), // 'uidai', 'nsdl', 'cersai', 'cashfree'
+  apiEndpoint: text("api_endpoint").notNull(),
+  requestType: varchar("request_type").notNull(), // 'pan_verify', 'aadhaar_auth', 'ckyc_fetch'
+  requestHash: text("request_hash").notNull(), // Sha256 of request body for integrity
+  responseHash: text("response_hash").notNull(), // Sha256 of response for integrity
+  status: varchar("status").notNull(), // 'success', 'failure'
+  latencyMs: integer("latency_ms"),
+  traceId: varchar("trace_id").notNull(), // Internal trace ID across microservices
+  regulatoryReference: varchar("regulatory_reference"), // Reference ID fromGovt API
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_kyc_audit_user").on(table.userId),
+  index("idx_kyc_audit_provider").on(table.serviceProvider),
+  index("idx_kyc_audit_created_at").on(table.createdAt),
+]);
+
 // EPF Holdings table for tracking Employee Provident Fund data
 export const epfHoldings = pgTable("epf_holdings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

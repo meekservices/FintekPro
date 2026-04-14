@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { KycCentralHubService } from "../services/kyc-central-hub-service";
 import { kycOrchestrationEngine } from "../services/kyc-orchestration-engine";
 import { identityTokenService } from "../services/identity-token-service";
 import { dpdpConsentService } from "../services/dpdp-consent-service";
@@ -25,13 +26,16 @@ router.use("/admin", requireAdmin);
 
 router.post("/verify", async (req: Request, res: Response) => {
   try {
-    const { userId, kycStep, productType, payload } = req.body;
+    const { userId, kycStep, productType, payload, portalId } = req.body;
     if (!userId || !kycStep || !productType) {
       return res.status(400).json({ success: false, error: "userId, kycStep, and productType are required" });
     }
-    const result = await kycOrchestrationEngine.executeVerification({
+
+    // Use Central Hub to process the step with Audit Hashing and Consent checks enabled
+    const result = await KycCentralHubService.processKycStep({
       userId,
-      kycStep,
+      step: kycStep,
+      portalId: portalId || 'primary_portal',
       productType,
       payload: payload || {},
     });
