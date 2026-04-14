@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { 
-  users, errorLedger, immutableAuditLogs, 
+  users, errorLedger, immutableAuditLogs, auditTrail,
   kycAuditLogs, storeAuditLogs, aiAuditLogs, agentComplianceAuditLogs,
   knowledgeAuditLogs, bondMarketplaceAuditLogs, bondOrders, unlistedDeals,
   mfOrders
@@ -454,7 +454,8 @@ IMPORTANT:
   async getRecentActivity(limit: number = 50): Promise<any[]> {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
-    const [auditLogs, errorLogs] = await Promise.all([
+    // Fetch from multiple sources to show "all activities"
+    const [immutableLogs, trailLogs, kycLogs, errorLogs] = await Promise.all([
       db.select({
         id: immutableAuditLogs.id,
         timestamp: immutableAuditLogs.timestamp,
@@ -468,6 +469,36 @@ IMPORTANT:
       .from(immutableAuditLogs)
       .where(gte(immutableAuditLogs.timestamp, oneDayAgo))
       .orderBy(desc(immutableAuditLogs.timestamp))
+      .limit(limit),
+
+      db.select({
+        id: auditTrail.id,
+        timestamp: auditTrail.createdAt,
+        eventType: auditTrail.category,
+        action: auditTrail.action,
+        userId: auditTrail.userId,
+        userRole: sql<string>`'user'`,
+        entityType: sql<string>`'general'`,
+        entityId: sql<string>`NULL`
+      })
+      .from(auditTrail)
+      .where(gte(auditTrail.createdAt, oneDayAgo))
+      .orderBy(desc(auditTrail.createdAt))
+      .limit(limit),
+
+      db.select({
+        id: kycAuditLogs.id,
+        timestamp: kycAuditLogs.accessedAt,
+        eventType: kycAuditLogs.accessType,
+        action: kycAuditLogs.purpose,
+        userId: kycAuditLogs.userId,
+        userRole: sql<string>`'kyc_processor'`,
+        entityType: sql<string>`'kyc'`,
+        entityId: kycAuditLogs.requestId
+      })
+      .from(kycAuditLogs)
+      .where(gte(kycAuditLogs.accessedAt, oneDayAgo))
+      .orderBy(desc(kycAuditLogs.accessedAt))
       .limit(limit),
       
       db.select({
@@ -486,7 +517,8 @@ IMPORTANT:
       .limit(limit)
     ]);
 
-    const combined = [...auditLogs, ...errorLogs]
+    const combined = [...immutableLogs, ...trailLogs, ...kycLogs, ...errorLogs]
+      .filter(log => log.timestamp)
       .sort((a, b) => new Date(b.timestamp!).getTime() - new Date(a.timestamp!).getTime())
       .slice(0, limit);
 

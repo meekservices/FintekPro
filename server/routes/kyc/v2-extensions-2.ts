@@ -11,6 +11,7 @@ import { kycEncryptionService } from '../../services/kyc-encryption-service';
 import { db } from '../../db';
 import { kycVerificationSessions, kycStepResets, kycAuditLogs, users } from '@shared/schema';
 import { eq, desc, and, sql as drizzleSql } from 'drizzle-orm';
+import { auditLogService } from "../../services/audit-log-service";
 
 function hasRole(user: any, requiredRoles: string[]): boolean {
   if (!user) return false;
@@ -502,6 +503,17 @@ export function registerKycV2ExtensionPart2Routes(app: Express) {
         // Fallback to legacy query if new columns (session_outcome, kyc_status) are missing
         if (sqlError.message.includes('column') && (sqlError.message.includes('session_outcome') || sqlError.message.includes('kyc_status'))) {
           console.log('[Admin KYC Sessions] Falling back to legacy query due to pending migration');
+          
+          // Log to Activity Centre so admin is aware
+          auditLogService.log('SYSTEM', 'MIGRATION_FALLBACK', {
+            entityType: 'database',
+            entityId: 'kyc_verification_sessions',
+            metadata: { 
+              reason: 'Missing columns: session_outcome or kyc_status',
+              error: sqlError.message
+            }
+          }).catch(err => console.error('[Admin KYC Sessions] Audit log failed:', err));
+
           const rows = await db.execute(drizzleSql`
             SELECT
               kvs.id AS "sessionId",
