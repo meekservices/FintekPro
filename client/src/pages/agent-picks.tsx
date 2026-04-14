@@ -1110,7 +1110,7 @@ export default function AgentPicksPage() {
                                         {getSignalText(stock.signal)}
                                       </Badge>
                                     </CardTitle>
-                                    <CardDescription className="line-clamp-1">
+                                    <CardDescription className="line-clamp-2 min-h-[32px]">
                                       {stock.companyName}
                                     </CardDescription>
                                   </div>
@@ -2508,9 +2508,9 @@ function PickCard({
             <Icon className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold">{pick.instrumentName}</h3>
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-base leading-tight break-words">{pick.instrumentName}</h3>
                 <div className="flex items-center gap-2 flex-wrap">
                   {pick.symbol && (
                     <span className="text-sm text-muted-foreground font-mono">{pick.symbol}</span>
@@ -2546,20 +2546,18 @@ function PickCard({
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 shrink-0 self-start mt-0.5">
                 {pick.confidenceScore !== undefined && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger>
-                        <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-muted">
-                          <BrainCircuit className="h-3 w-3" />
-                          <span className={`text-xs font-medium ${getConfidenceColor(pick.confidenceScore)}`}>
+                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-muted/50 border">
+                          <BrainCircuit className="h-3 w-3 text-primary" />
+                          <span className={`text-[10px] font-bold ${getConfidenceColor(pick.confidenceScore)}`}>
                             {pick.confidenceScore}%
                           </span>
-                          <span className={`w-2 h-2 rounded-full ${getConfidenceDot(pick.confidenceScore)}`} />
                         </div>
                       </TooltipTrigger>
-                      {/* #12 Enhanced confidence tooltip */}
                       <TooltipContent className="max-w-[220px] space-y-1.5 text-xs p-3">
                         <p className="font-semibold flex items-center gap-1">
                           <BrainCircuit className="h-3.5 w-3.5" />
@@ -2572,16 +2570,11 @@ function PickCard({
                             ? 'Moderate confidence — most indicators agree; some divergence noted.'
                             : 'Lower confidence — use position sizing carefully; wider uncertainty.'}
                         </p>
-                        <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground border-t pt-1.5">
-                          <p>• Scored on 50+ technical & fundamental factors</p>
-                          <p>• ≥80% = High · 60–79% = Moderate · &lt;60% = Lower</p>
-                          <p>• Model: Gemini AI v2.5 Flash</p>
-                        </div>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 )}
-                <Badge className={`${status.color} text-foreground`}>
+                <Badge className={`${status.color} text-foreground text-[10px] px-1.5 py-0 h-5`}>
                   <StatusIcon className="h-3 w-3 mr-1" />
                   {status.label}
                 </Badge>
@@ -2623,24 +2616,26 @@ function PickCard({
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-4 mt-3">
-              <div>
-                <div className="text-xs text-muted-foreground">Entry Price</div>
-                <div className="font-medium">{formatPrice(pick.recoPrice, pick.category)}</div>
+            <div className="grid grid-cols-2 xs:grid-cols-3 gap-3 mt-4">
+              <div className="bg-muted/30 p-2 rounded-md">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Entry</div>
+                <div className="font-bold text-sm">{formatPrice(pick.recoPrice, pick.category)}</div>
               </div>
-              <div>
-                <div className="text-xs text-muted-foreground flex items-center gap-1">
-                  <ArrowUpRight className="h-3 w-3 text-green-500" />
-                  Target (+{upside}%)
+              <div className="bg-green-50 dark:bg-green-900/10 p-2 rounded-md border border-green-100 dark:border-green-900/20">
+                <div className="text-[10px] uppercase tracking-wider text-green-600 dark:text-green-400 font-semibold flex items-center gap-1">
+                  <ArrowUpRight className="h-3 w-3" />
+                  Target
                 </div>
-                <div className="font-medium text-green-600">{formatPrice(pick.targetPrice, pick.category)}</div>
+                <div className="font-bold text-sm text-green-600">{formatPrice(pick.targetPrice, pick.category)}</div>
+                <div className="text-[9px] text-green-600/70">+{upside}%</div>
               </div>
-              <div>
-                <div className="text-xs text-muted-foreground flex items-center gap-1">
-                  <ArrowDownRight className="h-3 w-3 text-red-500" />
-                  Stoploss (-{downside}%)
+              <div className="bg-red-50 dark:bg-red-900/10 p-2 rounded-md border border-red-100 dark:border-red-900/20">
+                <div className="text-[10px] uppercase tracking-wider text-red-600 dark:text-red-400 font-semibold flex items-center gap-1">
+                  <ArrowDownRight className="h-3 w-3" />
+                  Stoploss
                 </div>
-                <div className="font-medium text-red-600">{formatPrice(pick.stoplossPrice, pick.category)}</div>
+                <div className="font-bold text-sm text-red-600">{formatPrice(pick.stoplossPrice, pick.category)}</div>
+                <div className="text-[9px] text-red-600/70">-{downside}%</div>
               </div>
             </div>
 
