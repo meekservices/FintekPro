@@ -608,9 +608,18 @@ export function registerKycV2ExtensionPart2Routes(app: Express) {
           products_unlocked                   = '[]'::jsonb
         WHERE user_id = ${userId}
       `);
-      await tx.execute(drizzleSql`
-        UPDATE users SET kyc_status = NULL, ckyc_status = NULL WHERE id = ${userId}
-      `);
+      // Migration-aware update for users table
+      try {
+        await tx.execute(drizzleSql`
+          UPDATE users SET kyc_status = NULL, ckyc_status = NULL WHERE id = ${userId}
+        `);
+      } catch (e: any) {
+        if (e.message?.includes('column')) {
+          console.warn(`[KYC Reset] Skipping kyc_status update for user ${userId} - column may be missing`);
+        } else {
+          throw e; // Rethrow other database errors
+        }
+      }
       await tx.execute(drizzleSql`
         UPDATE kyc_verification_sessions
         SET session_outcome = 'reset_by_admin', is_active = false
