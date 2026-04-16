@@ -92,3 +92,7 @@ attached_assets/Screenshot_*.png
 # Drizzle local config (Replit-specific)
 drizzle.local.config.ts
 pnpm-lock.yaml
+
+# Local development and cache
+npm_cache/
+find_user.ts
