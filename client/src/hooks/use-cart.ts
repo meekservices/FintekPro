@@ -105,7 +105,10 @@ export function useCart() {
   });
 
   return {
-    cart: cartQuery.data,
+    cart: cartQuery.data?.cart,
+    items: cartQuery.data?.items || [],
+    totalItems: cartQuery.data?.totalItems || 0,
+    totalValue: cartQuery.data?.totalValue || 0,
     isLoading: cartQuery.isLoading,
     error: cartQuery.error,
     addToCart: addToCartMutation.mutate,

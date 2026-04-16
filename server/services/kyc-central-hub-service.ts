@@ -1,5 +1,5 @@
-import { KycOrchestrationEngine } from "./kyc-orchestration-engine";
-import { KycAuditPackService } from "./kyc-audit-pack-service";
+import { kycOrchestrationEngine } from "./kyc-orchestration-engine";
+import { kycAuditPackService } from "./kyc-audit-pack-service";
 import { db } from "../db";
 import { users, agentNotifications } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
@@ -13,7 +13,7 @@ import { nanoid } from "nanoid";
  * data portability for partners like Alpaca and IIFL.
  */
 export class KycCentralHubService {
-  private static engine = new KycOrchestrationEngine();
+  private static engine = kycOrchestrationEngine;
 
   /**
    * Universal entry point for any KYC step from any portal.
@@ -40,7 +40,7 @@ export class KycCentralHubService {
 
     // 2. Log Regulatory Audit (with SHA-256 Hashing)
     // We log the attempt regardless of success/failure
-    await KycAuditPackService.logRegulatoryStep({
+    await kycAuditPackService.logRegulatoryStep({
       userId: params.userId,
       serviceProvider: result.providerCode,
       apiEndpoint: `/api/kyc/${params.step}`,
@@ -71,7 +71,7 @@ export class KycCentralHubService {
    */
   static async getVerifiedDataForPartner(userId: string, partnerId: string, purpose: string) {
     // 1. Compliance Check: Is there a record of user consent?
-    const hasConsent = await KycAuditPackService.verifyConsent(userId, partnerId, purpose);
+    const hasConsent = await kycAuditPackService.verifyConsent(userId, partnerId, purpose);
     if (!hasConsent) {
       throw new Error(`COMPLIANCE_ERROR: No valid consent found for partner ${partnerId}`);
     }
@@ -84,7 +84,7 @@ export class KycCentralHubService {
     if (!user) throw new Error("USER_NOT_FOUND");
 
     // 3. Log the data sharing event for future audits
-    await KycAuditPackService.logConsent({
+    await kycAuditPackService.logConsent({
       userId,
       partnerId,
       purpose,

@@ -16,16 +16,15 @@ import { MobileNavCards } from "./MobileNavCards";
 export function Header() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const { user, isAuthenticated, isLoading } = useAuth();
-  const { cart } = useCart();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const { totalItems } = useCart();
   const unifiedCartCount = useUnifiedCartCount();
   
-  const totalCartCount = (cart?.totalItems || 0) + unifiedCartCount;
+  const totalCartCount = (totalItems || 0) + unifiedCartCount;
 
   const handleLogout = async () => {
     try {
-      await apiRequest("/api/logout", { method: "POST" });
-      queryClient.setQueryData(["/api/user"], null);
+      await logout();
       // Redirect to auth page for consistent security across all portals
       window.location.href = "/auth";
     } catch (error) {

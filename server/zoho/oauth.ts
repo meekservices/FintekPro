@@ -2,7 +2,7 @@ import axios from 'axios';
 import { db } from '../db';
 import { zohoConnections } from '@shared/schema';
 import { eq } from 'drizzle-orm';
-import { encryptionService } from '../encryption-service';
+import { encryptionService, DecryptionError } from '../encryption-service';
 
 interface ZohoOAuthConfig {
   clientId: string;
@@ -208,19 +208,22 @@ export class ZohoOAuthService {
     } catch (decryptError: any) {
       console.error(`[Zoho OAuth] Decrypt Refresh Token Error for connection ${connectionId}:`, decryptError.message);
       
+      // Specific handling for DecryptionError (likely key mismatch)
+      if (decryptError instanceof DecryptionError) {
+        console.warn(`[Zoho OAuth] Decryption failed for connection ${connectionId}. Marking as error.`);
+        await this.updateConnectionStatus(
+          connectionId, 
+          'error', 
+          'Decryption failed: The encryption master key may have changed or is missing. Please re-authenticate your Zoho connection.'
+        );
+      }
+
       // Fallback: If decryption fails and it looks like it might be a raw Zoho token, try using it
       if (connection.refreshToken?.includes('.')) {
         console.log('[Zoho OAuth] Falling back to raw refresh token');
         decryptedRefreshToken = connection.refreshToken;
       } else {
-        // Critical Failure: Decryption failed and it doesn't look like a raw token
-        // Update connection status to notify admin
-        await this.updateConnectionStatus(
-          connectionId, 
-          'error', 
-          'Decryption failed: The encryption key may have changed. Please re-authenticate Zoho.'
-        );
-        throw new Error('Failed to decrypt Zoho refresh token. Authentication required.');
+        throw new Error('Failed to decrypt Zoho refresh token and no fallback available. Re-authentication required.');
       }
     }
 

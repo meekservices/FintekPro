@@ -733,9 +733,7 @@ function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
-      <Route path="/admin/replit-suggestions">
-        {() => <ReplitSuggestions />}
-      </Route>
+
       <Route path="/admin/zoho-dashboard">
         {() => (
           <AdminLayout>
