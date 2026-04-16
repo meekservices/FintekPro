@@ -111,7 +111,7 @@ export class KycAuditPackService {
    * Generates a "Compliance Audit Pack" - a JSON bundle of all 
    * regulatory interactions and consents for a user.
    */
-  static async generateAuditPack(userId: string) {
+  async generatePack(userId: string, requestedBy?: string, requestedByRole?: string) {
     const [auditLogs, consentLogs] = await Promise.all([
       db.select().from(kycRegulatoryAuditLogs).where(eq(kycRegulatoryAuditLogs.userId, userId)),
       db.select().from(kycConsentLogs).where(eq(kycConsentLogs.userId, userId))
@@ -136,4 +136,6 @@ export class KycAuditPackService {
 }
 
 // Utility for DRIZZLE 'and' / 'eq' which were missing in imports
+
+export const kycAuditPackService = new KycAuditPackService();
 import { and, eq } from "drizzle-orm";

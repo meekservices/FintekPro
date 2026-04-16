@@ -44,7 +44,7 @@ interface ProviderExecutionContext {
   startTime: number;
 }
 
-class KycOrchestrationEngine {
+export class KycOrchestrationEngine {
   async executeVerification(request: VerificationRequest): Promise<VerificationResult> {
     console.log(`[KYC-ENGINE] Starting verification for step=${request.kycStep}, product=${request.productType}, user=${request.userId}`);
     const fallbackChain: string[] = [];
