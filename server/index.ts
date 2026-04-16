@@ -610,9 +610,14 @@ const PORT = parseInt(process.env.PORT || '5000', 10);
 // Boot-in-progress middleware - returns 503 for API routes not yet loaded
 app.use('/api', (req: Request, res: Response, next: NextFunction) => {
   if (bootState.routesReady) return next();
-  if (req.path === '/api/health' || req.path === '/api/ready' || req.path === '/health' || req.path === '/ready') return next();
+  
+  // IMMUTABLE: Health checks MUST return 200 during boot to prevent Railway/K8s from killing the process
+  const healthPaths = ['/api/health', '/api/ready', '/health', '/ready', '/healthz'];
+  if (healthPaths.includes(req.path)) return next();
+  
   if (req.path.startsWith('/api/auth') || req.path.startsWith('/api/login') || req.path.startsWith('/api/user')) return next();
   if (req.path === '/api/csrf-token') return next();
+  
   res.status(503).json({
     status: 'booting',
     message: 'Server is starting up, please wait a moment and refresh...',
