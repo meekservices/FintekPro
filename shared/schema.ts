@@ -1445,8 +1445,15 @@ export const kycConsentLogs = pgTable("kyc_consent_logs", {
   isRevoked: boolean("is_revoked").default(false),
   revokedAt: timestamp("revoked_at"),
   metadata: jsonb("metadata"), // Extra context like DigiLocker reference IDs used
+  // Added fields for legacy/agent-driven workflows
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  consentGiven: boolean("consent_given").default(true),
+  consentText: text("consent_text"),
+  consentSignature: text("consent_signature"),
 }, (table) => [
   index("idx_kyc_consent_user_partner").on(table.userId, table.partnerId),
+  index("idx_kyc_consent_prospect").on(table.prospectId),
 ]);
 
 // Regulatory API Audit Logs - For SEBI/RBI/SEC audit readiness
@@ -12712,40 +12719,6 @@ export const kycTokenMap = pgTable("kyc_token_map", {
   index("idx_kyc_token_map_user").on(table.userId),
 ]);
 
-// KYC Consent Logs - Digital consent for KYC data reuse
-export const kycConsentLogs = pgTable("kyc_consent_logs", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // User information
-  userId: varchar("user_id").references(() => users.id),
-  
-  // Prospect support - for goals created by agents before user registration
-  prospectId: varchar("prospect_id"),
-  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
-  
-  // Consent details
-  consentType: varchar("consent_type").notNull(), // kyc_reuse/data_sharing/third_party_access
-  consentGiven: boolean("consent_given").notNull(),
-  consentText: text("consent_text").notNull(), // Full text of consent shown to user
-  
-  // Context
-  purpose: text("purpose"), // e.g., "BSE STAR MF Onboarding", "Loan Application"
-  thirdPartyName: varchar("third_party_name"), // e.g., "BSE", "AMC XYZ"
-  
-  // Digital signature
-  ipAddress: varchar("ip_address"),
-  userAgent: text("user_agent"),
-  consentSignature: text("consent_signature"), // HMAC signature of consent
-  
-  // Timestamps
-  consentedAt: timestamp("consented_at").defaultNow(),
-  expiresAt: timestamp("expires_at"), // Consent validity period
-  revokedAt: timestamp("revoked_at"), // If user revokes consent
-}, (table) => [
-  index("idx_kyc_consent_user").on(table.userId),
-  index("idx_kyc_consent_type").on(table.consentType),
-  index("idx_kyc_consent_given").on(table.consentGiven),
-]);
 
 // KYC Audit Logs - Comprehensive access tracking for compliance
 export const kycAuditLogs = pgTable("kyc_audit_logs", {
