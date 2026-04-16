@@ -1,5 +1,5 @@
-import { KycOrchestrationEngine } from "./kyc-orchestration-engine";
-import { KycAuditPackService } from "./kyc-audit-pack-service";
+import { kycOrchestrationEngine } from "./kyc-orchestration-engine";
+import { kycAuditPackService } from "./kyc-audit-pack-service";
 import { db } from "../db";
 import { users, agentNotifications } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
