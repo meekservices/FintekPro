@@ -142,6 +142,20 @@ ensureStaticBuild();
 
 const app = express();
 
+// ============================================================================
+// PRIORITY HEALTH CHECKS - MUST BE FIRST (Railway/K8s Support)
+// Returns 200 OK immediately even while server is still booting.
+// ============================================================================
+app.get('/api/health', (_req, res) => res.status(200).json({ status: 'booting', uptime: process.uptime() }));
+app.get('/health', (_req, res) => res.status(200).json({ status: 'ok', uptime: process.uptime() }));
+app.get('/healthz', (_req, res) => res.status(200).send('OK'));
+app.get('/ready', (_req, res) => res.status(200).json({ status: 'ok' }));
+app.get('/live', (_req, res) => res.status(200).json({ status: 'ok' }));
+app.get('/', (_req, res, next) => {
+  if (bootState.routesReady) return next();
+  res.status(200).set({ 'Content-Type': 'text/html' }).send('<!DOCTYPE html><html><body><p>Loading...</p></body></html>');
+});
+
 // Environment validation for production readiness
 const requiredEnvVars = ['PRODUCTION_DATABASE_URL', 'SESSION_SECRET'];
 const optionalButRecommended = ['OPENAI_API_KEY', 'TWILIO_ACCOUNT_SID', 'CASHFREE_APP_ID'];
@@ -612,8 +626,9 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
   if (bootState.routesReady) return next();
   
   // IMMUTABLE: Health checks MUST return 200 during boot to prevent Railway/K8s from killing the process
+  // Note: Inside an app.use('/api') middleware, req.path is relative (e.g. '/health' instead of '/api/health')
   const healthPaths = ['/api/health', '/api/ready', '/health', '/ready', '/healthz'];
-  if (healthPaths.includes(req.path)) return next();
+  if (healthPaths.includes(req.path) || healthPaths.includes(`/api${req.path}`)) return next();
   
   if (req.path.startsWith('/api/auth') || req.path.startsWith('/api/login') || req.path.startsWith('/api/user')) return next();
   if (req.path === '/api/csrf-token') return next();
