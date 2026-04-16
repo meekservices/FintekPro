@@ -63,6 +63,61 @@ export function registerKYCWizardPart2Sub2Routes(app: Express) {
         }
       }
 
+      // Optimization: Check if AutoKYC engine has already fetched CKYC data
+      const [profile] = await db.select()
+        .from(schema.userProfiles)
+        .where(eq(schema.userProfiles.userId, userId))
+        .limit(1);
+
+      if (profile?.ckycFetchedViaAuthBridge && profile?.ckycAuthBridgeResponse) {
+        console.log(`[KYC Wizard] Using cached CKYC data for user ${userId}`);
+        const ckycDecision = kycOrchestratorService.computeCkycConfidence({
+          found: true,
+          data: profile.ckycAuthBridgeResponse,
+          kin: profile.ckycAuthBridgeKin,
+          provider: 'truthscreen'
+        });
+
+        const initiatedBy = (session as any).initiatedBy || 'customer';
+        const nextStep = ckycDecision.aadhaar_required
+          ? (kycOrchestratorService.isAgentBlocked('aadhaar_otp', initiatedBy) ? 'risk_profiling' : 'aadhaar_otp')
+          : 'risk_profiling';
+
+        await storage.updateKycVerificationSession(sessionId, {
+          ckycData: profile.ckycAuthBridgeResponse,
+          ckycFetched: true,
+          ckycFetchedAt: new Date(),
+          currentStep: nextStep,
+          ckycConfidenceScore: String(ckycDecision.confidence_score),
+          ckycMissingFields: ckycDecision.missing_fields,
+          aadhaarRequired: ckycDecision.aadhaar_required,
+          stepStatus: {
+            ...session.stepStatus as any,
+            ckyc_fetched: true,
+            kra_verified: true,
+            ckyc_confidence: ckycDecision.confidence_score,
+            ckyc_missing_fields: ckycDecision.missing_fields,
+            aadhaar_required: ckycDecision.aadhaar_required,
+            aadhaar_verified: !ckycDecision.aadhaar_required,
+          }
+        });
+
+        return res.json({
+          success: true,
+          ckycFound: true,
+          message: "CKYC record verified via Smart Mode.",
+          data: {
+            kin: profile.ckycAuthBridgeKin,
+            name: `${profile.firstName} ${profile.lastName || ''}`.trim(),
+            kycStatus: 'verified',
+            confidence_score: ckycDecision.confidence_score,
+            missing_fields: ckycDecision.missing_fields,
+            aadhaar_required: ckycDecision.aadhaar_required,
+            source: ckycDecision.source,
+          }
+        });
+      }
+
       let ckycResult: any = null;
       try {
         const truthScreenAdapter = await getCkycAdapter('truthscreen');

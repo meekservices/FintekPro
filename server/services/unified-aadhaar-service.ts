@@ -8,6 +8,7 @@
 
 import { CashfreeAadhaarService } from './cashfree-aadhaar-service';
 import { TruthscreenAadhaarService } from './truthscreen-aadhaar-service';
+import { sandboxKYCService } from './sandbox-kyc-service';
 import { hasSandboxCredentials } from '../utils/sandbox-config';
 
 export type AadhaarProvider = 'cashfree-bank' | 'truthscreen-aadhaar' | 'sandbox-pan' | 'offline_xml';
@@ -259,6 +260,17 @@ class UnifiedAadhaarService {
           };
         }
 
+        case 'sandbox-pan': {
+          const result = await sandboxKYCService.generateAadhaarOTP(aadhaarNumber);
+          return {
+            success: true,
+            message: result.message,
+            refId: result.referenceId,
+            status: 'SUCCESS',
+            provider: 'sandbox-pan',
+          };
+        }
+
         case 'cashfree-bank':
         default: {
           const result = await CashfreeAadhaarService.generateOTP(aadhaarNumber);
@@ -306,6 +318,33 @@ class UnifiedAadhaarService {
               email: result.data.email,
               photoUrl: result.data.photoBase64 ? `data:image/jpeg;base64,${result.data.photoBase64}` : undefined,
             } : undefined,
+          };
+        }
+
+        case 'sandbox-pan': {
+          const result = await sandboxKYCService.verifyAadhaarOTP(refId, otp);
+          return {
+            success: result.verified,
+            message: result.verified ? "Aadhaar verified successfully" : "Verification failed",
+            verified: result.verified,
+            provider: 'sandbox-pan',
+            data: {
+              aadhaarNumber: result.aadhaarNumber,
+              name: result.fullName,
+              dob: result.dateOfBirth,
+              gender: result.gender,
+              address: {
+                house: result.address.house,
+                street: result.address.street,
+                landmark: result.address.landmark,
+                locality: result.address.locality,
+                city: result.address.district,
+                state: result.address.state,
+                pincode: result.address.pincode,
+                country: result.address.country,
+              },
+              photoUrl: result.photo ? `data:image/jpeg;base64,${result.photo}` : undefined,
+            }
           };
         }
 
@@ -365,6 +404,17 @@ class UnifiedAadhaarService {
             valid: result.valid,
             maskedAadhaar: result.maskedAadhaar,
             provider: 'truthscreen-aadhaar',
+          };
+        }
+
+        case 'sandbox-pan': {
+          const maskedAadhaar = `XXXX XXXX ${aadhaarNumber.slice(-4)}`;
+          return {
+            success: true,
+            message: 'Aadhaar format is valid. Proceed with OTP verification.',
+            valid: true,
+            maskedAadhaar,
+            provider: 'sandbox-pan',
           };
         }
 
