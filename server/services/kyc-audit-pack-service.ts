@@ -2,6 +2,7 @@ import { db } from "../db";
 import { kycRegulatoryAuditLogs, kycConsentLogs } from "@shared/schema";
 import { createHash } from "crypto";
 import { nanoid } from "nanoid";
+import { and, eq } from "drizzle-orm";
 
 /**
  * KYC Audit Pack Service
@@ -135,7 +136,4 @@ export class KycAuditPackService {
   }
 }
 
-// Utility for DRIZZLE 'and' / 'eq' which were missing in imports
-
 export const kycAuditPackService = new KycAuditPackService();
-import { and, eq } from "drizzle-orm";
