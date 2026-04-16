@@ -495,7 +495,8 @@ export default function SmartKYCOnboarding() {
           sessionId,
           panNumber: panNumber.toUpperCase(),
           fullName: panFullName,
-          dob: panDob
+          dob: panDob,
+          onboardingMode
         })
       });
     },
@@ -964,6 +965,7 @@ export default function SmartKYCOnboarding() {
   
   const getStepsForEntityType = (): WizardStep[] => {
     const entityType = getEffectiveEntityType();
+    const isSmartMode = onboardingMode === 'smart';
     
     if (!entityType) {
       return ['pan_entry', 'pan_verification', 'ckyc_kra_check', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'risk_profiling', 'compliance_signoff', 'completed'];
@@ -975,14 +977,26 @@ export default function SmartKYCOnboarding() {
       case 'huf':
         return ['pan_entry', 'type_detection', 'huf_details', 'pan_verification', 'data_collection', 'risk_profiling', 'compliance_signoff', 'completed'];
       case 'company':
+        if (isSmartMode) {
+          return ['pan_entry', 'type_detection', 'corporate_details', 'ckyc_kra_check', 'signatory_verification', 'bank_verification', 'treasury_setup', 'completed'];
+        }
         return ['pan_entry', 'type_detection', 'corporate_details', 'document_upload', 'signatory_verification', 'bank_verification', 'treasury_setup', 'completed'];
       case 'firm_llp':
+        if (isSmartMode) {
+          return ['pan_entry', 'type_detection', 'firm_llp_details', 'ckyc_kra_check', 'signatory_verification', 'bank_verification', 'treasury_setup', 'completed'];
+        }
         return ['pan_entry', 'type_detection', 'firm_llp_details', 'document_upload', 'signatory_verification', 'bank_verification', 'treasury_setup', 'completed'];
       case 'trust':
       case 'aop':
       case 'boi':
+        if (isSmartMode) {
+          return ['pan_entry', 'type_detection', 'trust_details', 'ckyc_kra_check', 'signatory_verification', 'bank_verification', 'treasury_setup', 'completed'];
+        }
         return ['pan_entry', 'type_detection', 'trust_details', 'document_upload', 'signatory_verification', 'bank_verification', 'treasury_setup', 'completed'];
       default:
+        if (isSmartMode) {
+          return ['pan_entry', 'type_detection', 'ckyc_kra_check', 'compliance_signoff', 'completed'];
+        }
         return ['pan_entry', 'type_detection', 'document_upload', 'compliance_signoff', 'completed'];
     }
   };

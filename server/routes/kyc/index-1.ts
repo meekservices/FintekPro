@@ -19,6 +19,7 @@ import { eq, and, ne, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { smsService } from '../../services/sms-service';
 import { emailService } from '../../email-service';
+import { autoKycVerificationEngine } from '../../services/auto-kyc-verification-engine';
 
 export function registerKYCWizardPart1Routes(app: Express) {
   /**
@@ -566,7 +567,7 @@ export function registerKYCWizardPart1Routes(app: Express) {
 
   app.post("/api/kyc/wizard/verify-pan", requireClientOrHigher, async (req: any, res) => {
     try {
-      const { sessionId, panNumber, dob, fullName } = req.body;
+      const { sessionId, panNumber, dob, fullName, onboardingMode } = req.body;
       const userId = req.user!.id;
       
       if (!sessionId || !panNumber || !dob) {
@@ -639,6 +640,24 @@ export function registerKYCWizardPart1Routes(app: Express) {
         console.warn('[KYC] Duplicate PAN check failed (non-fatal):', (dupErr as any)?.message);
       }
       // ──────────────────────────────────────────────────────────────────────
+
+      // Trigger AutoKYC Engine for Smart Mode businesses
+      if (onboardingMode === 'smart' && panResult.entity_detected !== 'INDIVIDUAL') {
+        try {
+          console.log(`[KYC] Triggering Auto-KYC Engine for Smart Mode business: ${userId} (${panResult.entity_detected})`);
+          await autoKycVerificationEngine.verify({
+            userId,
+            fullName: verification.data.full_name || fullName,
+            panNumber,
+            dateOfBirth: dob,
+            role: (req.user?.roles?.[0] || req.user?.role || 'user') as any,
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+          });
+        } catch (autoKycErr) {
+          console.error('[KYC] Auto-KYC Engine failed (non-fatal):', (autoKycErr as any)?.message);
+        }
+      }
 
       await storage.updateKycVerificationSession(sessionId, {
         panNumber: await PANConsentService.encryptPAN(panNumber),

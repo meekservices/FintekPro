@@ -715,14 +715,33 @@ export function registerKycV2ExtensionPart2Routes(app: Express) {
     const tsUser = process.env.TRUTHSCREEN_USERNAME;
     const tsPass = process.env.TRUTHSCREEN_PASSWORD;
     const ckycApiKey = process.env.CKYC_API_KEY;
+    const CASHFREE_URL = process.env.CASHFREE_SECUREID_BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://api.cashfree.com/verification' : 'https://sandbox.cashfree.com/verification');
+    const cashfreeAppId = process.env.CASHFREE_SECUREID_APP_ID || process.env.CASHFREE_VERIFICATION_APP_ID || process.env.CASHFREE_APP_ID;
+    const cashfreeSecret = process.env.CASHFREE_SECUREID_SECRET_KEY || process.env.CASHFREE_VERIFICATION_SECRET_KEY || process.env.CASHFREE_SECRET_KEY;
 
-    const [sandboxPan, truthscreenAadhaar, truthscreenCkyc, ckycRegistry] = await Promise.all([
+    const [sandboxPan, sandboxAadhaar, cashfreeAadhaar, truthscreenAadhaar, truthscreenCkyc, ckycRegistry] = await Promise.all([
       !sandboxApiKey
         ? Promise.resolve(notConfigured(['SANDBOX_API_KEY']))
         : ping(() => fetch(`${SANDBOX_URL}/kyc/v2/pan`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${sandboxApiKey}`, 'Content-Type': 'application/json', 'x-api-version': '1.0' },
             body: JSON.stringify({ '@entity': 'in.co.sandbox.kyc.pan_plus.request', 'pan': 'AAAAA0000A' }),
+            signal: AbortSignal.timeout(6000),
+          })),
+      !sandboxApiKey
+        ? Promise.resolve(notConfigured(['SANDBOX_API_KEY']))
+        : ping(() => fetch(`${SANDBOX_URL}/kyc/aadhaar/okyc/otp`, {
+            method: 'POST',
+            headers: { 'x-api-key': sandboxApiKey, 'Content-Type': 'application/json', 'x-api-version': '1.0.0' },
+            body: JSON.stringify({ '@entity': 'in.co.sandbox.kyc.aadhaar.okyc.otp.request', 'aadhaar_number': '000000000000', 'consent': 'Y', 'reason': 'Health Check' }),
+            signal: AbortSignal.timeout(6000),
+          })),
+      !cashfreeAppId || !cashfreeSecret
+        ? Promise.resolve(notConfigured(['CASHFREE_APP_ID', 'CASHFREE_SECRET']))
+        : ping(() => fetch(`${CASHFREE_URL}/offline-aadhaar/otp`, {
+            method: 'POST',
+            headers: { 'x-client-id': cashfreeAppId, 'x-client-secret': cashfreeSecret, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 'aadhaar_number': '000000000000' }),
             signal: AbortSignal.timeout(6000),
           })),
       !tsUser || !tsPass
@@ -756,6 +775,8 @@ export function registerKycV2ExtensionPart2Routes(app: Express) {
       checkedAt: new Date().toISOString(),
       providers: {
         sandbox_pan: sandboxPan,
+        sandbox_aadhaar: sandboxAadhaar,
+        cashfree_aadhaar: cashfreeAadhaar,
         truthscreen_aadhaar: truthscreenAadhaar,
         truthscreen_ckyc: truthscreenCkyc,
         ckyc_registry: ckycRegistry,
