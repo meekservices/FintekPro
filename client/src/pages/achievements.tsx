@@ -1,3 +1,7 @@
+import { Trophy, TrendingUp, Target, Zap } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { AchievementDashboard } from "@/components/achievements/achievement-dashboard";
+
 export default function AchievementsPage() {
   // Mock user ID - in real app this would come from auth context
   const userId = 'mock-user-id';

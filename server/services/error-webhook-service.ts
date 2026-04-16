@@ -21,12 +21,6 @@ interface AlertPayload {
   windowMinutes?: number;
   environment: string;
   timestamp: string;
-  replitContext?: {
-    projectUrl: string | null;
-    deploymentUrl: string | null;
-    errorCommandCenterUrl: string | null;
-    replSlug: string | null;
-  };
 }
 
 interface SlackMessage {
@@ -56,30 +50,6 @@ interface TeamsMessage {
 
 class ErrorWebhookService {
   
-  getReplitAlertContext(): AlertPayload['replitContext'] {
-    const replId = process.env.REPL_ID;
-    const replSlug = process.env.REPL_SLUG;
-    const replOwner = process.env.REPL_OWNER;
-    const devDomain = process.env.REPLIT_DEV_DOMAIN;
-    const deploymentId = process.env.REPLIT_DEPLOYMENT_ID;
-    
-    const deploymentUrl = deploymentId && replSlug ? 
-      `https://${replSlug}.replit.app` : 
-      (devDomain ? `https://${devDomain}` : null);
-    
-    const projectUrl = replOwner && replSlug ? 
-      `https://replit.com/@${replOwner}/${replSlug}` : null;
-    
-    const errorCommandCenterUrl = deploymentUrl ? 
-      `${deploymentUrl}/admin/error-command-center` : null;
-    
-    return {
-      projectUrl,
-      deploymentUrl,
-      errorCommandCenterUrl,
-      replSlug: replSlug || null
-    };
-  }
 
   async getActiveWebhooks(environment: string = 'production'): Promise<ErrorWebhookConfig[]> {
     try {
@@ -100,36 +70,24 @@ class ErrorWebhookService {
   }
 
   async sendCriticalAlert(payload: AlertPayload): Promise<void> {
-    // Auto-populate Replit context if not provided
-    const enrichedPayload = {
-      ...payload,
-      replitContext: payload.replitContext || this.getReplitAlertContext()
-    };
-    
     const webhooks = await this.getActiveWebhooks(payload.environment);
     const criticalWebhooks = webhooks.filter(w => w.triggerOnCritical);
     
     console.log(`[ErrorWebhookService] Sending critical alert to ${criticalWebhooks.length} webhooks`);
     
     await Promise.allSettled(
-      criticalWebhooks.map(webhook => this.sendToWebhook(webhook, enrichedPayload))
+      criticalWebhooks.map(webhook => this.sendToWebhook(webhook, payload))
     );
   }
 
   async sendSpikeAlert(payload: AlertPayload): Promise<void> {
-    // Auto-populate Replit context if not provided
-    const enrichedPayload = {
-      ...payload,
-      replitContext: payload.replitContext || this.getReplitAlertContext()
-    };
-    
     const webhooks = await this.getActiveWebhooks(payload.environment);
     const spikeWebhooks = webhooks.filter(w => w.triggerOnSpike);
     
     console.log(`[ErrorWebhookService] Sending spike alert to ${spikeWebhooks.length} webhooks`);
     
     await Promise.allSettled(
-      spikeWebhooks.map(webhook => this.sendToWebhook(webhook, enrichedPayload))
+      spikeWebhooks.map(webhook => this.sendToWebhook(webhook, payload))
     );
   }
 
@@ -220,18 +178,6 @@ class ErrorWebhookService {
       { title: 'Error IDs', value: payload.errorIds.slice(0, 3).join(', ') + (payload.errorIds.length > 3 ? '...' : ''), short: false }
     ];
 
-    // Add Replit project links if available
-    if (payload.replitContext) {
-      if (payload.replitContext.replSlug) {
-        fields.push({ title: 'Repl', value: payload.replitContext.replSlug, short: true });
-      }
-      if (payload.replitContext.errorCommandCenterUrl) {
-        fields.push({ title: 'Error Dashboard', value: `<${payload.replitContext.errorCommandCenterUrl}|View Errors>`, short: true });
-      }
-      if (payload.replitContext.projectUrl) {
-        fields.push({ title: 'Project', value: `<${payload.replitContext.projectUrl}|Open in Replit>`, short: false });
-      }
-    }
     
     return {
       text: `${emoji} *FintekPro Error Alert*`,
@@ -257,18 +203,6 @@ class ErrorWebhookService {
       { name: "Time", value: payload.timestamp }
     ];
 
-    // Add Replit project links if available
-    if (payload.replitContext) {
-      if (payload.replitContext.replSlug) {
-        facts.push({ name: "Repl", value: payload.replitContext.replSlug });
-      }
-      if (payload.replitContext.errorCommandCenterUrl) {
-        facts.push({ name: "Error Dashboard", value: `[View Errors](${payload.replitContext.errorCommandCenterUrl})` });
-      }
-      if (payload.replitContext.projectUrl) {
-        facts.push({ name: "Project", value: `[Open in Replit](${payload.replitContext.projectUrl})` });
-      }
-    }
     
     return {
       "@type": "MessageCard",
@@ -294,18 +228,6 @@ class ErrorWebhookService {
       { name: 'Occurrences', value: String(payload.occurrenceCount || 1), inline: true }
     ];
 
-    // Add Replit project links if available
-    if (payload.replitContext) {
-      if (payload.replitContext.replSlug) {
-        fields.push({ name: 'Repl', value: payload.replitContext.replSlug, inline: true });
-      }
-      if (payload.replitContext.errorCommandCenterUrl) {
-        fields.push({ name: 'Error Dashboard', value: `[View Errors](${payload.replitContext.errorCommandCenterUrl})`, inline: false });
-      }
-      if (payload.replitContext.projectUrl) {
-        fields.push({ name: 'Project', value: `[Open in Replit](${payload.replitContext.projectUrl})`, inline: false });
-      }
-    }
     
     return {
       content: `**FintekPro Error Alert**`,

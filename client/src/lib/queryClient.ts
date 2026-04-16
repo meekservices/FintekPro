@@ -180,56 +180,101 @@ async function throwIfResNotOk(res: Response, url?: string) {
 }
 
 export async function apiRequest(
-  url: string,
-  methodOrOptions?: string | RequestInit,
-  additionalOptions?: { body?: any; headers?: Record<string, string> }
+  arg1: string,
+  arg2?: string | RequestInit,
+  arg3?: any,
+  arg4?: Record<string, string>
 ): Promise<any> {
-  // Support both calling patterns:
-  // apiRequest(url, { method: "POST", body: data })
-  // apiRequest(url, "POST", { body: data })
-  let options: RequestInit;
-  
-  if (typeof methodOrOptions === 'string') {
-    // Called as apiRequest(url, "METHOD", { body: ... })
-    const bodyData = additionalOptions?.body;
-    options = {
-      method: methodOrOptions,
-      body: bodyData !== undefined ? JSON.stringify(bodyData) : undefined,
-      headers: additionalOptions?.headers || {},
-    };
+  let url: string;
+  let method: string = "GET";
+  let body: any = undefined;
+  let headers: Record<string, string> = {};
+  let otherOptions: RequestInit = {};
+
+  // Pattern detection
+  if (typeof arg1 === "string" && (arg1.startsWith("/") || arg1.startsWith("http"))) {
+    // Pattern: apiRequest(url, ...)
+    url = arg1;
+    if (typeof arg2 === "string") {
+      // Pattern: apiRequest(url, method, body, headers)
+      method = arg2;
+      body = arg3;
+      headers = arg4 || {};
+    } else if (typeof arg2 === "object" && arg2 !== null) {
+      // Pattern: apiRequest(url, options) or apiRequest(url, method, { body, headers })
+      if ("method" in arg2 || "headers" in arg2 || "body" in arg2) {
+        // Standard RequestInit
+        const { method: m, body: b, headers: h, ...rest } = arg2 as RequestInit;
+        method = m || "GET";
+        body = b;
+        headers = (h as Record<string, string>) || {};
+        otherOptions = rest;
+        
+        // Handle the case where people pass { body: { ... } } instead of stringified body
+        if (body && typeof body === "object" && !(body instanceof Blob) && !(body instanceof ArrayBuffer) && !(body instanceof FormData)) {
+          body = JSON.stringify(body);
+        }
+      } else {
+        // Not a RequestInit, maybe additionalOptions: { body, headers }
+        // Pattern: apiRequest(url, method, { body, headers }) where method is missing
+        // or Pattern: apiRequest(url, { body, headers })
+        const opts = arg2 as any;
+        body = opts.body;
+        headers = opts.headers || {};
+      }
+    }
+  } else if (typeof arg1 === "string") {
+    // Pattern: apiRequest(method, url, body, headers)
+    method = arg1;
+    url = arg2 as string;
+    body = arg3;
+    headers = arg4 || {};
   } else {
-    // Called as apiRequest(url, { method: "METHOD", body: ... })
-    options = methodOrOptions || {};
+    throw new Error("Invalid apiRequest call: first argument must be a URL or HTTP method.");
   }
+
+  // Final normalization
+  const isMutatingRequest = ["POST", "PUT", "PATCH", "DELETE"].includes(method.toUpperCase());
   
-  const { method = "GET", body, headers = {}, ...restOptions } = options;
-  
-  // Don't send body for GET requests
-  const shouldSendBody = method !== "GET" && body !== undefined;
-  const isMutatingRequest = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
-  
-  // Stringify body if it's an object (not already a string)
-  const serializedBody = shouldSendBody 
-    ? (typeof body === 'string' ? body : JSON.stringify(body))
-    : undefined;
-  
-  // Build headers with CSRF token for mutating requests
+  // Ensure body is stringified for JSON if it's an object
+  let serializedBody = body;
+  if (body !== undefined && typeof body === "object" && !(body instanceof FormData) && !(body instanceof Blob) && !(body instanceof ArrayBuffer)) {
+    serializedBody = JSON.stringify(body);
+  }
+
   const requestHeaders: Record<string, string> = {
-    ...(shouldSendBody ? { "Content-Type": "application/json" } : {}),
-    ...(headers as Record<string, string>),
+    ...headers,
+    ...(serializedBody && !headers["Content-Type"] ? { "Content-Type": "application/json" } : {}),
   };
-  
+
   if (isMutatingRequest && csrfToken) {
-    requestHeaders['X-CSRF-Token'] = csrfToken;
+    requestHeaders["X-CSRF-Token"] = csrfToken;
   }
-  
+
   let res = await fetch(url, {
-    method,
+    method: method.toUpperCase(),
     headers: requestHeaders,
     body: serializedBody,
     credentials: "include",
-    ...restOptions,
+    ...otherOptions,
   });
+
+  if (res.status === 403 && isMutatingRequest) {
+    const data = await res.clone().json().catch(() => ({}));
+    if (data.code === "CSRF_TOKEN_REQUIRED") {
+      await fetchCsrfToken();
+      if (csrfToken) {
+        requestHeaders["X-CSRF-Token"] = csrfToken;
+        res = await fetch(url, {
+          method: method.toUpperCase(),
+          headers: requestHeaders,
+          body: serializedBody,
+          credentials: "include",
+          ...otherOptions,
+        });
+      }
+    }
+  }
 
   if (res.status === 403 && isMutatingRequest) {
     const data = await res.clone().json().catch(() => ({}));

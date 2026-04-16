@@ -6,7 +6,7 @@ import { z } from "zod";
 // Re-export role hierarchy system
 export * from "./roles";
 
-// Session storage table for Replit Auth
+// Session storage table
 export const sessions = pgTable(
   "sessions",
   {

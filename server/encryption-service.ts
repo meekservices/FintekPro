@@ -7,6 +7,13 @@ const TAG_LENGTH = 16;
 const KEY_LENGTH = 32;
 const ITERATIONS = 100000;
 
+export class DecryptionError extends Error {
+  constructor(message: string, public readonly originalError?: any) {
+    super(message);
+    this.name = 'DecryptionError';
+  }
+}
+
 class EncryptionService {
   private masterKey: string;
 
@@ -76,9 +83,10 @@ class EncryptionService {
       decrypted += decipher.final('utf8');
       
       return decrypted;
-    } catch (error) {
-      console.error('Decryption error:', error);
-      throw new Error('Failed to decrypt data');
+    } catch (error: any) {
+      console.error('Decryption error details:', error.message);
+      // Use DecryptionError to allow callers to specifically handle this case
+      throw new DecryptionError('Failed to decrypt data - potentially invalid key or corrupted data', error);
     }
   }
 

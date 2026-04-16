@@ -17,7 +17,7 @@ export class KycAuditPackService {
    * Logs a regulatory API interaction (e.g., PAN verify, Aadhaar auth)
    * with SHA-256 integrity hashes.
    */
-  static async logRegulatoryStep(params: {
+  async logRegulatoryStep(params: {
     userId?: string;
     serviceProvider: string;
     apiEndpoint: string;
@@ -51,15 +51,13 @@ export class KycAuditPackService {
       console.log(`[AuditLog] Logged ${params.requestType} for ${params.serviceProvider} (Trace: ${params.traceId})`);
     } catch (error) {
       console.error("[AuditLog] Failed to write regulatory audit log:", error);
-      // We log but don't throw to avoid blocking the user flow, 
-      // though in strict production we might want to throw if logging fails.
     }
   }
 
   /**
    * Logs an explicit user consent for data sharing with a partner (IIFL, Alpaca, etc.)
    */
-  static async logConsent(params: {
+  async logConsent(params: {
     userId: string;
     partnerId: string;
     purpose: string;
@@ -92,7 +90,7 @@ export class KycAuditPackService {
   /**
    * Verifies if a user has active, unrevoked consent for a specific purpose
    */
-  static async verifyConsent(userId: string, partnerId: string, purpose: string): Promise<boolean> {
+  async verifyConsent(userId: string, partnerId: string, purpose: string): Promise<boolean> {
     const [log] = await db.select()
       .from(kycConsentLogs)
       .where(
@@ -130,7 +128,7 @@ export class KycAuditPackService {
     };
   }
 
-  private static generateHash(data: any): string {
+  private generateHash(data: any): string {
     const str = typeof data === 'string' ? data : JSON.stringify(data);
     return createHash("sha256").update(str).digest("hex");
   }

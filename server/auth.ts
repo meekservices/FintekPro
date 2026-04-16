@@ -316,7 +316,7 @@ export function setupAuth(app: Express) {
 
       // Store OTP with registration data in metadata
       await storage.createOtpVerification({
-        identifier: mobile, // Use mobile as primary identifier for registration (enables Replit SMS testing)
+        identifier: mobile, // Use mobile as primary identifier for registration
         otp,
         type: "registration",
         expiresAt,
@@ -767,7 +767,7 @@ export function setupAuth(app: Express) {
         }
 
         // Credentials are valid - now send OTP for mandatory verification
-        const isDeployedProduction = process.env.REPLIT_DEPLOYMENT === '1' || process.env.NODE_ENV === 'production';
+        const isDeployedProduction = process.env.NODE_ENV === 'production';
         const isTesterAccount = !isDeployedProduction && (user.email === "test@fintekpro.com" || (user.roles && Array.isArray(user.roles) && user.roles.includes("tester")));
         const otp = isTesterAccount ? "123456" : generateOtp();
         const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
@@ -780,7 +780,7 @@ export function setupAuth(app: Express) {
         let otpDestination: string;
         let otpType: string;
 
-        // Always prefer mobile for OTP (enables Replit SMS testing), regardless of login method
+        // Always prefer mobile for OTP, regardless of login method
         if (user.mobile) {
           otpDestination = user.mobile;
           otpType = "mobile";
