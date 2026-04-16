@@ -205,17 +205,23 @@ export class ZohoOAuthService {
       } else {
         decryptedRefreshToken = encryptionService.decrypt(connection.refreshToken);
       }
-    } catch (decryptError) {
-      console.error('[Zoho OAuth] Decrypt error, trying raw token:', decryptError);
-      // If decryption fails and it looks like a Zoho token, try using it directly
+    } catch (decryptError: any) {
+      console.error(`[Zoho OAuth] Decrypt Refresh Token Error for connection ${connectionId}:`, decryptError.message);
+      
+      // Fallback: If decryption fails and it looks like it might be a raw Zoho token, try using it
       if (connection.refreshToken?.includes('.')) {
         console.log('[Zoho OAuth] Falling back to raw refresh token');
         decryptedRefreshToken = connection.refreshToken;
+      } else {
+        // Critical Failure: Decryption failed and it doesn't look like a raw token
+        // Update connection status to notify admin
+        await this.updateConnectionStatus(
+          connectionId, 
+          'error', 
+          'Decryption failed: The encryption key may have changed. Please re-authenticate Zoho.'
+        );
+        throw new Error('Failed to decrypt Zoho refresh token. Authentication required.');
       }
-    }
-    
-    if (!decryptedRefreshToken) {
-      throw new Error('Failed to decrypt refresh token');
     }
 
     // Check if token is expired or will expire in next 5 minutes
@@ -283,15 +289,15 @@ export class ZohoOAuthService {
       } else {
         decryptedAccessToken = encryptionService.decrypt(connection.accessToken);
       }
-    } catch (decryptError) {
-      console.error('[Zoho OAuth] Access token decrypt error, trying raw:', decryptError);
+    } catch (decryptError: any) {
+      console.error(`[Zoho OAuth] Access token decrypt error for connection ${connectionId}:`, decryptError.message);
       if (connection.accessToken?.includes('.')) {
         decryptedAccessToken = connection.accessToken;
+      } else {
+        // If decryption fails, we can still try to refresh the token using the refresh token
+        // But for now, we'll throw to be safe
+        throw new Error('Failed to decrypt Zoho access token. Token refresh might be needed.');
       }
-    }
-    
-    if (!decryptedAccessToken) {
-      throw new Error('Failed to decrypt access token');
     }
 
     return decryptedAccessToken;
@@ -327,15 +333,18 @@ export class ZohoOAuthService {
       } else {
         decryptedRefreshToken = encryptionService.decrypt(connection.refreshToken);
       }
-    } catch (decryptError) {
-      console.error('[Zoho OAuth] Decrypt error, trying raw token:', decryptError);
+    } catch (decryptError: any) {
+      console.error(`[Zoho OAuth] Force refresh decrypt error for connection ${connectionId}:`, decryptError.message);
       if (connection.refreshToken?.includes('.')) {
         decryptedRefreshToken = connection.refreshToken;
+      } else {
+        await this.updateConnectionStatus(
+          connectionId, 
+          'error', 
+          'Force refresh decryption failed: The encryption key may have changed.'
+        );
+        throw new Error('Failed to decrypt Zoho refresh token for force refresh.');
       }
-    }
-    
-    if (!decryptedRefreshToken) {
-      throw new Error('Failed to decrypt refresh token');
     }
 
     // Force refresh the token
