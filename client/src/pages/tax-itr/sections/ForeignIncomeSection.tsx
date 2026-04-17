@@ -28,9 +28,15 @@ export const ForeignIncomeSection: React.FC = () => {
   } = useTax();
 
   const currentValidation = validateStep(currentStepId);
-  const foreignTotalInINR = totals.foreignCapitalGains + totals.foreignOtherIncome;
+  const foreignTotalInINR = (
+    foreignIncomeDetails.foreignSTCG + 
+    foreignIncomeDetails.foreignLTCG + 
+    foreignIncomeDetails.foreignDividends + 
+    foreignIncomeDetails.foreignInterest + 
+    foreignIncomeDetails.foreignOtherIncome
+  ) * (foreignIncomeDetails.currencyCode === "INR" ? 1 : foreignIncomeDetails.exchangeRate);
 
-  const addForeignAsset = () => {
+  const addForeignAsset = (): void => {
     setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({
       ...prev,
       foreignAssets: [...prev.foreignAssets, {
@@ -48,14 +54,14 @@ export const ForeignIncomeSection: React.FC = () => {
     }));
   };
 
-  const removeForeignAsset = (idx: number) => {
+  const removeForeignAsset = (idx: number): void => {
     setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({
       ...prev,
       foreignAssets: prev.foreignAssets.filter((_: ForeignAssetEntry, i: number) => i !== idx)
     }));
   };
 
-  const updateForeignAsset = <K extends keyof ForeignAssetEntry>(idx: number, field: K, value: ForeignAssetEntry[K]) => {
+  const updateForeignAsset = <K extends keyof ForeignAssetEntry>(idx: number, field: K, value: ForeignAssetEntry[K]): void => {
     setForeignIncomeDetails((prev: ForeignIncomeDetails) => {
       const u = [...prev.foreignAssets];
       u[idx] = { ...u[idx], [field]: value };
@@ -87,7 +93,7 @@ export const ForeignIncomeSection: React.FC = () => {
                 DTAA Country
                 <FieldHint text="Select the country where you earned foreign income. India has DTAA treaties with 90+ countries to prevent double taxation." />
               </Label>
-              <Select value={foreignIncomeDetails.dtaaCountry} onValueChange={(v: string) => {
+              <Select value={foreignIncomeDetails.dtaaCountry} onValueChange={(v: string): void => {
                 const country = DTAA_COUNTRIES.find((c: { code: string; name: string; article: string }) => c.code === v);
                 setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({
                   ...prev,
@@ -110,7 +116,7 @@ export const ForeignIncomeSection: React.FC = () => {
                 Currency
                 <FieldHint text="Currency in which your foreign transactions were made. All amounts will be converted to INR using the exchange rate below." />
               </Label>
-              <Select value={foreignIncomeDetails.currencyCode} onValueChange={(v: string) => {
+              <Select value={foreignIncomeDetails.currencyCode} onValueChange={(v: string): void => {
                 const cur = CURRENCY_CODES.find((c: { code: string; symbol: string; name: string; defaultRate: number }) => c.code === v);
                 setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({
                   ...prev,
@@ -137,7 +143,7 @@ export const ForeignIncomeSection: React.FC = () => {
                 type="number"
                 step="0.01"
                 value={foreignIncomeDetails.exchangeRate}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, exchangeRate: parseFloat(e.target.value) || 0 }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, exchangeRate: parseFloat(e.target.value) || 0 }))}
                 data-testid="input-exchange-rate"
               />
               <p className="text-xs text-muted-foreground">Pre-filled approximate rate. Verify from RBI/SBI for actual filing.</p>
@@ -163,7 +169,7 @@ export const ForeignIncomeSection: React.FC = () => {
               <CurrencyInput
                 id="foreignSTCG"
                 value={foreignIncomeDetails.foreignSTCG}
-                onChange={(v: number) => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignSTCG: v }))}
+                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignSTCG: v }))}
                 placeholder="e.g., gains from selling US stocks < 24 months"
                 data-testid="input-foreign-stcg"
               />
@@ -176,7 +182,7 @@ export const ForeignIncomeSection: React.FC = () => {
               <CurrencyInput
                 id="foreignLTCG"
                 value={foreignIncomeDetails.foreignLTCG}
-                onChange={(v: number) => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignLTCG: v }))}
+                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignLTCG: v }))}
                 placeholder="e.g., gains from selling US stocks > 24 months"
                 data-testid="input-foreign-ltcg"
               />
@@ -208,7 +214,7 @@ export const ForeignIncomeSection: React.FC = () => {
               <CurrencyInput
                 id="foreignDividends"
                 value={foreignIncomeDetails.foreignDividends}
-                onChange={(v: number) => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignDividends: v }))}
+                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignDividends: v }))}
                 placeholder="Dividends from foreign stocks/funds"
                 data-testid="input-foreign-dividends"
               />
@@ -221,7 +227,7 @@ export const ForeignIncomeSection: React.FC = () => {
               <CurrencyInput
                 id="foreignInterest"
                 value={foreignIncomeDetails.foreignInterest}
-                onChange={(v: number) => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignInterest: v }))}
+                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignInterest: v }))}
                 placeholder="Interest from foreign bank/bonds"
                 data-testid="input-foreign-interest"
               />
@@ -234,7 +240,7 @@ export const ForeignIncomeSection: React.FC = () => {
               <CurrencyInput
                 id="foreignOtherIncome"
                 value={foreignIncomeDetails.foreignOtherIncome}
-                onChange={(v: number) => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignOtherIncome: v }))}
+                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignOtherIncome: v }))}
                 placeholder="Other foreign-sourced income"
                 data-testid="input-foreign-other-income"
               />
@@ -260,7 +266,7 @@ export const ForeignIncomeSection: React.FC = () => {
               <CurrencyInput
                 id="foreignTaxPaid"
                 value={foreignIncomeDetails.foreignTaxPaid}
-                onChange={(v: number) => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignTaxPaid: v }))}
+                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignTaxPaid: v }))}
                 placeholder="Tax withheld by foreign government"
                 data-testid="input-foreign-tax-paid"
               />
@@ -271,8 +277,8 @@ export const ForeignIncomeSection: React.FC = () => {
                 <FieldHint text="The specific DTAA article under which you're claiming relief. Common: Article 10 (Dividends), Article 11 (Interest), Article 13 (Capital Gains). Auto-filled based on country selection." />
               </Label>
               <Input
-                value={foreignIncomeDetails.dtaaArticle || DTAA_COUNTRIES.find(c => c.code === foreignIncomeDetails.dtaaCountry)?.article || ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, dtaaArticle: e.target.value }))}
+                value={foreignIncomeDetails.dtaaArticle || DTAA_COUNTRIES.find((c: { code: string; name: string; article: string }) => c.code === foreignIncomeDetails.dtaaCountry)?.article || ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, dtaaArticle: e.target.value }))}
                 placeholder="e.g., Article 10/11/13"
                 data-testid="input-dtaa-article"
               />
@@ -302,19 +308,19 @@ export const ForeignIncomeSection: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {foreignIncomeDetails.foreignAssets.map((asset: ForeignAssetEntry, idx: number) => (
+          {foreignIncomeDetails.foreignAssets.map((asset: ForeignAssetEntry, idx: number): React.ReactNode => (
             <Card key={idx} className="border-dashed">
               <CardContent className="p-4 space-y-3">
                 <div className="flex justify-between items-center">
                   <Badge variant="secondary" className="text-xs">Asset {idx + 1}</Badge>
-                  <Button variant="ghost" size="sm" onClick={() => removeForeignAsset(idx)} className="text-red-500 hover:text-red-700 h-7 px-2">
+                  <Button variant="ghost" size="sm" onClick={(): void => removeForeignAsset(idx)} className="text-red-500 hover:text-red-700 h-7 px-2">
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Country</Label>
-                    <Select value={asset.countryCode} onValueChange={(v: string) => {
+                    <Select value={asset.countryCode} onValueChange={(v: string): void => {
                       updateForeignAsset(idx, "countryCode", v);
                       updateForeignAsset(idx, "countryName", DTAA_COUNTRIES.find((c: { code: string; name: string; article: string }) => c.code === v)?.name || v);
                     }}>
@@ -333,7 +339,7 @@ export const ForeignIncomeSection: React.FC = () => {
                       Asset Type
                       <FieldHint text="Table A3: Equity/Debt in foreign entity. Table A1: Foreign bank account. Table A2: Custodial account. Table C: Immovable property." />
                     </Label>
-                    <Select value={asset.assetType} onValueChange={(v: string) => updateForeignAsset(idx, "assetType", v)}>
+                    <Select value={asset.assetType} onValueChange={(v: string): void => updateForeignAsset(idx, "assetType", v)}>
                       <SelectTrigger className="h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
@@ -349,7 +355,7 @@ export const ForeignIncomeSection: React.FC = () => {
                     <Input
                       className="h-8 text-xs"
                       value={asset.institutionName}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateForeignAsset(idx, "institutionName", e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>): void => updateForeignAsset(idx, "institutionName", e.target.value)}
                       placeholder="e.g., Charles Schwab, Vested, INDmoney"
                     />
                   </div>
@@ -360,7 +366,7 @@ export const ForeignIncomeSection: React.FC = () => {
                     <Input
                       className="h-8 text-xs"
                       value={asset.accountNumber}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateForeignAsset(idx, "accountNumber", e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>): void => updateForeignAsset(idx, "accountNumber", e.target.value)}
                       placeholder="Account number"
                     />
                   </div>
@@ -372,7 +378,7 @@ export const ForeignIncomeSection: React.FC = () => {
                     <CurrencyInput
                       id={`peak-${idx}`}
                       value={asset.peakBalance}
-                      onChange={(v: number) => updateForeignAsset(idx, "peakBalance", v)}
+                      onChange={(v: number): void => updateForeignAsset(idx, "peakBalance", v)}
                       placeholder="Max value during year"
                     />
                   </div>
@@ -384,7 +390,7 @@ export const ForeignIncomeSection: React.FC = () => {
                     <CurrencyInput
                       id={`closing-${idx}`}
                       value={asset.closingBalance}
-                      onChange={(v: number) => updateForeignAsset(idx, "closingBalance", v)}
+                      onChange={(v: number): void => updateForeignAsset(idx, "closingBalance", v)}
                       placeholder="Value on Dec 31"
                     />
                   </div>
@@ -394,7 +400,7 @@ export const ForeignIncomeSection: React.FC = () => {
                       type="date"
                       className="h-8 text-xs"
                       value={asset.acquisitionDate}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateForeignAsset(idx, "acquisitionDate", e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>): void => updateForeignAsset(idx, "acquisitionDate", e.target.value)}
                     />
                   </div>
                 </div>
