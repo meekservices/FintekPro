@@ -55,7 +55,7 @@ export class GlobalStockStrategy extends BaseStrategy {
 
   async getLivePrice(instrumentId: string): Promise<number | null> {
     const row = await db.select({ lastPrice: globalInstruments.lastPrice })
-      .from(globalInstruments).where(eq(globalInstruments.id, parseInt(instrumentId))).limit(1);
+      .from(globalInstruments).where(eq(globalInstruments.id, instrumentId)).limit(1);
     return row[0]?.lastPrice ? parseFloat(row[0].lastPrice) : null;
   }
 }

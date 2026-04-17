@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, boolean, index, integer, date, decimal, uniqueIndex } from "drizzle-orm/pg-core";
-import { users } from "./auth";
+import { pgTable, text, varchar, timestamp, jsonb, boolean, index, integer, date, decimal, uniqueIndex, serial } from "drizzle-orm/pg-core";
+import { users } from "../schema";
 
 export const familyGroups = pgTable("family_groups", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

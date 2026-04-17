@@ -57,7 +57,7 @@ export class SGBStrategy extends BaseStrategy {
       const result = await db.execute(sql`
         SELECT current_price FROM commodity_prices WHERE symbol = 'GOLD' ORDER BY last_updated DESC LIMIT 1
       `);
-      const goldRow = (result.rows?.[0] || result[0]) as any;
+      const goldRow = result.rows?.[0] as any;
       return goldRow?.current_price ? parseFloat(goldRow.current_price) : null;
     } catch {
       return null;
