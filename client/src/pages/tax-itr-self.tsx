@@ -71,6 +71,7 @@ interface IncomeSource {
   hasBusinessIncome: boolean;
   hasForeignIncome: boolean;
   hasOtherIncome: boolean;
+  [key: string]: boolean;
 }
 
 interface SalaryDetails {
@@ -163,6 +164,134 @@ interface ScheduleEIDetails {
   section10Exemptions: number;
   otherExemptIncome: number;
   exemptIncomeDescription: string;
+}
+
+interface Broker {
+  id: string;
+  name: string;
+  category: string;
+  supportedFormats: string[];
+  fileFormatHint: string;
+  assetTypes?: string[];
+}
+
+interface TaxHistoryItem {
+  id: string | number;
+  assessmentYear: string;
+  savedAt: string;
+  data: {
+    taxableIncome?: number;
+    taxPayable?: number;
+    [key: string]: unknown;
+  };
+}
+
+interface ChallanResult {
+  challanType: string;
+  taxAmount: number;
+  challanNo?: string;
+  surcharge?: number;
+  educationCess?: number;
+  totalAmount?: number;
+  paymentUrl?: string;
+}
+
+interface OptimizerSuggestion {
+  section: string;
+  taxSaving: number;
+  description: string;
+}
+
+interface OptimizerResult {
+  suggestions: OptimizerSuggestion[];
+  totalPotentialSaving: number;
+}
+
+interface PreFilingItem {
+  code: string;
+  message: string;
+}
+
+interface PreFilingResult {
+  isFileable: boolean;
+  summary: {
+    verdict: string;
+    totalErrors: number;
+    totalWarnings: number;
+  };
+  errors: PreFilingItem[];
+  warnings: PreFilingItem[];
+}
+
+interface ReconciliationItem {
+  deductorName?: string;
+  tan?: string;
+  amount26AS?: number;
+  computedAmount?: number;
+  difference?: number;
+  recommendation?: string;
+  amount?: number;
+}
+
+interface ReconciliationResult {
+  summary: {
+    matchRate: string;
+  };
+  matched: ReconciliationItem[];
+  mismatched: ReconciliationItem[];
+  missing: ReconciliationItem[];
+  recommendations?: string[];
+}
+
+interface RefundStage {
+  stage: string;
+  date?: string;
+  status: string;
+}
+
+interface RefundData {
+  assessmentYear: string;
+  stages: RefundStage[];
+  currentStage: string;
+  expectedDate?: string;
+  note?: string;
+}
+
+interface TaxDeadline {
+  urgency: "critical" | "warning" | "default" | string;
+  daysLeft: number;
+  form: string;
+  deadline: string;
+}
+
+interface HraResult {
+  breakdown: {
+    actualHRA: number;
+    percentOfBasic: number;
+    rentMinusTenPercent: number;
+  };
+  formula: string;
+  hraExemption: number;
+  taxableHRA: number;
+}
+
+interface Form10EResult {
+  taxOnTotal: number;
+  taxOnWithout: number;
+  totalAdditionalTax: number;
+  reliefUs89: number;
+  explanation: string;
+}
+
+interface IfscResult {
+  ifsc?: string;
+  bank?: string;
+  branch?: string;
+  city?: string;
+  bsrCode?: string;
+  bankName?: string;
+  tan?: string;
+  isValid?: boolean;
 }
 
 interface AdvanceTaxInstallment {
@@ -426,6 +555,7 @@ interface BalanceSheetDetails {
   unsecuredLoans: number;
   currentLiabilities: number;
   totalLiabilities: number;
+  [key: string]: number;
 }
 
 interface ProfitLossDetails {
@@ -438,6 +568,7 @@ interface ProfitLossDetails {
   otherExpenses: number;
   totalExpenses: number;
   netProfitBeforeTax: number;
+  [key: string]: number;
 }
 
 interface DepreciationEntry {
@@ -872,12 +1003,12 @@ export default function TaxITRSelfPage() {
     enabled: isAuthenticated,
   });
 
-  const { data: historyData, isLoading: isLoadingHistory } = useQuery({
+  const { data: historyData, isLoading: isLoadingHistory } = useQuery<{ data: TaxHistoryItem[] }>({
     queryKey: ["/api/tax/history", panContext?.pan],
     enabled: !!panContext?.pan && activeSubTab === "history",
   });
 
-  const { data: supportedBrokers } = useQuery({
+  const { data: supportedBrokers } = useQuery<{ data: Broker[] }>({
     queryKey: ["/api/tax/brokers/supported"],
   });
 
@@ -1135,15 +1266,15 @@ export default function TaxITRSelfPage() {
   const [showRefundTracker, setShowRefundTracker] = useState(false);
   const [showLookupPanel, setShowLookupPanel] = useState(false);
   const [showReconciliation, setShowReconciliation] = useState(false);
-  const [reconciliationResult, setReconciliationResult] = useState<any>(null);
-  const [challanResult, setChallanResult] = useState<any>(null);
-  const [hraResult, setHraResult] = useState<any>(null);
-  const [form10EResult, setForm10EResult] = useState<any>(null);
-  const [optimizerResult, setOptimizerResult] = useState<any>(null);
-  const [preFilingResult, setPreFilingResult] = useState<any>(null);
-  const [deadlinesData, setDeadlinesData] = useState<any[]>([]);
-  const [refundData, setRefundData] = useState<any>(null);
-  const [ifscResult, setIfscResult] = useState<any>(null);
+  const [reconciliationResult, setReconciliationResult] = useState<ReconciliationResult | null>(null);
+  const [challanResult, setChallanResult] = useState<ChallanResult | null>(null);
+  const [hraResult, setHraResult] = useState<HraResult | null>(null);
+  const [form10EResult, setForm10EResult] = useState<Form10EResult | null>(null);
+  const [optimizerResult, setOptimizerResult] = useState<OptimizerResult | null>(null);
+  const [preFilingResult, setPreFilingResult] = useState<PreFilingResult | null>(null);
+  const [deadlinesData, setDeadlinesData] = useState<TaxDeadline[]>([]);
+  const [refundData, setRefundData] = useState<RefundData | null>(null);
+  const [ifscResult, setIfscResult] = useState<IfscResult | null>(null);
 
   const [sandboxTaxResult, setSandboxTaxResult] = useState<SandboxTaxResult | null>(null);
   const [taxCalcError, setTaxCalcError] = useState<string | null>(null);
@@ -1253,7 +1384,7 @@ export default function TaxITRSelfPage() {
           bankDetails: bankDetails.accountNumber ? bankDetails : undefined,
         }),
       });
-      return res as unknown as SandboxTaxResult;
+      return res as SandboxTaxResult;
     },
     onSuccess: (result) => {
       setSandboxTaxResult(result);
@@ -1315,7 +1446,7 @@ export default function TaxITRSelfPage() {
           isPresumptive: businessDetails.isPresumptive,
         }),
       });
-      return (res as any)?.data as RegimeComparison;
+      return (res as { data: RegimeComparison })?.data;
     },
     onSuccess: (data) => {
       if (data) setRegimeComparison(data);
@@ -2051,7 +2182,7 @@ export default function TaxITRSelfPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <Label>Residential Status <FieldHint text="Resident: in India ≥182 days. NRI: outside India. RNOR: Returning NRI or newly resident. ITR-1 is only for Resident Individuals." /></Label>
-          <Select value={residentialStatus} onValueChange={(v) => setResidentialStatus(v as any)}>
+          <Select value={residentialStatus} onValueChange={(v) => setResidentialStatus(v as "resident" | "nri" | "rnor")}>
             <SelectTrigger data-testid="select-residential-status">
               <SelectValue />
             </SelectTrigger>
@@ -2107,6 +2238,7 @@ export default function TaxITRSelfPage() {
           <input
             type="checkbox"
             id="itr-u-toggle"
+            title="Filing Updated Return (ITR-U)"
             checked={isUpdatedReturn}
             onChange={(e) => setIsUpdatedReturn(e.target.checked)}
             className="h-4 w-4 rounded border-gray-300"
@@ -3051,13 +3183,13 @@ export default function TaxITRSelfPage() {
     );
   };
 
-  const brokersQuery = useQuery<{ brokers: Array<{ id: string; name: string; category: string; supportedFormats: string[]; fileFormatHint: string; assetTypes: string[] }> }>({
+  const brokersQuery = useQuery<{ brokers: Broker[] }>({
     queryKey: ['/api/tax/capital-gains/brokers'],
     enabled: incomeSources.hasCapitalGains,
   });
 
-  const brokerList = supportedBrokers?.data || brokersQuery.data?.brokers || [];
-  const filteredBrokers = brokerList.filter(b =>
+  const brokerList: Broker[] = supportedBrokers?.data || brokersQuery.data?.brokers || [];
+  const filteredBrokers = brokerList.filter((b: Broker) =>
     b.name.toLowerCase().includes(cgBrokerSearch.toLowerCase()) ||
     b.category.toLowerCase().includes(cgBrokerSearch.toLowerCase())
   );
@@ -3215,7 +3347,7 @@ export default function TaxITRSelfPage() {
               </div>
 
               {(['stock_broker', 'fund_house', 'aggregator', 'us_stocks'] as const).map(category => {
-                const brokers = filteredBrokers.filter(b => b.category === category);
+                const brokers = filteredBrokers.filter((b: Broker) => b.category === category);
                 if (brokers.length === 0) return null;
                 const categoryLabels: Record<string, string> = {
                   stock_broker: 'Stock Brokers',
@@ -3227,7 +3359,7 @@ export default function TaxITRSelfPage() {
                   <div key={category} className="space-y-2">
                     <Label className="text-xs text-muted-foreground uppercase tracking-wide">{categoryLabels[category]}</Label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-                      {brokers.map(broker => (
+                      {brokers.map((broker: Broker) => (
                         <Button
                           key={broker.id}
                           variant={cgSelectedBroker === broker.id ? 'default' : 'outline'}
@@ -3245,7 +3377,7 @@ export default function TaxITRSelfPage() {
               })}
 
               {cgSelectedBroker && (() => {
-                const broker = brokerList.find(b => b.id === cgSelectedBroker);
+                const broker = brokerList.find((b: Broker) => b.id === cgSelectedBroker);
                 if (!broker) return null;
                 return (
                   <Card className="border-primary/30 bg-primary/5">
@@ -3255,12 +3387,12 @@ export default function TaxITRSelfPage() {
                           <p className="font-medium">{broker.name}</p>
                           <p className="text-xs text-muted-foreground">{broker.fileFormatHint}</p>
                         </div>
-                        <Badge variant="outline">{broker.supportedFormats.map(f => f.toUpperCase()).join(' / ')}</Badge>
+                        <Badge variant="outline">{broker.supportedFormats.map((f: string) => f.toUpperCase()).join(' / ')}</Badge>
                       </div>
                       <div className="flex items-center gap-2">
                         <Input
                           type="file"
-                          accept={broker.supportedFormats.map(f => `.${f}`).join(',')}
+                          accept={broker.supportedFormats.map((f: string) => `.${f}`).join(',')}
                           disabled={cgUploading}
                           onChange={(e) => {
                             const file = e.target.files?.[0];
@@ -3623,6 +3755,7 @@ export default function TaxITRSelfPage() {
                       <input
                         type="checkbox"
                         id="grandfathering-toggle"
+                        title="Apply grandfathering provision for equity acquired before 31-Jan-2018"
                         checked={capitalGainsDetails.grandfatheringApplied}
                         onChange={(e) => setCapitalGainsDetails(prev => ({ ...prev, grandfatheringApplied: e.target.checked }))}
                         className="h-4 w-4 rounded border-gray-300"
@@ -5401,7 +5534,7 @@ export default function TaxITRSelfPage() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="bankAccountType" className="text-xs">Account Type</Label>
-                <Select value={bankDetails.accountType} onValueChange={(v) => setBankDetails(prev => ({ ...prev, accountType: v as any }))}>
+                <Select value={bankDetails.accountType} onValueChange={(v) => setBankDetails(prev => ({ ...prev, accountType: v as "savings" | "current" }))}>
                   <SelectTrigger id="bankAccountType" data-testid="select-bank-account-type"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="savings">Savings</SelectItem>
@@ -5538,15 +5671,15 @@ export default function TaxITRSelfPage() {
                   <Label className="text-xs font-medium">Filing Preferences</Label>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <input type="checkbox" id="opt-auto-26as" defaultChecked className="h-3.5 w-3.5" />
+                      <input type="checkbox" id="opt-auto-26as" title="Auto-fetch 26AS on calculation" defaultChecked className="h-3.5 w-3.5" />
                       <Label htmlFor="opt-auto-26as" className="text-xs cursor-pointer">Auto-fetch 26AS on calculation</Label>
                     </div>
                     <div className="flex items-center gap-2">
-                      <input type="checkbox" id="opt-regime-compare" defaultChecked className="h-3.5 w-3.5" />
+                      <input type="checkbox" id="opt-regime-compare" title="Show regime comparison" defaultChecked className="h-3.5 w-3.5" />
                       <Label htmlFor="opt-regime-compare" className="text-xs cursor-pointer">Show regime comparison</Label>
                     </div>
                     <div className="flex items-center gap-2">
-                      <input type="checkbox" id="opt-email-ack" defaultChecked className="h-3.5 w-3.5" />
+                      <input type="checkbox" id="opt-email-ack" title="Email acknowledgment after filing" defaultChecked className="h-3.5 w-3.5" />
                       <Label htmlFor="opt-email-ack" className="text-xs cursor-pointer">Email acknowledgment after filing</Label>
                     </div>
                   </div>
@@ -5622,7 +5755,7 @@ export default function TaxITRSelfPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs">Challan Type</Label>
-                    <Select defaultValue="self_assessment" onValueChange={(v) => setChallanResult((p: any) => ({ ...p, challanType: v }))}>
+                    <Select defaultValue="self_assessment" onValueChange={(v) => setChallanResult((p: ChallanResult | null) => ({ ...p, challanType: v } as ChallanResult))}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="advance_tax">Advance Tax (100)</SelectItem>
@@ -5633,7 +5766,7 @@ export default function TaxITRSelfPage() {
                   </div>
                   <div>
                     <Label className="text-xs">Tax Amount (₹)</Label>
-                    <Input type="number" className="h-8 text-xs" placeholder="Enter tax amount" onChange={(e) => setChallanResult((p: any) => ({ ...p, taxAmount: Number(e.target.value) }))} />
+                    <Input type="number" className="h-8 text-xs" placeholder="Enter tax amount" onChange={(e) => setChallanResult((p: ChallanResult | null) => ({ ...p, taxAmount: Number(e.target.value) } as ChallanResult))} />
                   </div>
                 </div>
                 <Button size="sm" className="text-xs" onClick={async () => {
@@ -5764,7 +5897,7 @@ export default function TaxITRSelfPage() {
                     </Button>
                     {optimizerResult && (
                       <div className="space-y-2">
-                        {optimizerResult.suggestions.map((s: any, i: number) => (
+                        {optimizerResult.suggestions.map((s: OptimizerSuggestion, i: number) => (
                           <div key={i} className="text-xs p-2 bg-background rounded border">
                             <div className="flex justify-between">
                               <span className="font-medium">{s.section}</span>
@@ -5865,12 +5998,12 @@ export default function TaxITRSelfPage() {
                   </h4>
                   <Badge variant={preFilingResult.isFileable ? "default" : "destructive"} className="text-[10px]">{preFilingResult.summary.totalErrors} errors, {preFilingResult.summary.totalWarnings} warnings</Badge>
                 </div>
-                {preFilingResult.errors.map((e: any, i: number) => (
+                {preFilingResult.errors.map((e: PreFilingItem, i: number) => (
                   <div key={i} className="text-xs p-2 bg-red-50 dark:bg-red-950 rounded border border-red-200 dark:border-red-800 flex items-start gap-2">
                     <XCircle className="h-3.5 w-3.5 text-red-600 mt-0.5 flex-shrink-0" /><div><span className="font-medium">[{e.code}]</span> {e.message}</div>
                   </div>
                 ))}
-                {preFilingResult.warnings.map((w: any, i: number) => (
+                {preFilingResult.warnings.map((w: PreFilingItem, i: number) => (
                   <div key={i} className="text-xs p-2 bg-amber-50 dark:bg-amber-950 rounded border border-amber-200 dark:border-amber-800 flex items-start gap-2">
                     <AlertTriangle className="h-3.5 w-3.5 text-amber-600 mt-0.5 flex-shrink-0" /><div><span className="font-medium">[{w.code}]</span> {w.message}</div>
                   </div>
@@ -5887,7 +6020,7 @@ export default function TaxITRSelfPage() {
                 {reconciliationResult.matched?.length > 0 && (
                   <div className="space-y-1">
                     <p className="text-[10px] font-semibold text-green-600">Matched ({reconciliationResult.matched.length})</p>
-                    {reconciliationResult.matched.map((m: any, i: number) => (
+                    {reconciliationResult.matched.map((m: ReconciliationItem, i: number) => (
                       <div key={i} className="text-xs p-1.5 bg-green-50 dark:bg-green-950 rounded border border-green-200 dark:border-green-800 flex justify-between">
                         <span>{m.deductorName || m.tan}</span><span className="font-medium">₹{(m.amount26AS || 0).toLocaleString("en-IN")}</span>
                       </div>
@@ -5897,7 +6030,7 @@ export default function TaxITRSelfPage() {
                 {reconciliationResult.mismatched?.length > 0 && (
                   <div className="space-y-1">
                     <p className="text-[10px] font-semibold text-amber-600">Mismatched ({reconciliationResult.mismatched.length})</p>
-                    {reconciliationResult.mismatched.map((m: any, i: number) => (
+                    {reconciliationResult.mismatched.map((m: ReconciliationItem, i: number) => (
                       <div key={i} className="text-xs p-1.5 bg-amber-50 dark:bg-amber-950 rounded border border-amber-200 dark:border-amber-800">
                         <div className="flex justify-between"><span>{m.deductorName || m.tan}</span><span className="text-red-600">Diff: ₹{(m.difference || 0).toLocaleString("en-IN")}</span></div>
                         <p className="text-[10px] text-muted-foreground">{m.recommendation}</p>
@@ -5908,14 +6041,14 @@ export default function TaxITRSelfPage() {
                 {reconciliationResult.missing?.length > 0 && (
                   <div className="space-y-1">
                     <p className="text-[10px] font-semibold text-red-600">Missing from Return ({reconciliationResult.missing.length})</p>
-                    {reconciliationResult.missing.map((m: any, i: number) => (
+                    {reconciliationResult.missing.map((m: ReconciliationItem, i: number) => (
                       <div key={i} className="text-xs p-1.5 bg-red-50 dark:bg-red-950 rounded border border-red-200 dark:border-red-800 flex justify-between">
                         <span>{m.deductorName || m.tan}</span><span className="font-medium">₹{(m.amount || 0).toLocaleString("en-IN")}</span>
                       </div>
                     ))}
                   </div>
                 )}
-                {reconciliationResult.recommendations?.length > 0 && (
+                {reconciliationResult.recommendations && reconciliationResult.recommendations.length > 0 && (
                   <div className="text-xs space-y-0.5">
                     {reconciliationResult.recommendations.map((r: string, i: number) => (
                       <div key={i} className="flex items-start gap-1"><Lightbulb className="h-3 w-3 text-amber-500 mt-0.5 flex-shrink-0" /><span>{r}</span></div>
@@ -5991,7 +6124,7 @@ export default function TaxITRSelfPage() {
               <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
                 <h4 className="text-sm font-semibold flex items-center gap-2"><Wallet className="h-4 w-4" /> Refund Status — AY {refundData.assessmentYear}</h4>
                 <div className="space-y-1">
-                  {refundData.stages.map((s: any, i: number) => (
+                  {refundData.stages.map((s: RefundStage, i: number) => (
                     <div key={i} className="flex items-center gap-2 text-xs">
                       {s.status === "completed" ? <CheckCircle className="h-3.5 w-3.5 text-green-600" /> : s.status === "in_progress" ? <Clock className="h-3.5 w-3.5 text-blue-600 animate-pulse" /> : <div className="h-3.5 w-3.5 rounded-full border-2 border-muted-foreground/30" />}
                       <span className={s.status === "completed" ? "text-green-700 dark:text-green-400" : s.status === "in_progress" ? "text-blue-700 dark:text-blue-400 font-medium" : "text-muted-foreground"}>{s.stage}</span>
@@ -6007,7 +6140,7 @@ export default function TaxITRSelfPage() {
               <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
                 <h4 className="text-sm font-semibold flex items-center gap-2"><Clock className="h-4 w-4" /> Filing Deadlines & Due Dates</h4>
                 <div className="space-y-1">
-                  {deadlinesData.map((d: any, i: number) => (
+                  {deadlinesData.map((d: TaxDeadline, i: number) => (
                     <div key={i} className="flex items-center justify-between text-xs p-1.5 rounded bg-background border">
                       <div className="flex items-center gap-2">
                         <Badge variant={d.urgency === "critical" ? "destructive" : d.urgency === "warning" ? "default" : "outline"} className="text-[10px]">
@@ -6402,9 +6535,9 @@ export default function TaxITRSelfPage() {
                 ].map(item => (
                   <div key={item.key}>
                     <Label className="text-xs">{item.label} (₹)</Label>
-                    <Input type="number" value={(balanceSheet as any)[item.key] || ""} onChange={e => {
+                    <Input type="number" value={balanceSheet[item.key] || ""} onChange={e => {
                       const val = Number(e.target.value);
-                      setBalanceSheet(p => ({ ...p, [item.key]: val, totalAssets: autoTotalAssets - (p as any)[item.key] + val }));
+                      setBalanceSheet(p => ({ ...p, [item.key]: val, totalAssets: autoTotalAssets - p[item.key] + val }));
                     }} />
                   </div>
                 ))}
@@ -6426,9 +6559,9 @@ export default function TaxITRSelfPage() {
                 ].map(item => (
                   <div key={item.key}>
                     <Label className="text-xs">{item.label} (₹)</Label>
-                    <Input type="number" value={(balanceSheet as any)[item.key] || ""} onChange={e => {
+                    <Input type="number" value={balanceSheet[item.key] || ""} onChange={e => {
                       const val = Number(e.target.value);
-                      setBalanceSheet(p => ({ ...p, [item.key]: val, totalLiabilities: autoTotalLiabilities - (p as any)[item.key] + val }));
+                      setBalanceSheet(p => ({ ...p, [item.key]: val, totalLiabilities: autoTotalLiabilities - p[item.key] + val }));
                     }} />
                   </div>
                 ))}
@@ -6474,7 +6607,7 @@ export default function TaxITRSelfPage() {
                 ].map(item => (
                   <div key={item.key}>
                     <Label className="text-xs">{item.label} (₹)</Label>
-                    <Input type="number" value={(profitLoss as any)[item.key] || ""} onChange={e => setProfitLoss(p => ({ ...p, [item.key]: Number(e.target.value) }))} />
+                    <Input type="number" value={profitLoss[item.key] || ""} onChange={e => setProfitLoss(p => ({ ...p, [item.key]: Number(e.target.value) }))} />
                   </div>
                 ))}
               </div>
@@ -6790,7 +6923,7 @@ export default function TaxITRSelfPage() {
                   <div>
                     <Label className="text-xs">Loss Type</Label>
                     <Select value={entry.lossType} onValueChange={v => {
-                      const updated = [...lossCarryForward]; updated[idx] = { ...updated[idx], lossType: v as any };
+                      const updated = [...lossCarryForward]; updated[idx] = { ...updated[idx], lossType: v as "house_property" | "short_term_capital" | "long_term_capital" | "business" | "speculation" | "specified_business" };
                       setLossCarryForward(updated);
                     }}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -8298,7 +8431,7 @@ export default function TaxITRSelfPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {historyData?.data?.map((item: any) => (
+                    {historyData?.data?.map((item: TaxHistoryItem) => (
                       <tr key={item.id} className="border-b hover:bg-muted/50">
                         <td className="p-3 font-medium">{item.assessmentYear}</td>
                         <td className="p-3 text-muted-foreground">
