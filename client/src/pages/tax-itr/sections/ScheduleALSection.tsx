@@ -10,7 +10,7 @@ import {
 import { useTax } from "../TaxContext";
 import { ScheduleALDetails } from "../types";
 
-export const ScheduleALSection: React.FC = () => {
+export const ScheduleALSection: React.FC = (): React.ReactElement => {
   const {
     scheduleAL,
     setScheduleAL,
@@ -47,7 +47,7 @@ export const ScheduleALSection: React.FC = () => {
                   Land & Building (Total Value)
                   <FieldHint text="Market value of all immovable properties — residential, commercial, agricultural land. Include stamp duty value or purchase cost." />
                 </Label>
-                <CurrencyInput id="al-immovable" value={scheduleAL.immovableProperty} onChange={(v: number) => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, immovableProperty: v }))} data-testid="al-immovable" />
+                <CurrencyInput id="al-immovable" value={scheduleAL.immovableProperty} onChange={(v: number): void => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, immovableProperty: v }))} data-testid="al-immovable" />
               </div>
             </div>
           </div>
@@ -62,28 +62,28 @@ export const ScheduleALSection: React.FC = () => {
                   Jewellery, Bullion & Precious Items
                   <FieldHint text="Estimated value of gold, silver, diamonds, and other precious items owned." />
                 </Label>
-                <CurrencyInput id="al-jewellery" value={scheduleAL.jewelleryBullion} onChange={(v: number) => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, jewelleryBullion: v }))} data-testid="al-jewellery" />
+                <CurrencyInput id="al-jewellery" value={scheduleAL.jewelleryBullion} onChange={(v: number): void => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, jewelleryBullion: v }))} data-testid="al-jewellery" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">
                   Motor Vehicles, Yachts & Boats
                   <FieldHint text="Current market value of all vehicles, yachts, boats, and aircraft owned." />
                 </Label>
-                <CurrencyInput id="al-vehicles" value={scheduleAL.vehiclesYachtsBoats} onChange={(v: number) => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, vehiclesYachtsBoats: v }))} data-testid="al-vehicles" />
+                <CurrencyInput id="al-vehicles" value={scheduleAL.vehiclesYachtsBoats} onChange={(v: number): void => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, vehiclesYachtsBoats: v }))} data-testid="al-vehicles" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">
                   Archaeological Collections & Paintings
                   <FieldHint text="Value of art, antiques, archaeological artifacts, and collectible paintings." />
                 </Label>
-                <CurrencyInput id="al-archaeological" value={scheduleAL.archaeologicalCollections} onChange={(v: number) => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, archaeologicalCollections: v }))} data-testid="al-archaeological" />
+                <CurrencyInput id="al-archaeological" value={scheduleAL.archaeologicalCollections} onChange={(v: number): void => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, archaeologicalCollections: v }))} data-testid="al-archaeological" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">
                   Other Movable Assets
                   <FieldHint text="Any other movable assets not listed above — furniture, electronics, equipment, etc." />
                 </Label>
-                <CurrencyInput id="al-movable" value={scheduleAL.movableAssets} onChange={(v: number) => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, movableAssets: v }))} data-testid="al-movable" />
+                <CurrencyInput id="al-movable" value={scheduleAL.movableAssets} onChange={(v: number): void => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, movableAssets: v }))} data-testid="al-movable" />
               </div>
             </div>
           </div>
@@ -98,35 +98,35 @@ export const ScheduleALSection: React.FC = () => {
                   Bank Deposits (Savings + FD + RD)
                   <FieldHint text="Total balance in all bank accounts including savings, fixed deposits, recurring deposits." />
                 </Label>
-                <CurrencyInput id="al-bank" value={scheduleAL.bankDeposits} onChange={(v: number) => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, bankDeposits: v }))} data-testid="al-bank" />
+                <CurrencyInput id="al-bank" value={scheduleAL.bankDeposits} onChange={(v: number): void => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, bankDeposits: v }))} data-testid="al-bank" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">
                   Shares & Securities (Market Value)
                   <FieldHint text="Market value of all shares, mutual funds, bonds, debentures, and other securities held." />
                 </Label>
-                <CurrencyInput id="al-shares" value={scheduleAL.sharesAndSecurities} onChange={(v: number) => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, sharesAndSecurities: v }))} data-testid="al-shares" />
+                <CurrencyInput id="al-shares" value={scheduleAL.sharesAndSecurities} onChange={(v: number): void => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, sharesAndSecurities: v }))} data-testid="al-shares" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">
                   Insurance Policies (Surrender Value)
                   <FieldHint text="Surrender value of all life insurance policies, ULIPs, and endowment plans." />
                 </Label>
-                <CurrencyInput id="al-insurance" value={scheduleAL.insurancePolicies} onChange={(v: number) => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, insurancePolicies: v }))} data-testid="al-insurance" />
+                <CurrencyInput id="al-insurance" value={scheduleAL.insurancePolicies} onChange={(v: number): void => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, insurancePolicies: v }))} data-testid="al-insurance" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">
                   Loans & Advances Given
                   <FieldHint text="Total outstanding loans given to others. Include personal loans, advance payments." />
                 </Label>
-                <CurrencyInput id="al-loans" value={scheduleAL.loansAndAdvancesGiven} onChange={(v: number) => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, loansAndAdvancesGiven: v }))} data-testid="al-loans" />
+                <CurrencyInput id="al-loans" value={scheduleAL.loansAndAdvancesGiven} onChange={(v: number): void => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, loansAndAdvancesGiven: v }))} data-testid="al-loans" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">
                   Cash in Hand
                   <FieldHint text="Physical cash held as on 31st March. Disclose actual cash balance." />
                 </Label>
-                <CurrencyInput id="al-cash" value={scheduleAL.cashInHand} onChange={(v: number) => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, cashInHand: v }))} data-testid="al-cash" />
+                <CurrencyInput id="al-cash" value={scheduleAL.cashInHand} onChange={(v: number): void => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, cashInHand: v }))} data-testid="al-cash" />
               </div>
             </div>
           </div>
@@ -146,14 +146,14 @@ export const ScheduleALSection: React.FC = () => {
                 Liabilities Related to Immovable Property
                 <FieldHint text="Outstanding home loans, property loans, or mortgages on land & buildings." />
               </Label>
-              <CurrencyInput id="al-liab-immovable" value={scheduleAL.liabilitiesRelatedToImmovable} onChange={(v: number) => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, liabilitiesRelatedToImmovable: v }))} data-testid="al-liab-immovable" />
+              <CurrencyInput id="al-liab-immovable" value={scheduleAL.liabilitiesRelatedToImmovable} onChange={(v: number): void => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, liabilitiesRelatedToImmovable: v }))} data-testid="al-liab-immovable" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">
                 Other Liabilities (Personal/Vehicle Loans)
                 <FieldHint text="Outstanding personal loans, car loans, credit card dues, and any other liabilities." />
               </Label>
-              <CurrencyInput id="al-liab-other" value={scheduleAL.liabilitiesRelatedToOther} onChange={(v: number) => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, liabilitiesRelatedToOther: v }))} data-testid="al-liab-other" />
+              <CurrencyInput id="al-liab-other" value={scheduleAL.liabilitiesRelatedToOther} onChange={(v: number): void => setScheduleAL((prev: ScheduleALDetails) => ({ ...prev, liabilitiesRelatedToOther: v }))} data-testid="al-liab-other" />
             </div>
           </div>
         </CardContent>

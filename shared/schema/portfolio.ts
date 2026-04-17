@@ -214,6 +214,7 @@ export const comprehensiveHoldings = pgTable("comprehensive_holdings", {
 }, (table) => [
   uniqueIndex("idx_comprehensive_holdings_unique").on(table.userId, table.isin, table.folio),
   index("idx_comprehensive_holdings_user_date").on(table.userId, table.holdingDate),
+]);
 
 // Pi Chat Asset Summaries
 export const piChatSummaries = pgTable("pi_chat_summaries", {

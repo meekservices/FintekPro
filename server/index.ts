@@ -1,4 +1,5 @@
 // FintekPro Server - Main entry point
+import "dotenv/config";
 
 // Signal handlers removed - graceful shutdown (setupGracefulShutdown) handles SIGTERM/SIGINT properly
 
@@ -646,7 +647,7 @@ setupGracefulShutdown(server);
 // Start listening IMMEDIATELY - before ANY async initialization
 // reusePort: true (SO_REUSEPORT) lets a new instance bind even if the old one
 // is still holding the port during a supervisor restart — no fuser/lsof needed.
-server.listen({ port: PORT, host: '0.0.0.0', reusePort: true }, () => {
+server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   bootState.serverListening = true;
   console.log(`🚀 Server listening on port ${PORT} (boot time: ${bootState.getBootTime()}ms)`);
   logger.info(`Server listening on port ${PORT}`, { port: PORT, environment: process.env.NODE_ENV || 'development', bootTime: bootState.getBootTime() });

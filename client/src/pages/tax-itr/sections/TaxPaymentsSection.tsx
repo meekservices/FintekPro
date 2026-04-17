@@ -12,7 +12,7 @@ import {
 import { useTax } from "../TaxContext";
 import { TaxPaymentDetails, Interest234Details, AdvanceTaxInstallment } from "../types";
 
-export const TaxPaymentsSection: React.FC = () => {
+export const TaxPaymentsSection: React.FC = (): React.ReactElement => {
   const {
     taxPaymentDetails,
     setTaxPaymentDetails,
@@ -57,7 +57,7 @@ export const TaxPaymentsSection: React.FC = () => {
           <CurrencyInput
             id="tdsSalary"
             value={taxPaymentDetails.tdsSalary}
-            onChange={(v: number) => {
+            onChange={(v: number): void => {
               setTaxPaymentDetails((prev: TaxPaymentDetails) => {
                 const updated = { ...prev, tdsSalary: v };
                 updated.tdsDeducted = updated.tdsSalary + updated.tdsOtherThanSalary + updated.tdsOnProperty;
@@ -75,7 +75,7 @@ export const TaxPaymentsSection: React.FC = () => {
           <CurrencyInput
             id="tdsOtherThanSalary"
             value={taxPaymentDetails.tdsOtherThanSalary}
-            onChange={(v: number) => {
+            onChange={(v: number): void => {
               setTaxPaymentDetails((prev: TaxPaymentDetails) => {
                 const updated = { ...prev, tdsOtherThanSalary: v };
                 updated.tdsDeducted = updated.tdsSalary + updated.tdsOtherThanSalary + updated.tdsOnProperty;
@@ -93,7 +93,7 @@ export const TaxPaymentsSection: React.FC = () => {
           <CurrencyInput
             id="tdsOnProperty"
             value={taxPaymentDetails.tdsOnProperty}
-            onChange={(v: number) => {
+            onChange={(v: number): void => {
               setTaxPaymentDetails((prev: TaxPaymentDetails) => {
                 const updated = { ...prev, tdsOnProperty: v };
                 updated.tdsDeducted = updated.tdsSalary + updated.tdsOtherThanSalary + updated.tdsOnProperty;
@@ -111,7 +111,7 @@ export const TaxPaymentsSection: React.FC = () => {
           <CurrencyInput
             id="tcsCollected"
             value={taxPaymentDetails.tcsCollected}
-            onChange={(v: number) => setTaxPaymentDetails((prev: TaxPaymentDetails) => ({ ...prev, tcsCollected: v }))}
+            onChange={(v: number): void => setTaxPaymentDetails((prev: TaxPaymentDetails) => ({ ...prev, tcsCollected: v }))}
             placeholder="Foreign remittance TCS, etc."
             data-testid="input-tcs-collected"
           />
@@ -138,7 +138,7 @@ export const TaxPaymentsSection: React.FC = () => {
             id="tdsDeducted"
             value={taxPaymentDetails.tdsDeducted}
             disabled
-            onChange={(v: number) => setTaxPaymentDetails((prev: TaxPaymentDetails) => ({ ...prev, tdsDeducted: v }))}
+            onChange={(v: number): void => setTaxPaymentDetails((prev: TaxPaymentDetails) => ({ ...prev, tdsDeducted: v }))}
             placeholder="From Form 26AS / AIS"
             data-testid="input-tds-deducted"
           />
@@ -150,7 +150,7 @@ export const TaxPaymentsSection: React.FC = () => {
           <CurrencyInput
             id="advanceTaxPaid"
             value={taxPaymentDetails.advanceTaxPaid}
-            onChange={(v: number) => setTaxPaymentDetails((prev: TaxPaymentDetails) => ({ ...prev, advanceTaxPaid: v }))}
+            onChange={(v: number): void => setTaxPaymentDetails((prev: TaxPaymentDetails) => ({ ...prev, advanceTaxPaid: v }))}
             placeholder="Advance tax challans"
             data-testid="input-advance-tax"
           />
@@ -162,7 +162,7 @@ export const TaxPaymentsSection: React.FC = () => {
           <CurrencyInput
             id="selfAssessmentTax"
             value={taxPaymentDetails.selfAssessmentTax}
-            onChange={(v: number) => setTaxPaymentDetails((prev: TaxPaymentDetails) => ({ ...prev, selfAssessmentTax: v }))}
+            onChange={(v: number): void => setTaxPaymentDetails((prev: TaxPaymentDetails) => ({ ...prev, selfAssessmentTax: v }))}
             placeholder="Paid before filing"
             data-testid="input-self-assessment-tax"
           />
@@ -179,7 +179,7 @@ export const TaxPaymentsSection: React.FC = () => {
           <CurrencyInput
             id="reliefUs89"
             value={taxPaymentDetails.reliefUs89}
-            onChange={(v: number) => setTaxPaymentDetails((prev: TaxPaymentDetails) => ({ ...prev, reliefUs89: v }))}
+            onChange={(v: number): void => setTaxPaymentDetails((prev: TaxPaymentDetails) => ({ ...prev, reliefUs89: v }))}
             placeholder="File Form 10E first"
             data-testid="input-relief-89"
           />
@@ -215,11 +215,11 @@ export const TaxPaymentsSection: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
          <div className="space-y-1.5">
           <Label className="text-xs">Filing Due Date <FieldHint text="Standard due date is 31st July. Extended to 31st Oct for audit cases. Belated filing allowed until 31st Dec of AY." /></Label>
-          <Input type="date" value={interest234.filingDueDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInterest234((p: Interest234Details) => ({ ...p, filingDueDate: e.target.value }))} data-testid="input-filing-due-date" />
+          <Input type="date" value={interest234.filingDueDate} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setInterest234((p: Interest234Details) => ({ ...p, filingDueDate: e.target.value }))} data-testid="input-filing-due-date" />
         </div>
          <div className="space-y-1.5">
           <Label className="text-xs">Actual / Expected Filing Date <FieldHint text="Date when you file (or plan to file) the ITR. Used to compute months of delay for 234A interest." /></Label>
-          <Input type="date" value={interest234.filingDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInterest234((p: Interest234Details) => ({ ...p, filingDate: e.target.value }))} data-testid="input-filing-date" />
+          <Input type="date" value={interest234.filingDate} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setInterest234((p: Interest234Details) => ({ ...p, filingDate: e.target.value }))} data-testid="input-filing-date" />
         </div>
       </div>
 
@@ -230,20 +230,20 @@ export const TaxPaymentsSection: React.FC = () => {
         </CardHeader>
         <CardContent>
            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {interest234.advanceTaxDetails.map((inst: AdvanceTaxInstallment, idx: number) => (
+            {interest234.advanceTaxDetails.map((inst: AdvanceTaxInstallment, idx: number): React.ReactElement => (
               <div key={idx} className="border rounded p-2 space-y-1">
                 <p className="text-xs font-medium">{inst.quarter} — Due: {inst.dueDate}</p>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label className="text-[10px]">Amount Paid (₹)</Label>
-                    <Input type="number" className="h-8 text-xs" value={inst.amountPaid || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    <Input type="number" className="h-8 text-xs" value={inst.amountPaid || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                       const u = [...interest234.advanceTaxDetails]; u[idx] = { ...u[idx], amountPaid: Number(e.target.value) };
                       setInterest234((p: Interest234Details) => ({ ...p, advanceTaxDetails: u }));
                     }} />
                   </div>
                   <div>
                     <Label className="text-[10px]">Date Paid</Label>
-                    <Input type="date" className="h-8 text-xs" value={inst.paidDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    <Input type="date" className="h-8 text-xs" value={inst.paidDate} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                       const u = [...interest234.advanceTaxDetails]; u[idx] = { ...u[idx], paidDate: e.target.value };
                       setInterest234((p: Interest234Details) => ({ ...p, advanceTaxDetails: u }));
                     }} />

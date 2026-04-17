@@ -1,5 +1,5 @@
 import React from "react";
-import { Home, Plus, Trash2, Info } from "lucide-center";
+import { Home, Plus, Trash2, Info } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { FieldHint, CurrencyInput, ValidationBanner, formatCurrency } from "@/co
 import { useTax } from "../TaxContext";
 import { HousePropertyEntry, HousePropertyDetails } from "../types";
 
-export const HousePropertySection: React.FC = () => {
+export const HousePropertySection: React.FC = (): React.ReactElement => {
   const {
     recommendedForm,
     housePropertyDetails,
@@ -53,8 +53,8 @@ export const HousePropertySection: React.FC = () => {
 
   const removeProperty = (idx: number): void => {
     if (housePropertyDetails.properties.length <= 1) return;
-    setHousePropertyDetails((prev: HousePropertyDetails) => {
-      const updated = prev.properties.filter((_: HousePropertyEntry, i: number) => i !== idx);
+    setHousePropertyDetails((prev: HousePropertyDetails): HousePropertyDetails => {
+      const updated = prev.properties.filter((_: HousePropertyEntry, i: number): boolean => i !== idx);
       const first = updated[0];
       return {
         ...prev,
@@ -69,7 +69,7 @@ export const HousePropertySection: React.FC = () => {
   };
 
   const updateProperty = (idx: number, field: keyof HousePropertyEntry, value: string | number): void => {
-    setHousePropertyDetails((prev: HousePropertyDetails) => {
+    setHousePropertyDetails((prev: HousePropertyDetails): HousePropertyDetails => {
       const updated = [...prev.properties];
       updated[idx] = { ...updated[idx], [field]: value } as HousePropertyEntry;
       const backcompat: Partial<HousePropertyDetails> = {};
@@ -137,7 +137,7 @@ export const HousePropertySection: React.FC = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => removeProperty(idx)}
+                    onClick={(): void => removeProperty(idx)}
                     className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 h-8 w-8 p-0"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -150,7 +150,7 @@ export const HousePropertySection: React.FC = () => {
                 <Label>Property Type <FieldHint text="Self-occupied: You live in it. Let out: You receive rent. Deemed let out: Vacant second property treated as let out." /></Label>
                 <RadioGroup
                   value={prop.propertyType}
-                  onValueChange={(v: string) => updateProperty(idx, "propertyType", v as any)}
+                  onValueChange={(v: "self_occupied" | "let_out" | "deemed_let_out"): void => updateProperty(idx, "propertyType", v)}
                   className="flex flex-wrap gap-3"
                 >
                   <label htmlFor={`prop-self-${idx}`} className={`flex items-center gap-2 px-4 py-3 rounded-lg border cursor-pointer transition-all ${prop.propertyType === "self_occupied" ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground/40'}`}>
@@ -185,7 +185,7 @@ export const HousePropertySection: React.FC = () => {
                 <Input
                   id={`address-${idx}`}
                   value={prop.address}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateProperty(idx, "address", e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>): void => updateProperty(idx, "address", e.target.value)}
                   placeholder="Enter property address"
                 />
               </div>
@@ -201,7 +201,7 @@ export const HousePropertySection: React.FC = () => {
                       <CurrencyInput
                         id={`rentalIncome-${idx}`}
                         value={prop.rentalIncome}
-                        onChange={(v: number) => updateProperty(idx, "rentalIncome", v)}
+                        onChange={(v: number): void => updateProperty(idx, "rentalIncome", v)}
                         placeholder="Total annual rent"
                       />
                     </div>
@@ -213,7 +213,7 @@ export const HousePropertySection: React.FC = () => {
                       <CurrencyInput
                         id={`municipalTaxes-${idx}`}
                         value={prop.municipalTaxes}
-                        onChange={(v: number) => updateProperty(idx, "municipalTaxes", v)}
+                        onChange={(v: number): void => updateProperty(idx, "municipalTaxes", v)}
                         placeholder="Property tax paid"
                       />
                     </div>
@@ -225,7 +225,7 @@ export const HousePropertySection: React.FC = () => {
                       <CurrencyInput
                         id={`unrealizedRent-${idx}`}
                         value={prop.unrealizedRent}
-                        onChange={(v: number) => updateProperty(idx, "unrealizedRent", v)}
+                        onChange={(v: number): void => updateProperty(idx, "unrealizedRent", v)}
                         placeholder="Unrealized rent amount"
                       />
                     </div>
@@ -241,7 +241,7 @@ export const HousePropertySection: React.FC = () => {
                   <CurrencyInput
                     id={`interestOnLoan-${idx}`}
                     value={prop.interestOnLoan}
-                    onChange={(v: number) => updateProperty(idx, "interestOnLoan", v)}
+                    onChange={(v: number): void => updateProperty(idx, "interestOnLoan", v)}
                     placeholder="Annual home loan interest"
                     max={isSelf ? 200000 : undefined}
                   />

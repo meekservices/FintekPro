@@ -8,8 +8,9 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FieldHint, CurrencyInput, ValidationBanner, formatCurrency } from "@/components/tax-itr/TaxITRHelpers";
 import { useTax } from "../TaxContext";
+import { SalaryDetails, EmployerDetails } from "../types";
 
-export const SalarySection: React.FC = () => {
+export const SalarySection: React.FC = (): React.ReactElement => {
   const {
     panContext,
     aisLoading,
@@ -27,7 +28,7 @@ export const SalarySection: React.FC = () => {
   } = useTax();
 
   const currentValidation = validateStep(currentStepId);
-  const salaryIncomeTotal = totals.grossSalary;
+  const salaryIncomeTotal = totals.salaryIncome;
 
   return (
     <div className="space-y-6">
@@ -63,11 +64,11 @@ export const SalarySection: React.FC = () => {
         <Alert className="bg-green-50 dark:bg-green-950 border-green-200">
           <CheckCircle className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-xs">
-            <strong>AIS data pre-filled:</strong> {aisData.salaryIncome > 0 ? `Salary ₹${aisData.salaryIncome.toLocaleString('en-IN')}` : ''} 
-            {aisData.interestIncome > 0 ? ` | Interest ₹${aisData.interestIncome.toLocaleString('en-IN')}` : ''} 
-            {aisData.dividendIncome > 0 ? ` | Dividends ₹${aisData.dividendIncome.toLocaleString('en-IN')}` : ''} 
-            {aisData.tdsEntries > 0 ? ` | ${aisData.tdsEntries} TDS entries` : ''} 
-            {aisData.saleTransactions > 0 ? ` | ${aisData.saleTransactions} sale transactions` : ''}
+            <strong>AIS data pre-filled:</strong> {(aisData.salaryIncome ?? 0) > 0 ? `Salary ₹${aisData.salaryIncome?.toLocaleString('en-IN')}` : ''} 
+            {(aisData.interestIncome ?? 0) > 0 ? ` | Interest ₹${aisData.interestIncome?.toLocaleString('en-IN')}` : ''} 
+            {(aisData.dividendIncome ?? 0) > 0 ? ` | Dividends ₹${aisData.dividendIncome?.toLocaleString('en-IN')}` : ''} 
+            {(aisData.tdsEntries ?? 0) > 0 ? ` | ${aisData.tdsEntries} TDS entries` : ''} 
+            {(aisData.saleTransactions ?? 0) > 0 ? ` | ${aisData.saleTransactions} sale transactions` : ''}
           </AlertDescription>
         </Alert>
       )}
@@ -113,7 +114,7 @@ export const SalarySection: React.FC = () => {
           <CurrencyInput
             id="grossSalary"
             value={salaryDetails.grossSalary}
-            onChange={(v: number) => setSalaryDetails((prev: SalaryDetails) => ({ ...prev, grossSalary: v }))}
+            onChange={(v: number): void => setSalaryDetails((prev: SalaryDetails) => ({ ...prev, grossSalary: v }))}
             placeholder="e.g. 12,00,000"
             data-testid="input-gross-salary"
           />
@@ -126,7 +127,7 @@ export const SalarySection: React.FC = () => {
           <CurrencyInput
             id="allowances"
             value={salaryDetails.allowances}
-            onChange={(v: number) => setSalaryDetails((prev: SalaryDetails) => ({ ...prev, allowances: v }))}
+            onChange={(v: number): void => setSalaryDetails((prev: SalaryDetails) => ({ ...prev, allowances: v }))}
             placeholder="0 if none"
             data-testid="input-allowances"
           />
@@ -139,7 +140,7 @@ export const SalarySection: React.FC = () => {
           <CurrencyInput
             id="professionalTax"
             value={salaryDetails.professionalTax}
-            onChange={(v: number) => setSalaryDetails((prev: SalaryDetails) => ({ ...prev, professionalTax: v }))}
+            onChange={(v: number): void => setSalaryDetails((prev: SalaryDetails) => ({ ...prev, professionalTax: v }))}
             placeholder="Usually ₹2,400 or ₹2,500"
             max={2500}
             data-testid="input-professional-tax"
@@ -153,7 +154,7 @@ export const SalarySection: React.FC = () => {
           <CurrencyInput
             id="employerPF"
             value={salaryDetails.employerPF}
-            onChange={(v: number) => setSalaryDetails((prev: SalaryDetails) => ({ ...prev, employerPF: v }))}
+            onChange={(v: number): void => setSalaryDetails((prev: SalaryDetails) => ({ ...prev, employerPF: v }))}
             placeholder="12% of basic salary"
             data-testid="input-employer-pf"
           />

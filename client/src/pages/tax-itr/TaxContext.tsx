@@ -8,7 +8,7 @@ import {
   PANContext, SalaryDetails, IncomeSource, HousePropertyDetails, CapitalGainsDetails, 
   OtherIncomeDetails, DeductionDetails, TaxPaymentDetails, 
   BankDetailsForRefund, ITRDraft, StepValidation, LossCarryForward, 
-  DirectorshipEntry, UnlistedShareEntry, Schedule112AEntry,
+  DirectorshipEntry, UnlistedShareEntry, Schedule112AEntry, DocumentVaultEntry,
   ScheduleSIDetails, ScheduleEIDetails, Interest234Details, 
   ScheduleSPIEntry, Schedule5ADetails, ScheduleIFEntry, MATDetails, MATCreditDetails, 
   AMTDetails, AMTCreditDetails, TDS1Entry, TDS2Entry, TCSEntry, Section234FDetails, 
@@ -18,7 +18,7 @@ import {
   ForeignIncomeDetails, BusinessDetails, RegimeComparison, EmployerDetails, BalanceSheetDetails,
   ProfitLossDetails, DepreciationEntry, TaxAuditInfo, EntityProfileDetails, CorporateDetails, TrustDetails,
   ScheduleALDetails, DonationEntry, LossAdjustmentDetails, SpecialRateIncome, FOIncome, CYLAData, BFLAData,
-  ItrUDetails, Step, TaxTotals, CGManualSavedItem
+  ItrUDetails, Step, TaxTotals, CGManualSavedItem, ForeignTaxCreditDetails, ForeignAssetsDetails
 } from "./types";
 import { STEPS } from "./constants";
 import { formatCurrency } from "@/components/tax-itr/TaxITRHelpers";
@@ -28,7 +28,7 @@ interface AISData {
   interestIncome?: number;
   dividendIncome?: number;
   loaded: boolean;
-  [key: string]: any;
+  [key: string]: string | number | boolean | null | undefined;
 }
 
 interface TaxContextType {
@@ -99,6 +99,10 @@ interface TaxContextType {
   setTaxPaymentDetails: React.Dispatch<React.SetStateAction<TaxPaymentDetails>>;
   bankDetails: BankDetailsForRefund;
   setBankDetails: React.Dispatch<React.SetStateAction<BankDetailsForRefund>>;
+  foreignTaxCredit: ForeignTaxCreditDetails;
+  setForeignTaxCredit: React.Dispatch<React.SetStateAction<ForeignTaxCreditDetails>>;
+  foreignAssets: ForeignAssetsDetails;
+  setForeignAssets: React.Dispatch<React.SetStateAction<ForeignAssetsDetails>>;
   
   // Schedules & Advanced
   lossCarryForward: LossCarryForward[];
@@ -163,11 +167,17 @@ interface TaxContextType {
   setIsUpdatedReturn: (v: boolean) => void;
   itrUDetails: ItrUDetails;
   setItrUDetails: React.Dispatch<React.SetStateAction<ItrUDetails>>;
+  isEntityForm: boolean;
   aisLoading: boolean;
-  aisData: any;
-  setAisData: React.Dispatch<React.SetStateAction<any>>;
+  form26ASLoading: boolean;
+  aisData: AISData;
+  setAisData: React.Dispatch<React.SetStateAction<AISData>>;
   form16Uploading: boolean;
   setForm16Uploading: (v: boolean) => void;
+  directorships: DirectorshipEntry[];
+  setDirectorships: React.Dispatch<React.SetStateAction<DirectorshipEntry[]>>;
+  unlistedShares: UnlistedShareEntry[];
+  setUnlistedShares: React.Dispatch<React.SetStateAction<UnlistedShareEntry[]>>;
   sandboxTaxResult: SandboxTaxResult | null;
   taxCalcError: string | null;
   
@@ -189,6 +199,48 @@ interface TaxContextType {
   
   // Actions
   validateStep: (stepId: string) => StepValidation;
+  documentVault: DocumentVaultEntry[];
+  setDocumentVault: React.Dispatch<React.SetStateAction<DocumentVaultEntry[]>>;
+  showAdvancedOptions: boolean;
+  setShowAdvancedOptions: (v: boolean) => void;
+  showChallanDialog: boolean;
+  setShowChallanDialog: (v: boolean) => void;
+  challanResult: ChallanResult | null;
+  setChallanResult: React.Dispatch<React.SetStateAction<ChallanResult | null>>;
+  showToolsDialog: boolean;
+  setShowToolsDialog: (v: boolean) => void;
+  hraResult: HraResult | null;
+  setHraResult: (r: HraResult | null) => void;
+  form10EResult: Form10EResult | null;
+  setForm10EResult: (r: Form10EResult | null) => void;
+  optimizerResult: OptimizerResult | null;
+  setOptimizerResult: (r: OptimizerResult | null) => void;
+  preFilingResult: PreFilingResult | null;
+  setPreFilingResult: (r: PreFilingResult | null) => void;
+  showPreFilingCheck: boolean;
+  setShowPreFilingCheck: (v: boolean) => void;
+  showSharingPanel: boolean;
+  setShowSharingPanel: (v: boolean) => void;
+  refundData: RefundData | null;
+  setRefundData: (d: RefundData | null) => void;
+  showRefundTracker: boolean;
+  setShowRefundTracker: (v: boolean) => void;
+  deadlinesData: TaxDeadline[];
+  setDeadlinesData: (d: TaxDeadline[]) => void;
+  showDeadlines: boolean;
+  setShowDeadlines: (v: boolean) => void;
+  showLookupPanel: boolean;
+  setShowLookupPanel: (v: boolean) => void;
+  reconciliationResult: ReconciliationResult | null;
+  setReconciliationResult: (r: ReconciliationResult | null) => void;
+  showReconciliation: boolean;
+  setShowReconciliation: (v: boolean) => void;
+  ifscResult: IfscResult | null;
+  setIfscResult: (r: IfscResult | null) => void;
+  regimeComparison: RegimeComparison | null;
+  
+  // Helpers
+  toast: ReturnType<typeof useToast>["toast"];
   saveDraft: () => void;
   calculateTax: () => void;
   nextStep: () => void;
@@ -199,8 +251,10 @@ interface TaxContextType {
   handleCgFileUpload: (file: File, brokerId: string) => Promise<void>;
   handleCgManualSave: () => Promise<void>;
   handleFetch26AS: () => Promise<void>;
-  taxCalcMutation: UseMutationResult<any, Error, any>;
-  regimeCompareMutation: UseMutationResult<RegimeComparison, Error, any>;
+  
+  // Mutations
+  taxCalcMutation: UseMutationResult<SandboxTaxResult, Error, void>;
+  regimeCompareMutation: UseMutationResult<RegimeComparison, Error, void>;
 }
 
 const TaxContext = createContext<TaxContextType | undefined>(undefined);
@@ -268,6 +322,8 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     foreignTaxPaid: 0, dtaaCountry: "US", dtaaArticle: "", currencyCode: "USD", exchangeRate: 83.5,
     hasForeignAssets: true, foreignAssets: [],
   });
+  const [foreignTaxCredit, setForeignTaxCredit] = useState<ForeignTaxCreditDetails>({ isApplicable: false });
+  const [foreignAssets, setForeignAssets] = useState<ForeignAssetsDetails>({ isApplicable: false, assets: [] });
 
   const [businessDetails, setBusinessDetails] = useState<BusinessDetails>({
     businessIncome: 0, grossTurnover: 0, grossReceipts: 0, presumptiveIncome44AD: 0,
@@ -383,10 +439,36 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [donationEntries, setDonationEntries] = useState<DonationEntry[]>([]);
   const [isUpdatedReturn, setIsUpdatedReturn] = useState(false);
   const [itrUDetails, setItrUDetails] = useState<ItrUDetails>({ originalAckNumber: "", originalFilingDate: "", reasonForUpdate: "income_not_reported", additionalTaxPayable: 0, lateFee234F: 0, additionalInterest: 0 });
+  const [directorships, setDirectorships] = useState<DirectorshipEntry[]>([]);
+  const [unlistedShares, setUnlistedShares] = useState<UnlistedShareEntry[]>([]);
   const [aisLoading, setAisLoading] = useState(false);
-  const [aisData, setAisData] = useState<AISData | null>(null);
+  const [aisData, setAisData] = useState<AISData>({ loaded: false });
   const [form26ASLoading, setForm26ASLoading] = useState(false);
   const [form16Uploading, setForm16Uploading] = useState(false);
+  
+  // Additional UI State
+  const [documentVault, setDocumentVault] = useState<DocumentVaultEntry[]>([]);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [showChallanDialog, setShowChallanDialog] = useState(false);
+  const [challanResult, setChallanResult] = useState<ChallanResult | null>(null);
+  const [showToolsDialog, setShowToolsDialog] = useState(false);
+  const [hraResult, setHraResult] = useState<HraResult | null>(null);
+  const [form10EResult, setForm10EResult] = useState<Form10EResult | null>(null);
+  const [optimizerResult, setOptimizerResult] = useState<OptimizerResult | null>(null);
+  const [preFilingResult, setPreFilingResult] = useState<PreFilingResult | null>(null);
+  const [showPreFilingCheck, setShowPreFilingCheck] = useState(false);
+  const [showSharingPanel, setShowSharingPanel] = useState(false);
+  const [refundData, setRefundData] = useState<RefundData | null>(null);
+  const [showRefundTracker, setShowRefundTracker] = useState(false);
+  const [deadlinesData, setDeadlinesData] = useState<TaxDeadline[]>([]);
+  const [showDeadlines, setShowDeadlines] = useState(false);
+  const [showLookupPanel, setShowLookupPanel] = useState(false);
+  const [reconciliationResult, setReconciliationResult] = useState<ReconciliationResult | null>(null);
+  const [showReconciliation, setShowReconciliation] = useState(false);
+  const [ifscResult, setIfscResult] = useState<IfscResult | null>(null);
+  const [regimeComparison, setRegimeComparison] = useState<RegimeComparison | null>(null);
+  
+  const [foreignAssetsLocal, setForeignAssetsLocal] = useState<ForeignAssetsDetails>({ isApplicable: false, assets: [] });
   
   const handleFetch26AS = async (): Promise<void> => {
     if (!panContext?.pan) return;
@@ -430,7 +512,7 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const handleForm16Upload = async (file: File) => {
+  const handleForm16Upload = async (file: File): Promise<void> => {
     setForm16Uploading(true);
     try {
       const formData = new FormData();
@@ -452,7 +534,7 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           employerPF: data.parsed.employerPF ?? prev.employerPF,
         }));
         if (data.parsed.tdsDeducted) {
-          setTaxPaymentDetails(prev => ({ ...prev, tdsDeducted: data.parsed.tdsDeducted }));
+          setTaxPaymentDetails((prev: TaxPaymentDetails): TaxPaymentDetails => ({ ...prev, tdsDeducted: data.parsed.tdsDeducted }));
         }
         toast({ title: "Form 16 Parsed", description: "Salary and TDS details auto-filled." });
       }
@@ -463,7 +545,7 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const handleCgFileUpload = async (file: File, brokerId: string) => {
+  const handleCgFileUpload = async (file: File, brokerId: string): Promise<void> => {
     setCgUploading(true);
     try {
       const formData = new FormData();
@@ -491,13 +573,13 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }]);
         
         // Income is recalculated via useMemo 'totals', but we update the details state
-        const uploadSTCG = cgUploads.reduce((s, u) => s + u.summary.netSTCG, 0) + (result.summary?.netSTCG || 0);
-        const uploadLTCG = cgUploads.reduce((s, u) => s + u.summary.netLTCG, 0) + (result.summary?.netLTCG || 0);
+        const uploadSTCG = cgUploads.reduce((s: number, u: BrokerUploadInfo): number => s + u.summary.netSTCG, 0) + (result.summary?.netSTCG || 0);
+        const uploadLTCG = cgUploads.reduce((s: number, u: BrokerUploadInfo): number => s + u.summary.netLTCG, 0) + (result.summary?.netLTCG || 0);
         
-        setCapitalGainsDetails(prev => ({
+        setCapitalGainsDetails((prev: CapitalGainsDetails): CapitalGainsDetails => ({
           ...prev,
-          shortTermGains: uploadSTCG + cgManualSaved.reduce((s, e) => s + e.summary.totalSTCG, 0),
-          longTermGains: uploadLTCG + cgManualSaved.reduce((s, e) => s + e.summary.totalLTCG, 0),
+          shortTermGains: uploadSTCG + cgManualSaved.reduce((s: number, e: CGManualSavedItem): number => s + e.summary.totalSTCG, 0),
+          longTermGains: uploadLTCG + cgManualSaved.reduce((s: number, e: CGManualSavedItem): number => s + e.summary.totalLTCG, 0),
         }));
         
         toast({ 
@@ -507,8 +589,12 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } else {
         throw new Error(result.error || "Upload failed");
       }
-    } catch (err: any) {
-      toast({ title: "Upload Failed", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ 
+        title: "Upload Failed", 
+        description: err instanceof Error ? err.message : "Unknown error during upload", 
+        variant: "destructive" 
+      });
     } finally {
       setCgUploading(false);
       setCgSelectedBroker(null);
@@ -538,14 +624,14 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           entryCount: result.entries.length,
         }]);
         
-        const manualSTCG = cgManualSaved.reduce((s: number, e: CGManualSavedItem) => s + (e.summary as any).totalSTCG, 0) + (result.summary?.totalSTCG || 0);
-        const manualLTCG = cgManualSaved.reduce((s: number, e: CGManualSavedItem) => s + (e.summary as any).totalLTCG, 0) + (result.summary?.totalLTCG || 0);
+        const manualSTCG = cgManualSaved.reduce((s: number, e: CGManualSavedItem) => s + e.summary.totalSTCG, 0) + (result.summary?.totalSTCG || 0);
+        const manualLTCG = cgManualSaved.reduce((s: number, e: CGManualSavedItem) => s + e.summary.totalLTCG, 0) + (result.summary?.totalLTCG || 0);
         
         setCapitalGainsDetails((prev: CapitalGainsDetails) => ({
           ...prev,
           shortTermGains: cgUploads.reduce((s: number, u: BrokerUploadInfo) => s + u.summary.netSTCG, 0) + manualSTCG,
           longTermGains: cgUploads.reduce((s: number, u: BrokerUploadInfo) => s + u.summary.netLTCG, 0) + manualLTCG,
-          exemptionsApplied: cgManualSaved.reduce((s: number, e: CGManualSavedItem) => s + (e.summary as any).totalExemptions, 0) + (result.summary?.totalExemptions || 0),
+          exemptionsApplied: cgManualSaved.reduce((s: number, e: CGManualSavedItem) => s + e.summary.totalExemptions, 0) + (result.summary?.totalExemptions || 0),
         }));
         
         setCgManualEntries([]);
@@ -562,9 +648,9 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const salaryIncome = incomeSources.hasSalary ? (salaryDetails.grossSalary + salaryDetails.allowances + salaryDetails.perquisites + salaryDetails.profitInLieu - salaryDetails.standardDeduction - salaryDetails.professionalTax) : 0;
     let hpIncome = 0;
     if (incomeSources.hasHouseProperty) {
-      housePropertyDetails.properties.forEach(prop => {
+      housePropertyDetails.properties.forEach((prop: any): void => {
         if (prop.propertyType === "self_occupied") hpIncome += -Math.min(prop.interestOnLoan, 200000);
-        else { const nav = prop.rentalIncome - prop.municipalTaxes - prop.unrealizedRent; hpIncome += nav * 0.70 - prop.interestOnLoan; }
+        else { const nav: number = prop.rentalIncome - prop.municipalTaxes - prop.unrealizedRent; hpIncome += nav * 0.70 - prop.interestOnLoan; }
       });
     }
     const capitalGains = capitalGainsDetails.shortTermGains + capitalGainsDetails.longTermGains - capitalGainsDetails.exemptionsApplied;
@@ -575,11 +661,24 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const totalTaxPaid = taxPaymentDetails.tdsDeducted + taxPaymentDetails.advanceTaxPaid + taxPaymentDetails.selfAssessmentTax;
     
     const taxableIncome = Math.max(0, grossTotalIncome - totalDeductions);
-    const refundDue = totalTaxPaid > 0 ? Math.max(0, totalTaxPaid - 0) : 0; // Simplified for now
+    const refundDue = totalTaxPaid > 0 ? Math.max(0, totalTaxPaid - 0) : 0; 
     
     return { 
-      salaryIncome, housePropertyIncome: hpIncome, capitalGains, otherIncome, businessIncome, 
-      grossTotalIncome, totalDeductions, taxableIncome, taxPayable: 0, refundDue, paymentDue: 0 
+      salaryIncome, 
+      housePropertyIncome: hpIncome, 
+      capitalGains, 
+      otherIncome, 
+      businessIncome, 
+      foreignCapitalGains: foreignIncomeDetails.foreignSTCG + foreignIncomeDetails.foreignLTCG,
+      foreignOtherIncome: foreignIncomeDetails.foreignDividends + foreignIncomeDetails.foreignInterest + foreignIncomeDetails.foreignOtherIncome,
+      foreignTaxCredit: foreignIncomeDetails.foreignTaxPaid,
+      grossTotalIncome, 
+      totalDeductions, 
+      taxableIncome, 
+      taxPayable: 0, 
+      totalTaxPaid,
+      refundDue, 
+      paymentDue: 0 
     };
   }, [incomeSources, salaryDetails, housePropertyDetails, capitalGainsDetails, otherIncomeDetails, businessDetails, deductionDetails, taxPaymentDetails]);
 
@@ -704,11 +803,11 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         salaryDetails.standardDeduction - salaryDetails.professionalTax;
 
       let housePropertyIncome = 0;
-      housePropertyDetails.properties.forEach(prop => {
+      housePropertyDetails.properties.forEach((prop: any): void => {
         if (prop.propertyType === "self_occupied") {
           housePropertyIncome += -Math.min(prop.interestOnLoan, 200000);
         } else {
-          const nav = prop.rentalIncome - prop.municipalTaxes - prop.unrealizedRent;
+          const nav: number = prop.rentalIncome - prop.municipalTaxes - prop.unrealizedRent;
           housePropertyIncome += nav * 0.70 - prop.interestOnLoan;
         }
       });
@@ -769,10 +868,13 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         })
       });
       return res as RegimeComparison;
+    },
+    onSuccess: (res) => {
+      setRegimeComparison(res);
     }
   });
 
-  const saveDraft = () => {
+  const saveDraft = (): void => {
     saveDraftMutation.mutate({
       pan: panContext?.pan || "",
       assessmentYear,
@@ -795,7 +897,7 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const nextStep = () => {
+  const nextStep = (): void => {
     if (!currentValidation.isValid) {
       toast({ title: "Validation Error", description: currentValidation.errors[0], variant: "destructive" });
       return;
@@ -808,12 +910,12 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const prevStep = () => {
+  const prevStep = (): void => {
     const idx = activeSteps.findIndex(s => s.id === currentStepId);
     if (idx > 0) setCurrentStepId(activeSteps[idx - 1].id);
   };
 
-  const goToStep = (id: string) => {
+  const goToStep = (id: string): void => {
     if (visitedSteps.has(id)) setCurrentStepId(id);
   };
 
@@ -821,7 +923,7 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const salary = incomeSources.hasSalary ? (salaryDetails.grossSalary + salaryDetails.allowances + salaryDetails.perquisites + salaryDetails.profitInLieu - salaryDetails.standardDeduction - salaryDetails.professionalTax) : 0;
     let hp = 0;
     if (incomeSources.hasHouseProperty) {
-      housePropertyDetails.properties.forEach(prop => {
+      housePropertyDetails.properties.forEach((prop: any): void => {
         if (prop.propertyType === "self_occupied") hp += -Math.min(prop.interestOnLoan, 200000);
         else hp += (prop.rentalIncome - prop.municipalTaxes - prop.unrealizedRent) * 0.70 - prop.interestOnLoan;
       });
@@ -836,23 +938,23 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let remainingBizLoss = business < 0 ? Math.abs(business) : 0;
 
     const heads = [
-      { head: "Salary", income: Math.max(salary, 0) },
-      { head: "House Property", income: hp > 0 ? hp : 0 },
-      { head: "STCG", income: stcg > 0 ? stcg : 0 },
-      { head: "LTCG", income: ltcg > 0 ? ltcg : 0 },
-      { head: "Business / Profession", income: business > 0 ? business : 0 },
-      { head: "Other Sources", income: otherSrc > 0 ? otherSrc : 0 },
-    ];
+      { head: "salary", income: Math.max(salary, 0) },
+      { head: "house_property", income: hp > 0 ? hp : 0 },
+      { head: "capital_gains", income: stcg > 0 ? stcg : 0 },
+      { head: "capital_gains", income: ltcg > 0 ? ltcg : 0 },
+      { head: "business", income: business > 0 ? business : 0 },
+      { head: "other_sources", income: otherSrc > 0 ? otherSrc : 0 },
+    ] as const;
 
     for (const h of heads) {
       let available = h.income;
       let hpUsed = 0, bizUsed = 0;
-      if (remainingHPLoss > 0 && available > 0 && h.head !== "House Property") {
+      if (remainingHPLoss > 0 && available > 0 && h.head !== "house_property") {
         hpUsed = Math.min(remainingHPLoss, available);
         remainingHPLoss -= hpUsed;
         available -= hpUsed;
       }
-      if (remainingBizLoss > 0 && available > 0 && h.head !== "Salary" && h.head !== "Business / Profession") {
+      if (remainingBizLoss > 0 && available > 0 && h.head !== "salary" && h.head !== "business") {
         bizUsed = Math.min(remainingBizLoss, available);
         remainingBizLoss -= bizUsed;
         available -= bizUsed;
@@ -861,7 +963,7 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return { 
       adjustments, 
-      totalIncomeAfterCYLA: adjustments.reduce((s: number, a: CYLAAdjustment) => s + a.incomeAfterSetOff, 0), 
+      totalIncomeAfterCYLA: adjustments.reduce((s: number, a: CYLAAdjustment): number => s + a.incomeAfterSetOff, 0), 
       unabsorbedHPLoss: remainingHPLoss, 
       unabsorbedBizLoss: remainingBizLoss,
       currentYearSTCLoss: stcg < 0 ? Math.abs(stcg) : 0,
@@ -874,16 +976,16 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const bflaRows: BFLAAdjustment[] = cyla.adjustments.map((a: CYLAAdjustment) => ({
       head: a.head, incomeAfterCYLA: a.incomeAfterSetOff, bfHPLossSetOff: 0, bfSTCLSetOff: 0, bfLTCLSetOff: 0, bfBusinessLossSetOff: 0, bfSpeculationSetOff: 0, incomeAfterBFLA: a.incomeAfterSetOff,
     }));
-    let remHP = lossCarryForward.filter((l: LossCarryForward) => l.lossType === "house_property").reduce((s: number, l: LossCarryForward) => s + (l.lossAmount - l.setOffAmount), 0);
-    let remBiz = lossCarryForward.filter((l: LossCarryForward) => l.lossType === "business").reduce((s: number, l: LossCarryForward) => s + (l.lossAmount - l.setOffAmount), 0);
+    let remHP = lossCarryForward.filter((l: LossCarryForward): boolean => l.lossType === "house_property").reduce((s: number, l: LossCarryForward): number => s + (l.lossAmount - l.setOffAmount), 0);
+    let remBiz = lossCarryForward.filter((l: LossCarryForward): boolean => l.lossType === "business").reduce((s: number, l: LossCarryForward): number => s + (l.lossAmount - l.setOffAmount), 0);
     
     for (const row of bflaRows) {
       let avail = row.incomeAfterCYLA;
       if (remHP > 0 && avail > 0) { const u = Math.min(remHP, avail); row.bfHPLossSetOff = u; remHP -= u; avail -= u; }
-      if (remBiz > 0 && avail > 0 && row.head !== "Salary") { const u = Math.min(remBiz, avail); row.bfBusinessLossSetOff = u; remBiz -= u; avail -= u; }
+      if (remBiz > 0 && avail > 0 && row.head !== "salary") { const u = Math.min(remBiz, avail); row.bfBusinessLossSetOff = u; remBiz -= u; avail -= u; }
       row.incomeAfterBFLA = avail;
     }
-    return { bflaRows, totalIncomeAfterBFLA: bflaRows.reduce((s: number, r: BFLAAdjustment) => s + r.incomeAfterBFLA, 0), remainingHP: remHP, remainingBiz: remBiz };
+    return { bflaRows, totalIncomeAfterBFLA: bflaRows.reduce((s: number, r: BFLAAdjustment): number => s + r.incomeAfterBFLA, 0), remainingHP: remHP, remainingBiz: remBiz };
   }, [computeCYLA, lossCarryForward]);
 
   const computeCFL = useMemo((): CFLEntry[] => {
@@ -898,7 +1000,7 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return entries;
   }, [computeCYLA, assessmentYear]);
 
-  const compute234Interest = useCallback(() => {
+  const compute234Interest = useCallback((): void => {
     const taxLiability = sandboxTaxResult?.data?.taxLiability || 0;
     const assessedTax = Math.max(0, taxLiability - taxPaymentDetails.reliefUs89);
     setInterest234(prev => ({ ...prev, assessedTax }));
@@ -910,8 +1012,15 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     incomeSources, setIncomeSources, salaryDetails, setSalaryDetails, housePropertyDetails, setHousePropertyDetails, capitalGainsDetails, setCapitalGainsDetails,
     cgMode, setCgMode, cgBrokerSearch, setCgBrokerSearch, cgSelectedBroker, setCgSelectedBroker, cgUploading, cgUploads, setCgUploads, cgManualAssetType, setCgManualAssetType, cgManualEntries, setCgManualEntries, cgManualSaved, setCgManualSaved,
     foreignIncomeDetails, setForeignIncomeDetails, businessDetails, setBusinessDetails, residentialStatus, setResidentialStatus, filingSection, setFilingSection, employerDetails, setEmployerDetails, otherIncomeDetails, setOtherIncomeDetails, deductionDetails, setDeductionDetails, taxPaymentDetails, setTaxPaymentDetails, bankDetails, setBankDetails,
+    foreignTaxCredit, setForeignTaxCredit, foreignAssets, setForeignAssets,
     lossCarryForward, setLossCarryForward, schedule112AEntries, setSchedule112AEntries, scheduleSI, setScheduleSI, scheduleEI, setScheduleEI, interest234, setInterest234, scheduleSPI, setScheduleSPI, schedule5A, setSchedule5A, scheduleIF, setScheduleIF, matDetails, setMatDetails, matcDetails, setMatcDetails, amtDetails, setAmtDetails, amtcDetails, setAmtcDetails, tds1Entries, setTds1Entries, tds2Entries, setTds2Entries, tcsEntries, setTcsEntries, section234F, setSection234F, section87A, setSection87A, balanceSheet, setBalanceSheet, profitLoss, setProfitLoss, depreciationEntries, setDepreciationEntries, taxAuditInfo, setTaxAuditInfo, entityProfile, setEntityProfile, corporateDetails, setCorporateDetails, trustDetails, setTrustDetails, scheduleAL, setScheduleAL, donationEntries, setDonationEntries,
-    isUpdatedReturn, setIsUpdatedReturn, itrUDetails, setItrUDetails, aisLoading, aisData, setAisData, form16Uploading, setForm16Uploading, sandboxTaxResult, taxCalcError,
+    isUpdatedReturn, setIsUpdatedReturn, itrUDetails, setItrUDetails, isEntityForm: ["ITR-5", "ITR-6", "ITR-7"].includes(recommendedForm),
+    aisLoading, aisData, setAisData, form16Uploading, setForm16Uploading, form26ASLoading, directorships, setDirectorships, unlistedShares, setUnlistedShares, sandboxTaxResult, taxCalcError,
+    documentVault, setDocumentVault, showAdvancedOptions, setShowAdvancedOptions, showChallanDialog, setShowChallanDialog, challanResult, setChallanResult,
+    showToolsDialog, setShowToolsDialog, hraResult, setHraResult, form10EResult, setForm10EResult, optimizerResult, setOptimizerResult,
+    preFilingResult, setPreFilingResult, showPreFilingCheck, setShowPreFilingCheck, showSharingPanel, setShowSharingPanel, refundData, setRefundData,
+    showRefundTracker, setShowRefundTracker, deadlinesData, setDeadlinesData, showDeadlines, setShowDeadlines, showLookupPanel, setShowLookupPanel,
+    reconciliationResult, setReconciliationResult, showReconciliation, setShowReconciliation, ifscResult, setIfscResult, regimeComparison,
     computeCYLA, computeBFLA, computeCFL, compute234Interest,
     totals, activeSteps, currentStepIndex: activeSteps.findIndex(s => s.id === currentStepId), 
     safeCurrentStep: Math.max(0, activeSteps.findIndex(s => s.id === currentStepId)),
@@ -919,6 +1028,7 @@ export const TaxProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     cyla: computeCYLA, bfla: computeBFLA, cfl: computeCFL,
     specialRateIncome, setSpecialRateIncome,
     foIncome, setFoIncome,
+    toast,
     validateStep, saveDraft, calculateTax: () => taxCalcMutation.mutate(), nextStep, prevStep, goToStep, handleFetchAIS, handleForm16Upload, handleCgFileUpload, handleCgManualSave, handleFetch26AS,
     taxCalcMutation, regimeCompareMutation
   };

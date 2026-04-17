@@ -11,9 +11,9 @@ import {
   CurrencyInput 
 } from "@/components/tax-itr/TaxITRHelpers";
 import { useTax } from "../TaxContext";
-import { MATDetails, MATCreditDetails, AMTDetails, AMTCreditDetails } from "../types";
+import { MATDetails, MATCreditDetails, MATCreditEntry, AMTDetails, AMTCreditDetails, AMTCreditEntry } from "../types";
 
-export const MATAMTSection: React.FC = () => {
+export const MATAMTSection: React.FC = (): React.ReactElement => {
   const {
     recommendedForm,
     matDetails,
@@ -25,9 +25,9 @@ export const MATAMTSection: React.FC = () => {
     amtcDetails,
     setAmtcDetails
   } = useTax();
-  const computeMAT = () => {
-    const additions = Object.values(matDetails.additionsToBookProfit).reduce((s, v) => s + v, 0);
-    const deductions = Object.values(matDetails.deductionsFromBookProfit).reduce((s, v) => s + v, 0);
+  const computeMAT = (): void => {
+    const additions = Object.values(matDetails.additionsToBookProfit).reduce((s: number, v: number) => s + v, 0);
+    const deductions = Object.values(matDetails.deductionsFromBookProfit).reduce((s: number, v: number) => s + v, 0);
     const adjustedBookProfit = matDetails.bookProfitBeforeAdjustments + additions - deductions;
     const matTax = Math.round(adjustedBookProfit * matDetails.matRate / 100);
     const surcharge = adjustedBookProfit > 10000000 ? Math.round(matTax * 0.07) : 0;
@@ -41,8 +41,8 @@ export const MATAMTSection: React.FC = () => {
     }));
   };
 
-  const computeAMT = () => {
-    const totalAdditions = Object.values(amtDetails.additions).reduce((s, v) => s + v, 0);
+  const computeAMT = (): void => {
+    const totalAdditions = Object.values(amtDetails.additions).reduce((s: number, v: number) => s + v, 0);
     const adjustedTotalIncome = amtDetails.adjustedTotalIncome + totalAdditions;
     const amtAmount = Math.round(adjustedTotalIncome * amtDetails.amtRate / 100);
     const surcharge = adjustedTotalIncome > 5000000 ? Math.round(amtAmount * 0.10) : 0;
@@ -73,14 +73,14 @@ export const MATAMTSection: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
-                <Switch checked={matDetails.isApplicable} onCheckedChange={v => setMatDetails((p: MATDetails) => ({ ...p, isApplicable: v }))} />
+                <Switch checked={matDetails.isApplicable} onCheckedChange={(v: boolean): void => setMatDetails((p: MATDetails): MATDetails => ({ ...p, isApplicable: v }))} />
                 <Label className="text-sm">MAT is applicable (Company filing ITR-6)</Label>
               </div>
               {matDetails.isApplicable && (
                 <>
                   <div>
                     <Label className="text-xs">Net Profit as per P&L (Book Profit before adjustments) (₹)</Label>
-                    <CurrencyInput id="mat-book-profit" value={matDetails.bookProfitBeforeAdjustments} onChange={v => setMatDetails((p: MATDetails) => ({ ...p, bookProfitBeforeAdjustments: v }))} />
+                    <CurrencyInput id="mat-book-profit" value={matDetails.bookProfitBeforeAdjustments} onChange={(v: number): void => setMatDetails((p: MATDetails): MATDetails => ({ ...p, bookProfitBeforeAdjustments: v }))} />
                   </div>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Additions to Book Profit</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -98,7 +98,7 @@ export const MATAMTSection: React.FC = () => {
                     ] as const).map(([key, label]) => (
                       <div key={key}>
                         <Label className="text-xs">{label} (₹)</Label>
-                        <CurrencyInput id={`mat-add-${key}`} value={matDetails.additionsToBookProfit[key]} onChange={v => setMatDetails((p: MATDetails) => ({ ...p, additionsToBookProfit: { ...p.additionsToBookProfit, [key]: v } }))} />
+                        <CurrencyInput id={`mat-add-${key}`} value={matDetails.additionsToBookProfit[key]} onChange={(v: number): void => setMatDetails((p: MATDetails): MATDetails => ({ ...p, additionsToBookProfit: { ...p.additionsToBookProfit, [key]: v } }))} />
                       </div>
                     ))}
                   </div>
@@ -116,18 +116,18 @@ export const MATAMTSection: React.FC = () => {
                     ] as const).map(([key, label]) => (
                       <div key={key}>
                         <Label className="text-xs">{label} (₹)</Label>
-                        <CurrencyInput id={`mat-ded-${key}`} value={matDetails.deductionsFromBookProfit[key]} onChange={v => setMatDetails((p: MATDetails) => ({ ...p, deductionsFromBookProfit: { ...p.deductionsFromBookProfit, [key]: v } }))} />
+                        <CurrencyInput id={`mat-ded-${key}`} value={matDetails.deductionsFromBookProfit[key]} onChange={(v: number): void => setMatDetails((p: MATDetails): MATDetails => ({ ...p, deductionsFromBookProfit: { ...p.deductionsFromBookProfit, [key]: v } }))} />
                       </div>
                     ))}
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs">Normal Tax Liability (₹)</Label>
-                      <CurrencyInput id="mat-normal-tax" value={matDetails.normalTaxLiability} onChange={v => setMatDetails((p: MATDetails) => ({ ...p, normalTaxLiability: v }))} />
+                      <CurrencyInput id="mat-normal-tax" value={matDetails.normalTaxLiability} onChange={(v: number): void => setMatDetails((p: MATDetails): MATDetails => ({ ...p, normalTaxLiability: v }))} />
                     </div>
                     <div>
                       <Label className="text-xs">MAT Rate (%)</Label>
-                      <Input type="number" value={matDetails.matRate} onChange={e => setMatDetails((p: MATDetails) => ({ ...p, matRate: Number(e.target.value) }))} />
+                      <Input type="number" value={matDetails.matRate} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setMatDetails((p: MATDetails): MATDetails => ({ ...p, matRate: Number(e.target.value) }))} />
                     </div>
                   </div>
                   <Button onClick={computeMAT} className="w-full" data-testid="btn-compute-mat">
@@ -160,31 +160,31 @@ export const MATAMTSection: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
-                <Switch checked={matcDetails.isApplicable} onCheckedChange={v => setMatcDetails((p: MATCreditDetails) => ({ ...p, isApplicable: v }))} />
+                <Switch checked={matcDetails.isApplicable} onCheckedChange={(v: boolean): void => setMatcDetails((p: MATCreditDetails): MATCreditDetails => ({ ...p, isApplicable: v }))} />
                 <Label className="text-sm">I have MAT credit to claim</Label>
               </div>
               {matcDetails.isApplicable && (
                 <>
-                  {matcDetails.creditEntries.map((entry, idx) => (
+                  {matcDetails.creditEntries.map((entry: MATCreditEntry, idx: number): React.ReactElement => (
                     <Card key={idx} className="border-dashed">
                       <CardContent className="pt-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <Badge variant="outline" className="text-xs">AY {entry.assessmentYear}</Badge>
-                          <Button variant="ghost" size="sm" onClick={() => setMatcDetails(p => ({ ...p, creditEntries: p.creditEntries.filter((_, i) => i !== idx) }))}>
+                          <Button variant="ghost" size="sm" onClick={(): void => setMatcDetails((p: MATCreditDetails): MATCreditDetails => ({ ...p, creditEntries: p.creditEntries.filter((_: MATCreditEntry, i: number) => i !== idx) }))}>
                             <XCircle className="h-4 w-4 text-red-500" />
                           </Button>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                           <div>
-                            <Input value={entry.assessmentYear} onChange={e => setMatcDetails((p: MATCreditDetails) => ({ ...p, creditEntries: p.creditEntries.map((c: MATCreditEntry, i: number) => i === idx ? { ...c, assessmentYear: e.target.value } : c) }))} placeholder="20XX-XX" />
+                           <Input value={entry.assessmentYear} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setMatcDetails((p: MATCreditDetails): MATCreditDetails => ({ ...p, creditEntries: p.creditEntries.map((c: MATCreditEntry, i: number): MATCreditEntry => i === idx ? { ...c, assessmentYear: e.target.value } : c) }))} placeholder="20XX-XX" />
                           </div>
                           <div>
                             <Label className="text-xs">MAT Paid (₹)</Label>
-                            <CurrencyInput id={`matc-paid-${idx}`} value={entry.matPaid} onChange={v => setMatcDetails((p: MATCreditDetails) => ({ ...p, creditEntries: p.creditEntries.map((c: MATCreditEntry, i: number) => i === idx ? { ...c, matPaid: v } : c) }))} />
+                            <CurrencyInput id={`matc-paid-${idx}`} value={entry.matPaid} onChange={(v: number): void => setMatcDetails((p: MATCreditDetails): MATCreditDetails => ({ ...p, creditEntries: p.creditEntries.map((c: MATCreditEntry, i: number) => i === idx ? { ...c, matPaid: v } : c) }))} />
                           </div>
                           <div>
                             <Label className="text-xs">Normal Tax (₹)</Label>
-                            <CurrencyInput id={`matc-normal-${idx}`} value={entry.normalTaxPayable} onChange={v => setMatcDetails((p: MATCreditDetails) => ({ ...p, creditEntries: p.creditEntries.map((c: MATCreditEntry, i: number) => i === idx ? { ...c, normalTaxPayable: v, matCreditAvailable: Math.max(0, (entry.matPaid || 0) - v) } : c) }))} />
+                            <CurrencyInput id={`matc-normal-${idx}`} value={entry.normalTaxPayable} onChange={(v: number): void => setMatcDetails((p: MATCreditDetails): MATCreditDetails => ({ ...p, creditEntries: p.creditEntries.map((c: MATCreditEntry, i: number) => i === idx ? { ...c, normalTaxPayable: v, matCreditAvailable: Math.max(0, (entry.matPaid || 0) - v) } : c) }))} />
                           </div>
                           <div>
                             <Label className="text-xs">Credit Available (₹)</Label>
@@ -192,13 +192,13 @@ export const MATAMTSection: React.FC = () => {
                           </div>
                           <div>
                             <Label className="text-xs">Credit Utilized (₹)</Label>
-                            <CurrencyInput id={`matc-util-${idx}`} value={entry.matCreditUtilized} onChange={v => setMatcDetails((p: MATCreditDetails) => ({ ...p, creditEntries: p.creditEntries.map((c: MATCreditEntry, i: number) => i === idx ? { ...c, matCreditUtilized: v } : c) }))} />
+                            <CurrencyInput id={`matc-util-${idx}`} value={entry.matCreditUtilized} onChange={(v: number): void => setMatcDetails((p: MATCreditDetails): MATCreditDetails => ({ ...p, creditEntries: p.creditEntries.map((c: MATCreditEntry, i: number) => i === idx ? { ...c, matCreditUtilized: v } : c) }))} />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
                   ))}
-                  <Button variant="outline" size="sm" onClick={() => setMatcDetails(p => ({ ...p, creditEntries: [...p.creditEntries, { assessmentYear: "", matPaid: 0, normalTaxPayable: 0, matCreditAvailable: 0, matCreditUtilized: 0, matCreditLapsed: false, expiryYear: "" }] }))}>
+                  <Button variant="outline" size="sm" onClick={(): void => setMatcDetails((p: MATCreditDetails): MATCreditDetails => ({ ...p, creditEntries: [...p.creditEntries, { assessmentYear: "", matPaid: 0, normalTaxPayable: 0, matCreditAvailable: 0, matCreditUtilized: 0, matCreditLapsed: false, expiryYear: "" }] }))}>
                     <Plus className="h-3.5 w-3.5 mr-1" /> Add MAT Credit Year
                   </Button>
                 </>
@@ -214,14 +214,14 @@ export const MATAMTSection: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
-                <Switch checked={amtDetails.isApplicable} onCheckedChange={v => setAmtDetails((p: AMTDetails) => ({ ...p, isApplicable: v }))} />
+                <Switch checked={amtDetails.isApplicable} onCheckedChange={(v: boolean): void => setAmtDetails((p: AMTDetails): AMTDetails => ({ ...p, isApplicable: v }))} />
                 <Label className="text-sm">AMT is applicable (Non-corporate with Chapter VI-A deductions)</Label>
               </div>
               {amtDetails.isApplicable && (
                 <>
                   <div>
                     <Label className="text-xs">Total Income (before Chapter VI-A deductions) (₹)</Label>
-                    <CurrencyInput id="amt-adj-income" value={amtDetails.adjustedTotalIncome} onChange={v => setAmtDetails((p: AMTDetails) => ({ ...p, adjustedTotalIncome: v }))} />
+                    <CurrencyInput id="amt-adj-income" value={amtDetails.adjustedTotalIncome} onChange={(v: number): void => setAmtDetails((p: AMTDetails): AMTDetails => ({ ...p, adjustedTotalIncome: v }))} />
                   </div>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Additions (Deductions under Chapter VI-A)</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -236,18 +236,18 @@ export const MATAMTSection: React.FC = () => {
                     ] as const).map(([key, label]) => (
                       <div key={key}>
                         <Label className="text-xs">{label} (₹)</Label>
-                        <CurrencyInput id={`amt-add-${key}`} value={amtDetails.additions[key as keyof AMTDetails['additions']]} onChange={v => setAmtDetails((p: AMTDetails) => ({ ...p, additions: { ...p.additions, [key]: v } }))} />
+                        <CurrencyInput id={`amt-add-${key}`} value={amtDetails.additions[key]} onChange={(v: number): void => setAmtDetails((p: AMTDetails): AMTDetails => ({ ...p, additions: { ...p.additions, [key]: v } }))} />
                       </div>
                     ))}
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs">Normal Tax Liability (₹)</Label>
-                      <CurrencyInput id="amt-normal-tax" value={amtDetails.normalTaxLiability} onChange={v => setAmtDetails((p: AMTDetails) => ({ ...p, normalTaxLiability: v }))} />
+                      <CurrencyInput id="amt-normal-tax" value={amtDetails.normalTaxLiability} onChange={(v: number): void => setAmtDetails((p: AMTDetails): AMTDetails => ({ ...p, normalTaxLiability: v }))} />
                     </div>
                     <div>
                       <Label className="text-xs">AMT Rate (%)</Label>
-                      <Input type="number" value={amtDetails.amtRate} onChange={e => setAmtDetails((p: AMTDetails) => ({ ...p, amtRate: Number(e.target.value) }))} />
+                      <Input type="number" value={amtDetails.amtRate} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setAmtDetails((p: AMTDetails): AMTDetails => ({ ...p, amtRate: Number(e.target.value) }))} />
                     </div>
                   </div>
                   <Button onClick={computeAMT} className="w-full" data-testid="btn-compute-amt">
@@ -279,32 +279,32 @@ export const MATAMTSection: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
-                <Switch checked={amtcDetails.isApplicable} onCheckedChange={v => setAmtcDetails((p: AMTCreditDetails) => ({ ...p, isApplicable: v }))} />
+                <Switch checked={amtcDetails.isApplicable} onCheckedChange={(v: boolean): void => setAmtcDetails((p: AMTCreditDetails): AMTCreditDetails => ({ ...p, isApplicable: v }))} />
                 <Label className="text-sm">I have AMT credit to claim</Label>
               </div>
               {amtcDetails.isApplicable && (
                 <>
-                  {amtcDetails.creditEntries.map((entry, idx) => (
+                  {amtcDetails.creditEntries.map((entry: AMTCreditEntry, idx: number): React.ReactElement => (
                     <Card key={idx} className="border-dashed">
                       <CardContent className="pt-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <Badge variant="outline" className="text-xs">AY {entry.assessmentYear}</Badge>
-                          <Button variant="ghost" size="sm" onClick={() => setAmtcDetails(p => ({ ...p, creditEntries: p.creditEntries.filter((_, i) => i !== idx) }))}>
+                          <Button variant="ghost" size="sm" onClick={(): void => setAmtcDetails((p: AMTCreditDetails): AMTCreditDetails => ({ ...p, creditEntries: p.creditEntries.filter((_: AMTCreditEntry, i: number) => i !== idx) }))}>
                             <XCircle className="h-4 w-4 text-red-500" />
                           </Button>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                           <div>
                             <Label className="text-xs">Assessment Year</Label>
-                            <Input value={entry.assessmentYear} onChange={e => setAmtcDetails((p: AMTCreditDetails) => ({ ...p, creditEntries: p.creditEntries.map((c: AMTCreditEntry, i: number) => i === idx ? { ...c, assessmentYear: e.target.value } : c) }))} />
+                            <Input value={entry.assessmentYear} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setAmtcDetails((p: AMTCreditDetails): AMTCreditDetails => ({ ...p, creditEntries: p.creditEntries.map((c: AMTCreditEntry, i: number): AMTCreditEntry => i === idx ? { ...c, assessmentYear: e.target.value } : c) }))} />
                           </div>
                           <div>
                             <Label className="text-xs">AMT Paid (₹)</Label>
-                            <CurrencyInput id={`amtc-paid-${idx}`} value={entry.amtPaid} onChange={v => setAmtcDetails((p: AMTCreditDetails) => ({ ...p, creditEntries: p.creditEntries.map((c: AMTCreditEntry, i: number) => i === idx ? { ...c, amtPaid: v } : c) }))} />
+                            <CurrencyInput id={`amtc-paid-${idx}`} value={entry.amtPaid} onChange={(v: number): void => setAmtcDetails((p: AMTCreditDetails): AMTCreditDetails => ({ ...p, creditEntries: p.creditEntries.map((c: AMTCreditEntry, i: number) => i === idx ? { ...c, amtPaid: v } : c) }))} />
                           </div>
                           <div>
                             <Label className="text-xs">Normal Tax (₹)</Label>
-                            <CurrencyInput id={`amtc-normal-${idx}`} value={entry.normalTaxPayable} onChange={v => setAmtcDetails((p: AMTCreditDetails) => ({ ...p, creditEntries: p.creditEntries.map((c: AMTCreditEntry, i: number) => i === idx ? { ...c, normalTaxPayable: v, amtCreditAvailable: Math.max(0, (entry.amtPaid || 0) - v) } : c) }))} />
+                            <CurrencyInput id={`amtc-normal-${idx}`} value={entry.normalTaxPayable} onChange={(v: number): void => setAmtcDetails((p: AMTCreditDetails): AMTCreditDetails => ({ ...p, creditEntries: p.creditEntries.map((c: AMTCreditEntry, i: number) => i === idx ? { ...c, normalTaxPayable: v, amtCreditAvailable: Math.max(0, (entry.amtPaid || 0) - v) } : c) }))} />
                           </div>
                           <div>
                             <Label className="text-xs">Credit Available (₹)</Label>
@@ -312,13 +312,13 @@ export const MATAMTSection: React.FC = () => {
                           </div>
                           <div>
                             <Label className="text-xs">Credit Utilized (₹)</Label>
-                            <CurrencyInput id={`amtc-util-${idx}`} value={entry.amtCreditUtilized} onChange={v => setAmtcDetails((p: AMTCreditDetails) => ({ ...p, creditEntries: p.creditEntries.map((c: AMTCreditEntry, i: number) => i === idx ? { ...c, amtCreditUtilized: v } : c) }))} />
+                            <CurrencyInput id={`amtc-util-${idx}`} value={entry.amtCreditUtilized} onChange={(v: number): void => setAmtcDetails((p: AMTCreditDetails): AMTCreditDetails => ({ ...p, creditEntries: p.creditEntries.map((c: AMTCreditEntry, i: number) => i === idx ? { ...c, amtCreditUtilized: v } : c) }))} />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
                   ))}
-                  <Button variant="outline" size="sm" onClick={() => setAmtcDetails(p => ({ ...p, creditEntries: [...p.creditEntries, { assessmentYear: "", amtPaid: 0, normalTaxPayable: 0, amtCreditAvailable: 0, amtCreditUtilized: 0, amtCreditLapsed: false, expiryYear: "" }] }))}>
+                  <Button variant="outline" size="sm" onClick={(): void => setAmtcDetails((p: AMTCreditDetails): AMTCreditDetails => ({ ...p, creditEntries: [...p.creditEntries, { assessmentYear: "", amtPaid: 0, normalTaxPayable: 0, amtCreditAvailable: 0, amtCreditUtilized: 0, amtCreditLapsed: false, expiryYear: "" }] }))}>
                     <Plus className="h-3.5 w-3.5 mr-1" /> Add AMT Credit Year
                   </Button>
                 </>

@@ -15,7 +15,7 @@ import { useTax } from "../TaxContext";
 import { MANUAL_ASSET_TYPES } from "../constants";
 import { ManualCGEntry, Broker, CapitalGainsDetails, BrokerUploadInfo, Schedule112AEntry } from "../types";
 
-export const CapitalGainsSection: React.FC = () => {
+export const CapitalGainsSection: React.FC = (): React.ReactElement => {
   const {
     assessmentYear,
     recommendedForm,
@@ -56,8 +56,8 @@ export const CapitalGainsSection: React.FC = () => {
     b.category.toLowerCase().includes(cgBrokerSearch.toLowerCase())
   );
 
-  const addManualEntry = () => {
-    setCgManualEntries((prev: ManualCGEntry[]) => [...prev, {
+  const addManualEntry = (): void => {
+    setCgManualEntries((prev: ManualCGEntry[]): ManualCGEntry[] => [...prev, {
       assetName: '', isin: '', buyDate: '', sellDate: '',
       quantity: 0, buyPrice: 0, sellPrice: 0,
       expenses: 0, sttPaid: 0, fairMarketValue: 0,
@@ -65,12 +65,12 @@ export const CapitalGainsSection: React.FC = () => {
     }]);
   };
 
-  const updateManualEntry = (idx: number, field: keyof ManualCGEntry, value: string | number) => {
-    setCgManualEntries((prev: ManualCGEntry[]) => prev.map((e: ManualCGEntry, i: number) => i === idx ? { ...e, [field]: value } : e) as ManualCGEntry[]);
+  const updateManualEntry = (idx: number, field: keyof ManualCGEntry, value: string | number): void => {
+    setCgManualEntries((prev: ManualCGEntry[]): ManualCGEntry[] => prev.map((e: ManualCGEntry, i: number): ManualCGEntry => i === idx ? { ...e, [field]: value } : e) as ManualCGEntry[]);
   };
 
-  const removeManualEntry = (idx: number) => {
-    setCgManualEntries((prev: ManualCGEntry[]) => prev.filter((_: ManualCGEntry, i: number) => i !== idx));
+  const removeManualEntry = (idx: number): void => {
+    setCgManualEntries((prev: ManualCGEntry[]): ManualCGEntry[] => prev.filter((_: ManualCGEntry, i: number): boolean => i !== idx));
   };
 
   return (
@@ -80,13 +80,13 @@ export const CapitalGainsSection: React.FC = () => {
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        <Button size="sm" variant={cgMode === 'upload' ? 'default' : 'outline'} onClick={() => setCgMode('upload')} data-testid="cg-mode-upload">
+        <Button size="sm" variant={cgMode === 'upload' ? 'default' : 'outline'} onClick={(): void => setCgMode('upload')} data-testid="cg-mode-upload">
           <Upload className="h-4 w-4 mr-1" /> Upload Statement
         </Button>
-        <Button size="sm" variant={cgMode === 'manual' ? 'default' : 'outline'} onClick={() => setCgMode('manual')} data-testid="cg-mode-manual">
+        <Button size="sm" variant={cgMode === 'manual' ? 'default' : 'outline'} onClick={(): void => setCgMode('manual')} data-testid="cg-mode-manual">
           <Plus className="h-4 w-4 mr-1" /> Manual Entry
         </Button>
-        <Button size="sm" variant={cgMode === 'summary' ? 'default' : 'outline'} onClick={() => setCgMode('summary')} data-testid="cg-mode-summary">
+        <Button size="sm" variant={cgMode === 'summary' ? 'default' : 'outline'} onClick={(): void => setCgMode('summary')} data-testid="cg-mode-summary">
           <BarChart3 className="h-4 w-4 mr-1" /> Summary
         </Button>
       </div>
@@ -106,7 +106,7 @@ export const CapitalGainsSection: React.FC = () => {
                 <Input
                   placeholder="Search brokers (e.g. Zerodha, CAMS, Groww...)"
                   value={cgBrokerSearch}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCgBrokerSearch(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setCgBrokerSearch(e.target.value)}
                   className="pl-8"
                   data-testid="cg-broker-search"
                 />
@@ -134,7 +134,7 @@ export const CapitalGainsSection: React.FC = () => {
                           variant={cgSelectedBroker === broker.id ? 'default' : 'outline'}
                           size="sm"
                           className="h-auto py-2 px-3 text-left justify-start text-xs"
-                          onClick={() => setCgSelectedBroker(broker.id === cgSelectedBroker ? null : broker.id)}
+                          onClick={(): void => setCgSelectedBroker(broker.id === cgSelectedBroker ? null : broker.id)}
                           data-testid={`cg-broker-${broker.id}`}
                         >
                           <span className="truncate">{broker.name}</span>
@@ -163,7 +163,7 @@ export const CapitalGainsSection: React.FC = () => {
                           type="file"
                           accept={broker.supportedFormats.map((f: string) => `.${f}`).join(',')}
                           disabled={cgUploading}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                             const file = e.target.files?.[0];
                             if (file) handleCgFileUpload(file, broker.id);
                           }}
@@ -186,7 +186,7 @@ export const CapitalGainsSection: React.FC = () => {
                   <p className="text-sm font-medium">Broker not listed?</p>
                   <p className="text-xs text-muted-foreground">Download our Excel template, fill in your transactions, and upload using "FintekPro Template" option above.</p>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setCgSelectedBroker('template')}>
+                <Button variant="outline" size="sm" onClick={(): void => setCgSelectedBroker('template')}>
                   Use Template
                 </Button>
               </div>
@@ -214,8 +214,8 @@ export const CapitalGainsSection: React.FC = () => {
                         <span className="text-xs">LTCG: <span className={upload.summary.netLTCG >= 0 ? 'text-green-600' : 'text-red-600'}>{formatCurrency(upload.summary.netLTCG)}</span></span>
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => {
-                      setCgUploads((prev: BrokerUploadInfo[]) => prev.filter((u: BrokerUploadInfo) => u.id !== upload.id));
+                    <Button variant="ghost" size="sm" onClick={(): void => {
+                      setCgUploads((prev: BrokerUploadInfo[]) => prev.filter((u: BrokerUploadInfo): boolean => u.id !== upload.id));
                     }}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
                   </div>
                 ))}
@@ -240,7 +240,7 @@ export const CapitalGainsSection: React.FC = () => {
                     variant={cgManualAssetType === at.value ? 'default' : 'outline'}
                     size="sm"
                     className="h-auto py-2 px-3 text-left justify-start"
-                    onClick={() => { setCgManualAssetType(at.value); setCgManualEntries([]); }}
+                    onClick={(): void => { setCgManualAssetType(at.value); setCgManualEntries([]); }}
                     data-testid={`cg-manual-type-${at.value}`}
                   >
                     <span className="mr-1.5">{at.icon}</span>
@@ -268,7 +268,7 @@ export const CapitalGainsSection: React.FC = () => {
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Transaction #{idx + 1}</span>
-                      <Button variant="ghost" size="sm" onClick={() => removeManualEntry(idx)}>
+                      <Button variant="ghost" size="sm" onClick={(): void => removeManualEntry(idx)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -277,7 +277,7 @@ export const CapitalGainsSection: React.FC = () => {
                         <Label className="text-xs">Asset Name <span className="text-red-500">*</span></Label>
                         <Input
                           value={entry.assetName}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateManualEntry(idx, 'assetName', e.target.value)}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>): void => updateManualEntry(idx, 'assetName', e.target.value)}
                           placeholder={cgManualAssetType === 'property' ? 'e.g. 2BHK Flat, Andheri' : 'e.g. Reliance Industries'}
                           data-testid={`cg-manual-name-${idx}`}
                         />
@@ -287,54 +287,54 @@ export const CapitalGainsSection: React.FC = () => {
                           <Label className="text-xs">ISIN (optional)</Label>
                           <Input
                             value={entry.isin}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateManualEntry(idx, 'isin', e.target.value)}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>): void => updateManualEntry(idx, 'isin', e.target.value)}
                             placeholder="e.g. INE002A01018"
                           />
                         </div>
                       )}
                       <div className="space-y-1.5">
                         <Label className="text-xs">Purchase Date <span className="text-red-500">*</span></Label>
-                        <Input type="date" value={entry.buyDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateManualEntry(idx, 'buyDate', e.target.value)} data-testid={`cg-manual-buydate-${idx}`} />
+                        <Input type="date" value={entry.buyDate} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => updateManualEntry(idx, 'buyDate', e.target.value)} data-testid={`cg-manual-buydate-${idx}`} />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">Sale Date <span className="text-red-500">*</span></Label>
-                        <Input type="date" value={entry.sellDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateManualEntry(idx, 'sellDate', e.target.value)} data-testid={`cg-manual-selldate-${idx}`} />
+                        <Input type="date" value={entry.sellDate} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => updateManualEntry(idx, 'sellDate', e.target.value)} data-testid={`cg-manual-selldate-${idx}`} />
                       </div>
                       {cgManualAssetType !== 'property' && (
                         <div className="space-y-1.5">
                           <Label className="text-xs">Quantity</Label>
-                          <Input type="number" min={0} value={entry.quantity || ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateManualEntry(idx, 'quantity', parseFloat(e.target.value) || 0)} placeholder="Number of units/shares" />
+                          <Input type="number" min={0} value={entry.quantity || ''} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => updateManualEntry(idx, 'quantity', parseFloat(e.target.value) || 0)} placeholder="Number of units/shares" />
                         </div>
                       )}
                       <div className="space-y-1.5">
                         <Label className="text-xs">{cgManualAssetType === 'property' ? 'Purchase Price' : 'Buy Price Per Unit'}</Label>
-                        <CurrencyInput id={`buyPrice-${idx}`} value={entry.buyPrice} onChange={(v: number) => updateManualEntry(idx, 'buyPrice', v)} data-testid={`cg-manual-buyprice-${idx}`} />
+                        <CurrencyInput id={`buyPrice-${idx}`} value={entry.buyPrice} onChange={(v: number): void => updateManualEntry(idx, 'buyPrice', v)} data-testid={`cg-manual-buyprice-${idx}`} />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">{cgManualAssetType === 'property' ? 'Sale Consideration' : 'Sell Price Per Unit'}</Label>
-                        <CurrencyInput id={`sellPrice-${idx}`} value={entry.sellPrice} onChange={(v: number) => updateManualEntry(idx, 'sellPrice', v)} data-testid={`cg-manual-sellprice-${idx}`} />
+                        <CurrencyInput id={`sellPrice-${idx}`} value={entry.sellPrice} onChange={(v: number): void => updateManualEntry(idx, 'sellPrice', v)} data-testid={`cg-manual-sellprice-${idx}`} />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">Expenses (Brokerage/Stamp Duty)</Label>
-                        <CurrencyInput id={`expenses-${idx}`} value={entry.expenses} onChange={(v: number) => updateManualEntry(idx, 'expenses', v)} />
+                        <CurrencyInput id={`expenses-${idx}`} value={entry.expenses} onChange={(v: number): void => updateManualEntry(idx, 'expenses', v)} />
                       </div>
                       {(cgManualAssetType === 'shares' || cgManualAssetType === 'mutual_funds') && (
                         <div className="space-y-1.5">
                           <Label className="text-xs">STT Paid</Label>
-                          <CurrencyInput id={`stt-${idx}`} value={entry.sttPaid} onChange={(v: number) => updateManualEntry(idx, 'sttPaid', v)} />
+                          <CurrencyInput id={`stt-${idx}`} value={entry.sttPaid} onChange={(v: number): void => updateManualEntry(idx, 'sttPaid', v)} />
                         </div>
                       )}
                       {cgManualAssetType === 'property' && (
                         <>
                           <div className="space-y-1.5">
                             <Label className="text-xs">Stamp Duty Value (Sec 50C)</Label>
-                            <CurrencyInput id={`sdv-${idx}`} value={entry.fairMarketValue} onChange={(v: number) => updateManualEntry(idx, 'fairMarketValue', v)} />
+                            <CurrencyInput id={`sdv-${idx}`} value={entry.fairMarketValue} onChange={(v: number): void => updateManualEntry(idx, 'fairMarketValue', v)} />
                           </div>
                         </>
                       )}
                       <div className="space-y-1.5">
                         <Label className="text-xs">Exemption Section</Label>
-                        <Select value={entry.exemptionSection} onValueChange={(v) => updateManualEntry(idx, 'exemptionSection', v)}>
+                        <Select value={entry.exemptionSection} onValueChange={(v: string): void => updateManualEntry(idx, 'exemptionSection', v)}>
                           <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">No Exemption</SelectItem>
@@ -349,7 +349,7 @@ export const CapitalGainsSection: React.FC = () => {
                       {entry.exemptionSection && entry.exemptionSection !== 'none' && (
                         <div className="space-y-1.5">
                           <Label className="text-xs">Exemption Amount</Label>
-                          <CurrencyInput id={`exemption-${idx}`} value={entry.exemptionAmount} onChange={(v: number) => updateManualEntry(idx, 'exemptionAmount', v)} />
+                          <CurrencyInput id={`exemption-${idx}`} value={entry.exemptionAmount} onChange={(v: number): void => updateManualEntry(idx, 'exemptionAmount', v)} />
                         </div>
                       )}
                     </div>
@@ -367,11 +367,11 @@ export const CapitalGainsSection: React.FC = () => {
               ))}
 
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={addManualEntry} data-testid="cg-add-manual">
+                <Button variant="outline" size="sm" onClick={(): void => addManualEntry()} data-testid="cg-add-manual">
                   <Plus className="h-4 w-4 mr-1" /> Add Transaction
                 </Button>
                 {cgManualEntries.length > 0 && (
-                  <Button size="sm" onClick={handleCgManualSave} data-testid="cg-save-manual">
+                  <Button size="sm" onClick={(): void => { handleCgManualSave(); }} data-testid="cg-save-manual">
                     <Save className="h-4 w-4 mr-1" /> Save {cgManualEntries.length} Entries
                   </Button>
                 )}
@@ -397,8 +397,8 @@ export const CapitalGainsSection: React.FC = () => {
                           <span className="text-xs">LTCG: <span className="text-green-600">{formatCurrency(saved.summary.totalLTCG)}</span></span>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => {
-                        setCgManualSaved((prev: any[]) => prev.filter((s: any) => s.id !== saved.id));
+                      <Button variant="ghost" size="sm" onClick={(): void => {
+                        setCgManualSaved((prev: any[]): any[] => prev.filter((s: any): boolean => s.id !== saved.id));
                       }}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   );
@@ -458,7 +458,7 @@ export const CapitalGainsSection: React.FC = () => {
                 <CurrencyInput
                   id="exemptions"
                   value={capitalGainsDetails.exemptionsApplied}
-                  onChange={(v: number) => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, exemptionsApplied: v }))}
+                  onChange={(v: number): void => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, exemptionsApplied: v }))}
                   placeholder="0 if no exemptions claimed"
                   data-testid="input-exemptions"
                 />
@@ -481,28 +481,28 @@ export const CapitalGainsSection: React.FC = () => {
                           STCG — STT Paid (u/s 111A)
                           <FieldHint text="Short-term gains on listed equity/MF sold on stock exchange with STT paid. Taxed at flat 20% (from FY 2024-25, was 15% earlier)." />
                         </Label>
-                        <CurrencyInput id="sttPaidSTCG" value={capitalGainsDetails.sttPaidSTCG} onChange={(v: number) => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, sttPaidSTCG: v }))} data-testid="input-stt-paid-stcg" />
+                        <CurrencyInput id="sttPaidSTCG" value={capitalGainsDetails.sttPaidSTCG} onChange={(v: number): void => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, sttPaidSTCG: v }))} data-testid="input-stt-paid-stcg" />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">
                           STCG — STT Not Paid
                           <FieldHint text="Short-term gains on unlisted shares, property, gold, bonds etc. where STT is not applicable. Taxed at slab rates." />
                         </Label>
-                        <CurrencyInput id="sttNotPaidSTCG" value={capitalGainsDetails.sttNotPaidSTCG} onChange={(v: number) => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, sttNotPaidSTCG: v }))} data-testid="input-stt-not-paid-stcg" />
+                        <CurrencyInput id="sttNotPaidSTCG" value={capitalGainsDetails.sttNotPaidSTCG} onChange={(v: number): void => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, sttNotPaidSTCG: v }))} data-testid="input-stt-not-paid-stcg" />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">
                           LTCG — STT Paid (u/s 112A)
                           <FieldHint text="Long-term gains on listed equity/MF sold on exchange with STT paid. Taxed at flat 12.5% (from FY 2024-25, was 10% earlier). ₹1.25L exemption applies." />
                         </Label>
-                        <CurrencyInput id="sttPaidLTCG" value={capitalGainsDetails.sttPaidLTCG} onChange={(v: number) => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, sttPaidLTCG: v }))} data-testid="input-stt-paid-ltcg" />
+                        <CurrencyInput id="sttPaidLTCG" value={capitalGainsDetails.sttPaidLTCG} onChange={(v: number): void => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, sttPaidLTCG: v }))} data-testid="input-stt-paid-ltcg" />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">
                           LTCG — STT Not Paid (u/s 112)
                           <FieldHint text="Long-term gains on unlisted shares, property, gold, bonds etc. Taxed at 12.5% without indexation (from FY 2024-25). No ₹1.25L exemption." />
                         </Label>
-                        <CurrencyInput id="sttNotPaidLTCG" value={capitalGainsDetails.sttNotPaidLTCG} onChange={(v: number) => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, sttNotPaidLTCG: v }))} data-testid="input-stt-not-paid-ltcg" />
+                        <CurrencyInput id="sttNotPaidLTCG" value={capitalGainsDetails.sttNotPaidLTCG} onChange={(v: number): void => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, sttNotPaidLTCG: v }))} data-testid="input-stt-not-paid-ltcg" />
                       </div>
                     </div>
                   </div>
@@ -520,7 +520,7 @@ export const CapitalGainsSection: React.FC = () => {
                         id="grandfathering-toggle"
                         title="Apply grandfathering provision for equity acquired before 31-Jan-2018"
                         checked={capitalGainsDetails.grandfatheringApplied}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, grandfatheringApplied: e.target.checked }))}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, grandfatheringApplied: e.target.checked }))}
                         className="h-4 w-4 rounded border-gray-300"
                         data-testid="checkbox-grandfathering"
                       />
@@ -541,7 +541,7 @@ export const CapitalGainsSection: React.FC = () => {
                           <CurrencyInput
                             id="grandfatheringFMV"
                             value={capitalGainsDetails.grandfatheringFMV}
-                            onChange={(v: number) => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, grandfatheringFMV: v }))}
+                            onChange={(v: number): void => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, grandfatheringFMV: v }))}
                             placeholder="FMV of pre-2018 holdings"
                             data-testid="input-grandfathering-fmv"
                           />
@@ -563,7 +563,7 @@ export const CapitalGainsSection: React.FC = () => {
                     <CurrencyInput
                       id="shortTermGains"
                       value={capitalGainsDetails.shortTermGains}
-                      onChange={(v: number) => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, shortTermGains: v }))}
+                      onChange={(v: number): void => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, shortTermGains: v }))}
                       data-testid="input-short-term-gains"
                     />
                   </div>
@@ -572,7 +572,7 @@ export const CapitalGainsSection: React.FC = () => {
                     <CurrencyInput
                       id="longTermGains"
                       value={capitalGainsDetails.longTermGains}
-                      onChange={(v: number) => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, longTermGains: v }))}
+                      onChange={(v: number): void => setCapitalGainsDetails((prev: CapitalGainsDetails) => ({ ...prev, longTermGains: v }))}
                       data-testid="input-long-term-gains"
                     />
                   </div>
@@ -605,38 +605,38 @@ export const CapitalGainsSection: React.FC = () => {
                 <div key={idx} className="border rounded-lg p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm">Scrip {idx + 1}: {entry.shareName || 'New Entry'}</span>
-                    <Button variant="ghost" size="sm" onClick={() => setSchedule112AEntries((prev: Schedule112AEntry[]) => prev.filter((_: Schedule112AEntry, i: number) => i !== idx))}>
+                    <Button variant="ghost" size="sm" onClick={(): void => setSchedule112AEntries((prev: Schedule112AEntry[]) => prev.filter((_: Schedule112AEntry, i: number): boolean => i !== idx))}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <div>
                       <Label className="text-xs">ISIN *</Label>
-                      <Input value={entry.isin} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], isin: e.target.value.toUpperCase() }; setSchedule112AEntries(u); }} placeholder="INE..." maxLength={12} className="font-mono text-xs" />
+                      <Input value={entry.isin} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], isin: e.target.value.toUpperCase() }; setSchedule112AEntries(u); }} placeholder="INE..." maxLength={12} className="font-mono text-xs" />
                     </div>
                     <div>
                       <Label className="text-xs">Share / Fund Name *</Label>
-                      <Input value={entry.shareName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], shareName: e.target.value }; setSchedule112AEntries(u); }} placeholder="e.g. Reliance Industries" />
+                      <Input value={entry.shareName} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], shareName: e.target.value }; setSchedule112AEntries(u); }} placeholder="e.g. Reliance Industries" />
                     </div>
                     <div>
                       <Label className="text-xs">Units Sold</Label>
-                      <Input type="number" value={entry.unitsSold || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], unitsSold: Number(e.target.value) }; setSchedule112AEntries(u); }} />
+                      <Input type="number" value={entry.unitsSold || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], unitsSold: Number(e.target.value) }; setSchedule112AEntries(u); }} />
                     </div>
                     <div>
                       <Label className="text-xs">Sale Price / Unit (₹)</Label>
-                      <Input type="number" value={entry.salePricePerUnit || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], salePricePerUnit: Number(e.target.value) }; setSchedule112AEntries(u); }} />
+                      <Input type="number" value={entry.salePricePerUnit || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], salePricePerUnit: Number(e.target.value) }; setSchedule112AEntries(u); }} />
                     </div>
                     <div>
                       <Label className="text-xs">Cost of Acquisition (₹)</Label>
-                      <Input type="number" value={entry.costOfAcquisition || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], costOfAcquisition: Number(e.target.value) }; setSchedule112AEntries(u); }} />
+                      <Input type="number" value={entry.costOfAcquisition || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], costOfAcquisition: Number(e.target.value) }; setSchedule112AEntries(u); }} />
                     </div>
                     <div>
                       <Label className="text-xs">FMV as on 31-Jan-2018 (₹) <FieldHint text="Fair Market Value for grandfathering. Highest traded price on 31-Jan-2018 or NAV on that date for MF." /></Label>
-                      <Input type="number" value={entry.fmvAsOn31Jan2018 || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], fmvAsOn31Jan2018: Number(e.target.value) }; setSchedule112AEntries(u); }} />
+                      <Input type="number" value={entry.fmvAsOn31Jan2018 || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], fmvAsOn31Jan2018: Number(e.target.value) }; setSchedule112AEntries(u); }} />
                     </div>
                     <div>
                       <Label className="text-xs">Expenditure on Transfer (₹)</Label>
-                      <Input type="number" value={entry.expenditureOnTransfer || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], expenditureOnTransfer: Number(e.target.value) }; setSchedule112AEntries(u); }} />
+                      <Input type="number" value={entry.expenditureOnTransfer || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => { const u = [...schedule112AEntries]; u[idx] = { ...u[idx], expenditureOnTransfer: Number(e.target.value) }; setSchedule112AEntries(u); }} />
                     </div>
                     <div>
                       <Label className="text-xs">LTCG (₹)</Label>
@@ -647,7 +647,7 @@ export const CapitalGainsSection: React.FC = () => {
                   </div>
                 </div>
               ))}
-              <Button variant="outline" size="sm" className="w-full dashed" onClick={() => setSchedule112AEntries((prev: Schedule112AEntry[]) => [...prev, { isin: '', shareName: '', unitsSold: 0, salePricePerUnit: 0, costOfAcquisition: 0, fmvAsOn31Jan2018: 0, expenditureOnTransfer: 0 }])}>
+              <Button variant="outline" size="sm" className="w-full dashed" onClick={(): void => setSchedule112AEntries((prev: Schedule112AEntry[]) => [...prev, { isin: '', shareName: '', unitsSold: 0, salePricePerUnit: 0, costOfAcquisition: 0, fmvAsOn31Jan2018: 0, expenditureOnTransfer: 0, totalSaleValue: 0, totalCostWithFMV: 0, ltcgBeforeExemption: 0 }])}>
                 <Plus className="h-4 w-4 mr-2" /> Add Scrip to Schedule 112A
               </Button>
             </CardContent>

@@ -11,7 +11,7 @@ import {
 import { useTax } from "../TaxContext";
 import { ScheduleSIDetails, ScheduleEIDetails } from "../types";
 
-export const SIEISchedulesSection: React.FC = () => {
+export const SIEISchedulesSection: React.FC = (): React.ReactElement => {
   const {
     scheduleSI,
     setScheduleSI,
@@ -24,7 +24,7 @@ export const SIEISchedulesSection: React.FC = () => {
   const totalSI = scheduleSI.stcg111A + scheduleSI.ltcg112A + scheduleSI.ltcg112 + scheduleSI.vdaCrypto115BBH + scheduleSI.lottery115BB + scheduleSI.horseRacing + scheduleSI.onlineGaming + scheduleSI.dtaaSpecialRate + scheduleSI.otherSpecialRate;
   const totalEI = scheduleEI.agriculturalIncome + scheduleEI.ltcgExemptUpTo125000 + scheduleEI.dividendFromCooperative + scheduleEI.ppfInterest + scheduleEI.epfInterest + scheduleEI.section10Exemptions + scheduleEI.otherExemptIncome;
 
-   const autoPopulateSI = () => {
+   const autoPopulateSI = (): void => {
     setScheduleSI((prev: ScheduleSIDetails) => ({
       ...prev,
       stcg111A: capitalGainsDetails.sttPaidSTCG,
@@ -55,19 +55,19 @@ export const SIEISchedulesSection: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">STCG u/s 111A (₹) — 20% <FieldHint text="Short-term capital gains on listed equity shares/MF where STT paid on sale. Taxed at flat 20%." /></Label>
-              <Input type="number" value={scheduleSI.stcg111A || ""} onChange={e => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, stcg111A: Number(e.target.value) }))} data-testid="input-si-stcg-111a" />
+              <Input type="number" value={scheduleSI.stcg111A || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, stcg111A: Number(e.target.value) }))} data-testid="input-si-stcg-111a" />
             </div>
             <div>
               <Label className="text-xs">LTCG u/s 112A (₹) — 12.5% <FieldHint text="Long-term capital gains on listed equity/MF with STT, exceeding ₹1.25 lakh exemption. Taxed at 12.5%." /></Label>
-              <Input type="number" value={scheduleSI.ltcg112A || ""} onChange={e => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, ltcg112A: Number(e.target.value) }))} data-testid="input-si-ltcg-112a" />
+              <Input type="number" value={scheduleSI.ltcg112A || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, ltcg112A: Number(e.target.value) }))} data-testid="input-si-ltcg-112a" />
             </div>
             <div>
               <Label className="text-xs">LTCG u/s 112 (₹) — 20% with indexation <FieldHint text="Long-term capital gains on unlisted shares, property, gold, debt MF (pre-2023 investments). 20% with indexation benefit." /></Label>
-              <Input type="number" value={scheduleSI.ltcg112 || ""} onChange={e => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, ltcg112: Number(e.target.value) }))} data-testid="input-si-ltcg-112" />
+              <Input type="number" value={scheduleSI.ltcg112 || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, ltcg112: Number(e.target.value) }))} data-testid="input-si-ltcg-112" />
             </div>
             <div>
               <Label className="text-xs">VDA / Crypto u/s 115BBH (₹) — 30% <FieldHint text="Virtual Digital Assets (cryptocurrency, NFTs) taxed at flat 30%. No deduction except cost of acquisition. 1% TDS applies." /></Label>
-              <Input type="number" value={scheduleSI.vdaCrypto115BBH || ""} onChange={e => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, vdaCrypto115BBH: Number(e.target.value) }))} data-testid="input-si-vda" />
+              <Input type="number" value={scheduleSI.vdaCrypto115BBH || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, vdaCrypto115BBH: Number(e.target.value) }))} data-testid="input-si-vda" />
             </div>
           </div>
           <Separator />
@@ -75,15 +75,15 @@ export const SIEISchedulesSection: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Lottery / Crossword / Game Show u/s 115BB (₹) — 30%</Label>
-              <Input type="number" value={scheduleSI.lottery115BB || ""} onChange={e => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, lottery115BB: Number(e.target.value) }))} />
+              <Input type="number" value={scheduleSI.lottery115BB || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, lottery115BB: Number(e.target.value) }))} />
             </div>
             <div>
               <Label className="text-xs">Horse Racing (₹) — 30%</Label>
-              <Input type="number" value={scheduleSI.horseRacing || ""} onChange={e => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, horseRacing: Number(e.target.value) }))} />
+              <Input type="number" value={scheduleSI.horseRacing || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, horseRacing: Number(e.target.value) }))} />
             </div>
             <div>
               <Label className="text-xs">Online Gaming (₹) — 30%</Label>
-              <Input type="number" value={scheduleSI.onlineGaming || ""} onChange={e => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, onlineGaming: Number(e.target.value) }))} />
+              <Input type="number" value={scheduleSI.onlineGaming || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, onlineGaming: Number(e.target.value) }))} />
             </div>
           </div>
           <Separator />
@@ -91,15 +91,15 @@ export const SIEISchedulesSection: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <Label className="text-xs">Income Amount (₹)</Label>
-              <Input type="number" value={scheduleSI.dtaaSpecialRate || ""} onChange={e => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, dtaaSpecialRate: Number(e.target.value) }))} />
+              <Input type="number" value={scheduleSI.dtaaSpecialRate || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, dtaaSpecialRate: Number(e.target.value) }))} />
             </div>
             <div>
               <Label className="text-xs">DTAA Tax Rate (%)</Label>
-              <Input type="number" value={scheduleSI.dtaaSpecialRatePercent || ""} onChange={e => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, dtaaSpecialRatePercent: Number(e.target.value) }))} max={100} />
+              <Input type="number" value={scheduleSI.dtaaSpecialRatePercent || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, dtaaSpecialRatePercent: Number(e.target.value) }))} max={100} />
             </div>
             <div>
               <Label className="text-xs">Other Special Rate Income (₹)</Label>
-              <Input type="number" value={scheduleSI.otherSpecialRate || ""} onChange={e => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, otherSpecialRate: Number(e.target.value) }))} />
+              <Input type="number" value={scheduleSI.otherSpecialRate || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleSI((p: ScheduleSIDetails) => ({ ...p, otherSpecialRate: Number(e.target.value) }))} />
             </div>
           </div>
           <Card className="bg-muted/50">
@@ -131,35 +131,35 @@ export const SIEISchedulesSection: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Agricultural Income (₹) <FieldHint text="Income from agriculture is exempt u/s 10(1). However, if total income exceeds ₹5 lakh, agricultural income is used to calculate tax on non-agricultural income (partial integration)." /></Label>
-              <Input type="number" value={scheduleEI.agriculturalIncome || ""} onChange={e => setScheduleEI((p: ScheduleEIDetails) => ({ ...p, agriculturalIncome: Number(e.target.value) }))} data-testid="input-ei-agri" />
+              <Input type="number" value={scheduleEI.agriculturalIncome || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleEI((p: ScheduleEIDetails) => ({ ...p, agriculturalIncome: Number(e.target.value) }))} data-testid="input-ei-agri" />
             </div>
             <div>
               <Label className="text-xs">LTCG Exempt u/s 112A (up to ₹1,25,000) <FieldHint text="First ₹1.25 lakh of LTCG on listed equity/MF with STT is exempt from tax. Auto-calculated from Schedule 112A." /></Label>
-              <Input type="number" value={scheduleEI.ltcgExemptUpTo125000 || ""} onChange={e => setScheduleEI((p: ScheduleEIDetails) => ({ ...p, ltcgExemptUpTo125000: Math.min(125000, Number(e.target.value)) }))} max={125000} />
+              <Input type="number" value={scheduleEI.ltcgExemptUpTo125000 || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleEI((p: ScheduleEIDetails) => ({ ...p, ltcgExemptUpTo125000: Math.min(125000, Number(e.target.value)) }))} max={125000} />
             </div>
             <div>
               <Label className="text-xs">PPF Interest (₹) — Exempt u/s 10(11)</Label>
-              <Input type="number" value={scheduleEI.ppfInterest || ""} onChange={e => setScheduleEI((p: ScheduleEIDetails) => ({ ...p, ppfInterest: Number(e.target.value) }))} />
+              <Input type="number" value={scheduleEI.ppfInterest || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleEI((p: ScheduleEIDetails) => ({ ...p, ppfInterest: Number(e.target.value) }))} />
             </div>
             <div>
               <Label className="text-xs">EPF Interest (₹) — Exempt portion <FieldHint text="Interest on EPF balance is exempt if withdrawn after 5 years of continuous service." /></Label>
-              <Input type="number" value={scheduleEI.epfInterest || ""} onChange={e => setScheduleEI((p: ScheduleEIDetails) => ({ ...p, epfInterest: Number(e.target.value) }))} />
+              <Input type="number" value={scheduleEI.epfInterest || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleEI((p: ScheduleEIDetails) => ({ ...p, epfInterest: Number(e.target.value) }))} />
             </div>
             <div>
               <Label className="text-xs">Dividend from Cooperative Society (₹) — Exempt u/s 10(34)</Label>
-              <Input type="number" value={scheduleEI.dividendFromCooperative || ""} onChange={e => setScheduleEI((p: ScheduleEIDetails) => ({ ...p, dividendFromCooperative: Number(e.target.value) }))} />
+              <Input type="number" value={scheduleEI.dividendFromCooperative || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleEI((p: ScheduleEIDetails) => ({ ...p, dividendFromCooperative: Number(e.target.value) }))} />
             </div>
             <div>
               <Label className="text-xs">Section 10 Exemptions (₹) <FieldHint text="Other exemptions under section 10: Leave encashment (10(10AA)), gratuity (10(10)), VRS compensation (10(10C)), etc." /></Label>
-              <Input type="number" value={scheduleEI.section10Exemptions || ""} onChange={e => setScheduleEI((p: ScheduleEIDetails) => ({ ...p, section10Exemptions: Number(e.target.value) }))} />
+              <Input type="number" value={scheduleEI.section10Exemptions || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleEI((p: ScheduleEIDetails) => ({ ...p, section10Exemptions: Number(e.target.value) }))} />
             </div>
             <div>
               <Label className="text-xs">Other Exempt Income (₹)</Label>
-              <Input type="number" value={scheduleEI.otherExemptIncome || ""} onChange={e => setScheduleEI((p: ScheduleEIDetails) => ({ ...p, otherExemptIncome: Number(e.target.value) }))} />
+              <Input type="number" value={scheduleEI.otherExemptIncome || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleEI((p: ScheduleEIDetails) => ({ ...p, otherExemptIncome: Number(e.target.value) }))} />
             </div>
             <div>
               <Label className="text-xs">Description of Other Exempt Income</Label>
-              <Input value={scheduleEI.exemptIncomeDescription} onChange={e => setScheduleEI((p: ScheduleEIDetails) => ({ ...p, exemptIncomeDescription: e.target.value }))} placeholder="e.g. ELSS maturity, SGB redemption" />
+              <Input value={scheduleEI.exemptIncomeDescription} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleEI((p: ScheduleEIDetails) => ({ ...p, exemptIncomeDescription: e.target.value }))} placeholder="e.g. ELSS maturity, SGB redemption" />
             </div>
           </div>
           <Card className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">

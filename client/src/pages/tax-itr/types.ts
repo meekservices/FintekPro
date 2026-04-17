@@ -162,6 +162,8 @@ export interface ItrUDetails {
   originalFilingDate: string;
   reasonForUpdate: string;
   additionalTaxPayable: number;
+  lateFee234F?: number;
+  additionalInterest: number;
 }
 
 export interface DocumentVaultEntry {
@@ -217,7 +219,7 @@ export interface ReconciliationResult {
 export interface RefundStage {
   stage: string;
   date?: string;
-  status: string;
+  status: "completed" | "pending" | "failed" | "processed" | "disbursed" | "in_progress";
 }
 
 export interface RefundData {
@@ -229,7 +231,7 @@ export interface RefundData {
 }
 
 export interface TaxDeadline {
-  urgency: "critical" | "warning" | "default" | string;
+  urgency: "critical" | "warning" | "default";
   daysLeft: number;
   form: string;
   deadline: string;
@@ -285,7 +287,7 @@ export interface Interest234Details {
 }
 
 export interface CYLAAdjustment {
-  head: string;
+  head: "salary" | "house_property" | "business" | "capital_gains" | "other_sources";
   incomeBeforeSetOff: number;
   hpLossSetOff: number;
   businessLossSetOff: number;
@@ -294,7 +296,7 @@ export interface CYLAAdjustment {
 }
 
 export interface BFLAAdjustment {
-  head: string;
+  head: "salary" | "house_property" | "business" | "capital_gains" | "other_sources";
   incomeAfterCYLA: number;
   bfHPLossSetOff: number;
   bfSTCLSetOff: number;
@@ -393,17 +395,19 @@ export interface MATDetails {
   taxPayableHigherOfMATOrNormal: number;
 }
 
+export interface MATCreditEntry {
+  assessmentYear: string;
+  matPaid: number;
+  normalTaxPayable: number;
+  matCreditAvailable: number;
+  matCreditUtilized: number;
+  matCreditLapsed: boolean;
+  expiryYear: string;
+}
+
 export interface MATCreditDetails {
   isApplicable: boolean;
-  creditEntries: Array<{
-    assessmentYear: string;
-    matPaid: number;
-    normalTaxPayable: number;
-    matCreditAvailable: number;
-    matCreditUtilized: number;
-    matCreditLapsed: boolean;
-    expiryYear: string;
-  }>;
+  creditEntries: Array<MATCreditEntry>;
   totalCreditBroughtForward: number;
   creditUtilizedCurrentYear: number;
   creditCarriedForward: number;
@@ -433,17 +437,19 @@ export interface AMTDetails {
   taxPayableHigherOfAMTOrNormal: number;
 }
 
+export interface AMTCreditEntry {
+  assessmentYear: string;
+  amtPaid: number;
+  normalTaxPayable: number;
+  amtCreditAvailable: number;
+  amtCreditUtilized: number;
+  amtCreditLapsed: boolean;
+  expiryYear: string;
+}
+
 export interface AMTCreditDetails {
   isApplicable: boolean;
-  creditEntries: Array<{
-    assessmentYear: string;
-    amtPaid: number;
-    normalTaxPayable: number;
-    amtCreditAvailable: number;
-    amtCreditUtilized: number;
-    amtCreditLapsed: boolean;
-    expiryYear: string;
-  }>;
+  creditEntries: Array<AMTCreditEntry>;
   totalCreditBroughtForward: number;
   creditUtilizedCurrentYear: number;
   creditCarriedForward: number;
@@ -688,6 +694,15 @@ export interface ForeignIncomeDetails {
   foreignAssets: ForeignAssetEntry[];
 }
 
+export interface ForeignTaxCreditDetails {
+  isApplicable: boolean;
+}
+
+export interface ForeignAssetsDetails {
+  isApplicable: boolean;
+  assets: ForeignAssetEntry[];
+}
+
 export interface ForeignAssetEntry {
   countryCode: string;
   countryName: string;
@@ -863,15 +878,19 @@ export interface StepValidation {
 }
 
 export interface TaxTotals {
-  grossSalary: number;
+  salaryIncome: number;
   housePropertyIncome: number;
   capitalGains: number;
   businessIncome: number;
   otherIncome: number;
+  foreignCapitalGains: number;
+  foreignOtherIncome: number;
+  foreignTaxCredit: number;
   grossTotalIncome: number;
   totalDeductions: number;
   taxableIncome: number;
   taxPayable: number;
+  totalTaxPaid: number;
   refundDue: number;
   paymentDue: number;
 }
@@ -882,6 +901,9 @@ export interface CGManualSummary {
   expenses: number;
   shortTermGain: number;
   longTermGain: number;
+  totalSTCG: number;
+  totalLTCG: number;
+  totalExemptions: number;
 }
 
 export interface CGManualSavedItem {

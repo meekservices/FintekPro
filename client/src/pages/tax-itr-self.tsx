@@ -96,7 +96,7 @@ function ITRWizard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {historyData?.data?.map((item: TaxHistoryItem) => (
+                    {historyData?.data?.map((item: TaxHistoryItem): React.ReactElement => (
                       <tr key={item.id} className="border-b hover:bg-muted/50">
                         <td className="p-3 font-medium">{item.assessmentYear}</td>
                         <td className="p-3 text-muted-foreground">
@@ -129,7 +129,7 @@ function ITRWizard() {
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-4 max-w-5xl" data-testid="page-itr-self">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/tax/itr")} data-testid="button-back">
+        <Button variant="ghost" size="icon" onClick={(): void => navigate("/tax/itr")} data-testid="button-back">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
@@ -137,7 +137,7 @@ function ITRWizard() {
           <p className="text-sm text-muted-foreground">AY {assessmentYear} | {recommendedForm} | {taxRegime === "new" ? "New" : "Old"} Regime</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setActiveSubTab("history")}>
+          <Button variant="outline" size="sm" onClick={(): void => setActiveSubTab("history")}>
             <Clock className="h-4 w-4 mr-2" /> History
           </Button>
           <Badge variant="outline" className="hidden sm:flex">
@@ -147,7 +147,7 @@ function ITRWizard() {
       </div>
 
       <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-hide">
-        {activeSteps.map((step: Step, idx: number) => {
+        {activeSteps.map((step: Step, idx: number): React.ReactElement => {
           const Icon = step.icon;
           const isActive = idx === safeCurrentStep;
           const isCompleted = idx < safeCurrentStep;
@@ -157,7 +157,7 @@ function ITRWizard() {
           return (
             <div key={step.id} className="flex items-center">
               <button
-                onClick={() => goToStep(step.id)}
+                onClick={(): void => goToStep(step.id)}
                 disabled={!isAccessible}
                 className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all min-w-[80px] ${
                   isActive ? "bg-primary/10 text-primary ring-1 ring-primary/20" : 
