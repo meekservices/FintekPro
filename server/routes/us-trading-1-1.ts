@@ -146,12 +146,12 @@ router.get("/eligibility", async (req, res) => {
     
     res.json({
       eligible: compliance.eligible,
-      reasons: compliance.reasons || [],
-      lrsUsed: lrsUsage.usedUsd || 0,
+      reasons: compliance.blockers || [],
+      lrsUsed: lrsUsage.used || 0,
       lrsLimit: 250000,
-      lrsRemaining: 250000 - (lrsUsage.usedUsd || 0),
+      lrsRemaining: 250000 - (lrsUsage.used || 0),
       riskProfile: compliance.riskProfile || "Moderate",
-      panVerified: compliance.panVerified || false,
+      panVerified: compliance.checks?.panVerified || false,
       kycComplete: compliance.kycComplete || false,
     });
   } catch (error: any) {
@@ -438,7 +438,7 @@ router.post("/account/apply", async (req, res) => {
             },
             kyc_completed_at: new Date().toISOString(),
             ip_address: req.ip || "0.0.0.0",
-            risk_score: null,
+            risk_score: undefined,
             risk_level: "LOW",
             risk_categories: [],
             applicant_name: `${identity.firstName} ${identity.lastName}`,
@@ -771,7 +771,7 @@ router.get("/lrs/status", async (req, res) => {
 
     let usdInrRate = 84;
     try {
-      usdInrRate = await currencyExchangeService.getExchangeRate('USD', 'INR');
+      usdInrRate = await currencyExchangeService.convertAmount(1, 'USD', 'INR');
     } catch { /* use fallback */ }
 
     const usedUsd   = allBrokerAccounts.reduce((sum, a) => sum + parseFloat(a.lrsUsedUsd ?? '0'), 0);
