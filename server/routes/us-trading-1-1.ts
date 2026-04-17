@@ -344,7 +344,8 @@ router.post("/account/apply", async (req, res) => {
         agreement: a.agreement,
         signed_at: a.signedAt || new Date().toISOString(),
         ip_address: a.ipAddress || req.ip || "0.0.0.0",
-        revision: a.revision || "04.2021.10",
+        // Use env var so we can update without code deploy when Alpaca releases new agreement versions
+        revision: a.revision || process.env.ALPACA_AGREEMENT_REVISION || "04.2021.10",
       })),
       // W-8BEN: Required for all non-US-resident account holders (Indian residents)
       // Auto-generate from KYC data — treaty_country "IND", foreign_tax_id = PAN
@@ -364,7 +365,9 @@ router.post("/account/apply", async (req, res) => {
                   foreign_tax_id: identity.taxId,
                   tax_id_type: identity.taxIdType || "NOT_SPECIFIED",
                   treaty_country: identity.countryOfTaxResidence || "IND",
-                  revision: "10.2018",
+                  // W-8BEN revision: updated to October 2021 form (IRS Rev. Oct 2021)
+                  // Update ALPACA_W8BEN_REVISION env var when IRS releases a new version
+                  revision: process.env.ALPACA_W8BEN_REVISION || "10.2021",
                 }),
                 mime_type: "application/json",
               }];
@@ -415,7 +418,8 @@ router.post("/account/apply", async (req, res) => {
     if (alpacaAccount.id && compliance.kycComplete) {
       try {
         const cipPayload = {
-          provider: "FintekPro",
+          // Must be an array per Alpaca CIP API spec — provider_name: string[]
+          provider_name: ["FintekPro"],
           kyc: {
             id: userId,
             tax_id: identity.taxId || "PENDING",
@@ -752,22 +756,25 @@ router.get("/lrs/status", async (req, res) => {
     const fyStart = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
     const currentFY = `${fyStart}-${String(fyStart + 1).slice(-2)}`;
 
-    const [brokerAccount] = await db
+    // LRS is a per-PAN (per-person) limit — aggregate across ALL Alpaca accounts for this user.
+    // A user could have multiple sub-accounts (e.g. individual + joint) — TCS is calculated on total.
+    const allBrokerAccounts = await db
       .select({
         lrsUsedUsd: usBrokerAccounts.lrsUsedUsd,
         lrsFinancialYear: usBrokerAccounts.lrsFinancialYear,
         alpacaAccountId: usBrokerAccounts.alpacaAccountId,
       })
       .from(usBrokerAccounts)
-      .where(eq(usBrokerAccounts.clientId, userId))
-      .limit(1);
+      .where(eq(usBrokerAccounts.clientId, userId));
+
+    const brokerAccount = allBrokerAccounts[0]; // primary account for FY label
 
     let usdInrRate = 84;
     try {
       usdInrRate = await currencyExchangeService.getExchangeRate('USD', 'INR');
     } catch { /* use fallback */ }
 
-    const usedUsd   = parseFloat(brokerAccount?.lrsUsedUsd ?? '0');
+    const usedUsd   = allBrokerAccounts.reduce((sum, a) => sum + parseFloat(a.lrsUsedUsd ?? '0'), 0);
     const usedInr   = usedUsd * usdInrRate;
     const remaining = LRS_LIMIT_USD - usedUsd;
     const usedPct   = (usedUsd / LRS_LIMIT_USD) * 100;
