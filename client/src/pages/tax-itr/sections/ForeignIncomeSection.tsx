@@ -15,7 +15,7 @@ import { useTax } from "../TaxContext";
 import { DTAA_COUNTRIES, CURRENCY_CODES, ASSET_TYPES_FA } from "../constants";
 import { 
   ScheduleALDetails, DonationEntry, LossAdjustmentDetails, SpecialRateIncome, FOIncome, CYLAData, BFLAData,
-  ForeignAssetEntry
+  ForeignAssetEntry, ForeignIncomeDetails
 } from "../types";
 
 export const ForeignIncomeSection: React.FC = () => {
@@ -111,7 +111,7 @@ export const ForeignIncomeSection: React.FC = () => {
                 <FieldHint text="Currency in which your foreign transactions were made. All amounts will be converted to INR using the exchange rate below." />
               </Label>
               <Select value={foreignIncomeDetails.currencyCode} onValueChange={(v: string) => {
-                const cur = CURRENCY_CODES.find(c => c.code === v);
+                const cur = CURRENCY_CODES.find((c: { code: string; name: string }) => c.code === v);
                 setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({
                   ...prev,
                   currencyCode: v,
@@ -122,7 +122,7 @@ export const ForeignIncomeSection: React.FC = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CURRENCY_CODES.map(c => (
+                  {CURRENCY_CODES.map((c: { code: string; name: string }) => (
                     <SelectItem key={c.code} value={c.code}>{c.symbol} {c.name} ({c.code})</SelectItem>
                   ))}
                 </SelectContent>
@@ -322,7 +322,7 @@ export const ForeignIncomeSection: React.FC = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {DTAA_COUNTRIES.map(c => (
+                        {DTAA_COUNTRIES.map((c: { name: string; code: string }) => (
                           <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
                         ))}
                       </SelectContent>
@@ -338,7 +338,7 @@ export const ForeignIncomeSection: React.FC = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {ASSET_TYPES_FA.map(t => (
+                        {ASSET_TYPES_FA.map((t: { label: string; value: string }) => (
                           <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                         ))}
                       </SelectContent>
