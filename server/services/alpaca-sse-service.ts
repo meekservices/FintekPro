@@ -45,12 +45,20 @@ interface Subscriber {
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 const ALPACA_BROKER_SANDBOX_URL = "https://broker-api.sandbox.alpaca.markets";
+const ALPACA_BROKER_LIVE_URL   = "https://broker-api.alpaca.markets";
+
+function resolveSseBaseUrl(): string {
+  if (process.env.ALPACA_BASE_URL) return process.env.ALPACA_BASE_URL;
+  return process.env.ALPACA_ENV === "production"
+    ? ALPACA_BROKER_LIVE_URL
+    : ALPACA_BROKER_SANDBOX_URL;
+}
 
 class AlpacaSseService extends EventEmitter {
   private apiKey = process.env.ALPACA_API_KEY || "";
   private secretKey = process.env.ALPACA_SECRET_KEY || "";
-  private baseUrl = process.env.ALPACA_BASE_URL || ALPACA_BROKER_SANDBOX_URL;
-  private isBrokerApi = (process.env.ALPACA_BASE_URL || ALPACA_BROKER_SANDBOX_URL).includes("broker-api");
+  private baseUrl = resolveSseBaseUrl();
+  private isBrokerApi = resolveSseBaseUrl().includes("broker-api");
 
   private subscribers = new Map<string, Subscriber>();
   private activeStreams = new Map<AlpacaEventType, ReturnType<typeof setTimeout>>();

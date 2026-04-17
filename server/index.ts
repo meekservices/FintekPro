@@ -2325,8 +2325,35 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   } catch (error) {
     logger.serviceError('Unlisted Marketplace Cron', 'Failed to initialize cron jobs', error instanceof Error ? error : undefined);
   }
-  
-  // Initialize Financial Data Scheduler for database-driven caching (production only)
+
+  // ── Alpaca SSE Event Stream Auto-Start ────────────────────────────────────
+  // Start real-time event streams when Alpaca credentials are present.
+  // Covers: trade fills, account status, transfer updates, journal updates.
+  // Safe to run in both sandbox and production — isPaper flag controls demo behavior.
+  setTimeout(() => {
+    try {
+      import('./services/alpaca-sse-service').then(({ alpacaSseService }) => {
+        import('./services/alpaca-broker-service').then(({ alpacaBrokerService }) => {
+          if (alpacaBrokerService.isConfigured()) {
+            alpacaSseService.start([
+              'trade_updates',
+              'account_updates',
+              'transfer_updates',
+              'journal_updates',
+            ]);
+            const mode = alpacaBrokerService.isPaperTrading() ? 'sandbox' : 'production';
+            logger.service('AlpacaSSE', `Event streams started (${mode} mode)`);
+          } else {
+            logger.info('[AlpacaSSE] Skipped — ALPACA_API_KEY / ALPACA_SECRET_KEY not configured');
+          }
+        });
+      });
+    } catch (err: any) {
+      console.error('❌ [AlpacaSSE] Failed to start event streams:', err.message);
+    }
+  }, 15000); // 15s delay: wait for DB pool + auth to warm up
+
+
   const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
   if (isProduction) {
     setTimeout(() => {

@@ -2,7 +2,18 @@ import axios, { AxiosInstance } from "axios";
 import { v4 as uuidv4 } from "uuid";
 
 const ALPACA_BROKER_SANDBOX_URL = "https://broker-api.sandbox.alpaca.markets";
-const ALPACA_BROKER_LIVE_URL = "https://broker-api.alpaca.markets";
+const ALPACA_BROKER_LIVE_URL   = "https://broker-api.alpaca.markets";
+
+/**
+ * Resolve the Alpaca base URL from env vars.
+ * Priority: ALPACA_BASE_URL (explicit) → ALPACA_ENV (sandbox|production) → sandbox default
+ */
+function resolveAlpacaBaseUrl(): string {
+  if (process.env.ALPACA_BASE_URL) return process.env.ALPACA_BASE_URL;
+  return process.env.ALPACA_ENV === "production"
+    ? ALPACA_BROKER_LIVE_URL
+    : ALPACA_BROKER_SANDBOX_URL;
+}
 
 // ─── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -392,7 +403,7 @@ class AlpacaBrokerService {
   constructor() {
     this.apiKey = process.env.ALPACA_API_KEY || "";
     this.secretKey = process.env.ALPACA_SECRET_KEY || "";
-    this.baseUrl = process.env.ALPACA_BASE_URL || ALPACA_BROKER_SANDBOX_URL;
+    this.baseUrl = resolveAlpacaBaseUrl();
     this.isPaper = this.baseUrl.includes("sandbox") || this.baseUrl.includes("paper");
     this.client = this._buildClient();
   }
@@ -413,10 +424,11 @@ class AlpacaBrokerService {
     return axios.create({ baseURL: this.baseUrl, timeout: 20000, headers });
   }
 
-  configure(apiKey: string, secretKey: string, baseUrl?: string): void {
+  configure(apiKey: string, secretKey: string, baseUrl?: string, env?: "sandbox" | "production"): void {
     this.apiKey = apiKey;
     this.secretKey = secretKey;
-    this.baseUrl = baseUrl || ALPACA_BROKER_SANDBOX_URL;
+    if (env) process.env.ALPACA_ENV = env;
+    this.baseUrl = baseUrl || resolveAlpacaBaseUrl();
     this.isPaper = this.baseUrl.includes("sandbox") || this.baseUrl.includes("paper");
     this.client = this._buildClient();
     process.env.ALPACA_API_KEY = apiKey;
@@ -1258,8 +1270,16 @@ class AlpacaBrokerService {
     }
   }
 
-  /** Sandbox only — simulate a deposit to the funding wallet */
+  /** Sandbox only — simulate a deposit to the funding wallet.
+   *  THROWS in production to prevent accidentally hitting a non-existent endpoint.
+   */
   async simulateFundingDeposit(accountId: string, walletId: string, amountUsd: number): Promise<any> {
+    if (!this.isPaper) {
+      throw new Error(
+        "simulateFundingDeposit is only available in sandbox mode. " +
+        "Set ALPACA_ENV=sandbox or ALPACA_BASE_URL to the sandbox URL."
+      );
+    }
     const response = await this.client.post(
       `/v1beta/accounts/${accountId}/funding_wallet/${walletId}/transfers/demo_deposit`,
       { amount: amountUsd.toString(), currency: "USD" },
