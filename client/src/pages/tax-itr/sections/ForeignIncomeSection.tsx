@@ -51,7 +51,7 @@ export const ForeignIncomeSection: React.FC = () => {
   const removeForeignAsset = (idx: number) => {
     setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({
       ...prev,
-      foreignAssets: prev.foreignAssets.filter((_: any, i: number) => i !== idx)
+      foreignAssets: prev.foreignAssets.filter((_: ForeignAssetEntry, i: number) => i !== idx)
     }));
   };
 
@@ -88,7 +88,7 @@ export const ForeignIncomeSection: React.FC = () => {
                 <FieldHint text="Select the country where you earned foreign income. India has DTAA treaties with 90+ countries to prevent double taxation." />
               </Label>
               <Select value={foreignIncomeDetails.dtaaCountry} onValueChange={(v: string) => {
-                const country = DTAA_COUNTRIES.find(c => c.code === v);
+                const country = DTAA_COUNTRIES.find((c: { code: string; name: string; article: string }) => c.code === v);
                 setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({
                   ...prev,
                   dtaaCountry: v,
@@ -111,7 +111,7 @@ export const ForeignIncomeSection: React.FC = () => {
                 <FieldHint text="Currency in which your foreign transactions were made. All amounts will be converted to INR using the exchange rate below." />
               </Label>
               <Select value={foreignIncomeDetails.currencyCode} onValueChange={(v: string) => {
-                const cur = CURRENCY_CODES.find((c: { code: string; name: string }) => c.code === v);
+                const cur = CURRENCY_CODES.find((c: { code: string; symbol: string; name: string; defaultRate: number }) => c.code === v);
                 setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({
                   ...prev,
                   currencyCode: v,
@@ -122,7 +122,7 @@ export const ForeignIncomeSection: React.FC = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CURRENCY_CODES.map((c: { code: string; name: string }) => (
+                  {CURRENCY_CODES.map((c: { code: string; symbol: string; name: string; defaultRate: number }) => (
                     <SelectItem key={c.code} value={c.code}>{c.symbol} {c.name} ({c.code})</SelectItem>
                   ))}
                 </SelectContent>
@@ -315,14 +315,14 @@ export const ForeignIncomeSection: React.FC = () => {
                   <div className="space-y-1">
                     <Label className="text-xs">Country</Label>
                     <Select value={asset.countryCode} onValueChange={(v: string) => {
-                      updateForeignAsset(idx, "countryCode", v as any);
-                      updateForeignAsset(idx, "countryName", DTAA_COUNTRIES.find(c => c.code === v)?.name || v);
+                      updateForeignAsset(idx, "countryCode", v);
+                      updateForeignAsset(idx, "countryName", DTAA_COUNTRIES.find((c: { code: string; name: string; article: string }) => c.code === v)?.name || v);
                     }}>
                       <SelectTrigger className="h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {DTAA_COUNTRIES.map((c: { name: string; code: string }) => (
+                        {DTAA_COUNTRIES.map((c: { name: string; code: string; article: string }) => (
                           <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
                         ))}
                       </SelectContent>
@@ -333,7 +333,7 @@ export const ForeignIncomeSection: React.FC = () => {
                       Asset Type
                       <FieldHint text="Table A3: Equity/Debt in foreign entity. Table A1: Foreign bank account. Table A2: Custodial account. Table C: Immovable property." />
                     </Label>
-                    <Select value={asset.assetType} onValueChange={(v: string) => updateForeignAsset(idx, "assetType", v as any)}>
+                    <Select value={asset.assetType} onValueChange={(v: string) => updateForeignAsset(idx, "assetType", v)}>
                       <SelectTrigger className="h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
