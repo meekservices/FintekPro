@@ -18,7 +18,7 @@ import {
   ForeignIncomeDetails, BusinessDetails, RegimeComparison, EmployerDetails, BalanceSheetDetails,
   ProfitLossDetails, DepreciationEntry, TaxAuditInfo, EntityProfileDetails, CorporateDetails, TrustDetails,
   ScheduleALDetails, DonationEntry, LossAdjustmentDetails, SpecialRateIncome, FOIncome, CYLAData, BFLAData,
-  Step
+  ItrUDetails, Step
 } from "./types";
 import { STEPS } from "./constants";
 import { formatCurrency } from "@/components/tax-itr/TaxITRHelpers";
