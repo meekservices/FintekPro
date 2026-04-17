@@ -861,3 +861,32 @@ export interface StepValidation {
   errors: string[];
   warnings: string[];
 }
+
+export interface TaxTotals {
+  grossSalary: number;
+  housePropertyIncome: number;
+  capitalGains: number;
+  businessIncome: number;
+  otherIncome: number;
+  grossTotalIncome: number;
+  totalDeductions: number;
+  taxableIncome: number;
+  taxPayable: number;
+  refundDue: number;
+  paymentDue: number;
+}
+
+export interface CGManualSummary {
+  purchaseValue: number;
+  saleValue: number;
+  expenses: number;
+  shortTermGain: number;
+  longTermGain: number;
+}
+
+export interface CGManualSavedItem {
+  id: number;
+  assetType: string;
+  summary: CGManualSummary;
+  entryCount: number;
+}
