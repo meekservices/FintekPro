@@ -67,8 +67,8 @@ export const SalarySection: React.FC = (): React.ReactElement => {
             <strong>AIS data pre-filled:</strong> {(aisData.salaryIncome ?? 0) > 0 ? `Salary ₹${aisData.salaryIncome?.toLocaleString('en-IN')}` : ''} 
             {(aisData.interestIncome ?? 0) > 0 ? ` | Interest ₹${aisData.interestIncome?.toLocaleString('en-IN')}` : ''} 
             {(aisData.dividendIncome ?? 0) > 0 ? ` | Dividends ₹${aisData.dividendIncome?.toLocaleString('en-IN')}` : ''} 
-            {(aisData.tdsEntries ?? 0) > 0 ? ` | ${aisData.tdsEntries} TDS entries` : ''} 
-            {(aisData.saleTransactions ?? 0) > 0 ? ` | ${aisData.saleTransactions} sale transactions` : ''}
+            {Number(aisData.tdsEntries ?? 0) > 0 ? ` | ${aisData.tdsEntries} TDS entries` : ''} 
+            {Number(aisData.saleTransactions ?? 0) > 0 ? ` | ${aisData.saleTransactions} sale transactions` : ''}
           </AlertDescription>
         </Alert>
       )}

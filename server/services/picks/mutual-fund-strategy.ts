@@ -91,8 +91,8 @@ export class MutualFundStrategy extends BaseStrategy {
         keyMetrics: {
           cmp: currentNav,
           nav: currentNav,
-          returns1y: topFund.returns1y ? parseFloat(topFund.returns1y) : null,
-          returns3y: topFund.returns3y ? parseFloat(topFund.returns3y) : null,
+          returns1y: topFund.returns1y ? parseFloat(topFund.returns1y) : undefined,
+          returns3y: topFund.returns3y ? parseFloat(topFund.returns3y) : undefined,
           smartRating: topFund.crisilRating || undefined,
           fundHouse: topFund.fundHouse || undefined,
           category: topFund.category || undefined,

@@ -58,7 +58,7 @@ export class BondStrategy extends BaseStrategy {
         keyMetrics: {
           ytm: topBond.yieldToMaturity ? parseFloat(topBond.yieldToMaturity) : null,
           coupon: topBond.couponRate ? parseFloat(topBond.couponRate) : null,
-          rating: topBond.creditRating,
+          rating: topBond.creditRating ?? undefined,
           maturity: topBond.maturityDate,
         },
       };
@@ -84,7 +84,7 @@ export class BondStrategy extends BaseStrategy {
 
   async getLivePrice(instrumentId: string): Promise<number | null> {
     const row = await db.select({ cleanPrice: bondCatalog.cleanPrice })
-      .from(bondCatalog).where(eq(bondCatalog.id, parseInt(instrumentId))).limit(1);
+      .from(bondCatalog).where(eq(bondCatalog.id, instrumentId)).limit(1);
     return row[0]?.cleanPrice ? parseFloat(row[0].cleanPrice) : null;
   }
 }

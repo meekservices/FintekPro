@@ -61,6 +61,10 @@ export interface RationaleParams {
   category: PickCategory | string;
   currentPrice: number;
   targetPrice: number;
+  stoplossPrice?: number;
+  symbol?: string;
+  strategy?: string;
+  outlook?: string;
   metrics?: Record<string, any>;
 }
 
@@ -356,12 +360,12 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
     return {
       id: pick.id,
       category: pick.category,
-      instrumentId: pick.instrumentId,
+      instrumentId: pick.instrumentId ?? undefined,
       instrumentName: pick.instrumentName,
-      isin: pick.isin,
-      symbol: pick.symbol,
-      market: pick.market,
-      exchange: pick.exchange,
+      isin: pick.isin ?? undefined,
+      symbol: pick.symbol ?? undefined,
+      market: pick.market ?? undefined,
+      exchange: pick.exchange ?? undefined,
       recoDate: pick.recoDate,
       recoPrice: parseFloat(pick.recoPrice),
       targetPrice: parseFloat(pick.targetPrice),
@@ -370,14 +374,14 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
       status: pick.status,
       expiryDate: pick.expiryDate,
       returnPct: pick.returnPct ? parseFloat(pick.returnPct) : undefined,
-      daysHeld: pick.daysHeld,
+      daysHeld: pick.daysHeld ?? undefined,
       rationale: pick.rationale,
       riskLevel: pick.riskLevel || 'medium',
       suitableFor: pick.suitableFor || [],
-      keyMetrics: pick.keyMetrics,
+      keyMetrics: pick.keyMetrics ?? undefined,
       timeHorizon: pick.timeHorizon || 'medium_term',
       confidenceScore: pick.confidenceScore || 70,
-      updatedAt: pick.updatedAt,
+      updatedAt: pick.updatedAt ?? undefined,
     };
   }
 

@@ -1015,7 +1015,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
 
         // Also run the service's full status update (target/stoploss hits)
         const { pickOfTheDayService: svc } = await import('./services/pick-of-the-day-service');
-        const r = await svc.updatePickStatuses();
+        const r = await svc.refreshLivePicks();
         console.log(`[PicksExpiry] Status sweep complete: ${r.updated} picks updated`);
       } catch (e) {
         console.error('[PicksExpiry] Expiry sweep failed:', e);

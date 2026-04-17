@@ -63,7 +63,7 @@ export class REITInvITStrategy extends BaseStrategy {
         UNION ALL SELECT current_price FROM invits WHERE id::text = ${instrumentId}
         LIMIT 1
       `);
-      const reitRow = (result.rows?.[0] || result[0]) as any;
+      const reitRow = result.rows?.[0] as any;
       return reitRow?.current_price ? parseFloat(reitRow.current_price) : null;
     } catch {
       return null;

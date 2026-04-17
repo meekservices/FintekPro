@@ -7,6 +7,7 @@ export abstract class BaseStrategy implements IPickStrategy {
 
   abstract generate(context: StrategyContext): Promise<DailyPickData | null>;
   abstract score(instrument: any, enriched?: any): number | Promise<number>;
+  abstract getLivePrice(instrumentId: string): Promise<number | null>;
 
   protected getTimeHorizon(category: PickCategory): string {
     switch (category) {
