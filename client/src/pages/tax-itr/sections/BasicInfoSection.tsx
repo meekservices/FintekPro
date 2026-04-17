@@ -64,7 +64,7 @@ export const BasicInfoSection: React.FC = () => {
         </div>
         <div className="space-y-2">
           <Label>Assessment Year <FieldHint text="The year in which you file taxes for the previous financial year's income. For income earned in FY 2024-25, you file in AY 2025-26." /></Label>
-          <Select value={assessmentYear} onValueChange={setAssessmentYear}>
+          <Select value={assessmentYear} onValueChange={(v: string): void => setAssessmentYear(v)}>
             <SelectTrigger data-testid="select-assessment-year">
               <SelectValue />
             </SelectTrigger>
@@ -80,7 +80,7 @@ export const BasicInfoSection: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <Label>Residential Status <FieldHint text="Resident: in India ≥182 days. NRI: outside India. RNOR: Returning NRI or newly resident. ITR-1 is only for Resident Individuals." /></Label>
-          <Select value={residentialStatus} onValueChange={(v) => setResidentialStatus(v as "resident" | "nri" | "rnor")}>
+          <Select value={residentialStatus} onValueChange={(v: string): void => setResidentialStatus(v as "resident" | "nri" | "rnor")}>
             <SelectTrigger data-testid="select-residential-status">
               <SelectValue />
             </SelectTrigger>
@@ -96,7 +96,7 @@ export const BasicInfoSection: React.FC = () => {
         </div>
         <div className="space-y-2">
           <Label>Filing Under Section <FieldHint text="139(1): Original return filed on time. 139(4): Belated return (after due date). 139(5): Revised return (correcting earlier filed return)." /></Label>
-          <Select value={filingSection} onValueChange={setFilingSection}>
+          <Select value={filingSection} onValueChange={(v: string): void => setFilingSection(v)}>
             <SelectTrigger data-testid="select-filing-section">
               <SelectValue />
             </SelectTrigger>
@@ -111,7 +111,7 @@ export const BasicInfoSection: React.FC = () => {
 
       <div className="space-y-2">
         <Label>Tax Regime <FieldHint text="New regime is default from FY 2023-24. Old regime allows more deductions (80C, 80D, HRA etc.). We'll compare both in the review." /></Label>
-        <RadioGroup value={taxRegime} onValueChange={(v) => setTaxRegime(v as "old" | "new")} className="flex gap-6" data-testid="radio-tax-regime">
+        <RadioGroup value={taxRegime} onValueChange={(v: string): void => setTaxRegime(v as "old" | "new")} className="flex gap-6" data-testid="radio-tax-regime">
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="new" id="regime-new" />
             <Label htmlFor="regime-new" className="cursor-pointer">
@@ -138,7 +138,7 @@ export const BasicInfoSection: React.FC = () => {
             id="itr-u-toggle"
             title="Filing Updated Return (ITR-U)"
             checked={isUpdatedReturn}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIsUpdatedReturn(e.target.checked)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setIsUpdatedReturn(e.target.checked)}
             className="h-4 w-4 rounded border-gray-300"
             data-testid="checkbox-itr-u"
           />

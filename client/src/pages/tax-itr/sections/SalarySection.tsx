@@ -27,7 +27,7 @@ export const SalarySection: React.FC = () => {
   } = useTax();
 
   const currentValidation = validateStep(currentStepId);
-  const salaryIncomeTotal = totals.salaryIncome;
+  const salaryIncomeTotal = totals.grossSalary;
 
   return (
     <div className="space-y-6">
@@ -49,7 +49,7 @@ export const SalarySection: React.FC = () => {
             accept=".pdf,.jpg,.jpeg,.png"
             className="hidden"
             disabled={form16Uploading}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+            onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
               const file = e.target.files?.[0];
               if (file) handleForm16Upload(file);
             }}
@@ -81,7 +81,7 @@ export const SalarySection: React.FC = () => {
               <Input
                 id="employerName"
                 value={employerDetails.employerName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmployerDetails((prev: EmployerDetails) => ({ ...prev, employerName: e.target.value }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setEmployerDetails((prev: EmployerDetails) => ({ ...prev, employerName: e.target.value }))}
                 placeholder="e.g. Tata Consultancy Services Ltd"
                 data-testid="input-employer-name"
               />
@@ -93,7 +93,7 @@ export const SalarySection: React.FC = () => {
               <Input
                 id="employerTAN"
                 value={employerDetails.employerTAN}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmployerDetails((prev: EmployerDetails) => ({ ...prev, employerTAN: e.target.value.toUpperCase() }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setEmployerDetails((prev: EmployerDetails) => ({ ...prev, employerTAN: e.target.value.toUpperCase() }))}
                 placeholder="e.g. MUMS12345E"
                 className="font-mono tracking-wider uppercase"
                 maxLength={10}

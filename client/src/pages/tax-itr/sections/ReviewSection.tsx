@@ -314,10 +314,10 @@ export const ReviewSection: React.FC = () => {
                   <span className="text-muted-foreground">Tax on Income</span>
                   <span className="font-medium">{formatCurrency(apiData.taxLiability)}</span>
                 </div>
-                {totals.totalTaxPaid > 0 && (
+                {(taxPaymentDetails.tdsDeducted + taxPaymentDetails.advanceTaxPaid + taxPaymentDetails.selfAssessmentTax) > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>Less: Tax Already Paid</span>
-                    <span>- {formatCurrency(totals.totalTaxPaid)}</span>
+                    <span>- {formatCurrency(taxPaymentDetails.tdsDeducted + taxPaymentDetails.advanceTaxPaid + taxPaymentDetails.selfAssessmentTax)}</span>
                   </div>
                 )}
                 <Separator />
@@ -419,7 +419,7 @@ export const ReviewSection: React.FC = () => {
               <Input
                 id="bankAccountNumber"
                 value={bankDetails.accountNumber}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBankDetails((prev: BankDetailsForRefund) => ({ ...prev, accountNumber: e.target.value }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setBankDetails((prev: BankDetailsForRefund) => ({ ...prev, accountNumber: e.target.value }))}
                 placeholder="Enter bank account number"
                 data-testid="input-bank-account"
               />
@@ -429,7 +429,7 @@ export const ReviewSection: React.FC = () => {
               <Input
                 id="bankIFSC"
                 value={bankDetails.ifscCode}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBankDetails((prev: BankDetailsForRefund) => ({ ...prev, ifscCode: e.target.value.toUpperCase() }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setBankDetails((prev: BankDetailsForRefund) => ({ ...prev, ifscCode: e.target.value.toUpperCase() }))}
                 placeholder="e.g. SBIN0001234"
                 className="font-mono tracking-wider uppercase"
                 maxLength={11}
@@ -441,14 +441,14 @@ export const ReviewSection: React.FC = () => {
               <Input
                 id="bankName"
                 value={bankDetails.bankName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBankDetails((prev: BankDetailsForRefund) => ({ ...prev, bankName: e.target.value }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setBankDetails((prev: BankDetailsForRefund) => ({ ...prev, bankName: e.target.value }))}
                 placeholder="e.g. State Bank of India"
                 data-testid="input-bank-name"
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="bankAccountType" className="text-xs">Account Type</Label>
-              <Select value={bankDetails.accountType} onValueChange={(v) => setBankDetails((prev: BankDetailsForRefund) => ({ ...prev, accountType: v as "savings" | "current" }))}>
+              <Select value={bankDetails.accountType} onValueChange={(v: string): void => setBankDetails((prev: BankDetailsForRefund) => ({ ...prev, accountType: v as "savings" | "current" }))}>
                 <SelectTrigger id="bankAccountType" data-testid="select-bank-account-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="savings">Savings</SelectItem>
@@ -479,10 +479,10 @@ export const ReviewSection: React.FC = () => {
                 accept=".pdf,.jpg,.jpeg,.png,.xlsx,.csv"
                 className="hidden"
                 multiple
-                onChange={(e) => {
+                onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                   const files = e.target.files;
                   if (files) {
-                    const newDocs = Array.from(files).map(f => ({
+                    const newDocs = Array.from(files).map((f: File) => ({
                       id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
                       name: f.name,
                       type: f.type,

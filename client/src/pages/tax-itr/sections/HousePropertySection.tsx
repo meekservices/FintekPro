@@ -22,7 +22,7 @@ export const HousePropertySection: React.FC = () => {
   } = useTax();
 
   const currentValidation = validateStep(currentStepId);
-  const housePropertyIncomeTotal = totals.hpIncome;
+  const housePropertyIncomeTotal = totals.housePropertyIncome;
 
   const computePropertyIncome = (property: HousePropertyEntry): number => {
     if (property.propertyType === "self_occupied") {
@@ -33,7 +33,7 @@ export const HousePropertySection: React.FC = () => {
     return nav - stdDed - property.interestOnLoan;
   };
 
-  const addProperty = () => {
+  const addProperty = (): void => {
     const maxProps = recommendedForm === "ITR-1" ? 1 : 5;
     if (housePropertyDetails.properties.length >= maxProps) return;
     const newProp: HousePropertyEntry = { 
@@ -51,7 +51,7 @@ export const HousePropertySection: React.FC = () => {
     }));
   };
 
-  const removeProperty = (idx: number) => {
+  const removeProperty = (idx: number): void => {
     if (housePropertyDetails.properties.length <= 1) return;
     setHousePropertyDetails((prev: HousePropertyDetails) => {
       const updated = prev.properties.filter((_: HousePropertyEntry, i: number) => i !== idx);
@@ -68,7 +68,7 @@ export const HousePropertySection: React.FC = () => {
     });
   };
 
-  const updateProperty = (idx: number, field: keyof HousePropertyEntry, value: string | number) => {
+  const updateProperty = (idx: number, field: keyof HousePropertyEntry, value: string | number): void => {
     setHousePropertyDetails((prev: HousePropertyDetails) => {
       const updated = [...prev.properties];
       updated[idx] = { ...updated[idx], [field]: value } as HousePropertyEntry;
