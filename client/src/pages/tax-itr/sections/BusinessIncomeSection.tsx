@@ -10,7 +10,7 @@ import { FieldHint, CurrencyInput, ValidationBanner, formatCurrency } from "@/co
 import { useTax } from "../TaxContext";
 import { BusinessDetails } from "../types";
 
-export const BusinessIncomeSection: React.FC = () => {
+export const BusinessIncomeSection: React.FC = (): React.ReactElement => {
   const {
     recommendedForm,
     businessDetails,
@@ -33,7 +33,7 @@ export const BusinessIncomeSection: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="space-y-1.5">
           <Label>Business Type</Label>
-          <Select value={businessDetails.businessType} onValueChange={(v: string) => setBusinessDetails((prev: BusinessDetails) => ({ ...prev, businessType: v }))}>
+          <Select value={businessDetails.businessType} onValueChange={(v: string): void => setBusinessDetails((prev: BusinessDetails) => ({ ...prev, businessType: v }))}>
             <SelectTrigger data-testid="select-business-type">
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
@@ -48,7 +48,7 @@ export const BusinessIncomeSection: React.FC = () => {
           <Label>Business Description</Label>
           <Input
             value={businessDetails.businessDescription}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBusinessDetails((prev: BusinessDetails) => ({ ...prev, businessDescription: e.target.value }))}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setBusinessDetails((prev: BusinessDetails) => ({ ...prev, businessDescription: e.target.value }))}
             placeholder="e.g. Software consulting, Retail shop"
             data-testid="input-business-desc"
           />
@@ -58,7 +58,7 @@ export const BusinessIncomeSection: React.FC = () => {
       <div className="flex items-center gap-3 p-3 bg-orange-50 dark:bg-orange-950 rounded-lg border border-orange-200 dark:border-orange-800">
         <Checkbox
           checked={businessDetails.isPresumptive}
-          onCheckedChange={(checked: boolean) => setBusinessDetails((prev: BusinessDetails) => ({ ...prev, isPresumptive: !!checked }))}
+          onCheckedChange={(checked: boolean): void => setBusinessDetails((prev: BusinessDetails) => ({ ...prev, isPresumptive: !!checked }))}
           data-testid="checkbox-presumptive"
         />
         <div>
@@ -86,7 +86,7 @@ export const BusinessIncomeSection: React.FC = () => {
                     <CurrencyInput
                       id="grossTurnover"
                       value={businessDetails.grossTurnover}
-                      onChange={(v: number) => {
+                      onChange={(v: number): void => {
                         const deemed = Math.round(v * 0.08);
                         setBusinessDetails((prev: BusinessDetails) => ({ ...prev, grossTurnover: v, presumptiveIncome44AD: deemed }));
                       }}
@@ -101,7 +101,7 @@ export const BusinessIncomeSection: React.FC = () => {
                     <CurrencyInput
                       id="presumptiveIncome44AD"
                       value={businessDetails.presumptiveIncome44AD}
-                      onChange={(v: number) => setBusinessDetails((prev: BusinessDetails) => ({ ...prev, presumptiveIncome44AD: v }))}
+                      onChange={(v: number): void => setBusinessDetails((prev: BusinessDetails) => ({ ...prev, presumptiveIncome44AD: v }))}
                       data-testid="input-presumptive-44ad"
                     />
                     <p className="text-xs text-muted-foreground">Min: {formatCurrency(Math.round(businessDetails.grossTurnover * 0.06))} (6%) — Max: {formatCurrency(businessDetails.grossTurnover)} (100%)</p>
@@ -125,7 +125,7 @@ export const BusinessIncomeSection: React.FC = () => {
                     <CurrencyInput
                       id="grossReceipts"
                       value={businessDetails.grossReceipts}
-                      onChange={(v: number) => {
+                      onChange={(v: number): void => {
                         const deemed = Math.round(v * 0.5);
                         setBusinessDetails((prev: BusinessDetails) => ({ ...prev, grossReceipts: v, presumptiveIncome44ADA: deemed }));
                       }}
@@ -140,7 +140,7 @@ export const BusinessIncomeSection: React.FC = () => {
                     <CurrencyInput
                       id="presumptiveIncome44ADA"
                       value={businessDetails.presumptiveIncome44ADA}
-                      onChange={(v: number) => setBusinessDetails((prev: BusinessDetails) => ({ ...prev, presumptiveIncome44ADA: v }))}
+                      onChange={(v: number): void => setBusinessDetails((prev: BusinessDetails) => ({ ...prev, presumptiveIncome44ADA: v }))}
                       data-testid="input-presumptive-44ada"
                     />
                   </div>
@@ -165,7 +165,7 @@ export const BusinessIncomeSection: React.FC = () => {
                       min={0}
                       max={10}
                       value={businessDetails.vehicleCount || ""}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                         const count = parseInt(e.target.value) || 0;
                         const deemed = count * 7500 * 12;
                         setBusinessDetails((prev: BusinessDetails) => ({ ...prev, vehicleCount: count, presumptiveIncome44AE: deemed }));
@@ -181,7 +181,7 @@ export const BusinessIncomeSection: React.FC = () => {
                     <CurrencyInput
                       id="presumptiveIncome44AE"
                       value={businessDetails.presumptiveIncome44AE}
-                      onChange={(v: number) => setBusinessDetails((prev: BusinessDetails) => ({ ...prev, presumptiveIncome44AE: v }))}
+                      onChange={(v: number): void => setBusinessDetails((prev: BusinessDetails) => ({ ...prev, presumptiveIncome44AE: v }))}
                       data-testid="input-presumptive-44ae"
                     />
                     <p className="text-xs text-muted-foreground">Auto-calculated: {businessDetails.vehicleCount} × ₹7,500 × 12 = {formatCurrency(businessDetails.vehicleCount * 7500 * 12)}</p>
@@ -203,7 +203,7 @@ export const BusinessIncomeSection: React.FC = () => {
                   <CurrencyInput
                     id="businessIncome"
                     value={businessDetails.businessIncome}
-                    onChange={(v: number) => setBusinessDetails((prev: BusinessDetails) => ({ ...prev, businessIncome: v }))}
+                    onChange={(v: number): void => setBusinessDetails((prev: BusinessDetails) => ({ ...prev, businessIncome: v }))}
                     placeholder="Net profit from P&L account"
                     data-testid="input-business-income"
                   />
@@ -213,7 +213,7 @@ export const BusinessIncomeSection: React.FC = () => {
                   <CurrencyInput
                     id="nonPresumptiveTurnover"
                     value={businessDetails.grossTurnover}
-                    onChange={(v: number) => setBusinessDetails((prev: BusinessDetails) => ({ ...prev, grossTurnover: v }))}
+                    onChange={(v: number): void => setBusinessDetails((prev: BusinessDetails) => ({ ...prev, grossTurnover: v }))}
                     placeholder="Total turnover/receipts"
                     data-testid="input-non-presumptive-turnover"
                   />

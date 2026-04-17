@@ -10,9 +10,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FieldHint, CurrencyInput, ValidationBanner } from "@/components/tax-itr/TaxITRHelpers";
 import { useTax } from "../TaxContext";
 import { ASSESSMENT_YEARS } from "../constants";
-import { ItrUDetails, SalaryDetails, CapitalGainsDetails, OtherIncomeDetails, DeductionDetails } from "../types";
+import { ItrUDetails, SalaryDetails, CapitalGainsDetails, OtherIncomeDetails, DeductionDetails, IncomeSource } from "../types";
 
-export const BasicInfoSection: React.FC = () => {
+export const BasicInfoSection: React.FC = (): React.ReactElement => {
   const {
     panContext,
     assessmentYear,
@@ -80,7 +80,7 @@ export const BasicInfoSection: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <Label>Residential Status <FieldHint text="Resident: in India ≥182 days. NRI: outside India. RNOR: Returning NRI or newly resident. ITR-1 is only for Resident Individuals." /></Label>
-          <Select value={residentialStatus} onValueChange={(v: string): void => setResidentialStatus(v as "resident" | "nri" | "rnor")}>
+          <Select value={residentialStatus} onValueChange={(v: "resident" | "nri" | "rnor"): void => setResidentialStatus(v)}>
             <SelectTrigger data-testid="select-residential-status">
               <SelectValue />
             </SelectTrigger>
@@ -111,7 +111,7 @@ export const BasicInfoSection: React.FC = () => {
 
       <div className="space-y-2">
         <Label>Tax Regime <FieldHint text="New regime is default from FY 2023-24. Old regime allows more deductions (80C, 80D, HRA etc.). We'll compare both in the review." /></Label>
-        <RadioGroup value={taxRegime} onValueChange={(v: string): void => setTaxRegime(v as "old" | "new")} className="flex gap-6" data-testid="radio-tax-regime">
+        <RadioGroup value={taxRegime} onValueChange={(v: "old" | "new"): void => setTaxRegime(v)} className="flex gap-6" data-testid="radio-tax-regime">
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="new" id="regime-new" />
             <Label htmlFor="regime-new" className="cursor-pointer">
@@ -157,15 +157,15 @@ export const BasicInfoSection: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Original Acknowledgment Number <span className="text-red-500">*</span></Label>
-                  <Input value={itrUDetails.originalAckNumber} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setItrUDetails((p: ItrUDetails) => ({ ...p, originalAckNumber: e.target.value }))} placeholder="15-digit ack number" maxLength={15} className="font-mono" data-testid="itr-u-ack" />
+                  <Input value={itrUDetails.originalAckNumber} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setItrUDetails((p: ItrUDetails) => ({ ...p, originalAckNumber: e.target.value }))} placeholder="15-digit ack number" maxLength={15} className="font-mono" data-testid="itr-u-ack" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Original Filing Date</Label>
-                  <Input type="date" value={itrUDetails.originalFilingDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setItrUDetails((p: ItrUDetails) => ({ ...p, originalFilingDate: e.target.value }))} data-testid="itr-u-date" />
+                  <Input type="date" value={itrUDetails.originalFilingDate} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setItrUDetails((p: ItrUDetails) => ({ ...p, originalFilingDate: e.target.value }))} data-testid="itr-u-date" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Reason for Updated Return</Label>
-                  <Select value={itrUDetails.reasonForUpdate} onValueChange={(v: string) => setItrUDetails((p: ItrUDetails) => ({ ...p, reasonForUpdate: v }))}>
+                  <Select value={itrUDetails.reasonForUpdate} onValueChange={(v: string): void => setItrUDetails((p: ItrUDetails): ItrUDetails => ({ ...p, reasonForUpdate: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="income_not_reported">Income not reported earlier</SelectItem>
@@ -181,7 +181,7 @@ export const BasicInfoSection: React.FC = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Additional Tax Payable (₹)</Label>
-                  <CurrencyInput id="itr-u-tax" value={itrUDetails.additionalTaxPayable} onChange={(v: number) => setItrUDetails((p: ItrUDetails) => ({ ...p, additionalTaxPayable: v }))} placeholder="Additional tax on updated income" data-testid="itr-u-tax" />
+                  <CurrencyInput id="itr-u-tax" value={itrUDetails.additionalTaxPayable} onChange={(v: number): void => setItrUDetails((p: ItrUDetails): ItrUDetails => ({ ...p, additionalTaxPayable: v }))} placeholder="Additional tax on updated income" data-testid="itr-u-tax" />
                 </div>
               </div>
               <Alert className="bg-red-50 dark:bg-red-950 border-red-200">
@@ -206,7 +206,7 @@ export const BasicInfoSection: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <Label className="text-xs mb-1 block">Import ITR JSON from IT Portal</Label>
-              <Input type="file" accept=".json" className="text-xs" onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
+              <Input type="file" accept=".json" className="text-xs" onChange={async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
                 const file = e.target.files?.[0];
                 if (!file) return;
                 const formData = new FormData();
@@ -229,7 +229,7 @@ export const BasicInfoSection: React.FC = () => {
             </div>
             <div>
               <Label className="text-xs mb-1 block">Import AIS/TIS Statement</Label>
-              <Input type="file" accept=".json" className="text-xs" onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
+              <Input type="file" accept=".json" className="text-xs" onChange={async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
                 const file = e.target.files?.[0];
                 if (!file) return;
                 const formData = new FormData();
@@ -252,7 +252,7 @@ export const BasicInfoSection: React.FC = () => {
             </div>
             <div>
               <Label className="text-xs mb-1 block">Import Broker CG (23 Brokers)</Label>
-              <Input type="file" accept=".csv,.xlsx" className="text-xs" onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
+              <Input type="file" accept=".csv,.xlsx" className="text-xs" onChange={async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
                 const file = e.target.files?.[0];
                 if (!file) return;
                 const formData = new FormData();

@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTax } from "../TaxContext";
 import { TrustDetails } from "../types";
 
-export const TrustIncomeSection: React.FC = () => {
+export const TrustIncomeSection: React.FC = (): React.ReactElement => {
   const {
     trustDetails,
     setTrustDetails
@@ -29,17 +29,17 @@ export const TrustIncomeSection: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Corpus Donations (₹)</Label>
-              <Input type="number" value={trustDetails.corpusDonations || ""} onChange={e => setTrustDetails((p: TrustDetails) => ({ ...p, corpusDonations: Number(e.target.value) }))} />
+              <Input type="number" value={trustDetails.corpusDonations || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setTrustDetails((p: TrustDetails) => ({ ...p, corpusDonations: Number(e.target.value) }))} />
               <p className="text-xs text-muted-foreground mt-1">Donations with specific direction to form part of corpus — exempt u/s 11(1)(d)</p>
             </div>
             <div>
               <Label className="text-xs">Voluntary Contributions (₹)</Label>
-              <Input type="number" value={trustDetails.voluntaryContributions || ""} onChange={e => setTrustDetails((p: TrustDetails) => ({ ...p, voluntaryContributions: Number(e.target.value) }))} />
+              <Input type="number" value={trustDetails.voluntaryContributions || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setTrustDetails((p: TrustDetails) => ({ ...p, voluntaryContributions: Number(e.target.value) }))} />
               <p className="text-xs text-muted-foreground mt-1">General donations without corpus direction</p>
             </div>
             <div>
               <Label className="text-xs">Anonymous Donations (₹)</Label>
-              <Input type="number" value={trustDetails.anonymousDonations || ""} onChange={e => setTrustDetails((p: TrustDetails) => ({ ...p, anonymousDonations: Number(e.target.value) }))} />
+              <Input type="number" value={trustDetails.anonymousDonations || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setTrustDetails((p: TrustDetails) => ({ ...p, anonymousDonations: Number(e.target.value) }))} />
               <p className="text-xs text-muted-foreground mt-1">Donations where donor identity not available — taxed at 30% beyond threshold</p>
             </div>
           </div>
@@ -54,16 +54,16 @@ export const TrustIncomeSection: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Application of Income (₹)</Label>
-              <Input type="number" value={trustDetails.applicationOfIncome || ""} onChange={e => setTrustDetails((p: TrustDetails) => ({ ...p, applicationOfIncome: Number(e.target.value) }))} />
+              <Input type="number" value={trustDetails.applicationOfIncome || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setTrustDetails((p: TrustDetails) => ({ ...p, applicationOfIncome: Number(e.target.value) }))} />
               <p className="text-xs text-muted-foreground mt-1">Amount actually spent on objects of the trust during the FY</p>
             </div>
             <div>
               <Label className="text-xs">Accumulated Income (₹)</Label>
-              <Input type="number" value={trustDetails.accumulatedIncome || ""} onChange={e => setTrustDetails((p: TrustDetails) => ({ ...p, accumulatedIncome: Number(e.target.value) }))} />
+              <Input type="number" value={trustDetails.accumulatedIncome || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setTrustDetails((p: TrustDetails) => ({ ...p, accumulatedIncome: Number(e.target.value) }))} />
             </div>
             <div>
               <Label className="text-xs">Accumulation % (max 15% u/s 11(1)(a))</Label>
-              <Input type="number" value={trustDetails.accumulationPercentage} onChange={e => setTrustDetails((p: TrustDetails) => ({ ...p, accumulationPercentage: Number(e.target.value) }))} max={100} />
+              <Input type="number" value={trustDetails.accumulationPercentage} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setTrustDetails((p: TrustDetails) => ({ ...p, accumulationPercentage: Number(e.target.value) }))} max={100} />
             </div>
           </div>
         </CardContent>
@@ -77,17 +77,17 @@ export const TrustIncomeSection: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Section 11 Exemption (₹)</Label>
-              <Input type="number" value={trustDetails.section11Exemption || ""} onChange={e => setTrustDetails((p: TrustDetails) => ({ ...p, section11Exemption: Number(e.target.value) }))} />
+              <Input type="number" value={trustDetails.section11Exemption || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setTrustDetails((p: TrustDetails) => ({ ...p, section11Exemption: Number(e.target.value) }))} />
               <p className="text-xs text-muted-foreground mt-1">Income applied for charitable/religious purposes</p>
             </div>
             <div>
               <Label className="text-xs">Section 12 Exemption (₹)</Label>
-              <Input type="number" value={trustDetails.section12Exemption || ""} onChange={e => setTrustDetails((p: TrustDetails) => ({ ...p, section12Exemption: Number(e.target.value) }))} />
+              <Input type="number" value={trustDetails.section12Exemption || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setTrustDetails((p: TrustDetails) => ({ ...p, section12Exemption: Number(e.target.value) }))} />
               <p className="text-xs text-muted-foreground mt-1">Voluntary contributions treated as income</p>
             </div>
             <div>
               <Label className="text-xs">Investment in Specified Mode (₹)</Label>
-              <Input type="number" value={trustDetails.investmentInSpecifiedMode || ""} onChange={e => setTrustDetails((p: TrustDetails) => ({ ...p, investmentInSpecifiedMode: Number(e.target.value) }))} />
+              <Input type="number" value={trustDetails.investmentInSpecifiedMode || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setTrustDetails((p: TrustDetails) => ({ ...p, investmentInSpecifiedMode: Number(e.target.value) }))} />
               <p className="text-xs text-muted-foreground mt-1">Schedule-J: Investments as per Section 11(5) — government securities, FDs, etc.</p>
             </div>
           </div>

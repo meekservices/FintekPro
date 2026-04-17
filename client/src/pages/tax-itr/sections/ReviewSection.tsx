@@ -26,7 +26,7 @@ import {
   RefundStage, TaxDeadline, IfscResult, BankDetailsForRefund 
 } from "../types";
 
-export const ReviewSection: React.FC = () => {
+export const ReviewSection: React.FC = (): React.ReactElement => {
   const {
     sandboxTaxResult,
     taxCalcMutation,
@@ -101,9 +101,9 @@ export const ReviewSection: React.FC = () => {
   const isCalculating = taxCalcMutation.isPending;
 
   const allStepValidations = activeSteps
-    .filter((s: Step) => s.id !== "review")
-    .map((s: Step) => ({ step: s, validation: validateStep(s.id) }))
-    .filter((sv: { step: Step; validation: StepValidation }) => !sv.validation.isValid);
+    .filter((s: Step): boolean => s.id !== "review")
+    .map((s: Step): { step: Step; validation: StepValidation } => ({ step: s, validation: validateStep(s.id) }))
+    .filter((sv: { step: Step; validation: StepValidation }): boolean => !sv.validation.isValid);
 
   return (
     <div className="space-y-6">
@@ -113,11 +113,11 @@ export const ReviewSection: React.FC = () => {
           <AlertDescription>
             <p className="font-medium text-red-700 dark:text-red-300 mb-2">Please fix the following before filing:</p>
             <ul className="space-y-1">
-              {allStepValidations.map((sv: { step: Step; validation: StepValidation }) => (
+              {allStepValidations.map((sv: { step: Step; validation: StepValidation }): React.ReactElement => (
                 <li key={sv.step.id} className="text-sm">
                   <button 
                     className="text-red-600 underline hover:no-underline font-medium"
-                    onClick={() => goToStep(sv.step.id)}
+                    onClick={(): void => goToStep(sv.step.id)}
                   >
                     {sv.step.title}
                   </button>
@@ -134,7 +134,7 @@ export const ReviewSection: React.FC = () => {
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
             <strong>Tax Calculation Error:</strong> {taxCalcError}
-            <Button variant="link" className="ml-2 p-0 h-auto" onClick={() => taxCalcMutation.mutate()} disabled={isCalculating}>
+            <Button variant="link" className="ml-2 p-0 h-auto" onClick={(): void => { taxCalcMutation.mutate(); }} disabled={isCalculating}>
               Retry
             </Button>
           </AlertDescription>
@@ -255,7 +255,7 @@ export const ReviewSection: React.FC = () => {
               variant="outline"
               size="sm"
               className="w-full"
-              onClick={() => regimeCompareMutation.mutate()}
+              onClick={(): void => regimeCompareMutation.mutate()}
               disabled={regimeCompareMutation.isPending}
               data-testid="btn-compare-regimes"
             >
@@ -343,7 +343,7 @@ export const ReviewSection: React.FC = () => {
               <div className="text-center py-6">
                 <Calculator className="h-6 w-6 mx-auto text-muted-foreground" />
                 <p className="mt-2 text-sm text-muted-foreground">Tax not yet computed</p>
-                <Button className="mt-3" size="sm" onClick={() => taxCalcMutation.mutate()} data-testid="button-calculate-tax">
+                <Button className="mt-3" size="sm" onClick={(): void => { taxCalcMutation.mutate(); }} data-testid="button-calculate-tax">
                   <Calculator className="h-4 w-4 mr-2" /> Calculate Now
                 </Button>
               </div>
@@ -448,7 +448,7 @@ export const ReviewSection: React.FC = () => {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="bankAccountType" className="text-xs">Account Type</Label>
-              <Select value={bankDetails.accountType} onValueChange={(v: string): void => setBankDetails((prev: BankDetailsForRefund) => ({ ...prev, accountType: v as "savings" | "current" }))}>
+              <Select value={bankDetails.accountType} onValueChange={(v: "savings" | "current"): void => setBankDetails((prev: BankDetailsForRefund) => ({ ...prev, accountType: v }))}>
                 <SelectTrigger id="bankAccountType" data-testid="select-bank-account-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="savings">Savings</SelectItem>
@@ -505,7 +505,7 @@ export const ReviewSection: React.FC = () => {
             <p className="text-xs text-muted-foreground text-center py-4">No documents uploaded yet. Upload Form 16, 26AS, investment proofs, etc.</p>
           ) : (
             <div className="space-y-2">
-              {documentVault.map(doc => (
+              {documentVault.map((doc: DocumentVaultEntry) => (
                 <div key={doc.id} className="flex items-center justify-between p-2 border rounded text-xs">
                   <div className="flex items-center gap-2">
                     <FileText className="h-3.5 w-3.5 text-muted-foreground" />
@@ -514,7 +514,7 @@ export const ReviewSection: React.FC = () => {
                       <p className="text-muted-foreground">{doc.category} | {(doc.size / 1024).toFixed(0)} KB</p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => setDocumentVault((prev: DocumentVaultEntry[]) => prev.filter((d: DocumentVaultEntry) => d.id !== doc.id))}>
+                  <Button variant="ghost" size="sm" onClick={(): void => setDocumentVault((prev: DocumentVaultEntry[]) => prev.filter((d: DocumentVaultEntry) => d.id !== doc.id))}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -530,7 +530,7 @@ export const ReviewSection: React.FC = () => {
             <CardTitle className="text-base flex items-center gap-2">
               <Shield className="h-4 w-4" /> Advanced Options
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}>
+            <Button variant="ghost" size="sm" onClick={(): void => setShowAdvancedOptions(!showAdvancedOptions)}>
               {showAdvancedOptions ? "Hide" : "Show"}
             </Button>
           </div>
@@ -563,7 +563,7 @@ export const ReviewSection: React.FC = () => {
                     type="file"
                     accept=".csv,.xlsx"
                     className="hidden"
-                    onChange={(e) => {
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                       const file = e.target.files?.[0];
                       if (file) {
                         toast({ title: "CSV Received", description: `${file.name} uploaded for bulk processing. Parsing capital gains entries...` });
@@ -611,9 +611,10 @@ export const ReviewSection: React.FC = () => {
             </CardTitle>
             <CardDescription>Download returns, prepare challans, and use tax calculators</CardDescription>
           </div>
-          <CardContent className="space-y-4">
+        </CardHeader>
+        <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async () => {
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async (): Promise<void> => {
                 try {
                   const resp = await fetch("/api/tax/export/itr-json", {
                     method: "POST", headers: { "Content-Type": "application/json" },
@@ -634,7 +635,7 @@ export const ReviewSection: React.FC = () => {
                 <FileText className="h-3.5 w-3.5 mr-1" /> Download ITR JSON
               </Button>
 
-              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async () => {
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async (): Promise<void> => {
                 try {
                   const resp = await fetch("/api/tax/export/computation", {
                     method: "POST", headers: { "Content-Type": "application/json" },
@@ -655,11 +656,11 @@ export const ReviewSection: React.FC = () => {
                 <Calculator className="h-3.5 w-3.5 mr-1" /> Computation Sheet
               </Button>
 
-              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={() => setShowChallanDialog(!showChallanDialog)} data-testid="review-prepare-challan">
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={(): void => setShowChallanDialog(!showChallanDialog)} data-testid="review-prepare-challan">
                 <Banknote className="h-3.5 w-3.5 mr-1" /> Prepare Challan 280
               </Button>
 
-              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={() => setShowToolsDialog(!showToolsDialog)} data-testid="review-tax-tools">
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={(): void => setShowToolsDialog(!showToolsDialog)} data-testid="review-tax-tools">
                 <Lightbulb className="h-3.5 w-3.5 mr-1" /> Tax Tools
               </Button>
             </div>
@@ -670,7 +671,7 @@ export const ReviewSection: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs">Challan Type</Label>
-                    <Select defaultValue="self_assessment" onValueChange={(v: string) => setChallanResult((p: ChallanResult) => ({ ...p, challanType: v }))}>
+                    <Select defaultValue="self_assessment" onValueChange={(v: "advance_tax" | "self_assessment" | "regular_assessment"): void => setChallanResult((p: ChallanResult | null) => ({ ...p, challanType: v } as ChallanResult))}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="advance_tax">Advance Tax (100)</SelectItem>
@@ -681,10 +682,10 @@ export const ReviewSection: React.FC = () => {
                   </div>
                   <div>
                     <Label className="text-xs">Tax Amount (₹)</Label>
-                    <Input type="number" className="h-8 text-xs" placeholder="Enter tax amount" onChange={(e: React.ChangeEvent<HTMLInputElement>) => setChallanResult((p: ChallanResult) => ({ ...p, taxAmount: Number(e.target.value) }))} />
+                    <Input type="number" className="h-8 text-xs" placeholder="Enter tax amount" onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setChallanResult((p: ChallanResult | null) => ({ ...p, taxAmount: Number(e.target.value) } as ChallanResult))} />
                   </div>
                 </div>
-                <Button size="sm" className="text-xs" onClick={async () => {
+                <Button size="sm" className="text-xs" onClick={async (): Promise<void> => {
                   if (!panContext?.pan) { toast({ title: "PAN Required", description: "Please enter your PAN in the basic info step first", variant: "destructive" }); return; }
                   if (!challanResult?.taxAmount || challanResult.taxAmount <= 0) { toast({ title: "Invalid Amount", description: "Please enter a valid tax amount greater than zero", variant: "destructive" }); return; }
                   try {
@@ -735,7 +736,7 @@ export const ReviewSection: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <Checkbox id="hra-metro" defaultChecked /><Label htmlFor="hra-metro" className="text-xs">Metro City (50%)</Label>
                     </div>
-                    <Button size="sm" className="text-xs" onClick={async () => {
+                    <Button size="sm" className="text-xs" onClick={async (): Promise<void> => {
                       const basic = Number((document.getElementById("hra-basic") as HTMLInputElement)?.value) || 0;
                       const da = Number((document.getElementById("hra-da") as HTMLInputElement)?.value) || 0;
                       const hra = Number((document.getElementById("hra-received") as HTMLInputElement)?.value) || 0;
@@ -769,7 +770,7 @@ export const ReviewSection: React.FC = () => {
                       <div><Label className="text-xs">Arrears Received</Label><Input type="number" className="h-8 text-xs" id="f10e-arrears" /></div>
                       <div><Label className="text-xs">Arrear Years</Label><Input type="number" className="h-8 text-xs" id="f10e-years" defaultValue="1" /></div>
                     </div>
-                    <Button size="sm" className="text-xs" onClick={async () => {
+                    <Button size="sm" className="text-xs" onClick={async (): Promise<void> => {
                       const income = Number((document.getElementById("f10e-income") as HTMLInputElement)?.value) || 0;
                       const arrears = Number((document.getElementById("f10e-arrears") as HTMLInputElement)?.value) || 0;
                       const years = Number((document.getElementById("f10e-years") as HTMLInputElement)?.value) || 1;
@@ -798,7 +799,7 @@ export const ReviewSection: React.FC = () => {
                   </TabsContent>
                   <TabsContent value="optimizer" className="space-y-3 mt-3">
                     <p className="text-xs text-muted-foreground">Get Suggestions to reduce your tax liability based on your current data.</p>
-                    <Button size="sm" className="text-xs" onClick={async () => {
+                    <Button size="sm" className="text-xs" onClick={async (): Promise<void> => {
                       try {
                         const resp = await fetch("/api/tax/optimizer/suggestions", {
                           method: "POST", headers: { "Content-Type": "application/json" },
@@ -812,7 +813,7 @@ export const ReviewSection: React.FC = () => {
                     </Button>
                     {optimizerResult && (
                       <div className="space-y-2">
-                        {optimizerResult.suggestions.map((s: OptimizerSuggestion, i: number) => (
+                        {optimizerResult.suggestions.map((s: OptimizerSuggestion, i: number): React.ReactElement => (
                           <div key={i} className="text-xs p-2 bg-background rounded border">
                             <div className="flex justify-between">
                               <span className="font-medium">{s.section}</span>
@@ -842,7 +843,7 @@ export const ReviewSection: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async () => {
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async (): Promise<void> => {
                 try {
                   const resp = await fetch("/api/tax/validate/pre-filing", {
                     method: "POST", headers: { "Content-Type": "application/json" },
@@ -854,10 +855,10 @@ export const ReviewSection: React.FC = () => {
               }} data-testid="btn-pre-filing-check">
                 <CheckCircle className="h-3.5 w-3.5 mr-1" /> Pre-Filing Check
               </Button>
-              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={() => setShowSharingPanel(!showSharingPanel)} data-testid="btn-sharing">
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={(): void => setShowSharingPanel(!showSharingPanel)} data-testid="btn-sharing">
                 <Send className="h-3.5 w-3.5 mr-1" /> Share Docs
               </Button>
-              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async () => {
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async (): Promise<void> => {
                 try {
                   const resp = await fetch(`/api/tax/refund/status?pan=${panContext?.pan || ""}&assessmentYear=${assessmentYear}`);
                   const result = await resp.json();
@@ -866,7 +867,7 @@ export const ReviewSection: React.FC = () => {
               }} data-testid="btn-refund-tracker">
                 <Wallet className="h-3.5 w-3.5 mr-1" /> Refund Status
               </Button>
-              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async () => {
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async (): Promise<void> => {
                 try {
                   const resp = await fetch("/api/tax/deadlines");
                   const result = await resp.json();
@@ -875,10 +876,10 @@ export const ReviewSection: React.FC = () => {
               }} data-testid="btn-deadlines">
                 <Clock className="h-3.5 w-3.5 mr-1" /> Deadlines
               </Button>
-              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={() => setShowLookupPanel(!showLookupPanel)} data-testid="btn-lookups">
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={(): void => setShowLookupPanel(!showLookupPanel)} data-testid="btn-lookups">
                 <HelpCircle className="h-3.5 w-3.5 mr-1" /> IFSC / TAN
               </Button>
-              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async () => {
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async (): Promise<void> => {
                 try {
                   const resp = await fetch("/api/tax/reconcile/26as", {
                     method: "POST", headers: { "Content-Type": "application/json" },
@@ -890,7 +891,7 @@ export const ReviewSection: React.FC = () => {
               }} data-testid="btn-reconcile-26as">
                 <FileSearch className="h-3.5 w-3.5 mr-1" /> 26AS Reconcile
               </Button>
-              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async () => {
+              <Button variant="outline" size="sm" className="text-xs h-auto py-2" onClick={async (): Promise<void> => {
                 try {
                   const resp = await fetch("/api/tax/efile/direct", {
                     method: "POST", headers: { "Content-Type": "application/json" },
@@ -913,12 +914,12 @@ export const ReviewSection: React.FC = () => {
                   </h4>
                   <Badge variant={preFilingResult.isFileable ? "default" : "destructive"} className="text-[10px]">{preFilingResult.summary.totalErrors} errors, {preFilingResult.summary.totalWarnings} warnings</Badge>
                 </div>
-                {preFilingResult.errors.map((e: PreFilingItem, i: number) => (
+                {preFilingResult.errors.map((e: PreFilingItem, i: number): React.ReactElement => (
                   <div key={i} className="text-xs p-2 bg-red-50 dark:bg-red-950 rounded border border-red-200 dark:border-red-800 flex items-start gap-2">
                     <XCircle className="h-3.5 w-3.5 text-red-600 mt-0.5 flex-shrink-0" /><div><span className="font-medium">[{e.code}]</span> {e.message}</div>
                   </div>
                 ))}
-                {preFilingResult.warnings.map((w: PreFilingItem, i: number) => (
+                {preFilingResult.warnings.map((w: PreFilingItem, i: number): React.ReactElement => (
                   <div key={i} className="text-xs p-2 bg-amber-50 dark:bg-amber-950 rounded border border-amber-200 dark:border-amber-800 flex items-start gap-2">
                     <AlertTriangle className="h-3.5 w-3.5 text-amber-600 mt-0.5 flex-shrink-0" /><div><span className="font-medium">[{w.code}]</span> {w.message}</div>
                   </div>
@@ -935,7 +936,7 @@ export const ReviewSection: React.FC = () => {
                 {reconciliationResult.matched?.length > 0 && (
                   <div className="space-y-1">
                     <p className="text-[10px] font-semibold text-green-600">Matched ({reconciliationResult.matched.length})</p>
-                    {reconciliationResult.matched.map((m: ReconciliationItem, i: number) => (
+                    {reconciliationResult.matched.map((m: ReconciliationItem, i: number): React.ReactElement => (
                       <div key={i} className="text-xs p-1.5 bg-green-50 dark:bg-green-950 rounded border border-green-200 dark:border-green-800 flex justify-between">
                         <span>{m.deductorName || m.tan}</span><span className="font-medium">₹{(m.amount26AS || 0).toLocaleString("en-IN")}</span>
                       </div>
@@ -945,7 +946,7 @@ export const ReviewSection: React.FC = () => {
                 {reconciliationResult.mismatched?.length > 0 && (
                   <div className="space-y-1">
                     <p className="text-[10px] font-semibold text-amber-600">Mismatched ({reconciliationResult.mismatched.length})</p>
-                    {reconciliationResult.mismatched.map((m: ReconciliationItem, i: number) => (
+                    {reconciliationResult.mismatched.map((m: ReconciliationItem, i: number): React.ReactElement => (
                       <div key={i} className="text-xs p-1.5 bg-amber-50 dark:bg-amber-950 rounded border border-amber-200 dark:border-amber-800">
                         <div className="flex justify-between"><span>{m.deductorName || m.tan}</span><span className="text-red-600">Diff: ₹{(m.difference || 0).toLocaleString("en-IN")}</span></div>
                         <p className="text-[10px] text-muted-foreground">{m.recommendation}</p>
@@ -956,7 +957,7 @@ export const ReviewSection: React.FC = () => {
                 {reconciliationResult.missing?.length > 0 && (
                   <div className="space-y-1">
                     <p className="text-[10px] font-semibold text-red-600">Missing from Return ({reconciliationResult.missing.length})</p>
-                    {reconciliationResult.missing.map((m: ReconciliationItem, i: number) => (
+                    {reconciliationResult.missing.map((m: ReconciliationItem, i: number): React.ReactElement => (
                       <div key={i} className="text-xs p-1.5 bg-red-50 dark:bg-red-950 rounded border border-red-200 dark:border-red-800 flex justify-between">
                         <span>{m.deductorName || m.tan}</span><span className="font-medium">₹{(m.amount || 0).toLocaleString("en-IN")}</span>
                       </div>
@@ -965,7 +966,7 @@ export const ReviewSection: React.FC = () => {
                 )}
                 {reconciliationResult.recommendations && reconciliationResult.recommendations.length > 0 && (
                   <div className="text-xs space-y-0.5">
-                    {reconciliationResult.recommendations.map((r: string, i: number) => (
+                    {reconciliationResult.recommendations.map((r: string, i: number): React.ReactElement => (
                       <div key={i} className="flex items-start gap-1"><Lightbulb className="h-3 w-3 text-amber-500 mt-0.5 flex-shrink-0" /><span>{r}</span></div>
                     ))}
                   </div>
@@ -987,7 +988,7 @@ export const ReviewSection: React.FC = () => {
                   </div>
                   <div>
                     <Label className="text-xs">Document Type</Label>
-                    <Select defaultValue="computation" onValueChange={(v) => { const el = document.getElementById("share-doc-val") as HTMLInputElement; if (el) el.value = v; }}>
+                    <Select defaultValue="computation" onValueChange={(v: string): void => { const el = document.getElementById("share-doc-val") as HTMLInputElement; if (el) el.value = v; }}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="computation">Computation Sheet</SelectItem>
@@ -1001,7 +1002,7 @@ export const ReviewSection: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" className="text-xs" onClick={async () => {
+                  <Button size="sm" className="text-xs" onClick={async (): Promise<void> => {
                     const email = (document.getElementById("share-email") as HTMLInputElement)?.value;
                     const docType = (document.getElementById("share-doc-val") as HTMLInputElement)?.value || "computation";
                     if (!email) { toast({ title: "Email required", variant: "destructive" }); return; }
@@ -1016,7 +1017,7 @@ export const ReviewSection: React.FC = () => {
                   }}>
                     <Send className="h-3.5 w-3.5 mr-1" /> Send Email
                   </Button>
-                  <Button size="sm" variant="outline" className="text-xs" onClick={async () => {
+                  <Button size="sm" variant="outline" className="text-xs" onClick={async (): Promise<void> => {
                     const phone = (document.getElementById("share-phone") as HTMLInputElement)?.value;
                     const docType = (document.getElementById("share-doc-val") as HTMLInputElement)?.value || "summary";
                     if (!phone || phone.length < 10) { toast({ title: "Valid phone number required", variant: "destructive" }); return; }
@@ -1039,7 +1040,7 @@ export const ReviewSection: React.FC = () => {
               <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
                 <h4 className="text-sm font-semibold flex items-center gap-2"><Wallet className="h-4 w-4" /> Refund Status — AY {refundData.assessmentYear}</h4>
                 <div className="space-y-1">
-                  {refundData.stages.map((s: RefundStage, i: number) => (
+                  {refundData.stages.map((s: RefundStage, i: number): React.ReactElement => (
                     <div key={i} className="flex items-center gap-2 text-xs">
                       {s.status === "completed" ? <CheckCircle className="h-3.5 w-3.5 text-green-600" /> : s.status === "in_progress" ? <Clock className="h-3.5 w-3.5 text-blue-600 animate-pulse" /> : <div className="h-3.5 w-3.5 rounded-full border-2 border-muted-foreground/30" />}
                       <span className={s.status === "completed" ? "text-green-700 dark:text-green-400" : s.status === "in_progress" ? "text-blue-700 dark:text-blue-400 font-medium" : "text-muted-foreground"}>{s.stage}</span>
@@ -1055,7 +1056,7 @@ export const ReviewSection: React.FC = () => {
               <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
                 <h4 className="text-sm font-semibold flex items-center gap-2"><Clock className="h-4 w-4" /> Filing Deadlines & Due Dates</h4>
                 <div className="space-y-1">
-                  {deadlinesData.map((d: TaxDeadline, i: number) => (
+                  {deadlinesData.map((d: TaxDeadline, i: number): React.ReactElement => (
                     <div key={i} className="flex items-center justify-between text-xs p-1.5 rounded bg-background border">
                       <div className="flex items-center gap-2">
                         <Badge variant={d.urgency === "critical" ? "destructive" : d.urgency === "warning" ? "default" : "outline"} className="text-[10px]">
@@ -1080,7 +1081,7 @@ export const ReviewSection: React.FC = () => {
                     <Label className="text-xs">IFSC Code</Label>
                     <div className="flex gap-1">
                       <Input className="h-8 text-xs" id="lookup-ifsc" placeholder="SBIN0001234" maxLength={11} />
-                      <Button size="sm" variant="outline" className="h-8 text-xs px-2" onClick={async () => {
+                      <Button size="sm" variant="outline" className="h-8 text-xs px-2" onClick={async (): Promise<void> => {
                         const code = (document.getElementById("lookup-ifsc") as HTMLInputElement)?.value;
                         if (!code) return;
                         try {
@@ -1095,7 +1096,7 @@ export const ReviewSection: React.FC = () => {
                     <Label className="text-xs">BSR Code</Label>
                     <div className="flex gap-1">
                       <Input className="h-8 text-xs" id="lookup-bsr" placeholder="0002" maxLength={7} />
-                      <Button size="sm" variant="outline" className="h-8 text-xs px-2" onClick={async () => {
+                      <Button size="sm" variant="outline" className="h-8 text-xs px-2" onClick={async (): Promise<void> => {
                         const code = (document.getElementById("lookup-bsr") as HTMLInputElement)?.value;
                         if (!code) return;
                         try {
@@ -1110,7 +1111,7 @@ export const ReviewSection: React.FC = () => {
                     <Label className="text-xs">TAN Validation</Label>
                     <div className="flex gap-1">
                       <Input className="h-8 text-xs" id="lookup-tan" placeholder="DELH12345A" maxLength={10} />
-                      <Button size="sm" variant="outline" className="h-8 text-xs px-2" onClick={async () => {
+                      <Button size="sm" variant="outline" className="h-8 text-xs px-2" onClick={async (): Promise<void> => {
                         const tan = (document.getElementById("lookup-tan") as HTMLInputElement)?.value;
                         if (!tan) return;
                         try {

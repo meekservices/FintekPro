@@ -69,15 +69,6 @@ export class BondStrategy extends BaseStrategy {
   }
 
   score(bond: any): number {
-    return 50; 
-  }
-
-  async getLivePrice(instrumentId: string): Promise<number | null> {
-    const row = await db.select({ cleanPrice: bondCatalog.cleanPrice })
-      .from(bondCatalog).where(eq(bondCatalog.id, parseInt(instrumentId))).limit(1);
-    return row[0]?.cleanPrice ? parseFloat(row[0].cleanPrice) : null;
-  }
-}
     let score = 0;
     const ytm = bond.yieldToMaturity ? parseFloat(bond.yieldToMaturity) : 0;
     if (ytm > 10) score += 25;
@@ -89,5 +80,11 @@ export class BondStrategy extends BaseStrategy {
     else if (rating.includes('AA')) score += 20;
     
     return score;
+  }
+
+  async getLivePrice(instrumentId: string): Promise<number | null> {
+    const row = await db.select({ cleanPrice: bondCatalog.cleanPrice })
+      .from(bondCatalog).where(eq(bondCatalog.id, parseInt(instrumentId))).limit(1);
+    return row[0]?.cleanPrice ? parseFloat(row[0].cleanPrice) : null;
   }
 }

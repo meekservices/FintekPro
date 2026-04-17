@@ -77,7 +77,7 @@ const FORM_COMPLEXITY: Record<string, "simple" | "moderate" | "complex"> = {
   "ITR-7": "complex"
 };
 
-export default function TaxITRPage() {
+export default function TaxITRPage(): React.ReactElement {
   const [, navigate] = useLocation();
   const [selectedTab, setSelectedTab] = useState("landing");
   const { isAuthenticated } = useAuth();
@@ -99,7 +99,7 @@ export default function TaxITRPage() {
   const eligibleForms = eligibleFormsData?.eligibleForms || [];
   const isLoading = panLoading || formsLoading;
 
-  const getPANTypeIcon = (type: PANType) => {
+  const getPANTypeIcon = (type: PANType): React.ReactElement => {
     switch (type) {
       case "individual": return <UserCheck className="h-5 w-5" />;
       case "huf": return <Users className="h-5 w-5" />;
@@ -111,7 +111,7 @@ export default function TaxITRPage() {
     }
   };
 
-  const getComplexityBadge = (complexity: string) => {
+  const getComplexityBadge = (complexity: string): React.ReactElement | null => {
     switch (complexity) {
       case "simple": return <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">Simple</Badge>;
       case "moderate": return <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300">Moderate</Badge>;

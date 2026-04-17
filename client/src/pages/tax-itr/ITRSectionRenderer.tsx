@@ -24,7 +24,7 @@ import { ScheduleIFSection } from "./sections/ScheduleIFSection";
 import { MATAMTSection } from "./sections/MATAMTSection";
 import { TDSSchedulesSection } from "./sections/TDSSchedulesSection";
 
-export const ITRSectionRenderer: React.FC = (): React.ReactElement | null => {
+export const ITRSectionRenderer: React.FC = (): React.ReactElement => {
   const { currentStepId } = useTax();
   const stepId = currentStepId;
 

@@ -10,7 +10,7 @@ import { useTax } from "../TaxContext";
 import { formScheduleMap } from "../constants";
 import { IncomeSource } from "../types";
 
-export const IncomeSourcesSection: React.FC = () => {
+export const IncomeSourcesSection: React.FC = (): React.ReactElement => {
   const {
     assessmentYear,
     incomeSources,
@@ -26,7 +26,15 @@ export const IncomeSourcesSection: React.FC = () => {
 
   const currentValidation = validateStep(currentStepId);
 
-  const sources = [
+  interface SourceItem {
+    key: string;
+    label: string;
+    icon: React.ElementType;
+    desc: string;
+    color: string;
+  }
+
+  const sources: SourceItem[] = [
     { key: "hasSalary", label: "Salary / Pension", icon: Briefcase, desc: "Income from employment, Form 16", color: "text-blue-600" },
     { key: "hasHouseProperty", label: "House Property", icon: Home, desc: "Rental income or home loan interest", color: "text-green-600" },
     { key: "hasCapitalGains", label: "Capital Gains", icon: TrendingUp, desc: "Stocks, MFs, property sale, STT/non-STT split", color: "text-purple-600" },
@@ -43,14 +51,14 @@ export const IncomeSourcesSection: React.FC = () => {
       </p>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {sources.map((source: any) => {
+        {sources.map((source: SourceItem): React.ReactElement => {
           const Icon = source.icon;
           const isChecked = incomeSources[source.key as keyof IncomeSource];
           return (
             <Card 
               key={source.key} 
               className={`cursor-pointer transition-all hover:shadow-sm ${isChecked ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'hover:border-muted-foreground/40'}`}
-              onClick={() => setIncomeSources((prev: IncomeSource) => ({ ...prev, [source.key]: !prev[source.key as keyof IncomeSource] }))}
+              onClick={(): void => setIncomeSources((prev: IncomeSource): IncomeSource => ({ ...prev, [source.key]: !prev[source.key as keyof IncomeSource] }))}
               data-testid={`card-source-${source.key}`}
             >
               <CardContent className="p-4 flex items-start gap-3">
@@ -101,7 +109,7 @@ export const IncomeSourcesSection: React.FC = () => {
             </div>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {(formScheduleMap[recommendedForm] || []).map((sch, i) => (
+            {(formScheduleMap[recommendedForm] as string[] || []).map((sch: string, i: number): React.ReactElement => (
               <Badge key={i} variant="secondary" className="text-xs">{sch}</Badge>
             ))}
           </div>

@@ -26,7 +26,7 @@ export function formatLakhs(amount: number | string | undefined): string {
   return formatCurrency(num);
 }
 
-export function FieldHint({ text }: { text: string }) {
+export function FieldHint({ text }: { text: string }): React.ReactElement {
   return (
     <TooltipProvider>
       <Tooltip>
@@ -50,7 +50,7 @@ export function CurrencyInput({ id, value, onChange, placeholder = "Enter amount
   hint?: string;
   disabled?: boolean;
   "data-testid"?: string;
-}) {
+}): React.ReactElement {
   const [localVal, setLocalVal] = useState(value ? String(value) : "");
   const [warning, setWarning] = useState<string | null>(null);
 
@@ -99,7 +99,7 @@ export function CurrencyInput({ id, value, onChange, placeholder = "Enter amount
   );
 }
 
-export function ValidationBanner({ validation }: { validation: StepValidation }) {
+export function ValidationBanner({ validation }: { validation: StepValidation }): React.ReactElement | null {
   if (validation.isValid && validation.warnings.length === 0) return null;
   return (
     <div className="space-y-2">

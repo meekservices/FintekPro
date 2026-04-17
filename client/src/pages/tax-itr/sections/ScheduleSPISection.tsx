@@ -13,12 +13,12 @@ import {
 import { useTax } from "../TaxContext";
 import { ScheduleSPIEntry } from "../types";
 
-export const ScheduleSPISection: React.FC = () => {
+export const ScheduleSPISection: React.FC = (): React.ReactElement => {
   const {
     scheduleSPI,
     setScheduleSPI
   } = useTax();
-  const totalClubbedIncome = scheduleSPI.reduce((sum: number, e: ScheduleSPIEntry) => sum + e.amountIncluded, 0);
+  const totalClubbedIncome = scheduleSPI.reduce((sum: number, e: ScheduleSPIEntry): number => sum + e.amountIncluded, 0);
 
   return (
     <div className="space-y-4">
@@ -55,15 +55,15 @@ export const ScheduleSPISection: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <Label className="text-xs">Name of Person</Label>
-                        <Input value={entry.nameOfPerson} onChange={e => setScheduleSPI((prev: ScheduleSPIEntry[]) => prev.map((p: ScheduleSPIEntry, i: number) => i === idx ? { ...p, nameOfPerson: e.target.value } : p))} placeholder="Full name" />
+                        <Input value={entry.nameOfPerson} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleSPI((prev: ScheduleSPIEntry[]) => prev.map((p: ScheduleSPIEntry, i: number): ScheduleSPIEntry => i === idx ? { ...p, nameOfPerson: e.target.value } : p))} placeholder="Full name" />
                       </div>
                       <div>
                         <Label className="text-xs">PAN of Person</Label>
-                        <Input value={entry.panOfPerson} onChange={e => setScheduleSPI((prev: ScheduleSPIEntry[]) => prev.map((p: ScheduleSPIEntry, i: number) => i === idx ? { ...p, panOfPerson: e.target.value.toUpperCase() } : p))} placeholder="AAAAA0000A" maxLength={10} />
+                        <Input value={entry.panOfPerson} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleSPI((prev: ScheduleSPIEntry[]) => prev.map((p: ScheduleSPIEntry, i: number): ScheduleSPIEntry => i === idx ? { ...p, panOfPerson: e.target.value.toUpperCase() } : p))} placeholder="AAAAA0000A" maxLength={10} />
                       </div>
                       <div>
                         <Label className="text-xs">Relationship <FieldHint text="Relationship of specified person with the assessee" /></Label>
-                        <Select value={entry.relationshipCode} onValueChange={v => setScheduleSPI((prev: ScheduleSPIEntry[]) => prev.map((p: ScheduleSPIEntry, i: number) => i === idx ? { ...p, relationshipCode: v as any } : p))}>
+                        <Select value={entry.relationshipCode} onValueChange={(v: string): void => setScheduleSPI((prev: ScheduleSPIEntry[]) => prev.map((p: ScheduleSPIEntry, i: number): ScheduleSPIEntry => i === idx ? { ...p, relationshipCode: v as ScheduleSPIEntry['relationshipCode'] } : p))}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="spouse">Spouse</SelectItem>
@@ -77,7 +77,7 @@ export const ScheduleSPISection: React.FC = () => {
                       </div>
                       <div>
                         <Label className="text-xs">Section Applicable</Label>
-                        <Select value={entry.section} onValueChange={v => setScheduleSPI((prev: ScheduleSPIEntry[]) => prev.map((p: ScheduleSPIEntry, i: number) => i === idx ? { ...p, section: v as any } : p))}>
+                        <Select value={entry.section} onValueChange={(v: string): void => setScheduleSPI((prev: ScheduleSPIEntry[]) => prev.map((p: ScheduleSPIEntry, i: number): ScheduleSPIEntry => i === idx ? { ...p, section: v as ScheduleSPIEntry['section'] } : p))}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="64(1)(ii)">Sec 64(1)(ii) — Spouse</SelectItem>
@@ -88,7 +88,7 @@ export const ScheduleSPISection: React.FC = () => {
                       </div>
                       <div>
                         <Label className="text-xs">Type of Income</Label>
-                        <Select value={entry.incomeType} onValueChange={v => setScheduleSPI((prev: ScheduleSPIEntry[]) => prev.map((p: ScheduleSPIEntry, i: number) => i === idx ? { ...p, incomeType: v as any } : p))}>
+                        <Select value={entry.incomeType} onValueChange={(v: string): void => setScheduleSPI((prev: ScheduleSPIEntry[]) => prev.map((p: ScheduleSPIEntry, i: number): ScheduleSPIEntry => i === idx ? { ...p, incomeType: v as ScheduleSPIEntry['incomeType'] } : p))}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="salary">Salary</SelectItem>
@@ -101,12 +101,12 @@ export const ScheduleSPISection: React.FC = () => {
                       </div>
                       <div>
                         <Label className="text-xs">Amount Included (₹)</Label>
-                        <CurrencyInput id={`spi-amount-${idx}`} value={entry.amountIncluded} onChange={v => setScheduleSPI((prev: ScheduleSPIEntry[]) => prev.map((p: ScheduleSPIEntry, i: number) => i === idx ? { ...p, amountIncluded: v } : p))} />
+                        <CurrencyInput id={`spi-amount-${idx}`} value={entry.amountIncluded} onChange={(v: number): void => setScheduleSPI((prev: ScheduleSPIEntry[]) => prev.map((p: ScheduleSPIEntry, i: number): ScheduleSPIEntry => i === idx ? { ...p, amountIncluded: v } : p))} />
                       </div>
                     </div>
                     <div>
                       <Label className="text-xs">Remarks</Label>
-                      <Input value={entry.remarks} onChange={e => setScheduleSPI((prev: ScheduleSPIEntry[]) => prev.map((p: ScheduleSPIEntry, i: number) => i === idx ? { ...p, remarks: e.target.value } : p))} placeholder="Nature of income / asset transferred" />
+                      <Input value={entry.remarks} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setScheduleSPI((prev: ScheduleSPIEntry[]) => prev.map((p: ScheduleSPIEntry, i: number): ScheduleSPIEntry => i === idx ? { ...p, remarks: e.target.value } : p))} placeholder="Nature of income / asset transferred" />
                     </div>
                   </CardContent>
                 </Card>
@@ -114,7 +114,7 @@ export const ScheduleSPISection: React.FC = () => {
             </div>
           )}
 
-          <Button variant="outline" size="sm" onClick={() => setScheduleSPI((prev: ScheduleSPIEntry[]) => [...prev, { nameOfPerson: "", panOfPerson: "", relationshipCode: "spouse", incomeType: "other_sources", amountIncluded: 0, section: "64(1)(ii)", remarks: "" }])} data-testid="btn-add-spi">
+          <Button variant="outline" size="sm" onClick={(): void => setScheduleSPI((prev: ScheduleSPIEntry[]) => [...prev, { nameOfPerson: "", panOfPerson: "", relationshipCode: "spouse", incomeType: "other_sources", amountIncluded: 0, section: "64(1)(ii)", remarks: "" }])} data-testid="btn-add-spi">
             <Plus className="h-3.5 w-3.5 mr-1" /> Add Specified Person
           </Button>
 

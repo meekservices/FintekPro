@@ -59,6 +59,3 @@ export class GlobalStockStrategy extends BaseStrategy {
     return row[0]?.lastPrice ? parseFloat(row[0].lastPrice) : null;
   }
 }
-    return 60;
-  }
-}

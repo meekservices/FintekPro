@@ -12,7 +12,7 @@ import {
   SpecialRateIncome, IncomeSource 
 } from "../types";
 
-export const DisclosuresSection: React.FC = () => {
+export const DisclosuresSection: React.FC = (): React.ReactElement => {
   const {
     recommendedForm,
     directorships,
@@ -43,35 +43,35 @@ export const DisclosuresSection: React.FC = () => {
             <div key={idx} className="border rounded-lg p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="font-medium text-xs">Entry {idx + 1}</span>
-                <Button variant="ghost" size="sm" onClick={() => setDirectorships((prev: DirectorshipEntry[]) => prev.filter((_, i) => i !== idx))}>
+                <Button variant="ghost" size="sm" onClick={(): void => setDirectorships((prev: DirectorshipEntry[]) => prev.filter((_: DirectorshipEntry, i: number): boolean => i !== idx))}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div>
                   <Label className="text-xs">Company Name</Label>
-                  <Input value={entry.companyName} onChange={e => {
+                  <Input value={entry.companyName} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                     const updated = [...directorships]; updated[idx] = { ...updated[idx], companyName: e.target.value };
                     setDirectorships(updated);
                   }} placeholder="e.g. ABC Pvt Ltd" />
                 </div>
                 <div>
                   <Label className="text-xs">Company PAN</Label>
-                  <Input value={entry.companyPAN} onChange={e => {
+                  <Input value={entry.companyPAN} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                     const updated = [...directorships]; updated[idx] = { ...updated[idx], companyPAN: e.target.value.toUpperCase() };
                     setDirectorships(updated);
                   }} maxLength={10} />
                 </div>
                 <div>
                   <Label className="text-xs">DIN</Label>
-                  <Input value={entry.din} onChange={e => {
+                  <Input value={entry.din} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                     const updated = [...directorships]; updated[idx] = { ...updated[idx], din: e.target.value };
                     setDirectorships(updated);
                   }} />
                 </div>
                 <div>
                   <Label className="text-xs">Shares Held</Label>
-                  <Input type="number" value={entry.sharesHeld || ""} onChange={e => {
+                  <Input type="number" value={entry.sharesHeld || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                     const updated = [...directorships]; updated[idx] = { ...updated[idx], sharesHeld: Number(e.target.value) };
                     setDirectorships(updated);
                   }} />
@@ -79,7 +79,7 @@ export const DisclosuresSection: React.FC = () => {
               </div>
             </div>
           ))}
-          <Button variant="outline" size="sm" onClick={() => setDirectorships((prev: DirectorshipEntry[]) => [...prev, { companyName: "", companyPAN: "", din: "", sharesHeld: 0 }])}>
+          <Button variant="outline" size="sm" onClick={(): void => setDirectorships((prev: DirectorshipEntry[]) => [...prev, { companyName: "", companyPAN: "", din: "", sharesHeld: 0 }])}>
             <Plus className="h-4 w-4 mr-1" /> Add Directorship
           </Button>
         </CardContent>
@@ -95,42 +95,42 @@ export const DisclosuresSection: React.FC = () => {
             <div key={idx} className="border rounded-lg p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="font-medium text-xs">Holding {idx + 1}</span>
-                <Button variant="ghost" size="sm" onClick={() => setUnlistedShares((prev: UnlistedShareEntry[]) => prev.filter((_, i) => i !== idx))}>
+                <Button variant="ghost" size="sm" onClick={(): void => setUnlistedShares((prev: UnlistedShareEntry[]) => prev.filter((_: UnlistedShareEntry, i: number): boolean => i !== idx))}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div>
                   <Label className="text-xs">Company Name</Label>
-                  <Input value={entry.companyName} onChange={e => {
+                  <Input value={entry.companyName} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                     const updated = [...unlistedShares]; updated[idx] = { ...updated[idx], companyName: e.target.value };
                     setUnlistedShares(updated);
                   }} />
                 </div>
                 <div>
                   <Label className="text-xs">PAN of Company</Label>
-                  <Input value={entry.companyPAN} onChange={e => {
+                  <Input value={entry.companyPAN} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                     const updated = [...unlistedShares]; updated[idx] = { ...updated[idx], companyPAN: e.target.value.toUpperCase() };
                     setUnlistedShares(updated);
                   }} maxLength={10} />
                 </div>
                 <div>
                   <Label className="text-xs">Opening Shares</Label>
-                  <Input type="number" value={entry.openingShares || ""} onChange={e => {
+                  <Input type="number" value={entry.openingShares || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                     const updated = [...unlistedShares]; updated[idx] = { ...updated[idx], openingShares: Number(e.target.value) };
                     setUnlistedShares(updated);
                   }} />
                 </div>
                 <div>
                   <Label className="text-xs">Acquisition Cost (₹)</Label>
-                  <Input type="number" value={entry.acquisitionCost || ""} onChange={e => {
+                  <Input type="number" value={entry.acquisitionCost || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                     const updated = [...unlistedShares]; updated[idx] = { ...updated[idx], acquisitionCost: Number(e.target.value) };
                     setUnlistedShares(updated);
                   }} />
                 </div>
                 <div>
                   <Label className="text-xs">Closing Shares</Label>
-                  <Input type="number" value={entry.closingShares || ""} onChange={e => {
+                  <Input type="number" value={entry.closingShares || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                     const updated = [...unlistedShares]; updated[idx] = { ...updated[idx], closingShares: Number(e.target.value) };
                     setUnlistedShares(updated);
                   }} />
@@ -138,7 +138,7 @@ export const DisclosuresSection: React.FC = () => {
               </div>
             </div>
           ))}
-          <Button variant="outline" size="sm" onClick={() => setUnlistedShares((prev: UnlistedShareEntry[]) => [...prev, { companyName: "", companyPAN: "", openingShares: 0, closingShares: 0, acquisitionCost: 0 }])}>
+          <Button variant="outline" size="sm" onClick={(): void => setUnlistedShares((prev: UnlistedShareEntry[]) => [...prev, { companyName: "", companyPAN: "", openingShares: 0, closingShares: 0, acquisitionCost: 0 }])}>
             <Plus className="h-4 w-4 mr-1" /> Add Unlisted Share Holding
           </Button>
         </CardContent>
@@ -154,14 +154,14 @@ export const DisclosuresSection: React.FC = () => {
             <div key={idx} className="border rounded-lg p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="font-medium text-xs">Loss from AY {entry.assessmentYear || "—"}</span>
-                <Button variant="ghost" size="sm" onClick={() => setLossCarryForward((prev: LossCarryForward[]) => prev.filter((_, i) => i !== idx))}>
+                <Button variant="ghost" size="sm" onClick={(): void => setLossCarryForward((prev: LossCarryForward[]) => prev.filter((_: LossCarryForward, i: number): boolean => i !== idx))}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div>
                   <Label className="text-xs">Assessment Year *</Label>
-                  <Select value={entry.assessmentYear} onValueChange={v => {
+                  <Select value={entry.assessmentYear} onValueChange={(v: string): void => {
                     const updated = [...lossCarryForward]; updated[idx] = { ...updated[idx], assessmentYear: v };
                     setLossCarryForward(updated);
                   }}>
@@ -175,8 +175,8 @@ export const DisclosuresSection: React.FC = () => {
                 </div>
                 <div>
                   <Label className="text-xs">Loss Type</Label>
-                  <Select value={entry.lossType} onValueChange={v => {
-                    const updated = [...lossCarryForward]; updated[idx] = { ...updated[idx], lossType: v as any };
+                  <Select value={entry.lossType} onValueChange={(v: string): void => {
+                    const updated = [...lossCarryForward]; updated[idx] = { ...updated[idx], lossType: v as LossCarryForward["lossType"] };
                     setLossCarryForward(updated);
                   }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -192,14 +192,14 @@ export const DisclosuresSection: React.FC = () => {
                 </div>
                 <div>
                   <Label className="text-xs">Loss Amount (₹)</Label>
-                  <Input type="number" value={entry.lossAmount || ""} onChange={e => {
+                  <Input type="number" value={entry.lossAmount || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                     const updated = [...lossCarryForward]; updated[idx] = { ...updated[idx], lossAmount: Number(e.target.value) };
                     setLossCarryForward(updated);
                   }} />
                 </div>
                 <div>
                   <Label className="text-xs">Set Off This Year (₹)</Label>
-                  <Input type="number" value={entry.setOffAmount || ""} onChange={e => {
+                  <Input type="number" value={entry.setOffAmount || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => {
                     const updated = [...lossCarryForward]; updated[idx] = { ...updated[idx], setOffAmount: Number(e.target.value) };
                     setLossCarryForward(updated);
                   }} />
@@ -213,7 +213,7 @@ export const DisclosuresSection: React.FC = () => {
               </div>
             </div>
           ))}
-          <Button variant="outline" size="sm" onClick={() => setLossCarryForward((prev: LossCarryForward[]) => [...prev, { assessmentYear: "", lossType: "house_property", lossAmount: 0, setOffAmount: 0, carriedForwardAmount: 0, housePropertyLoss: 0, shortTermCapitalLoss: 0, longTermCapitalLoss: 0, businessLoss: 0, speculativeBusinessLoss: 0, owedSpecifiedBusinessLoss: 0 }])}>
+          <Button variant="outline" size="sm" onClick={(): void => setLossCarryForward((prev: LossCarryForward[]) => [...prev, { assessmentYear: "", lossType: "house_property", lossAmount: 0, setOffAmount: 0, carriedForwardAmount: 0, housePropertyLoss: 0, shortTermCapitalLoss: 0, longTermCapitalLoss: 0, businessLoss: 0, speculativeBusinessLoss: 0, owedSpecifiedBusinessLoss: 0 }])}>
             <Plus className="h-4 w-4 mr-1" /> Add Brought Forward Loss
           </Button>
           {lossCarryForward.length > 0 && (
@@ -234,19 +234,19 @@ export const DisclosuresSection: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Lottery / Winnings (₹)</Label>
-                <Input type="number" value={specialRateIncome.lottery || ""} onChange={e => setSpecialRateIncome((p: SpecialRateIncome) => ({ ...p, lottery: Number(e.target.value) }))} />
+                <Input type="number" value={specialRateIncome.lottery || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setSpecialRateIncome((p: SpecialRateIncome) => ({ ...p, lottery: Number(e.target.value) }))} />
               </div>
               <div>
                 <Label className="text-xs">Horse Racing (₹)</Label>
-                <Input type="number" value={specialRateIncome.horseRacing || ""} onChange={e => setSpecialRateIncome((p: SpecialRateIncome) => ({ ...p, horseRacing: Number(e.target.value) }))} />
+                <Input type="number" value={specialRateIncome.horseRacing || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setSpecialRateIncome((p: SpecialRateIncome) => ({ ...p, horseRacing: Number(e.target.value) }))} />
               </div>
               <div>
                 <Label className="text-xs">Online Gaming (₹)</Label>
-                <Input type="number" value={specialRateIncome.onlineGaming || ""} onChange={e => setSpecialRateIncome((p: SpecialRateIncome) => ({ ...p, onlineGaming: Number(e.target.value) }))} />
+                <Input type="number" value={specialRateIncome.onlineGaming || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setSpecialRateIncome((p: SpecialRateIncome) => ({ ...p, onlineGaming: Number(e.target.value) }))} />
               </div>
               <div>
                 <Label className="text-xs">Other Special Rate Income (₹)</Label>
-                <Input type="number" value={specialRateIncome.otherSpecial || ""} onChange={e => setSpecialRateIncome((p: SpecialRateIncome) => ({ ...p, otherSpecial: Number(e.target.value) }))} />
+                <Input type="number" value={specialRateIncome.otherSpecial || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setSpecialRateIncome((p: SpecialRateIncome) => ({ ...p, otherSpecial: Number(e.target.value) }))} />
               </div>
             </div>
           </CardContent>

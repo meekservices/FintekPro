@@ -56,6 +56,19 @@ export interface ScoreBreakdown {
   riskBand?: 'Moderate' | 'Growth' | 'HighConviction';
 }
 
+export interface RationaleParams {
+  name: string;
+  category: PickCategory | string;
+  currentPrice: number;
+  targetPrice: number;
+  metrics?: Record<string, any>;
+}
+
+export interface PickUpdateResult {
+  updated: number;
+  errors: number;
+}
+
 export interface DailyPickData {
   id?: number;
   category: PickCategory;
@@ -77,7 +90,16 @@ export interface DailyPickData {
   rationale: string;
   riskLevel: string;
   suitableFor: string[];
-  keyMetrics?: Record<string, any>;
+  keyMetrics?: {
+    pe?: number;
+    returns1y?: number;
+    returns3y?: number;
+    volatility?: number;
+    sharpeRatio?: number;
+    yield?: number;
+    rating?: string;
+    [key: string]: any;
+  };
   timeHorizon?: string;
   confidenceScore?: number;
   sectorCategory?: string;
@@ -148,11 +170,11 @@ export class PickOfTheDayService {
     return generated;
   }
 
-  async syncPickPrices(): Promise<{ updated: number; errors: number }> {
+  async syncPickPrices(): Promise<PickUpdateResult> {
     return this.refreshLivePicks();
   }
 
-  async refreshLivePicks(): Promise<{ updated: number; errors: number }> {
+  async refreshLivePicks(): Promise<PickUpdateResult> {
     let updated = 0;
     let errors = 0;
     
@@ -194,7 +216,7 @@ export class PickOfTheDayService {
 
             updated++;
             
-            if (newStatus !== 'live' && newStatus !== (pick.status as any)) {
+            if (newStatus !== 'live' && newStatus !== pick.status) {
                await this.notifyWatchlistSubscribers(pick, newStatus, livePrice, returnPct);
             }
           }
@@ -227,7 +249,7 @@ export class PickOfTheDayService {
     return ids;
   }
 
-  async generateRationale(params: any): Promise<string> {
+  async generateRationale(params: RationaleParams): Promise<string> {
     try {
       const prompt = this.buildRationalePrompt(params);
       const category = params.category || 'stocks';
@@ -244,7 +266,7 @@ export class PickOfTheDayService {
     }
   }
 
-  private buildRationalePrompt(params: any): string {
+  private buildRationalePrompt(params: RationaleParams): string {
     const currentPrice = params.currentPrice ?? 0;
     const targetPrice = params.targetPrice ?? 0;
     const upside = currentPrice > 0 ? Math.round((targetPrice / currentPrice - 1) * 100) : 0;
@@ -259,7 +281,7 @@ Metrics: ${JSON.stringify(params.metrics || {})}
 Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on key strengths and catalysts. Do not use markdown.`;
   }
 
-  private generateFallbackRationale(params: any): string {
+  private generateFallbackRationale(params: RationaleParams): string {
     const currentPrice = params.currentPrice ?? 0;
     const targetPrice = params.targetPrice ?? 0;
     const upside = currentPrice > 0 ? Math.round((targetPrice / currentPrice - 1) * 100) : 0;
@@ -302,11 +324,11 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
       sectorCategory: pick.sectorCategory,
       generatedBy: 'ai',
       updatedAt: new Date(),
-    } as any);
+    } as typeof dailyPicks.$inferInsert);
   }
 
   private async notifyWatchlistSubscribers(
-    pick: any, newStatus: string, currentPrice: number, returnPct: number
+    pick: typeof dailyPicks.$inferSelect, newStatus: PickStatus, currentPrice: number, returnPct: number
   ): Promise<void> {
     try {
       const subscribers = await db.select({ userId: pickWatchlist.userId }).from(pickWatchlist).where(eq(pickWatchlist.pickId, pick.id));
@@ -330,7 +352,7 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
     }
   }
 
-  private transformPick(pick: any): DailyPickData {
+  private transformPick(pick: typeof dailyPicks.$inferSelect): DailyPickData {
     return {
       id: pick.id,
       category: pick.category,

@@ -7,7 +7,7 @@ import {
 import { useTax } from "../TaxContext";
 import { OtherIncomeDetails } from "../types";
 
-export const OtherIncomeSection: React.FC = () => {
+export const OtherIncomeSection: React.FC = (): React.ReactElement => {
   const {
     otherIncomeDetails,
     setOtherIncomeDetails,
@@ -33,7 +33,7 @@ export const OtherIncomeSection: React.FC = () => {
           <CurrencyInput
             id="interestIncome"
             value={otherIncomeDetails.interestIncome}
-            onChange={(v: number) => setOtherIncomeDetails((prev: OtherIncomeDetails) => ({ ...prev, interestIncome: v }))}
+            onChange={(v: number): void => setOtherIncomeDetails((prev: OtherIncomeDetails) => ({ ...prev, interestIncome: v }))}
             placeholder="All bank interest combined"
             data-testid="input-interest-income"
           />
@@ -46,7 +46,7 @@ export const OtherIncomeSection: React.FC = () => {
           <CurrencyInput
             id="dividendIncome"
             value={otherIncomeDetails.dividendIncome}
-            onChange={(v: number) => setOtherIncomeDetails((prev: OtherIncomeDetails) => ({ ...prev, dividendIncome: v }))}
+            onChange={(v: number): void => setOtherIncomeDetails((prev: OtherIncomeDetails) => ({ ...prev, dividendIncome: v }))}
             placeholder="From stocks, mutual funds"
             data-testid="input-dividend-income"
           />
@@ -59,7 +59,7 @@ export const OtherIncomeSection: React.FC = () => {
           <CurrencyInput
             id="otherSources"
             value={otherIncomeDetails.otherSources}
-            onChange={(v: number) => setOtherIncomeDetails((prev: OtherIncomeDetails) => ({ ...prev, otherSources: v }))}
+            onChange={(v: number): void => setOtherIncomeDetails((prev: OtherIncomeDetails) => ({ ...prev, otherSources: v }))}
             placeholder="0 if none"
             data-testid="input-other-sources"
           />
@@ -72,7 +72,7 @@ export const OtherIncomeSection: React.FC = () => {
           <CurrencyInput
             id="agriculturalIncome"
             value={otherIncomeDetails.agriculturalIncome}
-            onChange={(v: number) => setOtherIncomeDetails((prev: OtherIncomeDetails) => ({ ...prev, agriculturalIncome: v }))}
+            onChange={(v: number): void => setOtherIncomeDetails((prev: OtherIncomeDetails) => ({ ...prev, agriculturalIncome: v }))}
             placeholder="Exempt up to ₹5,000 for ITR-1"
             max={5000000}
             data-testid="input-agricultural-income"

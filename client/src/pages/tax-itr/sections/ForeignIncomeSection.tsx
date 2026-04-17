@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { 
   FieldHint, CurrencyInput, ValidationBanner, formatCurrency 
@@ -15,13 +16,17 @@ import { useTax } from "../TaxContext";
 import { DTAA_COUNTRIES, CURRENCY_CODES, ASSET_TYPES_FA } from "../constants";
 import { 
   ScheduleALDetails, DonationEntry, LossAdjustmentDetails, SpecialRateIncome, FOIncome, CYLAData, BFLAData,
-  ForeignAssetEntry, ForeignIncomeDetails
+  ForeignAssetEntry, ForeignIncomeDetails, ForeignTaxCreditDetails, ForeignAssetsDetails
 } from "../types";
 
-export const ForeignIncomeSection: React.FC = () => {
+export const ForeignIncomeSection: React.FC = (): React.ReactElement => {
   const {
     foreignIncomeDetails,
     setForeignIncomeDetails,
+    foreignTaxCredit,
+    setForeignTaxCredit,
+    foreignAssets,
+    setForeignAssets,
     totals,
     validateStep,
     currentStepId
@@ -37,11 +42,11 @@ export const ForeignIncomeSection: React.FC = () => {
   ) * (foreignIncomeDetails.currencyCode === "INR" ? 1 : foreignIncomeDetails.exchangeRate);
 
   const addForeignAsset = (): void => {
-    setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({
+    setForeignAssets((prev: ForeignAssetsDetails): ForeignAssetsDetails => ({
       ...prev,
-      foreignAssets: [...prev.foreignAssets, {
-        countryCode: prev.dtaaCountry || "US",
-        countryName: DTAA_COUNTRIES.find(c => c.code === (prev.dtaaCountry || "US"))?.name || "United States",
+      assets: [...prev.assets, {
+        countryCode: "US",
+        countryName: "United States",
         assetType: "equity",
         institutionName: "",
         accountNumber: "",
@@ -55,17 +60,17 @@ export const ForeignIncomeSection: React.FC = () => {
   };
 
   const removeForeignAsset = (idx: number): void => {
-    setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({
+    setForeignAssets((prev: ForeignAssetsDetails): ForeignAssetsDetails => ({
       ...prev,
-      foreignAssets: prev.foreignAssets.filter((_: ForeignAssetEntry, i: number) => i !== idx)
+      assets: prev.assets.filter((_asset: ForeignAssetEntry, i: number): boolean => i !== idx)
     }));
   };
 
   const updateForeignAsset = <K extends keyof ForeignAssetEntry>(idx: number, field: K, value: ForeignAssetEntry[K]): void => {
-    setForeignIncomeDetails((prev: ForeignIncomeDetails) => {
-      const u = [...prev.foreignAssets];
+    setForeignAssets((prev: ForeignAssetsDetails): ForeignAssetsDetails => {
+      const u = [...prev.assets];
       u[idx] = { ...u[idx], [field]: value };
-      return { ...prev, foreignAssets: u };
+      return { ...prev, assets: u };
     });
   };
 
@@ -95,7 +100,7 @@ export const ForeignIncomeSection: React.FC = () => {
               </Label>
               <Select value={foreignIncomeDetails.dtaaCountry} onValueChange={(v: string): void => {
                 const country = DTAA_COUNTRIES.find((c: { code: string; name: string; article: string }) => c.code === v);
-                setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({
+                setForeignIncomeDetails((prev: ForeignIncomeDetails): ForeignIncomeDetails => ({
                   ...prev,
                   dtaaCountry: v,
                   dtaaArticle: country?.article || "",
@@ -105,7 +110,7 @@ export const ForeignIncomeSection: React.FC = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {DTAA_COUNTRIES.map(c => (
+                  {DTAA_COUNTRIES.map((c: { code: string; name: string; article: string }): React.ReactElement => (
                     <SelectItem key={c.code} value={c.code}>{c.name} ({c.code})</SelectItem>
                   ))}
                 </SelectContent>
@@ -118,7 +123,7 @@ export const ForeignIncomeSection: React.FC = () => {
               </Label>
               <Select value={foreignIncomeDetails.currencyCode} onValueChange={(v: string): void => {
                 const cur = CURRENCY_CODES.find((c: { code: string; symbol: string; name: string; defaultRate: number }) => c.code === v);
-                setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({
+                setForeignIncomeDetails((prev: ForeignIncomeDetails): ForeignIncomeDetails => ({
                   ...prev,
                   currencyCode: v,
                   exchangeRate: cur?.defaultRate || prev.exchangeRate,
@@ -128,7 +133,7 @@ export const ForeignIncomeSection: React.FC = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CURRENCY_CODES.map((c: { code: string; symbol: string; name: string; defaultRate: number }) => (
+                  {CURRENCY_CODES.map((c: { code: string; symbol: string; name: string; defaultRate: number }): React.ReactElement => (
                     <SelectItem key={c.code} value={c.code}>{c.symbol} {c.name} ({c.code})</SelectItem>
                   ))}
                 </SelectContent>
@@ -143,7 +148,7 @@ export const ForeignIncomeSection: React.FC = () => {
                 type="number"
                 step="0.01"
                 value={foreignIncomeDetails.exchangeRate}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, exchangeRate: parseFloat(e.target.value) || 0 }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setForeignIncomeDetails((prev: ForeignIncomeDetails): ForeignIncomeDetails => ({ ...prev, exchangeRate: parseFloat(e.target.value) || 0 }))}
                 data-testid="input-exchange-rate"
               />
               <p className="text-xs text-muted-foreground">Pre-filled approximate rate. Verify from RBI/SBI for actual filing.</p>
@@ -169,7 +174,7 @@ export const ForeignIncomeSection: React.FC = () => {
               <CurrencyInput
                 id="foreignSTCG"
                 value={foreignIncomeDetails.foreignSTCG}
-                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignSTCG: v }))}
+                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails): ForeignIncomeDetails => ({ ...prev, foreignSTCG: v }))}
                 placeholder="e.g., gains from selling US stocks < 24 months"
                 data-testid="input-foreign-stcg"
               />
@@ -182,7 +187,7 @@ export const ForeignIncomeSection: React.FC = () => {
               <CurrencyInput
                 id="foreignLTCG"
                 value={foreignIncomeDetails.foreignLTCG}
-                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignLTCG: v }))}
+                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails): ForeignIncomeDetails => ({ ...prev, foreignLTCG: v }))}
                 placeholder="e.g., gains from selling US stocks > 24 months"
                 data-testid="input-foreign-ltcg"
               />
@@ -214,7 +219,7 @@ export const ForeignIncomeSection: React.FC = () => {
               <CurrencyInput
                 id="foreignDividends"
                 value={foreignIncomeDetails.foreignDividends}
-                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignDividends: v }))}
+                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails): ForeignIncomeDetails => ({ ...prev, foreignDividends: v }))}
                 placeholder="Dividends from foreign stocks/funds"
                 data-testid="input-foreign-dividends"
               />
@@ -227,7 +232,7 @@ export const ForeignIncomeSection: React.FC = () => {
               <CurrencyInput
                 id="foreignInterest"
                 value={foreignIncomeDetails.foreignInterest}
-                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignInterest: v }))}
+                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails): ForeignIncomeDetails => ({ ...prev, foreignInterest: v }))}
                 placeholder="Interest from foreign bank/bonds"
                 data-testid="input-foreign-interest"
               />
@@ -240,7 +245,7 @@ export const ForeignIncomeSection: React.FC = () => {
               <CurrencyInput
                 id="foreignOtherIncome"
                 value={foreignIncomeDetails.foreignOtherIncome}
-                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignOtherIncome: v }))}
+                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails): ForeignIncomeDetails => ({ ...prev, foreignOtherIncome: v }))}
                 placeholder="Other foreign-sourced income"
                 data-testid="input-foreign-other-income"
               />
@@ -257,33 +262,39 @@ export const ForeignIncomeSection: React.FC = () => {
           <CardDescription>Claim credit for taxes already paid in the foreign country to avoid double taxation. You must file Form 67 before filing ITR.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="space-y-1.5">
-              <Label htmlFor="foreignTaxPaid">
-                Tax Paid in Foreign Country (in ₹)
-                <FieldHint text="Total tax withheld or paid in the foreign country on your income. For US stocks: 25% on dividends, 0% on capital gains (US doesn't tax non-residents on capital gains). Get this from your broker's 1042-S form or tax statement." />
-              </Label>
-              <CurrencyInput
-                id="foreignTaxPaid"
-                value={foreignIncomeDetails.foreignTaxPaid}
-                onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, foreignTaxPaid: v }))}
-                placeholder="Tax withheld by foreign government"
-                data-testid="input-foreign-tax-paid"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>
-                DTAA Article
-                <FieldHint text="The specific DTAA article under which you're claiming relief. Common: Article 10 (Dividends), Article 11 (Interest), Article 13 (Capital Gains). Auto-filled based on country selection." />
-              </Label>
-              <Input
-                value={foreignIncomeDetails.dtaaArticle || DTAA_COUNTRIES.find((c: { code: string; name: string; article: string }) => c.code === foreignIncomeDetails.dtaaCountry)?.article || ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setForeignIncomeDetails((prev: ForeignIncomeDetails) => ({ ...prev, dtaaArticle: e.target.value }))}
-                placeholder="e.g., Article 10/11/13"
-                data-testid="input-dtaa-article"
-              />
-            </div>
+          <div className="flex items-center gap-3 mb-4">
+            <Switch checked={foreignTaxCredit.isApplicable} onCheckedChange={(v: boolean): void => setForeignTaxCredit((p: ForeignTaxCreditDetails): ForeignTaxCreditDetails => ({ ...p, isApplicable: v }))} />
+            <Label className="text-sm">I have paid tax in a foreign country and want to claim credit (Sec 90/90A/91)</Label>
           </div>
+          {foreignTaxCredit.isApplicable && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <Label htmlFor="foreignTaxPaid">
+                  Tax Paid in Foreign Country (in ₹)
+                  <FieldHint text="Total tax withheld or paid in the foreign country on your income. For US stocks: 25% on dividends, 0% on capital gains (US doesn't tax non-residents on capital gains). Get this from your broker's 1042-S form or tax statement." />
+                </Label>
+                <CurrencyInput
+                  id="foreignTaxPaid"
+                  value={foreignIncomeDetails.foreignTaxPaid}
+                  onChange={(v: number): void => setForeignIncomeDetails((prev: ForeignIncomeDetails): ForeignIncomeDetails => ({ ...prev, foreignTaxPaid: v }))}
+                  placeholder="Tax withheld by foreign government"
+                  data-testid="input-foreign-tax-paid"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>
+                  DTAA Article
+                  <FieldHint text="The specific DTAA article under which you're claiming relief. Common: Article 10 (Dividends), Article 11 (Interest), Article 13 (Capital Gains). Auto-filled based on country selection." />
+                </Label>
+                <Input
+                  value={foreignIncomeDetails.dtaaArticle || DTAA_COUNTRIES.find((c: { code: string; name: string; article: string }) => c.code === foreignIncomeDetails.dtaaCountry)?.article || ""}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setForeignIncomeDetails((prev: ForeignIncomeDetails): ForeignIncomeDetails => ({ ...prev, dtaaArticle: e.target.value }))}
+                  placeholder="e.g., Article 10/11/13"
+                  data-testid="input-dtaa-article"
+                />
+              </div>
+            </div>
+          )}
           {foreignIncomeDetails.foreignTaxPaid > 0 && (
             <Alert className="mt-3 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
               <CheckCircle className="h-4 w-4 text-green-600" />
@@ -308,118 +319,126 @@ export const ForeignIncomeSection: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {foreignIncomeDetails.foreignAssets.map((asset: ForeignAssetEntry, idx: number): React.ReactNode => (
-            <Card key={idx} className="border-dashed">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex justify-between items-center">
-                  <Badge variant="secondary" className="text-xs">Asset {idx + 1}</Badge>
-                  <Button variant="ghost" size="sm" onClick={(): void => removeForeignAsset(idx)} className="text-red-500 hover:text-red-700 h-7 px-2">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Country</Label>
-                    <Select value={asset.countryCode} onValueChange={(v: string): void => {
-                      updateForeignAsset(idx, "countryCode", v);
-                      updateForeignAsset(idx, "countryName", DTAA_COUNTRIES.find((c: { code: string; name: string; article: string }) => c.code === v)?.name || v);
-                    }}>
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DTAA_COUNTRIES.map((c: { name: string; code: string; article: string }) => (
-                          <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">
-                      Asset Type
-                      <FieldHint text="Table A3: Equity/Debt in foreign entity. Table A1: Foreign bank account. Table A2: Custodial account. Table C: Immovable property." />
-                    </Label>
-                    <Select value={asset.assetType} onValueChange={(v: string): void => updateForeignAsset(idx, "assetType", v)}>
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ASSET_TYPES_FA.map((t: { label: string; value: string }) => (
-                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Institution / Broker Name</Label>
-                    <Input
-                      className="h-8 text-xs"
-                      value={asset.institutionName}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>): void => updateForeignAsset(idx, "institutionName", e.target.value)}
-                      placeholder="e.g., Charles Schwab, Vested, INDmoney"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Account / Folio No.</Label>
-                    <Input
-                      className="h-8 text-xs"
-                      value={asset.accountNumber}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>): void => updateForeignAsset(idx, "accountNumber", e.target.value)}
-                      placeholder="Account number"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">
-                      Peak Balance (₹)
-                      <FieldHint text="Maximum balance/value of this asset at any point during the calendar year (Jan 1 – Dec 31). Convert using SBI TTBR rate on that peak date." />
-                    </Label>
-                    <CurrencyInput
-                      id={`peak-${idx}`}
-                      value={asset.peakBalance}
-                      onChange={(v: number): void => updateForeignAsset(idx, "peakBalance", v)}
-                      placeholder="Max value during year"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">
-                      Closing Balance (₹)
-                      <FieldHint text="Value of this asset as of December 31 of the relevant calendar year. Convert at SBI TTBR rate on Dec 31." />
-                    </Label>
-                    <CurrencyInput
-                      id={`closing-${idx}`}
-                      value={asset.closingBalance}
-                      onChange={(v: number): void => updateForeignAsset(idx, "closingBalance", v)}
-                      placeholder="Value on Dec 31"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Date Acquired</Label>
-                    <Input
-                      type="date"
-                      className="h-8 text-xs"
-                      value={asset.acquisitionDate}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>): void => updateForeignAsset(idx, "acquisitionDate", e.target.value)}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          <div className="flex items-center gap-3 mb-4">
+            <Switch checked={foreignAssets.isApplicable} onCheckedChange={(v: boolean): void => setForeignAssets((p: ForeignAssetsDetails): ForeignAssetsDetails => ({ ...p, isApplicable: v }))} />
+            <Label className="text-sm">I have assets / financial interests outside India (Sch FA)</Label>
+          </div>
+          {foreignAssets.isApplicable && (
+            <div className="space-y-4">
+              {foreignAssets.assets.map((asset: ForeignAssetEntry, idx: number): React.ReactElement => (
+                <Card key={idx} className="border-dashed">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <Badge variant="secondary" className="text-xs">Asset {idx + 1}</Badge>
+                      <Button variant="ghost" size="sm" onClick={(): void => removeForeignAsset(idx)} className="text-red-500 hover:text-red-700 h-7 px-2">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Country</Label>
+                        <Select value={asset.countryCode} onValueChange={(v: string): void => {
+                          updateForeignAsset(idx, "countryCode", v);
+                          updateForeignAsset(idx, "countryName", DTAA_COUNTRIES.find((c: { code: string; name: string; article: string }): boolean => c.code === v)?.name || v);
+                        }}>
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {DTAA_COUNTRIES.map((c: { name: string; code: string; article: string }): React.ReactElement => (
+                              <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">
+                          Asset Type
+                          <FieldHint text="Table A3: Equity/Debt in foreign entity. Table A1: Foreign bank account. Table A2: Custodial account. Table C: Immovable property." />
+                        </Label>
+                        <Select value={asset.assetType} onValueChange={(v: string): void => updateForeignAsset(idx, "assetType", v as ForeignAssetEntry['assetType'])}>
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ASSET_TYPES_FA.map((t: { label: string; value: string }): React.ReactElement => (
+                              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Institution / Broker Name</Label>
+                        <Input
+                          className="h-8 text-xs"
+                          value={asset.institutionName}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>): void => updateForeignAsset(idx, "institutionName", e.target.value)}
+                          placeholder="e.g., Charles Schwab, Vested, INDmoney"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Account / Folio No.</Label>
+                        <Input
+                          className="h-8 text-xs"
+                          value={asset.accountNumber}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>): void => updateForeignAsset(idx, "accountNumber", e.target.value)}
+                          placeholder="Account number"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">
+                          Peak Balance (₹)
+                          <FieldHint text="Maximum balance/value of this asset at any point during the calendar year (Jan 1 – Dec 31). Convert using SBI TTBR rate on that peak date." />
+                        </Label>
+                        <CurrencyInput
+                          id={`peak-${idx}`}
+                          value={asset.peakBalance}
+                          onChange={(v: number): void => updateForeignAsset(idx, "peakBalance", v)}
+                          placeholder="Max value during year"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">
+                          Closing Balance (₹)
+                          <FieldHint text="Value of this asset as of December 31 of the relevant calendar year. Convert at SBI TTBR rate on Dec 31." />
+                        </Label>
+                        <CurrencyInput
+                          id={`closing-${idx}`}
+                          value={asset.closingBalance}
+                          onChange={(v: number): void => updateForeignAsset(idx, "closingBalance", v)}
+                          placeholder="Value on Dec 31"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Date Acquired</Label>
+                        <Input
+                          type="date"
+                          className="h-8 text-xs"
+                          value={asset.acquisitionDate}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>): void => updateForeignAsset(idx, "acquisitionDate", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
 
-          <Button variant="outline" size="sm" onClick={addForeignAsset} className="w-full border-dashed" data-testid="button-add-foreign-asset">
-            <Plus className="h-4 w-4 mr-2" /> Add Foreign Asset Entry
-          </Button>
+              <Button variant="outline" size="sm" onClick={addForeignAsset} className="w-full border-dashed" data-testid="button-add-foreign-asset">
+                <Plus className="h-4 w-4 mr-2" /> Add Foreign Asset Entry
+              </Button>
 
-          {foreignIncomeDetails.foreignAssets.length === 0 && (
-            <Alert className="bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
-              <AlertTriangle className="h-4 w-4 text-red-600" />
-              <AlertDescription className="text-red-700 dark:text-blue-300 text-sm">
-                Schedule FA is mandatory for residents holding foreign assets. The Income Tax Department receives data from 100+ countries via CRS (Common Reporting Standard). 
-                Non-disclosure can lead to ₹10 lakh penalty and prosecution under the Black Money Act.
-              </AlertDescription>
-            </Alert>
+              {foreignAssets.assets.length === 0 && (
+                <Alert className="bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-700 dark:text-blue-300 text-sm">
+                    Schedule FA is mandatory for residents holding foreign assets. The Income Tax Department receives data from 100+ countries via CRS (Common Reporting Standard). 
+                    Non-disclosure can lead to ₹10 lakh penalty and prosecution under the Black Money Act.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useTax } from "../TaxContext";
 import { Schedule5ADetails, ScheduleIFEntry } from "../types";
 
-export const Schedule5ASection: React.FC = () => {
+export const Schedule5ASection: React.FC = (): React.ReactElement => {
   const {
     schedule5A,
     setSchedule5A,
@@ -30,7 +30,7 @@ export const Schedule5ASection: React.FC = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-3">
-            <Switch checked={schedule5A.isApplicable} onCheckedChange={v => setSchedule5A((p: Schedule5ADetails) => ({ ...p, isApplicable: v }))} />
+            <Switch checked={schedule5A.isApplicable} onCheckedChange={(v: boolean): void => setSchedule5A((p: Schedule5ADetails) => ({ ...p, isApplicable: v }))} />
             <Label className="text-sm">Portuguese Civil Code is applicable to me</Label>
           </div>
 
@@ -46,11 +46,11 @@ export const Schedule5ASection: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Name of Spouse</Label>
-                  <Input value={schedule5A.nameOfSpouse} onChange={e => setSchedule5A((p: Schedule5ADetails) => ({ ...p, nameOfSpouse: e.target.value }))} placeholder="Spouse's full name" />
+                  <Input value={schedule5A.nameOfSpouse} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setSchedule5A((p: Schedule5ADetails) => ({ ...p, nameOfSpouse: e.target.value }))} placeholder="Spouse's full name" />
                 </div>
                 <div>
                   <Label className="text-xs">PAN of Spouse</Label>
-                  <Input value={schedule5A.panOfSpouse} onChange={e => setSchedule5A((p: Schedule5ADetails) => ({ ...p, panOfSpouse: e.target.value.toUpperCase() }))} placeholder="AAAAA0000A" maxLength={10} />
+                  <Input value={schedule5A.panOfSpouse} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setSchedule5A((p: Schedule5ADetails) => ({ ...p, panOfSpouse: e.target.value.toUpperCase() }))} placeholder="AAAAA0000A" maxLength={10} />
                 </div>
               </div>
 
@@ -69,10 +69,10 @@ export const Schedule5ASection: React.FC = () => {
                       <tr key={head} className="border-b">
                         <td className="py-2 px-2 capitalize">{head === "houseProperty" ? "House Property" : head === "capitalGains" ? "Capital Gains" : head === "otherSources" ? "Other Sources" : head}</td>
                         <td className="py-1 px-2">
-                          <Input type="number" className="h-8 text-xs text-right" value={schedule5A.headwiseBreakdown[head].assessee || ""} onChange={e => setSchedule5A((p: Schedule5ADetails) => ({ ...p, headwiseBreakdown: { ...p.headwiseBreakdown, [head]: { ...p.headwiseBreakdown[head], assessee: Number(e.target.value) } } }))} />
+                          <Input type="number" className="h-8 text-xs text-right" value={schedule5A.headwiseBreakdown[head].assessee || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setSchedule5A((p: Schedule5ADetails) => ({ ...p, headwiseBreakdown: { ...p.headwiseBreakdown, [head]: { ...p.headwiseBreakdown[head], assessee: Number(e.target.value) } } }))} />
                         </td>
                         <td className="py-1 px-2">
-                          <Input type="number" className="h-8 text-xs text-right" value={schedule5A.headwiseBreakdown[head].spouse || ""} onChange={e => setSchedule5A((p: Schedule5ADetails) => ({ ...p, headwiseBreakdown: { ...p.headwiseBreakdown, [head]: { ...p.headwiseBreakdown[head], spouse: Number(e.target.value) } } }))} />
+                          <Input type="number" className="h-8 text-xs text-right" value={schedule5A.headwiseBreakdown[head].spouse || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setSchedule5A((p: Schedule5ADetails) => ({ ...p, headwiseBreakdown: { ...p.headwiseBreakdown, [head]: { ...p.headwiseBreakdown[head], spouse: Number(e.target.value) } } }))} />
                         </td>
                       </tr>
                     ))}
