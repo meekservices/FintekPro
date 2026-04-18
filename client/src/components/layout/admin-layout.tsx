@@ -175,6 +175,7 @@ const navCategories: NavCategory[] = [
         icon: Wallet,
         description: "Fully-disclosed broker-dealer",
         children: [
+          { title: "Alpaca Hub (Full View)", href: "/admin/alpaca-hub", icon: Building2, description: "Accounts, orders, positions, compliance" },
           { title: "Accounts & Compliance", href: "/admin/broker-dashboard?tab=accounts", icon: Users, description: "Account list & compliance status" },
           { title: "Journals & Transfers", href: "/admin/broker-dashboard?tab=journals", icon: ArrowRightLeft, description: "Journal entries & fund transfers" },
           { title: "Corporate Actions", href: "/admin/broker-dashboard?tab=corporate-actions", icon: FileText, description: "Dividends, splits & reorgs" },

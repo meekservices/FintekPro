@@ -253,6 +253,7 @@ const DomesticTrading = lazyWithRetry(() => import("@/pages/domestic-trading"));
 const GlobalTrading = lazyWithRetry(() => import("@/pages/global-trading"));
 const GlobalAdvisoryPage = lazyWithRetry(() => import("@/pages/global-advisory"));
 const USTrading = lazyWithRetry(() => import("@/pages/us-trading"));
+const AlpacaClientHub = lazyWithRetry(() => import("@/pages/us-trading/hub"));
 const IntelligentTaxHub = lazyWithRetry(() => import("@/pages/intelligent-tax-hub"));
 const TaxReminderSubscription = lazyWithRetry(() => import("@/pages/tax-reminder-subscription"));
 const MLDs = lazyWithRetry(() => import("@/pages/mlds"));
@@ -367,6 +368,8 @@ const AdminAIInsights = lazyWithRetry(() => import("@/pages/admin/ai-insights"))
 const AdminAgentOversightPage = lazyWithRetry(() => import("@/pages/admin/agent-oversight"));
 const AdminAppointmentsDashboard = lazyWithRetry(() => import("@/pages/admin/appointments-dashboard"));
 const AdminBrokerDashboard = lazyWithRetry(() => import("@/pages/admin/broker-dashboard"));
+const AlpacaHubAdmin = lazyWithRetry(() => import("@/pages/admin/alpaca-hub"));
+const AlpacaHubAgent = lazyWithRetry(() => import("@/pages/agent/alpaca-hub"));
 const AdminIrisOverview = lazyWithRetry(() => import("@/pages/admin/iris-overview"));
 const OpenAccountPage = lazyWithRetry(() => import("@/pages/us-trading/open-account"));
 const ClientTasks = lazyWithRetry(() => import("@/pages/client-tasks"));
@@ -554,7 +557,9 @@ function UserProtectedRoutes() {
         <Route path="/domestic-trading" component={DomesticTrading} />
         <Route path="/global-trading" component={GlobalTrading} />
         <Route path="/global-advisory" component={GlobalAdvisoryPage} />
-        <Route path="/us-trading" component={USTrading} />
+        <Route path="/us-trading" component={AlpacaClientHub} />
+        <Route path="/us-trading/hub" component={AlpacaClientHub} />
+        <Route path="/us-trading/classic" component={USTrading} />
         <Route path="/us-trading/open-account" component={OpenAccountPage} />
         <Route path="/cart" component={Cart} />
         <Route path="/unified-cart" component={UnifiedCart} />
@@ -1248,6 +1253,15 @@ function AdminRoutes() {
           <AdminLayout>
             <Suspense fallback={<LoadingState variant="dashboard" />}>
               <AdminBrokerDashboard />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/alpaca-hub">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <AlpacaHubAdmin />
             </Suspense>
           </AdminLayout>
         )}
@@ -2181,6 +2195,15 @@ function AgentRoutes() {
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
               <AgentUsClientAccounts />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/alpaca-hub">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AlpacaHubAgent />
             </Suspense>
           </AgentLayout>
         )}

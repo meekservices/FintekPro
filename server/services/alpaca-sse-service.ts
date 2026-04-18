@@ -257,8 +257,4 @@ class AlpacaSseService extends EventEmitter {
 }
 
 export const alpacaSseService = new AlpacaSseService();
-
-// Wire up event caching
-alpacaSseService.on("event", (event: AlpacaEvent) => {
-  (alpacaSseService as any).cacheEvent(event);
-});
+// Note: event caching is now handled directly inside dispatch() — no external wiring needed.
