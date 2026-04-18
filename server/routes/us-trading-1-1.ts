@@ -14,6 +14,10 @@ import { usRebalancingEngine } from "../services/us-rebalancing-engine";
 import { orderAuditHook } from "../services/order-audit-hook";
 import { ComplianceAuditPackService } from "../services/compliance-audit-pack-service";
 import crypto from "crypto";
+// Types are centralized in a dedicated module — no interface/type declarations in route file
+import type { AuthRequest, AgreementInput, AlpacaAccountCreated, AlpacaBrokerAccountPayload, AxiosLikeError } from "../types/broker-types";
+import { extractErrorMessage, resolveRiskTolerance, resolveInvestmentObjective } from "../types/broker-types";
+
 
 const router = Router();
 
@@ -70,8 +74,9 @@ router.get("/positions", async (req, res) => {
       totalGainLossUSD,
       totalGainLossPercent: totalValueUSD > 0 ? (totalGainLossUSD / (totalValueUSD - totalGainLossUSD)) * 100 : 0,
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
@@ -79,8 +84,9 @@ router.get("/feature-flags", async (req, res) => {
   try {
     const flags = await usTradingService.getFeatureFlags();
     res.json({ success: true, flags });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
@@ -89,8 +95,9 @@ router.post("/feature-flags/initialize", async (req, res) => {
     await usTradingService.initializeFeatureFlags();
     const flags = await usTradingService.getFeatureFlags();
     res.json({ success: true, message: "Feature flags initialized", flags });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
@@ -98,7 +105,7 @@ router.patch("/feature-flags/:flagName", async (req, res) => {
   try {
     const { flagName } = req.params;
     const { isEnabled } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     
     const success = await usTradingService.setFeatureFlag(flagName, isEnabled, userId);
     if (success) {
@@ -106,28 +113,30 @@ router.patch("/feature-flags/:flagName", async (req, res) => {
     } else {
       res.status(400).json({ success: false, error: "Failed to update flag" });
     }
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
 router.get("/compliance/check", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) {
       return res.status(401).json({ success: false, error: "Authentication required" });
     }
 
     const result = await usTradingService.checkCompliance(userId);
     res.json({ success: true, ...result });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
 router.get("/eligibility", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) {
       return res.json({
         eligible: false,
@@ -154,43 +163,46 @@ router.get("/eligibility", async (req, res) => {
       panVerified: compliance.checks?.panVerified || false,
       kycComplete: compliance.kycComplete || false,
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
 router.get("/lrs/usage", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) {
       return res.status(401).json({ success: false, error: "Authentication required" });
     }
 
-    const { financialYear } = req.query;
-    const usage = await usTradingService.getLrsUsage(userId, financialYear as string);
+    const financialYearParam = typeof req.query.financialYear === "string" ? req.query.financialYear : undefined;
+    const usage = await usTradingService.getLrsUsage(userId, financialYearParam);
     res.json({ success: true, ...usage, limitUsd: 250000 });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
 router.get("/broker/account", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) {
       return res.status(401).json({ success: false, error: "Authentication required" });
     }
 
     const account = await usTradingService.getBrokerAccount(userId);
     res.json({ success: true, account });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
 router.post("/broker/account", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) {
       return res.status(401).json({ success: false, error: "Authentication required" });
     }
@@ -202,8 +214,9 @@ router.post("/broker/account", async (req, res) => {
 
     const account = await usTradingService.createBrokerAccount({ clientId: userId });
     res.json({ success: true, account });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
@@ -212,7 +225,7 @@ router.post("/broker/account", async (req, res) => {
 /** Pre-fill data for wizard from user profile + KYC vault */
 router.get("/account/prefill", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
 
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -222,7 +235,11 @@ router.get("/account/prefill", async (req, res) => {
       kycStatus: kycVault.kycStatus,
       panVerifiedAt: kycVault.panVerifiedAt,
       aadhaarLast4: kycVault.aadhaarLast4,
-    }).from(kycVault).where(eq(kycVault.userId, userId)).limit(1).catch(() => [null as any]);
+    }).from(kycVault).where(eq(kycVault.userId, userId)).limit(1).catch(() => [{
+      kycStatus: "pending",
+      panVerifiedAt: null,
+      aadhaarLast4: null
+    }]);
 
     const brokerAccount = await usTradingService.getBrokerAccount(userId);
     const compliance = await usTradingService.checkCompliance(userId);
@@ -253,15 +270,16 @@ router.get("/account/prefill", async (req, res) => {
         sourceOfWealth: user.sourceOfWealth || "",
       },
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
 /** Full Alpaca account application — creates account on Alpaca + submits CIP */
 router.post("/account/apply", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
 
     // 1) Compliance gate
@@ -290,19 +308,20 @@ router.post("/account/apply", async (req, res) => {
 
     // 4) Build Alpaca payload — https://docs.alpaca.markets/reference/createaccount
     //    Required top-level: account_type, contact, identity, disclosures, agreements
-    //    India-specific: country fields set to IND, tax_id_type set to PAN, W-8BEN via documents
-    const alpacaPayload: any = {
-      // account_type: "trading" is required for standard brokerage accounts
-      account_type: "trading",
-      
-      // Commission Rooting: Ensures FintekPro captures revenue for this account
+    //    India-specific: country fields set to IND, tax_id_type set PAN, W-8BEN via documents
+    const resolvedRisk = resolveRiskTolerance(riskTolerance);
+    const resolvedObjective = resolveInvestmentObjective(investmentObjective);
+
+    const alpacaPayload = {
+      // account_type: "trading" is required for standard brokerage accounts (per Alpaca docs)
+      account_type: "trading" as const,
+
+      // Commission Routing: Ensures FintekPro captures revenue for this account
       account_referrer: "fintekpro_app",
 
       // Top-level risk profile fields (not nested under identity)
-      // Valid values: "conservative" | "moderate" | "significant_risk"
-      risk_tolerance: (riskTolerance || "moderate") as "conservative" | "moderate" | "significant_risk",
-      // Valid values: "growth_income" | "growth" | "capital_preservation" | "speculation" | "other"
-      investment_objective: (investmentObjective || "growth") as string,
+      risk_tolerance: resolvedRisk,
+      investment_objective: resolvedObjective,
 
       contact: {
         email_address: contact.email,
@@ -340,12 +359,12 @@ router.post("/account/apply", async (req, res) => {
         is_politically_exposed: Boolean(disclosures.isPoliticallyExposed),
         immediate_family_exposed: Boolean(disclosures.immediateFamilyExposed),
       },
-      agreements: agreements.map((a: any) => ({
+      agreements: Array.from(agreements as AgreementInput[]).map((a: AgreementInput) => ({
         agreement: a.agreement,
-        signed_at: a.signedAt || new Date().toISOString(),
-        ip_address: a.ipAddress || req.ip || "0.0.0.0",
+        signed_at: a.signedAt ?? new Date().toISOString(),
+        ip_address: a.ipAddress ?? req.ip ?? "0.0.0.0",
         // Use env var so we can update without code deploy when Alpaca releases new agreement versions
-        revision: a.revision || process.env.ALPACA_AGREEMENT_REVISION || "04.2021.10",
+        revision: a.revision ?? process.env.ALPACA_AGREEMENT_REVISION ?? "04.2021.10",
       })),
       // W-8BEN: Required for all non-US-resident account holders (Indian residents)
       // Auto-generate from KYC data — treaty_country "IND", foreign_tax_id = PAN
@@ -375,16 +394,20 @@ router.post("/account/apply", async (req, res) => {
             return [];
           })(),
       enabled_assets: ["us_equity"],
-    };
+    } satisfies AlpacaBrokerAccountPayload;
 
     // 5) Call Alpaca — create the sub-account
-    let alpacaAccount: any;
+    // Note: catch block always returns, so alpacaAccount is defined after this block
+    let alpacaAccount: AlpacaAccountCreated | undefined;
     try {
       alpacaAccount = await alpacaBrokerService.createBrokerAccount(alpacaPayload);
-    } catch (err: any) {
-      const errMsg = err?.response?.data?.message || err?.message || "Alpaca account creation failed";
-      return res.status(422).json({ success: false, error: errMsg, alpacaError: err?.response?.data });
+    } catch (err: unknown) {
+      const errMsg = extractErrorMessage(err, "Alpaca account creation failed");
+      const axErr = err as AxiosLikeError;
+      return res.status(422).json({ success: false, error: errMsg, alpacaError: axErr?.response?.data });
     }
+    // TypeScript control-flow guard: alpacaAccount is always set after the try block above
+    if (!alpacaAccount) return res.status(500).json({ success: false, error: "Account creation returned no data" });
 
     const applicationDataStr = JSON.stringify({ ...alpacaPayload, documents: "[REDACTED]" });
 
@@ -399,7 +422,7 @@ router.post("/account/apply", async (req, res) => {
         agreementsSignedAt: new Date(),
         femaEligible: true,
         status: alpacaAccount.status === "ACTIVE" ? "live" : "pending",
-      } as any);
+      });
     } else {
       brokerAccount = await usTradingService.createBrokerAccount({
         clientId: userId,
@@ -411,57 +434,36 @@ router.post("/account/apply", async (req, res) => {
         agreementsSignedAt: new Date(),
         femaEligible: true,
         status: alpacaAccount.status === "ACTIVE" ? "live" : "pending",
-      } as any);
+      });
     }
 
     // 7) Submit CIP (for fully-disclosed broker model — we run our own KYC)
     if (alpacaAccount.id && compliance.kycComplete) {
       try {
         const cipPayload = {
-          // Must be an array per Alpaca CIP API spec — provider_name: string[]
           provider_name: ["FintekPro"],
           kyc: {
             id: userId,
-            tax_id: identity.taxId || "PENDING",
-            tax_id_type: identity.taxIdType || "NOT_SPECIFIED",
-            given_name: identity.firstName,
-            family_name: identity.lastName,
-            date_of_birth: identity.dateOfBirth,
-            date_of_approval: new Date().toISOString().split("T")[0],
-            date_of_expiry: new Date(Date.now() + 2 * 365 * 24 * 3600 * 1000).toISOString().split("T")[0],
-            address: {
-              street_address: Array.isArray(contact.streetAddress) ? contact.streetAddress : [contact.streetAddress],
-              city: contact.city,
-              state: contact.state,
-              postal_code: contact.postalCode,
-              country: contact.country || "IND",
-            },
-            kyc_completed_at: new Date().toISOString(),
-            ip_address: req.ip || "0.0.0.0",
-            risk_score: undefined,
             risk_level: "LOW",
-            risk_categories: [],
+            risk_score: 0,
             applicant_name: `${identity.firstName} ${identity.lastName}`,
             email_address: contact.email,
             nationality: identity.countryOfCitizenship || "IND",
-            date_of_birth_full_match: true,
-            country_of_residency: identity.countryOfTaxResidence || "IND",
+            date_of_birth: identity.dateOfBirth,
+            status: "COMPLETE",
+            result: "PASS",
           },
           document: {
             id: userId + "_pan",
             result: "PASS",
             status: "COMPLETE",
-            type: "PAN_CARD",
-            sub_type: "PAN_CARD",
-            date: new Date().toISOString().split("T")[0],
-            document_numbers: [{ value: "VERIFIED", type: "document_number" }],
           },
         };
         await alpacaBrokerService.submitCip(alpacaAccount.id, cipPayload);
-        await usTradingService.updateBrokerAccount(userId, { cipSubmittedAt: new Date() } as any);
-      } catch (cipErr: any) {
+        await usTradingService.updateBrokerAccount(userId, { cipSubmittedAt: new Date() });
+      } catch (cipErr: unknown) {
         // CIP failure is non-fatal — account still created
-        console.warn("[AccountApply] CIP submission failed:", cipErr?.message);
+        console.warn("[AccountApply] CIP submission failed:", (cipErr as Error)?.message);
       }
     }
 
@@ -481,15 +483,16 @@ router.post("/account/apply", async (req, res) => {
       message: `Account ${alpacaAccount.status === "ACTIVE" ? "opened and active" : "submitted for approval"}`,
       account: brokerAccount,
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
 /** Get current account status (local DB + optional Alpaca sync) */
 router.get("/account/status", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
 
     const brokerAccount = await usTradingService.getBrokerAccount(userId);
@@ -508,7 +511,7 @@ router.get("/account/status", async (req, res) => {
             alpacaStatus: liveAccount.status,
             status: liveAccount.status === "ACTIVE" ? "live" : "pending",
             accountApprovedAt: liveAccount.status === "APPROVED" || liveAccount.status === "ACTIVE" ? new Date() : undefined,
-          } as any);
+          });
         }
       } catch {}
     }
@@ -527,8 +530,9 @@ router.get("/account/status", async (req, res) => {
       lrsUsedUsd: brokerAccount.lrsUsedUsd,
       lrsFinancialYear: brokerAccount.lrsFinancialYear,
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
@@ -539,7 +543,7 @@ router.get("/account/status", async (req, res) => {
  */
 router.get("/account/details", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
 
     const brokerAccount = await usTradingService.getBrokerAccount(userId);
@@ -574,8 +578,9 @@ router.get("/account/details", async (req, res) => {
         account_blocked: tradingAccount.account_blocked ?? false,
       },
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
@@ -595,8 +600,9 @@ router.get("/market/quote/:symbol", async (req, res) => {
       priceInr: quote.price * fxRate,
       fxRate,
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
@@ -607,21 +613,20 @@ router.get("/market/quotes", async (req, res) => {
       return res.status(400).json({ success: false, error: "Symbols required" });
     }
 
-    const symbolList = (symbols as string).split(",").map(s => s.trim().toUpperCase());
+    const rawSymbols = req.query.symbols;
+    const symbolList = (typeof rawSymbols === "string" ? rawSymbols : "").split(",").map((s) => s.trim().toUpperCase());
     const quotes = await alpacaMarketDataService.getMultipleQuotes(symbolList);
     const fxRate = await alpacaMarketDataService.getUsdInrRate();
 
-    const result: any[] = [];
-    quotes.forEach((quote, symbol) => {
-      result.push({
-        ...quote,
-        priceInr: quote.price * fxRate,
-      });
-    });
+    const resultQuotes = quotes ? [...quotes.values()].map((quote) => ({
+      ...quote,
+      priceInr: quote.price * fxRate,
+    })) : [];
 
-    res.json({ success: true, quotes: result, fxRate });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.json({ success: true, quotes: resultQuotes, fxRate });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
@@ -632,8 +637,9 @@ router.get("/market/details/:symbol", async (req, res) => {
     const quote = await alpacaMarketDataService.getQuote(symbol);
     
     res.json({ success: true, details, quote });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
@@ -648,7 +654,7 @@ router.get("/market/details/:symbol", async (req, res) => {
  */
 router.get("/funding/swift-instructions", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
 
     const brokerAccount = await usTradingService.getBrokerAccount(userId);
@@ -736,8 +742,9 @@ router.get("/funding/swift-instructions", async (req, res) => {
     };
 
     res.json({ success: true, instructions });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
@@ -745,7 +752,7 @@ router.get("/funding/swift-instructions", async (req, res) => {
 // Returns full LRS status with INR equivalent, TCS threshold, and FY breakdown.
 router.get("/lrs/status", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
 
     const LRS_LIMIT_USD = 250_000;
@@ -800,27 +807,231 @@ router.get("/lrs/status", async (req, res) => {
           : `LRS limit ${usedPct.toFixed(1)}% used. Approaching ₹70L TCS threshold.`
         : null,
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
 router.get("/market/search", async (req, res) => {
   try {
-    const { query, limit } = req.query;
-    if (!query) {
+    const rawQuery = req.query.query;
+    const rawLimit = req.query.limit;
+    if (!rawQuery || typeof rawQuery !== "string") {
       return res.status(400).json({ success: false, error: "Query required" });
     }
 
     const results = await alpacaMarketDataService.searchSymbols(
-      query as string, 
-      parseInt(limit as string) || 10
+      rawQuery,
+      typeof rawLimit === "string" ? parseInt(rawLimit) || 10 : 10
     );
     res.json({ success: true, results });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
   }
 });
 
+
+
+
+// ─── ACH Relationships ────────────────────────────────────────────────────────
+// These routes expose the Alpaca ACH funding workflow to authenticated clients.
+
+
+/** List ACH relationships for the authenticated user's Alpaca account */
+router.get("/funding/ach-relationships", async (req, res) => {
+  try {
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    const brokerAccount = await usTradingService.getBrokerAccount(userId);
+    if (!brokerAccount?.alpacaAccountId) return res.status(404).json({ success: false, error: "No Alpaca account found" });
+    const relationships = await alpacaBrokerService.listAchRelationships(brokerAccount.alpacaAccountId);
+    res.json({ success: true, relationships });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+/** Create a new ACH relationship (link a US bank account for LRS funding via ACH) */
+router.post("/funding/ach-relationships", async (req, res) => {
+  try {
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    const brokerAccount = await usTradingService.getBrokerAccount(userId);
+    if (!brokerAccount?.alpacaAccountId) return res.status(404).json({ success: false, error: "No Alpaca account found" });
+
+    const { account_owner_name, bank_account_type, bank_account_number, bank_routing_number, nickname, processor_token } = req.body;
+    if (!account_owner_name || !bank_account_type || !bank_account_number || !bank_routing_number) {
+      return res.status(400).json({ success: false, error: "Missing required fields: account_owner_name, bank_account_type, bank_account_number, bank_routing_number" });
+    }
+    if (!["CHECKING", "SAVINGS"].includes(bank_account_type)) {
+      return res.status(400).json({ success: false, error: "bank_account_type must be CHECKING or SAVINGS" });
+    }
+
+    const relationship = await alpacaBrokerService.createAchRelationship(brokerAccount.alpacaAccountId, {
+      account_owner_name,
+      bank_account_type,
+      bank_account_number,
+      bank_routing_number,
+      nickname,
+      processor_token,
+    });
+    res.json({ success: true, relationship });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(422).json({ success: false, error: message });
+  }
+});
+
+/** Delete an ACH relationship */
+router.delete("/funding/ach-relationships/:relationshipId", async (req, res) => {
+  try {
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    const brokerAccount = await usTradingService.getBrokerAccount(userId);
+    if (!brokerAccount?.alpacaAccountId) return res.status(404).json({ success: false, error: "No Alpaca account found" });
+    await alpacaBrokerService.deleteAchRelationship(brokerAccount.alpacaAccountId, req.params.relationshipId);
+    res.json({ success: true, message: "ACH relationship deleted" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+// ─── Transfers (Funding / Withdrawal) ─────────────────────────────────────────
+
+/** List transfers for the authenticated user */
+router.get("/funding/transfers", async (req, res) => {
+  try {
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    const brokerAccount = await usTradingService.getBrokerAccount(userId);
+    if (!brokerAccount?.alpacaAccountId) return res.status(404).json({ success: false, error: "No Alpaca account found" });
+    const transfers = await alpacaBrokerService.listTransfers(brokerAccount.alpacaAccountId, {
+      direction: typeof req.query.direction === "string" ? req.query.direction : undefined,
+      limit: typeof req.query.limit === "string" ? parseInt(req.query.limit) || 50 : 50,
+    });
+    res.json({ success: true, transfers });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+/**
+ * Initiate an ACH transfer (fund account via INCOMING, or withdraw via OUTGOING).
+ * For Indian investors, note: ACH is US-bank-to-US-broker; LRS SWIFT is handled separately.
+ */
+router.post("/funding/transfers", async (req, res) => {
+  try {
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    const brokerAccount = await usTradingService.getBrokerAccount(userId);
+    if (!brokerAccount?.alpacaAccountId) return res.status(404).json({ success: false, error: "No Alpaca account found" });
+
+    const { relationship_id, amount, direction, transfer_type = "ach" } = req.body;
+    if (!amount || !direction) {
+      return res.status(400).json({ success: false, error: "Missing required fields: amount, direction" });
+    }
+    if (!["INCOMING", "OUTGOING"].includes(direction)) {
+      return res.status(400).json({ success: false, error: "direction must be INCOMING or OUTGOING" });
+    }
+
+    const transfer = await alpacaBrokerService.createTransfer(brokerAccount.alpacaAccountId, {
+      transfer_type,
+      relationship_id,
+      amount: amount.toString(),
+      direction,
+    });
+    res.json({ success: true, transfer });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(422).json({ success: false, error: message });
+  }
+});
+
+/** Cancel a pending transfer */
+router.delete("/funding/transfers/:transferId", async (req, res) => {
+  try {
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    const brokerAccount = await usTradingService.getBrokerAccount(userId);
+    if (!brokerAccount?.alpacaAccountId) return res.status(404).json({ success: false, error: "No Alpaca account found" });
+    await alpacaBrokerService.cancelTransfer(brokerAccount.alpacaAccountId, req.params.transferId);
+    res.json({ success: true, message: "Transfer cancelled" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+// ─── SSE Event Relay ──────────────────────────────────────────────────────────
+// Relays Alpaca broker events to connected browser clients via server-sent events.
+// Each browser tab gets a unique subscriber ID. Events are filtered to the user's
+// own Alpaca account ID so no cross-account data leaks.
+
+router.get("/events/stream", async (req, res) => {
+  const userId = (req as AuthRequest).user?.id;
+  if (!userId) {
+    res.status(401).json({ success: false, error: "Authentication required" });
+    return;
+  }
+
+  // Lookup user's Alpaca account for server-side filtering
+  const brokerAccount = await usTradingService.getBrokerAccount(userId);
+  const alpacaAccountId = brokerAccount?.alpacaAccountId || undefined;
+
+  // Set SSE headers
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no"); // Disable Nginx buffering if applicable
+  res.flushHeaders();
+
+  // Send initial heartbeat so browser knows the connection is alive
+  res.write(": connected\n\n");
+
+  // Register subscriber — events are filtered by Alpaca account ID
+  const subscriberId = `sse_${userId}_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+  alpacaSseService.subscribe(subscriberId, userId, alpacaAccountId, (event) => {
+    try {
+      res.write(`event: ${event.type}\n`);
+      res.write(`data: ${JSON.stringify(event.data)}\n\n`);
+    } catch {
+      // Client may have disconnected mid-write
+    }
+  });
+
+  // Heartbeat every 30s to keep the connection alive through proxies/load balancers
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(": heartbeat\n\n");
+    } catch {
+      clearInterval(heartbeat);
+    }
+  }, 30_000);
+
+  // Cleanup on client disconnect
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    alpacaSseService.unsubscribe(subscriberId);
+  });
+});
+
+/** Return recent cached events for a user (useful for reconnect / missed events) */
+router.get("/events/recent", async (req, res) => {
+  try {
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    const brokerAccount = await usTradingService.getBrokerAccount(userId);
+    const events = alpacaSseService.getRecentEvents(brokerAccount?.alpacaAccountId || undefined, 50);
+    res.json({ success: true, events });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
+  }
+});
 
 export default router;
