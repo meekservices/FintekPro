@@ -424,6 +424,8 @@ class AlpacaBrokerService {
     return axios.create({ baseURL: this.baseUrl, timeout: 20000, headers });
   }
 
+
+
   configure(apiKey: string, secretKey: string, baseUrl?: string, env?: "sandbox" | "production"): void {
     this.apiKey = apiKey;
     this.secretKey = secretKey;
@@ -493,6 +495,10 @@ class AlpacaBrokerService {
   }
 
   async createBrokerAccount(data: {
+    account_type: "trading";
+    account_referrer?: string;
+    risk_tolerance?: "conservative" | "moderate" | "significant_risk";
+    investment_objective?: "growth_income" | "growth" | "capital_preservation" | "speculation" | "other";
     contact: {
       email_address: string;
       phone_number?: string;
@@ -525,7 +531,7 @@ class AlpacaBrokerService {
       is_affiliated_exchange_or_finra: boolean;
       is_politically_exposed: boolean;
       immediate_family_exposed: boolean;
-      context?: any[];
+      context?: Array<{ context_type: string; company_name?: string; company_street_address?: string[] }>;
     };
     agreements: Array<{
       agreement: string;
@@ -546,8 +552,13 @@ class AlpacaBrokerService {
     };
     enabled_assets?: string[];
   }): Promise<AlpacaAccount> {
-    const response = await this.client.post("/v1/accounts", data);
-    return response.data;
+    try {
+      const response = await this.client.post("/v1/accounts", data);
+      return response.data;
+    } catch (error: any) {
+      const alpacaMsg = error.response?.data?.message || error.response?.data?.code;
+      throw new Error(alpacaMsg || error.message || "Alpaca account creation failed");
+    }
   }
 
   async getAccount(accountId?: string): Promise<AlpacaAccount | null> {
@@ -747,7 +758,10 @@ class AlpacaBrokerService {
     direction: "INCOMING" | "OUTGOING";
     relationship_id: string;
   }): Promise<AlpacaTransfer> {
-    const response = await this.client.post(`/v1/accounts/${accountId}/transfers/rtp`, data);
+    const response = await this.client.post(`/v1/accounts/${accountId}/transfers`, {
+      ...data,
+      transfer_type: "rtp",
+    });
     return response.data;
   }
 
@@ -799,6 +813,8 @@ class AlpacaBrokerService {
     const response = await this.client.post("/v1/journals", data);
     return response.data;
   }
+
+
 
   async listJournals(params?: {
     after?: string;
@@ -1053,14 +1069,22 @@ class AlpacaBrokerService {
     }
   }
 
-  async getOrderByClientId(clientOrderId: string): Promise<AlpacaOrder | null> {
+  async getOrderByClientId(clientOrderId: string, accountId?: string): Promise<AlpacaOrder | null> {
     try {
+      if (this._isBrokerApi() && accountId) {
+        const response = await this.client.get(
+          `/v1/trading/accounts/${accountId}/orders`,
+          { params: { nested: true, client_order_id: clientOrderId } },
+        );
+        const orders = Array.isArray(response.data) ? response.data : [];
+        return orders[0] ?? null;
+      }
       const response = await this.client.get("/v2/orders:by_client_order_id", {
         params: { client_order_id: clientOrderId },
       });
       return response.data;
     } catch (error: any) {
-      console.error("Error fetching order by client ID:", error.message);
+      if (error.response?.status !== 404) console.error("Error fetching order by client ID:", error.message);
       return null;
     }
   }
@@ -1712,6 +1736,8 @@ class AlpacaBrokerService {
     return response.data;
   }
 
+
+
   /**
    * List options exercise requests for an account.
    * GET /v1beta1/trading/accounts/:accountId/options/exercises
@@ -1941,11 +1967,20 @@ class AlpacaBrokerService {
   // ─── Journal Reversal ─────────────────────────────────────────────────────
 
   /**
-   * Reverse a pending/completed journal entry.
-   * DELETE /v1/journals/:journalId  (Alpaca uses DELETE to reverse a journal)
+   * Cancel a PENDING journal entry.
+   * DELETE /v1/journals/:journalId — only works while status is PENDING
    */
-  async reverseJournal(journalId: string): Promise<any> {
-    const response = await this.client.delete(`/v1/journals/${journalId}`);
+  async cancelJournalPending(journalId: string): Promise<void> {
+    await this.client.delete(`/v1/journals/${journalId}`);
+  }
+
+  /**
+   * Reverse a COMPLETED journal entry.
+   * POST /v1/journals/:journalId/reversals — creates an offsetting journal
+   * Returns the new reversal journal object.
+   */
+  async reverseJournal(journalId: string): Promise<AlpacaJournal> {
+    const response = await this.client.post(`/v1/journals/${journalId}/reversals`);
     return response.data;
   }
 
