@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, date, decimal, index, integer, jsonb, numeric, pgTable, real, serial, text, timestamp, uniqueIndex, varchar, pgEnum } from 'drizzle-orm/pg-core';
+import { boolean, date, decimal, index, integer, jsonb, numeric, pgTable, real, serial, text, timestamp, uniqueIndex, varchar } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users as User } from './users';
@@ -8,11 +8,12 @@ import { portfolioAlerts, aiPortfolioAnalysis, portfolios as Portfolio, assetAll
 import { agents } from './agents';
 import { taxSessions } from './itr';
 import { investmentProposals } from './proposals-base';
+import { pickCategoryEnum, pickStatusEnum } from './enums';
 
 export const dailyPicks = pgTable("daily_picks", {
   id: serial("id").primaryKey(),
   
-  category: pgEnum("pick_category", ["equity", "fno", "commodity", "currency", "mutual_fund", "bond", "unlisted", "ncd", "mld", "ipo", "global", "pms", "aif"]).notNull(),
+  category: pickCategoryEnum("category").notNull(),
   instrumentId: varchar("instrument_id", { length: 100 }),
   instrumentName: varchar("instrument_name", { length: 255 }).notNull(),
   isin: varchar("isin", { length: 12 }),
@@ -30,7 +31,7 @@ export const dailyPicks = pgTable("daily_picks", {
   stoplossPrice: decimal("stoploss_price", { precision: 18, scale: 4 }).notNull(),
   currentPrice: decimal("current_price", { precision: 18, scale: 4 }),
   
-  status: pgEnum("pick_status", ["live", "hit_target", "hit_stoploss", "closed", "expired", "cancelled"]).default("live").notNull(),
+  status: pickStatusEnum("status").default("live").notNull(),
   expiryDate: date("expiry_date").notNull(),
   statusUpdatedAt: timestamp("status_updated_at"),
   
