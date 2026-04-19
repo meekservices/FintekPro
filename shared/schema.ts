@@ -6069,108 +6069,9 @@ export type DataSourceConsent = typeof dataSourceConsents.$inferSelect;
 export type InsertDataSourceConsent = z.infer<typeof insertDataSourceConsentSchema>;
 
 
-// Marketing Campaigns - Email and WhatsApp campaigns using Zoho and Twilio
-export const marketingCampaigns = pgTable("marketing_campaigns", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // Campaign details
-  name: varchar("name").notNull(),
-  description: text("description"),
-  campaignType: varchar("campaign_type").notNull(), // email/whatsapp/sms/multi_channel
-  
-  // Channel specific IDs
-  zohoCampaignId: varchar("zoho_campaign_id"), // Zoho Campaigns API campaign ID
-  aisensyBroadcastId: varchar("aisensy_broadcast_id"), // Legacy: was AiSensy, now using Twilio for WhatsApp
-  
-  // Status
-  status: varchar("status").notNull().default("draft"), // draft/scheduled/sending/sent/failed/cancelled
-  
-  // Audience
-  targetSegment: varchar("target_segment"), // new_users/kyc_pending/active_traders/inactive_users/custom
-  customFilters: jsonb("custom_filters"), // Advanced filtering criteria
-  recipientCount: integer("recipient_count").default(0),
-  
-  // Email specific
-  emailSubject: varchar("email_subject"),
-  emailFromName: varchar("email_from_name"),
-  emailReplyTo: varchar("email_reply_to"),
-  emailHtmlContent: text("email_html_content"),
-  emailTextContent: text("email_text_content"),
-  
-  // WhatsApp specific
-  whatsappTemplateId: varchar("whatsapp_template_id"), // Approved template ID
-  whatsappTemplateName: varchar("whatsapp_template_name"),
-  whatsappMessage: text("whatsapp_message"),
-  whatsappMediaUrl: varchar("whatsapp_media_url"), // Image/video/document URL
-  whatsappButtons: jsonb("whatsapp_buttons"), // Interactive buttons
-  
-  // Scheduling
-  scheduledAt: timestamp("scheduled_at"),
-  sendAt: timestamp("send_at"), // Actual send time
-  
-  // Performance metrics
-  sentCount: integer("sent_count").default(0),
-  deliveredCount: integer("delivered_count").default(0),
-  openedCount: integer("opened_count").default(0),
-  clickedCount: integer("clicked_count").default(0),
-  bouncedCount: integer("bounced_count").default(0),
-  unsubscribedCount: integer("unsubscribed_count").default(0),
-  
-  // Conversion tracking
-  conversionGoal: varchar("conversion_goal"), // kyc_completion/investment/loan_application
-  conversionsCount: integer("conversions_count").default(0),
-  revenue: numeric("revenue", { precision: 15, scale: 2 }),
-  
-  // Creator
-  createdBy: varchar("created_by").references(() => users.id),
-  
-  // Timestamps
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-  completedAt: timestamp("completed_at"),
-}, (table) => [
-  index("idx_campaign_type").on(table.campaignType),
-  index("idx_campaign_status").on(table.status),
-  index("idx_campaign_created").on(table.createdAt),
-]);
+// Marketing Campaigns - definitions in schema/products.ts (re-exported above)
 
-// Campaign Recipients - Track individual campaign sends
-export const campaignRecipients = pgTable("campaign_recipients", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  campaignId: varchar("campaign_id").references(() => marketingCampaigns.id).notNull(),
-  userId: varchar("user_id").references(() => users.id),
-  
-  // Contact details (denormalized for historical tracking)
-  email: varchar("email"),
-  mobile: varchar("mobile"),
-  fullName: varchar("full_name"),
-  
-  // Status
-  status: varchar("status").notNull().default("pending"), // pending/sent/delivered/opened/clicked/bounced/failed/unsubscribed
-  
-  // Engagement tracking
-  sentAt: timestamp("sent_at"),
-  deliveredAt: timestamp("delivered_at"),
-  openedAt: timestamp("opened_at"),
-  clickedAt: timestamp("clicked_at"),
-  unsubscribedAt: timestamp("unsubscribed_at"),
-  
-  // Conversion tracking
-  converted: boolean("converted").default(false),
-  convertedAt: timestamp("converted_at"),
-  conversionValue: numeric("conversion_value", { precision: 15, scale: 2 }),
-  
-  // Error handling
-  errorMessage: text("error_message"),
-  retryCount: integer("retry_count").default(0),
-  
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => [
-  index("idx_campaign_recipient_campaign").on(table.campaignId),
-  index("idx_campaign_recipient_user").on(table.userId),
-  index("idx_campaign_recipient_status").on(table.status),
-]);
+// Campaign Recipients - definitions in schema/products.ts (re-exported above)
 
 // Prospect Leads - Companies from CredHive or other sources
 export const prospectLeads = pgTable("prospect_leads", {
@@ -6338,15 +6239,7 @@ export const leadActivities = pgTable("lead_activities", {
 ]);
 
 // Client Intelligence - CredHive data for existing clients
-export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
-export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
-
-export const insertCampaignRecipientSchema = createInsertSchema(campaignRecipients).omit({
-  id: true,
-  createdAt: true,
-});
-export type CampaignRecipient = typeof campaignRecipients.$inferSelect;
-export type InsertCampaignRecipient = z.infer<typeof insertCampaignRecipientSchema>;
+// MarketingCampaign and CampaignRecipient types re-exported from schema/products.ts
 
 export const insertProspectLeadSchema = createInsertSchema(prospectLeads).omit({
   id: true,
@@ -8340,17 +8233,6 @@ export type InsertProposalHolding = z.infer<typeof insertProposalHoldingSchema>;
 
 
 
-
-// ============ PMS MASTER (Portfolio Management Services) ============
-// Institutional-grade PMS scheme database with Finalyca-style analytics
-
-
-export const insertFundPerformanceRollingSchema = createInsertSchema(fundPerformanceRolling).omit({
-  id: true,
-  createdAt: true,
-});
-export type FundPerformanceRolling = typeof fundPerformanceRolling.$inferSelect;
-export type InsertFundPerformanceRolling = z.infer<typeof insertFundPerformanceRollingSchema>;
 
 // ============ CLIENT PORTFOLIO - AIF HOLDINGS ============
 // Tracks client's existing AIF investments for AI analysis and portfolio management
