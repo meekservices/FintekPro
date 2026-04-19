@@ -139,7 +139,7 @@ async function runRecoveryAction(action: RecoveryAction, force = false): Promise
     switch (action) {
       case 'flush_lru_cache': {
         // Dynamic import to avoid circular dependency
-        const { distributedCache } = await import('./distributed-cache-service').catch(() => ({ distributedCache: null }));
+        const { distributedCache } = await import('../utils/distributed-cache').catch(() => ({ distributedCache: null }));
         if (distributedCache && typeof (distributedCache as any).flush === 'function') {
           await (distributedCache as any).flush();
           return { action, success: true, message: 'LRU/distributed cache flushed', durationMs: Date.now() - start };

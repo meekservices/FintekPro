@@ -8,7 +8,7 @@ import { and } from 'drizzle-orm';
 export function registerMarketDataPart2Routes(app: Express): void {
 app.get("/api/market/status", async (req, res) => {
   try {
-    const { marketHolidayService } = await import('./services/market-holiday-service');
+    const { marketHolidayService } = await import('../services/market-holiday-service');
     
     const now = new Date();
     const istTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
@@ -100,7 +100,7 @@ app.get("/api/market/status", async (req, res) => {
 // Market Holiday Calendar APIs
 app.get("/api/market/holidays", async (req, res) => {
   try {
-    const { marketHolidayService } = await import('./services/market-holiday-service');
+    const { marketHolidayService } = await import('../services/market-holiday-service');
     const { year, exchange } = req.query;
     
     const targetYear = year ? parseInt(year as string) : new Date().getFullYear();
@@ -123,7 +123,7 @@ app.get("/api/market/holidays", async (req, res) => {
 
 app.get("/api/market/holidays/upcoming", async (req, res) => {
   try {
-    const { marketHolidayService } = await import('./services/market-holiday-service');
+    const { marketHolidayService } = await import('../services/market-holiday-service');
     const { count, exchange } = req.query;
     
     const limit = count ? parseInt(count as string) : 10;
@@ -145,7 +145,7 @@ app.get("/api/market/holidays/upcoming", async (req, res) => {
 
 app.get("/api/market/trading-calendar", async (req, res) => {
   try {
-    const { marketHolidayService } = await import('./services/market-holiday-service');
+    const { marketHolidayService } = await import('../services/market-holiday-service');
     const { startDate, endDate, exchange } = req.query;
     const { format, addDays } = await import('date-fns');
     
@@ -179,7 +179,7 @@ app.get("/api/market/trading-calendar", async (req, res) => {
 
 app.get("/api/market/is-trading-day", async (req, res) => {
   try {
-    const { marketHolidayService } = await import('./services/market-holiday-service');
+    const { marketHolidayService } = await import('../services/market-holiday-service');
     const { date, exchange } = req.query;
     const { format } = await import('date-fns');
     
@@ -209,7 +209,7 @@ app.get("/api/market/is-trading-day", async (req, res) => {
 
 app.get("/api/market/next-trading-day", async (req, res) => {
   try {
-    const { marketHolidayService } = await import('./services/market-holiday-service');
+    const { marketHolidayService } = await import('../services/market-holiday-service');
     const { date, exchange } = req.query;
     const { format } = await import('date-fns');
     

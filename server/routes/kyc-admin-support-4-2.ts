@@ -4,6 +4,7 @@ import { db } from '../db';
 import { eq, and, or, desc, gte, lte, sql, count } from 'drizzle-orm';
 import { z } from 'zod';
 import { requireAuth, requireAdmin } from '../middleware/roleMiddleware';
+import * as schema from "@shared/schema";
 
 export function registerKYCAdminSupporPart4Part2Routes(app: Express): void {
 app.post('/api/support/tickets/:ticketId/apply-template', requireAuth, async (req, res) => {

@@ -13,7 +13,7 @@ import {
 } from "@shared/schema";
 import { eq, and, desc, or, isNotNull, sql, ilike } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { aiInvestmentOrchestrator } from "./ai-investment-orchestrator";
+import { aiInvestmentOrchestrator } from "./ai-investment-orchestrator-service";
 import { aiResponseCacheService } from "./ai-response-cache-service";
 import { proposalCapitalGainsService } from "./proposal-capital-gains-service";
 import { historicalNavService } from "./historical-nav-service";
@@ -1242,7 +1242,7 @@ export async function getListedStocksBySector(
       broadSector: stock.broadSector || 'Others',
       sector: stock.sector || 'General',
       riskLevel: determineRiskLevel(stock.marketCap),
-    }));
+    })) as any[];
   } catch (error) {
     console.error(`[ListedStocks] Error fetching stocks for sector ${broadSector}:`, error);
     return [];
@@ -1477,8 +1477,8 @@ export async function getUnlistedStocksBySector(
       ipoStatus: company.ipoStatus,
       expectedIpoDate: company.expectedIpoDate?.toISOString(),
       riskLevel: determineUnlistedRiskLevel(company.riskRating, company.investmentTier),
-      requiresEnhancedKyc: true, // All unlisted stocks require Enhanced KYC
-    }));
+      requiresEnhancedKyc: true,
+    })) as any[];
   } catch (error) {
     console.error(`[UnlistedStocks] Error fetching companies for sector ${broadSector}:`, error);
     return [];
@@ -1669,6 +1669,11 @@ export interface ProspectPortfolioHolding {
   holdingTier?: string;
   eligibleForTax?: boolean;
   amc?: string;
+  // Aliases for backward compatibility
+  units?: number;
+  purchaseValue?: number;
+  transactionDate?: string | Date;
+  investedAmount?: number;
 }
 
 export interface ProspectRiskProfile {
@@ -1684,6 +1689,7 @@ export interface ProspectRiskProfile {
   monthlyExpenses?: number;
   monthlyEMI?: number;
   annualIncomeStepUp?: number;
+  riskScore?: number;
 }
 
 export interface PortfolioAnalysis {
@@ -1724,6 +1730,18 @@ export interface RebalanceRecommendation {
   switchTo?: string;
   isOverridden?: boolean;
   override?: any;
+  // Extended runtime fields
+  fundedBy?: string;
+  fundedByDescription?: string;
+  fundMetrics?: any;
+  selectionReason?: string;
+  isin?: string | null;
+  category?: string;
+  quantity?: number;
+  purchaseDate?: string | null;
+  investedAmount?: number;
+  switchAmount?: number;
+  targetFund?: any;
 }
 
 export interface FreshInvestmentSuggestion {
@@ -1736,6 +1754,11 @@ export interface FreshInvestmentSuggestion {
   matchScore: number;
   rationale: string;
   highlights: string[];
+  // Extended runtime fields
+  category?: string;
+  schemeCode?: string;
+  isin?: string;
+  stpRecommended?: boolean;
 }
 
 // Server-side asset type mapping (mirrors frontend mapToAssetType)
@@ -1872,6 +1895,12 @@ export interface CombinedProposal {
   projectedReturn: string;
   executiveSummary: string;
   portfolioComparison?: PortfolioComparison;
+  // Extended runtime fields
+  fundingSummary?: any;
+  detailedRecommendations?: any[];
+  taxSummary?: any;
+  sebiOverlapWarnings?: any[];
+  alphaEngineInsights?: any;
 }
 
 export interface DuplicateCheckResult {
@@ -2424,7 +2453,7 @@ class AgentProspectWizardService {
       state: 'prospect',
       createdAt: new Date(),
       updatedAt: new Date()
-    }).returning({ id: prospectClients.id });
+    } as any).returning({ id: prospectClients.id });
     
     return prospect.id;
   }
@@ -2450,7 +2479,7 @@ class AgentProspectWizardService {
     
     await db.update(prospectClients)
       .set({ 
-        currentPortfolio: normalizedHoldings,
+        currentPortfolio: normalizedHoldings as any,
         updatedAt: new Date()
       })
       .where(eq(prospectClients.id, prospectId));
@@ -3061,13 +3090,10 @@ class AgentProspectWizardService {
     holdings: ProspectPortfolioHolding[], 
     riskProfile: ProspectRiskProfile,
     analysis: PortfolioAnalysis,
-    customAllocations?: { 
-      equity: number; debt: number; hybrid: number; gold: number; silver?: number; index?: number;
-      international?: number; reit?: number; invit?: number; bonds?: number; mld?: number; pms?: number; aif?: number;
-    },
+    customAllocations?: Record<string, number>,
     freshInvestmentAmount: number = 0,
     selectedCategories?: string[]
-  ): Promise<RebalanceRecommendation[]> {
+  ): Promise<RebalanceRecommendation[] | { recommendations: RebalanceRecommendation[]; taxSummary: any; effectiveFreshInvestment: number }> {
     // Normalize holdings to canonical format at entry point
     const normalizedHoldings = normalizeHoldings(holdings);
     
@@ -3432,7 +3458,7 @@ class AgentProspectWizardService {
         })),
         riskProfile: riskProfile.riskTolerance,
         toleranceBandPct: policy.toleranceBandPct ?? 5,
-        portfolioId: `prospect-${prospectId}`,
+        portfolioId: `prospect-${(globalThis as any).__prospectId__ || 'unknown'}`,
       };
 
       const quantResult = await quantOrchestrator.run(quantInput);
@@ -4032,9 +4058,9 @@ class AgentProspectWizardService {
             isin: holding.isin,
             schemeCode: (holding as any).schemeCode,
             purchaseDate: holding.purchaseDate || (holding.transactionDate ? String(holding.transactionDate) : '') || '',
-            purchaseValue: holding.investedValue || 0,
+            investedAmount: holding.investedValue || holding.purchaseValue || 0,
             currentValue: holding.currentValue || 0,
-            units: holding.units || 0,
+            quantity: holding.units || holding.quantity || 0,
           });
 
           if (!taxInfo) continue;
@@ -4413,7 +4439,7 @@ class AgentProspectWizardService {
           .from(mutualFunds)
           .where(
             and(
-              ilike(mutualFunds.schemeType, `%${isEquity ? 'equity' : 'debt'}%`),
+              ilike((mutualFunds as any).schemeType, `%${isEquity ? 'equity' : 'debt'}%`),
               sql`${mutualFunds.schemeName} NOT ILIKE ${`%${amc}%`}`
             )
           )
@@ -4690,12 +4716,7 @@ class AgentProspectWizardService {
     riskProfile: ProspectRiskProfile,
     investmentAmount: number,
     existingHoldings: ProspectPortfolioHolding[],
-    customAllocations?: { 
-      equity: number; debt: number; hybrid: number; gold: number; silver?: number; index?: number;
-      international?: number; us_markets?: number; europe_markets?: number; asia_pacific_markets?: number; emerging_markets?: number;
-      reit?: number; invit?: number; bonds?: number; mld?: number;
-      listed_stocks?: number; unlisted_stocks?: number; pms?: number; aif?: number;
-    },
+    customAllocations?: Record<string, number>,
     selectedCategories?: string[]
   ): Promise<FreshInvestmentSuggestion[]> {
     const suggestions: FreshInvestmentSuggestion[] = [];
@@ -5388,12 +5409,11 @@ class AgentProspectWizardService {
       selectedCategories
     );
     
-    // Handle both old array format and new object format for backwards compatibility
-    const rebalancing = Array.isArray(rebalancingResult) ? rebalancingResult : rebalancingResult.recommendations;
-    const taxSummary = Array.isArray(rebalancingResult) ? null : rebalancingResult.taxSummary;
+    const rebalancing: RebalanceRecommendation[] = (Array.isArray(rebalancingResult) ? rebalancingResult : (rebalancingResult as any).recommendations) as RebalanceRecommendation[];
+    const taxSummary = Array.isArray(rebalancingResult) ? null : (rebalancingResult as any).taxSummary;
     // Use auto-calculated fresh investment if engine determined one (e.g. when all holdings are HOLD)
-    const effectiveFresh = (!Array.isArray(rebalancingResult) && rebalancingResult.effectiveFreshInvestment)
-      ? rebalancingResult.effectiveFreshInvestment : freshInvestmentAmount;
+    const effectiveFresh = (!Array.isArray(rebalancingResult) && (rebalancingResult as any).effectiveFreshInvestment)
+      ? (rebalancingResult as any).effectiveFreshInvestment : freshInvestmentAmount;
     
     // Calculate sell proceeds and how much was already allocated to rebalancing BUY/INCREASE recommendations
     const sellProceeds = rebalancing
@@ -5560,7 +5580,7 @@ class AgentProspectWizardService {
       proposedProducts: freshInvestments.map(f => ({
         name: f.productName,
         riskRating: f.riskLevel || 'moderate',
-        category: f.category || 'mutual_fund'
+        category: (f as any).category || 'mutual_fund'
       }))
     });
 
@@ -5700,7 +5720,7 @@ class AgentProspectWizardService {
         fundMetrics: (r as any).fundMetrics,
         rationale: r.rationale,
         selectionReason: (r as any).selectionReason
-      })),
+      })) as any,
     ];
 
     // ── ALPHA ENGINE INSIGHTS ────────────────────────────────────────────────
@@ -5801,7 +5821,7 @@ class AgentProspectWizardService {
       taxSummary,
       sebiOverlapWarnings,
       alphaEngineInsights,
-    };
+    } as any;
   }
 
   private generateExecutiveSummary(

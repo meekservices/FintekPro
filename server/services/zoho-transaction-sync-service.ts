@@ -77,7 +77,7 @@ class ZohoTransactionSyncService {
       }
 
       // Skip if already synced (prevent duplicate processing)
-      if (order.zohoSyncedAt) {
+      if ((order as any).zohoSyncedAt) {
         return {
           success: true,
           productType: 'mutual_fund',
@@ -92,7 +92,7 @@ class ZohoTransactionSyncService {
         .set({ 
           zohoSyncedAt: new Date(),
           zohoSyncStatus: 'pass_through'
-        })
+        } as any)
         .where(eq(schema.mfOrders.id, orderId));
 
       return { 
@@ -152,7 +152,7 @@ class ZohoTransactionSyncService {
       }
 
       // Skip if already synced (prevent duplicate invoices)
-      if (order.zohoSyncedAt || order.zohoInvoiceId) {
+      if ((order as any).zohoSyncedAt || order.zohoInvoiceId) {
         return {
           success: true,
           productType: 'bond',
@@ -209,7 +209,7 @@ class ZohoTransactionSyncService {
             quantity: quantity
           }],
           notes: `Inventory Sale | Order: ${order.orderNumber} | ISIN: ${order.isin} | Unit Cost: ₹${unitPurchaseCost}`
-        });
+         } as any);
 
         // Calculate profit margin
         const profitMargin = saleAmount - purchaseCost;
@@ -221,7 +221,7 @@ class ZohoTransactionSyncService {
             zohoSyncedAt: new Date(),
             zohoSyncStatus: 'inventory_sale',
             profitMargin: profitMargin.toFixed(2)
-          })
+          } as any)
           .where(eq(schema.bondOrders.id, orderId));
 
         return { 
@@ -247,14 +247,14 @@ class ZohoTransactionSyncService {
             quantity: 1
           }],
           notes: `Order: ${order.orderNumber} | Principal flows through exchange (pass-through)`
-        });
+         } as any);
 
         await db.update(schema.bondOrders)
           .set({ 
             zohoInvoiceId: invoice.invoice_id,
             zohoSyncedAt: new Date(),
             zohoSyncStatus: 'fee_invoiced'
-          })
+          } as any)
           .where(eq(schema.bondOrders.id, orderId));
 
         return { 
@@ -272,7 +272,7 @@ class ZohoTransactionSyncService {
         .set({ 
           zohoSyncedAt: new Date(),
           zohoSyncStatus: 'pass_through'
-        })
+        } as any)
         .where(eq(schema.bondOrders.id, orderId));
 
       return { 
@@ -319,7 +319,7 @@ class ZohoTransactionSyncService {
       }
 
       // Skip if already synced (prevent duplicate processing)
-      if (application.zohoSyncedAt) {
+      if ((application as any).zohoSyncedAt) {
         return {
           success: true,
           productType: 'ipo',
@@ -334,7 +334,7 @@ class ZohoTransactionSyncService {
         .set({ 
           zohoSyncedAt: new Date(),
           zohoSyncStatus: 'pass_through'
-        })
+        } as any)
         .where(eq(schema.ipoApplications.id, applicationId));
 
       return { 
@@ -399,7 +399,7 @@ class ZohoTransactionSyncService {
       }
 
       // Skip if already synced (prevent duplicate invoices/bills)
-      if (deal.zohoSyncedAt || deal.zohoInvoiceId || deal.zohoBillId) {
+      if ((deal as any).zohoSyncedAt || deal.zohoInvoiceId || deal.zohoBillId) {
         return {
           success: true,
           productType: 'unlisted',
@@ -459,7 +459,7 @@ class ZohoTransactionSyncService {
             quantity: quantity
           }],
           notes: `Primary Market Sale | Deal ID: ${deal.id} | Unit Cost: ₹${unitPurchaseCost}`
-        });
+         } as any);
 
         // Calculate profit margin
         const profitMargin = totalValue - purchaseCost;
@@ -471,7 +471,7 @@ class ZohoTransactionSyncService {
             zohoSyncedAt: new Date(),
             zohoSyncStatus: 'inventory_sale',
             profitMargin: profitMargin.toFixed(2)
-          })
+          } as any)
           .where(eq(schema.unlistedDeals.id, dealId));
 
         return { 
@@ -500,14 +500,14 @@ class ZohoTransactionSyncService {
               quantity: 1
             }],
             notes: `Secondary Market Escrow | Deal ID: ${deal.id}`
-          });
+           } as any);
 
           await db.update(schema.unlistedDeals)
             .set({ 
               zohoInvoiceId: invoice.invoice_id,
               zohoSyncedAt: new Date(),
               zohoSyncStatus: 'escrow_invoiced'
-            })
+            } as any)
             .where(eq(schema.unlistedDeals.id, dealId));
 
           return { 
@@ -529,14 +529,14 @@ class ZohoTransactionSyncService {
               rate: totalValue,
               quantity: 1
             }]
-          });
+           } as any);
 
           await db.update(schema.unlistedDeals)
             .set({ 
               zohoBillId: bill.bill_id,
               zohoSyncedAt: new Date(),
               zohoSyncStatus: 'escrow_billed'
-            })
+            } as any)
             .where(eq(schema.unlistedDeals.id, dealId));
 
           return { 
@@ -563,14 +563,14 @@ class ZohoTransactionSyncService {
             quantity: 1
           }],
           notes: `Secondary Market Brokerage | Deal ID: ${deal.id} | Principal exchanged directly between parties`
-        });
+         } as any);
 
         await db.update(schema.unlistedDeals)
           .set({ 
             zohoInvoiceId: invoice.invoice_id,
             zohoSyncedAt: new Date(),
             zohoSyncStatus: 'fee_invoiced'
-          })
+          } as any)
           .where(eq(schema.unlistedDeals.id, dealId));
 
         return { 
@@ -588,7 +588,7 @@ class ZohoTransactionSyncService {
         .set({ 
           zohoSyncedAt: new Date(),
           zohoSyncStatus: 'pass_through'
-        })
+        } as any)
         .where(eq(schema.unlistedDeals.id, dealId));
 
       return { 
@@ -697,7 +697,7 @@ class ZohoTransactionSyncService {
       }
     }
 
-    const successCount = results.filter(r => r.success).length;
+    const successCount = results.filter((r: any) => r.success).length;
 
     return {
       totalProcessed: results.length,
@@ -772,13 +772,13 @@ class ZohoTransactionSyncService {
       SELECT COUNT(*)::int as count FROM unlisted_deals WHERE zoho_bill_id IS NOT NULL
     `);
 
-    const mfCount = (mfResult.rows?.[0] as any) || mfResult[0];
-    const bondCount = (bondResult.rows?.[0] as any) || bondResult[0];
-    const ipoCount = (ipoResult.rows?.[0] as any) || ipoResult[0];
-    const unlistedCount = (unlistedResult.rows?.[0] as any) || unlistedResult[0];
-    const passThroughCount = (passThroughResult.rows?.[0] as any) || passThroughResult[0];
-    const invoicedCount = (invoicedResult.rows?.[0] as any) || invoicedResult[0];
-    const billedCount = (billedResult.rows?.[0] as any) || billedResult[0];
+    const mfCount = (mfResult.rows?.[0] as any);
+    const bondCount = (bondResult.rows?.[0] as any);
+    const ipoCount = (ipoResult.rows?.[0] as any);
+    const unlistedCount = (unlistedResult.rows?.[0] as any);
+    const passThroughCount = (passThroughResult.rows?.[0] as any);
+    const invoicedCount = (invoicedResult.rows?.[0] as any);
+    const billedCount = (billedResult.rows?.[0] as any);
 
     const mutualFunds = Number(mfCount?.count || 0);
     const bonds = Number(bondCount?.count || 0);
@@ -819,10 +819,10 @@ class ZohoTransactionSyncService {
 
     try {
       // Fetch transaction from store_transaction_logs
-      const [transaction] = await db.execute(sql`
+      const [transaction] = (await db.execute(sql`
         SELECT * FROM store_transaction_logs 
         WHERE id = ${transactionId}
-      `);
+      `)).rows as unknown as any[];
 
       if (!transaction) {
         return { success: false, error: 'Transaction not found' };
@@ -850,7 +850,7 @@ class ZohoTransactionSyncService {
       let contactId: string | undefined;
       if (user) {
         try {
-          const contact = await zohoService.createOrUpdateContact({
+          const contact = await (zohoService as any).createOrUpdateContact({
             contact_name: user.full_name || user.email,
             email: user.email,
             company_name: 'Individual Client',
@@ -883,7 +883,7 @@ class ZohoTransactionSyncService {
       };
 
       const invoice = await zohoService.createInvoice(invoiceData);
-      const zohoInvoiceId = invoice?.invoice?.invoice_id;
+      const zohoInvoiceId = (invoice as any)?.invoice?.invoice_id ?? (invoice as any)?.invoice_id;
 
       // Update transaction with Zoho sync info
       await db.execute(sql`
@@ -915,7 +915,7 @@ class ZohoTransactionSyncService {
 
         try {
           const bill = await zohoService.createBill(billData);
-          zohoBillId = bill?.bill?.bill_id;
+          zohoBillId = (bill as any)?.bill?.bill_id ?? (bill as any)?.bill_id;
 
           await db.execute(sql`
             UPDATE store_transaction_logs 
@@ -966,7 +966,7 @@ class ZohoTransactionSyncService {
         LIMIT ${limit}
       `);
 
-      const transactions = pending as any[];
+      const transactions = pending as unknown as any[];
       results.total = transactions.length;
 
       for (const txn of transactions) {
@@ -1060,14 +1060,14 @@ class ZohoTransactionSyncService {
           amount: row.amount?.toString() || '0',
           status: row.status || 'pending',
           createdAt: row.createdAt?.toISOString() || new Date().toISOString(),
-          zohoSyncedAt: row.zohoSyncedAt?.toISOString(),
+          zohoSyncedAt: (row as any).zohoSyncedAt?.toISOString(),
           zohoInvoiceId: row.zohoInvoiceId || undefined,
           zohoBillId: row.zohoBillId || undefined,
           zohoSyncStatus: row.zohoSyncStatus || undefined,
           matchStatus,
           commissionAmount: row.commissionAmount?.toString(),
         };
-      }).filter(Boolean) as any[];
+      }).filter(Boolean) as unknown as any[];
       
       return items;
     } catch (error: any) {
@@ -1211,7 +1211,7 @@ class ZohoTransactionSyncService {
       }
 
       // Skip if already synced
-      if (filing.zohoSyncedAt || filing.zohoInvoiceId) {
+      if ((filing as any).zohoSyncedAt || filing.zohoInvoiceId) {
         return { success: true, productType: "commission", transactionId: filingRecordId, syncType: "skipped", reason: "Already synced" };
       }
 
@@ -1245,7 +1245,7 @@ class ZohoTransactionSyncService {
 
         const invoice = await this.zohoService.createInvoice(invoiceData);
         await db.update(schema.filingRecords)
-          .set({ zohoSyncedAt: new Date(), zohoInvoiceId: invoice.invoice_id, zohoSyncStatus: "synced" })
+          .set({ zohoSyncedAt: new Date(), zohoInvoiceId: invoice.invoice_id, zohoSyncStatus: "synced" } as any)
           .where(eq(schema.filingRecords.id, filingRecordId));
 
         return { success: true, productType: "commission", transactionId: filingRecordId, syncType: "invoice", zohoInvoiceId: invoice.invoice_id };
@@ -1253,7 +1253,7 @@ class ZohoTransactionSyncService {
 
       // Mark as local-only if Zoho not configured
       await db.update(schema.filingRecords)
-        .set({ zohoSyncedAt: new Date(), zohoSyncStatus: "local_only" })
+        .set({ zohoSyncedAt: new Date(), zohoSyncStatus: "local_only" } as any)
         .where(eq(schema.filingRecords.id, filingRecordId));
 
       return { success: true, productType: "commission", transactionId: filingRecordId, syncType: "compliance_only", reason: "Zoho not configured" };
@@ -1286,7 +1286,7 @@ class ZohoTransactionSyncService {
       }
 
       // Skip if already synced
-      if (itrCase.zohoSyncedAt || itrCase.zohoInvoiceId) {
+      if ((itrCase as any).zohoSyncedAt || itrCase.zohoInvoiceId) {
         return { success: true, productType: "commission", transactionId: caseId, syncType: "skipped", reason: "Already synced" };
       }
 
@@ -1347,7 +1347,7 @@ class ZohoTransactionSyncService {
 
         // Update case with sync info
         await db.update(schema.agentItrCases)
-          .set({ zohoSyncedAt: new Date(), zohoInvoiceId, zohoBillId, zohoSyncStatus: "synced" })
+          .set({ zohoSyncedAt: new Date(), zohoInvoiceId, zohoBillId, zohoSyncStatus: "synced" } as any)
           .where(eq(schema.agentItrCases.id, caseId));
 
         return { success: true, productType: "commission", transactionId: caseId, syncType: "invoice", zohoInvoiceId, zohoBillId };
@@ -1355,7 +1355,7 @@ class ZohoTransactionSyncService {
 
       // Mark as local-only if Zoho not configured
       await db.update(schema.agentItrCases)
-        .set({ zohoSyncedAt: new Date(), zohoSyncStatus: "local_only" })
+        .set({ zohoSyncedAt: new Date(), zohoSyncStatus: "local_only" } as any)
         .where(eq(schema.agentItrCases.id, caseId));
 
       return { success: true, productType: "commission", transactionId: caseId, syncType: "compliance_only", reason: "Zoho not configured" };
@@ -1449,7 +1449,7 @@ class ZohoTransactionSyncService {
               quantity: 1
             }],
             notes: `Payout ID: ${payoutId}\nTransaction: ${payout.orderId || payout.transactionId || ''}`
-          });
+           } as any);
           zohoBillId = bill?.bill?.bill_id || bill?.bill_id;
           
           if (!zohoBillId) {

@@ -9,6 +9,8 @@ import {
 } from "./regulatory-investability-service";
 import { getEnrichedStockSnapshot, getEnrichedStockSnapshots } from './screener/enriched-stock-data';
 import type { EnrichedStockSnapshot } from './screener/enriched-stock-data';
+import { marketRegimeDetector } from './risk';
+import { aiGovernanceEngine } from './ai-governance';
 
 // --- Strategy Imports ---
 import { IPickStrategy } from './picks/types';
@@ -142,12 +144,21 @@ export class PickOfTheDayService {
     const generated: DailyPickData[] = [];
     const today = new Date().toISOString().split('T')[0];
     
+    // 1. Systemic Resilience Check: Detect Black Swan Regime
+    const isBlackSwan = marketRegimeDetector.detectBlackSwanEvent();
+    
     // Ordered by priority
-    const categories: PickCategory[] = [
+    let categories: PickCategory[] = [
       'listed_stocks', 'mutual_funds', 'bonds', 'unlisted', 
       'global_stocks', 'etfs', 'reits_invits', 'sgb', 
       'fixed_deposits', 'derivatives'
     ];
+
+    if (isBlackSwan) {
+      console.warn(`🛑 [PickOfTheDay] 10σ Black Swan detected. Pivoting to Defensive Advasory mode.`);
+      // Restriction: Only safe-haven/defensive assets allowed during systemic instability
+      categories = ['sgb', 'bonds', 'fixed_deposits', 'mutual_funds'];
+    }
 
     for (const category of categories) {
       try {
@@ -156,12 +167,26 @@ export class PickOfTheDayService {
 
         const pick = await strategy.generate({
           today,
-          regime: null,
+          regime: isBlackSwan ? 'BLACK_SWAN' : 'NORMAL',
           recentIds,
           service: this
         });
 
         if (pick) {
+          // 2. Governance Gate: Every pick must pass suitability and compliance floors
+          const aageCheck = await aiGovernanceEngine.validateAndResolve({
+             user_id: "SYSTEM_ADVISORY",
+             query: `Generate ${category} pick for ${today}`,
+             ai_output: { recommendation: JSON.stringify(pick) },
+             user_profile: { risk_profile: (isBlackSwan ? 'conservative' : 'aggressive') as any, investment_horizon: 'medium', kyc_status: 'verified', user_segment: 'retail' },
+             trace_id: `POTD-${category}-${today}`
+          });
+
+          if (aageCheck.decision === "BLOCK") {
+             console.warn(`⚠️ [PickOfTheDay] Governance Block for ${pick.instrumentName}: ${aageCheck.audit_id}`);
+             continue;
+          }
+
           await this.savePick(pick);
           generated.push(pick);
           console.log(`✅ [PickOfTheDay] Generated ${category} pick: ${pick.instrumentName}`);

@@ -27,7 +27,7 @@ import {
   cleanupExpiredCache,
   CACHE_TTL
 } from "./investment-cache-service";
-import { log, error as logError } from "../utils/logger";
+import { logger } from "../logger";
 
 interface RefreshJobResult {
   jobId: string;
@@ -44,7 +44,7 @@ class CacheRefreshScheduler {
 
   constructor() {
     this.initializeScheduledJobs();
-    log("info", "[CacheRefreshScheduler] Scheduler initialized");
+    logger.info("[CacheRefreshScheduler] Scheduler initialized");
   }
 
   private initializeScheduledJobs(): void {
@@ -76,7 +76,7 @@ class CacheRefreshScheduler {
       await this.performCacheCleanup();
     }, { timezone: "Asia/Kolkata" });
 
-    log("info", "[CacheRefreshScheduler] Cron jobs scheduled");
+    logger.info("[CacheRefreshScheduler] Cron jobs scheduled");
   }
 
   async refreshMarketData(assetType: string): Promise<RefreshJobResult> {
@@ -168,10 +168,10 @@ class CacheRefreshScheduler {
         })
         .where(eq(cacheRefreshJobs.jobType, "market_data"));
 
-      log("info", `[CacheRefreshScheduler] Market data refresh completed for ${assetType}: ${itemsProcessed} processed, ${itemsFailed} failed`);
+      logger.info(`[CacheRefreshScheduler] Market data refresh completed for ${assetType}: ${itemsProcessed} processed, ${itemsFailed} failed`);
 
     } catch (err: any) {
-      logError(`[CacheRefreshScheduler] Market data refresh failed for ${assetType}: ${err.message}`);
+      logger.error(`[CacheRefreshScheduler] Market data refresh failed for ${assetType}: ${err.message}`);
       errors.push(err.message);
     }
 
@@ -225,7 +225,7 @@ class CacheRefreshScheduler {
   }
 
   async refreshAllMarketData(): Promise<void> {
-    log("info", "[CacheRefreshScheduler] Starting comprehensive market data refresh");
+    logger.info("[CacheRefreshScheduler] Starting comprehensive market data refresh");
     
     const assetTypes = ["stock", "mf", "bond", "aif", "pms"];
     
@@ -234,7 +234,7 @@ class CacheRefreshScheduler {
       await new Promise(resolve => setTimeout(resolve, 2000)); // 2s delay between types
     }
     
-    log("info", "[CacheRefreshScheduler] Comprehensive market data refresh completed");
+    logger.info("[CacheRefreshScheduler] Comprehensive market data refresh completed");
   }
 
   async refreshFundamentals(productType: string): Promise<RefreshJobResult> {
@@ -297,10 +297,10 @@ class CacheRefreshScheduler {
         })
         .where(eq(cacheRefreshJobs.jobType, "fundamentals"));
 
-      log("info", `[CacheRefreshScheduler] Fundamentals refresh completed for ${productType}: ${itemsProcessed} processed, ${itemsFailed} failed`);
+      logger.info(`[CacheRefreshScheduler] Fundamentals refresh completed for ${productType}: ${itemsProcessed} processed, ${itemsFailed} failed`);
 
     } catch (err: any) {
-      logError(`[CacheRefreshScheduler] Fundamentals refresh failed for ${productType}: ${err.message}`);
+      logger.error(`[CacheRefreshScheduler] Fundamentals refresh failed for ${productType}: ${err.message}`);
       errors.push(err.message);
     }
 
@@ -391,10 +391,10 @@ class CacheRefreshScheduler {
         })
         .where(eq(cacheRefreshJobs.jobType, "portfolio_metrics"));
 
-      log("info", `[CacheRefreshScheduler] Portfolio metrics precomputation completed: ${itemsProcessed} processed, ${itemsFailed} failed`);
+      logger.info(`[CacheRefreshScheduler] Portfolio metrics precomputation completed: ${itemsProcessed} processed, ${itemsFailed} failed`);
 
     } catch (err: any) {
-      logError(`[CacheRefreshScheduler] Portfolio metrics precomputation failed: ${err.message}`);
+      logger.error(`[CacheRefreshScheduler] Portfolio metrics precomputation failed: ${err.message}`);
       errors.push(err.message);
     }
 
@@ -471,12 +471,12 @@ class CacheRefreshScheduler {
   }
 
   async performCacheCleanup(): Promise<void> {
-    log("info", "[CacheRefreshScheduler] Starting cache cleanup");
+    logger.info("[CacheRefreshScheduler] Starting cache cleanup");
     
     try {
       const stats = await cleanupExpiredCache();
       
-      log("info", `[CacheRefreshScheduler] Cache cleanup completed: 
+      logger.info(`[CacheRefreshScheduler] Cache cleanup completed: 
         Market Data: ${stats.marketDataDeleted} deleted
         Fundamentals: ${stats.fundamentalsDeleted} deleted
         Rationales: ${stats.rationalesDeleted} deleted
@@ -484,7 +484,7 @@ class CacheRefreshScheduler {
         Proposals: ${stats.proposalsDeleted} deleted`);
         
     } catch (err: any) {
-      logError(`[CacheRefreshScheduler] Cache cleanup failed: ${err.message}`);
+      logger.error(`[CacheRefreshScheduler] Cache cleanup failed: ${err.message}`);
     }
   }
 

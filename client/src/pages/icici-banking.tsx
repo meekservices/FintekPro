@@ -60,14 +60,14 @@ export default function ICICIBanking() {
   ];
 
   // Account balance query
-  const { data: accountBalance, isLoading: balanceLoading, refetch: refetchBalance } = useQuery({
+  const { data: accountBalance, isLoading: balanceLoading, refetch: refetchBalance } = useQuery<any>({
     queryKey: ['/api/icici/accounts/balance', selectedAccount],
     enabled: !!selectedAccount,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   // Account validation mutation
-  const validateAccountMutation = useMutation({
+  const validateAccountMutation = useMutation<any>({
     mutationFn: async (data: typeof validationForm) => {
       return await apiRequest('/api/icici/accounts/validate', {
         method: 'POST',
@@ -101,7 +101,7 @@ export default function ICICIBanking() {
   });
 
   // IMPS payment mutation
-  const paymentMutation = useMutation({
+  const paymentMutation = useMutation<any>({
     mutationFn: async (data: typeof paymentForm & { accountNumber: string }) => {
       return await apiRequest('/api/icici/payments/imps', {
         method: 'POST',
@@ -142,13 +142,13 @@ export default function ICICIBanking() {
   });
 
   // Transaction history query
-  const { data: transactions, isLoading: transactionsLoading } = useQuery({
+  const { data: transactions, isLoading: transactionsLoading } = useQuery<any>({
     queryKey: ['/api/icici/accounts/transactions', selectedAccount, transactionForm],
     enabled: !!selectedAccount && !!transactionForm.fromDate && !!transactionForm.toDate,
   });
 
   // Account statement mutation
-  const statementMutation = useMutation({
+  const statementMutation = useMutation<any>({
     mutationFn: async (data: typeof statementForm & { accountNumber: string }) => {
       return await apiRequest('/api/icici/accounts/statement', {
         method: 'POST',

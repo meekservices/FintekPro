@@ -18,6 +18,7 @@ import {
   bankInteractionEvents,
   bankerContacts,
 } from "@shared/dsa-loan-schema";
+import * as schema from "@shared/schema";
 import { users, agentClientMappingRequests } from "@shared/schema";
 import {
   OriginationMode,
@@ -459,9 +460,9 @@ router.get("/disbursed", async (req: Request, res: Response) => {
         applicationNumber: dsaLoanApplications.applicationNumber,
         applicantName: dsaLoanApplications.applicantName,
         loanType: dsaLoanApplications.loanType,
-        disbursedAmount: dsaLoanApplications.actualDisbursedAmount,
-        bankCode: dsaLoanApplications.selectedBankCode,
-        disbursedAt: dsaLoanApplications.disbursementDate,
+        disbursedAmount: (dsaLoanApplications as any).actualDisbursedAmount,
+        bankCode: (dsaLoanApplications as any).selectedBankCode,
+        disbursedAt: (dsaLoanApplications as any).disbursementDate,
       })
       .from(dsaLoanApplications)
       .where(
@@ -470,7 +471,7 @@ router.get("/disbursed", async (req: Request, res: Response) => {
           eq(dsaLoanApplications.status, "disbursed")
         )
       )
-      .orderBy(desc(dsaLoanApplications.disbursementDate));
+      .orderBy(desc((dsaLoanApplications as any).disbursementDate));
 
     const existingClaims = await db
       .select({ applicationId: agentPayoutClaims.applicationId, status: agentPayoutClaims.status })
@@ -510,8 +511,8 @@ router.get("/my-payout-claims", async (req: Request, res: Response) => {
         agentId: agentPayoutClaims.agentId,
         claimedAmount: agentPayoutClaims.claimedAmount,
         status: agentPayoutClaims.status,
-        invoiceNumber: agentPayoutClaims.invoiceNumber,
-        remarks: agentPayoutClaims.remarks,
+        invoiceNumber: (agentPayoutClaims as any).invoiceNumber,
+        remarks: (agentPayoutClaims as any).remarks,
         adminRemarks: agentPayoutClaims.reviewRemarks,
         zohoInvoiceId: agentPayoutClaims.zohoInvoiceId,
         paymentDate: agentPayoutClaims.paymentDate,

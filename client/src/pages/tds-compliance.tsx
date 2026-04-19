@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,7 +19,7 @@ import {
   Calculator, FileText, Download, Upload, AlertTriangle, CheckCircle,
   Clock, TrendingUp, Building2, Users, Receipt, Shield, Info,
   Calendar, DollarSign, PieChart, BarChart3, ArrowRight, RefreshCw,
-  FileCheck, AlertCircle, HelpCircle, Banknote
+  FileCheck, AlertCircle, HelpCircle, Banknote, Plus
 } from "lucide-react";
 
 interface TDSCalculationResult {

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
 import { requireAdmin } from '../middleware/roleMiddleware';
+import * as schema from "@shared/schema";
 
 async function resolveTableName(tableName: string): Promise<string | null> {
   if (!isValidTableName(tableName)) return null;

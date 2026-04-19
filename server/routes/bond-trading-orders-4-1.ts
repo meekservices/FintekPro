@@ -9,6 +9,9 @@ import { bseDirectApi } from '../bseDirectApi';
 import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema } from '@shared/schema';
 import { eq, desc, sql, and, or, gte, lte, inArray } from 'drizzle-orm';
 import { isProductionEnvironment } from '../utils/enrichment-guard';
+import { bondOrderNotificationService } from "../services/bond-order-notification-service";
+import { auditLogArchivalService } from "../services/audit-log-archival";
+import { amfiService } from "../amfi-service";
 
 export function registerBondTradingOrderPart4Part1Routes(app: Express): void {
   app.get("/api/cdsl/holdings", async (req, res) => {
@@ -130,15 +133,15 @@ export function registerBondTradingOrderPart4Part1Routes(app: Express): void {
       ];
 
       // Filter by ISIN if provided
-      let filteredHoldings = isin ? cdslHoldings.filter(h => h.isin === isin) : cdslHoldings;
+      let filteredHoldings = isin ? cdslHoldings.filter((h: any) => h.isin === isin) : cdslHoldings;
 
       const summary = {
         totalHoldings: filteredHoldings.length,
-        totalMarketValue: filteredHoldings.reduce((sum, h) => sum + h.marketValue, 0),
-        totalCostValue: filteredHoldings.reduce((sum, h) => sum + h.totalCostValue, 0),
-        totalUnrealizedGainLoss: filteredHoldings.reduce((sum, h) => sum + h.unrealizedGainLoss, 0),
-        averageGainLossPercentage: (filteredHoldings.reduce((sum, h) => sum + h.gainLossPercentage, 0) / filteredHoldings.length).toFixed(2),
-        totalPledgedValue: filteredHoldings.reduce((sum, h) => sum + (h.pledgedQuantity * h.currentPrice), 0)
+        totalMarketValue: filteredHoldings.reduce((sum: any, h: any) => sum + h.marketValue, 0),
+        totalCostValue: filteredHoldings.reduce((sum: any, h: any) => sum + h.totalCostValue, 0),
+        totalUnrealizedGainLoss: filteredHoldings.reduce((sum: any, h: any) => sum + h.unrealizedGainLoss, 0),
+        averageGainLossPercentage: (filteredHoldings.reduce((sum: any, h: any) => sum + h.gainLossPercentage, 0) / filteredHoldings.length).toFixed(2),
+        totalPledgedValue: filteredHoldings.reduce((sum: any, h: any) => sum + (h.pledgedQuantity * h.currentPrice), 0)
       };
 
       res.json({
@@ -244,20 +247,20 @@ export function registerBondTradingOrderPart4Part1Routes(app: Express): void {
       // Filter by financial year and transaction type if provided
       let filteredGains = cdslCapitalGains;
       if (financialYear) {
-        filteredGains = filteredGains.filter(cg => cg.financialYear === financialYear);
+        filteredGains = filteredGains.filter((cg: any) => cg.financialYear === financialYear);
       }
       if (transactionType) {
-        filteredGains = filteredGains.filter(cg => cg.transactionType === transactionType);
+        filteredGains = filteredGains.filter((cg: any) => cg.transactionType === transactionType);
       }
 
       const summary = {
         totalTransactions: filteredGains.length,
-        totalRealizedGains: filteredGains.reduce((sum, cg) => sum + cg.netRealizedGain, 0),
-        totalTaxLiability: filteredGains.reduce((sum, cg) => sum + cg.taxLiability, 0),
-        totalNetGainAfterTax: filteredGains.reduce((sum, cg) => sum + cg.netGainAfterTax, 0),
-        longTermGains: filteredGains.filter(cg => cg.transactionType === 'LONG_TERM').length,
-        shortTermGains: filteredGains.filter(cg => cg.transactionType === 'SHORT_TERM').length,
-        averageHoldingPeriod: Math.round(filteredGains.reduce((sum, cg) => sum + cg.holdingPeriod, 0) / filteredGains.length)
+        totalRealizedGains: filteredGains.reduce((sum: any, cg: any) => sum + cg.netRealizedGain, 0),
+        totalTaxLiability: filteredGains.reduce((sum: any, cg: any) => sum + cg.taxLiability, 0),
+        totalNetGainAfterTax: filteredGains.reduce((sum: any, cg: any) => sum + cg.netGainAfterTax, 0),
+        longTermGains: filteredGains.filter((cg: any) => cg.transactionType === 'LONG_TERM').length,
+        shortTermGains: filteredGains.filter((cg: any) => cg.transactionType === 'SHORT_TERM').length,
+        averageHoldingPeriod: Math.round(filteredGains.reduce((sum: any, cg: any) => sum + cg.holdingPeriod, 0) / filteredGains.length)
       };
 
       res.json({
@@ -304,14 +307,14 @@ export function registerBondTradingOrderPart4Part1Routes(app: Express): void {
         nsdlRecords: nsdlData.data.length,
         cdslRecords: cdslData.data.length,
         ...(reportType === 'holdings' ? {
-          totalMarketValue: combinedData.reduce((sum, item) => sum + (item.marketValue || 0), 0),
-          totalCostValue: combinedData.reduce((sum, item) => sum + (item.totalCostValue || 0), 0),
-          totalUnrealizedGainLoss: combinedData.reduce((sum, item) => sum + (item.unrealizedGainLoss || 0), 0),
-          averageGainLossPercentage: (combinedData.reduce((sum, item) => sum + (item.gainLossPercentage || 0), 0) / combinedData.length).toFixed(2)
+          totalMarketValue: combinedData.reduce((sum: any, item: any) => sum + (item.marketValue || 0), 0),
+          totalCostValue: combinedData.reduce((sum: any, item: any) => sum + (item.totalCostValue || 0), 0),
+          totalUnrealizedGainLoss: combinedData.reduce((sum: any, item: any) => sum + (item.unrealizedGainLoss || 0), 0),
+          averageGainLossPercentage: (combinedData.reduce((sum: any, item: any) => sum + (item.gainLossPercentage || 0), 0) / combinedData.length).toFixed(2)
         } : {
-          totalRealizedGains: combinedData.reduce((sum, item) => sum + (item.netRealizedGain || 0), 0),
-          totalTaxLiability: combinedData.reduce((sum, item) => sum + (item.taxLiability || 0), 0),
-          totalNetGainAfterTax: combinedData.reduce((sum, item) => sum + (item.netGainAfterTax || 0), 0)
+          totalRealizedGains: combinedData.reduce((sum: any, item: any) => sum + (item.netRealizedGain || 0), 0),
+          totalTaxLiability: combinedData.reduce((sum: any, item: any) => sum + (item.taxLiability || 0), 0),
+          totalNetGainAfterTax: combinedData.reduce((sum: any, item: any) => sum + (item.netGainAfterTax || 0), 0)
         })
       };
 
@@ -545,34 +548,34 @@ export function registerBondTradingOrderPart4Part1Routes(app: Express): void {
       // Using only real AMFI data - mock funds removed
 
       // Filter by category if provided
-      let filteredFunds = category ? amfiMutualFunds.filter(fund => 
+      let filteredFunds = category ? amfiMutualFunds.filter((fund: any) => 
         fund.category.toLowerCase().includes(String(category).toLowerCase()) ||
         fund.sub_category.toLowerCase().includes(String(category).toLowerCase())
       ) : amfiMutualFunds;
 
       // Filter by AMC if provided
       if (amc) {
-        filteredFunds = filteredFunds.filter(fund => 
+        filteredFunds = filteredFunds.filter((fund: any) => 
           fund.amc.toLowerCase().includes(String(amc).toLowerCase())
         );
       }
 
       // Filter by NAV range if provided
       if (nav_min) {
-        filteredFunds = filteredFunds.filter(fund => fund.nav >= parseFloat(String(nav_min)));
+        filteredFunds = filteredFunds.filter((fund: any) => fund.nav >= parseFloat(String(nav_min)));
       }
       if (nav_max) {
-        filteredFunds = filteredFunds.filter(fund => fund.nav <= parseFloat(String(nav_max)));
+        filteredFunds = filteredFunds.filter((fund: any) => fund.nav <= parseFloat(String(nav_max)));
       }
 
       // Sort by returns or other criteria
       if (sort_by === 'returns') {
         const period = String(returns_period || '1Y');
-        filteredFunds.sort((a, b) => ((b.returns as any)[period] || 0) - ((a.returns as any)[period] || 0));
+        filteredFunds.sort((a: any, b: any) => ((b.returns as any)[period] || 0) - ((a.returns as any)[period] || 0));
       } else if (sort_by === 'nav') {
-        filteredFunds.sort((a, b) => b.nav - a.nav);
+        filteredFunds.sort((a: any, b: any) => b.nav - a.nav);
       } else if (sort_by === 'fund_size') {
-        filteredFunds.sort((a, b) => {
+        filteredFunds.sort((a: any, b: any) => {
           const parseSize = (size: any) => parseFloat(size.replace(/[₹,\sCr]/g, ''));
           return parseSize(b.fund_size) - parseSize(a.fund_size);
         });
@@ -580,11 +583,11 @@ export function registerBondTradingOrderPart4Part1Routes(app: Express): void {
 
       const summary = {
         totalFunds: filteredFunds.length,
-        avgReturns1Y: (filteredFunds.reduce((sum, fund) => sum + fund.returns["1Y"], 0) / filteredFunds.length).toFixed(2),
-        avgExpenseRatio: (filteredFunds.reduce((sum, fund) => sum + fund.expense_ratio, 0) / filteredFunds.length).toFixed(2),
+        avgReturns1Y: (filteredFunds.reduce((sum: any, fund: any) => sum + fund.returns["1Y"], 0) / filteredFunds.length).toFixed(2),
+        avgExpenseRatio: (filteredFunds.reduce((sum: any, fund: any) => sum + fund.expense_ratio, 0) / filteredFunds.length).toFixed(2),
         topPerformer: filteredFunds[0]?.scheme_name || "N/A",
-        categories: Array.from(new Set(filteredFunds.map(fund => fund.category))),
-        amcList: Array.from(new Set(filteredFunds.map(fund => fund.amc)))
+        categories: Array.from(new Set(filteredFunds.map((fund: any) => fund.category))),
+        amcList: Array.from(new Set(filteredFunds.map((fund: any) => fund.amc)))
       };
 
       res.json({

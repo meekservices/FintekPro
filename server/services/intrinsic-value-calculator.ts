@@ -324,7 +324,7 @@ class IntrinsicValueCalculatorService {
           presentValueOfTerminalValue: Math.round(pvOfTerminalValue * 100) / 100,
           enterpriseValue: Math.round(enterpriseValue * 100) / 100,
           inputs: {
-            projectedFCFs: projectedFCFs.map(f => Math.round(f)),
+            projectedFCFs: projectedFCFs.map((f: any) => Math.round(f)),
             wacc: Math.round(wacc * 100) / 100,
             terminalGrowthRate,
             projectionYears,
@@ -400,7 +400,7 @@ class IntrinsicValueCalculatorService {
       presentValueOfTerminalValue: Math.round(pvOfTerminalValue * 100) / 100,
       enterpriseValue: Math.round(enterpriseValue * 100) / 100,
       inputs: {
-        projectedFCFs: projectedFCFs.map(f => Math.round(f)),
+        projectedFCFs: projectedFCFs.map((f: any) => Math.round(f)),
         wacc: Math.round(wacc * 100) / 100,
         terminalGrowthRate,
         projectionYears,
@@ -652,7 +652,7 @@ class IntrinsicValueCalculatorService {
       return null;
     }
 
-    const compositeValue = valueMethods.reduce((a, b) => a + b, 0) / valueMethods.length;
+    const compositeValue = valueMethods.reduce((a: any, b: any) => a + b, 0) / valueMethods.length;
     const usedEnrichedRelative = !!enriched?.fundamentals;
     const confidence = usedEnrichedRelative ? 'high' as const : this.assessRelativeConfidence(valueMethods.length, sectorAverages.peerCount);
     const relativeDataSource = usedEnrichedRelative ? 'FMP enriched + sector_database' : 'sector_database';
@@ -877,12 +877,12 @@ class IntrinsicValueCalculatorService {
       const totalDebt = Number(latestFinancial.totalDebt || 0);
       const ebitda = Number(latestFinancial.ebitda || 0);
       
-      const fcfs = financials.map(f => {
+      const fcfs = financials.map((f: any) => {
         if (f.freeCashFlow) return Number(f.freeCashFlow);
         if (f.operatingCashFlow) return Number(f.operatingCashFlow) * 0.7;
         const patVal = Number(f.pat || f.netProfit || 0);
         return patVal * 0.8;
-      }).filter(v => v > 0);
+      }).filter((v: any) => v > 0);
 
       const eps = sharesOutstanding && sharesOutstanding > 0 ? pat / sharesOutstanding : null;
       const bookValuePerShare = sharesOutstanding && sharesOutstanding > 0 && networth > 0 ? networth / sharesOutstanding : null;
@@ -1029,7 +1029,7 @@ class IntrinsicValueCalculatorService {
 
     let compositeValue: number | null = null;
     if (validValues.length > 0) {
-      const totalWeight = weights.reduce((a, b) => a + b, 0);
+      const totalWeight = weights.reduce((a: any, b: any) => a + b, 0);
       compositeValue = validValues.reduce((sum, val, i) => sum + val * weights[i], 0) / totalWeight;
       compositeValue = Math.round(compositeValue * 100) / 100;
     }
@@ -1121,14 +1121,14 @@ class IntrinsicValueCalculatorService {
       valuations.graham,
       valuations.relative,
       valuations.bookValue,
-    ].filter(v => v !== null);
+    ].filter((v: any) => v !== null);
 
     if (availableMethods.length === 0) {
       return 'insufficient_data';
     }
 
-    const highCount = availableMethods.filter(v => v?.confidence === 'high').length;
-    const mediumCount = availableMethods.filter(v => v?.confidence === 'medium').length;
+    const highCount = availableMethods.filter((v: any) => v?.confidence === 'high').length;
+    const mediumCount = availableMethods.filter((v: any) => v?.confidence === 'medium').length;
 
     if (highCount >= 2 || (highCount >= 1 && availableMethods.length >= 3)) {
       return 'high';

@@ -18,6 +18,7 @@ import { realizedGainsAggregationService } from '../services/realized-gains-aggr
 const isAuthenticated = requireAuth;
 
 const router = Router();
+const ADMIN_ROLES = ['admin', 'superadmin', 'compliance_officer'];
 
 function generateOrderReference(orderType: string): string {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -277,11 +278,11 @@ router.get('/api/mf-orders/:id/contract-note', isAuthenticated, async (req: Requ
       return res.status(400).json({ error: 'Contract note available only for executed/settled orders' });
     }
 
-    const contractNoteNumber = `CN/${new Date().getFullYear()}/${order.order.bseOrderNumber || order.order.id.substring(0, 8).toUpperCase()}`;
+    const contractNoteNumber = `CN/${new Date().getFullYear()}/${(order.order as any).bseOrderNumber || order.order.id.substring(0, 8).toUpperCase()}`;
     
     const contractNote = {
       contractNoteNumber,
-      tradeDate: order.order.navAppliedDate || order.order.executedAt || order.order.createdAt,
+      tradeDate: order.order.navAppliedDate || (order.order as any).executedAt || order.order.createdAt,
       settlementDate: order.order.settledAt || null,
       client: {
         name: `${order.user?.firstName || ''} ${order.user?.lastName || ''}`.trim() || 'N/A',
@@ -291,7 +292,7 @@ router.get('/api/mf-orders/:id/contract-note', isAuthenticated, async (req: Requ
       scheme: {
         name: order.order.schemeName,
         isin: order.order.isin || 'N/A',
-        amcCode: order.order.amcCode || 'N/A',
+        amcCode: (order.order as any).amcCode || 'N/A',
         schemeCode: order.order.schemeCode,
         option: order.order.option || 'growth',
         planType: order.order.planType || 'direct',
@@ -406,7 +407,7 @@ router.get('/api/admin/mf-orders/reconciliation', isAuthenticated, async (req: R
           severity: 'high',
         });
       }
-      if (order.bseOrderNumber && order.status === 'created') {
+      if ((order as any).bseOrderNumber && order.status === 'created') {
         summary.discrepancies.push({
           orderId: order.id,
           issue: 'Order has BSE reference but status still created',
@@ -469,7 +470,7 @@ router.post('/api/admin/mf-orders/:id/mark-settled', isAuthenticated, async (req
         navApplied: navApplied || existingOrder.navApplied,
         adminRemarks: remarks,
         updatedAt: new Date(),
-      })
+      } as any)
       .where(eq(mfOrders.id, id))
       .returning();
 
@@ -634,8 +635,8 @@ router.get('/api/mf-orders/:id/settlement-status', isAuthenticated, async (req: 
       },
       { 
         stage: 'Order Executed',
-        status: order.executedAt ? 'completed' : ['processing', 'placed'].includes(order.status || '') ? 'in_progress' : 'pending',
-        date: order.executedAt || null,
+        status: (order as any).executedAt ? 'completed' : ['processing', 'placed'].includes(order.status || '') ? 'in_progress' : 'pending',
+        date: (order as any).executedAt || null,
         description: 'Units allotted at applicable NAV',
       },
       { 

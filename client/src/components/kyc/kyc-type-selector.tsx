@@ -7,6 +7,13 @@ import { cn } from "@/lib/utils";
 import { CorporateKYCWizard } from "./corporate-kyc-wizard";
 import { NRIKYCWizard } from "./nri-kyc-wizard";
 import { MultiStepKYCWizard } from "./multi-step-kyc-wizard";
+import { motion } from "framer-motion";
+
+export interface KYCProgress {
+  isCompleted?: boolean;
+  currentStep?: number;
+  [key: string]: any;
+}
 
 type KYCType = "individual" | "corporate" | "nri" | null;
 
@@ -76,17 +83,17 @@ export function KYCTypeSelector() {
   const [isStarted, setIsStarted] = useState(false);
 
   // Check for incomplete KYC progress on mount
-  const { data: individualProgress } = useQuery({
+  const { data: individualProgress } = useQuery<KYCProgress>({
     queryKey: ["/api/kyc/smart/progress"],
     enabled: !isStarted
   });
 
-  const { data: corporateProgress } = useQuery({
+  const { data: corporateProgress } = useQuery<KYCProgress>({
     queryKey: ["/api/kyc/corporate/progress"],
     enabled: !isStarted
   });
 
-  const { data: nriProgress } = useQuery({
+  const { data: nriProgress } = useQuery<KYCProgress>({
     queryKey: ["/api/kyc/nri/progress"],
     enabled: !isStarted
   });
@@ -203,7 +210,7 @@ export function KYCTypeSelector() {
               className="min-w-[200px]"
               data-testid="button-start-kyc"
             >
-              Start {kycTypes.find(k => k.type === selectedType)?.title} KYC
+              Start {kycTypes.find((k: any) => k.type === selectedType)?.title} KYC
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </div>

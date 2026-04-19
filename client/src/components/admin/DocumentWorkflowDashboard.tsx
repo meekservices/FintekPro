@@ -69,7 +69,7 @@ export default function DocumentWorkflowDashboard() {
     queryKey: ['/api/proposal-esign/user/pending-approvals'],
   });
 
-  const { data: workflowDetails } = useQuery({
+  const { data: workflowDetails } = useQuery<any>({
     queryKey: ['/api/proposal-esign/workflows', selectedWorkflow],
     enabled: !!selectedWorkflow,
   });

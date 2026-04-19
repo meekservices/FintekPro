@@ -99,12 +99,12 @@ export default function AgentPayoutDashboard() {
   const payoutRequests = Array.isArray(payoutRequestsData) ? payoutRequestsData : (payoutRequestsData as any)?.requests || [];
 
   const metrics = useMemo(() => {
-    const totalEarnings = earnings.reduce((sum, e) => sum + e.netCommission, 0);
-    const pendingEarnings = earnings.filter(e => e.status === 'pending').reduce((sum, e) => sum + e.netCommission, 0);
-    const approvedEarnings = earnings.filter(e => e.status === 'approved').reduce((sum, e) => sum + e.netCommission, 0);
-    const paidEarnings = earnings.filter(e => e.status === 'paid').reduce((sum, e) => sum + e.netCommission, 0);
+    const totalEarnings = earnings.reduce((sum: any, e: any) => sum + e.netCommission, 0);
+    const pendingEarnings = earnings.filter((e: any) => e.status === 'pending').reduce((sum: any, e: any) => sum + e.netCommission, 0);
+    const approvedEarnings = earnings.filter((e: any) => e.status === 'approved').reduce((sum: any, e: any) => sum + e.netCommission, 0);
+    const paidEarnings = earnings.filter((e: any) => e.status === 'paid').reduce((sum: any, e: any) => sum + e.netCommission, 0);
     const withdrawable = approvedEarnings;
-    const pendingPayouts = payoutRequests.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0);
+    const pendingPayouts = payoutRequests.filter((p: any) => p.status === 'pending').reduce((sum: any, p: any) => sum + p.amount, 0);
     
     return {
       totalEarnings,
@@ -267,11 +267,11 @@ export default function AgentPayoutDashboard() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
                     <span className="text-muted-foreground">Gross Commission</span>
-                    <span className="font-bold text-lg">{formatCurrency(earnings.reduce((s, e) => s + e.grossCommission, 0))}</span>
+                    <span className="font-bold text-lg">{formatCurrency(earnings.reduce((s: any, e: any) => s + e.grossCommission, 0))}</span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
                     <span className="text-muted-foreground">Platform Fee (10%)</span>
-                    <span className="font-medium text-red-600">-{formatCurrency(earnings.reduce((s, e) => s + e.platformFee, 0))}</span>
+                    <span className="font-medium text-red-600">-{formatCurrency(earnings.reduce((s: any, e: any) => s + e.platformFee, 0))}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">

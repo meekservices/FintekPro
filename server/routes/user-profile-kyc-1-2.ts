@@ -3,6 +3,7 @@ import { storage } from '../storage';
 import { db } from '../db';
 import { eq, and, or, gte, sql, count, inArray } from 'drizzle-orm';
 import { requireAdmin } from '../middleware/roleMiddleware';
+import * as schema from "@shared/schema";
 
 function hasRole(user: any, roles: string[]): boolean {
   const userRole = user?.role || user?.userRole || '';
@@ -25,7 +26,7 @@ const requireClientOrHigher = async (req: any, res: any, next: any) => {
 export function registerUserProfileKYCPart1Part2Routes(app: Express): void {
 app.post("/api/profile/trigger-rekyc", requireClientOrHigher, async (req, res) => {
   try {
-    const { resetReKYCProcess } = await import("./rekyc-service");
+    const { resetReKYCProcess } = await import("../rekyc-service");
     const userId = req.user!.id;
     
     const result = await resetReKYCProcess(userId);
@@ -60,8 +61,8 @@ app.get("/api/kyc/notification-status", async (req, res) => {
       });
     }
 
-    const userId = req.user.id;
-    const { kycUpgradeNotificationService } = await import("./services/kyc-upgrade-notification-service");
+    const userId = req.user!.id;
+    const { kycUpgradeNotificationService } = await import("../services/kyc-upgrade-notification-service");
     const status = await kycUpgradeNotificationService.getPendingNotifications(userId);
     
     res.json(status);
@@ -101,7 +102,7 @@ app.post("/api/kyc/verify-pan", async (req, res) => {
     const providers = await getOrderedPanProviders();
     const safeName = name || "Name Not Provided";
 
-    console.log(`[KYC] PAN verify — provider order from admin/kyc-flow: ${providers.map(p => `${p.providerId}(p${p.priority},${p.isConfigured ? 'ready' : 'not-configured'})`).join(' → ')}`);
+    console.log(`[KYC] PAN verify — provider order from admin/kyc-flow: ${providers.map((p: any) => `${p.providerId}(p${p.priority},${p.isConfigured ? 'ready' : 'not-configured'})`).join(' → ')}`);
 
     for (const provider of providers) {
       if (!provider.isConfigured) {
@@ -128,7 +129,7 @@ app.post("/api/kyc/verify-pan", async (req, res) => {
           console.warn(`[KYC] cashfree returned unverified — ${result.message}`);
 
         } else if (provider.providerId === 'sandbox') {
-          const { sandboxPANService } = await import('./sandbox-pan-api');
+          const { sandboxPANService } = await import('../sandbox-pan-api');
           const result = await sandboxPANService.verifyPAN(normalizedPan, safeName);
           if (result && result.status === 'success' && result.data) {
             const d: any = result.data;
@@ -195,8 +196,8 @@ app.get("/api/profile/kyc-verified-data", async (req, res) => {
       });
     }
 
-    const userId = req.user.id;
-    const { getVerifiedKYCProfile } = await import('./services/verified-kyc-profile-service');
+    const userId = req.user!.id;
+    const { getVerifiedKYCProfile } = await import('../services/verified-kyc-profile-service');
     const verifiedData = await getVerifiedKYCProfile(userId);
     
     res.json({
@@ -217,7 +218,7 @@ app.get("/api/profile/kyc-verified-data", async (req, res) => {
 app.post("/api/kyc/schedule-reminders", requireClientOrHigher, async (req, res) => {
   try {
     const userId = req.user!.id;
-    const { kycUpgradeNotificationService } = await import("./services/kyc-upgrade-notification-service");
+    const { kycUpgradeNotificationService } = await import("../services/kyc-upgrade-notification-service");
     await kycUpgradeNotificationService.scheduleReminders(userId);
     
     res.json({ success: true, message: "KYC reminders scheduled" });
@@ -232,7 +233,7 @@ app.post("/api/kyc/acknowledge-reminder", requireClientOrHigher, async (req, res
   try {
     const userId = req.user!.id;
     const { reminderId } = req.body;
-    const { kycUpgradeNotificationService } = await import("./services/kyc-upgrade-notification-service");
+    const { kycUpgradeNotificationService } = await import("../services/kyc-upgrade-notification-service");
     await kycUpgradeNotificationService.acknowledgeReminder(userId, reminderId);
     
     res.json({ success: true, message: "Reminder acknowledged" });
@@ -289,8 +290,8 @@ app.get("/api/net-worth", requireClientOrHigher, async (req, res) => {
         
         // Only include members who have view permissions (not view_only role can see all)
         targetUserIds = allMembers
-          .filter(m => m.role !== 'view_only' || m.userId === userId)
-          .map(m => m.userId);
+          .filter((m: any) => m.role !== 'view_only' || m.userId === userId)
+          .map((m: any) => m.userId);
       } else {
         // User is not part of any accepted family membership, return only their data
         // Don't show error, just proceed with individual view
@@ -303,7 +304,7 @@ app.get("/api/net-worth", requireClientOrHigher, async (req, res) => {
     });
     
     // Fetch holdings separately (no Drizzle relations defined)
-    const portfolioIds = userPortfolios.map(p => p.id);
+    const portfolioIds = userPortfolios.map((p: any) => p.id);
     const allHoldings = portfolioIds.length > 0 
       ? await db.query.portfolioHoldings.findMany({
           where: inArray(portfolioHoldings.portfolioId, portfolioIds),
@@ -349,7 +350,7 @@ app.get("/api/net-worth", requireClientOrHigher, async (req, res) => {
         // Get current market price from pre-fetched data
         const marketInfo = marketDataMap.get(holding.symbol);
         
-        const currentPrice = marketInfo?.price ? parseFloat(marketInfo.price.toString()) : parseFloat(holding.avgPrice.toString());
+        const currentPrice = marketInfo?.price ? parseFloat(marketInfo.price.toString()) : parseFloat((holding as any).avgPrice.toString());
         const quantity = parseFloat(holding.quantity.toString());
         const currentValue = currentPrice * quantity;
         totalPortfolioValue += currentValue;
@@ -360,9 +361,9 @@ app.get("/api/net-worth", requireClientOrHigher, async (req, res) => {
           value: currentValue,
           quantity: quantity,
           currentPrice: currentPrice,
-          avgPrice: parseFloat(holding.avgPrice.toString()),
-          gainLoss: currentValue - (parseFloat(holding.avgPrice.toString()) * quantity),
-          currency: holding.currency || 'INR',
+          avgPrice: parseFloat((holding as any).avgPrice.toString()),
+          gainLoss: currentValue - (parseFloat((holding as any).avgPrice.toString()) * quantity),
+          currency: (holding as any).currency || 'INR',
           portfolioId: portfolio.id,
           portfolioName: portfolio.name
         };
@@ -384,7 +385,7 @@ app.get("/api/net-worth", requireClientOrHigher, async (req, res) => {
     });
     
     // Note: We don't have real-time balance API, so we use cash from portfolios
-    const totalCash = userPortfolios.reduce((sum, p) => sum + parseFloat(p.cash?.toString() || '0'), 0);
+    const totalCash = userPortfolios.reduce((sum: any, p: any) => sum + parseFloat(p.cash?.toString() || '0'), 0);
     
     if (totalCash > 0) {
       liquidAssets.push({
@@ -405,7 +406,7 @@ app.get("/api/net-worth", requireClientOrHigher, async (req, res) => {
       where: and(inArray(unifiedOrders.userId, targetUserIds), inArray(unifiedOrders.status, ['initiated', 'payment_pending', 'payment_completed', 'processing'])),
     });
     
-    const pendingInvestments = pendingOrders.map(order => ({
+    const pendingInvestments = pendingOrders.map((order: any) => ({
       orderNumber: order.orderNumber,
       productName: order.productName,
       productType: order.productType,
@@ -414,7 +415,7 @@ app.get("/api/net-worth", requireClientOrHigher, async (req, res) => {
       createdAt: order.createdAt
     }));
     
-    const totalPendingValue = pendingInvestments.reduce((sum, inv) => sum + inv.amount, 0);
+    const totalPendingValue = pendingInvestments.reduce((sum: any, inv: any) => sum + inv.amount, 0);
     
     // 4. DECLARED ASSETS from KYC (for accredited investors)
     let declaredAssets = 0;
@@ -439,7 +440,7 @@ app.get("/api/net-worth", requireClientOrHigher, async (req, res) => {
         where: eq(loanRepayments.loanId, loan.id),
       });
       
-      const totalRepaid = repayments.reduce((sum, r) => sum + parseFloat(r.paymentAmount?.toString() || '0'), 0);
+      const totalRepaid = repayments.reduce((sum: any, r: any) => sum + parseFloat(r.paymentAmount?.toString() || '0'), 0);
       const outstandingAmount = approvedAmount - totalRepaid;
       
       if (outstandingAmount > 0) {
@@ -467,9 +468,9 @@ app.get("/api/net-worth", requireClientOrHigher, async (req, res) => {
     // 6. CALCULATE NET WORTH AND METRICS
     const totalAssets = totalPortfolioValue + totalCash + totalPendingValue;
     const netWorth = totalAssets - totalLiabilities;
-    const liquidAssetsValue = liquidAssets.reduce((sum, a) => sum + a.value, 0);
-    const semiLiquidAssetsValue = semiLiquidAssets.reduce((sum, a) => sum + a.value, 0);
-    const illiquidAssetsValue = illiquidAssets.reduce((sum, a) => sum + a.value, 0);
+    const liquidAssetsValue = liquidAssets.reduce((sum: any, a: any) => sum + a.value, 0);
+    const semiLiquidAssetsValue = semiLiquidAssets.reduce((sum: any, a: any) => sum + a.value, 0);
+    const illiquidAssetsValue = illiquidAssets.reduce((sum: any, a: any) => sum + a.value, 0);
     
     const liquidityRatio = totalAssets > 0 ? (liquidAssetsValue / totalAssets) * 100 : 0;
     const debtToAssetRatio = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
@@ -547,11 +548,11 @@ app.get("/api/net-worth", requireClientOrHigher, async (req, res) => {
         liabilities: {
           breakdown: {
             shortTerm: {
-              value: shortTermLiabilities.reduce((sum, l) => sum + l.outstandingAmount, 0),
+              value: shortTermLiabilities.reduce((sum: any, l: any) => sum + l.outstandingAmount, 0),
               items: shortTermLiabilities
             },
             longTerm: {
-              value: longTermLiabilities.reduce((sum, l) => sum + l.outstandingAmount, 0),
+              value: longTermLiabilities.reduce((sum: any, l: any) => sum + l.outstandingAmount, 0),
               items: longTermLiabilities
             }
           },
@@ -589,7 +590,7 @@ app.get("/api/profile/product-verification-status", requireClientOrHigher, async
     }
 
     // Get KYC status to determine verification level
-    const { getKYCStatus } = await import("./rekyc-service");
+    const { getKYCStatus } = await import("../rekyc-service");
     const kycStatus = await getKYCStatus(userId);
 
     // Define product verification rules
@@ -637,9 +638,9 @@ app.get("/api/profile/product-verification-status", requireClientOrHigher, async
       data: {
         userId,
         clientType: profile.clientType || "individual",
-        entityType: profile.entityType,
+        entityType: (profile as any).entityType,
         currentKYCLevel: kycStatus.currentLevel,
-        isProfileCompleted: profile.isProfileCompleted,
+        isProfileCompleted: (profile as any).isProfileCompleted,
         products,
         verificationMethods: {
           // digilockerVerified: profile.digilockerVerified || false, // Property doesn't exist in schema

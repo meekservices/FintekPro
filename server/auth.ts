@@ -24,6 +24,7 @@ declare global {
       userId: string | null;
       email?: string | null;
       mobile?: string | null;
+      phone?: string | null; // Alias for mobile in legacy code
       password: string;
       firstName?: string | null;
       middleName?: string | null;
@@ -31,6 +32,7 @@ declare global {
       isEmailVerified: boolean | null;
       isMobileVerified: boolean | null;
       roles: string[] | null;
+      role?: string | null; // Legacy single role field
       isActive: boolean | null;
       createdAt: Date | null;
       updatedAt: Date | null;

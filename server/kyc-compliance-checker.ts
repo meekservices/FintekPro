@@ -135,12 +135,12 @@ async function checkKYCLevel(
         break;
       case "pan_verified":
         // Check actual PAN verification flags — not just profile completeness
-        if (!profile.panVerifiedViaSandbox && !profile.panVerifiedViaSmartKyc) {
+        if (!(profile as any).panVerifiedViaSandbox && !(profile as any).panVerifiedViaSmartKyc) {
           missing.push("PAN verification (complete PAN verification via the KYC wizard)");
         }
         break;
       case "video_kyc":
-        if (!profile.videoKycCompleted && !profile.videoKycCompletedAt) missing.push("Video KYC (In-Person Verification)");
+        if (!(profile as any).videoKycCompleted && !(profile as any).videoKycCompletedAt) missing.push("Video KYC (In-Person Verification)");
         break;
       case "income_proof":
         // Income proof is verified via annualIncomeAmount being present
@@ -206,7 +206,7 @@ function checkCorporateKYCLevel(
     }
 
     // Board resolution or authorization documents check
-    if (!profile.isProfileCompleted) {
+    if (!(profile as any).isProfileCompleted) {
       missing.push("Entity verification documents (Board resolution, MOA/AOA)");
     }
   }
@@ -306,7 +306,7 @@ export async function checkKYCCompliance(
     }
 
     // Check if profile is marked as completed
-    if (!profile.isProfileCompleted) {
+    if (!(profile as any).isProfileCompleted) {
       result.blockers.push("Please complete your investor profile");
       result.requiredActions.push("Complete mandatory profile fields");
       result.reason = "Profile incomplete";
@@ -369,10 +369,10 @@ async function determineCurrentLevel(userId: string, profile: any): Promise<"non
     profile.panNumber && profile.firstName && profile.lastName && profile.address;
 
   // DigiLocker verification expedites Full KYC status
-  const hasFull = hasBasic && (profile.bankAccountNumber || hasDigiLockerVerification) && profile.isProfileCompleted;
+  const hasFull = hasBasic && (profile.bankAccountNumber || hasDigiLockerVerification) && (profile as any).isProfileCompleted;
 
   // Enhanced KYC requires video verification OR DigiLocker + high compliance score
-  const hasEnhanced = hasFull && (profile.videoKycCompleted || (hasDigiLockerVerification && profile.complianceScore >= 90));
+  const hasEnhanced = hasFull && ((profile as any).videoKycCompleted || (hasDigiLockerVerification && profile.complianceScore >= 90));
 
   if (hasEnhanced) return "enhanced";
   if (hasFull) return "full";
@@ -421,11 +421,11 @@ export async function getKYCStatus(userId: string) {
   // Determine what's needed for next level
   if (currentLevel === "none" || currentLevel === "basic") {
     if (!profile.bankAccountNumber) pendingActions.push("Add bank account");
-    if (!profile.isProfileCompleted) pendingActions.push("Complete profile verification");
+    if (!(profile as any).isProfileCompleted) pendingActions.push("Complete profile verification");
   }
 
   if (currentLevel !== "enhanced") {
-    if (!profile.videoKycCompleted) pendingActions.push("Complete Video KYC");
+    if (!(profile as any).videoKycCompleted) pendingActions.push("Complete Video KYC");
   }
 
   return {
@@ -443,6 +443,6 @@ export async function getKYCStatus(userId: string) {
         : 0,
     pendingActions,
     amlStatus: profile.amlStatus || "pending",
-    videoKycCompleted: profile.videoKycCompleted || false,
+    videoKycCompleted: (profile as any).videoKycCompleted || false,
   };
 }

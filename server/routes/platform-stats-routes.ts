@@ -124,7 +124,7 @@ app.post("/api/consent", async (req, res) => {
     
     // Record to immutable consent audit log (DPDPA 2023 compliance)
     try {
-      const { consentAuditService } = await import("./services/consent-audit-service");
+      const { consentAuditService } = await import("../services/consent-audit-service");
       const consents: Array<{ consentType: any; action: 'granted' | 'withdrawn' }> = [];
       
       if (preferences) {

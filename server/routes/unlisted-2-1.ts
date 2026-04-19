@@ -359,6 +359,7 @@ router.post('/nsdl/refresh-cache', async (req: Request, res: Response) => {
 
 import { regulatoryReportingService } from '../services/regulatory-reporting-service';
 import { auditLogArchivalService } from '../services/audit-log-archival';
+import * as schema from "@shared/schema";
 
 /**
  * GET /api/unlisted/listings/published

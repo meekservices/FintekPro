@@ -107,7 +107,7 @@ router.post("/portfolio/preview-pdf", upload.single('file'), async (req, res) =>
 
     res.json({
       success: result.success,
-      holdings: result.holdings.map(h => ({
+      holdings: result.holdings.map((h: any) => ({
         id: h.id || crypto.randomUUID(),
         name: h.schemeName || h.name || 'Unknown',
         symbol: h.isin || h.symbol,
@@ -183,7 +183,7 @@ router.post("/portfolio/:clientId/import-previewed", async (req, res) => {
       }));
 
       const updatedHoldings = await prospectPortfolioSyncService.replaceAllHoldings(clientId, normalizedHoldings);
-      const totalValue = updatedHoldings.reduce((sum, h) => sum + h.currentValue, 0);
+      const totalValue = updatedHoldings.reduce((sum: any, h: any) => sum + h.currentValue, 0);
 
       return res.json({
         success: true,
@@ -303,7 +303,7 @@ router.post("/portfolio/:clientId/upload-cas", upload.single('file'), async (req
       }));
 
       const updatedHoldings = await prospectPortfolioSyncService.replaceAllHoldings(clientId, normalizedHoldings);
-      const totalValue = updatedHoldings.reduce((sum, h) => sum + h.currentValue, 0);
+      const totalValue = updatedHoldings.reduce((sum: any, h: any) => sum + h.currentValue, 0);
 
       return res.json({
         success: true,
@@ -405,7 +405,7 @@ router.post("/portfolio/validate-paste", async (req, res) => {
     // Return enriched holdings with ISIN status
     res.json({
       success: true,
-      holdings: result.holdings.map(h => ({
+      holdings: result.holdings.map((h: any) => ({
         id: h.id || crypto.randomUUID(),
         name: h.schemeName || h.name || 'Unknown',
         symbol: h.isin || h.symbol,
@@ -426,9 +426,9 @@ router.post("/portfolio/validate-paste", async (req, res) => {
         confidenceScore: h.confidenceScore
       })),
       summary: result.summary,
-      totalMatched: result.holdings.filter(h => h.isin).length,
-      totalPartial: result.holdings.filter(h => !h.isin && h.symbol).length,
-      totalUnmatched: result.holdings.filter(h => !h.isin && !h.symbol).length,
+      totalMatched: result.holdings.filter((h: any) => h.isin).length,
+      totalPartial: result.holdings.filter((h: any) => !h.isin && h.symbol).length,
+      totalUnmatched: result.holdings.filter((h: any) => !h.isin && !h.symbol).length,
       errors: result.errors
     });
   } catch (error: any) {

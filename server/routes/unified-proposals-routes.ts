@@ -111,8 +111,8 @@ router.get("/", async (req: Request, res: Response) => {
 
       const mappedSource = mapProposalSource(proposal.proposalSource || 'agent', proposal.aiSubType || undefined);
       
-      const approvedCount = items.filter(i => i.status === 'approved').length;
-      const rejectedCount = items.filter(i => i.status === 'rejected').length;
+      const approvedCount = items.filter((i: any) => i.status === 'approved').length;
+      const rejectedCount = items.filter((i: any) => i.status === 'rejected').length;
 
       result.push({
         id: proposal.id,
@@ -127,7 +127,7 @@ router.get("/", async (req: Request, res: Response) => {
         validUntil: proposal.validUntil?.toISOString() || undefined,
         createdAt: proposal.createdAt?.toISOString() || new Date().toISOString(),
         updatedAt: proposal.updatedAt?.toISOString() || undefined,
-        items: items.map(item => ({
+        items: items.map((item: any) => ({
           id: item.id,
           proposalId: item.proposalId,
           productType: item.productType || 'mutual_fund',
@@ -219,7 +219,7 @@ router.put("/:id/accept", async (req: Request, res: Response) => {
         status: 'accepted',
         clientApprovedAt: new Date(),
         updatedAt: new Date(),
-      })
+      } as any)
       .where(eq(investmentProposals.id, id));
 
     await db
@@ -330,7 +330,7 @@ router.post("/:id/add-to-cart", async (req: Request, res: Response) => {
           productId: item.productId,
           isin: item.isin,
         },
-      });
+      } as any);
     }
 
     await db
@@ -393,7 +393,7 @@ router.get("/by-category/:category", async (req: Request, res: Response) => {
           status: proposal.status,
           createdAt: proposal.createdAt?.toISOString(),
           addedToCart: !!proposal.addedToCartAt,
-          items: items.map(item => ({
+          items: items.map((item: any) => ({
             id: item.id,
             productType: item.productType,
             productName: item.productName,
@@ -401,7 +401,7 @@ router.get("/by-category/:category", async (req: Request, res: Response) => {
             actionType: item.actionType,
             status: item.status,
           })),
-          categoryTotal: items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
+          categoryTotal: items.reduce((sum: any, item: any) => sum + (Number(item.amount) || 0), 0),
         });
       }
     }

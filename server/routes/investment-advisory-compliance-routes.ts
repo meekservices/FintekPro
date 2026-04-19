@@ -1,18 +1,9 @@
-/**
- * Investment Advisory Compliance Routes
- * 
- * API endpoints for SEBI Investment Advisers Regulations compliance:
- * - Recommendation audit logging
- * - Client consent management
- * - Suitability declarations
- * - Compliance reports
- * - Disclosure document generation
- */
-
-import express, { Request, Response } from 'express';
+import express, { Request, Response, Router } from 'express';
 import { investmentAdvisoryCompliance } from '../services/investment-advisory-compliance';
+import { AuthRequest } from '../types/broker-types';
+import { logger } from '../logger';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // ============================================================================
 // AUDIT TRAIL ROUTES
@@ -21,7 +12,7 @@ const router = express.Router();
 /**
  * POST /audit/recommendation - Log a recommendation with full audit trail
  */
-router.post('/audit/recommendation', async (req: Request, res: Response) => {
+router.post('/audit/recommendation', async (req: Request, res: Response): Promise<void> => {
   try {
     const {
       clientId,
@@ -73,6 +64,7 @@ router.post('/audit/recommendation', async (req: Request, res: Response) => {
       data: auditLog
     });
   } catch (error: any) {
+    logger.error('[AdvisoryCompliance] Recommendation log failed', { error });
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -80,7 +72,7 @@ router.post('/audit/recommendation', async (req: Request, res: Response) => {
 /**
  * POST /audit/acknowledge - Record client acknowledgment of recommendation
  */
-router.post('/audit/acknowledge', async (req: Request, res: Response) => {
+router.post('/audit/acknowledge', async (req: Request, res: Response): Promise<void> => {
   try {
     const { auditId, ipAddress, deviceFingerprint } = req.body;
     
@@ -115,6 +107,7 @@ router.post('/audit/acknowledge', async (req: Request, res: Response) => {
       }
     });
   } catch (error: any) {
+    logger.error('[AdvisoryCompliance] Acknowledgment failed', { auditId: req.body.auditId, error });
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -122,7 +115,7 @@ router.post('/audit/acknowledge', async (req: Request, res: Response) => {
 /**
  * GET /audit/client/:clientId - Get client audit trail
  */
-router.get('/audit/client/:clientId', async (req: Request, res: Response) => {
+router.get('/audit/client/:clientId', async (req: Request, res: Response): Promise<void> => {
   try {
     const { clientId } = req.params;
     const logs = investmentAdvisoryCompliance.getClientAuditTrail(clientId);
@@ -147,7 +140,7 @@ router.get('/audit/client/:clientId', async (req: Request, res: Response) => {
 /**
  * POST /consent/record - Record client consent
  */
-router.post('/consent/record', async (req: Request, res: Response) => {
+router.post('/consent/record', async (req: Request, res: Response): Promise<void> => {
   try {
     const { clientId, consentType, consentText, expiresAt } = req.body;
     
@@ -180,7 +173,7 @@ router.post('/consent/record', async (req: Request, res: Response) => {
 /**
  * GET /consent/client/:clientId - Get client consents
  */
-router.get('/consent/client/:clientId', async (req: Request, res: Response) => {
+router.get('/consent/client/:clientId', async (req: Request, res: Response): Promise<void> => {
   try {
     const { clientId } = req.params;
     const consents = investmentAdvisoryCompliance.getClientConsents(clientId);
@@ -200,7 +193,7 @@ router.get('/consent/client/:clientId', async (req: Request, res: Response) => {
 /**
  * GET /consent/check/:clientId - Check required consents for a client
  */
-router.get('/consent/check/:clientId', async (req: Request, res: Response) => {
+router.get('/consent/check/:clientId', async (req: Request, res: Response): Promise<void> => {
   try {
     const { clientId } = req.params;
     const result = investmentAdvisoryCompliance.checkRequiredConsents(clientId);
@@ -224,7 +217,7 @@ router.get('/consent/check/:clientId', async (req: Request, res: Response) => {
 /**
  * POST /suitability/declaration - Create suitability declaration
  */
-router.post('/suitability/declaration', async (req: Request, res: Response) => {
+router.post('/suitability/declaration', async (req: Request, res: Response): Promise<void> => {
   try {
     const {
       clientId,
@@ -274,7 +267,7 @@ router.post('/suitability/declaration', async (req: Request, res: Response) => {
 /**
  * POST /reports/generate - Generate compliance report
  */
-router.post('/reports/generate', async (req: Request, res: Response) => {
+router.post('/reports/generate', async (req: Request, res: Response): Promise<void> => {
   try {
     const { reportType, periodStart, periodEnd } = req.body;
     
@@ -308,7 +301,7 @@ router.post('/reports/generate', async (req: Request, res: Response) => {
 /**
  * GET /reports/stats - Get compliance statistics
  */
-router.get('/reports/stats', async (_req: Request, res: Response) => {
+router.get('/reports/stats', async (_req: Request, res: Response): Promise<void> => {
   try {
     const stats = investmentAdvisoryCompliance.getComplianceStats();
     
@@ -328,7 +321,7 @@ router.get('/reports/stats', async (_req: Request, res: Response) => {
 /**
  * POST /disclosures/generate - Generate disclosure document
  */
-router.post('/disclosures/generate', async (req: Request, res: Response) => {
+router.post('/disclosures/generate', async (req: Request, res: Response): Promise<void> => {
   try {
     const { clientId, proposalId, products } = req.body;
     
@@ -358,7 +351,7 @@ router.post('/disclosures/generate', async (req: Request, res: Response) => {
 /**
  * GET /disclosures/mandatory - Get mandatory disclosure templates
  */
-router.get('/disclosures/mandatory', async (_req: Request, res: Response) => {
+router.get('/disclosures/mandatory', (_req: Request, res: Response): void => {
   res.json({
     success: true,
     data: {
@@ -407,7 +400,7 @@ router.get('/disclosures/mandatory', async (_req: Request, res: Response) => {
 /**
  * GET /regulations/ia - Get Investment Advisers regulations reference
  */
-router.get('/regulations/ia', async (_req: Request, res: Response) => {
+router.get('/regulations/ia', (_req: Request, res: Response): void => {
   res.json({
     success: true,
     data: {
@@ -471,7 +464,7 @@ router.get('/regulations/ia', async (_req: Request, res: Response) => {
 /**
  * POST /archive/expired - Archive expired audit logs
  */
-router.post('/archive/expired', async (_req: Request, res: Response) => {
+router.post('/archive/expired', async (_req: Request, res: Response): Promise<void> => {
   try {
     const result = investmentAdvisoryCompliance.archiveExpiredLogs();
     

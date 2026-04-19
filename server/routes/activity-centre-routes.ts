@@ -1,10 +1,10 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { activityInsightsService } from "../services/activity-insights-service";
 import { requestLatencyTracker } from "../services/request-latency-tracker";
 
 const router = Router();
 
-router.get("/metrics", async (req, res) => {
+router.get("/metrics", async (_req: Request, res: Response): Promise<void> => {
   try {
     const metrics = await activityInsightsService.getActivityMetrics();
     res.json({ success: true, metrics });
@@ -14,7 +14,7 @@ router.get("/metrics", async (req, res) => {
   }
 });
 
-router.get("/insights", async (req, res) => {
+router.get("/insights", async (_req: Request, res: Response): Promise<void> => {
   try {
     const cached = activityInsightsService.getCachedInsights();
     const lastAnalysis = activityInsightsService.getLastAnalysisTime();
@@ -45,7 +45,7 @@ router.get("/insights", async (req, res) => {
   }
 });
 
-router.post("/insights/refresh", async (req, res) => {
+router.post("/insights/refresh", async (_req: Request, res: Response): Promise<void> => {
   try {
     const metrics = await activityInsightsService.getActivityMetrics();
     const insights = await activityInsightsService.generateAIInsights(metrics);
@@ -60,7 +60,7 @@ router.post("/insights/refresh", async (req, res) => {
   }
 });
 
-router.get("/activity", async (req, res) => {
+router.get("/activity", async (req: Request, res: Response): Promise<void> => {
   try {
     const limit = parseInt(req.query.limit as string) || 50;
     const activity = await activityInsightsService.getRecentActivity(limit);
@@ -71,7 +71,7 @@ router.get("/activity", async (req, res) => {
   }
 });
 
-router.get("/security-alerts", async (req, res) => {
+router.get("/security-alerts", async (_req: Request, res: Response): Promise<void> => {
   try {
     const alerts = await activityInsightsService.getSecurityAlerts();
     res.json({ success: true, alerts });
@@ -81,7 +81,7 @@ router.get("/security-alerts", async (req, res) => {
   }
 });
 
-router.get("/latency", async (req, res) => {
+router.get("/latency", async (_req: Request, res: Response): Promise<void> => {
   try {
     const metrics = requestLatencyTracker.getMetrics();
     const slowEndpoints = requestLatencyTracker.getSlowEndpoints();
@@ -92,7 +92,7 @@ router.get("/latency", async (req, res) => {
   }
 });
 
-router.get("/kyc/stuck-users", async (req, res) => {
+router.get("/kyc/stuck-users", async (_req: Request, res: Response): Promise<void> => {
   try {
     const users = await activityInsightsService.getStuckKycUsers();
     res.json({ success: true, users });

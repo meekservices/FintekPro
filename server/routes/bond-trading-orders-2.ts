@@ -9,6 +9,7 @@ import { bseDirectApi } from '../bseDirectApi';
 import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema } from '@shared/schema';
 import { eq, desc, sql, and, or, gte, lte, inArray } from 'drizzle-orm';
 import { isProductionEnvironment } from '../utils/enrichment-guard';
+import { bondOrderNotificationService } from "../services/bond-order-notification-service";
 
 export function registerBondTradingOrderPart2Routes(app: Express): void {
   app.get("/api/admin/bond-commission", requireAdmin, async (req: any, res) => {

@@ -18,6 +18,7 @@ import {
   bankInteractionEvents,
   bankerContacts,
 } from "@shared/dsa-loan-schema";
+import * as schema from "@shared/schema";
 import { users, agentClientMappingRequests } from "@shared/schema";
 import {
   OriginationMode,

@@ -287,7 +287,7 @@ export async function apiRequest(
           headers: requestHeaders,
           body: serializedBody,
           credentials: "include",
-          ...restOptions,
+          ...otherOptions,
         });
       }
     }

@@ -16,14 +16,14 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
       }
       
       // Verify agent has access to this client
-      const relationship = await storage.getClientAgentRelationship(clientId, req.user.id);
-      if (!relationship || relationship.status !== 'active') {
+      const relationship = await storage.getClientAgentRelationship(clientId, req.user!.id);
+      if (!relationship || (relationship as any).status !== 'active') {
         return res.status(403).json({ error: "No active relationship with this client" });
       }
       
       const reportData = {
         clientId,
-        agentId: req.user.id,
+        agentId: req.user!.id,
         financialYear,
         assessmentYear: assessmentYear || `${parseInt(financialYear.split('-')[1]) + 1}-${parseInt(financialYear.split('-')[1]) + 2}`,
         reportType: reportType || 'capital_gains',
@@ -33,7 +33,7 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
         paymentStatus: 'pending'
       };
       
-      const report = await storage.createCapitalGainsReport(reportData);
+      const report = await storage.createCapitalGainsReport(reportData as any);
       
       res.status(201).json({
         success: true,
@@ -52,7 +52,7 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
       const { clientId, financialYear, status } = req.query;
       
       // Get all reports where the agent is the requester
-      const reports = await storage.getAgentCapitalGainsReports(req.user.id, {
+      const reports = await storage.getAgentCapitalGainsReports(req.user!.id, {
         clientId: clientId as string,
         financialYear: financialYear as string,
         status: status as string
@@ -81,27 +81,27 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
       }
       
       // Verify agent has access to this report
-      if (report.agentId !== req.user.id) {
+      if (report.agentId !== req.user!.id) {
         return res.status(403).json({ error: "Access denied to this report" });
       }
       
-      if (report.status !== 'generated') {
+      if ((report as any).status !== 'generated') {
         return res.status(400).json({ error: "Report is not ready for download" });
       }
       
       // Update download count
       await storage.updateCapitalGainsReport(id, {
-        downloadCount: (report.downloadCount || 0) + 1,
+        downloadCount: ((report as any).downloadCount || 0) + 1,
         downloadedAt: new Date()
-      });
+      } as any);
       
-      const filename = `client-capital-gains-${report.clientId}-${report.financialYear}-${Date.now()}`;
+      const filename = `client-capital-gains-${(report as any).clientId}-${(report as any).financialYear}-${Date.now()}`;
       
       if (format === 'pdf') {
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
         
-        const pdfContent = `Client Capital Gains Report\n\nClient ID: ${report.clientId}\nFinancial Year: ${report.financialYear}\nAssessment Year: ${report.assessmentYear}\nSource: ${report.dataSource}\nGenerated: ${new Date().toLocaleDateString('en-IN')}\n\nShort Term Gains: ₹${report.totalShortTermGains || 0}\nLong Term Gains: ₹${report.totalLongTermGains || 0}\nTotal Tax Liability: ₹${report.totalTaxLiability || 0}\nNet Gains: ₹${report.netGains || 0}`;
+        const pdfContent = `Client Capital Gains Report\n\nClient ID: ${(report as any).clientId}\nFinancial Year: ${(report as any).financialYear}\nAssessment Year: ${(report as any).assessmentYear}\nSource: ${(report as any).dataSource}\nGenerated: ${new Date().toLocaleDateString('en-IN')}\n\nShort Term Gains: ₹${(report as any).totalShortTermGains || 0}\nLong Term Gains: ₹${(report as any).totalLongTermGains || 0}\nTotal Tax Liability: ₹${(report as any).totalTaxLiability || 0}\nNet Gains: ₹${(report as any).netGains || 0}`;
         
         res.send(Buffer.from(pdfContent));
       } else if (format === 'excel') {
@@ -109,7 +109,7 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
         res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
         
         const excelContent = "Client,Financial Year,Short Term Gains,Long Term Gains,Net Gains,Tax Liability\n" +
-          `${report.clientId},${report.financialYear},${report.totalShortTermGains || 0},${report.totalLongTermGains || 0},${report.netGains || 0},${report.totalTaxLiability || 0}`;
+          `${(report as any).clientId},${(report as any).financialYear},${(report as any).totalShortTermGains || 0},${(report as any).totalLongTermGains || 0},${(report as any).netGains || 0},${(report as any).totalTaxLiability || 0}`;
         
         res.send(Buffer.from(excelContent));
       } else {
@@ -127,7 +127,7 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
       const { id } = req.params;
       const { shareWithType = 'client', message, expiresInDays = 30 } = req.body;
       
-      if (!req.user || req.user.role !== 'agent') {
+      if (!req.user || req.user!.role !== 'agent') {
         return res.status(403).json({ error: "Agent access required" });
       }
       
@@ -137,7 +137,7 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
       }
       
       // Verify agent has access to this report
-      if (report.agentId !== req.user.id) {
+      if (report.agentId !== req.user!.id) {
         return res.status(403).json({ error: "Access denied to this report" });
       }
       
@@ -148,9 +148,9 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
       const sharing = await storage.createReportSharing({
         reportId: id,
         reportType: 'capital_gains_report',
-        sharedBy: req.user.id,
-        sharedWith: report.clientId,
-        sharedWithType,
+        sharedBy: req.user!.id,
+        sharedWith: (report as any).clientId,
+        sharedWithType: undefined,
         accessType: 'download',
         message,
         expiresAt
@@ -172,7 +172,7 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
     try {
       const { reportType, status } = req.query;
       
-      const sharedReports = await storage.getAgentSharedReports(req.user.id, {
+      const sharedReports = await storage.getAgentSharedReports(req.user!.id, {
         reportType: reportType as string,
         status: status as string
       });
@@ -284,8 +284,8 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
         activities.push({
           id: `commission-${commission.id}`,
           type: "commission",
-          title: commission.status === 'credited' ? "Commission Credited" : "Commission Pending",
-          description: `₹${amount.toLocaleString('en-IN')} ${commission.status === 'credited' ? 'credited' : 'pending'} for ${commission.transactionType || 'transaction'}`,
+          title: (commission as any).status === 'credited' ? "Commission Credited" : "Commission Pending",
+          description: `₹${amount.toLocaleString('en-IN')} ${(commission as any).status === 'credited' ? 'credited' : 'pending'} for ${commission.transactionType || 'transaction'}`,
           timestamp: (commission.createdAt || new Date()).toString()
         });
       });
@@ -342,7 +342,7 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
     try {
       const leads = await db.select()
         .from(schema.agentLeads)
-        .where(eq(schema.agentLeads.agentId, req.user.id))
+        .where(eq(schema.agentLeads.agentId, req.user!.id))
         .orderBy(desc(schema.agentLeads.createdAt));
       
       // Transform to match frontend Lead interface
@@ -374,7 +374,7 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
     try {
       const leads = await db.select()
         .from(schema.agentLeads)
-        .where(eq(schema.agentLeads.agentId, req.user.id));
+        .where(eq(schema.agentLeads.agentId, req.user!.id));
       
       const stageCounts = {
         new: 0,
@@ -427,7 +427,7 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
   app.get("/api/agent/upline", requireAgent, async (req, res) => {
     try {
       const [agentRecord] = await db.select().from(schema.agents)
-        .where(eq(schema.agents.userId, req.user.id)).limit(1);
+        .where(eq(schema.agents.userId, req.user!.id)).limit(1);
 
       if (!agentRecord) return res.json({ upline: [], message: "No agent profile found" });
 

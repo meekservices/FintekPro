@@ -368,11 +368,11 @@ export function registerKYCVaultRoutes(app: Express) {
           issuedTo: token.issuedTo,
           isActive: token.isActive,
           isRevoked: token.isRevoked,
-          usageCount: token.usageCount,
-          maxUsageLimit: token.maxUsageLimit,
+          usageCount: (token as any).usageCount,
+          maxUsageLimit: (token as any).maxUsageLimit,
           expiresAt: token.expiresAt,
           issuedAt: token.issuedAt,
-          lastUsedAt: token.lastUsedAt
+          lastUsedAt: (token as any).lastUsedAt
         }))
       });
     } catch (error: any) {

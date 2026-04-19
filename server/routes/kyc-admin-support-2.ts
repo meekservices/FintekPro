@@ -5,6 +5,7 @@ import { eq, and, or, desc, gte, lte, sql, count } from 'drizzle-orm';
 import { z } from 'zod';
 import { requireAuth, requireAdmin } from '../middleware/roleMiddleware';
 import * as schema from '../../shared/schema';
+import { advisorySubscriptions, storeProductInquiries, storeTransactionLogs } from '../../shared/schema';
 import { complianceMonitor } from '../compliance-monitor';
 
 export function registerKYCAdminSupporPart2Routes(app: Express): void {
@@ -19,7 +20,7 @@ app.post('/api/admin/kyc/manual-submissions/:id/review', requireAdmin, async (re
 
     const updated = await storage.reviewManualKycSubmission(
       id,
-      req.user.id,
+      req.user!.id,
       status,
       notes,
       rejectionReason
@@ -31,8 +32,8 @@ app.post('/api/admin/kyc/manual-submissions/:id/review', requireAdmin, async (re
 
     // Log compliance event
     complianceMonitor.logEvent({
-      userId: req.user.id,
-      eventType: 'manual_kyc_review',
+      userId: req.user!.id,
+      eventType: 'admin_action' as any,
       category: 'kyc_compliance',
       action: `Manual KYC ${status}`,
       resource: `/api/admin/kyc/manual-submissions/${id}/review`,
@@ -40,7 +41,7 @@ app.post('/api/admin/kyc/manual-submissions/:id/review', requireAdmin, async (re
       metadata: {
         submissionId: id,
         reviewStatus: status,
-        reviewedBy: req.user.id
+        reviewedBy: req.user!.id
       }
     });
 
@@ -68,7 +69,7 @@ app.post('/api/admin/kyc/batch-approve', requireAdmin, async (req: any, res) => 
 
     for (const id of ids) {
       try {
-        const updated = await storage.reviewManualKycSubmission(id, req.user.id, 'approved', notes || 'Batch approved', null);
+        const updated = await storage.reviewManualKycSubmission(id, req.user!.id, 'approved', notes || 'Batch approved', null);
         if (updated) {
           results.success.push(id);
         } else {
@@ -83,8 +84,8 @@ app.post('/api/admin/kyc/batch-approve', requireAdmin, async (req: any, res) => 
                       results.success.length === 0 ? 'failure' : 'partial_success';
 
     complianceMonitor.logEvent({
-      userId: req.user.id,
-      eventType: 'batch_kyc_approval',
+      userId: req.user!.id,
+      eventType: 'admin_action' as any,
       category: 'kyc_compliance',
       action: 'Batch KYC Approval',
       resource: '/api/admin/kyc/batch-approve',
@@ -128,7 +129,7 @@ app.post('/api/admin/kyc/batch-reject', requireAdmin, async (req: any, res) => {
 
     for (const id of ids) {
       try {
-        const updated = await storage.reviewManualKycSubmission(id, req.user.id, 'rejected', null, reason);
+        const updated = await storage.reviewManualKycSubmission(id, req.user!.id, 'rejected', null, reason);
         if (updated) {
           results.success.push(id);
         } else {
@@ -143,8 +144,8 @@ app.post('/api/admin/kyc/batch-reject', requireAdmin, async (req: any, res) => {
                       results.success.length === 0 ? 'failure' : 'partial_success';
 
     complianceMonitor.logEvent({
-      userId: req.user.id,
-      eventType: 'batch_kyc_rejection',
+      userId: req.user!.id,
+      eventType: 'admin_action' as any,
       category: 'kyc_compliance',
       action: 'Batch KYC Rejection',
       resource: '/api/admin/kyc/batch-reject',
@@ -181,7 +182,7 @@ app.post('/api/admin/kyc/batch-export', requireAdmin, async (req: any, res) => {
       return res.status(400).json({ message: 'No submission IDs provided' });
     }
 
-    const submissions = await storage.getManualKycSubmissions({ status: 'all', limit: 1000 });
+    const submissions = await storage.getManualKycSubmission({ status: 'all', limit: 1000 });
     const selectedSubmissions = submissions.filter((s: any) => ids.includes(s.id));
 
     if (format === 'csv') {
@@ -334,7 +335,7 @@ app.get('/api/store/products', async (req: any, res: any) => {
           .from(advisorySubscriptions)
           .where(
             and(
-              eq(advisorySubscriptions.userId, req.user.id),
+              eq(advisorySubscriptions.userId, req.user!.id),
               eq(advisorySubscriptions.status, "active")
             )
           )
@@ -503,7 +504,7 @@ app.post('/api/store/inquiries', async (req: any, res) => {
     }).returning();
 
     // Log transaction for compliance
-    const { storeTransactionService } = await import('./services/store-transaction-service');
+    const { storeTransactionService } = await import('../services/store-transaction-service');
     await storeTransactionService.logTransaction({
       transactionType: 'inquiry',
       userId: req.user?.id,
@@ -531,8 +532,8 @@ app.get('/api/client/transactions', requireAuth, async (req: any, res) => {
   try {
     const { category, startDate, endDate, limit, offset } = req.query;
     
-    const { storeTransactionService } = await import('./services/store-transaction-service');
-    const result = await storeTransactionService.getTransactionsByUser(req.user.id, {
+    const { storeTransactionService } = await import('../services/store-transaction-service');
+    const result = await storeTransactionService.getTransactionsByUser(req.user!.id, {
       category: category as string,
       startDate: startDate ? new Date(startDate as string) : undefined,
       endDate: endDate ? new Date(endDate as string) : undefined,
@@ -550,8 +551,8 @@ app.get('/api/client/transactions', requireAuth, async (req: any, res) => {
 // Get client transaction summary by category
 app.get('/api/client/transactions/summary', requireAuth, async (req: any, res) => {
   try {
-    const { storeTransactionService } = await import('./services/store-transaction-service');
-    const summary = await storeTransactionService.getTransactionSummary(req.user.id);
+    const { storeTransactionService } = await import('../services/store-transaction-service');
+    const summary = await storeTransactionService.getTransactionSummary(req.user!.id);
     res.json({ success: true, summary });
   } catch (error) {
     console.error('Error fetching transaction summary:', error);
@@ -650,7 +651,7 @@ app.get('/api/admin/store/transactions', requireAdmin, async (req: any, res) => 
 // Admin: Get pending Zoho sync transactions
 app.get('/api/admin/store/transactions/pending-sync', requireAdmin, async (req: any, res) => {
   try {
-    const { storeTransactionService } = await import('./services/store-transaction-service');
+    const { storeTransactionService } = await import('../services/store-transaction-service');
     const pendingTransactions = await storeTransactionService.getPendingZohoSync(100);
     res.json({ success: true, transactions: pendingTransactions });
   } catch (error) {
@@ -718,8 +719,8 @@ app.post('/api/admin/store/categories', requireAdmin, async (req: any, res) => {
 
     // Log audit
     await storage.createStoreAuditLog({
-      adminId: req.user.id,
-      adminEmail: req.user.email,
+      adminId: req.user!.id,
+      adminEmail: req.user!.email,
       action: 'create',
       targetType: 'category',
       targetId: category.id,

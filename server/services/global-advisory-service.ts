@@ -8,14 +8,10 @@ import {
   userMarketPreferences,
   type MarketMaster,
   type MarketProductMatrix,
-  type GlobalAdvisoryAcknowledgment,
-  type GlobalAdvisoryAuditLog,
   type PlatformFeatureFlag,
   type UserMarketPreferences,
   type InsertMarketMaster,
   type InsertMarketProductMatrix,
-  type InsertGlobalAdvisoryAcknowledgment,
-  type InsertGlobalAdvisoryAuditLog,
   type InsertPlatformFeatureFlag,
   type InsertUserMarketPreferences
 } from "@shared/schema";
@@ -214,7 +210,7 @@ export async function recordAcknowledgment(
   disclaimerVersion: string,
   disclaimerText: string,
   context: { ipAddress?: string; userAgent?: string; sessionId?: string }
-): Promise<GlobalAdvisoryAcknowledgment> {
+): Promise<any> {
   const [ack] = await db.insert(globalAdvisoryAcknowledgments)
     .values({
       userId,
@@ -237,7 +233,7 @@ export async function recordAcknowledgment(
   return ack;
 }
 
-export async function getUserAcknowledgments(userId: string): Promise<GlobalAdvisoryAcknowledgment[]> {
+export async function getUserAcknowledgments(userId: string): Promise<any[]> {
   return db.select()
     .from(globalAdvisoryAcknowledgments)
     .where(eq(globalAdvisoryAcknowledgments.userId, userId))
@@ -265,7 +261,7 @@ export async function logAuditEvent(
     disclaimerShown?: boolean;
     sessionId?: string;
   }
-): Promise<GlobalAdvisoryAuditLog> {
+): Promise<any> {
   const logEntry = {
     userId,
     eventType,
@@ -293,7 +289,7 @@ export async function getAuditLogs(filters: {
   startDate?: Date;
   endDate?: Date;
   limit?: number;
-}): Promise<GlobalAdvisoryAuditLog[]> {
+}): Promise<any[]> {
   let query = db.select().from(globalAdvisoryAuditLog);
   
   const conditions = [];
@@ -390,16 +386,16 @@ export async function getUserMarketEligibility(userId: string): Promise<{
   
   for (const market of enabledMarkets) {
     const products = await getProductsForMarket(market.marketCode);
-    const allowedProducts = products.filter(p => p.isEnabled).map(p => p.productCategory);
+    const allowedProducts = products.filter((p: any) => p.isEnabled).map((p: any) => p.productCategory);
     
     const restrictions: string[] = [];
     if (!market.executionAllowed) {
       restrictions.push("Analytics-only mode - execution not available");
     }
-    if (products.some(p => p.etfOnlyRestriction)) {
+    if (products.some((p: any) => p.etfOnlyRestriction)) {
       restrictions.push("ETF-only restriction applies to some products");
     }
-    if (products.some(p => p.requiresAccreditedInvestor)) {
+    if (products.some((p: any) => p.requiresAccreditedInvestor)) {
       restrictions.push("Some products require accredited investor status");
     }
     
@@ -417,7 +413,7 @@ export async function getUserMarketEligibility(userId: string): Promise<{
   }
   
   const primaryMarket = userPrefs?.selectedMarket || "IN";
-  const selectedMarket = enabledMarkets.find(m => m.marketCode === primaryMarket);
+  const selectedMarket = enabledMarkets.find((m: any) => m.marketCode === primaryMarket);
   const isAnalyticsMode = !selectedMarket?.executionAllowed;
   
   return {
@@ -432,16 +428,16 @@ export async function getMarketEligibilityForUser(userId: string, marketCode: st
   if (!market) return null;
   
   const products = await getProductsForMarket(marketCode);
-  const allowedProducts = products.filter(p => p.isEnabled).map(p => p.productCategory);
+  const allowedProducts = products.filter((p: any) => p.isEnabled).map((p: any) => p.productCategory);
   
   const restrictions: string[] = [];
   if (!market.executionAllowed) {
     restrictions.push("Analytics-only mode - execution not available");
   }
-  if (products.some(p => p.etfOnlyRestriction)) {
+  if (products.some((p: any) => p.etfOnlyRestriction)) {
     restrictions.push("ETF-only restriction applies to some products");
   }
-  if (products.some(p => p.requiresAccreditedInvestor)) {
+  if (products.some((p: any) => p.requiresAccreditedInvestor)) {
     restrictions.push("Some products require accredited investor status");
   }
   
@@ -485,16 +481,16 @@ export async function getJurisdictionFeatureFlags(marketCode: string): Promise<J
     canAccessRealTimeData: market?.advisoryLevel === "FULL",
     canAccessResearch: market?.isEnabled ?? false,
     canAccessAlerts: market?.isEnabled ?? false,
-    hasEtfOnlyRestriction: products.some(p => p.etfOnlyRestriction),
-    requiresAccreditedStatus: products.some(p => p.requiresAccreditedInvestor),
+    hasEtfOnlyRestriction: products.some((p: any) => p.etfOnlyRestriction),
+    requiresAccreditedStatus: products.some((p: any) => p.requiresAccreditedInvestor),
     requiredAcknowledgments
   };
 }
 
 // SEBI Inspection Export
 export async function generateSEBIExport(userId: string, startDate: Date, endDate: Date): Promise<{
-  advisoryViews: GlobalAdvisoryAuditLog[];
-  acknowledgments: GlobalAdvisoryAcknowledgment[];
+  advisoryViews: any[];
+  acknowledgments: any[];
   summary: {
     totalViews: number;
     marketBreakdown: Record<string, number>;

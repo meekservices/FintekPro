@@ -360,18 +360,18 @@ const computeAllocationsForSelectedCategories = (
   }
   
   const selectedAllocationKeys = selectedCategories
-    .map(cat => CATEGORY_TO_ALLOCATION_MAP[cat])
+    .map((cat: any) => CATEGORY_TO_ALLOCATION_MAP[cat])
     .filter(Boolean);
   
-  const totalOriginalWeight = selectedAllocationKeys.reduce((sum, key) => {
-    return sum + (baseAllocations[key] || 0);
+  const totalOriginalWeight = selectedAllocationKeys.reduce((sum: any, key: any) => {
+    return sum + ((baseAllocations as any)[key] || 0);
   }, 0);
   
   if (totalOriginalWeight === 0) {
     const equalShare = Math.floor(100 / selectedAllocationKeys.length);
     const remainder = 100 - (equalShare * selectedAllocationKeys.length);
     selectedAllocationKeys.forEach((key, idx) => {
-      result[key] = equalShare + (idx === 0 ? remainder : 0);
+      (result as any)[key] = equalShare + (idx === 0 ? remainder : 0);
     });
     return result;
   }
@@ -634,7 +634,7 @@ export default function AgentProspectWizard() {
     us_markets: number; europe_markets: number; asia_pacific_markets: number; emerging_markets: number;
   }>(DEFAULT_ALLOCATIONS.moderate);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
-    PRODUCT_CATEGORY_OPTIONS.filter(c => c.defaultSelected).map(c => c.id)
+    PRODUCT_CATEGORY_OPTIONS.filter((c: any) => c.defaultSelected).map((c: any) => c.id)
   );
   
   // Get AI default categories based on risk profile - derived from DEFAULT_ALLOCATIONS
@@ -690,7 +690,7 @@ export default function AgentProspectWizard() {
       const hasInstrument = currentInstruments.includes(instrumentId);
       
       if (hasInstrument) {
-        const newInstruments = currentInstruments.filter(i => i !== instrumentId);
+        const newInstruments = currentInstruments.filter((i: any) => i !== instrumentId);
         if (newInstruments.length === 0) {
           const { [marketId]: _, ...rest } = prev;
           return rest;
@@ -709,7 +709,7 @@ export default function AgentProspectWizard() {
         const { [marketId]: _, ...rest } = prev;
         return rest;
       } else {
-        return { ...prev, [marketId]: GLOBAL_INSTRUMENT_OPTIONS.map(i => i.id) };
+        return { ...prev, [marketId]: GLOBAL_INSTRUMENT_OPTIONS.map((i: any) => i.id) };
       }
     });
   };
@@ -717,7 +717,7 @@ export default function AgentProspectWizard() {
   const selectAllGlobalMarkets = () => {
     const allSelected: GlobalAdvisorySelection = {};
     GLOBAL_MARKET_OPTIONS.forEach(market => {
-      allSelected[market.id] = GLOBAL_INSTRUMENT_OPTIONS.map(i => i.id);
+      allSelected[market.id] = GLOBAL_INSTRUMENT_OPTIONS.map((i: any) => i.id);
     });
     setGlobalAdvisorySelections(allSelected);
   };
@@ -727,13 +727,13 @@ export default function AgentProspectWizard() {
   };
   
   // Calculate total portfolio value for eligibility checks
-  const totalPortfolioValue = (Array.isArray(holdings) ? holdings : []).reduce((sum, h) => sum + (h.currentValue || 0), 0) + freshInvestmentAmount;
+  const totalPortfolioValue = (Array.isArray(holdings) ? holdings : []).reduce((sum: any, h: any) => sum + (h.currentValue || 0), 0) + freshInvestmentAmount;
   
   // Handle category toggle with allocation redistribution
   const handleCategoryToggle = (categoryId: string, checked: boolean) => {
     const newCategories = checked
       ? [...selectedCategories, categoryId]
-      : selectedCategories.filter(c => c !== categoryId);
+      : selectedCategories.filter((c: any) => c !== categoryId);
     
     setSelectedCategories(newCategories);
     
@@ -814,7 +814,7 @@ export default function AgentProspectWizard() {
   // Previously this fired on every step-7 entry and wiped the agent's manual % inputs.
   useEffect(() => {
     if (currentStep === 7 && categorySelectionMode === 'manual' && selectedCategories.length > 0) {
-      const currentTotal = Object.values(customAllocations).reduce((a, b) => a + b, 0);
+      const currentTotal = Object.values(customAllocations).reduce((a: any, b: any) => a + b, 0);
       if (currentTotal === 0) {
         const redistributed = computeAllocationsForSelectedCategories(
           selectedCategories,
@@ -1551,7 +1551,7 @@ export default function AgentProspectWizard() {
 
   const existingProspects = existingProspectsData?.prospects || [];
   const searchLower = prospectSearch.toLowerCase();
-  const filteredProspects = existingProspects.filter(p => 
+  const filteredProspects = existingProspects.filter((p: any) => 
     (p.name || '').toLowerCase().includes(searchLower) ||
     (p.email || '').toLowerCase().includes(searchLower) ||
     (p.pan || '').toLowerCase().includes(searchLower)
@@ -1836,7 +1836,7 @@ export default function AgentProspectWizard() {
     canRequestMapping?: boolean;
   } | null>(null);
 
-  const createProspectMutation = useMutation({
+  const createProspectMutation = useMutation<any, any, any>({
     mutationFn: async (data: typeof prospectData) => {
       const result = await apiRequest("/api/agent-wizard/prospects", {
         method: "POST",
@@ -1875,7 +1875,7 @@ export default function AgentProspectWizard() {
     }
   });
 
-  const requestMappingMutation = useMutation({
+  const requestMappingMutation = useMutation<any, any, any>({
     mutationFn: async (data: any) => {
       const result = await apiRequest("/api/agent-wizard/request-mapping", {
         method: "POST",
@@ -1919,7 +1919,7 @@ export default function AgentProspectWizard() {
   };
 
   // Portfolio upload mutation with merge and persist functionality
-  const uploadPortfolioMutation = useMutation({
+  const uploadPortfolioMutation = useMutation<any, any, any>({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('portfolio', file);
@@ -2016,7 +2016,7 @@ export default function AgentProspectWizard() {
   });
 
   // Portfolio URL import mutation with merge and persist functionality
-  const importUrlMutation = useMutation({
+  const importUrlMutation = useMutation<any, any, any>({
     mutationFn: async (url: string) => {
       const res = await apiRequest(`/api/agent/prospects/${prospectId}/portfolio/import-url`, {
         method: 'POST',
@@ -2100,7 +2100,7 @@ export default function AgentProspectWizard() {
   });
 
   // CAS/Statement Preview Mutation
-  const casPreviewMutation = useMutation({
+  const casPreviewMutation = useMutation<any, any, any>({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('file', file);
@@ -2137,10 +2137,10 @@ export default function AgentProspectWizard() {
   });
 
   // CAS Import Mutation (after preview confirmation)
-  const casImportMutation = useMutation({
+  const casImportMutation = useMutation<any, any, any>({
     mutationFn: async (holdings: typeof casPreviewHoldings) => {
       // STEP 4 & 5: Include lots and dates in import payload
-      const backendHoldings = holdings.map(h => ({
+      const backendHoldings = holdings.map((h: any) => ({
         name: h.name,
         assetType: h.assetType || 'mutual_fund',
         quantity: h.quantity,
@@ -2200,7 +2200,7 @@ export default function AgentProspectWizard() {
     }
   });
 
-  const analyzePortfolioMutation = useMutation({
+  const analyzePortfolioMutation = useMutation<any, any, any>({
     mutationFn: async () => {
       return await apiRequest("/api/agent-wizard/analyze-portfolio", {
         method: "POST",
@@ -2219,7 +2219,7 @@ export default function AgentProspectWizard() {
          * See: shared/types/instrument-charges.ts for full charge taxonomy.
          */
         try {
-          const mfHoldings = holdings.filter(h => {
+          const mfHoldings = holdings.filter((h: any) => {
             const pt = (h.productType || h.assetType || '').toLowerCase().trim();
             return pt === 'mutual_fund' || pt === 'mf' || pt === 'mutual fund';
           });
@@ -2230,7 +2230,7 @@ export default function AgentProspectWizard() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              holdings: mfHoldings.map(h => ({
+              holdings: mfHoldings.map((h: any) => ({
                 name: h.productName,
                 isin: h.isin,
                 currentValue: h.currentValue,
@@ -2282,7 +2282,7 @@ export default function AgentProspectWizard() {
     }
   });
 
-  const saveGoalsMutation = useMutation({
+  const saveGoalsMutation = useMutation<any, any, any>({
     mutationFn: async () => {
       if (!prospectId || investmentGoals.length === 0) return { success: true, skipped: true };
       return await apiRequest(`/api/agent-wizard/prospects/${prospectId}/goals`, {
@@ -2307,7 +2307,7 @@ export default function AgentProspectWizard() {
     }
   });
 
-  const getRebalancingMutation = useMutation({
+  const getRebalancingMutation = useMutation<any, any, any>({
     mutationFn: async () => {
       return await apiRequest("/api/agent-wizard/rebalancing-suggestions", {
         method: "POST",
@@ -2329,7 +2329,7 @@ export default function AgentProspectWizard() {
     }
   });
 
-  const getFreshInvestmentsMutation = useMutation({
+  const getFreshInvestmentsMutation = useMutation<any, any, any>({
     mutationFn: async () => {
       return await apiRequest("/api/agent-wizard/fresh-investment-suggestions", {
         method: "POST",
@@ -2350,7 +2350,7 @@ export default function AgentProspectWizard() {
     }
   });
 
-  const getProposalAnalyticsMutation = useMutation({
+  const getProposalAnalyticsMutation = useMutation<any, any, any>({
     mutationFn: async () => {
       return await apiRequest("/api/agent-wizard/proposal-analytics", {
         method: "POST",
@@ -2372,7 +2372,7 @@ export default function AgentProspectWizard() {
     }
   });
 
-  const syncProposalToZohoMutation = useMutation({
+  const syncProposalToZohoMutation = useMutation<any, any, any>({
     mutationFn: async (proposalData: { proposalId: string; proposalType: string; products: string[]; amount: number }) => {
       if (!zohoLeadId || zohoSource !== 'zoho') return { skipped: true, synced: false };
       try {
@@ -2421,7 +2421,7 @@ export default function AgentProspectWizard() {
     staleTime: 60000
   });
 
-  const importZohoLeadsMutation = useMutation({
+  const importZohoLeadsMutation = useMutation<any, any, any>({
     mutationFn: async ({ limit = 50, skipExisting = true, assignToAgentId }: { limit?: number; skipExisting?: boolean; assignToAgentId?: string }) => {
       return await apiRequest("/api/agent-wizard/zoho/import/leads", {
         method: "POST",
@@ -2443,7 +2443,7 @@ export default function AgentProspectWizard() {
     }
   });
 
-  const importZohoContactsMutation = useMutation({
+  const importZohoContactsMutation = useMutation<any, any, any>({
     mutationFn: async ({ limit = 50, skipExisting = true, assignToAgentId }: { limit?: number; skipExisting?: boolean; assignToAgentId?: string }) => {
       return await apiRequest("/api/agent-wizard/zoho/import/contacts", {
         method: "POST",
@@ -2465,7 +2465,7 @@ export default function AgentProspectWizard() {
     }
   });
 
-  const generateProposalMutation = useMutation({
+  const generateProposalMutation = useMutation<any, any, any>({
     mutationFn: async () => {
       return await apiRequest("/api/agent-wizard/generate-proposal", {
         method: "POST",
@@ -2502,7 +2502,7 @@ export default function AgentProspectWizard() {
         setCurrentStep(16);
         
         if (zohoLeadId && zohoSource === 'zoho') {
-          const products = selectedCategories.filter(c => customAllocations[c as keyof typeof customAllocations] > 0);
+          const products = selectedCategories.filter((c: any) => customAllocations[c as keyof typeof customAllocations] > 0);
           const syncResult = await syncProposalToZohoMutation.mutateAsync({
             proposalId: data.proposal.proposalId,
             proposalType: 'Multi-Product Investment',
@@ -2526,7 +2526,7 @@ export default function AgentProspectWizard() {
     }
   });
 
-  const shareProposalMutation = useMutation({
+  const shareProposalMutation = useMutation<any, any, any>({
     mutationFn: async (channel: 'email' | 'whatsapp' | 'sms') => {
       if (!proposal) return;
       return await apiRequest(`/api/agent-wizard/proposals/${proposal.proposalId}/share`, {
@@ -2547,7 +2547,7 @@ export default function AgentProspectWizard() {
   });
 
   // Portfolio CRUD Mutations
-  const addHoldingMutation = useMutation({
+  const addHoldingMutation = useMutation<any, any, any>({
     mutationFn: async (holding: PortfolioHolding) => {
       if (!prospectId) throw new Error("No prospect selected");
       const backendHolding = toBackendHolding(holding);
@@ -2576,7 +2576,7 @@ export default function AgentProspectWizard() {
     }
   });
 
-  const updateHoldingMutation = useMutation({
+  const updateHoldingMutation = useMutation<any, any, any>({
     mutationFn: async ({ index, holding }: { index: number; holding: PortfolioHolding }) => {
       if (!prospectId) throw new Error("No prospect selected");
       const backendHolding = toBackendHolding(holding);
@@ -2610,7 +2610,7 @@ export default function AgentProspectWizard() {
     }
   });
 
-  const deleteHoldingMutation = useMutation({
+  const deleteHoldingMutation = useMutation<any, any, any>({
     mutationFn: async (index: number) => {
       if (!prospectId) throw new Error("No prospect selected");
       console.log('[Holdings] Deleting holding at index:', index);
@@ -2641,7 +2641,7 @@ export default function AgentProspectWizard() {
     }
   });
 
-  const resetPortfolioMutation = useMutation({
+  const resetPortfolioMutation = useMutation<any, any, any>({
     mutationFn: async () => {
       if (!prospectId) throw new Error("No prospect selected");
       return await apiRequest(`/api/agent-wizard/prospects/${prospectId}/holdings`, {
@@ -2706,7 +2706,7 @@ export default function AgentProspectWizard() {
       return;
     }
     
-    const validLots = sipLots.filter(lot => lot.purchaseDate && lot.units > 0);
+    const validLots = sipLots.filter((lot: any) => lot.purchaseDate && lot.units > 0);
     if (validLots.length === 0) {
       toast({ title: "No Valid Lots", description: "Add at least one lot with date and units.", variant: "destructive" });
       return;
@@ -2766,11 +2766,11 @@ export default function AgentProspectWizard() {
   };
 
   const parseSipCsv = () => {
-    const lines = sipCsvText.trim().split('\n').filter(l => l.trim() && !l.toLowerCase().startsWith('date'));
+    const lines = sipCsvText.trim().split('\n').filter((l: any) => l.trim() && !l.toLowerCase().startsWith('date'));
     let loaded = 0; let skipped = 0;
     const parsed: Array<{ purchaseDate: string; units: number; investedAmount?: number }> = [];
     for (const line of lines) {
-      const parts = line.split(',').map(p => p.trim());
+      const parts = line.split(',').map((p: any) => p.trim());
       if (parts.length < 2) { skipped++; continue; }
       let [rawDate, rawUnits, rawAmt] = parts;
       // Normalise date formats: DD/MM/YYYY or MM/DD/YYYY or YYYY-MM-DD
@@ -2972,7 +2972,7 @@ export default function AgentProspectWizard() {
                 ) : (
                   <ScrollArea className="h-64 rounded-md border">
                     <div className="p-2 space-y-2">
-                      {filteredProspects.map(prospect => (
+                      {filteredProspects.map((prospect: any) => (
                         <div
                           key={prospect.id}
                           onClick={() => selectExistingProspect(prospect, false)}
@@ -3175,7 +3175,7 @@ export default function AgentProspectWizard() {
                 onValueChange={(v: any) => setRiskProfile({ ...riskProfile, riskTolerance: v })}
                 className="grid grid-cols-2 md:grid-cols-4 gap-3"
               >
-                {['conservative', 'moderate', 'aggressive', 'very_aggressive'].map(risk => (
+                {['conservative', 'moderate', 'aggressive', 'very_aggressive'].map((risk: any) => (
                   <Label key={risk} htmlFor={risk} className={`flex items-center gap-2 p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${riskProfile.riskTolerance === risk ? 'border-primary bg-primary/5' : ''}`}>
                     <RadioGroupItem value={risk} id={risk} />
                     <span className="capitalize">{risk.replace('_', ' ')}</span>
@@ -3199,7 +3199,7 @@ export default function AgentProspectWizard() {
                   { value: 'short_term', label: 'Short', desc: '1-3 years' },
                   { value: 'medium_term', label: 'Medium', desc: '3-7 years' },
                   { value: 'long_term', label: 'Long', desc: '7+ years' }
-                ].map(horizon => (
+                ].map((horizon: any) => (
                   <Label 
                     key={horizon.value} 
                     htmlFor={`horizon_${horizon.value}`} 
@@ -3223,7 +3223,7 @@ export default function AgentProspectWizard() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {GOAL_OPTIONS.map(goal => (
+                  {GOAL_OPTIONS.map((goal: any) => (
                     <SelectItem key={goal.value} value={goal.value}>{goal.label}</SelectItem>
                   ))}
                 </SelectContent>
@@ -3387,7 +3387,7 @@ export default function AgentProspectWizard() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {GOAL_TYPES.map(g => (
+                              {GOAL_TYPES.map((g: any) => (
                                 <SelectItem key={g.value} value={g.value}>
                                   {g.icon} {g.label}
                                 </SelectItem>
@@ -3527,13 +3527,13 @@ export default function AgentProspectWizard() {
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-blue-600">
-                      ₹{((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + g.targetAmount, 0) / 100000).toFixed(1)}L
+                      ₹{((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum: any, g: any) => sum + g.targetAmount, 0) / 100000).toFixed(1)}L
                     </p>
                     <p className="text-xs text-muted-foreground">Total Target</p>
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-green-600">
-                      ₹{((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + g.monthlyContribution, 0)).toLocaleString()}
+                      ₹{((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum: any, g: any) => sum + g.monthlyContribution, 0)).toLocaleString()}
                     </p>
                     <p className="text-xs text-muted-foreground">Monthly SIP</p>
                   </div>
@@ -3546,7 +3546,7 @@ export default function AgentProspectWizard() {
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
-              onClick={() => saveGoalsMutation.mutate()} 
+              onClick={() => saveGoalsMutation.mutate(undefined as any)} 
               disabled={saveGoalsMutation.isPending}
               data-testid="continue-to-portfolio-btn"
             >
@@ -3946,14 +3946,14 @@ export default function AgentProspectWizard() {
                             <span className="text-muted-foreground">{casPreviewHoldings.length} holdings ready to import</span>
                             <div className="text-right space-y-1">
                               <div className="text-muted-foreground">
-                                Invested: {formatCurrency((Array.isArray(casPreviewHoldings) ? casPreviewHoldings : []).reduce((sum, h) => sum + (h.investedValue || 0), 0))}
+                                Invested: {formatCurrency((Array.isArray(casPreviewHoldings) ? casPreviewHoldings : []).reduce((sum: any, h: any) => sum + (h.investedValue || 0), 0))}
                               </div>
                               <div className="font-semibold">
-                                Current Value: {formatCurrency((Array.isArray(casPreviewHoldings) ? casPreviewHoldings : []).reduce((sum, h) => sum + h.currentValue, 0))}
+                                Current Value: {formatCurrency((Array.isArray(casPreviewHoldings) ? casPreviewHoldings : []).reduce((sum: any, h: any) => sum + h.currentValue, 0))}
                               </div>
                               {(() => {
-                                const totalInvested = (Array.isArray(casPreviewHoldings) ? casPreviewHoldings : []).reduce((sum, h) => sum + (h.investedValue || 0), 0);
-                                const totalCurrent = (Array.isArray(casPreviewHoldings) ? casPreviewHoldings : []).reduce((sum, h) => sum + h.currentValue, 0);
+                                const totalInvested = (Array.isArray(casPreviewHoldings) ? casPreviewHoldings : []).reduce((sum: any, h: any) => sum + (h.investedValue || 0), 0);
+                                const totalCurrent = (Array.isArray(casPreviewHoldings) ? casPreviewHoldings : []).reduce((sum: any, h: any) => sum + h.currentValue, 0);
                                 const totalGain = totalCurrent - totalInvested;
                                 const gainPercent = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
                                 return totalInvested > 0 ? (
@@ -4299,7 +4299,7 @@ export default function AgentProspectWizard() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {PRODUCT_TYPES.map(type => (
+                      {PRODUCT_TYPES.map((type: any) => (
                         <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -4327,7 +4327,7 @@ export default function AgentProspectWizard() {
                       </div>
                     )}
                     {showProductDropdown && productSearchResults.length > 0 && (
-                      <div className="absolute z-50 left-0 mt-1 bg-background border rounded-md shadow-lg max-h-72 overflow-auto" style={{ minWidth: 'max(100%, 480px)' }}>
+                      <div className="absolute z-50 left-0 mt-1 bg-background border rounded-md shadow-lg max-h-72 overflow-auto w-full min-w-[480px]">
                         {productSearchResults.map((instrument, idx) => (
                           <button
                             key={instrument.id || idx}
@@ -4547,12 +4547,12 @@ export default function AgentProspectWizard() {
                     ))}
                   </div>
                   
-                  {sipLots.filter(l => l.purchaseDate && l.units > 0).length > 0 && selectedInstrumentPrice && (
+                  {sipLots.filter((l: any) => l.purchaseDate && l.units > 0).length > 0 && selectedInstrumentPrice && (
                     <div className="text-xs text-blue-700 dark:text-blue-300 pt-2 border-t border-blue-200 dark:border-blue-700">
                       <span className="font-medium">Summary:</span>{' '}
-                      {sipLots.filter(l => l.purchaseDate && l.units > 0).length} lots,{' '}
-                      {sipLots.filter(l => l.purchaseDate && l.units > 0).reduce((sum, l) => sum + l.units, 0).toFixed(4)} total units,{' '}
-                      ₹{(sipLots.filter(l => l.purchaseDate && l.units > 0).reduce((sum, l) => sum + l.units, 0) * selectedInstrumentPrice).toLocaleString('en-IN', { maximumFractionDigits: 0 })} current value
+                      {sipLots.filter((l: any) => l.purchaseDate && l.units > 0).length} lots,{' '}
+                      {sipLots.filter((l: any) => l.purchaseDate && l.units > 0).reduce((sum: any, l: any) => sum + l.units, 0).toFixed(4)} total units,{' '}
+                      ₹{(sipLots.filter((l: any) => l.purchaseDate && l.units > 0).reduce((sum: any, l: any) => sum + l.units, 0) * selectedInstrumentPrice).toLocaleString('en-IN', { maximumFractionDigits: 0 })} current value
                     </div>
                   )}
                 </div>
@@ -4583,7 +4583,7 @@ export default function AgentProspectWizard() {
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction 
-                          onClick={() => resetPortfolioMutation.mutate()}
+                          onClick={() => resetPortfolioMutation.mutate(undefined as any)}
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                           disabled={resetPortfolioMutation.isPending}
                         >
@@ -4743,7 +4743,7 @@ export default function AgentProspectWizard() {
                                 // - transactionDateStr: string YYYY-MM-DD (canonical string format)
                                 // - transactionDate: Date object (for code that expects Date)
                                 if (updatedHoldings[idx].lots && updatedHoldings[idx].lots.length > 0) {
-                                  updatedHoldings[idx].lots = updatedHoldings[idx].lots.map(lot => ({
+                                  updatedHoldings[idx].lots = updatedHoldings[idx].lots.map((lot: any) => ({
                                     ...lot,
                                     purchaseDate: normalizedDateStr,
                                     transactionDateStr: normalizedDateStr,
@@ -4823,7 +4823,7 @@ export default function AgentProspectWizard() {
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
-              onClick={() => analyzePortfolioMutation.mutate()}
+              onClick={() => analyzePortfolioMutation.mutate(undefined as any)}
               disabled={analyzePortfolioMutation.isPending}
               data-testid="analyze-portfolio-btn"
             >
@@ -5120,10 +5120,10 @@ export default function AgentProspectWizard() {
                           <span className="text-sm">{s.sector}</span>
                           <span className="text-sm font-bold text-green-600 dark:text-green-400 whitespace-nowrap">{(s.percentage ?? 0).toFixed(1)}%</span>
                         </div>
-                        <div className="w-full bg-muted rounded-full h-2">
-                          <div 
-                            className="bg-green-500 h-2 rounded-full transition-all duration-300" 
-                            style={{ width: `${Math.min(s.percentage || 0, 100)}%` }}
+                        <div className="w-full">
+                          <Progress 
+                            value={Math.min(s.percentage || 0, 100)} 
+                            className="h-2 bg-muted [&>div]:bg-green-500 transition-all duration-300"
                           />
                         </div>
                       </div>
@@ -5182,7 +5182,7 @@ export default function AgentProspectWizard() {
             {holdings.length > 0 && (
               <div className="mt-4">
                 <StockOverlapAnalysis
-                  holdings={holdings.map(h => ({
+                  holdings={holdings.map((h: any) => ({
                     mfIsin: h.isin,
                     name: h.name,
                     portfolioWeight: totalPortfolioValue > 0 ? (h.value / totalPortfolioValue) * 100 : 0,
@@ -5303,7 +5303,7 @@ export default function AgentProspectWizard() {
                   {/* Holdings List */}
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {exitLoadData.holdings
-                      .filter(h => !h.isExitLoadFree && h.daysToExitLoadFree !== null)
+                      .filter((h: any) => !h.isExitLoadFree && h.daysToExitLoadFree !== null)
                       .slice(0, 5)
                       .map((holding, idx) => (
                         <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
@@ -5325,11 +5325,11 @@ export default function AgentProspectWizard() {
                           </div>
                         </div>
                       ))}
-                    {(Array.isArray(exitLoadData?.holdings) ? exitLoadData.holdings : []).filter(h => h.isExitLoadFree).length > 0 && (
+                    {(Array.isArray(exitLoadData?.holdings) ? exitLoadData.holdings : []).filter((h: any) => h.isExitLoadFree).length > 0 && (
                       <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-sm flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 text-green-600" />
                         <span className="text-green-700 dark:text-green-300">
-                          {(Array.isArray(exitLoadData?.holdings) ? exitLoadData.holdings : []).filter(h => h.isExitLoadFree).length} holdings are already exit-load-free
+                          {(Array.isArray(exitLoadData?.holdings) ? exitLoadData.holdings : []).filter((h: any) => h.isExitLoadFree).length} holdings are already exit-load-free
                         </span>
                       </div>
                     )}
@@ -5454,10 +5454,10 @@ export default function AgentProspectWizard() {
                               </span>
                               <span className="font-semibold">{formatCurrency(projections.conservative)}</span>
                             </div>
-                            <div className="h-3 bg-muted rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-amber-500 rounded-full transition-all"
-                                style={{ width: `${(projections.conservative / maxProjection) * 100}%` }}
+                            <div className="h-3">
+                              <Progress 
+                                value={(projections.conservative / maxProjection) * 100}
+                                className="h-full bg-muted [&>div]:bg-amber-500 transition-all"
                               />
                             </div>
                           </div>
@@ -5470,10 +5470,10 @@ export default function AgentProspectWizard() {
                               </span>
                               <span className="font-semibold text-blue-600">{formatCurrency(projections.expected)}</span>
                             </div>
-                            <div className="h-3 bg-muted rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-blue-500 rounded-full transition-all"
-                                style={{ width: `${(projections.expected / maxProjection) * 100}%` }}
+                            <div className="h-3">
+                              <Progress 
+                                value={(projections.expected / maxProjection) * 100}
+                                className="h-full bg-muted [&>div]:bg-blue-500 transition-all"
                               />
                             </div>
                           </div>
@@ -5488,8 +5488,7 @@ export default function AgentProspectWizard() {
                             </div>
                             <div className="h-3 bg-muted rounded-full overflow-hidden">
                               <div 
-                                className="h-full bg-green-500 rounded-full transition-all"
-                                style={{ width: `100%` }}
+                                className="h-full bg-green-500 rounded-full transition-all w-full"
                               />
                             </div>
                           </div>
@@ -5568,7 +5567,7 @@ export default function AgentProspectWizard() {
                   setSelectedCategories([]);
                   // Reset all allocations to zero
                   setCustomAllocations({
-                    equity: 0, debt: 0, hybrid: 0, gold: 0, silver: 0, index: 0,
+                    equity: 0, debt: 0, hybrid: 0, gold: 0, silver: 0, index: 0, etf: 0,
                     international: 0, reit: 0, invit: 0, bonds: 0, mld: 0,
                     listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0, global_advisory: 0,
                     us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0
@@ -5602,7 +5601,7 @@ export default function AgentProspectWizard() {
                   Based on the client's risk profile, AI has selected the following categories and allocations:
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {getAIDefaultCategories(riskProfile.riskTolerance).map(catId => {
+                  {getAIDefaultCategories(riskProfile.riskTolerance).map((catId: any) => {
                     const category = PRODUCT_CATEGORY_OPTIONS.find(c => c.id === catId);
                     const allocationKey = catId === 'gold_fof' ? 'gold' : catId === 'index_fund' ? 'index' : catId;
                     const allocation = customAllocations[allocationKey as keyof typeof customAllocations] || 0;
@@ -5617,7 +5616,7 @@ export default function AgentProspectWizard() {
                 <div className="flex items-center gap-2 pt-2 border-t">
                   <CheckCircle className="h-4 w-4 text-green-500" />
                   <span className="text-sm text-muted-foreground">
-                    Total: {Object.values(customAllocations).reduce((a, b) => a + b, 0)}% allocated
+                    Total: {Object.values(customAllocations).reduce((a: any, b: any) => a + b, 0)}% allocated
                   </span>
                 </div>
               </div>
@@ -5638,8 +5637,8 @@ export default function AgentProspectWizard() {
                       onClick={() => {
                         // Select all eligible categories and compute allocations
                         const eligibleCategories = PRODUCT_CATEGORY_OPTIONS
-                          .filter(c => !c.minInvestment || totalPortfolioValue >= c.minInvestment)
-                          .map(c => c.id);
+                          .filter((c: any) => !c.minInvestment || totalPortfolioValue >= c.minInvestment)
+                          .map((c: any) => c.id);
                         setSelectedCategories(eligibleCategories);
                         const newAllocations = computeAllocationsForSelectedCategories(
                           eligibleCategories,
@@ -5657,7 +5656,7 @@ export default function AgentProspectWizard() {
                       onClick={() => {
                         setSelectedCategories([]);
                         setCustomAllocations({
-                          equity: 0, debt: 0, hybrid: 0, gold: 0, silver: 0, index: 0,
+                          equity: 0, debt: 0, hybrid: 0, gold: 0, silver: 0, index: 0, etf: 0,
                           international: 0, reit: 0, invit: 0, bonds: 0, mld: 0,
                           listed_stocks: 0, unlisted_stocks: 0, pms: 0, aif: 0, global_advisory: 0,
                           us_markets: 0, europe_markets: 0, asia_pacific_markets: 0, emerging_markets: 0
@@ -5671,7 +5670,7 @@ export default function AgentProspectWizard() {
                   </div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-3">
-                  {PRODUCT_CATEGORY_OPTIONS.map(category => {
+                  {PRODUCT_CATEGORY_OPTIONS.map((category: any) => {
                     const isSelected = selectedCategories.includes(category.id);
                     const isEligible = !category.minInvestment || totalPortfolioValue >= category.minInvestment;
                     
@@ -5839,17 +5838,17 @@ export default function AgentProspectWizard() {
                   <div className="flex items-center justify-between">
                     <span className="font-medium">Total Allocation</span>
                     <span className={`font-bold ${
-                      Object.values(customAllocations).reduce((a, b) => a + b, 0) === 100 
+                      Object.values(customAllocations).reduce((a: any, b: any) => a + b, 0) === 100 
                         ? 'text-green-600' 
                         : 'text-amber-600'
                     }`}>
-                      {Object.values(customAllocations).reduce((a, b) => a + b, 0)}%
+                      {Object.values(customAllocations).reduce((a: any, b: any) => a + b, 0)}%
                     </span>
                   </div>
-                  {Object.values(customAllocations).reduce((a, b) => a + b, 0) !== 100 && (
+                  {Object.values(customAllocations).reduce((a: any, b: any) => a + b, 0) !== 100 && (
                     <p className="text-xs text-amber-600 mt-1">
-                      Allocation should sum to 100%. Currently {Object.values(customAllocations).reduce((a, b) => a + b, 0) > 100 ? 'over' : 'under'} by{' '}
-                      {Math.abs(Object.values(customAllocations).reduce((a, b) => a + b, 0) - 100)}%
+                      Allocation should sum to 100%. Currently {Object.values(customAllocations).reduce((a: any, b: any) => a + b, 0) > 100 ? 'over' : 'under'} by{' '}
+                      {Math.abs(Object.values(customAllocations).reduce((a: any, b: any) => a + b, 0) - 100)}%
                     </p>
                   )}
                 </div>
@@ -5882,7 +5881,8 @@ export default function AgentProspectWizard() {
                       if (value === 0) return null;
                       return (
                         <div key={key} className="flex items-center gap-2">
-                          <div className={`h-4 rounded ${color}`} style={{ width: `${Math.max(value * 2, 8)}px` }}></div>
+                          <style>{`.bar-${key}-${value}{width:${Math.max(value * 2, 8)}px}`}</style>
+                          <div className={`h-4 rounded ${color} bar-${key}-${value}`} />
                           <span className="text-sm">{label}: {value}%</span>
                         </div>
                       );
@@ -5911,12 +5911,14 @@ export default function AgentProspectWizard() {
                       const value = customAllocations[key as keyof typeof customAllocations];
                       if (value === 0) return null;
                       return (
-                        <div 
-                          key={key} 
-                          className={`${color} transition-all duration-300`} 
-                          style={{ width: `${value}%` }}
-                          title={`${key}: ${value}%`}
-                        />
+                        <>
+                          <style key={`style-${key}`}>{`.seg-${key}-${value}{width:${value}%}`}</style>
+                          <div
+                            key={key}
+                            className={`${color} transition-all duration-300 seg-${key}-${value}`}
+                            title={`${key}: ${value}%`}
+                          />
+                        </>
                       );
                     })}
                   </div>
@@ -5947,7 +5949,7 @@ export default function AgentProspectWizard() {
               </div>
 
               <div className="grid md:grid-cols-2 gap-3">
-                {PRODUCT_CATEGORY_OPTIONS.map(category => (
+                {PRODUCT_CATEGORY_OPTIONS.map((category: any) => (
                   <div 
                     key={category.id}
                     className={`p-3 border rounded-lg cursor-pointer transition-colors ${
@@ -6021,7 +6023,7 @@ export default function AgentProspectWizard() {
                     </div>
 
                     <div className="grid gap-3">
-                      {GLOBAL_MARKET_OPTIONS.map(market => {
+                      {GLOBAL_MARKET_OPTIONS.map((market: any) => {
                         const selectedInstruments = globalAdvisorySelections[market.id] || [];
                         const isExpanded = selectedInstruments.length > 0;
                         
@@ -6060,7 +6062,7 @@ export default function AgentProspectWizard() {
                             {isExpanded && (
                               <div className="px-3 pb-3 pt-0">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 ml-11">
-                                  {GLOBAL_INSTRUMENT_OPTIONS.map(instrument => (
+                                  {GLOBAL_INSTRUMENT_OPTIONS.map((instrument: any) => (
                                     <div
                                       key={instrument.id}
                                       className={`p-2 border rounded text-center cursor-pointer transition-colors text-sm ${
@@ -6228,11 +6230,11 @@ export default function AgentProspectWizard() {
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
-              onClick={() => getRebalancingMutation.mutate()}
+              onClick={() => getRebalancingMutation.mutate(undefined as any)}
               disabled={
                 getRebalancingMutation.isPending || 
                 (selectedCategories.length === 0 && !hasGlobalAdvisorySelections) ||
-                (selectedCategories.length > 0 && Object.values(customAllocations).reduce((a, b) => a + b, 0) !== 100)
+                (selectedCategories.length > 0 && Object.values(customAllocations).reduce((a: any, b: any) => a + b, 0) !== 100)
               }
               data-testid="get-rebalancing-btn"
             >
@@ -6267,8 +6269,8 @@ export default function AgentProspectWizard() {
                     rec.action === 'HOLD' ? 'border-l-4 border-l-gray-400' :
                     rec.action === 'REDUCE' ? 'border-l-4 border-l-amber-500' :
                     rec.action === 'INCREASE' ? 'border-l-4 border-l-teal-500' :
-                    rec.action === 'PROFIT_BOOK' ? 'border-l-4 border-l-violet-500' :
-                    rec.action === 'TAX_LOSS_HARVEST' ? 'border-l-4 border-l-indigo-500' :
+                    (rec.action as any) === 'PROFIT_BOOK' ? 'border-l-4 border-l-violet-500' :
+                    (rec.action as any) === 'TAX_LOSS_HARVEST' ? 'border-l-4 border-l-indigo-500' :
                     'border-l-4 border-l-amber-500'
                   }`}>
                     <CardContent className="py-3">
@@ -6280,13 +6282,13 @@ export default function AgentProspectWizard() {
                               rec.action === 'HOLD' ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' :
                               rec.action === 'REDUCE' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300' :
                               rec.action === 'INCREASE' ? 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300' :
-                              rec.action === 'PROFIT_BOOK' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300' :
-                              rec.action === 'TAX_LOSS_HARVEST' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300' :
+                              (rec.action as any) === 'PROFIT_BOOK' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300' :
+                              (rec.action as any) === 'TAX_LOSS_HARVEST' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300' :
                               ''
                             }
                           >
-                            {rec.action === 'PROFIT_BOOK' ? 'PROFIT BOOK' :
-                             rec.action === 'TAX_LOSS_HARVEST' ? 'TAX HARVEST' :
+                            {(rec.action as any) === 'PROFIT_BOOK' ? 'PROFIT BOOK' :
+                             (rec.action as any) === 'TAX_LOSS_HARVEST' ? 'TAX HARVEST' :
                              rec.action}
                           </Badge>
                           <span className="font-medium">{rec.productName}</span>
@@ -6306,7 +6308,7 @@ export default function AgentProspectWizard() {
                           {rec.action === 'HOLD' && rec.changeAmount === 0 
                             ? (rec.currentValue ? formatCurrency(rec.currentValue) : 'No action needed')
                             : rec.action === 'HOLD' && rec.changeAmount < 0
-                              ? formatCurrency(rec.currentValue)
+                              ? formatCurrency(rec.currentValue || 0)
                               : `${rec.changeAmount < 0 ? '-' : '+'}${formatCurrency(Math.abs(rec.changeAmount))}`}
                         </span>
                       </div>
@@ -6894,7 +6896,7 @@ export default function AgentProspectWizard() {
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
-              onClick={() => getFreshInvestmentsMutation.mutate()}
+              onClick={() => getFreshInvestmentsMutation.mutate(undefined as any)}
               disabled={getFreshInvestmentsMutation.isPending}
               data-testid="get-fresh-investments-btn"
             >
@@ -7051,22 +7053,22 @@ export default function AgentProspectWizard() {
               <div className="space-y-4">
                 <h4 className="font-medium">Recommended Monthly SIP</h4>
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <p className="text-3xl font-bold text-blue-600">{formatCurrency((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0))}</p>
-                  <p className="text-sm text-muted-foreground">{(Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) === 0 ? 'No SIP — lumpsum-only investment' : 'Based on your goal contributions'}</p>
+                  <p className="text-3xl font-bold text-blue-600">{formatCurrency((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum: any, g: any) => sum + (g.monthlyContribution || 0), 0))}</p>
+                  <p className="text-sm text-muted-foreground">{(Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum: any, g: any) => sum + (g.monthlyContribution || 0), 0) === 0 ? 'No SIP — lumpsum-only investment' : 'Based on your goal contributions'}</p>
                 </div>
                 
                 <div className="space-y-3">
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                     <span className="text-sm">Equity Funds SIP</span>
-                    <span className="font-semibold">{formatCurrency((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) * 0.6)}</span>
+                    <span className="font-semibold">{formatCurrency((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum: any, g: any) => sum + (g.monthlyContribution || 0), 0) * 0.6)}</span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                     <span className="text-sm">Debt Funds SIP</span>
-                    <span className="font-semibold">{formatCurrency((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) * 0.3)}</span>
+                    <span className="font-semibold">{formatCurrency((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum: any, g: any) => sum + (g.monthlyContribution || 0), 0) * 0.3)}</span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                     <span className="text-sm">Gold/Hybrid SIP</span>
-                    <span className="font-semibold">{formatCurrency((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0) * 0.1)}</span>
+                    <span className="font-semibold">{formatCurrency((Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum: any, g: any) => sum + (g.monthlyContribution || 0), 0) * 0.1)}</span>
                   </div>
                 </div>
               </div>
@@ -7075,11 +7077,11 @@ export default function AgentProspectWizard() {
                 <h4 className="font-medium">SIP Schedule</h4>
                 <div className="space-y-2">
                   <div className="p-3 border rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
+                    <label htmlFor="sip-date-select" className="flex items-center gap-2 mb-2 cursor-pointer">
                       <CalendarDays className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">Preferred SIP Date</span>
-                    </div>
-                    <select className="w-full p-2 border rounded-md bg-background">
+                    </label>
+                    <select id="sip-date-select" className="w-full p-2 border rounded-md bg-background">
                       <option value="1">1st of every month</option>
                       <option value="5">5th of every month</option>
                       <option value="10">10th of every month</option>
@@ -7087,21 +7089,21 @@ export default function AgentProspectWizard() {
                     </select>
                   </div>
                   
-                  <div className="p-3 border rounded-lg">
+                    <div className="p-3 border rounded-lg">
                     <div className="flex items-center gap-2 mb-2">
                       <TrendingUp className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">Step-Up SIP</span>
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">Increase SIP by 10% annually</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm">Enable Step-Up</span>
-                      <input type="checkbox" className="toggle" defaultChecked />
+                      <label htmlFor="step-up-checkbox" className="text-sm cursor-pointer">Enable Step-Up</label>
+                      <input id="step-up-checkbox" type="checkbox" className="toggle" defaultChecked />
                     </div>
                   </div>
                 </div>
                 
                 {(() => {
-                  const totalSip = (Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum, g) => sum + (g.monthlyContribution || 0), 0);
+                  const totalSip = (Array.isArray(investmentGoals) ? investmentGoals : []).reduce((sum: any, g: any) => sum + (g.monthlyContribution || 0), 0);
                   return totalSip > 0 ? (
                     <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                       <h5 className="font-medium text-green-700 dark:text-green-300 mb-2">Projected SIP Growth</h5>
@@ -7155,7 +7157,7 @@ export default function AgentProspectWizard() {
                   ))}
                 </div>
                 <p className="text-sm font-medium text-cyan-700 dark:text-cyan-300 mt-4 text-center">
-                  Total Recommended SIP: {formatCurrency(Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0) : 0)}/month
+                  Total Recommended SIP: {formatCurrency(Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum: any, s: any) => sum + s.suggestedAmount, 0) : 0)}/month
                 </p>
               </div>
             )}
@@ -7191,7 +7193,7 @@ export default function AgentProspectWizard() {
                 <CardContent className="pt-4">
                   <p className="text-sm text-muted-foreground">After Rebalancing</p>
                   <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-                    {formatCurrency((analysis?.totalValue || 0) - (rebalancing?.filter(r => r.action === 'SELL').reduce((sum, r) => sum + Math.abs(r.changeAmount), 0) || 0) + (rebalancing?.filter(r => r.action === 'BUY').reduce((sum, r) => sum + r.changeAmount, 0) || 0))}
+                    {formatCurrency((analysis?.totalValue || 0) - (rebalancing?.filter((r: any) => r.action === 'SELL').reduce((sum: any, r: any) => sum + Math.abs(r.changeAmount), 0) || 0) + (rebalancing?.filter((r: any) => r.action === 'BUY').reduce((sum: any, r: any) => sum + r.changeAmount, 0) || 0))}
                   </p>
                 </CardContent>
               </Card>
@@ -7199,7 +7201,7 @@ export default function AgentProspectWizard() {
                 <CardContent className="pt-4">
                   <p className="text-sm text-muted-foreground">Monthly SIP Addition</p>
                   <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
-                    {formatCurrency(Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0) : 0)}
+                    {formatCurrency(Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum: any, s: any) => sum + s.suggestedAmount, 0) : 0)}
                   </p>
                 </CardContent>
               </Card>
@@ -7218,25 +7220,25 @@ export default function AgentProspectWizard() {
                   <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
                     <p className="text-xs text-muted-foreground">1 Year</p>
                     <p className="text-lg font-bold text-amber-700 dark:text-amber-300">
-                      {formatCurrency(((analysis?.totalValue || 0) * 1.12) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0) : 0) * 12))}
+                      {formatCurrency(((analysis?.totalValue || 0) * 1.12) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum: any, s: any) => sum + s.suggestedAmount, 0) : 0) * 12))}
                     </p>
                   </div>
                   <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
                     <p className="text-xs text-muted-foreground">3 Years</p>
                     <p className="text-lg font-bold text-amber-700 dark:text-amber-300">
-                      {formatCurrency(((analysis?.totalValue || 0) * 1.4) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0) : 0) * 36 * 1.15))}
+                      {formatCurrency(((analysis?.totalValue || 0) * 1.4) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum: any, s: any) => sum + s.suggestedAmount, 0) : 0) * 36 * 1.15))}
                     </p>
                   </div>
                   <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
                     <p className="text-xs text-muted-foreground">5 Years</p>
                     <p className="text-lg font-bold text-amber-700 dark:text-amber-300">
-                      {formatCurrency(((analysis?.totalValue || 0) * 1.76) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0) : 0) * 60 * 1.25))}
+                      {formatCurrency(((analysis?.totalValue || 0) * 1.76) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum: any, s: any) => sum + s.suggestedAmount, 0) : 0) * 60 * 1.25))}
                     </p>
                   </div>
                   <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
                     <p className="text-xs text-muted-foreground">10 Years</p>
                     <p className="text-lg font-bold text-green-700 dark:text-green-300">
-                      {formatCurrency(((analysis?.totalValue || 0) * 3.1) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0) : 0) * 120 * 1.65))}
+                      {formatCurrency(((analysis?.totalValue || 0) * 3.1) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum: any, s: any) => sum + s.suggestedAmount, 0) : 0) * 120 * 1.65))}
                     </p>
                   </div>
                 </div>
@@ -7254,7 +7256,7 @@ export default function AgentProspectWizard() {
                   <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <p className="text-sm text-muted-foreground">5-Year Value</p>
                     <p className="text-xl font-bold text-green-600">
-                      {formatCurrency(((analysis?.totalValue || 0) * 2.3) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0) : 0) * 60 * 1.6))}
+                      {formatCurrency(((analysis?.totalValue || 0) * 2.3) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum: any, s: any) => sum + s.suggestedAmount, 0) : 0) * 60 * 1.6))}
                     </p>
                   </div>
                 </CardContent>
@@ -7268,7 +7270,7 @@ export default function AgentProspectWizard() {
                   <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
                     <p className="text-sm text-muted-foreground">5-Year Value</p>
                     <p className="text-xl font-bold text-red-600">
-                      {formatCurrency(((analysis?.totalValue || 0) * 1.3) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum, s) => sum + s.suggestedAmount, 0) : 0) * 60 * 0.95))}
+                      {formatCurrency(((analysis?.totalValue || 0) * 1.3) + ((Array.isArray(sipRecommendations) ? sipRecommendations.reduce((sum: any, s: any) => sum + s.suggestedAmount, 0) : 0) * 60 * 0.95))}
                     </p>
                   </div>
                 </CardContent>
@@ -7283,35 +7285,35 @@ export default function AgentProspectWizard() {
               <div className="grid grid-cols-3 md:grid-cols-6 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Holdings to Keep (HOLD)</p>
-                  <p className="font-semibold">{rebalancing?.filter(r => r.action === 'HOLD' && r.changeAmount === 0).length || holdings.length} instruments</p>
-                  {(rebalancing?.filter(r => r.action === 'HOLD' && r.changeAmount < 0).length || 0) > 0 && (
-                    <p className="text-xs text-amber-600 mt-0.5">{rebalancing?.filter(r => r.action === 'HOLD' && r.changeAmount < 0).length} with partial reduction</p>
+                  <p className="font-semibold">{rebalancing?.filter((r: any) => r.action === 'HOLD' && r.changeAmount === 0).length || holdings.length} instruments</p>
+                  {(rebalancing?.filter((r: any) => r.action === 'HOLD' && r.changeAmount < 0).length || 0) > 0 && (
+                    <p className="text-xs text-amber-600 mt-0.5">{rebalancing?.filter((r: any) => r.action === 'HOLD' && r.changeAmount < 0).length} with partial reduction</p>
                   )}
                 </div>
                 <div>
                   <p className="text-muted-foreground">Holdings to Sell</p>
-                  <p className="font-semibold text-red-600">{rebalancing?.filter(r => r.action === 'SELL').length || 0} instruments</p>
+                  <p className="font-semibold text-red-600">{rebalancing?.filter((r: any) => r.action === 'SELL').length || 0} instruments</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">New Investments</p>
-                  <p className="font-semibold text-green-600">{(rebalancing?.filter(r => r.action === 'BUY').length || 0) + (Array.isArray(sipRecommendations) ? sipRecommendations.length : 0)} instruments</p>
+                  <p className="font-semibold text-green-600">{(rebalancing?.filter((r: any) => r.action === 'BUY').length || 0) + (Array.isArray(sipRecommendations) ? sipRecommendations.length : 0)} instruments</p>
                 </div>
-                {(rebalancing?.filter(r => r.action === 'REDUCE').length || 0) > 0 && (
+                {(rebalancing?.filter((r: any) => r.action === 'REDUCE').length || 0) > 0 && (
                   <div>
                     <p className="text-muted-foreground">Reduce Allocation</p>
-                    <p className="font-semibold text-amber-600">{rebalancing?.filter(r => r.action === 'REDUCE').length} instruments</p>
+                    <p className="font-semibold text-amber-600">{rebalancing?.filter((r: any) => r.action === 'REDUCE').length} instruments</p>
                   </div>
                 )}
-                {(rebalancing?.filter(r => r.action === 'INCREASE').length || 0) > 0 && (
+                {(rebalancing?.filter((r: any) => r.action === 'INCREASE').length || 0) > 0 && (
                   <div>
                     <p className="text-muted-foreground">Increase Allocation</p>
-                    <p className="font-semibold text-teal-600">{rebalancing?.filter(r => r.action === 'INCREASE').length} instruments</p>
+                    <p className="font-semibold text-teal-600">{rebalancing?.filter((r: any) => r.action === 'INCREASE').length} instruments</p>
                   </div>
                 )}
-                {(rebalancing?.filter(r => r.action === 'SWITCH').length || 0) > 0 && (
+                {(rebalancing?.filter((r: any) => r.action === 'SWITCH').length || 0) > 0 && (
                   <div>
                     <p className="text-muted-foreground">Switch Funds</p>
-                    <p className="font-semibold text-orange-600">{rebalancing?.filter(r => r.action === 'SWITCH').length} instruments</p>
+                    <p className="font-semibold text-orange-600">{rebalancing?.filter((r: any) => r.action === 'SWITCH').length} instruments</p>
                   </div>
                 )}
               </div>
@@ -7548,7 +7550,7 @@ export default function AgentProspectWizard() {
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
-              onClick={() => generateProposalMutation.mutate()}
+              onClick={() => generateProposalMutation.mutate(undefined as any)}
               disabled={generateProposalMutation.isPending || (!readinessData?.readiness?.completedSteps?.includes('Holdings Imported') && holdings.length === 0)}
               data-testid="generate-proposal-btn"
               title={(!readinessData?.readiness?.completedSteps?.includes('Holdings Imported') && holdings.length === 0) ? 'Import holdings to generate proposal' : ''}
@@ -7876,7 +7878,7 @@ export default function AgentProspectWizard() {
                 try {
                   let successCount = 0;
                   let failCount = 0;
-                  const totalCount = editableHoldings.filter(h => h.id).length;
+                  const totalCount = editableHoldings.filter((h: any) => h.id).length;
                   
                   for (const holding of editableHoldings) {
                     if (holding.id) {

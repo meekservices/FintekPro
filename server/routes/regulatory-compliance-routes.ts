@@ -22,14 +22,19 @@ import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { logger } from '../logger';
+import { AuthRequest } from '../types/broker-types';
 
 const router = Router();
 
 // ─── Grievance Routes (H-3: SCORES integration) ────────────────────────────
 
-router.post('/grievance/submit', async (req: Request, res: Response) => {
+router.post('/grievance/submit', async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
 
     const schema_v = z.object({
       category: z.enum(['kyc', 'transaction', 'payment', 'account', 'commission', 'other']),
@@ -40,21 +45,24 @@ router.post('/grievance/submit', async (req: Request, res: Response) => {
     });
 
     const body = schema_v.parse(req.body);
-    const result = await grievanceService.submitGrievance({ userId: req.user.id, ...body });
+    const result = await grievanceService.submitGrievance({ userId, ...body });
 
     res.json({
       success: true,
       ...result,
       message: `Grievance submitted. We will resolve this within 30 calendar days (by ${result.expectedResolutionDate.toLocaleDateString('en-IN')}). If unresolved, escalate to SEBI SCORES.`,
     });
-  } catch (err: any) {
-    if (err?.name === 'ZodError') return res.status(400).json({ success: false, error: err.errors });
+  } catch (err: unknown) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ success: false, error: err.errors });
+      return;
+    }
     logger.error('[RegRoutes] Grievance submit failed', { err });
     res.status(500).json({ success: false, message: 'Failed to submit grievance' });
   }
 });
 
-router.get('/compliance/info', (req: Request, res: Response) => {
+router.get('/compliance/info', (_req: Request, res: Response): void => {
   res.json({
     intermediary: {
       name: 'MS FintekPro Advisors LLP',
@@ -82,64 +90,82 @@ router.get('/compliance/info', (req: Request, res: Response) => {
 
 // ─── Data Erasure Routes (GAP-4: DPDP Act 2023 §12) ───────────────────────
 
-router.post('/account/request-erasure', async (req: Request, res: Response) => {
+router.post('/account/request-erasure', async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
 
     const { confirm } = req.body;
     if (confirm !== 'ERASE_MY_DATA') {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Please confirm erasure by sending { "confirm": "ERASE_MY_DATA" }',
         warning: 'This action is IRREVERSIBLE. All personal data will be anonymised or deleted. PMLA-required records (5 years) will be anonymised but retained. All portfolio positions must be closed first.',
       });
+      return;
     }
 
     // Note: In production, add 30-day cooling-off period via a pending_erasure_requests table
-    const result = await dataErasureService.eraseUserData(req.user.id, req.user.id);
+    const result = await dataErasureService.eraseUserData(userId, userId);
     res.json({ success: true, ...result });
-  } catch (err: any) {
-    logger.error('[RegRoutes] Data erasure failed', { userId: req.user?.id, err });
-    res.status(400).json({ success: false, message: err.message });
+  } catch (err: unknown) {
+    logger.error('[RegRoutes] Data erasure failed', { userId: (req as AuthRequest).user?.id, err });
+    res.status(400).json({ success: false, message: (err as Error).message });
   }
 });
 
-router.get('/account/export-data', async (req: Request, res: Response) => {
+router.get('/account/export-data', async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
 
-    const exportData = await dataErasureService.exportUserData(req.user.id);
+    const exportData = await dataErasureService.exportUserData(userId);
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="fintekpro-data-export-${req.user.id}-${Date.now()}.json"`);
+    res.setHeader('Content-Disposition', `attachment; filename="fintekpro-data-export-${userId}-${Date.now()}.json"`);
     res.json(exportData);
-  } catch (err: any) {
-    logger.error('[RegRoutes] Data export failed', { userId: req.user?.id, err });
+  } catch (err: unknown) {
+    logger.error('[RegRoutes] Data export failed', { userId: (req as AuthRequest).user?.id, err });
     res.status(500).json({ success: false, message: 'Failed to export data' });
   }
 });
 
 // ─── MFA Status Routes (GAP-2) ─────────────────────────────────────────────
 
-router.get('/mfa/status', (req: Request, res: Response) => {
-  if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+router.get('/mfa/status', (req: Request, res: Response): void => {
+  if (!(req as AuthRequest).user?.id) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
   const status = getMFAStatus(req);
   res.json({ success: true, ...status });
 });
 
-router.post('/mfa/verify-totp', async (req: Request, res: Response) => {
+router.post('/mfa/verify-totp', async (req: Request, res: Response): Promise<void> => {
   // Placeholder — actual TOTP verify should check against stored totp_secret
   // WebAuthn assertion is handled by existing webauthn-routes.ts
   // On success, both should call markMFAVerified(req)
   try {
-    if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+    if (!(req as AuthRequest).user?.id) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
     const { code } = req.body;
-    if (!code) return res.status(400).json({ message: 'TOTP code required' });
+    if (!code) {
+      res.status(400).json({ message: 'TOTP code required' });
+      return;
+    }
 
     // TODO: Validate TOTP code against user's stored TOTP secret
     // import * as OTPAuth from 'otpauth'; const totp = new OTPAuth.TOTP(...);
     // const delta = totp.validate({ token: code });
     // For now, return not-implemented with instruction
-    return res.status(501).json({
+    res.status(501).json({
       message: 'TOTP not yet configured. Please use WebAuthn/passkey authentication.',
       webauthnEndpoint: '/api/auth/webauthn/authenticate',
     });
@@ -150,9 +176,12 @@ router.post('/mfa/verify-totp', async (req: Request, res: Response) => {
 
 // ─── ARN/EUIN Live Validation Routes (GAP-1) ───────────────────────────────
 
-router.get('/compliance/validate-arn/:arnCode', async (req: Request, res: Response) => {
+router.get('/compliance/validate-arn/:arnCode', async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+    if (!(req as AuthRequest).user?.id) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
 
     const { arnCode } = req.params;
     const result = await amfiLiveValidationService.validateArn(arnCode);
@@ -163,30 +192,37 @@ router.get('/compliance/validate-arn/:arnCode', async (req: Request, res: Respon
       ...result,
       regulatoryBasis: 'AMFI Circular 135/BP/22/2018-19 — ARN renewal mandatory every 3 years',
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     res.status(500).json({ success: false, message: 'ARN validation failed' });
   }
 });
 
-router.get('/compliance/validate-euin/:euinNumber', async (req: Request, res: Response) => {
+router.get('/compliance/validate-euin/:euinNumber', async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+    if (!(req as AuthRequest).user?.id) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
 
     const { euinNumber } = req.params;
     const { parentArn } = req.query;
     const result = await amfiLiveValidationService.validateEuin(euinNumber, parentArn as string);
 
     res.json({ success: true, euinNumber: euinNumber.toUpperCase(), ...result });
-  } catch (err: any) {
+  } catch (err: unknown) {
     res.status(500).json({ success: false, message: 'EUIN validation failed' });
   }
 });
 
 // ─── Aadhaar Consent Artifact Routes (H-7) ─────────────────────────────────
 
-router.post('/kyc/aadhaar-consent', async (req: Request, res: Response) => {
+router.post('/kyc/aadhaar-consent', async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
 
     const schema_v = z.object({
       aadhaarLast4: z.string().length(4).regex(/^\d{4}$/),
@@ -199,7 +235,7 @@ router.post('/kyc/aadhaar-consent', async (req: Request, res: Response) => {
     const body = schema_v.parse(req.body);
 
     const [artifact] = await db.insert(schema.aadhaarConsentArtifacts).values({
-      userId: req.user.id,
+      userId,
       aadhaarLast4: body.aadhaarLast4,
       purpose: body.purpose,
       consentText: body.consentText,
@@ -211,42 +247,53 @@ router.post('/kyc/aadhaar-consent', async (req: Request, res: Response) => {
     }).returning();
 
     logger.info('[AadhaarConsent] Consent artifact recorded', {
-      userId: req.user.id,
+      userId,
       artifactId: artifact.id,
       outcome: body.verificationOutcome,
     });
 
     res.json({ success: true, artifactId: artifact.id });
-  } catch (err: any) {
-    if (err?.name === 'ZodError') return res.status(400).json({ success: false, error: err.errors });
+  } catch (err: unknown) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ success: false, error: err.errors });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Failed to record consent artifact' });
   }
 });
 
 // ─── Nominee Routes (H-4) ──────────────────────────────────────────────────
 
-router.get('/nominee/status', async (req: Request, res: Response) => {
+router.get('/nominee/status', async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
-    const status = await nomineeEnforcementService.checkNomineeCompliance(req.user.id);
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
+    const status = await nomineeEnforcementService.checkNomineeCompliance(userId);
     res.json({ success: true, ...status });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to check nominee status' });
   }
 });
 
-router.post('/nominee/opt-out', async (req: Request, res: Response) => {
+router.post('/nominee/opt-out', async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
 
     const { reason } = req.body;
-    await nomineeEnforcementService.recordNomineeOptOut(req.user.id, reason);
+    await nomineeEnforcementService.recordNomineeOptOut(userId, reason);
 
     res.json({
       success: true,
       message: 'Nominee opt-out recorded. You can add a nominee at any time from your profile.',
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     res.status(500).json({ success: false, message: 'Failed to record opt-out' });
   }
 });

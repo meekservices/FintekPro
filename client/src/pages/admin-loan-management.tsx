@@ -100,23 +100,23 @@ export default function AdminLoanManagement() {
     },
   });
 
-  const { data: loanProducts, isLoading: productsLoading } = useQuery({
+  const { data: loanProducts, isLoading: productsLoading } = useQuery<any>({
     queryKey: ["/api/marketplace/loan-products"],
   });
 
-  const { data: loanProviders, isLoading: providersLoading } = useQuery({
+  const { data: loanProviders, isLoading: providersLoading } = useQuery<any>({
     queryKey: ["/api/marketplace/loan-providers"],
   });
 
-  const { data: revenueDashboard, isLoading: revenueLoading } = useQuery({
+  const { data: revenueDashboard, isLoading: revenueLoading } = useQuery<any>({
     queryKey: ["/api/admin/loan-marketplace/revenue-dashboard"],
   });
 
-  const { data: payoutConfig } = useQuery({
+  const { data: payoutConfig } = useQuery<any>({
     queryKey: ["/api/admin/loan-marketplace/payout-config"],
   });
 
-  const { data: lenderStaff, isLoading: staffLoading } = useQuery({
+  const { data: lenderStaff, isLoading: staffLoading } = useQuery<any>({
     queryKey: ["/api/admin/loan-marketplace/staff", selectedProvider],
     enabled: !!selectedProvider,
   });
@@ -232,7 +232,7 @@ export default function AdminLoanManagement() {
   const products = loanProducts?.data || [];
   const staff: LenderStaff[] = lenderStaff?.data || [];
 
-  const filteredStaff = staff.filter(s => 
+  const filteredStaff = staff.filter((s: any) => 
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -338,7 +338,7 @@ export default function AdminLoanManagement() {
                         <span className="text-muted-foreground">Commission Range:</span>
                         <span className="font-semibold text-green-600">
                           {provider.products?.length > 0 
-                            ? `${Math.min(...provider.products.map(p => p.commissionRate))}% - ${Math.max(...provider.products.map(p => p.commissionRate))}%`
+                            ? `${Math.min(...provider.products.map((p: any) => p.commissionRate))}% - ${Math.max(...provider.products.map((p: any) => p.commissionRate))}%`
                             : "N/A"
                           }
                         </span>

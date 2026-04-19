@@ -71,7 +71,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [, setLocation] = useLocation();
   const { user, isAuthenticated } = useAuth();
-  const { cart } = useCart();
+  const { cart, totalItems } = useCart();
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
 
   // Load recent items from localStorage
@@ -190,13 +190,13 @@ export function CommandPalette() {
     {
       id: "cart",
       label: "Shopping Cart",
-      description: `${cart?.totalItems || 0} items in cart`,
+      description: `${totalItems || 0} items in cart`,
       href: "/cart",
       icon: ShoppingCart,
       keywords: ["cart", "shopping", "items", "checkout"],
       category: "Navigation",
       priority: 4,
-      badge: cart?.totalItems && cart.totalItems > 0 ? cart.totalItems.toString() : undefined,
+      badge: totalItems && totalItems > 0 ? totalItems.toString() : undefined,
     },
 
     // Investment Tools
@@ -286,7 +286,7 @@ export function CommandPalette() {
       keywords: ["support", "help", "contact", "assistance"],
       category: "Account",
     },
-  ], [cart?.totalItems]);
+  ], [totalItems]);
 
   // Quick actions
   const quickActions: CommandItem[] = useMemo(() => [

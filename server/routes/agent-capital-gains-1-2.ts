@@ -1,4 +1,5 @@
 import { Express } from 'express';
+import { z } from 'zod';
 import { storage } from '../storage';
 import { db } from '../db';
 import { requireAdmin, requireAgent } from '../middleware/roleMiddleware';
@@ -16,14 +17,14 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
       }
 
       // GAP 8 FIX: If creator is a Business Associate (associate role), find their upline
-      let assignedAgentId = req.user.id;
+      let assignedAgentId = (req.user as any)!.id;
       let resolvedSource = source || 'manual';
       const userRole = (req.user as any).role;
 
       if (userRole === 'associate') {
         try {
           const [baRecord] = await db.select().from(schema.agents)
-            .where(eq(schema.agents.userId, req.user.id)).limit(1);
+            .where(eq(schema.agents.userId, (req.user as any)!.id)).limit(1);
 
           if (baRecord?.reportingTo) {
             const [uplineAgent] = await db.select().from(schema.agents)
@@ -67,7 +68,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
         createdAt: newLead.createdAt?.toISOString(),
         tags: newLead.tags || [],
         assignedTo: assignedAgentId,
-        createdBy: req.user.id,
+        createdBy: (req.user as any)!.id,
       });
     } catch (error) {
       console.error("Error creating lead:", error);
@@ -92,7 +93,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
           updatedAt: new Date(),
           lastContactAt: new Date()
         })
-        .where(and(eq(schema.agentLeads.id, id), eq(schema.agentLeads.agentId, req.user.id)))
+        .where(and(eq(schema.agentLeads.id, id), eq(schema.agentLeads.agentId, (req.user as any)!.id)))
         .returning();
       
       if (!updated) {
@@ -119,7 +120,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
   // GET agent notifications
   app.get("/api/agent/notifications", requireAgent, async (req, res) => {
     try {
-      const agentId = req.user?.id;
+      const agentId = (req.user as any)?.id;
       const rows = await db.execute(sql`
         SELECT id, agent_id, type, title, message, read, created_at
         FROM agent_notifications
@@ -139,7 +140,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
   // Save push notification subscription
   app.post("/api/agent/notifications/subscribe", requireAgent, async (req, res) => {
     try {
-      const userId = req.user?.id || 'anonymous';
+      const userId = (req.user as any)?.id || 'anonymous';
       const { subscription } = req.body;
 
       if (!subscription) {
@@ -188,8 +189,8 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
     try {
 
       // Get agent details from the customer care agents table  
-      const agents = await storage.getAgents();
-      const agent = agents.find(a => a.employeeId === req.user.id);
+      const agents = await storage.getSubAgents((req.user as any)!.id);
+      const agent = agents.find((a: any) => a.employeeId === (req.user as any)!.id);
 
       if (!agent) {
         return res.status(404).json({ error: "Agent profile not found" });
@@ -198,8 +199,8 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
       // Return data in the format expected by frontend
       const agentProfile = {
         id: agent.id,
-        fullName: agent.fullName || `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
-        email: agent.email || req.user.email,
+        fullName: agent.fullName || `${(req.user as any)!.firstName || ''} ${(req.user as any)!.lastName || ''}`.trim(),
+        email: agent.email || (req.user as any)!.email,
         employeeId: agent.employeeId,
         euinNumber: agent.euinNumber,
         arnCode: agent.arnCode,
@@ -224,7 +225,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
       const [agent] = await db
         .select()
         .from(schema.agents)
-        .where(eq(schema.agents.userId, req.user.id))
+        .where(eq(schema.agents.userId, (req.user as any)!.id))
         .limit(1);
 
       if (agent) {
@@ -241,8 +242,8 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
       }
 
       // Fallback to customer care agents if no agent record
-      const agents = await storage.getAgents();
-      const ccAgent = agents.find(a => a.employeeId === req.user.id);
+      const agents = await storage.getSubAgents((req.user as any)!.id);
+      const ccAgent = agents.find((a: any) => a.employeeId === (req.user as any)!.id);
       
       if (ccAgent) {
         return res.json({
@@ -259,10 +260,10 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
 
       // Return user info as fallback
       res.json({
-        id: req.user.id,
-        fullName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
-        email: req.user.email,
-        phone: req.user.mobile || req.user.phone,
+        id: (req.user as any)!.id,
+        fullName: `${(req.user as any)!.firstName || ''} ${(req.user as any)!.lastName || ''}`.trim(),
+        email: (req.user as any)!.email,
+        phone: (req.user as any)!.mobile || (req.user as any)!.phone,
         marketingName: null,
         marketingDesignation: null,
         marketingEmail: null,
@@ -283,7 +284,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
       const [existingAgent] = await db
         .select()
         .from(schema.agents)
-        .where(eq(schema.agents.userId, req.user.id))
+        .where(eq(schema.agents.userId, (req.user as any)!.id))
         .limit(1);
 
       if (existingAgent) {
@@ -310,10 +311,10 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
       const [newAgent] = await db
         .insert(schema.agents)
         .values({
-          userId: req.user.id,
-          fullName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || 'Agent',
-          email: req.user.email,
-          phone: req.user.mobile || req.user.phone,
+          userId: (req.user as any)!.id,
+          fullName: `${(req.user as any)!.firstName || ''} ${(req.user as any)!.lastName || ''}`.trim() || 'Agent',
+          email: (req.user as any)!.email,
+          phone: (req.user as any)!.mobile || (req.user as any)!.phone,
           marketingName,
           marketingDesignation,
           marketingEmail,
@@ -335,15 +336,15 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
   app.get("/api/agent/advisor-brand-profile", requireAgent, async (req, res) => {
     try {
       const [agent] = await db.select().from(schema.agents)
-        .where(eq(schema.agents.userId, req.user.id)).limit(1);
+        .where(eq(schema.agents.userId, (req.user as any)!.id)).limit(1);
       if (!agent) return res.json({});
 
       // Auto-generate referral code if missing
-      if (!agent.referralCode) {
+      if (!(agent as any).referralCode) {
         const code = `FP${agent.id.slice(0, 6).toUpperCase()}`;
-        await db.update(schema.agents).set({ referralCode: code })
+        await db.update(schema.agents).set({ referralCode: code } as any)
           .where(eq(schema.agents.id, agent.id));
-        agent.referralCode = code;
+        (agent as any).referralCode = code;
       }
 
       // Fetch referrals count
@@ -389,7 +390,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
         websiteUrl:    (agent as any).websiteUrl     ?? null,
         twitterUrl:    (agent as any).twitterUrl     ?? null,
         // Referral
-        referralCode:  agent.referralCode            ?? null,
+        referralCode:  (agent as any).referralCode            ?? null,
         referralCount: Number((referrals.rows[0] as any)?.cnt ?? 0),
         // Visibility
         profilePublic: (agent as any).profilePublic  ?? false,
@@ -414,7 +415,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
       } = req.body;
 
       const [existing] = await db.select().from(schema.agents)
-        .where(eq(schema.agents.userId, req.user.id)).limit(1);
+        .where(eq(schema.agents.userId, (req.user as any)!.id)).limit(1);
 
       const payload: Record<string, unknown> = {
         photoUrl, firmName, firmLogoUrl, tagline, bio,
@@ -433,17 +434,17 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
         updatedAt: new Date(),
       };
       // Remove undefined keys to avoid overwriting with null accidentally
-      Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+      Object.keys(payload).forEach((k: any) => payload[k] === undefined && delete payload[k]);
 
       if (existing) {
         await db.update(schema.agents).set(payload as any)
           .where(eq(schema.agents.id, existing.id));
       } else {
         await db.insert(schema.agents).values({
-          userId: req.user.id,
-          fullName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || 'Agent',
-          email: req.user.email,
-          phone: req.user.mobile || req.user.phone,
+          userId: (req.user as any)!.id,
+          fullName: `${(req.user as any)!.firstName || ''} ${(req.user as any)!.lastName || ''}`.trim() || 'Agent',
+          email: (req.user as any)!.email,
+          phone: (req.user as any)!.mobile || (req.user as any)!.phone,
           ...payload,
         } as any);
       }
@@ -459,7 +460,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
   app.get("/api/public/advisor/:referralCode", async (req, res) => {
     try {
       const [agent] = await db.select().from(schema.agents)
-        .where(eq(schema.agents.referralCode, req.params.referralCode)).limit(1);
+        .where(eq((schema.agents as any).referralCode, req.params.referralCode)).limit(1);
       if (!agent || !(agent as any).profilePublic) {
         return res.status(404).json({ error: "Profile not found" });
       }
@@ -486,7 +487,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
         marketingPhone:  agent.marketingPhone           ?? null,
         marketingEmail:  agent.marketingEmail           ?? null,
         designation:     agent.marketingDesignation     ?? null,
-        referralCode:    agent.referralCode,
+        referralCode:    (agent as any).referralCode,
       });
     } catch (err) {
       res.status(500).json({ error: "Server error" });
@@ -529,7 +530,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
         id: Date.now().toString(),
         ...partnerData,
         createdAt: new Date().toISOString(),
-        agentId: req.user.id
+        agentId: (req.user as any)!.id
       };
 
       res.json({ success: true, partner });

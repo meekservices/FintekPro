@@ -214,7 +214,7 @@ class UnifiedAdvisoryService {
     if (!profile) {
       return {
         eligible: [],
-        ineligible: PRODUCT_ELIGIBILITY_MATRIX.map(p => ({
+        ineligible: PRODUCT_ELIGIBILITY_MATRIX.map((p: any) => ({
           product: p.productType,
           reason: 'Client profile not found'
         }))
@@ -279,7 +279,7 @@ class UnifiedAdvisoryService {
       const holdings = await db.select().from(portfolioHoldings).where(eq(portfolioHoldings.portfolioId, portfolio.id));
       for (const holding of holdings) {
         const quantity = parseFloat(holding.quantity) || 0;
-        const avgPrice = parseFloat(holding.avgPrice) || 0;
+        const avgPrice = parseFloat((holding as any).avgPrice) || 0;
         const invested = quantity * avgPrice;
         const [market] = await db.select().from(marketData).where(eq(marketData.symbol, holding.symbol)).limit(1);
         const currentPrice = market?.price ? parseFloat(market.price) : avgPrice;
@@ -330,7 +330,7 @@ class UnifiedAdvisoryService {
     }
 
     const maxConcentration = Math.max(...Object.values(sectorAllocation), 0);
-    const topHoldingWeight = holdingDetails.length > 0 ? Math.max(...holdingDetails.map(h => h.weight)) : 0;
+    const topHoldingWeight = holdingDetails.length > 0 ? Math.max(...holdingDetails.map((h: any) => h.weight)) : 0;
     const equityWeight = (assetAllocation['EQUITY'] || assetAllocation['equity'] || 0) + (assetAllocation['MF'] || 0) * 0.7;
     const riskScore = Math.min(100, Math.round((maxConcentration * 0.3) + (topHoldingWeight * 0.3) + (equityWeight * 0.4)));
 
@@ -342,7 +342,7 @@ class UnifiedAdvisoryService {
       riskScore,
       sectorAllocation,
       assetAllocation,
-      holdings: holdingDetails.sort((a, b) => b.value - a.value),
+      holdings: holdingDetails.sort((a: any, b: any) => b.value - a.value),
     };
   }
 
@@ -362,7 +362,7 @@ class UnifiedAdvisoryService {
     if (!profile) throw new Error('Client profile not found');
 
     const { eligible } = await this.getEligibleProducts(clientId);
-    const validProducts = productTypes.filter(p => eligible.includes(p));
+    const validProducts = productTypes.filter((p: any) => eligible.includes(p));
 
     if (validProducts.length === 0) {
       throw new Error('No eligible products for this client');
@@ -429,7 +429,7 @@ class UnifiedAdvisoryService {
   ): Promise<UnifiedAdvisoryDecision[]> {
     const recommendations: UnifiedAdvisoryDecision[] = [];
     const disclosures = REGULATORY_DISCLOSURES[productType] || [];
-    const logic = PRODUCT_ADVISORY_LOGIC.find(l => l.productType === productType);
+    const logic = PRODUCT_ADVISORY_LOGIC.find((l: any) => l.productType === productType);
 
     // Python-sidecar / DB-driven path is always tried first.
     // Regime data is already fetched from Python and passed in via marketRegime.
@@ -452,7 +452,7 @@ class UnifiedAdvisoryService {
     if (this.genAI) {
       try {
         const aiRecs = await this.generateAIRecommendations(productType, profile, portfolio, count - dbRecs.length, marketRegime);
-        const usedNames = new Set(dbRecs.map(r => r.productName));
+        const usedNames = new Set(dbRecs.map((r: any) => r.productName));
         for (const rec of aiRecs) {
           if (!usedNames.has(rec.productName)) {
             rec.regulatoryDisclosures = disclosures;
@@ -497,7 +497,7 @@ ${portfolio ? `Current Portfolio:
 - Gain/Loss: ${portfolio.gainLossPercent.toFixed(2)}%
 - Risk Score: ${portfolio.riskScore}/100
 - Asset Allocation: ${JSON.stringify(portfolio.assetAllocation)}
-- Top Holdings: ${portfolio.holdings.slice(0, 5).map(h => `${h.name} (${h.weight.toFixed(1)}%)`).join(', ')}` : 'No existing portfolio data'}
+- Top Holdings: ${portfolio.holdings.slice(0, 5).map((h: any) => `${h.name} (${h.weight.toFixed(1)}%)`).join(', ')}` : 'No existing portfolio data'}
 
 Rules:
 - Match recommendations to client's risk profile
@@ -706,7 +706,7 @@ Rules:
           .limit(10);
 
         if (rows.length > 0) {
-          return rows.map(r => ({
+          return rows.map((r: any) => ({
             symbol: r.schemeCode,
             name: r.schemeName,
             isin: r.isin || undefined,
@@ -779,7 +779,7 @@ Rules:
     portfolio: PortfolioSummary | null,
     productType: ProductType
   ): number {
-    const eligibilityRule = PRODUCT_ELIGIBILITY_MATRIX.find(r => r.productType === productType);
+    const eligibilityRule = PRODUCT_ELIGIBILITY_MATRIX.find((r: any) => r.productType === productType);
     const maxAllocation = eligibilityRule?.maxAllocationPercent || 100;
 
     const totalPortfolioValue = portfolio?.totalValue || profile.netWorth * 0.3;
@@ -845,12 +845,12 @@ Rules:
     agentId: string,
     decisions: UnifiedAdvisoryDecision[]
   ): Promise<{ proposalId: string; success: boolean }> {
-    const approvedDecisions = decisions.filter(d => d.status === 'pending' || d.status === 'approved');
+    const approvedDecisions = decisions.filter((d: any) => d.status === 'pending' || d.status === 'approved');
     if (approvedDecisions.length === 0) {
       throw new Error('No recommendations to convert to proposal');
     }
 
-    const totalAmount = approvedDecisions.reduce((sum, d) => sum + d.amount, 0);
+    const totalAmount = approvedDecisions.reduce((sum: any, d: any) => sum + d.amount, 0);
     const proposalId = `AI-${nanoid(8)}`;
 
     const [proposal] = await db.insert(investmentProposals).values({
@@ -860,7 +860,7 @@ Rules:
       proposalSource: 'ai',
       title: `AI Advisory Proposal - ${new Date().toLocaleDateString('en-IN')}`,
       description: `System-generated proposal with ${approvedDecisions.length} recommendations based on risk profile analysis`,
-      recommendations: approvedDecisions.map(d => ({
+      recommendations: approvedDecisions.map((d: any) => ({
         productType: d.productType,
         productSymbol: d.productSymbol,
         productName: d.productName,
@@ -871,7 +871,7 @@ Rules:
       totalInvestmentAmount: String(totalAmount),
       riskProfile: approvedDecisions[0]?.riskCategory || 'moderate',
       status: 'pending',
-    }).returning();
+    } as any).returning();
 
     for (const decision of approvedDecisions) {
       const allocationPct = totalAmount > 0 ? (decision.amount / totalAmount) * 100 : 0;
@@ -894,7 +894,7 @@ Rules:
       clientId,
       timestamp: new Date(),
       eventType: 'execution_initiated',
-      metadata: { proposalId: proposal.id, decisions: approvedDecisions.map(d => d.decisionId) },
+      metadata: { proposalId: proposal.id, decisions: approvedDecisions.map((d: any) => d.decisionId) },
       retentionYears: 8
     });
 
@@ -902,7 +902,7 @@ Rules:
   }
 
   getExecutionChannel(productType: ProductType): ExecutionChannel {
-    const rule = PRODUCT_ELIGIBILITY_MATRIX.find(r => r.productType === productType);
+    const rule = PRODUCT_ELIGIBILITY_MATRIX.find((r: any) => r.productType === productType);
     return rule?.executionChannel || 'API';
   }
 
@@ -952,7 +952,7 @@ Rules:
         .orderBy(desc(complianceAuditTrail.createdAt))
         .limit(limit);
 
-      return rows.map(row => {
+      return rows.map((row: any) => {
         const meta = (row.newValue ? JSON.parse(row.newValue) : {}) as Record<string, any>;
         return {
           logId: String(row.id),
@@ -974,8 +974,8 @@ Rules:
       console.error('[UnifiedAdvisory] getAuditTrail DB query failed, falling back to in-memory:', err);
       // Graceful fallback to in-memory map for current session
       return Array.from(this.auditLogs.values())
-        .filter(log => log.clientId === clientId)
-        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+        .filter((log: any) => log.clientId === clientId)
+        .sort((a: any, b: any) => b.timestamp.getTime() - a.timestamp.getTime())
         .slice(0, limit);
     }
   }

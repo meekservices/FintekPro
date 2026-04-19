@@ -53,8 +53,8 @@ export function ESignProviderSelector({
   const [selectedMethod, setSelectedMethod] = useState<ESignMethod>('aadhaar_otp');
   const [showDSCModal, setShowDSCModal] = useState(false);
   
-  const { networkState } = useNetworkState();
-  const isOfflineOrSlow = networkState === 'offline' || networkState === 'slow';
+  const { status } = useNetworkState();
+  const isOfflineOrSlow = status === 'offline' || status === 'slow';
 
   const handleMethodChange = (value: string) => {
     const method = value as ESignMethod;
@@ -194,7 +194,7 @@ export function ESignProviderSelector({
             <Alert variant="destructive">
               <WifiOff className="h-4 w-4" />
               <AlertDescription>
-                You are currently {networkState}. 
+                You are currently {status}. 
                 {selectedMethod === 'aadhaar_otp' 
                   ? ' Aadhaar OTP requires internet connectivity.' 
                   : ' DSC signing works locally but submission will be queued until online.'}

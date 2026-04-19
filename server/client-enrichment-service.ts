@@ -134,7 +134,7 @@ class ClientEnrichmentEngine {
     try {
       // Enrich with PAN data if available
       if (enrichmentParams.panNumber) {
-        const panResult = await this.enrichWithPANData(userId, enrichmentParams.panNumber);
+        const panResult: any = await this.enrichWithPANData(userId, enrichmentParams.panNumber);
         results.push({ source: 'pan_verification', ...panResult });
         totalCost += panResult.costIncurred;
         overallScore += panResult.enrichmentScore;
@@ -142,7 +142,7 @@ class ClientEnrichmentEngine {
 
       // Enrich with business data if available
       if (enrichmentParams.gstNumber) {
-        const gstResult = await this.enrichWithBusinessData(userId, enrichmentParams.gstNumber);
+        const gstResult: any = await this.enrichWithBusinessData(userId, enrichmentParams.gstNumber);
         results.push({ source: 'business_verification', ...gstResult });
         totalCost += gstResult.costIncurred;
         overallScore += gstResult.enrichmentScore;
@@ -150,7 +150,7 @@ class ClientEnrichmentEngine {
 
       // Enrich with bank statement data if available
       if (enrichmentParams.bankStatement) {
-        const bankResult = await this.enrichWithBankStatementData(userId, enrichmentParams.bankStatement);
+        const bankResult: any = await this.enrichWithBankStatementData(userId, enrichmentParams.bankStatement);
         results.push({ source: 'bank_analysis', ...bankResult });
         totalCost += bankResult.costIncurred;
         overallScore += bankResult.enrichmentScore;
@@ -158,7 +158,7 @@ class ClientEnrichmentEngine {
 
       // Enrich with credit data
       if (enrichmentParams.panNumber) {
-        const creditResult = await this.enrichWithCreditData(userId, enrichmentParams.panNumber);
+        const creditResult: any = await this.enrichWithCreditData(userId, enrichmentParams.panNumber);
         results.push({ source: 'credit_analysis', ...creditResult });
         totalCost += creditResult.costIncurred;
         overallScore += creditResult.enrichmentScore;
@@ -265,7 +265,7 @@ class ClientEnrichmentEngine {
   private generateEnrichmentSummary(results: any[]) {
     return {
       totalSources: results.length,
-      averageScore: results.reduce((sum, r) => sum + r.enrichmentScore, 0) / results.length,
+      averageScore: results.reduce((sum: number, r: any) => sum + (r.enrichmentScore || 0), 0) / (results.length || 1),
       verificationStatus: 'Complete',
       riskProfile: 'Low Risk',
       investmentCapacity: 'High',
@@ -435,10 +435,10 @@ export const clientEnrichmentService = {
 
       let query = db.select({
         id: clientEnrichmentData.id,
-        enrichmentType: clientEnrichmentData.enrichmentType,
-        dataCategory: clientEnrichmentData.dataCategory,
-        enrichmentScore: clientEnrichmentData.enrichmentScore,
-        confidenceLevel: clientEnrichmentData.confidenceLevel,
+        enrichmentType: (clientEnrichmentData as any).enrichmentType,
+        dataCategory: (clientEnrichmentData as any).dataCategory,
+        enrichmentScore: (clientEnrichmentData as any).enrichmentScore,
+        confidenceLevel: (clientEnrichmentData as any).confidenceLevel,
         isVerified: clientEnrichmentData.isVerified,
         lastUpdated: clientEnrichmentData.lastUpdated,
         costIncurred: apiIntegrationLogs.costIncurred,
@@ -456,7 +456,7 @@ export const clientEnrichmentService = {
         query = query.where(
           and(
             eq(clientEnrichmentData.userId, userId),
-            eq(clientEnrichmentData.enrichmentType, String(enrichmentType))
+            eq((clientEnrichmentData as any).enrichmentType, String(enrichmentType))
           )
         );
       }

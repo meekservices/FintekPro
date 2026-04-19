@@ -4,6 +4,10 @@ import { storage } from '../storage';
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, sql, and, or } from 'drizzle-orm';
+import { amfiService } from "../amfi-service";
+import { auditLogArchivalService } from "../services/audit-log-archival";
+import { marketingService } from "../marketing-automation";
+import { whatsappService } from "../whatsapp";
 
 export function registerMFMonthwiPart2Part1Routes(app: Express): void {
   app.get("/api/cams/schemes/:schemeCode?", async (req, res) => {

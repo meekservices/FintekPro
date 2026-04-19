@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
@@ -29,68 +29,87 @@ const orderSchema = z.object({
   lrsDeclaration: z.boolean(),
 });
 
+interface AuthRequest extends Request {
+  user?: {
+    id: string;
+    email?: string;
+  };
+}
+
 // Get user positions (live from Alpaca when configured, graceful fallback otherwise)
-router.get("/market/stocks", async (req, res) => {
+router.get("/market/stocks", async (req: Request, res: Response): Promise<void> => {
   try {
     const stocks = await alpacaMarketDataService.getPopularStocks();
     const fxRate = await alpacaMarketDataService.getUsdInrRate();
     res.json({ success: true, stocks, fxRate });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
-router.get("/market/etfs", async (req, res) => {
+router.get("/market/etfs", async (req: Request, res: Response): Promise<void> => {
   try {
     const etfs = await alpacaMarketDataService.getPopularETFs();
     const fxRate = await alpacaMarketDataService.getUsdInrRate();
     res.json({ success: true, etfs, fxRate });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
-router.get("/market/sp500", async (req, res) => {
+router.get("/market/sp500", async (req: Request, res: Response): Promise<void> => {
   try {
     const constituents = await alpacaMarketDataService.getSP500Constituents();
     res.json({ success: true, constituents });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
-router.get("/market/fx-rate", async (req, res) => {
+router.get("/market/fx-rate", async (req: Request, res: Response): Promise<void> => {
   try {
     const rate = await alpacaMarketDataService.getUsdInrRate();
     res.json({ success: true, usdInr: rate });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
 // ── Alpaca Market Data — Snapshot (full: trade + quote + daily bar) ──────────
-router.get("/market/snapshot/:symbol", async (req, res) => {
+router.get("/market/snapshot/:symbol", async (req: Request, res: Response): Promise<void> => {
   try {
     const { symbol } = req.params;
     const snapshot = await alpacaMarketDataService.getSnapshot(symbol.toUpperCase());
     if (!snapshot) {
-      return res.status(404).json({ success: false, error: "Symbol not found or no data available" });
+      res.status(404).json({ success: false, error: "Symbol not found or no data available" });
+      return;
     }
     const fxRate = await alpacaMarketDataService.getUsdInrRate();
     res.json({ success: true, snapshot, fxRate });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
 // Batch snapshots: GET /market/snapshots?symbols=AAPL,MSFT,TSLA
-router.get("/market/snapshots", async (req, res) => {
+router.get("/market/snapshots", async (req: Request, res: Response): Promise<void> => {
   try {
     const { symbols } = req.query;
-    if (!symbols) return res.status(400).json({ success: false, error: "symbols query param required" });
+    if (!symbols) {
+      res.status(400).json({ success: false, error: "symbols query param required" });
+      return;
+    }
 
     const symbolList = (symbols as string).split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
-    if (symbolList.length > 100) return res.status(400).json({ success: false, error: "Max 100 symbols per request" });
+    if (symbolList.length > 100) {
+      res.status(400).json({ success: false, error: "Max 100 symbols per request" });
+      return;
+    }
 
     const [snapshotMap, fxRate] = await Promise.all([
       alpacaMarketDataService.getSnapshots(symbolList),
@@ -101,18 +120,22 @@ router.get("/market/snapshots", async (req, res) => {
     snapshotMap.forEach((snap, sym) => { snapshots[sym] = snap; });
 
     res.json({ success: true, snapshots, fxRate, feed: process.env.ALPACA_DATA_FEED || "iex" });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
 // ── Alpaca Market Data — Historical Bars ─────────────────────────────────────
 
 // GET /market/bars/latest?symbols=AAPL,MSFT  (MUST be before /:symbol)
-router.get("/market/bars/latest", async (req, res) => {
+router.get("/market/bars/latest", async (req: Request, res: Response): Promise<void> => {
   try {
     const { symbols } = req.query;
-    if (!symbols) return res.status(400).json({ success: false, error: "symbols query param required" });
+    if (!symbols) {
+      res.status(400).json({ success: false, error: "symbols query param required" });
+      return;
+    }
 
     const symbolList = (symbols as string).split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
     const barsMap    = await alpacaMarketDataService.getLatestBars(symbolList);
@@ -121,13 +144,14 @@ router.get("/market/bars/latest", async (req, res) => {
     barsMap.forEach((bar, sym) => { bars[sym] = bar; });
 
     res.json({ success: true, bars });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
 // GET /market/bars/:symbol?timeframe=1Day&start=2024-01-01&end=2024-12-31&limit=365
-router.get("/market/bars/:symbol", async (req, res) => {
+router.get("/market/bars/:symbol", async (req: Request, res: Response): Promise<void> => {
   try {
     const { symbol } = req.params;
     const {
@@ -139,7 +163,8 @@ router.get("/market/bars/:symbol", async (req, res) => {
 
     const validTimeframes = ["1Min", "5Min", "15Min", "30Min", "1Hour", "4Hour", "1Day", "1Week", "1Month"];
     if (!validTimeframes.includes(timeframe)) {
-      return res.status(400).json({ success: false, error: `Invalid timeframe. Use one of: ${validTimeframes.join(", ")}` });
+      res.status(400).json({ success: false, error: `Invalid timeframe. Use one of: ${validTimeframes.join(", ")}` });
+      return;
     }
 
     const barsMap = await alpacaMarketDataService.getBars(
@@ -152,16 +177,20 @@ router.get("/market/bars/:symbol", async (req, res) => {
 
     const bars = barsMap.get(symbol.toUpperCase()) || [];
     res.json({ success: true, symbol: symbol.toUpperCase(), timeframe, bars, count: bars.length });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
 // GET /market/quotes/latest?symbols=AAPL,MSFT  — bid/ask spread
-router.get("/market/quotes/latest", async (req, res) => {
+router.get("/market/quotes/latest", async (req: Request, res: Response): Promise<void> => {
   try {
     const { symbols } = req.query;
-    if (!symbols) return res.status(400).json({ success: false, error: "symbols query param required" });
+    if (!symbols) {
+      res.status(400).json({ success: false, error: "symbols query param required" });
+      return;
+    }
 
     const symbolList = (symbols as string).split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
     const quotesMap  = await alpacaMarketDataService.getLatestQuotes(symbolList);
@@ -170,26 +199,27 @@ router.get("/market/quotes/latest", async (req, res) => {
     quotesMap.forEach((q, sym) => { quotes[sym] = q; });
 
     res.json({ success: true, quotes });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
 // GET /market/status — connection test for Alpaca Market Data
-router.get("/market/status", async (req, res) => {
+router.get("/market/status", async (req: Request, res: Response): Promise<void> => {
   const status = alpacaMarketDataService.testConnection();
   res.json({ success: true, marketData: status });
 });
 
 // GET /market/clock — live market open/close from Alpaca /v1/clock
-router.get("/market/clock", async (req, res) => {
+router.get("/market/clock", async (req: Request, res: Response): Promise<void> => {
   try {
     // Try live Alpaca clock first
     if (alpacaBrokerService.isConfigured()) {
       try {
         const clock = await alpacaBrokerService.getMarketClock();
         if (clock) {
-          return res.json({
+          res.json({
             success: true,
             source: "alpaca",
             is_open: clock.is_open,
@@ -197,6 +227,7 @@ router.get("/market/clock", async (req, res) => {
             next_close: clock.next_close,
             timestamp: clock.timestamp,
           });
+          return;
         }
       } catch {}
     }
@@ -210,56 +241,65 @@ router.get("/market/clock", async (req, res) => {
       next_close: calc.nextClose,
       timestamp:  calc.timestamp,
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
 // GET /market/trades/latest?symbols=AAPL,MSFT — latest trade ticks
-router.get("/market/trades/latest", async (req, res) => {
+router.get("/market/trades/latest", async (req: Request, res: Response): Promise<void> => {
   try {
     const { symbols } = req.query;
-    if (!symbols) return res.status(400).json({ success: false, error: "symbols query param required" });
+    if (!symbols) {
+      res.status(400).json({ success: false, error: "symbols query param required" });
+      return;
+    }
     const symbolList = (symbols as string).split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
     const tradesMap  = await alpacaMarketDataService.getLatestTrades(symbolList);
     const trades: Record<string, any> = {};
     tradesMap.forEach((t, sym) => { trades[sym] = t; });
     res.json({ success: true, trades });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
-router.post("/orders", async (req, res) => {
+router.post("/orders", async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
     }
 
     const data = orderSchema.parse(req.body);
 
     if (!data.consent || !data.lrsDeclaration) {
-      return res.status(400).json({ 
+      res.status(400).json({ 
         success: false, 
         error: "Both trade consent and LRS declaration must be acknowledged before placing order" 
       });
+      return;
     }
 
     if (!data.quantity && !data.notionalUsd) {
-      return res.status(400).json({ 
+      res.status(400).json({ 
         success: false, 
         error: "Either quantity or notional amount is required" 
       });
+      return;
     }
 
     const compliance = await usTradingService.checkCompliance(userId);
     if (!compliance.eligible) {
-      return res.status(403).json({ 
+      res.status(403).json({ 
         success: false, 
         error: "Compliance check failed",
         blockers: compliance.blockers,
       });
+      return;
     }
 
     // ── PDT Check ─────────────────────────────────────────────────────────────
@@ -271,13 +311,14 @@ router.post("/orders", async (req, res) => {
         if (accountInfo?.pattern_day_trader) {
           const equity = parseFloat(accountInfo.equity || "0");
           if (equity < 25_000) {
-            return res.status(403).json({
+            res.status(403).json({
               success: false,
               error: "Pattern Day Trader (PDT) restriction: your account equity is below $25,000. " +
                 "You cannot place day trades until your equity is restored. " +
                 "This is a FINRA requirement. Consider using GTC orders or waiting until the next trading day.",
               pdt_flagged: true,
             });
+            return;
           }
         }
       } catch {} // Non-fatal — let Alpaca handle it server-side if this check fails
@@ -290,13 +331,14 @@ router.post("/orders", async (req, res) => {
       try {
         const asset = await alpacaBrokerService.getAsset(data.symbol.toUpperCase());
         if (asset && !asset.fractionable) {
-          return res.status(400).json({
+          res.status(400).json({
             success: false,
             error: `${data.symbol.toUpperCase()} is not eligible for fractional trading. ` +
               "Use a whole-share quantity instead, or choose a fractionable security.",
             fractionable: false,
             symbol: data.symbol.toUpperCase(),
           });
+          return;
         }
       } catch {} // Non-fatal — let Alpaca handle rejection if asset check fails
     }
@@ -341,7 +383,7 @@ router.post("/orders", async (req, res) => {
         lrsDeclaration: true,
         timestamp: new Date().toISOString(),
       })).digest('hex'),
-      ipAddress: req.ip,
+      ipAddress: req.ip || '',
       userAgent: req.headers["user-agent"],
     });
 
@@ -351,7 +393,7 @@ router.post("/orders", async (req, res) => {
       consentType: "trade_approval",
       consentHash,
       consentData,
-      ipAddress: req.ip,
+      ipAddress: req.ip || '',
       userAgent: req.headers["user-agent"],
     });
 
@@ -401,64 +443,74 @@ router.post("/orders", async (req, res) => {
         order: { ...order, alpacaOrderId: alpacaOrder?.id },
         message: "Order placed successfully",
       });
-    } catch (brokerError: any) {
+    } catch (brokerError: unknown) {
+      const msg = brokerError instanceof Error ? brokerError.message : String(brokerError);
       await usTradingService.updateOrderStatus(order.id, "rejected");
-      return res.status(400).json({ 
+      res.status(400).json({ 
         success: false, 
-        error: brokerError.message,
+        error: msg,
         order,
       });
     }
-  } catch (error: any) {
-    if (error.name === "ZodError") {
-      return res.status(400).json({ success: false, error: "Invalid order data", details: error.errors });
+  } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ success: false, error: "Invalid order data", details: error.errors });
+      return;
     }
-    res.status(500).json({ success: false, error: error.message });
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
-router.get("/orders", async (req, res) => {
+router.get("/orders", async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
     }
 
     const { limit } = req.query;
     const orders = await usTradingService.getOrders(userId, parseInt(limit as string) || 50);
     res.json({ success: true, orders });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
-router.get("/orders/:orderId", async (req, res) => {
+router.get("/orders/:orderId", async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
     }
 
     const order = await usTradingService.getOrderById(req.params.orderId);
     if (!order) {
-      return res.status(404).json({ success: false, error: "Order not found" });
+      res.status(404).json({ success: false, error: "Order not found" });
+      return;
     }
 
     if (order.clientId !== userId) {
-      return res.status(403).json({ success: false, error: "Access denied" });
+      res.status(403).json({ success: false, error: "Access denied" });
+      return;
     }
 
     res.json({ success: true, order });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
-router.get("/holdings", async (req, res) => {
+router.get("/holdings", async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
     }
 
     const holdings = await usTradingService.getHoldings(userId);
@@ -491,16 +543,18 @@ router.get("/holdings", async (req, res) => {
         holdingsCount: holdings.length,
       },
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
-router.get("/watchlist", async (req, res) => {
+router.get("/watchlist", async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
     }
 
     const watchlist = await usTradingService.getWatchlist(userId);
@@ -514,21 +568,24 @@ router.get("/watchlist", async (req, res) => {
     );
 
     res.json({ success: true, watchlist: enriched });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
-router.post("/watchlist", async (req, res) => {
+router.post("/watchlist", async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
     }
 
     const { symbol, notes } = req.body;
     if (!symbol) {
-      return res.status(400).json({ success: false, error: "Symbol required" });
+      res.status(400).json({ success: false, error: "Symbol required" });
+      return;
     }
 
     const item = await usTradingService.addToWatchlist({ 
@@ -537,22 +594,25 @@ router.post("/watchlist", async (req, res) => {
       notes,
     });
     res.json({ success: true, item });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
-router.delete("/watchlist/:symbol", async (req, res) => {
+router.delete("/watchlist/:symbol", async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
     }
 
     await usTradingService.removeFromWatchlist(userId, req.params.symbol.toUpperCase());
     res.json({ success: true, message: "Removed from watchlist" });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 

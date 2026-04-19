@@ -15,7 +15,7 @@ export type UnifiedProductType =
 export type RiskLevel = 'conservative' | 'moderate' | 'aggressive' | 'very_aggressive';
 export type LiquidityLevel = 'high' | 'medium' | 'low' | 'very_low';
 export type InvestmentHorizon = 'ultra_short' | 'short' | 'medium' | 'long' | 'very_long';
-export type TaxTreatment = 'equity' | 'debt' | 'hybrid' | 'indexed' | 'tax_free' | 'special';
+export type TaxTreatment = 'equity' | 'debt' | 'hybrid' | 'indexed' | 'tax_free' | 'special' | 'elss' | 'reit' | 'invit' | 'aif';
 
 export interface InvestmentProduct {
   product_id: string;

@@ -170,7 +170,7 @@ export async function getUserKYCLevel(userId: string): Promise<{
   // Address OVD Verification: Must be from authenticated provider (CKYC/Aadhaar)
   // Per RBI Master Direction, OVD must be verified through authorized channel
   // Complete address fields alone are NOT sufficient - need verified source
-  const ckycVerified = profile.ckycFetchedViaAuthBridge || false;
+  const ckycVerified = (profile as any).ckycFetchedViaAuthBridge || false;
   const kraVerified = profile.kraVerifiedViaProtean || false;
   // CKYC contains verified address from KRA, or KRA verification implies address verified
   const addressOvdVerified = ckycVerified || kraVerified;

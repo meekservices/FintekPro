@@ -31,7 +31,7 @@ export function registerPaymentPart1Routes(app: Express): void {
         return res.status(400).json({ message: 'Invalid amount' });
       }
 
-      const user = await storage.getUser(req.user.id);
+      const user = await storage.getUser((req.user as any)!.id);
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
@@ -163,7 +163,7 @@ export function registerPaymentPart1Routes(app: Express): void {
         return res.status(400).json({ message: 'Invalid amount' });
       }
 
-      const user = await storage.getUser(req.user.id);
+      const user = await storage.getUser((req.user as any)!.id);
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
@@ -179,14 +179,14 @@ export function registerPaymentPart1Routes(app: Express): void {
       if (!orderResponse.success) {
         return res.status(400).json({ 
           message: orderResponse.message || 'Order creation failed',
-          error: orderResponse.error
+          error: (orderResponse as any).error
         });
       }
 
       const transaction = await storage.createCashfreeTransaction({
         userId: user.id,
         orderId: orderResponse.orderId,
-        cashfreeOrderId: orderResponse.cashfreeOrderId,
+        cashfreeOrderId: (orderResponse as any).cashfreeOrderId as any,
         paymentSessionId: orderResponse.paymentSessionId,
         amount: amount.toString(),
         status: 'ACTIVE',
@@ -242,7 +242,7 @@ export function registerPaymentPart1Routes(app: Express): void {
         return res.status(404).json({ message: 'Transaction not found' });
       }
 
-      if (transaction.userId !== req.user.id) {
+      if (transaction.userId !== (req.user as any)!.id) {
         return res.status(403).json({ message: 'Forbidden' });
       }
 
@@ -251,7 +251,7 @@ export function registerPaymentPart1Routes(app: Express): void {
       if (statusResult) {
         await storage.updateCashfreeTransaction(transaction.id, {
           status: statusResult.orderStatus,
-          cashfreeOrderId: statusResult.transactionId || transaction.cashfreeOrderId,
+          cashfreeOrderId: statusResult.transactionId || (transaction as any).cashfreeOrderId as any,
           paymentMethod: statusResult.paymentMethod,
           completedAt: statusResult.orderStatus === 'PAID' ? new Date() : undefined
         });
@@ -263,7 +263,7 @@ export function registerPaymentPart1Routes(app: Express): void {
         resource: orderId,
         outcome: 'success',
         riskLevel: 'low',
-        userId: req.user.id
+        userId: (req.user as any)!.id
       });
 
       res.json({
@@ -432,14 +432,14 @@ export function registerPaymentPart1Routes(app: Express): void {
         return res.status(401).json({ message: 'Unauthorized' });
       }
 
-      const transactions = await storage.getCashfreeTransactionsByUserId(req.user.id);
+      const transactions = await storage.getCashfreeTransactionsByUserId((req.user as any)!.id);
 
       complianceMonitor.logEvent({
         eventType: 'data_access',
         action: 'list_cashfree_transactions',
         outcome: 'success',
         riskLevel: 'low',
-        userId: req.user.id
+        userId: (req.user as any)!.id
       });
 
       res.json(transactions);
@@ -464,7 +464,7 @@ export function registerPaymentPart1Routes(app: Express): void {
         return res.status(400).json({ message: 'Invalid amount' });
       }
 
-      const user = await storage.getUser(req.user.id);
+      const user = await storage.getUser((req.user as any)!.id);
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
@@ -543,7 +543,7 @@ export function registerPaymentPart1Routes(app: Express): void {
         return res.status(404).json({ message: 'Transaction not found' });
       }
 
-      if (transaction.userId !== req.user.id) {
+      if (transaction.userId !== (req.user as any)!.id) {
         return res.status(403).json({ message: 'Unauthorized access' });
       }
 
@@ -566,7 +566,7 @@ export function registerPaymentPart1Routes(app: Express): void {
         resource: orderId,
         outcome: 'success',
         riskLevel: 'low',
-        userId: req.user.id
+        userId: (req.user as any)!.id
       });
 
       res.json({

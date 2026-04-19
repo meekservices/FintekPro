@@ -69,10 +69,10 @@ export function DSCSigningModal({
   const [transactionId, setTransactionId] = useState<string | null>(null);
   const [signingResult, setSigningResult] = useState<any>(null);
 
-  const { networkState } = useNetworkState();
+  const { status } = useNetworkState();
   const { toast } = useToast();
 
-  const isOfflineOrSlow = networkState === 'offline' || networkState === 'slow';
+  const isOfflineOrSlow = status === 'offline' || status === 'slow';
 
   useEffect(() => {
     if (open) {
@@ -501,7 +501,7 @@ export function DSCSigningModal({
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            You are {networkState}. A brief connection is required to initiate signing (get server challenge), but the signature submission can be queued if connection drops during signing.
+            You are {status}. A brief connection is required to initiate signing (get server challenge), but the signature submission can be queued if connection drops during signing.
           </AlertDescription>
         </Alert>
       )}

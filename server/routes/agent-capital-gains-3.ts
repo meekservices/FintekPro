@@ -5,6 +5,9 @@ import { requireAdmin, requireAgent } from '../middleware/roleMiddleware';
 import * as schema from '@shared/schema';
 import { eq, desc, sql, and, or, gte, lte, inArray, lt, count } from 'drizzle-orm';
 import { agentAppointments, prospectClients, portfolios } from '@shared/schema';
+import { amfiService } from "../amfi-service";
+import { auditLogArchivalService } from "../services/audit-log-archival";
+import { adminService } from "../admin-service";
 
 export function registerAgentCapitalGainPart3Routes(app: Express): void {
   app.post("/api/suppliers", requireAdmin, async (req, res) => {
@@ -306,7 +309,7 @@ export function registerAgentCapitalGainPart3Routes(app: Express): void {
 
       // Get portfolio holdings
       const holdings = await storage.getPortfolioHoldings(portfolioId);
-      const totalValue = holdings.reduce((sum, holding) => sum + (parseFloat(holding.quantity) * parseFloat(holding.avgPrice)), 0);
+      const totalValue = holdings.reduce((sum, holding) => sum + (parseFloat(holding.quantity) * parseFloat((holding as any).avgPrice)), 0);
       
       // Calculate eligibility (typically 50-80% LTV for securities)
       const maxLoanAmount = totalValue * 0.75; // 75% LTV

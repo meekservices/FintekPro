@@ -20,7 +20,7 @@ async function getZohoCRMService(): Promise<ZohoCRMService | null> {
       .limit(1);
     
     if (connection) {
-      return new ZohoCRMService(connection.id, connection.dataCenter || 'com');
+      return new ZohoCRMService(connection.id, connection.zohoDataCenter || 'com');
     }
     return null;
   } catch (error) {

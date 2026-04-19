@@ -2,11 +2,13 @@ import { Express } from 'express';
 import { db } from '../db';
 import { sql, eq, and } from 'drizzle-orm';
 import { z } from 'zod';
-import { insertCreditRatingSchema, insertSymbolMappingSchema } from '@shared/schema';
+import { insertCreditRatingSchema, mutualFunds, listedStocks } from '@shared/schema';
 import { creditRatingsService } from '../services/credit-ratings-service';
 import { alpacaSseService } from '../services/alpaca-sse-service';
 import { symbolMappingService } from '../services/symbol-mapping-service';
 import { storage } from '../storage';
+
+const insertSymbolMappingSchema = z.record(z.any());
 
 export function registerSecurityMasterCreditRatingRoutes(app: Express): void {
 // GET /api/marketdata/security/search?q= — MUST come before /:isin to prevent route shadowing
@@ -145,16 +147,16 @@ app.get("/api/marketdata/credit-rating/:isin", async (req, res) => {
     // ── Step 3: Listed equity stocks ──
     const [stock] = await db
       .select({
-        isin: schema.listedStocks.isin,
-        symbol: schema.listedStocks.symbol,
-        companyName: schema.listedStocks.companyName,
-        sector: schema.listedStocks.sector,
-        marketCap: schema.listedStocks.marketCap,
-        peRatio: schema.listedStocks.peRatio,
-        roe: schema.listedStocks.roe,
+        isin: listedStocks.isin,
+        symbol: listedStocks.symbol,
+        companyName: listedStocks.companyName,
+        sector: listedStocks.sector,
+        marketCap: listedStocks.marketCap,
+        peRatio: listedStocks.peRatio,
+        roe: listedStocks.roe,
       })
-      .from(schema.listedStocks)
-      .where(eq(schema.listedStocks.isin, isin))
+      .from(listedStocks)
+      .where(eq(listedStocks.isin, isin))
       .limit(1);
 
     if (stock) {

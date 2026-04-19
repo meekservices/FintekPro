@@ -2,6 +2,7 @@ import { db } from "../db";
 import { userProfiles, aiPredictionLogs, dailyPicks } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { logger } from "../logger";
+import { marketRegimeDetector } from "./risk";
 
 export type RiskLevel = 'low' | 'moderate' | 'moderately_high' | 'high' | 'very_high';
 
@@ -45,12 +46,21 @@ export class AlphaSuitabilityService {
         .orderBy(desc(dailyPicks.confidenceScore))
         .limit(20);
 
+      const isBlackSwan = marketRegimeDetector.detectBlackSwanEvent();
+
       // 3. Annotate picks with suitability
       return picks.map(pick => {
         const productRisk = (pick.riskLevel as RiskLevel) || 'high'; // Default AI picks to high
         const productRank = RISK_RANK[productRisk];
         
-        const isSuitable = productRank <= userRank;
+        let isSuitable = productRank <= userRank;
+        let systemicSafetyBlock = false;
+
+        // Policy Override: During Black Swan, high-risk items are blocked for EVERYONE
+        if (isBlackSwan && productRank >= 4) {
+           isSuitable = false;
+           systemicSafetyBlock = true;
+        }
         
         return {
           ...pick,
@@ -59,9 +69,12 @@ export class AlphaSuitabilityService {
             userRiskLevel: userRisk,
             productRiskLevel: productRisk,
             requiresWarning: !isSuitable,
-            warningMessage: !isSuitable 
-              ? `This 'High-Alpha' pick carries ${productRisk.replace('_', ' ')} risk, which exceeds your ${userRisk} risk profile. Click to view Informed Consent details.`
-              : null
+            systemicSafetyBlock,
+            warningMessage: systemicSafetyBlock 
+              ? `Systemic Safety Guard: This pick is restricted due to extreme market volatility (${marketRegimeDetector.getMarketRegimeDetails()?.volatilityLevel || 'High'}). Advice is pivoted to stability-only.`
+              : !isSuitable 
+                ? `This 'High-Alpha' pick carries ${productRisk.replace('_', ' ')} risk, which exceeds your ${userRisk} risk profile. Click to view Informed Consent details.`
+                : null
           }
         };
       }).slice(0, limit);

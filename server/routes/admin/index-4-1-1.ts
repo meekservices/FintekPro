@@ -15,13 +15,16 @@ import { proxyToInsurance } from '../../clients/insurance-client';
 import { beneficialOwnershipService } from '../../services/beneficial-ownership-service';
 import { sebiScoresService } from '../../services/sebi-scores-service';
 import { mfReturnsSyncService } from '../../services/mf-returns-sync-service';
+import { digilockerService } from '../../services/digilockerService';
+import { hasRole } from '../../middleware/auth';
+import { insertCkycRecordSchema, insertCkycDocumentSchema } from '@shared/schema';
 
 const requireAdmin = async (req: any, res: Response, next: any) => {
   if (!req.user) {
     return res.status(401).json({ message: "Authentication required" });
   }
   
-  const isAdmin = await adminService.isAdmin(req.user.id);
+  const isAdmin = await adminService.isAdmin((req.user as any)!.id);
   if (!isAdmin) {
     return res.status(403).json({ message: "Admin access required" });
   }
@@ -222,7 +225,7 @@ export function registerAdminPanelPart4Sub1Sub1Routes(app: Express): void {
       }
 
       // Determine Overall Status
-      const apiStatuses = Object.values(status.apis).map(api => api.status);
+      const apiStatuses = Object.values(status.apis).map((api: any) => api.status);
       const hasError = apiStatuses.includes('error');
       const hasDegraded = apiStatuses.includes('degraded');
       const hasNotConfigured = apiStatuses.includes('not_configured');
@@ -256,7 +259,7 @@ export function registerAdminPanelPart4Sub1Sub1Routes(app: Express): void {
       return res.status(401).json({ message: "Authentication required" });
     }
     
-    const user = await storage.getUser(req.user.id);
+    const user = await storage.getUser((req.user as any)!.id);
     if (!user || !hasRole(user, ['superadmin'])) {
       return res.status(403).json({ message: "Super admin access required" });
     }
@@ -415,14 +418,14 @@ System Security Data:`;
         }
       };
     } catch (error) {
-      throw new Error(`AI analysis failed: ${error.message}`);
+      throw new Error(`AI analysis failed: ${(error as any)?.message || error}`);
     }
   }
 
   async function getSystemErrors(timeRange: string) {
     // Get recent error activities from admin service
     const activities = await adminService.getUserActivityHistory('', 100);
-    const errors = activities.filter(activity => 
+    const errors = activities.filter((activity: any) => 
       activity.action.includes('error') || 
       activity.action.includes('failed') ||
       activity.details?.error
@@ -434,10 +437,10 @@ System Security Data:`;
                        timeRange === '7d' ? 7 * 24 * 60 * 60 * 1000 : 
                        24 * 60 * 60 * 1000;
     
-    return errors.filter(error => {
+    return errors.filter((error: any) => {
       const errorTime = new Date(error.createdAt);
       return (now.getTime() - errorTime.getTime()) <= timeRangeMs;
-    }).map(error => ({
+    }).map((error: any) => ({
       timestamp: error.createdAt,
       type: error.action,
       message: error.details?.error || 'Unknown error',
@@ -561,7 +564,7 @@ System Security Data:`;
       })
     );
 
-    const healthyCount = results.filter(r => r.status === 'healthy').length;
+    const healthyCount = results.filter((r: any) => r.status === 'healthy').length;
     const totalCount = results.length;
     const overallHealth = healthyCount / totalCount;
     
@@ -575,13 +578,13 @@ System Security Data:`;
       },
       endpoints: results,
       categories: {
-        'External APIs': results.filter(r => r.category === 'External APIs'),
-        'Market Data': results.filter(r => r.category === 'Market Data'),
-        'Authentication': results.filter(r => r.category === 'Authentication'),
-        'Portfolio Management': results.filter(r => r.category === 'Portfolio Management'),
-        'Admin APIs': results.filter(r => r.category === 'Admin APIs'),
-        'Database': results.filter(r => r.category === 'Database'),
-        'Third Party Services': results.filter(r => r.category === 'Third Party Services')
+        'External APIs': results.filter((r: any) => r.category === 'External APIs'),
+        'Market Data': results.filter((r: any) => r.category === 'Market Data'),
+        'Authentication': results.filter((r: any) => r.category === 'Authentication'),
+        'Portfolio Management': results.filter((r: any) => r.category === 'Portfolio Management'),
+        'Admin APIs': results.filter((r: any) => r.category === 'Admin APIs'),
+        'Database': results.filter((r: any) => r.category === 'Database'),
+        'Third Party Services': results.filter((r: any) => r.category === 'Third Party Services')
       }
     };
   }
@@ -614,7 +617,7 @@ System Security Data:`;
       // If DigiLocker auto-population is requested, fetch and merge data
       if (useDigiLocker && req.user?.id) {
         try {
-          const digilockerData = await digilockerService.autoPopulateKYCFields(req.user.id);
+          const digilockerData = await digilockerService.autoPopulateKYCFields((req.user as any)!.id);
           
           // Merge DigiLocker data with submitted data (submitted data takes precedence)
           dataToSubmit = {
@@ -625,14 +628,14 @@ System Security Data:`;
             documentSources: digilockerData.documentSources || []
           };
           
-          console.log('✅ Auto-populated KYC data from DigiLocker for user:', req.user.id);
+          console.log('✅ Auto-populated KYC data from DigiLocker for user:', (req.user as any)!.id);
         } catch (digilockerError) {
           console.warn('⚠️ DigiLocker auto-population failed, trying BSE Star fallback:', digilockerError);
           
           // Fallback to BSE Star KYC
           if (panNumber || bodyData.panNumber) {
             try {
-              const { bseStarKYCService } = await import('./services/bse-star-kyc-service');
+              const { bseStarKYCService } = await import('../../services/bse-star-kyc-service');
               const bseData = await bseStarKYCService.autoPopulateKYC(panNumber || bodyData.panNumber);
               
               dataToSubmit = {
@@ -644,7 +647,7 @@ System Security Data:`;
                 verificationDate: bseData.verificationDate
               };
               
-              console.log('✅ Auto-populated KYC data from BSE Star for user:', req.user.id);
+              console.log('✅ Auto-populated KYC data from BSE Star for user:', (req.user as any)!.id);
             } catch (bseError) {
               console.error('❌ BSE Star auto-population also failed:', bseError);
               // Continue with manual data if both fail
@@ -654,7 +657,7 @@ System Security Data:`;
       } else if (useBSE && (panNumber || bodyData.panNumber)) {
         // Direct BSE Star KYC verification requested
         try {
-          const { bseStarKYCService } = await import('./services/bse-star-kyc-service');
+          const { bseStarKYCService } = await import('../../services/bse-star-kyc-service');
           const bseData = await bseStarKYCService.autoPopulateKYC(panNumber || bodyData.panNumber);
           
           dataToSubmit = {
@@ -666,7 +669,7 @@ System Security Data:`;
             verificationDate: bseData.verificationDate
           };
           
-          console.log('✅ Auto-populated KYC data from BSE Star for user:', req.user.id);
+          console.log('✅ Auto-populated KYC data from BSE Star for user:', (req.user as any)!.id);
         } catch (bseError) {
           console.error('❌ BSE Star auto-population failed:', bseError);
           // Continue with manual data if BSE fails

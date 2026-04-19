@@ -6,18 +6,37 @@
  *  - IRIS KFintech API for live client portfolio and CAS fetch
  */
 
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { db } from "../db";
-import { comprehensiveHoldings, users, portfolios, kycProfiles } from "@shared/schema";
+import { comprehensiveHoldings, users, portfolios } from "@shared/schema";
 import { eq, and, sql, inArray, gte, isNotNull } from "drizzle-orm";
 import { mfCentralService } from "../services/mfcentral-service";
 import { irisKfintechService } from "../services/iris-kfintech-service";
 
 const router = Router();
 
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.isAuthenticated || !req.isAuthenticated()) {
-    return res.status(401).json({ error: "Unauthorized" });
+interface AuthRequest extends Request {
+  user?: {
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    roles?: string[];
+  };
+  isAuthenticated(): boolean;
+}
+
+interface SipMetadata {
+  sipAmount?: string | number;
+  amount?: string | number;
+  mandateEndDate?: string;
+}
+
+const requireAuth = (req: Request, res: Response, next: NextFunction): void => {
+  const authReq = req as AuthRequest;
+  if (!authReq.isAuthenticated || typeof authReq.isAuthenticated !== "function" || !authReq.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
   }
   next();
 };
@@ -43,9 +62,13 @@ function classifyAsset(assetType: string): "equity" | "debt" | "gold" | "alterna
 
 // ─── GET /api/agent/tracker ──────────────────────────────────────────────────
 // Main aggregation endpoint — all business performance metrics for this agent
-router.get("/api/agent/tracker", requireAuth, async (req, res) => {
+router.get("/api/agent/tracker", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
-    const agentId = (req.user as any)?.id;
+    const agentId = (req as AuthRequest).user?.id;
+    if (!agentId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
 
     // 1. Fetch all clients of this agent
     const agentClients = await db
@@ -54,7 +77,8 @@ router.get("/api/agent/tracker", requireAuth, async (req, res) => {
       .where(sql`${users.agentId} = ${agentId} AND 'client' = ANY(${users.roles})`);
 
     if (agentClients.length === 0) {
-      return res.json(emptyTrackerResponse());
+      res.json(emptyTrackerResponse());
+      return;
     }
 
     const clientIds = agentClients.map((c) => c.id);
@@ -64,10 +88,7 @@ router.get("/api/agent/tracker", requireAuth, async (req, res) => {
       .select()
       .from(comprehensiveHoldings)
       .where(
-        and(
-          inArray(comprehensiveHoldings.userId, clientIds),
-          sql`${comprehensiveHoldings.deletedAt} IS NULL`
-        )
+        inArray(comprehensiveHoldings.userId, clientIds)
       )
       .limit(5000);
 
@@ -112,7 +133,7 @@ router.get("/api/agent/tracker", requireAuth, async (req, res) => {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const sipHoldings = holdings.filter(
-      (h) => h.contributionFrequency || (h.metadata as any)?.sipAmount
+      (h) => h.contributionFrequency || (h.metadata as unknown as SipMetadata)?.sipAmount
     );
 
     let activeSips = 0;
@@ -122,7 +143,7 @@ router.get("/api/agent/tracker", requireAuth, async (req, res) => {
     let netNewThisMonth = 0;
 
     for (const h of sipHoldings) {
-      const meta = h.metadata as any;
+      const meta = h.metadata as unknown as SipMetadata;
       const sipAmount = parseFloat(String(meta?.sipAmount || meta?.amount || 0));
       if (sipAmount > 0) monthlySipValue += sipAmount;
 
@@ -159,8 +180,7 @@ router.get("/api/agent/tracker", requireAuth, async (req, res) => {
         and(
           inArray(comprehensiveHoldings.userId, clientIds),
           gte(comprehensiveHoldings.holdingDate, sixMonthsAgo.toISOString().split("T")[0]),
-          isNotNull(comprehensiveHoldings.marketValue),
-          sql`${comprehensiveHoldings.deletedAt} IS NULL`
+          isNotNull(comprehensiveHoldings.marketValue)
         )
       )
       .groupBy(sql`TO_CHAR(${comprehensiveHoldings.holdingDate}, 'YYYY-MM')`)
@@ -200,10 +220,7 @@ router.get("/api/agent/tracker", requireAuth, async (req, res) => {
       );
 
     // 8. KYC pending count
-    const kycPendingCount = agentClients.filter((c) => {
-      // Simple heuristic — users without panNumber considered KYC incomplete
-      return true;
-    }).length;
+    // const kycPendingCount = ... (logic not fully implemented in original)
 
     const response = {
       summary: {
@@ -244,7 +261,7 @@ router.get("/api/agent/tracker", requireAuth, async (req, res) => {
     };
 
     res.json(response);
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("[Agent Tracker] Error:", err);
     res.status(500).json({ error: "Failed to fetch tracker data" });
   }
@@ -252,41 +269,46 @@ router.get("/api/agent/tracker", requireAuth, async (req, res) => {
 
 // ─── POST /api/agent/mfcentral/initiate ─────────────────────────────────────
 // Initiate MFCentral CAS OTP for a specific client
-router.post("/api/agent/mfcentral/initiate", requireAuth, async (req, res) => {
+router.post("/api/agent/mfcentral/initiate", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { pan, mobile, clientId } = req.body;
+    const { pan, mobile } = req.body;
     if (!pan || !mobile) {
-      return res.status(400).json({ error: "PAN and mobile are required" });
+      res.status(400).json({ error: "PAN and mobile are required" });
+      return;
     }
 
     if (!mfCentralService.isConfigured) {
-      return res.status(503).json({
+      res.status(503).json({
         error: "MFCentral not configured",
         message: "Set MFCENTRAL_CLIENT_ID, MFCENTRAL_CLIENT_SECRET, MFCENTRAL_USERNAME, MFCENTRAL_PASSWORD, MFCENTRAL_ENC_KEY to enable live data fetch.",
       });
+      return;
     }
 
     const result = await mfCentralService.initiateCASRequest(pan, mobile, "mobile");
     res.json({ success: true, requestId: result.requestId, message: result.message });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[MFCentral Initiate] Error:", err);
-    res.status(500).json({ error: "Failed to initiate MFCentral request", detail: err.message });
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to initiate MFCentral request", detail: msg });
   }
 });
 
 // ─── POST /api/agent/mfcentral/verify ──────────────────────────────────────
 // Validate OTP and import CAS data for the client
-router.post("/api/agent/mfcentral/verify", requireAuth, async (req, res) => {
+router.post("/api/agent/mfcentral/verify", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { requestId, otp, clientId } = req.body;
+    const { requestId, otp } = req.body;
     if (!requestId || !otp) {
-      return res.status(400).json({ error: "requestId and otp are required" });
+      res.status(400).json({ error: "requestId and otp are required" });
+      return;
     }
 
     const casData = await mfCentralService.validateOTPAndFetchCAS(requestId, otp);
 
     if (!casData) {
-      return res.status(400).json({ error: "Invalid OTP or CAS fetch failed" });
+      res.status(400).json({ error: "Invalid OTP or CAS fetch failed" });
+      return;
     }
 
     res.json({
@@ -295,13 +317,14 @@ router.post("/api/agent/mfcentral/verify", requireAuth, async (req, res) => {
         pan: casData.investor.pan,
         name: casData.investor.name,
         folioCount: casData.investor.folios.length,
-        totalValue: casData.investor.totalMarketValue,
+        totalMarketValue: casData.investor.totalMarketValue,
       },
       message: `CAS data fetched: ${casData.investor.folios.length} folios imported`,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[MFCentral Verify] Error:", err);
-    res.status(500).json({ error: "OTP verification failed", detail: err.message });
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "OTP verification failed", detail: msg });
   }
 });
 

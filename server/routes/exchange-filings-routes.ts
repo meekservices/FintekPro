@@ -18,7 +18,50 @@ import { sql } from 'drizzle-orm';
 
 const router = Router();
 
-router.get('/stats', async (req, res) => {
+interface FilingResult {
+  id: string;
+  exchange: string;
+  symbol: string;
+  company_name: string;
+  filing_type: string;
+  financial_type: string;
+  document_url: string;
+  filing_date: string;
+  financial_year: string;
+  quarter: string;
+  document_type: string;
+  processing_status: string;
+  extraction_confidence: string;
+  ingested_at: string;
+  document_hash?: string;
+  fintekpro_company_id?: string;
+}
+
+interface AuditLogMetric {
+  id: string;
+  metric: string;
+  metric_value: string;
+  metric_value_text?: string;
+  extraction_confidence: string;
+  extraction_method: string;
+  extraction_source: string;
+  is_approved: boolean;
+  approved_by: string | null;
+  approved_at: string | null;
+  is_manual_override: boolean;
+  override_reason: string | null;
+  created_at: string;
+  hash_current: string | null;
+  hash_previous: string | null;
+  filing_id: string;
+  exchange?: string;
+  document_url?: string;
+  filing_date?: string;
+  financial_year?: string;
+  period?: string;
+}
+
+router.get('/stats', async (_req, res) => {
   try {
     const stats = await exchangeFilingsService.getFilingStats();
     res.json({
@@ -26,13 +69,14 @@ router.get('/stats', async (req, res) => {
       data: stats,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    console.error('[FilingsAPI] Stats error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[FilingsAPI] Stats error:', msg);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
-router.get('/health', async (req, res) => {
+router.get('/health', async (_req, res) => {
   try {
     const health = await exchangeFilingsService.healthCheck();
     res.json({
@@ -40,12 +84,13 @@ router.get('/health', async (req, res) => {
       data: health,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
-router.get('/sources', async (req, res) => {
+router.get('/sources', async (_req, res) => {
   try {
     const sources = await exchangeFilingsService.getSources();
     res.json({
@@ -53,9 +98,10 @@ router.get('/sources', async (req, res) => {
       data: sources,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    console.error('[FilingsAPI] Sources error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[FilingsAPI] Sources error:', msg);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
@@ -80,9 +126,10 @@ router.post('/fetch', async (req, res) => {
       },
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    console.error('[FilingsAPI] Fetch error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[FilingsAPI] Fetch error:', msg);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
@@ -133,7 +180,7 @@ router.get('/list', async (req, res) => {
       `),
     ]);
 
-    const total = parseInt((countResult.rows[0] as any).total) || 0;
+    const total = parseInt((countResult.rows[0] as unknown as { total: string }).total) || 0;
 
     res.json({
       success: true,
@@ -148,9 +195,10 @@ router.get('/list', async (req, res) => {
       },
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    console.error('[FilingsAPI] List error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[FilingsAPI] List error:', msg);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
@@ -166,7 +214,7 @@ router.get('/:filingId', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Filing not found' });
     }
 
-    const filing = filingResult.rows[0] as any;
+    const filing = filingResult.rows[0] as unknown as FilingResult;
 
     const metricsResult = await db.execute(sql`
       SELECT metric, metric_value, metric_value_text, extraction_confidence,
@@ -187,9 +235,11 @@ router.get('/:filingId', async (req, res) => {
       },
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    console.error('[FilingsAPI] Get filing error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+    return;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[FilingsAPI] Get filing error:', msg);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
@@ -207,7 +257,7 @@ router.get('/:filingId/view-original', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Filing not found' });
     }
 
-    const filing = filingResult.rows[0] as any;
+    const filing = filingResult.rows[0] as unknown as FilingResult;
 
     const metricsResult = await db.execute(sql`
       SELECT metric, metric_value, extraction_confidence, extraction_method,
@@ -254,9 +304,11 @@ router.get('/:filingId/view-original', async (req, res) => {
       },
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    console.error('[FilingsAPI] View original error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+    return;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[FilingsAPI] View original error:', msg);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
@@ -272,7 +324,7 @@ router.post('/:filingId/process', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Filing not found' });
     }
 
-    const filing = filingResult.rows[0] as any;
+    const filing = filingResult.rows[0] as unknown as FilingResult;
 
     if (filing.document_type !== 'XBRL') {
       return res.status(400).json({
@@ -323,9 +375,11 @@ router.post('/:filingId/process', async (req, res) => {
       },
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    console.error('[FilingsAPI] Process error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+    return;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[FilingsAPI] Process error:', msg);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
@@ -352,7 +406,7 @@ router.post('/:filingId/metrics/:metricId/approve', async (req, res) => {
       SELECT hash_current FROM exchange_financial_audit_log
       WHERE id = ${metricId} AND filing_id = ${filingId}
     `);
-    const previousHash = (existing.rows[0] as any)?.hash_current || null;
+    const previousHash = (existing.rows[0] as unknown as { hash_current: string | null })?.hash_current || null;
 
     const hashData = `${metricId}|${approvedBy.trim()}|${justification.trim()}|${new Date().toISOString()}`;
     const crypto = await import('crypto');
@@ -374,9 +428,11 @@ router.post('/:filingId/metrics/:metricId/approve', async (req, res) => {
       message: 'Metric approved successfully',
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    console.error('[FilingsAPI] Approve error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+    return;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[FilingsAPI] Approve error:', msg);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
@@ -415,7 +471,7 @@ router.post('/:filingId/metrics/:metricId/override', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Metric not found' });
     }
 
-    const metric = existing.rows[0] as any;
+    const metric = existing.rows[0] as unknown as AuditLogMetric;
 
     const crypto = await import('crypto');
     const hashData = `${metricId}|${metric.metric_value}|${newValue}|${overrideBy.trim()}|${reason.trim()}|${new Date().toISOString()}`;
@@ -446,13 +502,15 @@ router.post('/:filingId/metrics/:metricId/override', async (req, res) => {
       },
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    console.error('[FilingsAPI] Override error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+    return;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[FilingsAPI] Override error:', msg);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
-router.get('/scheduler/jobs', async (req, res) => {
+router.get('/scheduler/jobs', async (_req, res) => {
   try {
     const jobs = filingSchedulerService.getJobStatus();
     res.json({
@@ -460,8 +518,9 @@ router.get('/scheduler/jobs', async (req, res) => {
       data: jobs,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
@@ -483,9 +542,11 @@ router.post('/scheduler/jobs/:jobId/run', async (req, res) => {
       data: result,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    console.error('[FilingsAPI] Run job error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+    return;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[FilingsAPI] Run job error:', msg);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
@@ -549,7 +610,7 @@ router.get('/why-this-number/:companyId/:metric', async (req, res) => {
       });
     }
 
-    const latest = auditResult.rows[0] as any;
+    const latest = auditResult.rows[0] as unknown as AuditLogMetric;
     const history = auditResult.rows;
 
     res.json({
@@ -595,9 +656,11 @@ router.get('/why-this-number/:companyId/:metric', async (req, res) => {
       },
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    console.error('[FilingsAPI] Why this number error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+    return;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[FilingsAPI] Why this number error:', msg);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 

@@ -42,25 +42,25 @@ export function registerKYCWizardPart1Routes(app: Express) {
 
       // Build role-specific guidance message
       let guidanceMessage = 'Complete your KYC verification to access FintekPro.';
-      if (userRoles.some(r => ['master_agent', 'partner'].includes(r))) {
+      if (userRoles.some((r: any) => ['master_agent', 'partner'].includes(r))) {
         guidanceMessage =
           'As a distribution partner, you must complete Full KYC (Level 2) including ' +
           'CKYC registration and Video KYC before managing client investments. ' +
           'Regulatory basis: SEBI KRA Regulations + AMFI Circular on ARN holders.';
-      } else if (userRoles.some(r => ['agent', 'sub_agent', 'associate'].includes(r))) {
+      } else if (userRoles.some((r: any) => ['agent', 'sub_agent', 'associate'].includes(r))) {
         guidanceMessage =
           'As a registered agent, AMFI/IRDAI requires Standard KYC (PAN + Address OVD) ' +
           'before you can solicit or distribute any financial products.';
-      } else if (userRoles.some(r => ['compliance_officer', 'regulatory_auditor'].includes(r))) {
+      } else if (userRoles.some((r: any) => ['compliance_officer', 'regulatory_auditor'].includes(r))) {
         guidanceMessage =
           'Compliance and audit personnel must complete Full KYC under SEBI regulations ' +
           'to maintain audit trail integrity and regulatory standing.';
-      } else if (userRoles.some(r => ['admin', 'superadmin', 'bd_head', 'finance_head', 'ops_head', 'hr_head', 'tech_head'].includes(r))) {
+      } else if (userRoles.some((r: any) => ['admin', 'superadmin', 'bd_head', 'finance_head', 'ops_head', 'hr_head', 'tech_head'].includes(r))) {
         guidanceMessage =
           'All FintekPro personnel must complete Standard KYC under PMLA 2002, ' +
           'Section 12, which requires reporting entities to maintain verified ' +
           'identity records for all associated persons.';
-      } else if (userRoles.some(r => ['client', 'user', 'business_client'].includes(r))) {
+      } else if (userRoles.some((r: any) => ['client', 'user', 'business_client'].includes(r))) {
         guidanceMessage =
           'Standard KYC (PAN verification + Address proof) is required under the ' +
           'RBI Master Direction on KYC 2016 before accessing any financial products.';
@@ -111,11 +111,11 @@ export function registerKYCWizardPart1Routes(app: Express) {
       
       const tierResult = kycOrchestratorService.computeTierResult({
         kycLevel: parseInt(level, 10),
-        panVerified: profile?.panVerifiedViaSandbox || false,
-        ckycFetched: profile?.ckycFetchedViaAuthBridge || false,
-        aadhaarVerified: profile?.aadhaarVerifiedViaSmartKyc || false,
-        riskProfilingDone: profile?.isProfileCompleted || false,
-        complianceSigned: profile?.isProfileCompleted || false,
+        panVerified: (profile as any)?.panVerifiedViaSandbox || false,
+        ckycFetched: (profile as any)?.ckycFetchedViaAuthBridge || false,
+        aadhaarVerified: (profile as any)?.aadhaarVerifiedViaSmartKyc || false,
+        riskProfilingDone: (profile as any)?.isProfileCompleted || false,
+        complianceSigned: (profile as any)?.isProfileCompleted || false,
         amlScreened: !!(profile as any)?.amlScreenedAt,
         amlRiskLevel: (profile as any)?.amlRiskLevel,
         videoKycDone: !!(profile as any)?.videoKycCompletedAt,
@@ -138,9 +138,9 @@ export function registerKYCWizardPart1Routes(app: Express) {
           canAccessInvestments: level >= '2' && tierResult.tier_status === 'final',
           nextAction: level === '0' ? 'Complete PAN verification' : level === '1' ? 'Complete full KYC' : null,
           profile: {
-            panVerified: profile?.panVerifiedViaSandbox || false,
-            ckycFetched: profile?.ckycFetchedViaAuthBridge || false,
-            kraVerified: profile?.kraVerifiedViaProtean || false,
+            panVerified: (profile as any)?.panVerifiedViaSandbox || false,
+            ckycFetched: (profile as any)?.ckycFetchedViaAuthBridge || false,
+            kraVerified: (profile as any)?.kraVerifiedViaProtean || false,
             amlRiskLevel: (profile as any)?.amlRiskLevel || null,
             videoKycRequired: (profile as any)?.videoKycRequired || false,
             entityTypeLocked: (profile as any)?.entityTypeLocked || false,
@@ -196,15 +196,15 @@ export function registerKYCWizardPart1Routes(app: Express) {
 
       // Build list of steps still missing
       const missingSteps: string[] = [];
-      if (!profile?.panVerifiedViaSandbox && !profile?.panVerifiedViaSmartKyc) {
+      if (!(profile as any)?.panVerifiedViaSandbox && !(profile as any)?.panVerifiedViaSmartKyc) {
         missingSteps.push('PAN verification');
       }
       if (requiredLevel >= 2) {
-        if (!profile?.aadhaarVerifiedViaSmartKyc) missingSteps.push('Aadhaar verification');
-        if (!profile?.ckycFetchedViaAuthBridge) missingSteps.push('CKYC registration');
-        if (!profile?.isProfileCompleted) missingSteps.push('Risk profiling');
+        if (!(profile as any)?.aadhaarVerifiedViaSmartKyc) missingSteps.push('Aadhaar verification');
+        if (!(profile as any)?.ckycFetchedViaAuthBridge) missingSteps.push('CKYC registration');
+        if (!(profile as any)?.isProfileCompleted) missingSteps.push('Risk profiling');
         // Add transaction-specific steps beyond base Level 2
-        const txSpecific = requirement.steps.filter(s =>
+        const txSpecific = requirement.steps.filter((s: any) =>
           !['PAN verification', 'Aadhaar verification', 'CKYC registration', 'Risk profiling'].includes(s)
         );
         missingSteps.push(...txSpecific);
@@ -212,13 +212,13 @@ export function registerKYCWizardPart1Routes(app: Express) {
 
       // Determine first onboarding step the user needs to complete
       let kycPath = '/onboarding';
-      if (!profile?.panVerifiedViaSandbox && !profile?.panVerifiedViaSmartKyc) {
+      if (!(profile as any)?.panVerifiedViaSandbox && !(profile as any)?.panVerifiedViaSmartKyc) {
         kycPath = '/onboarding?step=pan';
-      } else if (requiredLevel >= 2 && !profile?.aadhaarVerifiedViaSmartKyc) {
+      } else if (requiredLevel >= 2 && !(profile as any)?.aadhaarVerifiedViaSmartKyc) {
         kycPath = '/onboarding?step=aadhaar';
-      } else if (requiredLevel >= 2 && !profile?.ckycFetchedViaAuthBridge) {
+      } else if (requiredLevel >= 2 && !(profile as any)?.ckycFetchedViaAuthBridge) {
         kycPath = '/onboarding?step=ckyc';
-      } else if (requiredLevel >= 2 && !profile?.isProfileCompleted) {
+      } else if (requiredLevel >= 2 && !(profile as any)?.isProfileCompleted) {
         kycPath = '/onboarding?step=risk';
       }
 
@@ -230,7 +230,7 @@ export function registerKYCWizardPart1Routes(app: Express) {
         sebiRef: requirement.sebiRef,
         currentLevel,
         requiredLevel,
-        missingSteps: canProceed ? [] : missingSteps.filter(s => requirement.steps.includes(s)),
+        missingSteps: canProceed ? [] : missingSteps.filter((s: any) => requirement.steps.includes(s)),
         kycPath,
         allRequiredSteps: requirement.steps,
       });
@@ -253,7 +253,7 @@ export function registerKYCWizardPart1Routes(app: Express) {
             userId: user.userId || user.id,
             email: user.email,
             mobile: user.mobile,
-            fullName: `${user.firstName || ''} ${user.middleName || ''} ${user.lastName || ''}`.trim(),
+            name: `${user.firstName || ''} ${user.middleName || ''} ${user.lastName || ''}`.trim(),
             kycLevel: level,
             kycTier: level === '0' ? 'basic' : level === '1' ? 'enhanced' : 'accredited_investor',
             kycStatus: 'pending',
@@ -282,16 +282,16 @@ export function registerKYCWizardPart1Routes(app: Express) {
           userId: user.userId || user.id,
           email: user.email,
           mobile: user.mobile,
-          fullName: `${user.firstName || ''} ${user.middleName || ''} ${user.lastName || ''}`.trim(),
+          name: `${user.firstName || ''} ${user.middleName || ''} ${user.lastName || ''}`.trim(),
           kycLevel: level,
           kycTier: level === '0' ? 'basic' : level === '1' ? 'enhanced' : 'accredited_investor',
           kycStatus: profile.kycStatus || 'pending',
           panNumber: profile.panNumber || null,
-          panVerified: profile.panVerifiedViaSandbox || false,
-          aadhaarVerified: profile.aadhaarVerifiedViaCashfree || false,
+          panVerified: (profile as any).panVerifiedViaSandbox || false,
+          aadhaarVerified: (profile as any).aadhaarVerifiedViaCashfree || false,
           bankVerified: profile.bankVerified || false,
           videoKycCompleted: profile.videoKycCompleted || false,
-          ckycVerified: profile.ckycFetchedViaAuthBridge || false,
+          ckycVerified: (profile as any).ckycFetchedViaAuthBridge || false,
           riskCategory: profile.riskCategory || 'low',
           pepStatus: profile.pepStatus || 'N',
           fatcaStatus: profile.fatcaStatus || 'N',
@@ -333,7 +333,7 @@ export function registerKYCWizardPart1Routes(app: Express) {
       const existingProfile = await db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId)).limit(1);
       const existingUserProfile = existingProfile[0];
       
-      if (existingUserProfile?.kycLevel === '2' && existingUserProfile?.isProfileCompleted) {
+      if ((existingUserProfile as any)?.kycLevel === '2' && (existingUserProfile as any)?.isProfileCompleted) {
         return res.json({
           success: true,
           alreadyCompleted: true,
@@ -370,17 +370,17 @@ export function registerKYCWizardPart1Routes(app: Express) {
 
         const profile = existingUserProfile;
         if (profile) {
-          if ((profile.panVerifiedViaSandbox || profile.panSandboxStatus === 'VALID') && !reconciledStatus.pan_verified) {
+          if (((profile as any).panVerifiedViaSandbox || (profile as any).panSandboxStatus === 'VALID') && !reconciledStatus.pan_verified) {
             reconciledStatus.pan_verified = true;
             if (reconciledStep === 'pan_verification') reconciledStep = 'ckyc_kra_check';
           }
-          if ((profile.ckycFetchedViaAuthBridge || profile.ckycAuthBridgeStatus === 'found') && !reconciledStatus.ckyc_fetched) {
+          if (((profile as any).ckycFetchedViaAuthBridge || (profile as any).ckycAuthBridgeStatus === 'found') && !reconciledStatus.ckyc_fetched) {
             reconciledStatus.ckyc_fetched = true;
             reconciledStatus.kra_verified = true;
             if (['pan_verification', 'ckyc_kra_check', 'aadhaar_otp', 'aadhaar_otp_verify'].includes(reconciledStep)) {
               reconciledStep = 'risk_profiling';
             }
-          } else if (profile.aadhaarVerifiedViaSmartKyc && !reconciledStatus.aadhaar_verified) {
+          } else if ((profile as any).aadhaarVerifiedViaSmartKyc && !reconciledStatus.aadhaar_verified) {
             reconciledStatus.aadhaar_verified = true;
             reconciledStatus.aadhaar_otp_sent = true;
             if (['pan_verification', 'ckyc_kra_check', 'aadhaar_otp', 'aadhaar_otp_verify'].includes(reconciledStep)) {
@@ -424,7 +424,7 @@ export function registerKYCWizardPart1Routes(app: Express) {
       // This handles cases where is_active=true but expiresAt has passed
       try {
         await db.update(schema.kycVerificationSessions)
-          .set({ isActive: false, completedAt: new Date() })
+          .set({ isActive: false, completedAt: new Date() } as any)
           .where(
             and(
               eq(schema.kycVerificationSessions.userId, userId),
@@ -453,20 +453,20 @@ export function registerKYCWizardPart1Routes(app: Express) {
       
       // Regulatory flow: PAN → CKYC/KRA Check → Aadhaar (if needed) → Risk Profiling → Compliance
       // Per RBI Master Direction on KYC (2016, amended 2024) & SEBI KRA Regulations
-      if (userProfile?.panVerifiedViaSandbox || userProfile?.panSandboxStatus === 'VALID') {
+      if ((userProfile as any)?.panVerifiedViaSandbox || (userProfile as any)?.panSandboxStatus === 'VALID') {
         stepStatus.pan_verified = true;
         initialStep = 'ckyc_kra_check'; // Check CKYC/KRA first per data minimization
         
-        if (userProfile?.ckycFetchedViaAuthBridge || userProfile?.ckycAuthBridgeStatus === 'found') {
+        if ((userProfile as any)?.ckycFetchedViaAuthBridge || (userProfile as any)?.ckycAuthBridgeStatus === 'found') {
           stepStatus.ckyc_fetched = true;
           stepStatus.kra_verified = true;
           initialStep = 'risk_profiling'; // CKYC found, skip Aadhaar
-        } else if (userProfile?.aadhaarVerifiedViaSmartKyc) {
+        } else if ((userProfile as any)?.aadhaarVerifiedViaSmartKyc) {
           stepStatus.aadhaar_verified = true;
           initialStep = 'risk_profiling';
         }
         
-        if (userProfile?.isProfileCompleted && stepStatus.ckyc_fetched) {
+        if ((userProfile as any)?.isProfileCompleted && stepStatus.ckyc_fetched) {
           initialStep = 'compliance_signoff';
         }
       }
@@ -482,14 +482,15 @@ export function registerKYCWizardPart1Routes(app: Express) {
           currentStep: initialStep,
           stepStatus,
           expiresAt: sessionExpiresAt,
-          panNumber: userProfile?.panNumber || undefined,
-          panVerificationData: userProfile?.panSandboxResponse || undefined
-        });
+          panNumber: (userProfile as any)?.panNumber || undefined,
+          panVerificationData: (userProfile as any)?.panSandboxResponse || (userProfile as any)?.panVerificationData || undefined,
+          entityTypeSupported: (entityType || (userProfile as any)?.entityType || 'individual'),
+        } as any);
       } catch (createErr: any) {
         if (createErr?.code === '23505') {
           // Duplicate key - deactivate all active sessions and retry once
           await db.update(schema.kycVerificationSessions)
-            .set({ isActive: false, completedAt: new Date() })
+            .set({ isActive: false, completedAt: new Date() } as any)
             .where(
               and(
                 eq(schema.kycVerificationSessions.userId, userId),
@@ -503,9 +504,10 @@ export function registerKYCWizardPart1Routes(app: Express) {
             currentStep: initialStep,
             stepStatus,
             expiresAt: sessionExpiresAt,
-            panNumber: userProfile?.panNumber || undefined,
-            panVerificationData: userProfile?.panSandboxResponse || undefined
-          });
+            panNumber: (userProfile as any)?.panNumber || undefined,
+            panVerificationData: (userProfile as any)?.panSandboxResponse || (userProfile as any)?.panVerificationData || undefined,
+            entityTypeSupported: (entityType || (userProfile as any)?.entityType || 'individual'),
+          } as any);
         } else {
           throw createErr;
         }
@@ -523,7 +525,7 @@ export function registerKYCWizardPart1Routes(app: Express) {
             panVerified: stepStatus.pan_verified,
             ckycVerified: stepStatus.ckyc_fetched,
             panNumber: userProfile?.panNumber,
-            fullName: userProfile?.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''}`.trim() : null
+            name: userProfile?.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''}`.trim() : null
           }
         }
       });
@@ -641,18 +643,24 @@ export function registerKYCWizardPart1Routes(app: Express) {
       }
       // ──────────────────────────────────────────────────────────────────────
 
+      const existingProfileRes = await db.select()
+        .from(schema.userProfiles)
+        .where(eq(schema.userProfiles.userId, userId))
+        .limit(1);
+      const existingProfile = existingProfileRes[0];
+
       // Trigger AutoKYC Engine for Smart Mode businesses
       if (onboardingMode === 'smart' && panResult.entity_detected !== 'INDIVIDUAL') {
         try {
-          console.log(`[KYC] Triggering Auto-KYC Engine for Smart Mode business: ${userId} (${panResult.entity_detected})`);
           await autoKycVerificationEngine.verify({
             userId,
-            fullName: verification.data.full_name || fullName,
-            panNumber,
-            dateOfBirth: dob,
+            panName: (verification.data as any).full_name || fullName,
+            pan: panNumber,
+            dob: dob,
             role: (req.user?.roles?.[0] || req.user?.role || 'user') as any,
             ipAddress: req.ip,
-            userAgent: req.headers['user-agent']
+            bankAccountNo: (existingProfile as any)?.bankAccountNumber || '',
+            bankIfsc: (existingProfile as any)?.bankIfscCode || '',
           });
         } catch (autoKycErr) {
           console.error('[KYC] Auto-KYC Engine failed (non-fatal):', (autoKycErr as any)?.message);
@@ -661,7 +669,7 @@ export function registerKYCWizardPart1Routes(app: Express) {
 
       await storage.updateKycVerificationSession(sessionId, {
         panNumber: await PANConsentService.encryptPAN(panNumber),
-        panDob: new Date(dob),
+        panDob: dob,
         panVerified: true,
         panVerificationData: {
           name: verification.data.full_name || fullName,
@@ -669,7 +677,7 @@ export function registerKYCWizardPart1Routes(app: Express) {
         },
         panVerifiedAt: new Date(),
         currentStep: "ckyc_kra_check",
-        entityType: panResult.entity_detected,
+        entityTypeSupported: panResult.entity_detected,
         entityLocked: true,
         stepStatus: {
           pan_verified: true,
@@ -684,10 +692,7 @@ export function registerKYCWizardPart1Routes(app: Express) {
         }
       });
       
-      const existingProfile = await db.select()
-        .from(schema.userProfiles)
-        .where(eq(schema.userProfiles.userId, userId))
-        .limit(1);
+      // Profile update at 694+ uses existingProfile logic
       
       const profileUpdate: any = {
         kycLevel: '1',
@@ -695,14 +700,14 @@ export function registerKYCWizardPart1Routes(app: Express) {
         panVerifiedViaSandbox: true,
         panSandboxVerifiedAt: new Date(),
         panSandboxResponse: verification.data,
-        panSandboxStatus: verification.data?.status || 'VALID',
+        panSandboxStatus: (verification.data as any)?.status || 'VALID',
         panNumber: panNumber,
-        entityType: panResult.entity_detected.toLowerCase(),
-        entityTypeLocked: true,
-        entityTypeLockedAt: new Date(),
+        entityTypeSupported: panResult.entity_detected,
+        entityLocked: true,
+        updatedAt: new Date(),
       };
       
-      if (existingProfile && existingProfile.length > 0) {
+      if (existingProfile) {
         await db.update(schema.userProfiles)
           .set(profileUpdate)
           .where(eq(schema.userProfiles.userId, userId));
@@ -718,11 +723,11 @@ export function registerKYCWizardPart1Routes(app: Express) {
           .limit(1);
         if (existingVault.length > 0) {
           await db.update(schema.kycVault)
-            .set({ panVerifiedAt: new Date(), updatedAt: new Date() })
+            .set({ panVerifiedAt: new Date(), updatedAt: new Date() } as any)
             .where(eq(schema.kycVault.userId, userId));
         } else {
           await db.insert(schema.kycVault)
-            .values({ userId, panVerifiedAt: new Date(), source: 'sandbox', kycStatus: 'pending' });
+            .values({ userId, panVerifiedAt: new Date(), source: 'sandbox', kycStatus: 'pending' } as any);
         }
       } catch (vaultErr) {
         console.warn('[KYC] Failed to update kycVault for PAN:', vaultErr);

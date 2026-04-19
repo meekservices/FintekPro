@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createChart, IChartApi, ISeriesApi, CandlestickData, LineData, Time } from "lightweight-charts";
+import { createChart, IChartApi, ISeriesApi, CandlestickData, LineData, Time, CandlestickSeries, LineSeries, AreaSeries } from "lightweight-charts";
 import { useStockCandles } from "@/hooks/use-market-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -100,7 +100,7 @@ export function MarketChart({ symbol = "^NSEI" }: MarketChartProps) {
     const DOWN = "#ef4444";
 
     if (chartType === "candlestick") {
-      const s = chartRef.current.addCandlestickSeries({
+      const s = chartRef.current.addSeries(CandlestickSeries, {
         upColor: UP, downColor: DOWN,
         borderUpColor: UP, borderDownColor: DOWN,
         wickUpColor: UP, wickDownColor: DOWN,
@@ -108,11 +108,11 @@ export function MarketChart({ symbol = "^NSEI" }: MarketChartProps) {
       s.setData(t.map((ts, i) => ({ time: ts as Time, open: o[i], high: h[i], low: l[i], close: c[i] } as CandlestickData)));
       seriesRef.current = s;
     } else if (chartType === "line") {
-      const s = chartRef.current.addLineSeries({ color: "#3b82f6", lineWidth: 2 });
+      const s = chartRef.current.addSeries(LineSeries, { color: "#3b82f6", lineWidth: 2 });
       s.setData(t.map((ts, i) => ({ time: ts as Time, value: c[i] } as LineData)));
       seriesRef.current = s;
     } else {
-      const s = chartRef.current.addAreaSeries({
+      const s = chartRef.current.addSeries(AreaSeries, {
         topColor: "rgba(59,130,246,0.35)",
         bottomColor: "rgba(59,130,246,0.0)",
         lineColor: "#3b82f6",
@@ -215,7 +215,7 @@ export function MarketChart({ symbol = "^NSEI" }: MarketChartProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div ref={containerRef} className="w-full rounded-lg overflow-hidden mb-4" style={{ minHeight: 300 }} data-testid="chart-container" />
+        <div ref={containerRef} className="w-full rounded-lg overflow-hidden mb-4 min-h-[300px]" data-testid="chart-container" />
         {stats && (
           <div className="grid grid-cols-4 gap-3 pt-3 border-t" data-testid="market-stats">
             {[

@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { dsaLoanService } from "../services/dsa-loan-service";
 import { kfsGeneratorService, KFSLoanDetails } from "../services/kfs-generator-service";
 import { z } from "zod";
+import * as schema from "@shared/schema";
 
 const router = Router();
 

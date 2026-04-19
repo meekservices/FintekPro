@@ -541,6 +541,7 @@ const CATEGORY_ICONS: Record<string, any> = {
 
 function AIInsightsPanel() {
   const { toast } = useToast();
+  const [isStuckKycOpen, setIsStuckKycOpen] = useState(false);
   
   const { data: insightsData, isLoading, refetch } = useQuery<{ 
     success: boolean; 
@@ -1340,6 +1341,7 @@ export default function ActivityCentre() {
                                   href={`https://sentry.io/issues/?query=${error.sentryEventId}`} 
                                   target="_blank" 
                                   rel="noopener noreferrer"
+                                  title="View in Sentry"
                                 >
                                   <ExternalLink className="h-4 w-4" />
                                 </a>

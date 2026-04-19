@@ -9,7 +9,7 @@ import { eq, and, desc, sql } from 'drizzle-orm';
 export function registerCarPart2Routes(app: Express) {
   app.get('/api/proposals', requireClientOrHigher, async (req: any, res: any) => {
     try {
-      const proposals = await storage.getProposalsByClientId(req.user.id);
+      const proposals = await storage.getProposalsByClientId((req.user as any)!.id);
       res.json(proposals);
     } catch (error) {
       console.error('Failed to fetch user proposals:', error);
@@ -22,7 +22,7 @@ export function registerCarPart2Routes(app: Express) {
     try {
       const proposalData = req.body;
       const userId = req.user!.id;
-      const userRole = req.user.role || 'client';
+      const userRole = (req.user as any)?.role || 'client';
       
       // Determine proposal source based on who creates it
       let proposalSource: 'ai' | 'agent' | 'client' = 'client';
@@ -87,7 +87,7 @@ export function registerCarPart2Routes(app: Express) {
   app.put('/api/proposals/:proposalId/accept', requireClientOrHigher, async (req: any, res: any) => {
     try {
       const { proposalId } = req.params;
-      const proposal = await storage.acceptProposal(proposalId, req.user.id);
+      const proposal = await storage.acceptProposal(proposalId, (req.user as any)!.id);
       res.json(proposal);
     } catch (error) {
       console.error('Failed to accept proposal:', error);
@@ -99,7 +99,7 @@ export function registerCarPart2Routes(app: Express) {
   app.put('/api/proposals/:proposalId/reject', requireClientOrHigher, async (req: any, res: any) => {
     try {
       const { proposalId } = req.params;
-      const proposal = await storage.rejectProposal(proposalId, req.user.id);
+      const proposal = await storage.rejectProposal(proposalId, (req.user as any)!.id);
       res.json(proposal);
     } catch (error) {
       console.error('Failed to reject proposal:', error);
@@ -111,7 +111,7 @@ export function registerCarPart2Routes(app: Express) {
   app.put('/api/proposals/:proposalId/mark-viewed', requireClientOrHigher, async (req: any, res: any) => {
     try {
       const { proposalId } = req.params;
-      const proposal = await storage.markProposalAsViewed(proposalId, req.user.id);
+      const proposal = await storage.markProposalAsViewed(proposalId, (req.user as any)!.id);
       res.json(proposal);
     } catch (error) {
       console.error('Failed to mark proposal as viewed:', error);
@@ -123,7 +123,7 @@ export function registerCarPart2Routes(app: Express) {
   app.post('/api/proposals/:proposalId/add-to-cart', requireClientOrHigher, async (req: any, res: any) => {
     try {
       const { proposalId } = req.params;
-      const result = await storage.addProposalToCart(proposalId, req.user.id);
+      const result = await storage.addProposalToCart(proposalId, (req.user as any)!.id);
       res.json(result);
     } catch (error) {
       console.error('Failed to add proposal to cart:', error);
@@ -151,7 +151,7 @@ export function registerCarPart2Routes(app: Express) {
         }
         
         // Calculate total transaction amount from proposal items
-        const totalAmount = proposalItems.reduce((sum, item) => sum + parseFloat(item.amount || '0'), 0);
+        const totalAmount = proposalItems.reduce((sum: any, item: any) => sum + parseFloat(item.amount || '0'), 0);
         
         // Inject totalAmount into request body for KYC validation
         req.body.totalAmount = totalAmount;
@@ -197,7 +197,7 @@ export function registerCarPart2Routes(app: Express) {
         proposalId,
         clientCode: userId, // Using user ID as client code for demo
         orderType: orderType as 'LUMPSUM' | 'SIP',
-        items: proposalItems.map(item => ({
+        items: proposalItems.map((item: any) => ({
           schemeCode: item.schemeCode,
           amount: item.amount,
           transactionType: 'P' as const, // Purchase
@@ -209,7 +209,7 @@ export function registerCarPart2Routes(app: Express) {
       };
 
       // Import BSE API service
-      const { bseStarApi } = await import('./bseStarApi');
+      const { bseStarApi } = await import('../bseStarApi');
       
       // Complete order through BSE Star API
       const orderResult = await bseStarApi.completeOrder(bseOrderRequest);
@@ -245,7 +245,7 @@ export function registerCarPart2Routes(app: Express) {
       const { transNo } = req.params;
       
       // Import BSE API service
-      const { bseStarApi } = await import('./bseStarApi');
+      const { bseStarApi } = await import('../bseStarApi');
       
       // Get order status from BSE
       const orderStatus = await bseStarApi.getOrderStatus(transNo);
@@ -264,7 +264,7 @@ export function registerCarPart2Routes(app: Express) {
       const userId = req.user!.id;
       
       // Import BSE API service
-      const { bseStarApi } = await import('./bseStarApi');
+      const { bseStarApi } = await import('../bseStarApi');
       
       // Check payment status from BSE
       const paymentStatus = await bseStarApi.checkPaymentStatus(userId, transNo);

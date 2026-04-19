@@ -1,8 +1,10 @@
 import { Express } from 'express';
+import { z } from 'zod';
 import { storage } from '../storage';
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq, desc, sql, and, or, gte, lte, count, inArray } from 'drizzle-orm';
+import { portfolioHoldings, mutualFunds, mutualFundAmcs, insertWatchlistSchema } from '@shared/schema';
+import { eq, desc, sql, and, or, gte, lte, count, inArray, ilike } from 'drizzle-orm';
 import { MultiSourceMFService } from '../services/multisource-mf-service';
 
 const multiSourceMFService = new MultiSourceMFService(storage);

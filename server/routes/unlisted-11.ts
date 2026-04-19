@@ -49,6 +49,7 @@ import { orderAuditHook } from '../services/order-audit-hook';
 import { dataEnrichmentService } from '../services/data-enrichment-service';
 import { unlistedValuationGovernanceService } from '../services/unlisted-valuation-governance-service';
 import { unlistedFinancialEnrichmentService } from '../services/unlisted-financial-enrichment-service';
+import * as schema from "@shared/schema";
 import {
   insertUnlistedEquityValuationHistorySchema,
   clientUnlistedDisclosureLog,

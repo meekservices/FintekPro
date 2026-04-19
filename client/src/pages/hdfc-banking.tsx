@@ -71,7 +71,7 @@ export default function HDFCBanking() {
   ];
 
   // Account balance query
-  const { data: accountBalance, isLoading: balanceLoading, refetch: refetchBalance } = useQuery({
+  const { data: accountBalance, isLoading: balanceLoading, refetch: refetchBalance } = useQuery<any>({
     queryKey: ['/api/hdfc/accounts/balance', selectedAccount],
     enabled: !!selectedAccount,
     refetchInterval: 30000, // Refresh every 30 seconds
@@ -155,7 +155,7 @@ export default function HDFCBanking() {
   });
 
   // Transaction history query
-  const { data: transactions, isLoading: transactionsLoading } = useQuery({
+  const { data: transactions, isLoading: transactionsLoading } = useQuery<any>({
     queryKey: ['/api/hdfc/accounts/transactions', selectedAccount, transactionForm],
     enabled: !!selectedAccount && !!transactionForm.fromDate && !!transactionForm.toDate,
   });

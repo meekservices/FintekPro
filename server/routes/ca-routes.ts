@@ -14,6 +14,55 @@ import {
   injectRoleInfo 
 } from '../middleware/roleMiddleware';
 
+interface AuthRequest extends Request {
+  user?: {
+    id: string;
+    email?: string;
+    role?: string;
+  };
+}
+
+interface PartnerRecord {
+  id: string;
+  companyName: string | null;
+  contactEmail: string;
+  contactPhone: string | null;
+  icaiMembershipNumber: string | null;
+  icaiMembershipType: string | null;
+  caFirmName: string | null;
+  caFirmRegistrationNumber: string | null;
+  caSpecializations: string[] | null;
+  caExperienceYears: number | null;
+  caQualificationYear: number | null;
+  caCity: string | null;
+  caState: string | null;
+  caAvailability: string | null;
+  caMaxCasesPerMonth: number | null;
+  caCurrentActiveCases: number | null;
+  caCompletedCases: number | null;
+  caAverageRating: string | null;
+  caVerificationStatus: string | null;
+  createdAt: string;
+}
+
+interface EmpanelmentRecord {
+  ca_membership_number: string;
+}
+
+interface RegistryEntry {
+  referralCode: string;
+  referralCount: number;
+  tier: string;
+  isPubliclyListed: boolean;
+}
+
+interface ClientUser {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+}
+
 const router = Router();
 
 const caRegistrationSchema = z.object({
@@ -44,7 +93,7 @@ const caRegistrationSchema = z.object({
   bio: z.string().optional(),
 });
 
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/register', async (req: Request, res: Response): Promise<void> => {
   try {
     const validatedData = caRegistrationSchema.parse(req.body);
     
@@ -60,10 +109,11 @@ router.post('/register', async (req: Request, res: Response) => {
       .limit(1);
     
     if (existingPartner.length > 0) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'Email or ICAI membership number already registered',
       });
+      return;
     }
     
     const hashedPassword = await bcrypt.hash(validatedData.password, 12);
@@ -112,14 +162,15 @@ router.post('/register', async (req: Request, res: Response) => {
       message: 'Registration submitted successfully. Your application is under review.',
       partnerId: newPartner.id,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('CA registration error:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'Validation failed',
         details: error.errors,
       });
+      return;
     }
     res.status(500).json({
       success: false,
@@ -128,15 +179,16 @@ router.post('/register', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/my-profile', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
+router.get('/my-profile', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthRequest).user;
     
     if (!user) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: 'Authentication required',
       });
+      return;
     }
     
     const [caPartner] = await db
@@ -144,17 +196,18 @@ router.get('/my-profile', requireAuth, injectRoleInfo, requirePartnerPortal, asy
       .from(partners)
       .where(
         and(
-          eq(partners.contactEmail, user.email),
+          eq(partners.contactEmail, user.email || ''),
           eq(partners.partnerType, 'chartered_accountant')
         )
       )
       .limit(1);
     
     if (!caPartner) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'CA profile not found for this user',
       });
+      return;
     }
     
     res.json({
@@ -169,7 +222,7 @@ router.get('/my-profile', requireAuth, injectRoleInfo, requirePartnerPortal, asy
         verificationStatus: caPartner.caVerificationStatus,
       },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching CA profile:', error);
     res.status(500).json({
       success: false,
@@ -178,12 +231,16 @@ router.get('/my-profile', requireAuth, injectRoleInfo, requirePartnerPortal, asy
   }
 });
 
-router.get('/available', requireAuth, async (req: Request, res: Response) => {
+router.get('/available', requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const { caseType, city, state, itrFormType } = req.query;
-    
+    const validCaseTypes = ['itr', 'gst', 'audit', 'form15', 'tax_notice', 'company_law'];
+    const selectedCaseType = typeof caseType === 'string' && validCaseTypes.includes(caseType) 
+      ? caseType as 'itr' | 'gst' | 'audit' | 'form15' | 'tax_notice' | 'company_law'
+      : 'itr';
+
     const candidates = await caAssignmentService.findBestCA({
-      caseType: (caseType as string) || 'itr',
+      caseType: selectedCaseType,
       clientCity: city as string,
       clientState: state as string,
       itrFormType: itrFormType as string,
@@ -193,7 +250,7 @@ router.get('/available', requireAuth, async (req: Request, res: Response) => {
       success: true,
       candidates,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching available CAs:', error);
     res.status(500).json({
       success: false,
@@ -202,25 +259,27 @@ router.get('/available', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.post('/assign', requireAuth, injectRoleInfo, requireAgentPortal, async (req: Request, res: Response) => {
+router.post('/assign', requireAuth, injectRoleInfo, requireAgentPortal, async (req: Request, res: Response): Promise<void> => {
   try {
     const { caseId, caPartnerId, autoAssign, criteria } = req.body;
     
     if (autoAssign && criteria) {
       const result = await caAssignmentService.autoAssignCA(caseId, criteria);
-      return res.json(result);
+      res.json(result);
+      return;
     }
     
     if (caseId && caPartnerId) {
       const result = await caAssignmentService.assignCAToCaseFromPartners(caseId, caPartnerId);
-      return res.json(result);
+      res.json(result);
+      return;
     }
     
     res.status(400).json({
       success: false,
       error: 'Missing required parameters',
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error assigning CA:', error);
     res.status(500).json({
       success: false,
@@ -229,7 +288,7 @@ router.post('/assign', requireAuth, injectRoleInfo, requireAgentPortal, async (r
   }
 });
 
-router.get('/dashboard/:partnerId', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
+router.get('/dashboard/:partnerId', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response): Promise<void> => {
   try {
     const { partnerId } = req.params;
     
@@ -247,10 +306,11 @@ router.get('/dashboard/:partnerId', requireAuth, injectRoleInfo, requirePartnerP
       .limit(1);
     
     if (!caProfile) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'CA profile not found',
       });
+      return;
     }
     
     res.json({
@@ -270,7 +330,7 @@ router.get('/dashboard/:partnerId', requireAuth, injectRoleInfo, requirePartnerP
       },
       stats,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching CA dashboard:', error);
     res.status(500).json({
       success: false,
@@ -279,17 +339,14 @@ router.get('/dashboard/:partnerId', requireAuth, injectRoleInfo, requirePartnerP
   }
 });
 
-router.get('/cases/:partnerId', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
+router.get('/cases/:partnerId', requireAuth, injectRoleInfo, requirePartnerPortal, async (_req: Request, res: Response): Promise<void> => {
   try {
-    const { partnerId } = req.params;
-    const { status } = req.query;
-    
     res.json({
       success: true,
       cases: [],
       message: 'Cases endpoint - integration with agentItrCases pending CA ID field mapping',
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching CA cases:', error);
     res.status(500).json({
       success: false,
@@ -298,16 +355,17 @@ router.get('/cases/:partnerId', requireAuth, injectRoleInfo, requirePartnerPorta
   }
 });
 
-router.patch('/availability/:partnerId', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
+router.patch('/availability/:partnerId', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response): Promise<void> => {
   try {
     const { partnerId } = req.params;
     const { availability } = req.body;
     
     if (!['available', 'busy', 'on_leave', 'unavailable'].includes(availability)) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'Invalid availability status',
       });
+      return;
     }
     
     await db
@@ -322,7 +380,7 @@ router.patch('/availability/:partnerId', requireAuth, injectRoleInfo, requirePar
       success: true,
       message: 'Availability updated',
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error updating availability:', error);
     res.status(500).json({
       success: false,
@@ -331,10 +389,10 @@ router.patch('/availability/:partnerId', requireAuth, injectRoleInfo, requirePar
   }
 });
 
-router.post('/case/:caseId/complete', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
+router.post('/case/:caseId/complete', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response): Promise<void> => {
   try {
     const { caseId } = req.params;
-    const { caPartnerId, rating, feedback } = req.body;
+    const { caPartnerId, rating } = req.body;
     
     const result = await caAssignmentService.markCaseCompleted(caseId, caPartnerId);
     
@@ -343,7 +401,7 @@ router.post('/case/:caseId/complete', requireAuth, injectRoleInfo, requirePartne
     }
     
     res.json(result);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error completing case:', error);
     res.status(500).json({
       success: false,
@@ -352,7 +410,7 @@ router.post('/case/:caseId/complete', requireAuth, injectRoleInfo, requirePartne
   }
 });
 
-router.get('/admin/pending-verifications', requireAuth, injectRoleInfo, requireAdminPortal, async (req: Request, res: Response) => {
+router.get('/admin/pending-verifications', requireAuth, injectRoleInfo, requireAdminPortal, async (_req: Request, res: Response): Promise<void> => {
   try {
     const pendingCAs = await db
       .select()
@@ -382,7 +440,7 @@ router.get('/admin/pending-verifications', requireAuth, injectRoleInfo, requireA
         appliedAt: ca.createdAt,
       })),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching pending verifications:', error);
     res.status(500).json({
       success: false,
@@ -391,36 +449,35 @@ router.get('/admin/pending-verifications', requireAuth, injectRoleInfo, requireA
   }
 });
 
-router.post('/admin/verify/:partnerId', requireAuth, injectRoleInfo, requireAdminPortal, async (req: Request, res: Response) => {
+router.post('/admin/verify/:partnerId', requireAuth, injectRoleInfo, requireAdminPortal, async (req: Request, res: Response): Promise<void> => {
   try {
     const { partnerId } = req.params;
-    const { action, rejectionReason, adminId } = req.body;
+    const { action, adminId } = req.body;
     
     if (!['approve', 'reject'].includes(action)) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'Invalid action',
       });
+      return;
     }
-    
-    const updateData: any = {
-      caVerificationStatus: action === 'approve' ? 'verified' : 'rejected',
-      caVerifiedAt: new Date(),
-      caVerifiedBy: adminId,
-      isVerified: action === 'approve',
-      updatedAt: new Date(),
-    };
     
     await db
       .update(partners)
-      .set(updateData)
+      .set({
+        caVerificationStatus: action === 'approve' ? 'verified' : 'rejected',
+        caVerifiedAt: new Date(),
+        caVerifiedBy: adminId,
+        isVerified: action === 'approve',
+        updatedAt: new Date(),
+      })
       .where(eq(partners.id, partnerId));
     
     res.json({
       success: true,
       message: `CA ${action === 'approve' ? 'approved' : 'rejected'} successfully`,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error verifying CA:', error);
     res.status(500).json({
       success: false,
@@ -429,12 +486,11 @@ router.post('/admin/verify/:partnerId', requireAuth, injectRoleInfo, requireAdmi
   }
 });
 
-router.get('/admin/all', requireAuth, injectRoleInfo, requireAdminPortal, async (req: Request, res: Response) => {
+router.get('/admin/all', requireAuth, injectRoleInfo, requireAdminPortal, async (req: Request, res: Response): Promise<void> => {
   try {
     const { status, search, page = '1', limit = '20' } = req.query;
     
-    let query = db.select().from(partners).where(eq(partners.partnerType, 'chartered_accountant'));
-    
+    const query = db.select().from(partners).where(eq(partners.partnerType, 'chartered_accountant'));
     const allCAs = await query.orderBy(desc(partners.createdAt));
     
     const filteredCAs = allCAs.filter(ca => {
@@ -444,9 +500,9 @@ router.get('/admin/all', requireAuth, injectRoleInfo, requireAdminPortal, async 
       if (search) {
         const searchLower = (search as string).toLowerCase();
         return (
-          ca.companyName?.toLowerCase().includes(searchLower) ||
-          ca.contactEmail?.toLowerCase().includes(searchLower) ||
-          ca.icaiMembershipNumber?.toLowerCase().includes(searchLower)
+          (ca.companyName?.toLowerCase().includes(searchLower) || false) ||
+          (ca.contactEmail?.toLowerCase().includes(searchLower) || false) ||
+          (ca.icaiMembershipNumber?.toLowerCase().includes(searchLower) || false)
         );
       }
       return true;
@@ -485,7 +541,7 @@ router.get('/admin/all', requireAuth, injectRoleInfo, requireAdminPortal, async 
         totalPages: Math.ceil(filteredCAs.length / limitNum),
       },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching CAs:', error);
     res.status(500).json({
       success: false,
@@ -494,7 +550,7 @@ router.get('/admin/all', requireAuth, injectRoleInfo, requireAdminPortal, async 
   }
 });
 
-router.get('/admin/performance', requireAuth, injectRoleInfo, requireAdminPortal, async (req: Request, res: Response) => {
+router.get('/admin/performance', requireAuth, injectRoleInfo, requireAdminPortal, async (_req: Request, res: Response): Promise<void> => {
   try {
     const allCAs = await db
       .select()
@@ -533,7 +589,7 @@ router.get('/admin/performance', requireAuth, injectRoleInfo, requireAdminPortal
         ).toFixed(2) || '0.00',
       },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching CA performance:', error);
     res.status(500).json({
       success: false,
@@ -542,13 +598,7 @@ router.get('/admin/performance', requireAuth, injectRoleInfo, requireAdminPortal
   }
 });
 
-// ─── ICAI Verification (ICHI Scraper Layer) ───────────────────────────────────
-
-/**
- * Admin: trigger ICAI scraper for a registered CA partner
- * POST /api/ca/admin/verify-icai/:partnerId
- */
-router.post('/admin/verify-icai/:partnerId', requireAuth, injectRoleInfo, requireAdminPortal, async (req: Request, res: Response) => {
+router.post('/admin/verify-icai/:partnerId', requireAuth, injectRoleInfo, requireAdminPortal, async (req: Request, res: Response): Promise<void> => {
   try {
     const { partnerId } = req.params;
     const { forceRefresh = false } = req.body;
@@ -558,11 +608,13 @@ router.post('/admin/verify-icai/:partnerId', requireAuth, injectRoleInfo, requir
       .limit(1);
 
     if (!partner) {
-      return res.status(404).json({ success: false, error: 'CA partner not found' });
+      res.status(404).json({ success: false, error: 'CA partner not found' });
+      return;
     }
 
     if (!partner.icaiMembershipNumber) {
-      return res.status(400).json({ success: false, error: 'Partner has no ICAI membership number on record' });
+      res.status(400).json({ success: false, error: 'Partner has no ICAI membership number on record' });
+      return;
     }
 
     const result = await verifyICAIMembership(
@@ -572,7 +624,6 @@ router.post('/admin/verify-icai/:partnerId', requireAuth, injectRoleInfo, requir
       Boolean(forceRefresh)
     );
 
-    // Compute statuses in TypeScript before writing to DB
     const icaiActive = result.membershipStatus === 'ACTIVE' || result.membershipStatus === 'FELLOW' || result.membershipStatus === 'ASSOCIATE';
     const icaiScraperStatus = icaiActive ? 'verified' : result.source === 'SCRAPER_FAILED' ? 'scraper_failed' : 'unverified';
     const autoApprove = icaiActive && (result.nameMatchScore ?? 0) >= 70;
@@ -591,7 +642,7 @@ router.post('/admin/verify-icai/:partnerId', requireAuth, injectRoleInfo, requir
       WHERE id = ${partnerId}
     `);
 
-    return res.json({
+    res.json({
       success: true,
       partnerId,
       icaiNumber: partner.icaiMembershipNumber,
@@ -608,32 +659,36 @@ router.post('/admin/verify-icai/:partnerId', requireAuth, injectRoleInfo, requir
       },
       autoApproved: (result.membershipStatus === 'ACTIVE' || result.membershipStatus === 'FELLOW') && (result.nameMatchScore ?? 0) >= 70,
     });
-  } catch (error: any) {
-    console.error('[ICAI] Admin verify-icai error:', error);
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[ICAI] Admin verify-icai error:', msg);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
-/**
- * Partner self-service: request ICAI membership verification
- * POST /api/ca/icai-check
- */
-router.post('/icai-check', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
+router.post('/icai-check', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthRequest).user;
     const { membershipNumber } = req.body;
 
+    if (!user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
     const [partner] = await db.select().from(partners)
-      .where(and(eq(partners.contactEmail, user.email), eq(partners.partnerType, 'chartered_accountant')))
+      .where(and(eq(partners.contactEmail, user.email || ''), eq(partners.partnerType, 'chartered_accountant')))
       .limit(1);
 
     if (!partner) {
-      return res.status(404).json({ success: false, error: 'CA profile not found' });
+      res.status(404).json({ success: false, error: 'CA profile not found' });
+      return;
     }
 
-    const icaiNumber = membershipNumber || partner.icaiMembershipNumber;
+    const icaiNumber = (membershipNumber as string) || partner.icaiMembershipNumber;
     if (!icaiNumber) {
-      return res.status(400).json({ success: false, error: 'No ICAI membership number provided' });
+      res.status(400).json({ success: false, error: 'No ICAI membership number provided' });
+      return;
     }
 
     const result = await verifyICAIMembership(
@@ -654,7 +709,7 @@ router.post('/icai-check', requireAuth, injectRoleInfo, requirePartnerPortal, as
       WHERE id = ${partner.id}
     `);
 
-    return res.json({
+    res.json({
       success: true,
       membershipStatus: result.membershipStatus,
       nameAtICAI: result.nameAtICAI,
@@ -669,17 +724,13 @@ router.post('/icai-check', requireAuth, injectRoleInfo, requirePartnerPortal, as
           : 'ICAI membership status could not be confirmed. Our team will verify manually.',
       error: result.error,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[ICAI] Self-check error:', error);
     res.status(500).json({ success: false, error: 'Verification request failed. Please try again.' });
   }
 });
 
-/**
- * Get cached ICAI status for a membership number (admin + partner)
- * GET /api/ca/icai-status/:membershipNumber
- */
-router.get('/icai-status/:membershipNumber', requireAuth, async (req: Request, res: Response) => {
+router.get('/icai-status/:membershipNumber', requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const { membershipNumber } = req.params;
     const cleaned = membershipNumber.trim().toUpperCase();
@@ -702,9 +753,10 @@ router.get('/icai-status/:membershipNumber', requireAuth, async (req: Request, r
       LIMIT 1
     `);
 
-    const row = (rows as any[])[0];
+    const row = ((rows as unknown as { rows: any[] }).rows)[0];
     if (!row) {
-      return res.status(404).json({ success: false, error: 'No CA record found for this membership number' });
+      res.status(404).json({ success: false, error: 'No CA record found for this membership number' });
+      return;
     }
 
     res.json({
@@ -722,17 +774,21 @@ router.get('/icai-status/:membershipNumber', requireAuth, async (req: Request, r
       },
       overallVerificationStatus: row.ca_verification_status,
     });
-  } catch (error: any) {
-    console.error('[ICAI] Status check error:', error);
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[ICAI] Status check error:', msg);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
-// GET /clients/:partnerId — list all clients whose cases are assigned to this CA
-router.get('/clients/:partnerId', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
+router.get('/clients/:partnerId', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = (req as any).user;
-    const caUserId = user.id; // agentItrCases.caId references users.id
+    const user = (req as AuthRequest).user;
+    if (!user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+    const caUserId = user.id;
 
     const clientCases = await db
       .select({
@@ -751,12 +807,12 @@ router.get('/clients/:partnerId', requireAuth, injectRoleInfo, requirePartnerPor
       .orderBy(desc(agentItrCases.createdAt));
 
     const uniqueClientIds = [...new Set(clientCases.map(c => c.clientId))];
-    let clientUsers: any[] = [];
+    let clientUsers: ClientUser[] = [];
     if (uniqueClientIds.length > 0) {
       clientUsers = await db
-        .select({ id: users.id, username: users.username, email: users.email })
+        .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email })
         .from(users)
-        .where(inArray(users.id, uniqueClientIds));
+        .where(inArray(users.id, uniqueClientIds)) as unknown as ClientUser[];
     }
     const clientMap = Object.fromEntries(clientUsers.map(u => [u.id, u]));
 
@@ -764,9 +820,10 @@ router.get('/clients/:partnerId', requireAuth, injectRoleInfo, requirePartnerPor
     for (const c of clientCases) {
       if (!clientsMap.has(c.clientId)) {
         const u = clientMap[c.clientId] || {};
+        const clientName = (u.firstName || u.lastName) ? `${u.firstName || ""} ${u.lastName || ""}`.trim() : (u.email || 'Client');
         clientsMap.set(c.clientId, {
           clientId: c.clientId,
-          name: u.username || u.email || 'Client',
+          name: clientName,
           email: u.email || '',
           totalCases: 0,
           activeCases: 0,
@@ -792,31 +849,36 @@ router.get('/clients/:partnerId', requireAuth, injectRoleInfo, requirePartnerPor
       clients: Array.from(clientsMap.values()),
       totalCases: clientCases.length,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching CA clients:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch clients' });
   }
 });
 
-// GET /referral-stats — get current CA's referral code and metrics
-router.get('/referral-stats', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
+router.get('/referral-stats', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthRequest).user;
+    if (!user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
     const { caRegistryService } = await import('../services/ca-registry-service');
 
-    // Find the ICAI number for this user
-    const [emp] = await db.execute(sql`
+    const empResult = await db.execute(sql`
       SELECT ca_membership_number FROM agent_empanelments WHERE agent_id = ${user.id} LIMIT 1
     `);
-    const icaiNumber = (emp as any)?.ca_membership_number;
+    const emp = ((empResult as unknown as { rows: any[] }).rows)[0] as unknown as EmpanelmentRecord | undefined;
+    const icaiNumber = emp?.ca_membership_number;
 
     if (!icaiNumber) {
-      return res.status(404).json({ success: false, error: 'CA membership not linked to this account' });
+      res.status(404).json({ success: false, error: 'CA membership not linked to this account' });
+      return;
     }
 
-    const entry = await caRegistryService.lookupFromRegistry(icaiNumber);
+    const entry = await caRegistryService.lookupFromRegistry(icaiNumber) as unknown as RegistryEntry | null;
     if (!entry) {
-      return res.status(404).json({ success: false, error: 'Registry entry not found' });
+      res.status(404).json({ success: false, error: 'Registry entry not found' });
+      return;
     }
 
     res.json({
@@ -826,63 +888,68 @@ router.get('/referral-stats', requireAuth, injectRoleInfo, requirePartnerPortal,
       tier: entry.tier,
       isPubliclyListed: entry.isPubliclyListed,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching CA referral stats:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch referral stats' });
   }
 });
 
-// POST /redeem-referral — use a referral code (usually called during or after signup)
-router.post('/redeem-referral', async (req: Request, res: Response) => {
+router.post('/redeem-referral', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { code, targetUserId } = req.body;
-    if (!code) return res.status(400).json({ success: false, error: 'Referral code is required' });
+    const { code } = req.body;
+    if (!code) {
+      res.status(400).json({ success: false, error: 'Referral code is required' });
+      return;
+    }
 
     const { caRegistryService } = await import('../services/ca-registry-service');
     const result = await caRegistryService.redeemReferralCode(code);
 
     if (!result) {
-      return res.status(404).json({ success: false, error: 'Invalid or expired referral code' });
+      res.status(404).json({ success: false, error: 'Invalid or expired referral code' });
+      return;
     }
-
-    // If targetUserId provided, we could store the link in a separate referrals table if needed
-    // For Phase 1, we just increment the counter as per the reward logic
 
     res.json({
       success: true,
       message: 'Referral code redeemed successfully',
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error redeeming referral code:', error);
     res.status(500).json({ success: false, error: 'Failed to redeem code' });
   }
 });
 
-// POST /clients/invite — generate a shareable invite link for a new client
-router.post('/clients/invite', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response) => {
+router.post('/clients/invite', requireAuth, injectRoleInfo, requirePartnerPortal, async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthRequest).user;
     const { name, email, mobile } = req.body;
 
+    if (!user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
     if (!email && !mobile) {
-      return res.status(400).json({ success: false, error: 'Email or mobile number is required' });
+      res.status(400).json({ success: false, error: 'Email or mobile number is required' });
+      return;
     }
 
     const [caPartner] = await db
       .select({ id: partners.id })
       .from(partners)
-      .where(and(eq(partners.contactEmail, user.email), eq(partners.partnerType, 'chartered_accountant')))
+      .where(and(eq(partners.contactEmail, user.email || ''), eq(partners.partnerType, 'chartered_accountant')))
       .limit(1);
 
     const caRef = caPartner?.id || user.id;
     const protocol = req.headers['x-forwarded-proto'] || 'https';
     const host = req.headers['x-forwarded-host'] || req.headers.host || 'fintekpro.com';
     
-    // Check if CA has a registry referral code to use that instead
     const { caRegistryService } = await import('../services/ca-registry-service');
-    const [emp] = await db.execute(sql`SELECT ca_membership_number FROM agent_empanelments WHERE agent_id = ${user.id} LIMIT 1`);
-    const icai = (emp as any)?.ca_membership_number;
-    const registryEntry = icai ? await caRegistryService.lookupFromRegistry(icai) : null;
+    const empResult = await db.execute(sql`SELECT ca_membership_number FROM agent_empanelments WHERE agent_id = ${user.id} LIMIT 1`);
+    const emp = ((empResult as unknown as { rows: any[] }).rows)[0] as unknown as EmpanelmentRecord | undefined;
+    const icai = emp?.ca_membership_number;
+    const registryEntry = icai ? await caRegistryService.lookupFromRegistry(icai) as unknown as RegistryEntry | null : null;
     
     const code = registryEntry?.referralCode || `ca_${caRef}`;
     const inviteLink = `${protocol}://${host}/itr-tax-services?ref=${code}`;
@@ -899,7 +966,7 @@ router.post('/clients/invite', requireAuth, injectRoleInfo, requirePartnerPortal
         generatedAt: new Date().toISOString(),
       },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error generating CA client invite:', error);
     res.status(500).json({ success: false, error: 'Failed to generate invite' });
   }

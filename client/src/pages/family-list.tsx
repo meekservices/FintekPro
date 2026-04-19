@@ -50,7 +50,7 @@ export default function FamilyList() {
   });
 
   // Create family mutation
-  const createFamilyMutation = useMutation({
+  const createFamilyMutation = useMutation<any>({
     mutationFn: async (data: CreateFamilyFormData) => {
       return apiRequest('/api/families', {
         method: 'POST',

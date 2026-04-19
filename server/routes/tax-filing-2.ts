@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { unifiedOCRService } from '../services/unified-ocr-service';
 import { sandboxITRService } from '../sandbox-itr-service';
 import { digilockerService } from '../services/digilockerService';
+import * as schema from "@shared/schema";
 
 const calculateCapitalGainsSchema = z.object({
   stcgAmount: z.number().min(0, "STCG amount must be positive"),
@@ -48,7 +49,7 @@ app.get("/api/tax/documents/:documentId/logs", async (req, res) => {
     }
 
     // Verify user owns this document
-    if (document.userId !== req.user.id) {
+    if (document.userId !== (req.user as any)!.id) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -75,7 +76,7 @@ app.put("/api/tax/documents/:documentId", async (req, res) => {
     }
 
     // Verify user owns this document
-    if (document.userId !== req.user.id) {
+    if (document.userId !== (req.user as any)!.id) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -241,7 +242,7 @@ app.post("/api/tax/calculate-income-tax", async (req, res) => {
     }
     
     // Sort slabs by minAmount
-    slabs.sort((a, b) => parseFloat(a.minAmount || '0') - parseFloat(b.minAmount || '0'));
+    slabs.sort((a: any, b: any) => parseFloat(a.minAmount || '0') - parseFloat(b.minAmount || '0'));
     
     // Calculate taxable income
     let taxableIncome = income;
@@ -440,7 +441,7 @@ app.post("/api/tax/reminder-subscription", async (req, res) => {
       subscription: {
         id: subscription.id,
         userId: subscription.userId,
-        itrFormType: subscription.itrFormType,
+        itrFormType: (subscription as any).itrFormType,
         subscriptionStatus: subscription.subscriptionStatus,
         pricingTier: subscription.pricingTier,
         annualPrice: parseFloat(subscription.annualPrice),
@@ -475,7 +476,7 @@ app.get("/api/tax/reminder-subscription/:userId", async (req, res) => {
       subscription: {
         id: subscription.id,
         userId: subscription.userId,
-        itrFormType: subscription.itrFormType,
+        itrFormType: (subscription as any).itrFormType,
         subscriptionStatus: subscription.subscriptionStatus,
         pricingTier: subscription.pricingTier,
         annualPrice: parseFloat(subscription.annualPrice),
@@ -504,7 +505,7 @@ app.post("/api/tax/calculate-portfolio-gains/:userId", async (req, res) => {
       return res.status(400).json({ error: "User ID is required" });
     }
     
-    const { capitalGainsCalculator } = await import('./services/capital-gains-calculator');
+    const { capitalGainsCalculator } = await import('../services/capital-gains-calculator');
     const gainsBreakdown = await capitalGainsCalculator.calculatePortfolioGains(userId);
     
     res.json({
@@ -538,7 +539,7 @@ app.get("/api/tax/capital-gains-reminders/:userId", async (req, res) => {
       return res.status(400).json({ error: "User ID is required" });
     }
     
-    const { capitalGainsCalculator } = await import('./services/capital-gains-calculator');
+    const { capitalGainsCalculator } = await import('../services/capital-gains-calculator');
     const reminders = await capitalGainsCalculator.getRemindersForUser(userId);
     
     // Format reminders for response
@@ -598,7 +599,7 @@ app.post("/api/tax/generate-quarterly-reminders/:userId", async (req, res) => {
       });
     }
     
-    const { capitalGainsCalculator } = await import('./services/capital-gains-calculator');
+    const { capitalGainsCalculator } = await import('../services/capital-gains-calculator');
     const reminders = await capitalGainsCalculator.generateQuarterlyReminders(
       userId,
       subscription.id,
@@ -611,7 +612,7 @@ app.post("/api/tax/generate-quarterly-reminders/:userId", async (req, res) => {
         userId,
         financialYear,
         remindersCreated: reminders.length,
-        reminders: reminders.map(r => ({
+        reminders: reminders.map((r: any) => ({
           quarter: r.quarter,
           dueDate: r.dueDate,
           estimatedSTCG: r.estimatedSTCG,
@@ -653,7 +654,7 @@ app.get("/api/tax/check-expert-filing/:userId", async (req, res) => {
         hasActiveSubscription: subscription?.subscriptionStatus === 'active',
         subscriptionDetails: subscription ? {
           pricingTier: subscription.pricingTier,
-          itrFormType: subscription.itrFormType,
+          itrFormType: (subscription as any).itrFormType,
           validUntil: subscription.validUntil
         } : null
       }

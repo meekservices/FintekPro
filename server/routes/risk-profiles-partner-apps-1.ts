@@ -26,7 +26,7 @@ app.get("/api/commodities/prices", async (req, res) => {
 // Currency Exchange API endpoints
 app.get("/api/currencies/supported", async (req, res) => {
   try {
-    const { CurrencyExchangeService } = await import("./services/currency-exchange-service.js");
+    const { CurrencyExchangeService } = await import("../services/currency-exchange-service");
     const currencyService = CurrencyExchangeService.getInstance();
     const currencies = currencyService.getSupportedCurrencies();
     res.json(currencies);
@@ -62,7 +62,7 @@ app.get("/api/currencies/rates", async (req, res) => {
 
 app.post("/api/currencies/refresh", requireAuth, async (req: any, res) => {
   try {
-    const { CurrencyExchangeService } = await import("./services/currency-exchange-service.js");
+    const { CurrencyExchangeService } = await import("../services/currency-exchange-service");
     const currencyService = CurrencyExchangeService.getInstance();
     
     const baseCurrency = req.body.baseCurrency || "INR";
@@ -84,7 +84,7 @@ app.get("/api/portfolios/:id/convert", requireOwnPortfolio, async (req, res) => 
     const { id } = req.params;
     const targetCurrency = (req.query.targetCurrency as string) || "USD";
     
-    const { CurrencyExchangeService } = await import("./services/currency-exchange-service.js");
+    const { CurrencyExchangeService } = await import("../services/currency-exchange-service");
     const currencyService = CurrencyExchangeService.getInstance();
     
     const portfolio = await storage.getPortfolio(id);

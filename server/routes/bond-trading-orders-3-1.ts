@@ -9,6 +9,7 @@ import { bseDirectApi } from '../bseDirectApi';
 import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema } from '@shared/schema';
 import { eq, desc, sql, and, or, gte, lte, inArray } from 'drizzle-orm';
 import { isProductionEnvironment } from '../utils/enrichment-guard';
+import { comprehensiveAIFPMSAPI } from "../comprehensive-aif-pms-api";
 
 export function registerBondTradingOrderPart3Part1Routes(app: Express): void {
   app.get("/api/aif/comprehensive", requireLevel2, async (req, res) => {

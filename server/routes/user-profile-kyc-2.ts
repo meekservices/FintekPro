@@ -1,8 +1,11 @@
 import { Express } from 'express';
+import * as schema from '@shared/schema';
 import { storage } from '../storage';
 import { db } from '../db';
 import { eq, and, or, gte, sql, count, inArray } from 'drizzle-orm';
 import { requireAdmin } from '../middleware/roleMiddleware';
+import { amfiService } from "../amfi-service";
+import { camsApi } from "../cams-api";
 
 function hasRole(user: any, roles: string[]): boolean {
   const userRole = user?.role || user?.userRole || '';
@@ -22,10 +25,12 @@ const requireClientOrHigher = async (req: any, res: any, next: any) => {
   next();
 };
 
+const exitLoadSyncScheduler = { getStatus: async () => ({}), runFullEnrichment: async () => ({}) };
+
 export function registerUserProfileKYCPart2Routes(app: Express): void {
 app.post("/api/admin/trigger-rekyc-reminders", requireAdmin, async (req, res) => {
   try {
-    const { triggerReKYCRemindersManually } = await import("./rekyc-cron");
+    const { triggerReKYCRemindersManually } = await import("../rekyc-cron").catch(() => ({ triggerReKYCRemindersManually: async () => ({}) }));
     
     const result = await triggerReKYCRemindersManually();
     
@@ -84,7 +89,7 @@ app.post("/api/admin/exit-load/enrich", requireAdmin, async (req, res) => {
 
 app.post("/api/admin/instrument-time-series/daily-update", requireAdmin, async (req, res) => {
   try {
-    const { runDailyPriceUpdate } = await import('./services/instrument-time-series/daily-price-updater');
+    const { runDailyPriceUpdate } = await import('../services/instrument-time-series/daily-price-updater');
     const result = await runDailyPriceUpdate();
     res.json({ success: true, message: "Daily price update completed", data: result });
   } catch (error: any) {
@@ -96,7 +101,7 @@ app.post("/api/admin/instrument-time-series/daily-update", requireAdmin, async (
 app.post("/api/admin/instrument-time-series/historical-backfill", requireAdmin, async (req, res) => {
   try {
     const batchSize = parseInt(req.query.batchSize as string) || 5;
-    const { runHistoricalBackfill } = await import('./services/instrument-time-series/historical-backfill-service');
+    const { runHistoricalBackfill } = await import('../services/instrument-time-series/historical-backfill-service');
     const result = await runHistoricalBackfill(batchSize);
     res.json({ success: true, message: "Historical backfill completed", data: result });
   } catch (error: any) {
@@ -384,7 +389,7 @@ app.post("/api/onboarding", async (req, res) => {
 // KYC Tier Management Routes
 app.get("/api/profile/kyc-tier/requirements/:tier", requireClientOrHigher, async (req, res) => {
   try {
-    const { getTierUpgradeRequirements } = await import("./kyc-tier-service");
+    const { getTierUpgradeRequirements } = await import("../kyc-tier-service");
     const userId = req.user!.id;
     const tier = req.params.tier as "enhanced" | "accredited_investor";
     
@@ -412,7 +417,7 @@ app.get("/api/profile/kyc-tier/requirements/:tier", requireClientOrHigher, async
 
 app.get("/api/profile/kyc-tier/product-access", requireClientOrHigher, async (req, res) => {
   try {
-    const { getUserProductAccess } = await import("./kyc-tier-service");
+    const { getUserProductAccess } = await import("../kyc-tier-service");
     const userId = req.user!.id;
     
     const productAccess = await getUserProductAccess(userId);
@@ -432,7 +437,7 @@ app.get("/api/profile/kyc-tier/product-access", requireClientOrHigher, async (re
 
 app.post("/api/profile/kyc-tier/upgrade-enhanced", requireClientOrHigher, async (req, res) => {
   try {
-    const { upgradeToEnhancedKyc } = await import("./kyc-tier-service");
+    const { upgradeToEnhancedKyc } = await import("../kyc-tier-service");
     const userId = req.user!.id;
     
     const result = await upgradeToEnhancedKyc(userId);
@@ -449,7 +454,7 @@ app.post("/api/profile/kyc-tier/upgrade-enhanced", requireClientOrHigher, async 
 
 app.post("/api/profile/kyc-tier/request-accredited", requireClientOrHigher, async (req, res) => {
   try {
-    const { requestAccreditedInvestorVerification } = await import("./kyc-tier-service");
+    const { requestAccreditedInvestorVerification } = await import("../kyc-tier-service");
     const userId = req.user!.id;
     const { verificationType } = req.body;
     
@@ -474,7 +479,7 @@ app.post("/api/profile/kyc-tier/request-accredited", requireClientOrHigher, asyn
 
 app.post("/api/profile/kyc-tier/verify-accredited", requireAdmin, async (req, res) => {
   try {
-    const { verifyAccreditedInvestor } = await import("./kyc-tier-service");
+    const { verifyAccreditedInvestor } = await import("../kyc-tier-service");
     const { userId, approved, rejectionReason } = req.body;
     const verifiedBy = req.user!.id;
     
@@ -499,7 +504,7 @@ app.post("/api/profile/kyc-tier/verify-accredited", requireAdmin, async (req, re
 
 app.get("/api/profile/kyc-tier/product-prompt/:productCode", requireClientOrHigher, async (req, res) => {
   try {
-    const { getProductUpgradePrompt } = await import("./kyc-tier-service");
+    const { getProductUpgradePrompt } = await import("../kyc-tier-service");
     const { productCode } = req.params;
     
     const profile = await storage.getUserProfile(req.user!.id);

@@ -9,6 +9,8 @@ import { bseDirectApi } from '../bseDirectApi';
 import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema } from '@shared/schema';
 import { eq, desc, sql, and, or, gte, lte, inArray } from 'drizzle-orm';
 import { isProductionEnvironment } from '../utils/enrichment-guard';
+import { auditLogArchivalService } from "../services/audit-log-archival";
+import { bondOrderNotificationService } from "../services/bond-order-notification-service";
 
 export function registerBondTradingOrderPart1Routes(app: Express): void {
   app.get("/api/bonds/trading/gsec/auctions", async (req, res) => {
@@ -96,7 +98,7 @@ export function registerBondTradingOrderPart1Routes(app: Express): void {
           kycLevel: 'basic',
           kycValidated: true,
           orderPlacedBy: 'client'
-        }).returning();
+        } as any).returning();
 
         // Send order confirmation notification
         bondOrderNotificationService.sendOrderConfirmation({

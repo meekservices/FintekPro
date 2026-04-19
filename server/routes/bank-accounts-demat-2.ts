@@ -7,8 +7,14 @@ import { requireLevel2 } from '../middleware/kyc-level-gate';
 import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isNameMatchAcceptable } from '../penny-drop-service';
 import { lookupIFSC, isValidIFSCFormat } from '../ifsc-lookup-service';
 import { ProductAccountService } from '../product-account-service';
-import { BSEStarKYCService } from '../services/bse-star-kyc-service';
+import { BSEUCCService } from '../services/bse-ucc-service';
 import { digilockerService } from '../services/digilockerService';
+import { adminService } from '../admin-service';
+import { getUserKYCLevel } from '../middleware/kyc-level-gate';
+import * as schema from '@shared/schema';
+import { insertProductAccountPreferenceSchema } from '@shared/schema';
+
+const productAccountService = new ProductAccountService(null as any);
 
 export function registerBankAccountsDemaPart2Routes(app: Express): void {
 app.delete("/api/demat-accounts/:id", async (req, res) => {
@@ -22,7 +28,7 @@ app.delete("/api/demat-accounts/:id", async (req, res) => {
       return res.status(404).json({ error: "Demat account not found" });
     }
 
-    if (account.userId !== req.user.id) {
+    if (account.userId !== req.user!.id) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -50,7 +56,7 @@ app.put("/api/demat-accounts/:id/set-default", async (req, res) => {
       return res.status(404).json({ error: "Demat account not found" });
     }
 
-    if (account.userId !== req.user.id) {
+    if (account.userId !== req.user!.id) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -82,7 +88,7 @@ app.get("/api/product-account-preferences", async (req, res) => {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    const preferences = await storage.getUserProductAccountPreferences(req.user.id);
+    const preferences = await storage.getUserProductAccountPreferences(req.user!.id);
     res.json(preferences);
   } catch (error) {
     console.error("Error fetching product account preferences:", error);
@@ -98,7 +104,7 @@ app.get("/api/product-account-preferences/:productType", async (req, res) => {
     }
 
     const preference = await storage.getProductAccountPreference(
-      req.user.id, 
+      req.user!.id, 
       req.params.productType
     );
     
@@ -123,7 +129,7 @@ app.post("/api/product-account-preferences", async (req, res) => {
     // Override userId and server-managed fields to prevent tampering
     const preferenceData = {
       ...validatedData,
-      userId: req.user.id, // Force authenticated user's ID
+      userId: req.user!.id, // Force authenticated user's ID
       isActive: true, // Server manages this
       isDefault: true, // Server manages this
     };
@@ -147,7 +153,7 @@ app.put("/api/product-account-preferences/:id", async (req, res) => {
     }
 
     // First, verify the preference exists and belongs to the user
-    const preferences = await storage.getUserProductAccountPreferences(req.user.id);
+    const preferences = await storage.getUserProductAccountPreferences(req.user!.id);
     const existingPref = preferences.find(p => p.id === req.params.id);
     
     if (!existingPref) {
@@ -186,7 +192,7 @@ app.delete("/api/product-account-preferences/:id", async (req, res) => {
     }
 
     // First, verify the preference exists and belongs to the user
-    const preferences = await storage.getUserProductAccountPreferences(req.user.id);
+    const preferences = await storage.getUserProductAccountPreferences(req.user!.id);
     const existingPref = preferences.find(p => p.id === req.params.id);
     
     if (!existingPref) {
@@ -214,7 +220,7 @@ app.get("/api/product-accounts/:productType", async (req, res) => {
     }
 
     const accounts = await productAccountService.getAccountsForProduct(
-      req.user.id,
+      req.user!.id,
       req.params.productType
     );
     
@@ -247,7 +253,7 @@ app.post("/api/product-accounts/:productType/validate", async (req, res) => {
     }
 
     const validation = await productAccountService.validateAccountsForProduct(
-      req.user.id,
+      req.user!.id,
       req.params.productType,
       bankAccountId,
       dematAccountId
@@ -285,7 +291,7 @@ app.post("/api/bse-kyc/verify-pan", async (req, res) => {
       return res.status(400).json({ error: "PAN number is required" });
     }
 
-    const { bseStarKYCService } = await import('./services/bse-star-kyc-service');
+    const { bseStarKYCService } = await import('../services/bse-star-kyc-service');
     const result = await bseStarKYCService.verifyPAN(panNumber);
     
     res.json(result);
@@ -307,7 +313,7 @@ app.post("/api/bse-kyc/check-status", async (req, res) => {
       return res.status(400).json({ error: "PAN number is required" });
     }
 
-    const { bseStarKYCService } = await import('./services/bse-star-kyc-service');
+    const { bseStarKYCService } = await import('../services/bse-star-kyc-service');
     const result = await bseStarKYCService.checkKYCStatus({
       panNumber,
       name,
@@ -335,7 +341,7 @@ app.post("/api/bse-kyc/auto-populate", async (req, res) => {
       return res.status(400).json({ error: "PAN number is required" });
     }
 
-    const { bseStarKYCService } = await import('./services/bse-star-kyc-service');
+    const { bseStarKYCService } = await import('../services/bse-star-kyc-service');
     const kycData = await bseStarKYCService.autoPopulateKYC(panNumber);
     
     res.json({ 
@@ -355,7 +361,7 @@ app.post("/api/bse-kyc/auto-populate", async (req, res) => {
 // BSE API health check
 app.get("/api/bse-kyc/health", async (req, res) => {
   try {
-    const { bseStarKYCService } = await import('./services/bse-star-kyc-service');
+    const { bseStarKYCService } = await import('../services/bse-star-kyc-service');
     const isHealthy = await bseStarKYCService.healthCheck();
     
     res.json({ 
@@ -381,7 +387,7 @@ app.post("/api/bse/ucc/create", requireLevel2, async (req: any, res) => {
     const userId = req.user!.id;
     
     // Import BSE UCC service
-    const { bseUCCService } = await import('./services/bse-ucc-service');
+    const { bseUCCService } = await import('../services/bse-ucc-service');
     
     // Double-check KYC Level 2 (middleware already validates, but extra safety)
     const { level } = await getUserKYCLevel(userId);
@@ -402,13 +408,13 @@ app.post("/api/bse/ucc/create", requireLevel2, async (req: any, res) => {
     
     // Check if user already has a UCC
     const existingProfile = await storage.getUserProfile(userId);
-    if (existingProfile?.bseUccCode) {
+    if ((existingProfile as any)?.bseUccCode) {
       return res.status(400).json({
         success: false,
         error: 'UCC already exists',
         message: 'You already have a BSE UCC code',
-        uccCode: existingProfile.bseUccCode,
-        clientCode: existingProfile.bseClientCode
+        uccCode: (existingProfile as any).bseUccCode,
+        clientCode: (existingProfile as any).bseClientCode
       });
     }
     
@@ -517,7 +523,7 @@ app.post("/api/bse/ucc/create", requireLevel2, async (req: any, res) => {
         bseClientCode: uccResult.clientCode || uccResult.uccCode,
         bseUccCreatedAt: new Date(),
         bseUccStatus: "active"
-      })
+      } as any)
       .where(eq(schema.userProfiles.userId, userId));
     // Log activity
     adminService.logActivity({
@@ -568,11 +574,11 @@ app.get("/api/bse/ucc/status", requireLevel2, async (req: any, res) => {
     
     res.json({
       success: true,
-      hasUCC: !!profile.bseUccCode,
-      uccCode: profile.bseUccCode || null,
-      clientCode: profile.bseClientCode || null,
-      uccStatus: profile.bseUccStatus || null,
-      createdAt: profile.bseUccCreatedAt || null
+      hasUCC: !!(profile as any).bseUccCode,
+      uccCode: (profile as any).bseUccCode || null,
+      clientCode: (profile as any).bseClientCode || null,
+      uccStatus: (profile as any).bseUccStatus || null,
+      createdAt: (profile as any).bseUccCreatedAt || null
     });
   } catch (error) {
     console.error("BSE UCC status error:", error);
@@ -599,7 +605,7 @@ app.post("/api/digilocker/documents/:documentId/fetch", async (req, res) => {
     }
 
     // Verify user owns this document
-    if (document.userId !== req.user.id) {
+    if (document.userId !== req.user!.id) {
       return res.status(403).json({ error: "Access denied" });
     }
 

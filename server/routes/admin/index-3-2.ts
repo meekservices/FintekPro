@@ -15,13 +15,17 @@ import { proxyToInsurance } from '../../clients/insurance-client';
 import { beneficialOwnershipService } from '../../services/beneficial-ownership-service';
 import { sebiScoresService } from '../../services/sebi-scores-service';
 import { mfReturnsSyncService } from '../../services/mf-returns-sync-service';
+import { businessIntelligence } from "../../business-intelligence-service";
+import { hasRole } from "../../middleware/auth";
+import { hdfcBankAPI } from "../../hdfc-bank-api";
+import { iciciBankAPI } from "../../icici-bank-api";
 
 const requireAdmin = async (req: any, res: Response, next: any) => {
   if (!req.user) {
     return res.status(401).json({ message: "Authentication required" });
   }
   
-  const isAdmin = await adminService.isAdmin(req.user.id);
+  const isAdmin = await adminService.isAdmin((req.user as any)!.id);
   if (!isAdmin) {
     return res.status(403).json({ message: "Admin access required" });
   }
@@ -309,8 +313,8 @@ export function registerAdminPanelPart3Sub2Routes(app: Express): void {
       
       // Filter out sensitive activities and format for admin view
       const adminActivities = activities
-        .filter(activity => !activity.action.includes('password'))
-        .map(activity => ({
+        .filter((activity: any) => !activity.action.includes('password'))
+        .map((activity: any) => ({
           ...activity,
           details: typeof activity.details === 'object' ? activity.details : {}
         }));

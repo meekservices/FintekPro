@@ -1,11 +1,11 @@
-import { Router, Request, Response, NextFunction } from "express";
+import { Router, Request, Response } from "express";
 import { KycCentralHubService } from "../services/kyc-central-hub-service";
 import { kycOrchestrationEngine } from "../services/kyc-orchestration-engine";
 import { identityTokenService } from "../services/identity-token-service";
 import { dpdpConsentService } from "../services/dpdp-consent-service";
 import { storage } from "../storage";
 import { db } from "../db";
-import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc } from "drizzle-orm";
 import {
   kycProviders,
   providerMetrics,
@@ -16,7 +16,11 @@ import {
 } from "@shared/schema";
 import { requireClientOrHigher, requireAdmin } from "../middleware/auth";
 
-const router = Router();
+const router: Router = Router();
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
 
 // All KYC engine routes require at minimum a logged-in user
 router.use(requireClientOrHigher);
@@ -24,11 +28,18 @@ router.use(requireClientOrHigher);
 // Admin sub-router — requires admin/superadmin role
 router.use("/admin", requireAdmin);
 
-router.post("/verify", async (req: Request, res: Response) => {
+router.post("/verify", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId, kycStep, productType, payload, portalId } = req.body;
+    const { userId, kycStep, productType, payload, portalId } = req.body as {
+      userId?: string;
+      kycStep?: string;
+      productType?: string;
+      payload?: any;
+      portalId?: string;
+    };
     if (!userId || !kycStep || !productType) {
-      return res.status(400).json({ success: false, error: "userId, kycStep, and productType are required" });
+      res.status(400).json({ success: false, error: "userId, kycStep, and productType are required" });
+      return;
     }
 
     // Use Central Hub to process the step with Audit Hashing and Consent checks enabled
@@ -57,17 +68,19 @@ router.post("/verify", async (req: Request, res: Response) => {
             provider: result.providerCode,
             details: { ...result.data, ...payload },
           });
-          (result as any).identityProfile = {
-            kycLevel: updatedProfile?.kycLevel,
-            overallStatus: updatedProfile?.overallStatus,
-          };
-        } catch (profileErr: any) {
-          console.error("[KYC-ENGINE-ROUTES] Failed to update identity profile:", profileErr?.message);
+          if (updatedProfile) {
+            (result as any).identityProfile = {
+              kycLevel: updatedProfile.kycLevel,
+              overallStatus: updatedProfile.overallStatus,
+            };
+          }
+        } catch (profileErr: unknown) {
+          console.error("[KYC-ENGINE-ROUTES] Failed to update identity profile:", errorMessage(profileErr));
         }
       }
 
       if (kycStep === 'bank_verification' && result.success && result.data?.verified) {
-        const bankPayload = req.body.payload || {};
+        const bankPayload = (req.body as any).payload || {};
         if (bankPayload.accountNo && bankPayload.ifsc) {
           try {
             const allAccounts = await storage.getUserBankAccounts(userId);
@@ -95,106 +108,114 @@ router.post("/verify", async (req: Request, res: Response) => {
                 isPrimary: activeAccounts.length === 0,
               });
             }
-          } catch (bankErr: any) {
-            console.error("[KYC-ENGINE-ROUTES] Failed to sync bank account:", bankErr?.message);
+          } catch (bankErr: unknown) {
+            console.error("[KYC-ENGINE-ROUTES] Failed to sync bank account:", errorMessage(bankErr));
           }
         }
       }
     }
 
     res.json({ success: true, result });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error in verify:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error in verify:", errorMessage(error));
     res.status(500).json({ success: false, error: "Verification failed" });
   }
 });
 
-router.get("/flow/:productType", async (req: Request, res: Response) => {
+router.get("/flow/:productType", async (req: Request, res: Response): Promise<void> => {
   try {
     const { productType } = req.params;
     const flow = await kycOrchestrationEngine.getFlowForProduct(productType);
     res.json({ success: true, flow });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error in getFlowForProduct:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error in getFlowForProduct:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to get flow" });
   }
 });
 
-router.get("/providers/:kycStep", async (req: Request, res: Response) => {
+router.get("/providers/:kycStep", async (req: Request, res: Response): Promise<void> => {
   try {
     const { kycStep } = req.params;
     const productType = (req.query.productType as string) || "";
     const chain = await kycOrchestrationEngine.getProviderChainForStep(kycStep, productType);
     res.json({ success: true, providers: chain });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error in getProviderChainForStep:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error in getProviderChainForStep:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to get provider chain" });
   }
 });
 
-router.get("/identity/:userId", async (req: Request, res: Response) => {
+router.get("/identity/:userId", async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.params;
     const profile = await identityTokenService.getOrCreateProfile(userId);
     res.json({ success: true, profile });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error in getOrCreateProfile:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error in getOrCreateProfile:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to get identity profile" });
   }
 });
 
-router.get("/identity/:userId/eligibility/:productType", async (req: Request, res: Response) => {
+router.get("/identity/:userId/eligibility/:productType", async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId, productType } = req.params;
     const eligibility = await identityTokenService.checkKycEligibility(userId, productType);
     res.json({ success: true, eligibility });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error in checkKycEligibility:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error in checkKycEligibility:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to check eligibility" });
   }
 });
 
-router.post("/identity/:userId/fatca", async (req: Request, res: Response) => {
+router.post("/identity/:userId/fatca", async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.params;
     await identityTokenService.declareFatca(userId);
     res.json({ success: true, message: "FATCA declaration recorded" });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error in declareFatca:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error in declareFatca:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to declare FATCA" });
   }
 });
 
-router.post("/identity/:userId/risk", async (req: Request, res: Response) => {
+router.post("/identity/:userId/risk", async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.params;
-    const { category, score } = req.body;
+    const { category, score } = req.body as { category?: string; score?: number };
     if (!category || score === undefined) {
-      return res.status(400).json({ success: false, error: "category and score are required" });
+      res.status(400).json({ success: false, error: "category and score are required" });
+      return;
     }
     await identityTokenService.assessRisk(userId, { category, score });
     res.json({ success: true, message: "Risk assessment recorded" });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error in assessRisk:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error in assessRisk:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to assess risk" });
   }
 });
 
-router.get("/consent/purposes/list", async (_req: Request, res: Response) => {
+router.get("/consent/purposes/list", async (_req: Request, res: Response): Promise<void> => {
   try {
     const purposes = dpdpConsentService.getPurposes();
     res.json({ success: true, purposes });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error in getPurposes:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error in getPurposes:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to get consent purposes" });
   }
 });
 
-router.post("/consent", async (req: Request, res: Response) => {
+router.post("/consent", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId, consentType, consentGiven, ipAddress, userAgent } = req.body;
+    const { userId, consentType, consentGiven, ipAddress, userAgent } = req.body as {
+      userId?: string;
+      consentType?: string;
+      consentGiven?: boolean;
+      ipAddress?: string;
+      userAgent?: string;
+    };
     if (!userId || !consentType || consentGiven === undefined) {
-      return res.status(400).json({ success: false, error: "userId, consentType, and consentGiven are required" });
+      res.status(400).json({ success: false, error: "userId, consentType, and consentGiven are required" });
+      return;
     }
     const record = await dpdpConsentService.captureConsent({
       userId,
@@ -204,64 +225,66 @@ router.post("/consent", async (req: Request, res: Response) => {
       userAgent,
     });
     res.json({ success: true, consent: record });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error in captureConsent:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error in captureConsent:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to capture consent" });
   }
 });
 
-router.get("/consent/:userId", async (req: Request, res: Response) => {
+router.get("/consent/:userId", async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.params;
     const consents = await dpdpConsentService.getActiveConsents(userId);
     res.json({ success: true, consents });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error in getActiveConsents:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error in getActiveConsents:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to get active consents" });
   }
 });
 
-router.get("/consent/:userId/history", async (req: Request, res: Response) => {
+router.get("/consent/:userId/history", async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.params;
     const history = await dpdpConsentService.getConsentHistory(userId);
     res.json({ success: true, history });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error in getConsentHistory:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error in getConsentHistory:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to get consent history" });
   }
 });
 
-router.post("/consent/:userId/withdraw", async (req: Request, res: Response) => {
+router.post("/consent/:userId/withdraw", async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.params;
-    const { consentType, reason } = req.body;
+    const { consentType, reason } = req.body as { consentType?: string; reason?: string };
     if (!consentType || !reason) {
-      return res.status(400).json({ success: false, error: "consentType and reason are required" });
+      res.status(400).json({ success: false, error: "consentType and reason are required" });
+      return;
     }
     await dpdpConsentService.withdrawConsent(userId, consentType, reason);
     res.json({ success: true, message: "Consent withdrawn successfully" });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error in withdrawConsent:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error in withdrawConsent:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to withdraw consent" });
   }
 });
 
-router.get("/admin/providers", async (_req: Request, res: Response) => {
+router.get("/admin/providers", async (_req: Request, res: Response): Promise<void> => {
   try {
     const providers = await db.select().from(kycProviders);
     res.json({ success: true, providers });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error listing providers:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error listing providers:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to list providers" });
   }
 });
 
-router.patch("/admin/providers/:id", async (req: Request, res: Response) => {
+router.patch("/admin/providers/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
-      return res.status(400).json({ success: false, error: "Invalid provider ID" });
+      res.status(400).json({ success: false, error: "Invalid provider ID" });
+      return;
     }
     const updates: Record<string, any> = {};
     const { isEnabled, isConfigured, pricePerCall, providerName, apiEndpoint, features } = req.body;
@@ -280,20 +303,22 @@ router.patch("/admin/providers/:id", async (req: Request, res: Response) => {
       .returning();
 
     if (!updated) {
-      return res.status(404).json({ success: false, error: "Provider not found" });
+      res.status(404).json({ success: false, error: "Provider not found" });
+      return;
     }
     res.json({ success: true, provider: updated });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error updating provider:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error updating provider:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to update provider" });
   }
 });
 
-router.get("/admin/providers/:id/metrics", async (req: Request, res: Response) => {
+router.get("/admin/providers/:id/metrics", async (req: Request, res: Response): Promise<void> => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
-      return res.status(400).json({ success: false, error: "Invalid provider ID" });
+      res.status(400).json({ success: false, error: "Invalid provider ID" });
+      return;
     }
     const metrics = await db
       .select()
@@ -301,41 +326,48 @@ router.get("/admin/providers/:id/metrics", async (req: Request, res: Response) =
       .where(eq(providerMetrics.providerId, id))
       .orderBy(desc(providerMetrics.createdAt));
     res.json({ success: true, metrics });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error getting provider metrics:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error getting provider metrics:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to get provider metrics" });
   }
 });
 
-router.patch("/admin/priority", async (req: Request, res: Response) => {
+router.patch("/admin/priority", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { kycStep, providerId, newPriority, updatedBy } = req.body;
+    const { kycStep, providerId, newPriority, updatedBy } = req.body as {
+      kycStep?: string;
+      providerId?: number;
+      newPriority?: number;
+      updatedBy?: string;
+    };
     if (!kycStep || !providerId || !newPriority) {
-      return res.status(400).json({ success: false, error: "kycStep, providerId, and newPriority are required" });
+      res.status(400).json({ success: false, error: "kycStep, providerId, and newPriority are required" });
+      return;
     }
     await kycOrchestrationEngine.updateProviderPriority(kycStep, providerId, newPriority, updatedBy);
     res.json({ success: true, message: "Provider priority updated" });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error updating priority:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error updating priority:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to update priority" });
   }
 });
 
-router.get("/admin/products", async (_req: Request, res: Response) => {
+router.get("/admin/products", async (_req: Request, res: Response): Promise<void> => {
   try {
     const products = await db.select().from(productConfigurations);
     res.json({ success: true, products });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error listing products:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error listing products:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to list products" });
   }
 });
 
-router.patch("/admin/products/:id", async (req: Request, res: Response) => {
+router.patch("/admin/products/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
-      return res.status(400).json({ success: false, error: "Invalid product ID" });
+      res.status(400).json({ success: false, error: "Invalid product ID" });
+      return;
     }
     const updates: Record<string, any> = {};
     const { isEnabled, requiredKycLevel, requiredKycSteps, configuration } = req.body;
@@ -352,30 +384,43 @@ router.patch("/admin/products/:id", async (req: Request, res: Response) => {
       .returning();
 
     if (!updated) {
-      return res.status(404).json({ success: false, error: "Product configuration not found" });
+      res.status(404).json({ success: false, error: "Product configuration not found" });
+      return;
     }
     res.json({ success: true, product: updated });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error updating product:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error updating product:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to update product" });
   }
 });
 
-router.get("/admin/brokers", async (_req: Request, res: Response) => {
+router.get("/admin/brokers", async (_req: Request, res: Response): Promise<void> => {
   try {
     const brokers = await db.select().from(brokerConfigurations);
     res.json({ success: true, brokers });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error listing brokers:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error listing brokers:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to list brokers" });
   }
 });
 
-router.post("/admin/brokers", async (req: Request, res: Response) => {
+router.post("/admin/brokers", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { brokerCode, brokerName, brokerType, isEnabled, apiEndpoint, apiVersion, requiredEnvVars, supportedProducts, features, configuration } = req.body;
+    const { brokerCode, brokerName, brokerType, isEnabled, apiEndpoint, apiVersion, requiredEnvVars, supportedProducts, features, configuration } = req.body as {
+      brokerCode?: string;
+      brokerName?: string;
+      brokerType?: string;
+      isEnabled?: boolean;
+      apiEndpoint?: string;
+      apiVersion?: string;
+      requiredEnvVars?: any;
+      supportedProducts?: any;
+      features?: any;
+      configuration?: any;
+    };
     if (!brokerCode || !brokerName || !brokerType) {
-      return res.status(400).json({ success: false, error: "brokerCode, brokerName, and brokerType are required" });
+      res.status(400).json({ success: false, error: "brokerCode, brokerName, and brokerType are required" });
+      return;
     }
     const [created] = await db
       .insert(brokerConfigurations)
@@ -393,17 +438,18 @@ router.post("/admin/brokers", async (req: Request, res: Response) => {
       })
       .returning();
     res.status(201).json({ success: true, broker: created });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error creating broker:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error creating broker:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to create broker" });
   }
 });
 
-router.patch("/admin/brokers/:id", async (req: Request, res: Response) => {
+router.patch("/admin/brokers/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
-      return res.status(400).json({ success: false, error: "Invalid broker ID" });
+      res.status(400).json({ success: false, error: "Invalid broker ID" });
+      return;
     }
     const updates: Record<string, any> = {};
     const { brokerName, isEnabled, apiEndpoint, apiVersion, requiredEnvVars, supportedProducts, features, configuration, healthStatus } = req.body;
@@ -425,16 +471,17 @@ router.patch("/admin/brokers/:id", async (req: Request, res: Response) => {
       .returning();
 
     if (!updated) {
-      return res.status(404).json({ success: false, error: "Broker configuration not found" });
+      res.status(404).json({ success: false, error: "Broker configuration not found" });
+      return;
     }
     res.json({ success: true, broker: updated });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error updating broker:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error updating broker:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to update broker" });
   }
 });
 
-router.get("/admin/audit-logs", async (req: Request, res: Response) => {
+router.get("/admin/audit-logs", async (req: Request, res: Response): Promise<void> => {
   try {
     const { entityType, eventType, startDate, endDate, limit: limitStr, offset: offsetStr } = req.query;
     const limit = parseInt(limitStr as string, 10) || 50;
@@ -458,13 +505,13 @@ router.get("/admin/audit-logs", async (req: Request, res: Response) => {
       : await query;
 
     res.json({ success: true, logs, pagination: { limit, offset } });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error getting audit logs:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error getting audit logs:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to get audit logs" });
   }
 });
 
-router.get("/admin/funnels", async (req: Request, res: Response) => {
+router.get("/admin/funnels", async (req: Request, res: Response): Promise<void> => {
   try {
     const { funnelType, productType, startDate, endDate } = req.query;
 
@@ -484,19 +531,19 @@ router.get("/admin/funnels", async (req: Request, res: Response) => {
       : await query;
 
     res.json({ success: true, funnels });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error getting funnels:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error getting funnels:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to get funnel data" });
   }
 });
 
-router.get("/admin/provider-dashboard", async (_req: Request, res: Response) => {
+router.get("/admin/provider-dashboard", async (_req: Request, res: Response): Promise<void> => {
   try {
     const providers = await db.select().from(kycProviders);
-    const metrics = await db.select().from(providerMetrics);
+    const metricsResult = await db.select().from(providerMetrics);
 
     const dashboard = providers.map((provider) => {
-      const providerMetricsList = metrics.filter((m) => m.providerId === provider.id);
+      const providerMetricsList = metricsResult.filter((m) => m.providerId === provider.id);
       const totalCalls = providerMetricsList.reduce((sum, m) => sum + (m.totalCalls || 0), 0);
       const successCalls = providerMetricsList.reduce((sum, m) => sum + (m.successfulCalls || 0), 0);
       const failedCalls = providerMetricsList.reduce((sum, m) => sum + (m.failedCalls || 0), 0);
@@ -524,8 +571,8 @@ router.get("/admin/provider-dashboard", async (_req: Request, res: Response) => 
     });
 
     res.json({ success: true, dashboard });
-  } catch (error: any) {
-    console.error("[KYC-ENGINE-ROUTES] Error getting provider dashboard:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[KYC-ENGINE-ROUTES] Error getting provider dashboard:", errorMessage(error));
     res.status(500).json({ success: false, error: "Failed to get provider dashboard" });
   }
 });

@@ -1,3 +1,16 @@
+import { db } from '../db';
+import { prospectProposalEvents } from '@shared/schema';
+import {
+  getStoreEligibleMutualFunds,
+  getStoreEligibleBonds,
+  getStoreEligibleAIFs,
+  getStoreEligiblePMS,
+  getStoreEligibleMLDs,
+  getStoreEligibleStocks,
+  generateAnalyticalRationale,
+} from './prospect-proposals-helpers-1';
+import { aiRecommendationTrackingService } from '../services/ai-recommendation-tracking-service';
+
 // Build Stock-specific rationale
 export function buildStockRationale(recType: string, m: any): string {
   const parts: string[] = [];

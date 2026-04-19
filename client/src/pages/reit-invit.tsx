@@ -208,11 +208,11 @@ export default function ReitInvitPage() {
   const [unlistedInvitIndustry, setUnlistedInvitIndustry] = useState('all');
   const { toast } = useToast();
 
-  const { data: marketOverview, isLoading: overviewLoading } = useQuery({
+  const { data: marketOverview, isLoading: overviewLoading } = useQuery<any>({
     queryKey: ['/api/reit-invit/market-overview'],
   });
 
-  const { data: reitsData, isLoading: reitsLoading } = useQuery({
+  const { data: reitsData, isLoading: reitsLoading } = useQuery<any>({
     queryKey: ['/api/reit-invit/reits', reitFilters],
     queryFn: async () => {
       const queryStr = buildQueryString(reitFilters);
@@ -222,7 +222,7 @@ export default function ReitInvitPage() {
     },
   });
 
-  const { data: invitsData, isLoading: invitsLoading } = useQuery({
+  const { data: invitsData, isLoading: invitsLoading } = useQuery<any>({
     queryKey: ['/api/reit-invit/invits', invitFilters],
     queryFn: async () => {
       const queryStr = buildQueryString(invitFilters);
@@ -232,7 +232,7 @@ export default function ReitInvitPage() {
     },
   });
 
-  const { data: aiRecommendations, isLoading: recommendationsLoading } = useQuery({
+  const { data: aiRecommendations, isLoading: recommendationsLoading } = useQuery<any>({
     queryKey: ['/api/reit-invit/ai-recommendations'],
     queryFn: async () => {
       const response = await fetch('/api/reit-invit/ai-recommendations?riskProfile=moderate');
@@ -241,7 +241,7 @@ export default function ReitInvitPage() {
     },
   });
 
-  const { data: unlistedReitsData, isLoading: unlistedReitsLoading } = useQuery({
+  const { data: unlistedReitsData, isLoading: unlistedReitsLoading } = useQuery<any>({
     queryKey: ['/api/reit-invit/unlisted-reits', unlistedReitSearch],
     queryFn: async () => {
       const qs = unlistedReitSearch ? `?search=${encodeURIComponent(unlistedReitSearch)}` : '';
@@ -251,7 +251,7 @@ export default function ReitInvitPage() {
     },
   });
 
-  const { data: unlistedInvitsData, isLoading: unlistedInvitsLoading } = useQuery({
+  const { data: unlistedInvitsData, isLoading: unlistedInvitsLoading } = useQuery<any>({
     queryKey: ['/api/reit-invit/unlisted-invits', unlistedInvitSearch, unlistedInvitIndustry],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -486,7 +486,7 @@ export default function ReitInvitPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {REIT_SECTORS.map(s => (
+                      {REIT_SECTORS.map((s: any) => (
                         <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -502,7 +502,7 @@ export default function ReitInvitPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {RISK_LEVELS.map(r => (
+                      {RISK_LEVELS.map((r: any) => (
                         <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -518,7 +518,7 @@ export default function ReitInvitPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {AI_SIGNALS.map(s => (
+                      {AI_SIGNALS.map((s: any) => (
                         <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -530,7 +530,7 @@ export default function ReitInvitPage() {
 
           {reitsLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-64" />)}
+              {[1, 2, 3, 4].map((i: any) => <Skeleton key={i} className="h-64" />)}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -645,7 +645,7 @@ export default function ReitInvitPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {INVIT_SECTORS.map(s => (
+                      {INVIT_SECTORS.map((s: any) => (
                         <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -661,7 +661,7 @@ export default function ReitInvitPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {RISK_LEVELS.map(r => (
+                      {RISK_LEVELS.map((r: any) => (
                         <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -677,7 +677,7 @@ export default function ReitInvitPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {AI_SIGNALS.map(s => (
+                      {AI_SIGNALS.map((s: any) => (
                         <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -689,7 +689,7 @@ export default function ReitInvitPage() {
 
           {invitsLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-64" />)}
+              {[1, 2, 3, 4].map((i: any) => <Skeleton key={i} className="h-64" />)}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -817,7 +817,7 @@ export default function ReitInvitPage() {
 
           {unlistedReitsLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-40" />)}
+              {[1, 2, 3].map((i: any) => <Skeleton key={i} className="h-40" />)}
             </div>
           ) : unlistedReits.length === 0 ? (
             <Card><CardContent className="py-12 text-center text-muted-foreground">No unlisted REITs found.</CardContent></Card>
@@ -902,7 +902,7 @@ export default function ReitInvitPage() {
 
           {unlistedInvitsLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-40" />)}
+              {[1, 2, 3, 4, 5, 6].map((i: any) => <Skeleton key={i} className="h-40" />)}
             </div>
           ) : unlistedInvits.length === 0 ? (
             <Card><CardContent className="py-12 text-center text-muted-foreground">No unlisted InvITs found.</CardContent></Card>
@@ -977,7 +977,7 @@ export default function ReitInvitPage() {
 
           {recommendationsLoading ? (
             <div className="space-y-4">
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-32" />)}
+              {[1, 2, 3].map((i: any) => <Skeleton key={i} className="h-32" />)}
             </div>
           ) : (
             <div className="space-y-4">

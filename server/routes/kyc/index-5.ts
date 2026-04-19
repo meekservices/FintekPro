@@ -92,14 +92,14 @@ export function registerKYCWizardPart5Routes(app: Express) {
           addressVerifiedAt: vault?.addressVerifiedAt || null,
           fatcaDeclared: !!(userProfile?.fatcaDeclarationDate),
           fatcaDeclaredAt: userProfile?.fatcaDeclarationDate || null,
-          videoKycCompleted: !!(userProfile?.videoKycCompletedAt || userProfile?.videoKycCompletedDate),
-          videoKycCompletedAt: userProfile?.videoKycCompletedAt || userProfile?.videoKycCompletedDate || null,
+          videoKycCompleted: !!((userProfile as any)?.videoKycCompletedAt || (userProfile as any)?.videoKycCompletedDate),
+          videoKycCompletedAt: (userProfile as any)?.videoKycCompletedAt || (userProfile as any)?.videoKycCompletedDate || null,
           videoKycExpiryDate: userProfile?.videoKycExpiryDate || null,
           videoKycExpired: !!(userProfile?.videoKycExpiryDate && new Date() > new Date(userProfile.videoKycExpiryDate)),
           smartKycCompletedAt: user?.smartKycCompletedAt || null,
         },
-        kycTier: userProfile?.kycTier || 'none',
-        kycTierStatus: userProfile?.kycTierStatus || null,
+        kycTier: (userProfile as any)?.kycTier || 'none',
+        kycTierStatus: (userProfile as any)?.kycTierStatus || null,
       });
     } catch (error) {
       console.error('[KYC] vault-status error:', error);
@@ -114,7 +114,7 @@ export function registerKYCWizardPart5Routes(app: Express) {
     try {
       const userId = req.user!.id;
       const { productCode } = req.params;
-      const { kycSufficiencyService, PRODUCT_PROFILES } = await import('../services/kyc-sufficiency-service');
+      const { kycSufficiencyService, PRODUCT_PROFILES } = await import('../../services/kyc-sufficiency-service');
 
       if (!PRODUCT_PROFILES[productCode as keyof typeof PRODUCT_PROFILES]) {
         return res.status(400).json({ success: false, message: `Unknown product code: ${productCode}` });
@@ -134,7 +134,7 @@ export function registerKYCWizardPart5Routes(app: Express) {
   app.get("/api/kyc/sufficiency", requireClientOrHigher, async (req: any, res) => {
     try {
       const userId = req.user!.id;
-      const { kycSufficiencyService } = await import('../services/kyc-sufficiency-service');
+      const { kycSufficiencyService } = await import('../../services/kyc-sufficiency-service');
 
       const results = await kycSufficiencyService.checkAllProducts(userId);
       res.json({ success: true, products: results });
@@ -151,7 +151,7 @@ export function registerKYCWizardPart5Routes(app: Express) {
     try {
       const userId = req.user!.id;
       const { productCode } = req.params;
-      const { kycSufficiencyService, PRODUCT_PROFILES } = await import('../services/kyc-sufficiency-service');
+      const { kycSufficiencyService, PRODUCT_PROFILES } = await import('../../services/kyc-sufficiency-service');
 
       if (!PRODUCT_PROFILES[productCode as keyof typeof PRODUCT_PROFILES]) {
         return res.status(400).json({ success: false, message: `Unknown product code: ${productCode}` });

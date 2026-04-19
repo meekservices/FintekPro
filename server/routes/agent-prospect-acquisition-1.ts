@@ -171,8 +171,8 @@ app.post("/api/agent/prospect-clients", requireAgent, async (req: any, res) => {
     
     // Sync prospect to Zoho CRM as Lead with agent attribution (using master connection resolver)
     try {
-      const { ZohoCRMService } = await import("./zoho/services/crm");
-      const { ZohoConnectionResolver } = await import("./zoho/connection-resolver");
+      const { ZohoCRMService } = await import("../zoho/services/crm");
+      const { ZohoConnectionResolver } = await import("../zoho/connection-resolver");
       
       const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
       

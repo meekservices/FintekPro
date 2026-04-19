@@ -284,7 +284,7 @@ class DsaLoanService {
         continue;
       }
 
-      const bankRules = rules.filter(r => r.bankCode === bank.bankCode && r.loanType === application.loanType);
+      const bankRules = rules.filter((r: any) => r.bankCode === bank.bankCode && r.loanType === application.loanType);
       let eligible = true;
       const reasons: string[] = [];
       let matchScore = 100;
@@ -347,11 +347,11 @@ class DsaLoanService {
         status: 'eligibility_check',
         updatedAt: new Date(),
         currentStage: 'eligibility',
-        eligibleBanks: results.filter(r => r.eligible).map(r => r.bankCode),
+        eligibleBanks: results.filter((r: any) => r.eligible).map((r: any) => r.bankCode),
       })
       .where(eq(dsaLoanApplications.id, applicationId));
 
-    return results.sort((a, b) => b.matchScore - a.matchScore);
+    return results.sort((a: any, b: any) => b.matchScore - a.matchScore);
   }
 
   private calculateAge(birthDate: Date): number {
@@ -466,7 +466,7 @@ class DsaLoanService {
         ...response,
         responseReceivedAt: new Date(),
         updatedAt: new Date(),
-      })
+      } as any)
       .where(eq(loanRoutingHistory.id, routingHistoryId));
 
     await this.createAuditLog({
@@ -487,9 +487,9 @@ class DsaLoanService {
       .from(loanRoutingHistory)
       .where(eq(loanRoutingHistory.applicationId, applicationId));
 
-    const approved = histories.filter(h => h.bankStatus === 'approved');
-    const rejected = histories.filter(h => h.bankStatus === 'rejected');
-    const pending = histories.filter(h => h.bankStatus === 'pending' || h.bankStatus === 'in_review');
+    const approved = histories.filter((h: any) => h.bankStatus === 'approved');
+    const rejected = histories.filter((h: any) => h.bankStatus === 'rejected');
+    const pending = histories.filter((h: any) => h.bankStatus === 'pending' || h.bankStatus === 'in_review');
 
     let newStatus: DsaLoanStatus = 'pending_with_banks';
 
@@ -729,7 +729,7 @@ class DsaLoanService {
         const connector = await db
           .select()
           .from(bankConnectors)
-          .where(eq(bankConnectors.id, rule.bankConnectorId!))
+          .where(eq(bankConnectors.id, (rule as any).bankConnectorId!))
           .limit(1);
 
         if (connector[0] && !eligibleBanks.includes(connector[0].bankName)) {
@@ -869,7 +869,7 @@ class DsaLoanService {
       return {
         status: 'no_additional_options',
         message: 'No additional banks available for borderline routing',
-        existingOffers: eligibilityResults.filter(r => r.eligible).length,
+        existingOffers: eligibilityResults.filter((r: any) => r.eligible).length,
       };
     }
 
@@ -908,7 +908,7 @@ class DsaLoanService {
       status: 'background_routing_initiated',
       reason,
       additionalBanksRouted: successfulRoutings.length,
-      bankNames: borderlineResults.map(r => r.bankName),
+      bankNames: borderlineResults.map((r: any) => r.bankName),
       message: `${successfulRoutings.length} additional bank(s) added for extended review`,
     };
   }

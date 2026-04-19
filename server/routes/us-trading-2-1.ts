@@ -1,36 +1,19 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
-import { db } from "../db";
-import { users, kycVault } from "@shared/schema";
 import { usTradingService } from "../services/us-trading-service";
 import { alpacaMarketDataService } from "../services/alpaca-market-data-service";
 import { alpacaBrokerService } from "../services/alpaca-broker-service";
-import { alpacaSseService } from "../services/alpaca-sse-service";
 import { massiveWebSocketService } from "../services/massive-websocket-service";
-import { usOrderNotificationService } from "../services/us-order-notification-service";
-import { usRebalancingEngine } from "../services/us-rebalancing-engine";
-import { orderAuditHook } from "../services/order-audit-hook";
-import { kycEncryptionService } from "../services/kyc-encryption-service";
-import crypto from "crypto";
+import type { AuthRequest } from "../types/broker-types";
 
-const router = Router();
+const router: Router = Router();
 
-const orderSchema = z.object({
-  symbol: z.string().min(1).max(10),
-  side: z.enum(["buy", "sell"]),
-  orderType: z.enum(["market", "limit", "stop", "stop_limit"]).default("market"),
-  timeInForce: z.enum(["day", "gtc", "ioc", "fok"]).default("day"),
-  quantity: z.number().positive().optional(),
-  notionalUsd: z.number().positive().optional(),
-  limitPrice: z.number().positive().optional(),
-  stopPrice: z.number().positive().optional(),
-  consent: z.boolean(),
-  lrsDeclaration: z.boolean(),
-});
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
 
 // Get user positions (live from Alpaca when configured, graceful fallback otherwise)
-router.get("/broker/test-connection", async (req, res) => {
+router.get("/broker/test-connection", async (_req: Request, res: Response): Promise<void> => {
   try {
     const alpacaResult = await alpacaBrokerService.testConnection();
     const polygonResult = alpacaMarketDataService.testConnection();
@@ -47,23 +30,25 @@ router.get("/broker/test-connection", async (req, res) => {
         feedType: wsStatus.feedType,
       },
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
 // ─── Alpaca Account Dashboard Routes ──────────────────────────────────────────
 
-router.post("/alpaca/credentials", async (req, res) => {
+router.post("/alpaca/credentials", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { apiKey, secretKey, baseUrl } = req.body;
+    const { apiKey, secretKey, baseUrl } = req.body as { apiKey?: string; secretKey?: string; baseUrl?: string };
     if (!apiKey || !secretKey) {
-      return res.status(400).json({ success: false, error: "apiKey and secretKey are required" });
+      res.status(400).json({ success: false, error: "apiKey and secretKey are required" });
+      return;
     }
     alpacaBrokerService.configure(apiKey.trim(), secretKey.trim(), baseUrl?.trim() || undefined);
     const test = await alpacaBrokerService.testConnection();
     if (!test.success) {
-      return res.status(400).json({ success: false, error: test.message });
+      res.status(400).json({ success: false, error: test.message });
+      return;
     }
     res.json({
       success: true,
@@ -71,12 +56,12 @@ router.post("/alpaca/credentials", async (req, res) => {
       isPaper: alpacaBrokerService.isPaperTrading(),
       baseUrl: alpacaBrokerService.getBaseUrl(),
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/alpaca/config", async (req, res) => {
+router.get("/alpaca/config", async (_req: Request, res: Response): Promise<void> => {
   const configured = alpacaBrokerService.isConfigured();
   let authOk = false;
   let authError: string | undefined;
@@ -85,8 +70,8 @@ router.get("/alpaca/config", async (req, res) => {
       const test = await alpacaBrokerService.testConnection();
       authOk = test.success;
       if (!test.success) authError = test.message;
-    } catch (e: any) {
-      authError = e.message;
+    } catch (e: unknown) {
+      authError = errorMessage(e);
     }
   }
   res.json({
@@ -101,15 +86,16 @@ router.get("/alpaca/config", async (req, res) => {
 });
 
 // Activate all US trading feature flags at once (admin convenience)
-router.post("/activate-us-trading", async (req, res) => {
+router.post("/activate-us-trading", async (_req: Request, res: Response): Promise<void> => {
   try {
     const test = await alpacaBrokerService.testConnection();
     if (!test.success) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: `Alpaca auth failed — update ALPACA_SECRET_KEY: ${test.message}`,
         authOk: false,
       });
+      return;
     }
     await usTradingService.initializeFeatureFlags();
     const flags = ["US_TRADING_ENABLED", "US_TRADING_ALPACA", "US_FRACTIONAL_TRADING"];
@@ -118,119 +104,184 @@ router.post("/activate-us-trading", async (req, res) => {
     }
     const allFlags = await usTradingService.getFeatureFlags();
     res.json({ success: true, message: "US Trading activated", flags: allFlags, authOk: true });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
 // List all broker-managed accounts (broker API only)
-router.get("/alpaca/broker/accounts", async (req, res) => {
+router.get("/alpaca/broker/accounts", async (_req: Request, res: Response): Promise<void> => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
-      return res.json({ configured: false, accounts: [] });
+      res.json({ configured: false, accounts: [] });
+      return;
     }
     const accounts = await alpacaBrokerService.listBrokerAccounts();
     res.json({ configured: true, accounts });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/alpaca/account", async (req, res) => {
+router.get("/account", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const accountId = req.query.accountId as string | undefined;
+    const account = await alpacaBrokerService.getAccount(accountId);
+    res.json({ 
+      configured: true, 
+      is_paper: alpacaBrokerService.isPaperTrading(), 
+      account,
+      onboarding: false,
+      onboarding_status: "ACTIVE"
+    });
+  } catch (error: unknown) {
+    res.status(200).json({ 
+      configured: false, 
+      account: null, 
+      is_paper: true,
+      onboarding: false,
+      onboarding_status: "PENDING"
+    });
+  }
+});
+
+router.get("/alpaca/account", async (req: Request, res: Response): Promise<void> => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
-      return res.json({ configured: false, isPaper: true });
+      res.json({ configured: false, isPaper: true });
+      return;
     }
     const accountId = req.query.accountId as string | undefined;
     const account = await alpacaBrokerService.getAccount(accountId);
     res.json({ configured: true, isPaper: alpacaBrokerService.isPaperTrading(), account });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/alpaca/market-clock", async (req, res) => {
+router.get("/alpaca/market-clock", async (_req: Request, res: Response): Promise<void> => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
-      return res.json({ configured: false });
+      res.json({ configured: false });
+      return;
     }
     const clock = await alpacaBrokerService.getMarketClock();
     res.json({ configured: true, clock });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/alpaca/portfolio/history", async (req, res) => {
+router.get("/alpaca/portfolio/history", async (req: Request, res: Response): Promise<void> => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
-      return res.json({ configured: false });
+      res.json({ configured: false });
+      return;
     }
     const period = (req.query.period as string) || "1M";
     const timeframe = (req.query.timeframe as string) || "1D";
     const accountId = req.query.accountId as string | undefined;
     const history = await alpacaBrokerService.getPortfolioHistory(period, timeframe, accountId);
     res.json({ configured: true, history });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/alpaca/orders", async (req, res) => {
+router.get("/alpaca/orders", async (req: Request, res: Response): Promise<void> => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
-      return res.json({ configured: false, orders: [] });
+      res.json({ configured: false, orders: [] });
+      return;
     }
     const status = (req.query.status as string) || "all";
-    const limit = parseInt((req.query.limit as string) || "50");
+    const limit = parseInt((req.query.limit as string) || "50", 10);
     const accountId = req.query.accountId as string | undefined;
     const orders = await alpacaBrokerService.getOrders(status, limit, accountId);
     res.json({ configured: true, orders });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.delete("/alpaca/orders", async (req, res) => {
+router.delete("/alpaca/orders", async (req: Request, res: Response): Promise<void> => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
-      return res.status(400).json({ success: false, error: "Alpaca API not configured" });
+      res.status(400).json({ success: false, error: "Alpaca API not configured" });
+      return;
     }
     const accountId = req.query.accountId as string | undefined;
     const cancelled = await alpacaBrokerService.cancelAllOrders(accountId);
     res.json({ success: true, cancelled });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.delete("/alpaca/orders/:orderId", async (req, res) => {
+router.delete("/alpaca/orders/:orderId", async (req: Request, res: Response): Promise<void> => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
-      return res.status(400).json({ success: false, error: "Alpaca API not configured" });
+      res.status(400).json({ success: false, error: "Alpaca API not configured" });
+      return;
     }
     const accountId = req.query.accountId as string | undefined;
     const ok = await alpacaBrokerService.cancelOrder(req.params.orderId, accountId);
     res.json({ success: ok });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.delete("/alpaca/positions/:symbol", async (req, res) => {
+router.delete("/alpaca/positions/:symbol", async (req: Request, res: Response): Promise<void> => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
-      return res.status(400).json({ success: false, error: "Alpaca API not configured" });
+      res.status(400).json({ success: false, error: "Alpaca API not configured" });
+      return;
     }
     const accountId = req.query.accountId as string | undefined;
     const ok = await alpacaBrokerService.closePosition(req.params.symbol.toUpperCase(), accountId);
     res.json({ success: ok });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/market-data", async (req, res) => {
+interface IndexProxy {
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  etfProxy?: string;
+  source: string;
+}
+
+interface Holding {
+  id: string;
+  symbol: string;
+  companyName?: string;
+  currentPriceUsd: string;
+  avgPriceUsd: string;
+  quantity: string;
+}
+
+interface WatchlistItem {
+  symbol: string;
+  addedAt: string;
+}
+
+interface OrderRecord {
+  id: string;
+  symbol: string;
+  side: string;
+  quantity: string;
+  filledAvgPrice?: string;
+  limitPrice?: string;
+  status: string;
+  createdAt: string;
+}
+
+router.get("/market-data", async (_req: Request, res: Response): Promise<void> => {
   try {
     // All symbols fetched in one batch snapshot call — much faster than individual quotes
     const allSymbols = [
@@ -260,7 +311,7 @@ router.get("/market-data", async (req, res) => {
     const qqqSnap = snapshotMap.get("QQQ");
     const diaSnap = snapshotMap.get("DIA");
 
-    const makeIndexProxy = (sym: string, name: string, snap: typeof spySnap) => {
+    const makeIndexProxy = (sym: string, name: string, snap: any): IndexProxy => {
       if (!snap) return { symbol: sym, name, price: 0, change: 0, changePercent: 0, source: "ETF proxy" };
       const price     = snap.latestTrade.price || snap.dailyBar.close;
       const prevClose = snap.prevDailyBar.close || snap.dailyBar.open || price;
@@ -271,7 +322,7 @@ router.get("/market-data", async (req, res) => {
 
     const marketStatus = clock ? (clock.is_open ? "open" : "closed") : (() => {
       const now    = new Date();
-      const nyHour = parseInt(now.toLocaleString("en-US", { timeZone: "America/New_York", hour: "numeric", hour12: false }));
+      const nyHour = parseInt(now.toLocaleString("en-US", { timeZone: "America/New_York", hour: "numeric", hour12: false }), 10);
       return (now.getDay() !== 0 && now.getDay() !== 6 && nyHour >= 9 && nyHour < 16) ? "open" : "closed";
     })();
 
@@ -293,31 +344,33 @@ router.get("/market-data", async (req, res) => {
       nextOpen:     clock?.next_open,
       nextClose:    clock?.next_close,
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/holdings", async (req, res) => {
+router.get("/holdings", async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) {
-      return res.json({
+      res.json({
         holdings: [],
         totalValue: 0,
         totalValueINR: 0,
         totalProfitLoss: 0,
         totalProfitLossPercent: 0,
       });
+      return;
     }
 
-    const holdings = await usTradingService.getHoldings(userId);
+    const holdingsRaw = await usTradingService.getHoldings(userId);
+    const holdings = holdingsRaw as unknown as Holding[];
     const fxRate = await alpacaMarketDataService.getUsdInrRate();
     
     let totalValue = 0;
     let totalCost = 0;
     
-    const formattedHoldings = holdings.map((h: any) => {
+    const formattedHoldings = holdings.map((h) => {
       const currentPrice = parseFloat(h.currentPriceUsd) || 0;
       const avgPrice = parseFloat(h.avgPriceUsd) || 0;
       const qty = parseFloat(h.quantity) || 0;
@@ -353,35 +406,39 @@ router.get("/holdings", async (req, res) => {
       totalProfitLoss: totalPL,
       totalProfitLossPercent: totalPLPercent,
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/watchlist", async (req, res) => {
+router.get("/watchlist", async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) {
-      return res.json({ items: [] });
+      res.json({ items: [] });
+      return;
     }
 
-    const items = await usTradingService.getWatchlist(userId);
-    res.json({ items: items.map((i: any) => ({ symbol: i.symbol, addedAt: i.addedAt })) });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    const itemsRaw = await usTradingService.getWatchlist(userId);
+    const items = itemsRaw as unknown as WatchlistItem[];
+    res.json({ items: items.map((i) => ({ symbol: i.symbol, addedAt: i.addedAt })) });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/orders", async (req, res) => {
+router.get("/orders", async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) {
-      return res.json({ orders: [] });
+      res.json({ orders: [] });
+      return;
     }
 
-    const orders = await usTradingService.getOrders(userId);
+    const ordersRaw = await usTradingService.getOrders(userId);
+    const orders = ordersRaw as unknown as OrderRecord[];
     res.json({ 
-      orders: orders.map((o: any) => ({
+      orders: orders.map((o) => ({
         id: o.id,
         symbol: o.symbol,
         side: o.side,
@@ -391,16 +448,17 @@ router.get("/orders", async (req, res) => {
         createdAt: o.createdAt,
       }))
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.post("/holdings/sync", async (req, res) => {
+router.post("/holdings/sync", async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
     if (!userId) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
     }
 
     const positions = await alpacaBrokerService.getPositions();
@@ -426,10 +484,9 @@ router.post("/holdings/sync", async (req, res) => {
       message: `Synced ${positions.length} positions`,
       syncedAt: new Date(),
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
-
 
 export default router;

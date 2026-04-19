@@ -13,6 +13,7 @@ import { usRebalancingEngine } from "../services/us-rebalancing-engine";
 import { orderAuditHook } from "../services/order-audit-hook";
 import { kycEncryptionService } from "../services/kyc-encryption-service";
 import crypto from "crypto";
+import * as schema from "@shared/schema";
 
 const router = Router();
 

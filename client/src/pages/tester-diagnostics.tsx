@@ -48,12 +48,12 @@ function HealthBadge({ status }: { status: string }) {
 }
 
 function SystemHealthTab() {
-  const { data: diagnostics, isLoading: diagLoading } = useQuery({
+  const { data: diagnostics, isLoading: diagLoading } = useQuery<any>({
     queryKey: ["/api/tester"],
     refetchInterval: 30000,
   });
 
-  const { data: healthCheck, isLoading: healthLoading } = useQuery({
+  const { data: healthCheck, isLoading: healthLoading } = useQuery<any>({
     queryKey: ["/api/tester/health-check"],
     refetchInterval: 30000,
   });
@@ -177,7 +177,7 @@ function ErrorLogTab() {
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<any>({
     queryKey: ["/api/tester/errors"],
   });
 
@@ -312,7 +312,7 @@ function ExportDataTab() {
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
-  const { data } = useQuery({
+  const { data } = useQuery<any>({
     queryKey: ["/api/tester/errors"],
   });
 
@@ -534,11 +534,11 @@ function ReportBugTab() {
 }
 
 export default function TesterDiagnostics() {
-  const { data: user, isLoading: userLoading } = useQuery({
+  const { data: user, isLoading: userLoading } = useQuery<any>({
     queryKey: ["/api/user"],
   });
 
-  const { data: diagnostics, error: diagError } = useQuery({
+  const { data: diagnostics, error: diagError } = useQuery<any>({
     queryKey: ["/api/tester"],
     retry: false,
     enabled: !!user,

@@ -79,6 +79,7 @@ export async function getTierUpgradeRequirements(
   if (!profile) {
     throw new Error("User profile not found");
   }
+  const profileData = profile as any; // Extra KYC fields (kycTier, accreditedInvestorStatus, etc.) not in Drizzle schema
 
   if (targetTier === "enhanced") {
     const requirements = [
@@ -97,7 +98,7 @@ export async function getTierUpgradeRequirements(
       {
         field: "videoKycCompleted",
         label: "Video KYC",
-        completed: profile.videoKycCompleted === true,
+        completed: profileData.videoKycCompleted === true,
         description: "Live video KYC session completed",
       },
       {
@@ -140,34 +141,34 @@ export async function getTierUpgradeRequirements(
   if (targetTier === "accredited_investor") {
     // Check if user meets SEBI criteria
     const meetsIncomeCriteria =
-      profile.annualIncomeAmount &&
-      Number(profile.annualIncomeAmount) >= ACCREDITED_INVESTOR_CRITERIA.ANNUAL_INCOME_THRESHOLD;
+      profileData.annualIncomeAmount &&
+      Number(profileData.annualIncomeAmount) >= ACCREDITED_INVESTOR_CRITERIA.ANNUAL_INCOME_THRESHOLD;
 
     const meetsNetWorthCriteria =
-      profile.netWorthExcludingResidence &&
-      Number(profile.netWorthExcludingResidence) >= ACCREDITED_INVESTOR_CRITERIA.NET_WORTH_THRESHOLD;
+      profileData.netWorthExcludingResidence &&
+      Number(profileData.netWorthExcludingResidence) >= ACCREDITED_INVESTOR_CRITERIA.NET_WORTH_THRESHOLD;
 
     const meetsPortfolioCriteria =
-      profile.portfolioValueAmount &&
-      Number(profile.portfolioValueAmount) >= ACCREDITED_INVESTOR_CRITERIA.PORTFOLIO_VALUE_THRESHOLD;
+      profileData.portfolioValueAmount &&
+      Number(profileData.portfolioValueAmount) >= ACCREDITED_INVESTOR_CRITERIA.PORTFOLIO_VALUE_THRESHOLD;
 
     const meetsProfessionalCriteria =
-      profile.professionalQualification &&
-      ACCREDITED_INVESTOR_CRITERIA.PROFESSIONAL_QUALIFICATIONS.includes(profile.professionalQualification) &&
-      profile.professionalQualificationVerified &&
-      (profile.professionalExperienceYears || 0) >= ACCREDITED_INVESTOR_CRITERIA.MIN_EXPERIENCE_YEARS;
+      profileData.professionalQualification &&
+      ACCREDITED_INVESTOR_CRITERIA.PROFESSIONAL_QUALIFICATIONS.includes(profileData.professionalQualification) &&
+      profileData.professionalQualificationVerified &&
+      (profileData.professionalExperienceYears || 0) >= ACCREDITED_INVESTOR_CRITERIA.MIN_EXPERIENCE_YEARS;
 
     // Determine which qualification route user is taking
-    const hasIncomeProof = profile.incomeProofDocuments && Array.isArray(profile.incomeProofDocuments) && profile.incomeProofDocuments.length > 0;
-    const hasCaCertificate = !!profile.caCertificateUrl;
-    const hasPortfolioStatement = !!profile.portfolioStatementUrl;
+    const hasIncomeProof = profileData.incomeProofDocuments && Array.isArray(profileData.incomeProofDocuments) && profileData.incomeProofDocuments.length > 0;
+    const hasCaCertificate = !!profileData.caCertificateUrl;
+    const hasPortfolioStatement = !!profileData.portfolioStatementUrl;
 
     // Base requirements (always needed)
     const baseRequirements = [
       {
         field: "enhancedKycCompleted",
         label: "Enhanced KYC Completed",
-        completed: profile.kycTier === "enhanced" || profile.kycTier === "accredited_investor",
+        completed: profileData.kycTier === "enhanced" || profileData.kycTier === "accredited_investor",
         description: "Enhanced KYC tier must be completed first",
       },
       {
@@ -207,7 +208,7 @@ export async function getTierUpgradeRequirements(
         field: "professionalQualification",
         label: "Professional Qualification",
         completed: true,
-        description: `${profile.professionalQualification} with ${profile.professionalExperienceYears}+ years experience`,
+        description: `${profileData.professionalQualification} with ${profileData.professionalExperienceYears}+ years experience`,
       });
     } else {
       // User hasn't met any criteria yet - show all options
@@ -257,7 +258,8 @@ export async function getUserProductAccess(userId: string): Promise<{
   let unlockedProducts: string[] = [];
 
   // Check for accredited investor status first
-  const isAccredited = profile.accreditedInvestorStatus === "verified";
+  const profileData = profile as any;
+  const isAccredited = profileData.accreditedInvestorStatus === "verified";
   
   if (isAccredited) {
     tier = "accredited_investor";
@@ -313,7 +315,7 @@ export async function upgradeToEnhancedKyc(userId: string): Promise<{
     .set({
       kycTier: "enhanced",
       kycTierUpgradedAt: new Date(),
-    })
+    } as any)
     .where(eq(userProfiles.userId, userId));
 
   // Update product access
@@ -323,7 +325,7 @@ export async function upgradeToEnhancedKyc(userId: string): Promise<{
     .set({
       productsUnlocked: unlockedProducts,
       lastProductAccessUpdate: new Date(),
-    })
+    } as any)
     .where(eq(userProfiles.userId, userId));
 
   return {
@@ -352,11 +354,12 @@ export async function requestAccreditedInvestorVerification(
   }
 
   // Check if already verified or pending
-  if (profile.accreditedInvestorStatus === "verified") {
+  const profileData = profile as any;
+  if (profileData.accreditedInvestorStatus === "verified") {
     return { success: false, message: "Already verified as Accredited Investor" };
   }
 
-  if (profile.accreditedInvestorStatus === "pending") {
+  if (profileData.accreditedInvestorStatus === "pending") {
     return { success: false, message: "Verification request already pending" };
   }
 
@@ -367,34 +370,34 @@ export async function requestAccreditedInvestorVerification(
   switch (verificationType) {
     case "income_based":
       qualified = !!(
-        profile.annualIncomeAmount &&
-        Number(profile.annualIncomeAmount) >= ACCREDITED_INVESTOR_CRITERIA.ANNUAL_INCOME_THRESHOLD
+        profileData.annualIncomeAmount &&
+        Number(profileData.annualIncomeAmount) >= ACCREDITED_INVESTOR_CRITERIA.ANNUAL_INCOME_THRESHOLD
       );
       rejectionReason = qualified ? "" : `Annual income must be ₹${ACCREDITED_INVESTOR_CRITERIA.ANNUAL_INCOME_THRESHOLD / 10000000} Crore or more`;
       break;
 
     case "networth_based":
       qualified = !!(
-        profile.netWorthExcludingResidence &&
-        Number(profile.netWorthExcludingResidence) >= ACCREDITED_INVESTOR_CRITERIA.NET_WORTH_THRESHOLD
+        profileData.netWorthExcludingResidence &&
+        Number(profileData.netWorthExcludingResidence) >= ACCREDITED_INVESTOR_CRITERIA.NET_WORTH_THRESHOLD
       );
       rejectionReason = qualified ? "" : `Net worth (excluding primary residence) must be ₹${ACCREDITED_INVESTOR_CRITERIA.NET_WORTH_THRESHOLD / 10000000} Crore or more`;
       break;
 
     case "portfolio_based":
       qualified = !!(
-        profile.portfolioValueAmount &&
-        Number(profile.portfolioValueAmount) >= ACCREDITED_INVESTOR_CRITERIA.PORTFOLIO_VALUE_THRESHOLD
+        profileData.portfolioValueAmount &&
+        Number(profileData.portfolioValueAmount) >= ACCREDITED_INVESTOR_CRITERIA.PORTFOLIO_VALUE_THRESHOLD
       );
       rejectionReason = qualified ? "" : `Securities portfolio value must be ₹${ACCREDITED_INVESTOR_CRITERIA.PORTFOLIO_VALUE_THRESHOLD / 10000000} Crore or more`;
       break;
 
     case "professional":
       qualified = !!(
-        profile.professionalQualification &&
-        ACCREDITED_INVESTOR_CRITERIA.PROFESSIONAL_QUALIFICATIONS.includes(profile.professionalQualification) &&
-        profile.professionalQualificationVerified &&
-        (profile.professionalExperienceYears || 0) >= ACCREDITED_INVESTOR_CRITERIA.MIN_EXPERIENCE_YEARS
+        profileData.professionalQualification &&
+        ACCREDITED_INVESTOR_CRITERIA.PROFESSIONAL_QUALIFICATIONS.includes(profileData.professionalQualification) &&
+        profileData.professionalQualificationVerified &&
+        (profileData.professionalExperienceYears || 0) >= ACCREDITED_INVESTOR_CRITERIA.MIN_EXPERIENCE_YEARS
       );
       rejectionReason = qualified ? "" : "Must have recognized professional qualification (CA/CFA/MBA Finance) with 3+ years experience";
       break;
@@ -411,7 +414,7 @@ export async function requestAccreditedInvestorVerification(
       accreditedInvestorStatus: "pending",
       accreditedInvestorType: verificationType,
       kycTierUpgradeRequestedAt: new Date(),
-    })
+    } as any)
     .where(eq(userProfiles.userId, userId));
 
   return {
@@ -446,7 +449,7 @@ export async function verifyAccreditedInvestor(
         accreditedInvestorVerifiedBy: verifiedBy,
         accreditedInvestorExpiryDate: expiryDate,
         kycTierUpgradedAt: new Date(),
-      })
+      } as any)
       .where(eq(userProfiles.userId, userId));
 
     // Update product access
@@ -456,7 +459,7 @@ export async function verifyAccreditedInvestor(
       .set({
         productsUnlocked: unlockedProducts,
         lastProductAccessUpdate: new Date(),
-      })
+      } as any)
       .where(eq(userProfiles.userId, userId));
 
     return {
@@ -469,7 +472,7 @@ export async function verifyAccreditedInvestor(
       .set({
         accreditedInvestorStatus: "rejected",
         accreditedInvestorRejectionReason: rejectionReason,
-      })
+      } as any)
       .where(eq(userProfiles.userId, userId));
 
     return {

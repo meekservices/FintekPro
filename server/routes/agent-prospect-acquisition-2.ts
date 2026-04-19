@@ -7,7 +7,7 @@ import { eq, and, or, desc, sql, count, inArray } from 'drizzle-orm';
 export function registerAgentProspectAcquisitionPart2Routes(app: Express): void {
 app.post("/api/agent/prospect-clients/:id/upload-portfolio", requireAgent, async (req: any, res) => {
   try {
-    const agentId = req.user.id;
+    const agentId = (req.user as any)!.id;
     const { id } = req.params;
     const { fileName, fileType, holdings, totalValue } = req.body;
     
@@ -56,7 +56,7 @@ app.post("/api/agent/prospect-clients/:id/upload-portfolio", requireAgent, async
 // POST /api/agent/prospect-clients/:id/analyze-portfolio - Trigger AI portfolio analysis
 app.post("/api/agent/prospect-clients/:id/analyze-portfolio", requireAgent, async (req: any, res) => {
   try {
-    const agentId = req.user.id;
+    const agentId = (req.user as any)!.id;
     const { id } = req.params;
     
     const [client] = await db
@@ -394,7 +394,7 @@ app.post("/api/agent/proposals/:id/approval", requireAgent, async (req: any, res
 // GET /api/agent/acquisition-metrics - Get agent's acquisition stats
 app.get("/api/agent/acquisition-metrics", requireAgent, async (req: any, res) => {
   try {
-    const agentId = req.user.id;
+    const agentId = (req.user as any)!.id;
     const { period = '30d' } = req.query;
     
     // Calculate date range
@@ -460,7 +460,7 @@ app.get("/api/agent/acquisition-metrics", requireAgent, async (req: any, res) =>
       ));
     
     let totalAUM = 0;
-    clientsWithPortfolio.forEach(c => {
+    clientsWithPortfolio.forEach((c: any) => {
       if (c.fetchedPortfolio && typeof c.fetchedPortfolio === 'object' && 'totalValue' in c.fetchedPortfolio) {
         totalAUM += (c.fetchedPortfolio as any).totalValue || 0;
       }

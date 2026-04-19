@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { sebiAuditService } from "../services/sebi-audit-service";
+import * as schema from "@shared/schema";
 
 const router = Router();
 

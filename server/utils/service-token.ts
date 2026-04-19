@@ -25,5 +25,5 @@ export function issueServiceToken(user: any): string {
 
 export function verifyServiceToken(token: string): ServiceTokenPayload {
   if (!SECRET) throw new Error('SESSION_SECRET is not configured');
-  return jwt.verify(token, SECRET, { issuer: 'fintekpro-main' }) as ServiceTokenPayload;
+  return jwt.verify(token, SECRET, { issuer: 'fintekpro-main' }) as unknown as ServiceTokenPayload;
 }

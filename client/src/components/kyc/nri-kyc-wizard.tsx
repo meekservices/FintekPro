@@ -589,9 +589,10 @@ export function NRIKYCWizard() {
   const [formData, setFormData] = useState<any>({});
 
   // Load progress on mount
-  const { data: progress } = useQuery({
+  const progressQuery = useQuery({
     queryKey: ["/api/kyc/nri/progress"],
   });
+  const progress: any = progressQuery.data;
 
   useEffect(() => {
     if (progress && !progress.isCompleted) {

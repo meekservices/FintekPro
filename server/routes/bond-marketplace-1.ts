@@ -47,7 +47,7 @@ router.get('/catalog', async (req: Request, res: Response) => {
         .where(eq(schema.governmentSecurities.tradingStatus, 'active'));
       
       const govBonds = await govQuery.limit(parseInt(limit as string));
-      bonds.push(...govBonds.map(b => ({
+      bonds.push(...govBonds.map((b: any) => ({
         ...b,
         instrumentType: 'government_security',
         source: 'government_securities'
@@ -60,7 +60,7 @@ router.get('/catalog', async (req: Request, res: Response) => {
         .where(and(eq(schema.corporateBonds.tradingStatus, 'active'), sql`${schema.corporateBonds.instrumentStatus} IN ('SELLABLE', 'VISIBLE')`));
       
       const corpBonds = await corpQuery.limit(parseInt(limit as string));
-      bonds.push(...corpBonds.map(b => ({
+      bonds.push(...corpBonds.map((b: any) => ({
         ...b,
         instrumentType: 'corporate_bond',
         source: 'corporate_bonds'
@@ -213,7 +213,7 @@ router.post('/sell-listings', requireAuth, async (req: Request, res: Response) =
     // SEBI Compliance: Validate risk disclosure acknowledgments for unlisted/high-value bonds
     if (requiredTier === 'tier_3' || !isListed) {
       const disclosureResult = getBondRiskDisclosures(bondType, requiredTier);
-      const requiredDisclosures = disclosureResult.disclosures.filter(d => d.requiresExplicitAck).map(d => d.category);
+      const requiredDisclosures = disclosureResult.disclosures.filter((d: any) => d.requiresExplicitAck).map((d: any) => d.category);
       
       if (!riskAcknowledgments || !validateDisclosureAcknowledgments(riskAcknowledgments, requiredDisclosures)) {
         return apiResponse.badRequest(res, 'Risk disclosure acknowledgments required for this bond type. Please acknowledge all mandatory risks before proceeding.');
@@ -383,7 +383,7 @@ router.post('/buy-requests', requireAuth, async (req: Request, res: Response) =>
     // SEBI Compliance: Validate risk disclosure acknowledgments for unlisted/high-value bonds
     if (requiredTier === 'tier_3' || !isListed) {
       const disclosureResult = getBondRiskDisclosures(bondType, requiredTier);
-      const requiredDisclosures = disclosureResult.disclosures.filter(d => d.requiresExplicitAck).map(d => d.category);
+      const requiredDisclosures = disclosureResult.disclosures.filter((d: any) => d.requiresExplicitAck).map((d: any) => d.category);
       
       if (!riskAcknowledgments || !validateDisclosureAcknowledgments(riskAcknowledgments, requiredDisclosures)) {
         return apiResponse.badRequest(res, 'Risk disclosure acknowledgments required for this bond type. Please acknowledge all mandatory risks before proceeding.');

@@ -78,6 +78,7 @@ class DistributedCache {
       return;
     }
     try {
+      // @ts-ignore: redis is an optional dependency
       const { createClient } = await import('redis').catch(() => ({ createClient: null }));
       if (!createClient) {
         logger.warn('[DistributedCache] redis package not installed — using local LRU');

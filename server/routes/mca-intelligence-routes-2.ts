@@ -13,6 +13,7 @@ import { Router, Request, Response } from 'express';
 import { mcaIntelligenceService, McaRole, McaQueryType } from '../services/mca-intelligence-service';
 import { cashfreeService } from '../cashfree-service';
 import { getZohoBooksService } from '../zoho/services/books';
+import { mcaDataCacheService } from '../services/mca-data-cache-service';
 import { z } from 'zod';
 
 const router = Router();
@@ -83,10 +84,10 @@ interface MaskingConfig {
   adminOverride?: boolean;
 }
 
-function maskSensitiveData<T extends Record<string, any>>(
-  data: T,
+function maskSensitiveData(
+  data: any,
   config: MaskingConfig
-): T {
+): any {
   if (!data || typeof data !== 'object') return data;
   
   const { role, adminOverride } = config;
@@ -156,7 +157,7 @@ async function logSensitiveAccess(
   const role = getMcaRole(req);
   
   // Log to audit trail for compliance tracking
-  await mcaIntelligenceService.logQuery({
+  await (mcaIntelligenceService as any).logQuery({
     userId: user?.id,
     userName: user?.name || user?.email,
     userRole: role,
@@ -247,7 +248,7 @@ router.get('/wallet/recharge/callback', async (req: Request, res: Response) => {
     const orderStatus = await cashfreeService.getOrderStatus(order_id);
     console.log('[MCA Routes] Cashfree order status:', orderStatus);
 
-    if (orderStatus.orderStatus === 'PAID') {
+    if ((orderStatus as any)?.orderStatus === 'PAID') {
       // Atomically try to mark payment as success (only succeeds if status was 'pending')
       // This prevents race conditions - only one concurrent request can win
       const wasUpdated = await mcaIntelligenceService.markPaymentSuccessIfPending(order_id, {
@@ -327,7 +328,7 @@ router.get('/wallet/payments/:orderId', requireMcaAccess('read'), async (req: Re
     if (payment.status === 'pending') {
       try {
         const orderStatus = await cashfreeService.getOrderStatus(orderId);
-        if (orderStatus.orderStatus === 'PAID') {
+        if ((orderStatus as any)?.orderStatus === 'PAID') {
           // Return the updated status info, but crediting happens via callback
           return res.json({
             success: true,
@@ -490,7 +491,6 @@ router.get('/charges/:cin', requireMcaAccess('read'), async (req: Request, res: 
 });
 
 // ============ COMPANY PROFILE API (Phase 1.3) ============
-import { mcaDataCacheService } from '../services/mca-data-cache-service';
 
 /**
  * GET /api/mca/company/:cin
@@ -549,7 +549,7 @@ router.get('/company/:cin', requireMcaAccess('read'), async (req: Request, res: 
           lastBalanceSheet: company.lastBalanceSheet,
           lastFilingYear: company.lastFilingYear,
         },
-        directors: directors.map(d => ({
+        directors: directors.map((d: any) => ({
           din: d.din,
           name: d.name,
           designation: d.designation,
@@ -557,7 +557,7 @@ router.get('/company/:cin', requireMcaAccess('read'), async (req: Request, res: 
           totalAppointments: d.totalAppointments,
           activeAppointments: d.activeAppointments,
         })),
-        charges: charges.map(c => ({
+        charges: charges.map((c: any) => ({
           chargeId: c.chargeId,
           holder: c.chargeHolder,
           holderType: c.chargeHolderType,
@@ -567,7 +567,7 @@ router.get('/company/:cin', requireMcaAccess('read'), async (req: Request, res: 
           satisfactionDate: c.satisfactionDate,
           status: c.status,
         })),
-        financials: financials.map(f => ({
+        financials: financials.map((f: any) => ({
           financialYear: f.financialYear,
           revenue: f.revenue,
           profitBeforeTax: f.profitBeforeTax,
@@ -584,7 +584,7 @@ router.get('/company/:cin', requireMcaAccess('read'), async (req: Request, res: 
         })),
         summary: {
           totalDirectors: directors.length,
-          activeCharges: charges.filter(c => c.status === 'active').length,
+          activeCharges: charges.filter((c: any) => c.status === 'active').length,
           financialYears: financials.length,
         },
       },
@@ -629,7 +629,7 @@ router.get('/search', requireMcaAccess('read'), async (req: Request, res: Respon
 
     res.json({
       success: true,
-      data: results.map(c => ({
+      data: results.map((c: any) => ({
         cin: c.cin,
         name: c.companyName,
         status: c.companyStatus,

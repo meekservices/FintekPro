@@ -114,13 +114,13 @@ class UnifiedHoldingsReaderService {
    */
   async getClientType(clientId: string): Promise<ClientType> {
     const [prospect] = await db
-      .select({ id: prospectClients.id, kycStatus: prospectClients.kycStatus })
+      .select({ id: prospectClients.id, kycStatus: (prospectClients as any).kycStatus })
       .from(prospectClients)
       .where(eq(prospectClients.id, clientId))
       .limit(1);
 
     const [user] = await db
-      .select({ id: users.id, kycLevel: users.kycLevel })
+      .select({ id: users.id, kycLevel: (users as any).kycLevel })
       .from(users)
       .where(eq(users.id, clientId))
       .limit(1);
@@ -200,7 +200,7 @@ class UnifiedHoldingsReaderService {
 
       const [positions, usdInrRate] = await Promise.allSettled([
         alpacaBrokerService.getPositions(brokerAccount.alpacaAccountId),
-        currencyExchangeService.getExchangeRate('USD', 'INR'),
+        currencyExchangeService.fetchExchangeRates('USD').then(rates => rates['INR'] || 84),
       ]);
       if (positions.status === 'rejected') return [];
       const rate = usdInrRate.status === 'fulfilled' ? usdInrRate.value : 84;
@@ -299,16 +299,16 @@ class UnifiedHoldingsReaderService {
       symbol: h.symbol || undefined,
       assetType: h.assetType || 'equity',
       quantity: Number(h.quantity) || 0,
-      averageCost: h.avgCostPerUnit ? Number(h.avgCostPerUnit) : undefined,
-      currentPrice: h.currentPrice ? Number(h.currentPrice) : undefined,
-      currentValue: Number(h.currentValue) || 0,
-      investedValue: Number(h.investedAmount) || undefined,
-      unrealizedGain: h.returns ? Number(h.returns) : undefined,
-      unrealizedGainPercent: h.returnsPercent ? Number(h.returnsPercent) : undefined,
-      folioNumber: h.folioNumber || undefined,
-      broker: h.broker || undefined,
+      averageCost: (h as any).avgCostPerUnit ? Number((h as any).avgCostPerUnit) : undefined,
+      currentPrice: (h as any).currentPrice ? Number((h as any).currentPrice) : undefined,
+      currentValue: Number((h as any).currentValue) || 0,
+      investedValue: Number((h as any).investedAmount || (h as any).investedValue) || undefined,
+      unrealizedGain: (h as any).returns ? Number((h as any).returns) : undefined,
+      unrealizedGainPercent: (h as any).returnsPercent ? Number((h as any).returnsPercent) : undefined,
+      folioNumber: (h as any).folioNumber || undefined,
+      broker: (h as any).broker || undefined,
       source: 'manual' as const,
-      lastUpdated: h.lastUpdated?.toISOString(),
+      lastUpdated: (h as any).lastUpdated?.toISOString(),
     }));
   }
 
@@ -327,12 +327,12 @@ class UnifiedHoldingsReaderService {
       averageCost: h.avgCostPerUnit ? Number(h.avgCostPerUnit) : undefined,
       currentPrice: h.currentPrice ? Number(h.currentPrice) : undefined,
       currentValue: Number(h.marketValue) || 0,
-      investedValue: Number(h.costBasis) || undefined,
+      investedValue: Number((h as any).costBasis) || undefined,
       unrealizedGain: h.unrealizedGainLoss ? Number(h.unrealizedGainLoss) : undefined,
       unrealizedGainPercent: h.unrealizedGainLossPercent ? Number(h.unrealizedGainLossPercent) : undefined,
-      folioNumber: h.folio || undefined,
-      dematAccountNumber: h.dematAccountNumber || undefined,
-      depository: h.depository as 'NSDL' | 'CDSL' | undefined,
+      folioNumber: (h as any).folio || undefined,
+      dematAccountNumber: (h as any).dematAccountNumber || undefined,
+      depository: (h as any).depository as 'NSDL' | 'CDSL' | undefined,
       source: (h.dataSource as any) || 'api',
       dataProvider: h.dataSource || undefined,
       lastUpdated: h.lastUpdated?.toISOString(),
