@@ -1,10 +1,11 @@
 import { Express } from 'express';
+import { z } from 'zod';
 import { storage } from '../storage';
 import { db } from '../db';
 import { requireAdmin, requireAgent } from '../middleware/roleMiddleware';
 import * as schema from '@shared/schema';
-import { eq, desc, sql, and, or, gte, lte, inArray, lt, count } from 'drizzle-orm';
-import { agentAppointments, prospectClients, portfolios } from '@shared/schema';
+import { eq, desc, sql, and, or, gte, lte, inArray, lt, count, sum } from 'drizzle-orm';
+import { agentAppointments, prospectClients, portfolios, clientAgentRelationships, users } from '@shared/schema';
 
 export function registerAgentCapitalGainPart2Part1Routes(app: Express): void {
   app.get("/api/agent/clients", requireAgent, async (req, res) => {
@@ -174,7 +175,7 @@ export function registerAgentCapitalGainPart2Part1Routes(app: Express): void {
       }).returning();
       
       // Create agent-client relationship
-      await db.insert(agentClientRelationships).values({
+      await db.insert(clientAgentRelationships).values({
         agentId: req.user.id,
         clientId: newClient.id,
         relationshipType: "assigned",

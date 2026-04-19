@@ -611,7 +611,7 @@ export function registerAgentItrRoutes(app: Express) {
           SELECT u.id, u.email, u.username, up.first_name, up.last_name, up.pan_number
           FROM users u
           LEFT JOIN user_profiles up ON u.id = up.user_id
-          WHERE u.id IN (SELECT client_id FROM agent_client_relationships)
+          WHERE u.id IN (SELECT client_id FROM client_agent_relationships)
           ORDER BY u.username
         `);
       } else {
@@ -620,7 +620,7 @@ export function registerAgentItrRoutes(app: Express) {
           FROM users u
           LEFT JOIN user_profiles up ON u.id = up.user_id
           WHERE u.id IN (
-            SELECT client_id FROM agent_client_relationships WHERE agent_id = ${agentId}
+            SELECT client_id FROM client_agent_relationships WHERE agent_id = ${agentId}
           )
           ORDER BY u.username
         `);

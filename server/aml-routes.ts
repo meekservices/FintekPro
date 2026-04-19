@@ -40,7 +40,7 @@ const amlService = new AMLService({
 router.post('/api/agent/aml/screen/:userId', requireAuth, async (req: Request, res: Response) => {
   try {
     // Check if user has agent/admin role
-    if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+    if ((req.user as any)?.role !== 'agent' && (req.user as any)?.role !== 'admin' && (req.user as any)?.role !== 'super_admin') {
       return res.status(403).json({ error: 'Agent access required' });
     }
 
@@ -79,7 +79,7 @@ router.post('/api/agent/aml/screen/:userId', requireAuth, async (req: Request, r
 router.get('/api/agent/aml/history/:userId', requireAuth, async (req: Request, res: Response) => {
   try {
     // Check if user has agent/admin role
-    if (req.user.role !== 'agent' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+    if ((req.user as any)?.role !== 'agent' && (req.user as any)?.role !== 'admin' && (req.user as any)?.role !== 'super_admin') {
       return res.status(403).json({ error: 'Agent access required' });
     }
 
@@ -116,7 +116,7 @@ router.get('/api/agent/aml/history/:userId', requireAuth, async (req: Request, r
 router.post('/api/aml/monitor-transaction', requireAuth, async (req: Request, res: Response) => {
   try {
     const { amount, currency, fromCountry, toCountry, transactionType } = req.body;
-    const userId = req.user.id;
+    const userId = (req.user as any)!.id;
 
     const transactionData = {
       userId,
@@ -155,7 +155,7 @@ router.get('/api/aml/alerts/:userId', requireAuth, async (req: Request, res: Res
     const { status } = req.query;
     
     // Verify access permissions
-    if (req.user.id !== userId && req.user.role !== 'admin') {
+    if ((req.user as any)!.id !== userId && (req.user as any)!.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -201,7 +201,7 @@ router.get('/api/aml/risk-profile/:userId', requireAuth, async (req: Request, re
     const { userId } = req.params;
     
     // Verify access permissions
-    if (req.user.id !== userId && req.user.role !== 'admin') {
+    if ((req.user as any)!.id !== userId && (req.user as any)!.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -226,7 +226,7 @@ router.post('/api/aml/trigger-edd', requireAuth, async (req: Request, res: Respo
     const { userId, reason } = req.body;
     
     // Only admin can trigger EDD
-    if (req.user.role !== 'admin') {
+    if ((req.user as any)!.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
@@ -236,7 +236,7 @@ router.post('/api/aml/trigger-edd', requireAuth, async (req: Request, res: Respo
       eddId: eddResult.eddId,
       userId,
       reason,
-      triggeredBy: req.user.id,
+      triggeredBy: (req.user as any)!.id,
       timestamp: new Date().toISOString()
     });
 
@@ -253,7 +253,7 @@ router.post('/api/aml/trigger-edd', requireAuth, async (req: Request, res: Respo
 router.get('/api/aml/compliance-report', requireAuth, async (req: Request, res: Response) => {
   try {
     // Only admin can access compliance reports
-    if (req.user.role !== 'admin') {
+    if ((req.user as any)!.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
@@ -268,7 +268,7 @@ router.get('/api/aml/compliance-report', requireAuth, async (req: Request, res: 
       period: { startDate: start, endDate: end },
       report,
       generatedAt: new Date(),
-      generatedBy: req.user.id
+      generatedBy: (req.user as any)!.id
     });
   } catch (error) {
     console.error('[AML] Compliance report error:', error);
@@ -283,7 +283,7 @@ router.put('/api/aml/alerts/:alertId/status', requireAuth, async (req: Request, 
     const { status, resolution, notes } = req.body;
     
     // Only admin can update alert status
-    if (req.user.role !== 'admin') {
+    if ((req.user as any)!.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
@@ -294,7 +294,7 @@ router.put('/api/aml/alerts/:alertId/status', requireAuth, async (req: Request, 
       resolution,
       notes,
       updatedAt: new Date(),
-      updatedBy: req.user.id
+      updatedBy: (req.user as any)!.id
     };
 
     console.log('[AML] Alert status updated', updatedAlert);
@@ -312,7 +312,7 @@ router.post('/api/aml/batch-screen', requireAuth, async (req: Request, res: Resp
     const { userIds } = req.body;
     
     // Only admin can perform batch screening
-    if (req.user.role !== 'admin') {
+    if ((req.user as any)!.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
@@ -348,7 +348,7 @@ router.post('/api/aml/batch-screen', requireAuth, async (req: Request, res: Resp
       successful: results.filter(r => r.status === 'completed').length,
       failed: results.filter(r => r.status === 'failed').length,
       batchId: `batch_${Date.now()}`,
-      executedBy: req.user.id
+      executedBy: (req.user as any)!.id
     });
 
     res.json({

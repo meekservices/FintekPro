@@ -1,6 +1,45 @@
-import { Express } from 'express';
+import { Express, Request, Response } from 'express';
 
-const MCX_COMMODITIES = [
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+interface Commodity {
+  symbol: string;
+  name: string;
+  unit: string;
+  expiry: string;
+}
+
+interface AgCommodity extends Commodity {
+  category: string;
+}
+
+interface MseiEquity {
+  symbol: string;
+  name: string;
+  segment: string;
+  fallbackPrice: number;
+  sector: string;
+}
+
+interface MseiCurrency {
+  symbol: string;
+  name: string;
+  segment: string;
+  rate: number;
+}
+
+interface MseiDerivative {
+  symbol: string;
+  name: string;
+  segment: string;
+  expiry: string;
+  type: string;
+  strike?: number;
+}
+
+const MCX_COMMODITIES: Commodity[] = [
   { symbol: 'GOLD', name: 'Gold', unit: '10 GMS', expiry: 'DEC2025' },
   { symbol: 'SILVER', name: 'Silver', unit: '30 KG', expiry: 'DEC2025' },
   { symbol: 'CRUDE', name: 'Crude Oil', unit: '100 BBL', expiry: 'DEC2025' },
@@ -11,7 +50,7 @@ const MCX_COMMODITIES = [
   { symbol: 'LEAD', name: 'Lead', unit: '5000 KG', expiry: 'DEC2025' }
 ];
 
-const NCDEX_COMMODITIES = [
+const NCDEX_COMMODITIES: AgCommodity[] = [
   { symbol: 'CHANA', name: 'Chana (Chickpeas)', unit: '10 MT', expiry: 'MAR2025', category: 'Pulses' },
   { symbol: 'WHEAT', name: 'Wheat', unit: '10 MT', expiry: 'MAR2025', category: 'Grains' },
   { symbol: 'GUAR_SEED', name: 'Guar Seed', unit: '10 MT', expiry: 'MAR2025', category: 'Oilseeds' },
@@ -24,7 +63,7 @@ const NCDEX_COMMODITIES = [
   { symbol: 'JEERA', name: 'Jeera (Cumin)', unit: '5 MT', expiry: 'APR2025', category: 'Spices' }
 ];
 
-const MSEI_EQUITIES = [
+const MSEI_EQUITIES: MseiEquity[] = [
   { symbol: 'MSEI_TECH', name: 'MSEI Tech Solutions', segment: 'Equity', fallbackPrice: 450.25, sector: 'Technology' },
   { symbol: 'MSEI_PHARMA', name: 'MSEI Pharmaceuticals', segment: 'Equity', fallbackPrice: 1250.80, sector: 'Healthcare' },
   { symbol: 'MSEI_AUTO', name: 'MSEI Automotive', segment: 'Equity', fallbackPrice: 675.40, sector: 'Automotive' },
@@ -33,14 +72,14 @@ const MSEI_EQUITIES = [
   { symbol: 'MSEI_INFRA', name: 'MSEI Infrastructure', segment: 'Equity', fallbackPrice: 185.90, sector: 'Infrastructure' }
 ];
 
-const MSEI_CURRENCIES = [
+const MSEI_CURRENCIES: MseiCurrency[] = [
   { symbol: 'USD_INR', name: 'US Dollar / Indian Rupee', segment: 'Currency', rate: 83.15 },
   { symbol: 'EUR_INR', name: 'Euro / Indian Rupee', segment: 'Currency', rate: 90.25 },
   { symbol: 'GBP_INR', name: 'British Pound / Indian Rupee', segment: 'Currency', rate: 105.80 },
   { symbol: 'JPY_INR', name: 'Japanese Yen / Indian Rupee', segment: 'Currency', rate: 0.56 }
 ];
 
-const MSEI_DERIVATIVES = [
+const MSEI_DERIVATIVES: MseiDerivative[] = [
   { symbol: 'MSEI_NIFTY_FUT', name: 'NIFTY Future', segment: 'Derivatives', expiry: 'MAR2025', type: 'Future' },
   { symbol: 'MSEI_BANK_FUT', name: 'BANKNIFTY Future', segment: 'Derivatives', expiry: 'MAR2025', type: 'Future' },
   { symbol: 'MSEI_CALL_OPT', name: 'NIFTY Call Option', segment: 'Derivatives', expiry: 'FEB2025', type: 'Option', strike: 22500 },
@@ -52,7 +91,7 @@ export function registerCommoditiesMarketRoutes(app: Express): void {
 // MCX API endpoints
 
 // Get MCX commodity data
-app.get("/api/mcx/commodities", async (req, res) => {
+app.get("/api/mcx/commodities", async (_req: Request, res: Response): Promise<void> => {
   try {
     const commoditiesData = MCX_COMMODITIES.map(commodity => {
       const basePrice = Math.random() * 10000 + 1000;
@@ -79,17 +118,17 @@ app.get("/api/mcx/commodities", async (req, res) => {
       status: "success",
       data: commoditiesData
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching MCX commodities:", error);
     res.status(500).json({
       status: "error",
-      error: "Failed to fetch MCX commodities"
+      error: errorMessage(error)
     });
   }
 });
 
 // Get MCX gainers
-app.get("/api/mcx/gainers", async (req, res) => {
+app.get("/api/mcx/gainers", async (_req: Request, res: Response): Promise<void> => {
   try {
     const gainersData = MCX_COMMODITIES.map(commodity => {
       const basePrice = Math.random() * 5000 + 2000;
@@ -113,17 +152,17 @@ app.get("/api/mcx/gainers", async (req, res) => {
       status: "success",
       data: gainersData
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching MCX gainers:", error);
     res.status(500).json({
       status: "error",
-      error: "Failed to fetch MCX gainers"
+      error: errorMessage(error)
     });
   }
 });
 
 // Get MCX losers
-app.get("/api/mcx/losers", async (req, res) => {
+app.get("/api/mcx/losers", async (_req: Request, res: Response): Promise<void> => {
   try {
     const losersData = MCX_COMMODITIES.map(commodity => {
       const basePrice = Math.random() * 5000 + 2000;
@@ -147,17 +186,17 @@ app.get("/api/mcx/losers", async (req, res) => {
       status: "success",
       data: losersData
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching MCX losers:", error);
     res.status(500).json({
       status: "error",
-      error: "Failed to fetch MCX losers"
+      error: errorMessage(error)
     });
   }
 });
 
 // Get MCX market status
-app.get("/api/mcx/market-status", async (req, res) => {
+app.get("/api/mcx/market-status", async (_req: Request, res: Response): Promise<void> => {
   try {
     const currentHour = new Date().getHours();
     const isMarketOpen = (currentHour >= 9 && currentHour <= 23); // MCX timings: 9 AM to 11:30 PM
@@ -177,11 +216,11 @@ app.get("/api/mcx/market-status", async (req, res) => {
       status: "success",
       data: status
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching MCX market status:", error);
     res.status(500).json({
       status: "error",
-      error: "Failed to fetch MCX market status"
+      error: errorMessage(error)
     });
   }
 });
@@ -189,7 +228,7 @@ app.get("/api/mcx/market-status", async (req, res) => {
 // NCDEX API endpoints
 
 // Get NCDEX agricultural commodity data
-app.get("/api/ncdex/commodities", async (req, res) => {
+app.get("/api/ncdex/commodities", async (_req: Request, res: Response): Promise<void> => {
   try {
     const commoditiesData = NCDEX_COMMODITIES.map(commodity => {
       const basePrice = Math.random() * 5000 + 2000; // Agricultural commodities price range
@@ -217,17 +256,17 @@ app.get("/api/ncdex/commodities", async (req, res) => {
       status: "success",
       data: commoditiesData
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching NCDEX commodities:", error);
     res.status(500).json({
       status: "error",
-      error: "Failed to fetch NCDEX commodities"
+      error: errorMessage(error)
     });
   }
 });
 
 // Get NCDEX gainers
-app.get("/api/ncdex/gainers", async (req, res) => {
+app.get("/api/ncdex/gainers", async (_req: Request, res: Response): Promise<void> => {
   try {
     const gainersData = NCDEX_COMMODITIES.map(commodity => {
       const basePrice = Math.random() * 4000 + 2500;
@@ -252,17 +291,17 @@ app.get("/api/ncdex/gainers", async (req, res) => {
       status: "success",
       data: gainersData
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching NCDEX gainers:", error);
     res.status(500).json({
       status: "error",
-      error: "Failed to fetch NCDEX gainers"
+      error: errorMessage(error)
     });
   }
 });
 
 // Get NCDEX losers
-app.get("/api/ncdex/losers", async (req, res) => {
+app.get("/api/ncdex/losers", async (_req: Request, res: Response): Promise<void> => {
   try {
     const losersData = NCDEX_COMMODITIES.map(commodity => {
       const basePrice = Math.random() * 4000 + 2500;
@@ -287,17 +326,17 @@ app.get("/api/ncdex/losers", async (req, res) => {
       status: "success",
       data: losersData
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching NCDEX losers:", error);
     res.status(500).json({
       status: "error",
-      error: "Failed to fetch NCDEX losers"
+      error: errorMessage(error)
     });
   }
 });
 
 // Get NCDEX market status
-app.get("/api/ncdex/market-status", async (req, res) => {
+app.get("/api/ncdex/market-status", async (_req: Request, res: Response): Promise<void> => {
   try {
     const currentHour = new Date().getHours();
     const isMarketOpen = (currentHour >= 10 && currentHour <= 17); // NCDEX timings: 10 AM to 5 PM
@@ -318,11 +357,11 @@ app.get("/api/ncdex/market-status", async (req, res) => {
       status: "success",
       data: status
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching NCDEX market status:", error);
     res.status(500).json({
       status: "error",
-      error: "Failed to fetch NCDEX market status"
+      error: errorMessage(error)
     });
   }
 });
@@ -330,12 +369,12 @@ app.get("/api/ncdex/market-status", async (req, res) => {
 // MSEI API endpoints
 
 // Get MSEI equity data
-app.get("/api/msei/equities", async (req, res) => {
+app.get("/api/msei/equities", async (_req: Request, res: Response): Promise<void> => {
   try {
     const equitiesData = MSEI_EQUITIES.map(equity => {
-      const basePrice = equity.price;
+      const basePrice = equity.fallbackPrice;
       const change = (Math.random() - 0.5) * 50; // Price change
-      const pChange = (change / basePrice) * 100;
+      const pChange = (change / (basePrice || 1)) * 100;
       
       return {
         symbol: equity.symbol,
@@ -357,17 +396,17 @@ app.get("/api/msei/equities", async (req, res) => {
       status: "success",
       data: equitiesData
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching MSEI equities:", error);
     res.status(500).json({
       status: "error",
-      error: "Failed to fetch MSEI equities"
+      error: errorMessage(error)
     });
   }
 });
 
 // Get MSEI currency data
-app.get("/api/msei/currencies", async (req, res) => {
+app.get("/api/msei/currencies", async (_req: Request, res: Response): Promise<void> => {
   try {
     const currencyData = MSEI_CURRENCIES.map(currency => {
       const baseRate = currency.rate;
@@ -392,17 +431,17 @@ app.get("/api/msei/currencies", async (req, res) => {
       status: "success",
       data: currencyData
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching MSEI currencies:", error);
     res.status(500).json({
       status: "error",
-      error: "Failed to fetch MSEI currencies"
+      error: errorMessage(error)
     });
   }
 });
 
 // Get MSEI derivatives data
-app.get("/api/msei/derivatives", async (req, res) => {
+app.get("/api/msei/derivatives", async (_req: Request, res: Response): Promise<void> => {
   try {
     const derivativesData = MSEI_DERIVATIVES.map(derivative => {
       const basePrice = Math.random() * 1000 + 100; // Random base price for derivatives
@@ -431,22 +470,22 @@ app.get("/api/msei/derivatives", async (req, res) => {
       status: "success",
       data: derivativesData
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching MSEI derivatives:", error);
     res.status(500).json({
       status: "error",
-      error: "Failed to fetch MSEI derivatives"
+      error: errorMessage(error)
     });
   }
 });
 
 // Get MSEI gainers
-app.get("/api/msei/gainers", async (req, res) => {
+app.get("/api/msei/gainers", async (_req: Request, res: Response): Promise<void> => {
   try {
     const gainersData = MSEI_EQUITIES.map(equity => {
-      const basePrice = equity.price;
+      const basePrice = equity.fallbackPrice;
       const change = Math.random() * 30 + 10; // Positive change for gainers
-      const pChange = (change / basePrice) * 100;
+      const pChange = (change / (basePrice || 1)) * 100;
       
       return {
         symbol: equity.symbol,
@@ -464,22 +503,22 @@ app.get("/api/msei/gainers", async (req, res) => {
       status: "success",
       data: gainersData
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching MSEI gainers:", error);
     res.status(500).json({
       status: "error",
-      error: "Failed to fetch MSEI gainers"
+      error: errorMessage(error)
     });
   }
 });
 
 // Get MSEI losers
-app.get("/api/msei/losers", async (req, res) => {
+app.get("/api/msei/losers", async (_req: Request, res: Response): Promise<void> => {
   try {
     const losersData = MSEI_EQUITIES.map(equity => {
-      const basePrice = equity.price;
+      const basePrice = equity.fallbackPrice;
       const change = -(Math.random() * 25 + 5); // Negative change for losers
-      const pChange = (change / basePrice) * 100;
+      const pChange = (change / (basePrice || 1)) * 100;
       
       return {
         symbol: equity.symbol,
@@ -497,17 +536,17 @@ app.get("/api/msei/losers", async (req, res) => {
       status: "success",
       data: losersData
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching MSEI losers:", error);
     res.status(500).json({
       status: "error",
-      error: "Failed to fetch MSEI losers"
+      error: errorMessage(error)
     });
   }
 });
 
 // Get MSEI market status
-app.get("/api/msei/market-status", async (req, res) => {
+app.get("/api/msei/market-status", async (_req: Request, res: Response): Promise<void> => {
   try {
     const currentHour = new Date().getHours();
     const isMarketOpen = (currentHour >= 9 && currentHour <= 15); // MSEI timings: 9 AM to 3:30 PM
@@ -528,11 +567,11 @@ app.get("/api/msei/market-status", async (req, res) => {
       status: "success",
       data: status
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching MSEI market status:", error);
     res.status(500).json({
       status: "error",
-      error: "Failed to fetch MSEI market status"
+      error: errorMessage(error)
     });
   }
 });

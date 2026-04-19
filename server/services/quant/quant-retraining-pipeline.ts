@@ -5,6 +5,7 @@ import { mvoEngine, type AssetData, type MVOResult } from './mvo-engine';
 import { blackLittermanEngine } from './black-litterman-engine';
 import { driftPredictionEngine } from './drift-prediction-engine';
 import { quantBacktestingEngine, type BacktestResult } from './quant-backtesting-engine';
+import { marketRegimeDetector } from '../risk';
 
 interface RetrainingResult {
   modelName: string;
@@ -27,6 +28,11 @@ class QuantRetrainingPipeline {
     const modelName = 'MVO_EXPECTED_RETURNS';
 
     try {
+      // Systemic Resilience Guard: Suspend retraining during Black Swan events
+      if (marketRegimeDetector.detectBlackSwanEvent()) {
+        throw new Error("RETRAINING_SUSPENDED: Systemic Black Swan regime detected. Safety lock active to prevent model poisoning.");
+      }
+
       const activeModel = await this.getActiveModel(modelName);
       const newVersion = this.generateVersion(modelName);
 

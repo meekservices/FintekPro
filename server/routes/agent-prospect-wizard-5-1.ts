@@ -149,8 +149,26 @@ const flexibleHoldingSchema = z.object({
   amc: z.string().optional()
 });
 
+interface Holding {
+  name?: string;
+  productName?: string;
+  assetType?: string;
+  productType?: string;
+  quantity?: number;
+  currentValue?: number;
+  [key: string]: any;
+}
+
+interface NormalizedHolding {
+  name: string;
+  assetType: string;
+  quantity: number;
+  currentValue: number;
+  [key: string]: any;
+}
+
 // Helper to normalize holdings to backend format
-function normalizeHoldings(holdings: any[]): any[] {
+function normalizeHoldings(holdings: Holding[]): NormalizedHolding[] {
   return holdings.map(h => {
     const name = h.name || h.productName || 'Unknown';
     let assetType = h.assetType;
@@ -242,7 +260,7 @@ const generateProposalSchema = z.object({
   analyticsData: z.any().optional()
 });
 
-router.get("/unlisted-stocks/recommendations", async (req: Request, res: Response) => {
+router.get("/unlisted-stocks/recommendations", async (req: Request, res: Response): Promise<void> => {
   try {
     const riskProfile = (req.query.riskProfile as string) || 'aggressive';
     const sectorsParam = req.query.sectors as string;
@@ -266,14 +284,15 @@ router.get("/unlisted-stocks/recommendations", async (req: Request, res: Respons
         ? 'Unlisted stocks are not recommended for conservative risk profiles'
         : 'Unlisted stocks require Enhanced KYC for trading'
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[UnlistedStocks] Error fetching recommendations:", error);
-    res.status(500).json({ success: false, message: error.message });
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, message: msg });
   }
 });
 
 // Populate broad sectors for all unlisted stocks (Admin action)
-router.post("/unlisted-stocks/populate-sectors", async (req: Request, res: Response) => {
+router.post("/unlisted-stocks/populate-sectors", async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await populateUnlistedBroadSectors();
     res.json({ 
@@ -281,9 +300,10 @@ router.post("/unlisted-stocks/populate-sectors", async (req: Request, res: Respo
       message: `Populated broad sectors for ${result.updated} companies`,
       ...result
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[UnlistedStocks] Error populating sectors:", error);
-    res.status(500).json({ success: false, message: error.message });
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, message: msg });
   }
 });
 
@@ -295,32 +315,36 @@ router.post("/unlisted-stocks/populate-sectors", async (req: Request, res: Respo
 router.post(
   "/portfolio/parse-cas",
   upload.single('file'),
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response): Promise<void> => {
     try {
       if (!req.file) {
-        return res.status(400).json({ success: false, error: 'No file uploaded' });
+        res.status(400).json({ success: false, error: 'No file uploaded' });
+        return;
       }
 
       console.log('[Agent CAS Parse] Using unified service:', req.file.originalname);
       const importResult = await unifiedPortfolioImportService.importFromPDF(req.file.buffer, req.file.originalname);
 
       if (!importResult.success || importResult.holdings.length === 0) {
-        return res.json({
+        res.json({
           success: false,
           error: 'No holdings found in the statement',
           errors: importResult.errors.length > 0 ? importResult.errors : ['Failed to parse statement']
         });
+        return;
       }
 
       try {
         assertLotsNotDropped(importResult.holdings);
-      } catch (lotsError: any) {
-        console.error('[Agent CAS Parse] CRITICAL:', lotsError.message);
-        return res.status(500).json({
+      } catch (lotsError: unknown) {
+        const msg = lotsError instanceof Error ? lotsError.message : String(lotsError);
+        console.error('[Agent CAS Parse] CRITICAL:', msg);
+        res.status(500).json({
           success: false,
           error: 'CAS_LOTS_DROPPED',
           message: 'Transaction rows found in CAS but lost during processing.'
         });
+        return;
       }
 
       const holdings = importResult.holdings.map((h, idx) => ({
@@ -382,11 +406,12 @@ router.post(
         brokerDetected: importResult.brokerDetected || 'Unknown',
         warnings: importResult.warnings || []
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Agent CAS Parse] Error:', error);
+      const msg = error instanceof Error ? error.message : 'Failed to parse CAS statement';
       res.status(500).json({
         success: false,
-        error: error.message || 'Failed to parse CAS statement'
+        error: msg
       });
     }
   }
@@ -400,7 +425,7 @@ router.get(
   "/mf-returns/status",
   requireAuth,
   requireRole(['admin', 'agent', 'ops']),
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response): Promise<void> => {
     try {
       const { mfReturnsScheduler } = await import("../services/mf-returns-scheduler");
       const { mfReturnsSyncService } = await import("../services/mf-returns-sync-service");
@@ -417,8 +442,9 @@ router.get(
         totalFunds: counts.total,
         coverage: `${((counts.withReturns / counts.total) * 100).toFixed(1)}%`
       });
-    } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ success: false, error: msg });
     }
   }
 );
@@ -427,7 +453,7 @@ router.post(
   "/mf-returns/sync",
   requireAuth,
   requireRole(['admin', 'ops']), // Only admin/ops can trigger sync
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response): Promise<void> => {
     try {
       const { mfReturnsSyncService } = await import("../services/mf-returns-sync-service");
       const { maxFunds = 50 } = req.body;
@@ -439,8 +465,9 @@ router.post(
         success: true,
         message: `Started sync for up to ${maxFunds} funds. Check status endpoint for progress.`
       });
-    } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ success: false, error: msg });
     }
   }
 );
@@ -449,7 +476,7 @@ router.get(
   "/mf-returns/fund/:schemeCode",
   requireAuth,
   requireRole(['admin', 'agent', 'ops']),
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response): Promise<void> => {
     try {
       const { mfReturnsSyncService } = await import("../services/mf-returns-sync-service");
       const { schemeCode } = req.params;
@@ -471,8 +498,9 @@ router.get(
       } else {
         res.status(404).json({ success: false, error: "Fund not found or no data available" });
       }
-    } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ success: false, error: msg });
     }
   }
 );

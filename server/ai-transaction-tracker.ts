@@ -858,21 +858,24 @@ export const aiTransactionTrackerService = {
 
       const { status, severity, alertCategory } = req.query;
 
-      let query = db.select()
-        .from(transactionAlerts)
-        .where(eq(transactionAlerts.userId, userId))
-        .orderBy(desc(transactionAlerts.detectedAt));
+      const filters = [eq(transactionAlerts.userId, userId)];
 
       if (status) {
-        query = query.where(
-          and(
-            eq(transactionAlerts.userId, userId),
-            eq(transactionAlerts.status, String(status))
-          )
-        );
+        filters.push(eq(transactionAlerts.status, String(status)));
+      }
+      
+      if (severity) {
+        filters.push(eq(transactionAlerts.severity, String(severity)));
       }
 
-      const alerts = await query;
+      if (alertCategory) {
+        filters.push(eq(transactionAlerts.alertCategory, String(alertCategory)));
+      }
+
+      const alerts = await db.select()
+        .from(transactionAlerts)
+        .where(and(...filters))
+        .orderBy(desc(transactionAlerts.detectedAt));
 
       return res.json({
         success: true,

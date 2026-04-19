@@ -531,7 +531,7 @@ export function registerMarketingRoutes(app: any) {
 
       // Enrich each unique company with detailed financial data
       const uniqueCINs = new Set<string>();
-      result.directors.forEach(d => d.companies.forEach(c => {
+      result.directors.forEach(d => d.companies.forEach((c: any) => {
         if (c.cin) uniqueCINs.add(c.cin);
       }));
 
@@ -559,7 +559,7 @@ export function registerMarketingRoutes(app: any) {
       // Merge enriched data back into director results
       const enrichedDirectors = result.directors.map(director => ({
         ...director,
-        companies: director.companies.map(company => {
+        companies: director.companies.map((company: any) => {
           const enriched = enrichedCompanyMap.get(company.cin);
           if (enriched) {
             return {
@@ -654,7 +654,7 @@ export function registerMarketingRoutes(app: any) {
       
       const enrichment = await credhiveService.getFullEnrichment(cin);
       const company = enrichment.baseDetails;
-      const enrichedData = credhiveService.extractEnrichmentData(enrichment);
+      const enrichedData = credhiveService.extractEnrichmentData(enrichment) as any;
 
       // Build response with all available fields
       const response = {
@@ -696,7 +696,7 @@ export function registerMarketingRoutes(app: any) {
         activeLegalCases: enrichedData.activeLegalCases || null,
         directors: enrichedData.directors || company?.directors || null,
         enrichmentScore: enrichedData.enrichmentScore || 0,
-        enrichmentSources: enrichment.enrichmentSources || [],
+        enrichmentSources: (enrichment as any).enrichmentSources || [],
         apiAccessIssues: enrichedData.apiAccessIssues || [],
         isEnriched: true
       };
@@ -731,7 +731,7 @@ export function registerMarketingRoutes(app: any) {
       const company = enrichment.baseDetails;
       
       // Extract structured enrichment data
-      const enrichedData = credhiveService.extractEnrichmentData(enrichment);
+      const enrichedData = credhiveService.extractEnrichmentData(enrichment) as any;
 
       // Use company name from search results as fallback if enrichment fails
       const finalCompanyName = company?.companyName || requestCompanyName;
@@ -795,7 +795,7 @@ export function registerMarketingRoutes(app: any) {
           activeLegalCases: enrichedData.activeLegalCases || null,
           riskIndicators: enrichedData.riskIndicators as any || null,
           enrichmentScore: enrichedData.enrichmentScore || null,
-          enrichmentSources: enrichment.enrichmentSources as any || null,
+          enrichmentSources: (enrichment as any).enrichmentSources as any || null,
           enrichmentData: {
             ...enrichment,
             apiAccessIssues: enrichedData.apiAccessIssues,
@@ -818,7 +818,7 @@ export function registerMarketingRoutes(app: any) {
         })
         .returning();
 
-      console.log(`✅ Lead imported with ${enrichment.enrichmentSources.length}/10 data sources: ${cin}`);
+      console.log(`✅ Lead imported with ${(enrichment as any).enrichmentSources.length}/10 data sources: ${cin}`);
       res.status(201).json(lead);
     } catch (error) {
       console.error('Error importing lead:', error);
@@ -1651,7 +1651,7 @@ export function registerMarketingRoutes(app: any) {
           const leads = await db.select({
             id: whatsappContacts.id,
             mobile: whatsappContacts.phoneNumber,
-            name: whatsappContacts.name
+            name: (whatsappContacts as any).name
           }).from(whatsappContacts).limit(Number(limit));
 
           leads.forEach(l => {
@@ -2329,7 +2329,7 @@ export function registerMarketingRoutes(app: any) {
       const bucketName = parts[0];
       const objectPrefix = parts.slice(1).join('/');
 
-      const { objectStorageClient } = await import('../objectStorage');
+      const { objectStorageClient } = await import('./objectStorage');
       const fileName = `greetings/${festivalId}-${req.user.id}-${Date.now()}.png`;
       const objectName = objectPrefix ? `${objectPrefix}/${fileName}` : fileName;
 

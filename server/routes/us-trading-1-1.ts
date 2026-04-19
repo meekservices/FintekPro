@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
@@ -19,7 +19,11 @@ import type { AuthRequest, AgreementInput, AlpacaAccountCreated, AlpacaBrokerAcc
 import { extractErrorMessage, resolveRiskTolerance, resolveInvestmentObjective } from "../types/broker-types";
 
 
-const router = Router();
+const router: Router = Router();
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
 
 const orderSchema = z.object({
   symbol: z.string().min(1).max(10),
@@ -35,10 +39,10 @@ const orderSchema = z.object({
 });
 
 // Get user positions (live from Alpaca when configured, graceful fallback otherwise)
-router.get("/positions", async (req, res) => {
+router.get("/positions", async (_req: Request, res: Response): Promise<void> => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
-      return res.json({
+      res.json({
         configured: false,
         positions: [],
         totalValueUSD: 0,
@@ -47,12 +51,14 @@ router.get("/positions", async (req, res) => {
         totalGainLossPercent: 0,
         message: "Alpaca API not configured",
       });
+      return;
     }
     const positions = await alpacaBrokerService.getPositions();
     let fxRate = 84;
     try {
       fxRate = await alpacaMarketDataService.getUsdInrRate();
-    } catch {}
+    } catch { /* use fallback */ }
+
     const totalValueUSD = positions.reduce((sum, p) => sum + parseFloat(p.market_value || "0"), 0);
     const totalGainLossUSD = positions.reduce((sum, p) => sum + parseFloat(p.unrealized_pl || "0"), 0);
     res.json({
@@ -74,37 +80,34 @@ router.get("/positions", async (req, res) => {
       totalGainLossUSD,
       totalGainLossPercent: totalValueUSD > 0 ? (totalGainLossUSD / (totalValueUSD - totalGainLossUSD)) * 100 : 0,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/feature-flags", async (req, res) => {
+router.get("/feature-flags", async (_req: Request, res: Response): Promise<void> => {
   try {
     const flags = await usTradingService.getFeatureFlags();
     res.json({ success: true, flags });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.post("/feature-flags/initialize", async (req, res) => {
+router.post("/feature-flags/initialize", async (_req: Request, res: Response): Promise<void> => {
   try {
     await usTradingService.initializeFeatureFlags();
     const flags = await usTradingService.getFeatureFlags();
     res.json({ success: true, message: "Feature flags initialized", flags });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.patch("/feature-flags/:flagName", async (req, res) => {
+router.patch("/feature-flags/:flagName", async (req: Request, res: Response): Promise<void> => {
   try {
     const { flagName } = req.params;
-    const { isEnabled } = req.body;
+    const { isEnabled } = req.body as { isEnabled: boolean };
     const userId = (req as AuthRequest).user?.id;
     
     const success = await usTradingService.setFeatureFlag(flagName, isEnabled, userId);
@@ -113,32 +116,31 @@ router.patch("/feature-flags/:flagName", async (req, res) => {
     } else {
       res.status(400).json({ success: false, error: "Failed to update flag" });
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/compliance/check", async (req, res) => {
+router.get("/compliance/check", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
     if (!userId) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
     }
 
     const result = await usTradingService.checkCompliance(userId);
     res.json({ success: true, ...result });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/eligibility", async (req, res) => {
+router.get("/eligibility", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
     if (!userId) {
-      return res.json({
+      res.json({
         eligible: false,
         reasons: ["Authentication required"],
         lrsUsed: 0,
@@ -148,6 +150,7 @@ router.get("/eligibility", async (req, res) => {
         panVerified: false,
         kycComplete: false,
       });
+      return;
     }
 
     const compliance = await usTradingService.checkCompliance(userId);
@@ -163,73 +166,79 @@ router.get("/eligibility", async (req, res) => {
       panVerified: compliance.checks?.panVerified || false,
       kycComplete: compliance.kycComplete || false,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/lrs/usage", async (req, res) => {
+router.get("/lrs/usage", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
     if (!userId) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
     }
 
     const financialYearParam = typeof req.query.financialYear === "string" ? req.query.financialYear : undefined;
     const usage = await usTradingService.getLrsUsage(userId, financialYearParam);
     res.json({ success: true, ...usage, limitUsd: 250000 });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/broker/account", async (req, res) => {
+router.get("/broker/account", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
     if (!userId) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
     }
 
     const account = await usTradingService.getBrokerAccount(userId);
     res.json({ success: true, account });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.post("/broker/account", async (req, res) => {
+router.post("/broker/account", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
     if (!userId) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
     }
 
     const existing = await usTradingService.getBrokerAccount(userId);
     if (existing) {
-      return res.json({ success: true, account: existing, message: "Account already exists" });
+      res.json({ success: true, account: existing, message: "Account already exists" });
+      return;
     }
 
     const account = await usTradingService.createBrokerAccount({ clientId: userId });
     res.json({ success: true, account });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
 // ─── Account Opening Wizard ────────────────────────────────────────────────────
 
 /** Pre-fill data for wizard from user profile + KYC vault */
-router.get("/account/prefill", async (req, res) => {
+router.get("/account/prefill", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
-    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
+    }
 
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    if (!user) return res.status(404).json({ success: false, error: "User not found" });
+    if (!user) {
+      res.status(404).json({ success: false, error: "User not found" });
+      return;
+    }
 
     const [kyc] = await db.select({
       kycStatus: kycVault.kycStatus,
@@ -270,22 +279,25 @@ router.get("/account/prefill", async (req, res) => {
         sourceOfWealth: user.sourceOfWealth || "",
       },
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
 /** Full Alpaca account application — creates account on Alpaca + submits CIP */
-router.post("/account/apply", async (req, res) => {
+router.post("/account/apply", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
-    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
+    }
 
     // 1) Compliance gate
     const compliance = await usTradingService.checkCompliance(userId);
     if (!compliance.eligible) {
-      return res.status(400).json({ success: false, error: "Compliance requirements not met", blockers: compliance.blockers });
+      res.status(400).json({ success: false, error: "Compliance requirements not met", blockers: compliance.blockers });
+      return;
     }
 
     // 2) Parse wizard payload
@@ -297,10 +309,19 @@ router.post("/account/apply", async (req, res) => {
       documents,         // Optional Array<{ documentType, content, mimeType }>
       riskTolerance,     // "conservative" | "moderate" | "significant_risk" — top-level Alpaca field
       investmentObjective, // "growth_income" | "growth" | "capital_preservation" | "speculation" | "other"
-    } = req.body;
+    } = req.body as {
+      identity?: any;
+      contact?: any;
+      disclosures?: any;
+      agreements?: any[];
+      documents?: any[];
+      riskTolerance?: any;
+      investmentObjective?: any;
+    };
 
     if (!identity || !contact || !disclosures || !agreements?.length) {
-      return res.status(400).json({ success: false, error: "Missing required fields: identity, contact, disclosures, agreements" });
+      res.status(400).json({ success: false, error: "Missing required fields: identity, contact, disclosures, agreements" });
+      return;
     }
 
     // 3) Check if already applied
@@ -312,9 +333,9 @@ router.post("/account/apply", async (req, res) => {
     const resolvedRisk = resolveRiskTolerance(riskTolerance);
     const resolvedObjective = resolveInvestmentObjective(investmentObjective);
 
-    const alpacaPayload = {
+    const alpacaPayload: AlpacaBrokerAccountPayload = {
       // account_type: "trading" is required for standard brokerage accounts (per Alpaca docs)
-      account_type: "trading" as const,
+      account_type: "trading",
 
       // Commission Routing: Ensures FintekPro captures revenue for this account
       account_referrer: "fintekpro_app",
@@ -359,7 +380,7 @@ router.post("/account/apply", async (req, res) => {
         is_politically_exposed: Boolean(disclosures.isPoliticallyExposed),
         immediate_family_exposed: Boolean(disclosures.immediateFamilyExposed),
       },
-      agreements: Array.from(agreements as AgreementInput[]).map((a: AgreementInput) => ({
+      agreements: (agreements as AgreementInput[]).map((a: AgreementInput) => ({
         agreement: a.agreement,
         signed_at: a.signedAt ?? new Date().toISOString(),
         ip_address: a.ipAddress ?? req.ip ?? "0.0.0.0",
@@ -394,7 +415,7 @@ router.post("/account/apply", async (req, res) => {
             return [];
           })(),
       enabled_assets: ["us_equity"],
-    } satisfies AlpacaBrokerAccountPayload;
+    };
 
     // 5) Call Alpaca — create the sub-account
     // Note: catch block always returns, so alpacaAccount is defined after this block
@@ -490,14 +511,18 @@ router.post("/account/apply", async (req, res) => {
 });
 
 /** Get current account status (local DB + optional Alpaca sync) */
-router.get("/account/status", async (req, res) => {
+router.get("/account/status", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
-    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
+    }
 
     const brokerAccount = await usTradingService.getBrokerAccount(userId);
     if (!brokerAccount) {
-      return res.json({ success: true, hasAccount: false, alpacaStatus: "not_applied" });
+      res.json({ success: true, hasAccount: false, alpacaStatus: "not_applied" });
+      return;
     }
 
     // Optionally sync from Alpaca if account is in a transient state
@@ -513,7 +538,7 @@ router.get("/account/status", async (req, res) => {
             accountApprovedAt: liveAccount.status === "APPROVED" || liveAccount.status === "ACTIVE" ? new Date() : undefined,
           });
         }
-      } catch {}
+      } catch { /* use existing */ }
     }
 
     res.json({
@@ -530,9 +555,8 @@ router.get("/account/status", async (req, res) => {
       lrsUsedUsd: brokerAccount.lrsUsedUsd,
       lrsFinancialYear: brokerAccount.lrsFinancialYear,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
@@ -541,19 +565,24 @@ router.get("/account/status", async (req, res) => {
  * Returns live trading account details from Alpaca — PDT flag, equity, day trade count.
  * Used by the order form to display PDT warnings before order placement.
  */
-router.get("/account/details", async (req, res) => {
+router.get("/account/details", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
-    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
+    }
 
     const brokerAccount = await usTradingService.getBrokerAccount(userId);
     if (!brokerAccount?.alpacaAccountId) {
-      return res.status(404).json({ success: false, error: "No Alpaca account found" });
+      res.status(404).json({ success: false, error: "No Alpaca account found" });
+      return;
     }
 
     const tradingAccount = await alpacaBrokerService.getTradingAccount(brokerAccount.alpacaAccountId);
     if (!tradingAccount) {
-      return res.status(503).json({ success: false, error: "Unable to fetch trading account from Alpaca" });
+      res.status(503).json({ success: false, error: "Unable to fetch trading account from Alpaca" });
+      return;
     }
 
     res.json({
@@ -578,19 +607,19 @@ router.get("/account/details", async (req, res) => {
         account_blocked: tradingAccount.account_blocked ?? false,
       },
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/market/quote/:symbol", async (req, res) => {
+router.get("/market/quote/:symbol", async (req: Request, res: Response): Promise<void> => {
   try {
     const { symbol } = req.params;
     const quote = await alpacaMarketDataService.getQuote(symbol);
     
     if (!quote) {
-      return res.status(404).json({ success: false, error: "Quote not found" });
+      res.status(404).json({ success: false, error: "Quote not found" });
+      return;
     }
 
     const fxRate = await alpacaMarketDataService.getUsdInrRate();
@@ -600,21 +629,20 @@ router.get("/market/quote/:symbol", async (req, res) => {
       priceInr: quote.price * fxRate,
       fxRate,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/market/quotes", async (req, res) => {
+router.get("/market/quotes", async (req: Request, res: Response): Promise<void> => {
   try {
     const { symbols } = req.query;
     if (!symbols) {
-      return res.status(400).json({ success: false, error: "Symbols required" });
+      res.status(400).json({ success: false, error: "Symbols required" });
+      return;
     }
 
-    const rawSymbols = req.query.symbols;
-    const symbolList = (typeof rawSymbols === "string" ? rawSymbols : "").split(",").map((s) => s.trim().toUpperCase());
+    const symbolList = (typeof symbols === "string" ? symbols : "").split(",").map((s) => s.trim().toUpperCase());
     const quotes = await alpacaMarketDataService.getMultipleQuotes(symbolList);
     const fxRate = await alpacaMarketDataService.getUsdInrRate();
 
@@ -624,22 +652,20 @@ router.get("/market/quotes", async (req, res) => {
     })) : [];
 
     res.json({ success: true, quotes: resultQuotes, fxRate });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/market/details/:symbol", async (req, res) => {
+router.get("/market/details/:symbol", async (req: Request, res: Response): Promise<void> => {
   try {
     const { symbol } = req.params;
     const details = await alpacaMarketDataService.getStockDetails(symbol);
     const quote = await alpacaMarketDataService.getQuote(symbol);
     
     res.json({ success: true, details, quote });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
@@ -652,10 +678,13 @@ router.get("/market/details/:symbol", async (req, res) => {
  * Alpaca Funding Wallet API (/broker/accounts/:id/funding-wallet). This endpoint
  * provides the procedural guide and Alpaca's known routing details as a reference.
  */
-router.get("/funding/swift-instructions", async (req, res) => {
+router.get("/funding/swift-instructions", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
-    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
+    }
 
     const brokerAccount = await usTradingService.getBrokerAccount(userId);
     const alpacaAccountId = brokerAccount?.alpacaAccountId;
@@ -742,18 +771,20 @@ router.get("/funding/swift-instructions", async (req, res) => {
     };
 
     res.json({ success: true, instructions });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
 // ─── Enhanced LRS Status (Gap 5: LRS Utilisation Tracker) ───────────────────
 // Returns full LRS status with INR equivalent, TCS threshold, and FY breakdown.
-router.get("/lrs/status", async (req, res) => {
+router.get("/lrs/status", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
-    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
+    }
 
     const LRS_LIMIT_USD = 250_000;
     const TCS_THRESHOLD_INR = 700_000;
@@ -807,28 +838,27 @@ router.get("/lrs/status", async (req, res) => {
           : `LRS limit ${usedPct.toFixed(1)}% used. Approaching ₹70L TCS threshold.`
         : null,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
-router.get("/market/search", async (req, res) => {
+router.get("/market/search", async (req: Request, res: Response): Promise<void> => {
   try {
     const rawQuery = req.query.query;
     const rawLimit = req.query.limit;
     if (!rawQuery || typeof rawQuery !== "string") {
-      return res.status(400).json({ success: false, error: "Query required" });
+      res.status(400).json({ success: false, error: "Query required" });
+      return;
     }
 
     const results = await alpacaMarketDataService.searchSymbols(
       rawQuery,
-      typeof rawLimit === "string" ? parseInt(rawLimit) || 10 : 10
+      typeof rawLimit === "string" ? parseInt(rawLimit, 10) || 10 : 10
     );
     res.json({ success: true, results });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
@@ -840,17 +870,22 @@ router.get("/market/search", async (req, res) => {
 
 
 /** List ACH relationships for the authenticated user's Alpaca account */
-router.get("/funding/ach-relationships", async (req, res) => {
+router.get("/funding/ach-relationships", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
-    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
+    }
     const brokerAccount = await usTradingService.getBrokerAccount(userId);
-    if (!brokerAccount?.alpacaAccountId) return res.status(404).json({ success: false, error: "No Alpaca account found" });
+    if (!brokerAccount?.alpacaAccountId) {
+      res.status(404).json({ success: false, error: "No Alpaca account found" });
+      return;
+    }
     const relationships = await alpacaBrokerService.listAchRelationships(brokerAccount.alpacaAccountId);
     res.json({ success: true, relationships });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
@@ -886,37 +921,47 @@ router.post("/funding/ach-relationships", async (req, res) => {
 });
 
 /** Delete an ACH relationship */
-router.delete("/funding/ach-relationships/:relationshipId", async (req, res) => {
+router.delete("/funding/ach-relationships/:relationshipId", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
-    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
+    }
     const brokerAccount = await usTradingService.getBrokerAccount(userId);
-    if (!brokerAccount?.alpacaAccountId) return res.status(404).json({ success: false, error: "No Alpaca account found" });
+    if (!brokerAccount?.alpacaAccountId) {
+      res.status(404).json({ success: false, error: "No Alpaca account found" });
+      return;
+    }
     await alpacaBrokerService.deleteAchRelationship(brokerAccount.alpacaAccountId, req.params.relationshipId);
     res.json({ success: true, message: "ACH relationship deleted" });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
 // ─── Transfers (Funding / Withdrawal) ─────────────────────────────────────────
 
 /** List transfers for the authenticated user */
-router.get("/funding/transfers", async (req, res) => {
+router.get("/funding/transfers", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
-    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
+    }
     const brokerAccount = await usTradingService.getBrokerAccount(userId);
-    if (!brokerAccount?.alpacaAccountId) return res.status(404).json({ success: false, error: "No Alpaca account found" });
+    if (!brokerAccount?.alpacaAccountId) {
+      res.status(404).json({ success: false, error: "No Alpaca account found" });
+      return;
+    }
     const transfers = await alpacaBrokerService.listTransfers(brokerAccount.alpacaAccountId, {
       direction: typeof req.query.direction === "string" ? req.query.direction : undefined,
-      limit: typeof req.query.limit === "string" ? parseInt(req.query.limit) || 50 : 50,
+      limit: typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) || 50 : 50,
     });
     res.json({ success: true, transfers });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
@@ -924,19 +969,32 @@ router.get("/funding/transfers", async (req, res) => {
  * Initiate an ACH transfer (fund account via INCOMING, or withdraw via OUTGOING).
  * For Indian investors, note: ACH is US-bank-to-US-broker; LRS SWIFT is handled separately.
  */
-router.post("/funding/transfers", async (req, res) => {
+router.post("/funding/transfers", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
-    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
+    }
     const brokerAccount = await usTradingService.getBrokerAccount(userId);
-    if (!brokerAccount?.alpacaAccountId) return res.status(404).json({ success: false, error: "No Alpaca account found" });
+    if (!brokerAccount?.alpacaAccountId) {
+      res.status(404).json({ success: false, error: "No Alpaca account found" });
+      return;
+    }
 
-    const { relationship_id, amount, direction, transfer_type = "ach" } = req.body;
+    const { relationship_id, amount, direction, transfer_type = "ach" } = req.body as {
+      relationship_id?: string;
+      amount?: number | string;
+      direction?: string;
+      transfer_type?: string;
+    };
     if (!amount || !direction) {
-      return res.status(400).json({ success: false, error: "Missing required fields: amount, direction" });
+      res.status(400).json({ success: false, error: "Missing required fields: amount, direction" });
+      return;
     }
     if (!["INCOMING", "OUTGOING"].includes(direction)) {
-      return res.status(400).json({ success: false, error: "direction must be INCOMING or OUTGOING" });
+      res.status(400).json({ success: false, error: "direction must be INCOMING or OUTGOING" });
+      return;
     }
 
     const transfer = await alpacaBrokerService.createTransfer(brokerAccount.alpacaAccountId, {
@@ -946,24 +1004,28 @@ router.post("/funding/transfers", async (req, res) => {
       direction,
     });
     res.json({ success: true, transfer });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(422).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(422).json({ success: false, error: errorMessage(error) });
   }
 });
 
 /** Cancel a pending transfer */
-router.delete("/funding/transfers/:transferId", async (req, res) => {
+router.delete("/funding/transfers/:transferId", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
-    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
+    }
     const brokerAccount = await usTradingService.getBrokerAccount(userId);
-    if (!brokerAccount?.alpacaAccountId) return res.status(404).json({ success: false, error: "No Alpaca account found" });
+    if (!brokerAccount?.alpacaAccountId) {
+      res.status(404).json({ success: false, error: "No Alpaca account found" });
+      return;
+    }
     await alpacaBrokerService.cancelTransfer(brokerAccount.alpacaAccountId, req.params.transferId);
     res.json({ success: true, message: "Transfer cancelled" });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 
@@ -1020,17 +1082,18 @@ router.get("/events/stream", async (req, res) => {
   });
 });
 
-/** Return recent cached events for a user (useful for reconnect / missed events) */
-router.get("/events/recent", async (req, res) => {
+router.get("/events/recent", async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as AuthRequest).user?.id;
-    if (!userId) return res.status(401).json({ success: false, error: "Authentication required" });
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Authentication required" });
+      return;
+    }
     const brokerAccount = await usTradingService.getBrokerAccount(userId);
     const events = alpacaSseService.getRecentEvents(brokerAccount?.alpacaAccountId || undefined, 50);
     res.json({ success: true, events });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ success: false, error: message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
 

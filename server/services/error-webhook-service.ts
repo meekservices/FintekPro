@@ -9,6 +9,7 @@ import {
 } from "../../shared/schema";
 import { eq, and, gte, isNull, or } from "drizzle-orm";
 import axios from "axios";
+import * as schema from "@shared/schema";
 
 interface AlertPayload {
   alertType: 'critical' | 'spike';

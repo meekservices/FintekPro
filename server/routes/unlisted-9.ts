@@ -18,6 +18,8 @@ import { credhiveService } from '../services/credhive-service';
 import { credhiveAdapter } from '../services/vendor-adapters/credhive.adapter';
 import { enrichUnlistedCompanyWithMCAData } from '../services/mca-enrichment-service';
 import { PriceSuggestionService } from '../services/price-suggestion';
+import { unlistedEscrowService } from '../services/unlisted-escrow-service';
+import { auditLogArchivalService } from '../services/audit-log-archival';
 import { priceAggregationService } from '../services/price-aggregation';
 import { moneyControlReconciliation } from '../services/moneycontrol-reconciliation';
 import { mcaService } from '../services/mca-service';
@@ -369,11 +371,11 @@ router.post('/admin/deals/:dealId/release-escrow', requireAdmin, async (req: Req
           eventType: 'escrow_release_initiated',
           dealId,
           userId: adminUser.id,
-          amount: parseFloat(deal.totalAmount || '0'),
+          amount: parseFloat((deal as any).totalAmount || '0'),
           metadata: { transferConfirmationId, approvalId: result.approvalId, makerAction: true }
         });
         
-        const amount = parseFloat(deal.totalAmount || '0');
+        const amount = parseFloat((deal as any).totalAmount || '0');
         if (amount >= 1000000) {
           await regulatoryReportingService.registerReportableEvent({
             eventType: 'high_value_release_initiated',
@@ -432,11 +434,11 @@ router.post('/admin/deals/:dealId/refund-escrow', requireAdmin, async (req: Requ
           eventType: 'escrow_refund_initiated',
           dealId,
           userId: adminUser.id,
-          amount: parseFloat(deal.totalAmount || '0'),
+          amount: parseFloat((deal as any).totalAmount || '0'),
           metadata: { reason, approvalId: result.approvalId, makerAction: true }
         });
         
-        const amount = parseFloat(deal.totalAmount || '0');
+        const amount = parseFloat((deal as any).totalAmount || '0');
         if (amount >= 1000000) {
           await regulatoryReportingService.registerReportableEvent({
             eventType: 'high_value_refund_initiated',
@@ -668,6 +670,11 @@ router.get('/admin/escrow/deal/:dealId/history', requireAuth, requireAdmin, asyn
 // ===================================================================
 
 import { regulatoryReportingService } from '../services/regulatory-reporting-service';
+import { marketingService } from "../marketing-automation";
+import { objectStorageClient as objectStorage } from "../objectStorage";
+import { whatsappService } from "../whatsapp";
+import { portfolioIntelligence } from "../portfolio-intelligence";
+import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "../gemini";
 
 /**
  * GET /api/unlisted/admin/regulatory/reports

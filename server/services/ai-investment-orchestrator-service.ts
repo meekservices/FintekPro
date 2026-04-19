@@ -13,6 +13,8 @@ import {
   userProfiles
 } from "@shared/schema";
 import { eq, and, desc, gte, lte, inArray, isNotNull, or, ilike, sql } from "drizzle-orm";
+import { urcaeEngine } from "./allocation";
+import { aiGovernanceEngine } from "./ai-governance";
 import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 import { aiService, getComplexAnalysisModel, isGpt52Available } from "./ai-service";
 import { 
@@ -140,7 +142,45 @@ class AIInvestmentOrchestratorService {
     
     const evaluatedProducts = this.evaluateProducts(filteredProducts, clientProfile, context);
     
-    const basket = await this.optimizeBasket(evaluatedProducts, clientProfile, investmentAmount);
+    // 24.1 URCAE Integration: Determine mathematical Target Allocation mix
+    const urcaeTarget = await urcaeEngine.generateTargetAllocation({
+      user_profile: {
+        user_id: clientProfile.client_id,
+        risk_profile: clientProfile.risk_category as any,
+        investment_horizon: clientProfile.investment_horizon as any,
+        liquidity_needs: clientProfile.liquidity_needs as any
+      },
+      market_state: {
+        volatility: context.market_volatility || 0.15,
+        interest_rates: 0.05,
+        macro_regime: context.market_regime as any
+      }
+    });
+
+    // Map URCAE Asset Weights to Product Types for Optimizer
+    const structuralTarget: Record<string, number> = {};
+    urcaeTarget.target_allocation.forEach((a: any) => {
+       // Deep mapping from URCAE asset classes to Unified Product Types
+       if (a.asset_class === 'equity_largecap') structuralTarget['STOCK'] = (structuralTarget['STOCK'] || 0) + (a.weight * 100);
+       if (a.asset_class === 'equity_midcap') structuralTarget['MF'] = (structuralTarget['MF'] || 0) + (a.weight * 100);
+       if (a.asset_class === 'bonds') structuralTarget['BOND'] = (structuralTarget['BOND'] || 0) + (a.weight * 100);
+       if (a.asset_class === 'cash') structuralTarget['MLD'] = (structuralTarget['MLD'] || 0) + (a.weight * 100);
+    });
+
+    const basket = await this.optimizeBasket(evaluatedProducts, clientProfile, investmentAmount, structuralTarget);
+
+    // 24.2 AAGE Governance Gate: Validate final basket compliance
+    const aageCheck = await aiGovernanceEngine.validateAndResolve({
+      user_id: clientProfile.client_id,
+      query: "Generate investment recommendation basket",
+      ai_output: { recommendation: JSON.stringify(basket.products) },
+      user_profile: { risk_profile: clientProfile.risk_category as any, investment_horizon: clientProfile.investment_horizon as any, kyc_status: "verified", user_segment: "retail" },
+      trace_id: basket.basket_id
+    });
+
+    if (aageCheck.decision === "BLOCK") {
+       throw new Error(`Governance Intercept: ${aageCheck.violations.map(v => v.message).join(", ")}`);
+    }
     
     if (this.config.aiRationaleEnabled) {
       await this.enrichWithAIRationales(basket, clientProfile);
@@ -469,11 +509,12 @@ class AIInvestmentOrchestratorService {
   private async optimizeBasket(
     evaluatedProducts: EvaluatedProduct[],
     clientProfile: ClientProfile,
-    investmentAmount: number
+    investmentAmount: number,
+    targetAllocationOverride?: Record<string, number>
   ): Promise<RecommendationBasket> {
     evaluatedProducts.sort((a, b) => b.suitability_score - a.suitability_score);
     
-    const targetAllocation = this.getTargetAllocation(clientProfile);
+    const targetAllocation = targetAllocationOverride || this.getTargetAllocation(clientProfile);
     const basketItems: BasketItem[] = [];
     const typeAllocations: Record<UnifiedProductType, number> = {} as any;
     

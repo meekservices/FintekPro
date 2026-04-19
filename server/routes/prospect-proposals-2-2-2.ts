@@ -26,11 +26,28 @@ import {
 } from "./prospect-proposals-helpers";
 
 const router = Router();
-router.post("/api/agent/prospect-proposals/:id/share", async (req: Request, res: Response) => {
+interface AuthRequest extends Request {
+  user?: {
+    id: string;
+    email?: string;
+  };
+}
+
+interface ProposalUpdate {
+  status: string;
+  updatedAt: Date;
+  sharedViaEmail?: boolean;
+  emailSentAt?: Date;
+  sharedViaWhatsApp?: boolean;
+  whatsappSentAt?: Date;
+}
+
+router.post("/api/agent/prospect-proposals/:id/share", async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = req.user as any;
+    const user = (req as AuthRequest).user;
     if (!user) {
-      return res.status(401).json({ error: "Unauthorized" });
+      res.status(401).json({ error: "Unauthorized" });
+      return;
     }
 
     const { shareVia } = req.body; // 'email' | 'whatsapp' | 'both'
@@ -43,10 +60,11 @@ router.post("/api/agent/prospect-proposals/:id/share", async (req: Request, res:
       ));
 
     if (!existing) {
-      return res.status(404).json({ error: "Proposal not found" });
+      res.status(404).json({ error: "Proposal not found" });
+      return;
     }
 
-    const updateData: any = {
+    const updateData: ProposalUpdate = {
       status: 'shared',
       updatedAt: new Date(),
     };
@@ -54,13 +72,13 @@ router.post("/api/agent/prospect-proposals/:id/share", async (req: Request, res:
     if (shareVia === 'email' || shareVia === 'both') {
       updateData.sharedViaEmail = true;
       updateData.emailSentAt = new Date();
-      await logProposalEvent(existing.id, "shared_email", { prospectEmail: existing.prospectEmail }, req.ip, req.headers["user-agent"] as string);
+      await logProposalEvent(existing.id, "shared_email", { prospectEmail: existing.prospectEmail }, req.ip || '', req.headers["user-agent"] as string);
     }
 
     if (shareVia === 'whatsapp' || shareVia === 'both') {
       updateData.sharedViaWhatsApp = true;
       updateData.whatsappSentAt = new Date();
-      await logProposalEvent(existing.id, "shared_whatsapp", { prospectMobile: existing.prospectMobile }, req.ip, req.headers["user-agent"] as string);
+      await logProposalEvent(existing.id, "shared_whatsapp", { prospectMobile: existing.prospectMobile }, req.ip || '', req.headers["user-agent"] as string);
     }
 
     const [updated] = await db.update(prospectProposals)
@@ -80,9 +98,10 @@ router.post("/api/agent/prospect-proposals/:id/share", async (req: Request, res:
       shareableLink: `${baseUrl}/proposal/${existing.shareToken}`,
       onboardingLink: `${baseUrl}/onboarding?ref=${existing.referralCode}`,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Share proposal error:", error);
-    res.status(500).json({ error: error.message || "Failed to share proposal" });
+    const msg = error instanceof Error ? error.message : "Failed to share proposal";
+    res.status(500).json({ error: msg });
   }
 });
 

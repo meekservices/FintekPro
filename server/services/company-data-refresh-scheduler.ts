@@ -11,6 +11,7 @@
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
 import { credhiveService } from './credhive-service';
+import * as schema from "@shared/schema";
 
 interface RefreshConfig {
   financialsMaxAgeDays: number;

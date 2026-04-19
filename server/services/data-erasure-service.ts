@@ -1,21 +1,6 @@
-/**
- * Data Erasure Service (GAP-4: DPDP Act 2023 §12 — Right to Erasure)
- *
- * India's Digital Personal Data Protection Act 2023:
- *  - §12: Data principal may request erasure of personal data
- *  - Exception: PMLA §12 requires 5-year retention of KYC/AML/transaction records
- *    → These records must be ANONYMISED (not deleted) to balance both regulations
- *  - §13: Data portability — user can request all their data in machine-readable format
- *
- * This service:
- *  1. Anonymises PMLA-retained records (replaces PII with '[ERASED]')
- *  2. Deletes all non-PMLA records (portfolio, communications, preferences, etc.)
- *  3. Generates a data export package for portability requests
- */
-
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, inArray } from 'drizzle-orm';
 import { logger } from '../logger';
 
 // PMLA §12 requires 5-year retention for KYC and transaction audit records
@@ -46,11 +31,6 @@ class DataErasureService {
   /**
    * Execute right-to-erasure for a user.
    * PMLA-required records are anonymised; everything else is deleted.
-   *
-   * WARNING: This is irreversible. Must be called only after:
-   *  1. Admin explicit confirmation (2-person rule for superadmin)
-   *  2. 30-day cooling-off period after request
-   *  3. Active portfolio check (reject if user has open positions)
    */
   async eraseUserData(userId: string, requestedBy: string): Promise<ErasureResult> {
     const requestedAt = new Date();
@@ -115,10 +95,6 @@ class DataErasureService {
 
   // ─── Data Portability (§13) ────────────────────────────────────────────────
 
-  /**
-   * Export all user data in structured JSON format (data portability request).
-   * Returns a JSON package the user can download.
-   */
   async exportUserData(userId: string): Promise<Record<string, any>> {
     const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
     const [profile] = await db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId)).limit(1);
@@ -126,8 +102,7 @@ class DataErasureService {
     const portfolios = await db.select().from(schema.portfolios).where(eq(schema.portfolios.userId, userId));
     const notifications = await db.select().from(schema.userNotifications).where(eq(schema.userNotifications.userId, userId));
 
-    // Mask sensitive fields in export
-    const sanitisedUser = { ...user, passwordHash: '[REDACTED]', twoFactorSecret: '[REDACTED]' };
+    const sanitisedUser = { ...user, password: '[REDACTED]' };
     const sanitisedProfile = profile ? {
       ...profile,
       panNumber: profile.panNumber ? `${profile.panNumber.slice(0, 4)}*****${profile.panNumber.slice(-1)}` : null,
@@ -139,9 +114,9 @@ class DataErasureService {
       regulatoryBasis: 'DPDP Act 2023 §13 — Right to Data Portability',
       user: sanitisedUser,
       profile: sanitisedProfile,
-      bankAccounts: bankAccounts.map(a => ({ ...a, accountNumber: `****${a.accountNumber?.slice(-4)}` })),
+      bankAccounts: bankAccounts.map(a => ({ ...a, bankAccountNumber: `****${a.bankAccountNumber?.slice(-4)}` })),
       portfolios,
-      notifications: notifications.slice(0, 100), // cap at 100
+      notifications: notifications.slice(0, 100),
     };
   }
 
@@ -149,11 +124,19 @@ class DataErasureService {
 
   private async checkOpenPositions(userId: string): Promise<{ hasOpenPositions: boolean; description: string }> {
     try {
+      // Find all portfolios for this user
+      const userPortfolios = await db.select({ id: schema.portfolios.id })
+        .from(schema.portfolios)
+        .where(eq(schema.portfolios.userId, userId));
+      
+      const portfolioIds = userPortfolios.map(p => p.id);
+      if (portfolioIds.length === 0) return { hasOpenPositions: false, description: 'none' };
+
       const holdings = await db.select({ count: sql<number>`count(*)` })
         .from(schema.portfolioHoldings)
         .where(and(
-          eq(schema.portfolioHoldings.userId, userId),
-          sql`units > 0`
+          inArray(schema.portfolioHoldings.portfolioId, portfolioIds),
+          sql`quantity > 0`
         ));
       const count = Number(holdings[0]?.count ?? 0);
       if (count > 0) {
@@ -168,11 +151,8 @@ class DataErasureService {
       await db.update(schema.userProfiles).set({
         panNumber: '[ERASED]',
         aadharNumber: '[ERASED]',
-        phoneNumber: '[ERASED]',
-        permanentAddress: '[ERASED]',
-        currentAddress: '[ERASED]',
+        address: '[ERASED]',
         dateOfBirth: null,
-        updatedAt: new Date(),
       }).where(eq(schema.userProfiles.userId, userId));
       tables.push('user_profiles');
     } catch (err) {
@@ -181,17 +161,22 @@ class DataErasureService {
   }
 
   private async anonymiseAuditTrails(userId: string, retained: string[], notes: string[]): Promise<void> {
-    // PMLA: audit trails must be RETAINED but PII can be scrubbed
     retained.push('platform_audit_logs', 'compliance_audit_trail');
     notes.push('Audit trails retained for 5 years per PMLA §12 (PII anonymised in-place).');
   }
 
   private async deletePortfolioData(userId: string, tables: string[]): Promise<void> {
     try {
-      await db.delete(schema.portfolioHoldings).where(eq(schema.portfolioHoldings.userId, userId));
-      tables.push('portfolio_holdings');
-    } catch { /* continue erasure even if individual deletes fail */ }
-    try {
+      const userPortfolios = await db.select({ id: schema.portfolios.id })
+        .from(schema.portfolios)
+        .where(eq(schema.portfolios.userId, userId));
+      
+      const portfolioIds = userPortfolios.map(p => p.id);
+      if (portfolioIds.length > 0) {
+        await db.delete(schema.portfolioHoldings).where(inArray(schema.portfolioHoldings.portfolioId, portfolioIds));
+        tables.push('portfolio_holdings');
+      }
+      
       await db.delete(schema.portfolios).where(eq(schema.portfolios.userId, userId));
       tables.push('portfolios');
     } catch { /* continue */ }
@@ -212,12 +197,10 @@ class DataErasureService {
   }
 
   private async deleteFinancialProfiles(userId: string, tables: string[]): Promise<void> {
-    // Bank accounts: anonymise (keep for reconciliation audit) rather than delete
     try {
       await db.update(schema.userBankAccounts).set({
-        accountNumber: '[ERASED]',
+        bankAccountNumber: '[ERASED]',
         ifscCode: '[ERASED]',
-        accountHolderName: '[ERASED]',
         updatedAt: new Date(),
       }).where(eq(schema.userBankAccounts.userId, userId));
       tables.push('user_bank_accounts (anonymised)');

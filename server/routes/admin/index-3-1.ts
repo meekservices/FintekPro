@@ -209,7 +209,7 @@ export function registerAdminPanelPart3Sub1Routes(app: Express): void {
   });
   app.get("/api/admin/system-health", requireAdmin, async (req, res) => {
     try {
-      const { getSystemHealth } = await import("./services/system-health");
+      const { getSystemHealth } = await import("../../services/system-health");
       const healthReport = await getSystemHealth();
       res.json(healthReport);
     } catch (error: any) {

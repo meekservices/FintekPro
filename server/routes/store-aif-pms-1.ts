@@ -8,6 +8,7 @@ import { fetchSebiAifListings, SebiAifListing, generateComprehensiveAifSeedData,
 import { fetchSebiPmsListings, SebiPmsListing, generateComprehensivePmsSeedData, PmsSeedData } from "../services/sebi-pms-scraper";
 import { externalRemittanceService, RemittanceUploadRequest, RemittanceDocumentUpload } from "../services/external-remittance-service";
 import { aiRecommendationSyncService } from "../services/ai-recommendation-sync-service";
+import * as schema from "@shared/schema";
 
 const router = Router();
 

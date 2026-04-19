@@ -193,13 +193,14 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
       // Use company's CredHive ID if available for direct sync
       if (credhiveId) {
         // Fetch company details (includes directors), financials, and ratios
-        const [companyDetails, financials, ratios] = await Promise.all([
+        const [_companyDetails, financials, ratios] = await Promise.all([
           credhiveService.getCompanyDetails(credhiveId),
-          credhiveService.getCompanyFinancials(credhiveId, 3),
-          credhiveService.getCompanyRatios(credhiveId, 3),
+          (credhiveService as any).getCompanyFinancials(credhiveId, 3),
+          (credhiveService as any).getCompanyRatios(credhiveId, 3),
         ]);
         
         // Update company with details from CredHive including CIN if missing
+        const companyDetails = _companyDetails as any;
         if (companyDetails) {
           const updateData: any = { lastSyncedAt: new Date() };
           if (companyDetails.cin && !companyData.cin) {
@@ -332,8 +333,8 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
           }
         });
       } else {
-        const blockReason = enriched.auditTrail.find(a => a.action === 'block')?.reason;
-        const bypassReason = enriched.auditTrail.find(a => a.action === 'bypass')?.reason;
+        const blockReason = enriched.auditTrail.find((a: any) => a.action === 'block')?.reason;
+        const bypassReason = enriched.auditTrail.find((a: any) => a.action === 'bypass')?.reason;
         results.push({
           source: 'data_enrichment',
           status: 'no_data',
@@ -414,7 +415,7 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
             const resultWords = resultNameLower.split(' ');
             let matchScore = 0;
             for (const word of searchWords) {
-              if (resultWords.some(rw => rw.includes(word) || word.includes(rw))) {
+              if (resultWords.some((rw: any) => rw.includes(word) || word.includes(rw))) {
                 matchScore++;
               }
             }
@@ -432,8 +433,8 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
             
             // Save the CIN and CredHive ID to the company record
             const updatePayload: any = { cin: bestMatch.cin, lastSyncedAt: new Date() };
-            if (bestMatch.company_id) {
-              updatePayload.probe42CompanyId = bestMatch.company_id;
+            if ((bestMatch as any).company_id) {
+              updatePayload.probe42CompanyId = (bestMatch as any).company_id;
             }
             await storage.updateUnlistedCompany(companyId, updatePayload);
             
@@ -581,8 +582,8 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
     }
     
     // If still missing sector/industry, try CredHive
-    const stillNeedsSector = enrichedFields.every(f => f.field !== 'sector') && needsSectorEnrich;
-    const stillNeedsIndustry = enrichedFields.every(f => f.field !== 'industry') && needsIndustryEnrich;
+    const stillNeedsSector = enrichedFields.every((f: any) => f.field !== 'sector') && needsSectorEnrich;
+    const stillNeedsIndustry = enrichedFields.every((f: any) => f.field !== 'industry') && needsIndustryEnrich;
     
     if ((stillNeedsSector || stillNeedsIndustry) && companyData.probe42CompanyId) {
       try {
@@ -629,8 +630,8 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
     }
     
     // Final fallback: Use NIC-based classification from CIN if still missing sector/industry
-    const finalNeedsSector = enrichedFields.every(f => f.field !== 'sector') && needsSectorEnrich;
-    const finalNeedsIndustry = enrichedFields.every(f => f.field !== 'industry') && needsIndustryEnrich;
+    const finalNeedsSector = enrichedFields.every((f: any) => f.field !== 'sector') && needsSectorEnrich;
+    const finalNeedsIndustry = enrichedFields.every((f: any) => f.field !== 'industry') && needsIndustryEnrich;
     
     if ((finalNeedsSector || finalNeedsIndustry) && currentCIN) {
       try {
@@ -668,7 +669,7 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
             } else {
               enrichmentSource = enrichmentSource + ' + NIC Classification';
             }
-            console.log(`[Auto-Enrich] Updated ${enrichedFields.filter(f => f.source.includes('NIC')).length} fields from NIC classification for ${companyData.name}`);
+            console.log(`[Auto-Enrich] Updated ${enrichedFields.filter((f: any) => f.source.includes('NIC')).length} fields from NIC classification for ${companyData.name}`);
           }
         }
       } catch (nicError: any) {

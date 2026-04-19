@@ -8,6 +8,9 @@ import { errorMonitor, errorMonitoringMiddleware, globalErrorHandler } from '../
 import { and, or, count } from 'drizzle-orm';
 import * as geminiService from '../gemini-service';
 
+// Stub for aiPortfolioService — delegates to geminiService at runtime
+const aiPortfolioService: any = geminiService;
+
 const authenticateUser = async (req: any, res: any, next: any) => {
   if (req.isAuthenticated && req.isAuthenticated() && req.user) return next();
   const authHeader = req.headers.authorization;
@@ -33,7 +36,7 @@ app.post("/api/proposals/:proposalId/approve", authenticateUser, async (req, res
     }
     
     // Only the client can approve their proposal
-    if (proposal.clientId !== req.user.id && req.user.role !== 'admin') {
+    if (proposal.clientId !== (req.user as any).id && (req.user as any).role !== 'admin') {
       return res.status(403).json({ error: "Only the client can approve this proposal" });
     }
     
@@ -64,7 +67,7 @@ app.post("/api/proposals/:proposalId/reject", authenticateUser, async (req, res)
     }
     
     // Only the client can reject their proposal
-    if (proposal.clientId !== req.user.id && req.user.role !== 'admin') {
+    if (proposal.clientId !== (req.user as any).id && (req.user as any).role !== 'admin') {
       return res.status(403).json({ error: "Only the client can reject this proposal" });
     }
     
@@ -83,7 +86,7 @@ app.post("/api/proposals/:proposalId/reject", authenticateUser, async (req, res)
 // Generate AI proposals for monthly surplus allocation
 app.post("/api/proposals/generate-ai", authenticateUser, async (req, res) => {
   try {
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
     const { targetAmount = 72000 } = req.body; // Default to ₹72,000 monthly surplus
     
     // Generate AI proposal using the portfolio service
@@ -115,8 +118,8 @@ app.get("/api/proposals/:proposalId/items", authenticateUser, async (req, res) =
     }
     
     if (!hasRole(req.user, ['admin']) && 
-        proposal.clientId !== req.user.id && 
-        proposal.agentId !== req.user.id) {
+        proposal.clientId !== (req.user as any).id && 
+        proposal.agentId !== (req.user as any).id) {
       return res.status(403).json({ error: "Access denied" });
     }
     
@@ -138,7 +141,7 @@ app.post("/api/proposals/:proposalId/items", authenticateUser, async (req, res) 
       return res.status(404).json({ error: "Proposal not found" });
     }
     
-    if (!hasRole(req.user, ['admin']) && proposal.agentId !== req.user.id) {
+    if (!hasRole(req.user, ['admin']) && proposal.agentId !== (req.user as any).id) {
       return res.status(403).json({ error: "Only the agent can add items to their proposals" });
     }
     
@@ -167,8 +170,8 @@ app.get("/api/proposals/:proposalId/payments", authenticateUser, async (req, res
     }
     
     if (!hasRole(req.user, ['admin']) && 
-        proposal.clientId !== req.user.id && 
-        proposal.agentId !== req.user.id) {
+        proposal.clientId !== (req.user as any).id && 
+        proposal.agentId !== (req.user as any).id) {
       return res.status(403).json({ error: "Access denied" });
     }
     
@@ -197,7 +200,7 @@ app.post("/api/proposals/:proposalId/payments", authenticateUser, async (req, re
     }
     
     // Only the client can initiate payment
-    if (proposal.clientId !== req.user.id && req.user.role !== 'admin') {
+    if (proposal.clientId !== (req.user as any).id && (req.user as any).role !== 'admin') {
       return res.status(403).json({ error: "Only the client can initiate payment" });
     }
     
@@ -243,14 +246,14 @@ app.post("/api/agent/transaction-reports/request", requireAgent, async (req, res
     }
     
     // Verify agent has access to this client
-    const relationship = await storage.getClientAgentRelationship(clientId, req.user.id);
+    const relationship = await storage.getClientAgentRelationship(clientId, (req.user as any).id);
     if (!relationship || relationship.status !== 'active') {
       return res.status(403).json({ error: "No active relationship with this client" });
     }
     
     const reportData = {
       clientId,
-      agentId: req.user.id,
+      agentId: (req.user as any).id,
       reportType,
       reportPeriod: reportPeriod || 'yearly',
       startDate: startDate || new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0],

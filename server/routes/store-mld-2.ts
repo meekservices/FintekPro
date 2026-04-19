@@ -11,8 +11,52 @@ const router = Router();
 
 // ============ MLD STORE ENDPOINTS ============
 
+interface AuthRequest extends Request {
+  user?: {
+    id: string;
+    kycStatus?: string;
+  };
+}
+
+interface MldMasterRecord {
+  id: string;
+  isin: string;
+  name: string;
+  issuer: string | null;
+  underlying: string | null;
+  payoffType: string | null;
+  faceValue: string | null;
+  barrierLevel: string | null;
+  participationRate: string | null;
+  cap: string | null;
+  floor: string | null;
+  maturityDate: string | Date | null;
+  latestPrice: string | null;
+  rating: string | null;
+  liquidityProfile: string | null;
+  impliedYield: string | null;
+  irr: string | null;
+  riskScore: number | null;
+  suitabilityScore: number | null;
+  aiRecommendation: string | null;
+}
+
+interface ScenarioData {
+  underlyingReturn: number;
+  payoff: number;
+  irr: number;
+}
+
+interface ScenarioPayoffs {
+  bull: ScenarioData;
+  base: ScenarioData;
+  bear: ScenarioData;
+}
+
+// ============ MLD STORE ENDPOINTS ============
+
 // GET /mld - List all published MLDs for store
-router.delete("/admin/mld/:id", requireAdmin, async (req, res) => {
+router.delete("/admin/mld/:id", requireAdmin, async (req, res): Promise<void> => {
   try {
     const { id } = req.params;
     
@@ -26,11 +70,12 @@ router.delete("/admin/mld/:id", requireAdmin, async (req, res) => {
       .returning();
     
     if (!deleted) {
-      return res.status(404).json({ error: "MLD not found" });
+      res.status(404).json({ error: "MLD not found" });
+      return;
     }
     
     res.json({ success: true, deleted });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error deleting MLD:", error);
     res.status(500).json({ error: "Failed to delete MLD" });
   }
@@ -39,9 +84,13 @@ router.delete("/admin/mld/:id", requireAdmin, async (req, res) => {
 // ============ CLIENT PORTFOLIO MLD ENDPOINTS ============
 
 // GET /portfolio/mld - Get user's MLD holdings
-router.get("/portfolio/mld", requireAuth, async (req, res) => {
+router.get("/portfolio/mld", requireAuth, async (req, res): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
     
     const holdings = await db
       .select()
@@ -77,23 +126,28 @@ router.get("/portfolio/mld", requireAuth, async (req, res) => {
         unrealizedGainLossPercent: totalInvested > 0 ? ((totalCurrentValue - totalInvested) / totalInvested) * 100 : 0,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error fetching MLD holdings:", error);
     res.status(500).json({ error: "Failed to fetch MLD holdings" });
   }
 });
 
 // POST /portfolio/mld - Add MLD to portfolio
-router.post("/portfolio/mld", requireAuth, async (req, res) => {
+router.post("/portfolio/mld", requireAuth, async (req, res): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
     const holdingData = req.body;
     
     // Validate required fields
     if (!holdingData.isin || !holdingData.mldName || !holdingData.purchasePrice || !holdingData.purchaseDate || !holdingData.quantity) {
-      return res.status(400).json({ 
+      res.status(400).json({ 
         error: "Missing required fields: isin, mldName, purchasePrice, purchaseDate, quantity" 
       });
+      return;
     }
     
     // Calculate derived fields
@@ -148,23 +202,28 @@ router.post("/portfolio/mld", requireAuth, async (req, res) => {
       .returning();
     
     res.status(201).json(newHolding);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error adding MLD to portfolio:", error);
     res.status(500).json({ error: "Failed to add MLD to portfolio" });
   }
 });
 
 // PUT /portfolio/mld/:id - Update MLD holding
-router.put("/portfolio/mld/:id", requireAuth, async (req, res) => {
+router.put("/portfolio/mld/:id", requireAuth, async (req, res): Promise<void> => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
     const updateData = req.body;
     
     // Verify ownership
     const [existing] = await db.select().from(clientPortfolioMld).where(eq(clientPortfolioMld.id, id));
     if (!existing || existing.clientId !== userId) {
-      return res.status(404).json({ error: "MLD holding not found" });
+      res.status(404).json({ error: "MLD holding not found" });
+      return;
     }
     
     // Recalculate derived fields if needed
@@ -191,22 +250,27 @@ router.put("/portfolio/mld/:id", requireAuth, async (req, res) => {
       .returning();
     
     res.json(updated);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error updating MLD holding:", error);
     res.status(500).json({ error: "Failed to update MLD holding" });
   }
 });
 
 // DELETE /portfolio/mld/:id - Delete MLD holding
-router.delete("/portfolio/mld/:id", requireAuth, async (req, res) => {
+router.delete("/portfolio/mld/:id", requireAuth, async (req, res): Promise<void> => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
     
     // Verify ownership
     const [existing] = await db.select().from(clientPortfolioMld).where(eq(clientPortfolioMld.id, id));
     if (!existing || existing.clientId !== userId) {
-      return res.status(404).json({ error: "MLD holding not found" });
+      res.status(404).json({ error: "MLD holding not found" });
+      return;
     }
     
     const [deleted] = await db
@@ -215,7 +279,7 @@ router.delete("/portfolio/mld/:id", requireAuth, async (req, res) => {
       .returning();
     
     res.json({ success: true, deleted });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error deleting MLD holding:", error);
     res.status(500).json({ error: "Failed to delete MLD holding" });
   }
@@ -224,14 +288,14 @@ router.delete("/portfolio/mld/:id", requireAuth, async (req, res) => {
 // ============ ADMIN PORTFOLIO APPROVAL ============
 
 // GET /portfolio/admin/mld - Get all MLD portfolio entries for admin
-router.get("/portfolio/admin/mld", requireAdmin, async (req, res) => {
+router.get("/portfolio/admin/mld", requireAdmin, async (req, res): Promise<void> => {
   try {
     const { status } = req.query;
     
     const conditions = [];
     if (status) conditions.push(eq(clientPortfolioMld.entryStatus, status as string));
     
-    const holdings = await db
+    const holdingsResult = await db
       .select({
         holding: clientPortfolioMld,
         client: users,
@@ -242,7 +306,7 @@ router.get("/portfolio/admin/mld", requireAdmin, async (req, res) => {
       .orderBy(desc(clientPortfolioMld.createdAt));
     
     res.json({
-      holdings: holdings.map(h => ({
+      holdings: holdingsResult.map(h => ({
         ...h.holding,
         client: h.client ? {
           id: h.client.id,
@@ -251,21 +315,22 @@ router.get("/portfolio/admin/mld", requireAdmin, async (req, res) => {
         } : null,
       })),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error fetching admin MLD portfolio:", error);
     res.status(500).json({ error: "Failed to fetch portfolio data" });
   }
 });
 
 // PUT /portfolio/admin/mld/:id/approve - Approve/reject MLD holding
-router.put("/portfolio/admin/mld/:id/approve", requireAdmin, async (req, res) => {
+router.put("/portfolio/admin/mld/:id/approve", requireAdmin, async (req, res): Promise<void> => {
   try {
     const { id } = req.params;
     const { action, rejectionReason } = req.body;
-    const adminId = (req as any).user?.id;
+    const adminId = (req as AuthRequest).user?.id;
     
     if (!["approve", "reject", "needs_review"].includes(action)) {
-      return res.status(400).json({ error: "Invalid action" });
+      res.status(400).json({ error: "Invalid action" });
+      return;
     }
     
     const entryStatus = action === "approve" ? "approved" : action === "reject" ? "rejected" : "needs_review";
@@ -283,11 +348,12 @@ router.put("/portfolio/admin/mld/:id/approve", requireAdmin, async (req, res) =>
       .returning();
     
     if (!updated) {
-      return res.status(404).json({ error: "MLD holding not found" });
+      res.status(404).json({ error: "MLD holding not found" });
+      return;
     }
     
     res.json(updated);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error approving MLD holding:", error);
     res.status(500).json({ error: "Failed to process approval" });
   }
@@ -295,21 +361,21 @@ router.put("/portfolio/admin/mld/:id/approve", requireAdmin, async (req, res) =>
 
 // ============ ANALYTICS HELPER FUNCTIONS ============
 
-function calculateScenarioPayoffs(mld: any) {
+function calculateScenarioPayoffs(mld: MldMasterRecord): ScenarioPayoffs {
   const faceValue = parseFloat(mld.faceValue || "1000000");
   const barrier = parseFloat(mld.barrierLevel || "0.9");
   const participation = parseFloat(mld.participationRate || "1");
   const cap = parseFloat(mld.cap || "1.5");
   const floor = parseFloat(mld.floor || "1");
   
-  const scenarios = {
+  const scenarios: ScenarioPayoffs = {
     bull: { underlyingReturn: 0.20, payoff: 0, irr: 0 },
     base: { underlyingReturn: 0.05, payoff: 0, irr: 0 },
     bear: { underlyingReturn: -0.15, payoff: 0, irr: 0 },
   };
   
   Object.keys(scenarios).forEach(key => {
-    const scenario = scenarios[key as keyof typeof scenarios];
+    const scenario = scenarios[key as keyof ScenarioPayoffs];
     let payoffMultiple = 1;
     
     switch (mld.payoffType) {
@@ -338,26 +404,27 @@ function calculateScenarioPayoffs(mld: any) {
     scenario.payoff = faceValue * payoffMultiple;
     
     // Calculate IRR (simplified)
-    const maturityYears = mld.maturityDate ? (new Date(mld.maturityDate).getTime() - Date.now()) / (365 * 24 * 60 * 60 * 1000) : 1;
+    const maturityDate = mld.maturityDate ? new Date(mld.maturityDate) : null;
+    const maturityYears = maturityDate ? (maturityDate.getTime() - Date.now()) / (365 * 24 * 60 * 60 * 1000) : 1;
     scenario.irr = ((payoffMultiple - 1) / Math.max(maturityYears, 0.1)) * 100;
   });
   
   return scenarios;
 }
 
-function calculateMldAnalytics(mld: any) {
+function calculateMldAnalytics(mld: MldMasterRecord) {
   const faceValue = parseFloat(mld.faceValue || "1000000");
   const latestPrice = parseFloat(mld.latestPrice || mld.faceValue || "1000000");
   
-  const maturityDate = mld.maturityDate ? new Date(mld.maturityDate) : new Date();
-  const yearsToMaturity = Math.max((maturityDate.getTime() - Date.now()) / (365 * 24 * 60 * 60 * 1000), 0.01);
+  const mDate = mld.maturityDate ? new Date(mld.maturityDate) : new Date();
+  const yearsToMaturity = Math.max((mDate.getTime() - Date.now()) / (365 * 24 * 60 * 60 * 1000), 0.01);
   
   // Calculate YTM (simplified)
   const ytm = ((faceValue / latestPrice) ** (1 / yearsToMaturity) - 1) * 100;
   
   // Risk assessment
   const riskFactors = [];
-  if (mld.rating && ["BBB", "BBB-", "BB+", "BB", "B"].some(r => mld.rating.includes(r))) {
+  if (mld.rating && ["BBB", "BBB-", "BB+", "BB", "B"].some(r => mld.rating!.includes(r))) {
     riskFactors.push("Credit risk: Sub-investment grade rating");
   }
   if (yearsToMaturity > 5) {
@@ -381,7 +448,7 @@ function calculateMldAnalytics(mld: any) {
   };
 }
 
-function generateScenarioAnalysis(mld: any) {
+function generateScenarioAnalysis(mld: MldMasterRecord) {
   const scenarioPayoffs = calculateScenarioPayoffs(mld);
   const faceValue = parseFloat(mld.faceValue || "1000000");
   
@@ -396,17 +463,17 @@ function generateScenarioAnalysis(mld: any) {
     },
     scenarios: Object.entries(scenarioPayoffs).map(([name, data]) => ({
       name: name.charAt(0).toUpperCase() + name.slice(1),
-      underlyingReturn: `${((data as any).underlyingReturn * 100).toFixed(1)}%`,
-      payoff: (data as any).payoff,
-      absoluteReturn: (data as any).payoff - faceValue,
-      percentReturn: (((data as any).payoff / faceValue - 1) * 100).toFixed(2),
-      irr: `${(data as any).irr.toFixed(2)}%`,
+      underlyingReturn: `${(data.underlyingReturn * 100).toFixed(1)}%`,
+      payoff: data.payoff,
+      absoluteReturn: data.payoff - faceValue,
+      percentReturn: ((data.payoff / faceValue - 1) * 100).toFixed(2),
+      irr: `${data.irr.toFixed(2)}%`,
     })),
     payoffGraph: generatePayoffGraphData(mld),
   };
 }
 
-function generatePayoffGraphData(mld: any) {
+function generatePayoffGraphData(mld: MldMasterRecord) {
   const barrier = parseFloat(mld.barrierLevel || "0.9");
   const participation = parseFloat(mld.participationRate || "1");
   const cap = parseFloat(mld.cap || "1.5");
@@ -452,7 +519,7 @@ function generatePayoffGraphData(mld: any) {
 // ============ BSE MLD IMPORT ENDPOINTS ============
 
 // GET /admin/mld/import/preview - Preview MLDs from BSE before importing
-router.get("/admin/mld/import/preview", requireAdmin, async (req, res) => {
+router.get("/admin/mld/import/preview", requireAdmin, async (req, res): Promise<void> => {
   try {
     const { useSample } = req.query;
     
@@ -503,18 +570,18 @@ router.get("/admin/mld/import/preview", requireAdmin, async (req, res) => {
       },
       errors,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[BSE Import] Preview error:", error);
     res.status(500).json({ 
       success: false, 
       error: "Failed to preview BSE MLDs",
-      details: error.message,
+      details: error instanceof Error ? error.message : String(error),
     });
   }
 });
 
 // GET /admin/mld/import/nse/preview - Preview MLDs from NSE before importing
-router.get("/admin/mld/import/nse/preview", requireAdmin, async (req, res) => {
+router.get("/admin/mld/import/nse/preview", requireAdmin, async (req, res): Promise<void> => {
   try {
     const { useSample } = req.query;
     
@@ -565,26 +632,28 @@ router.get("/admin/mld/import/nse/preview", requireAdmin, async (req, res) => {
       },
       errors,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[NSE Import] Preview error:", error);
     res.status(500).json({ 
       success: false, 
       error: "Failed to preview NSE MLDs",
-      details: error.message,
+      details: error instanceof Error ? error.message : String(error),
     });
   }
 });
 
 // POST /admin/mld/import - Import selected MLDs from BSE or NSE
-router.post("/admin/mld/import", requireAdmin, async (req, res) => {
+router.post("/admin/mld/import", requireAdmin, async (req, res): Promise<void> => {
   try {
     const { listings, skipDuplicates = true } = req.body;
     
     if (!Array.isArray(listings) || listings.length === 0) {
-      return res.status(400).json({ error: "No listings provided for import" });
+      res.status(400).json({ error: "No listings provided for import" });
+      return;
     }
     
-    const source = listings[0]?.exchange || "BSE";
+    const firstListing = listings[0] as (BseMldListing | NseMldListing);
+    const source = firstListing?.exchange || "BSE";
     console.log(`[${source} Import] Starting import of ${listings.length} MLDs...`);
     
     // Normalize ISIN for consistent comparison
@@ -598,7 +667,7 @@ router.post("/admin/mld/import", requireAdmin, async (req, res) => {
     
     const imported: any[] = [];
     const skipped: string[] = [];
-    const errors: string[] = [];
+    const importErrors: string[] = [];
     
     for (const listing of listings as (BseMldListing | NseMldListing)[]) {
       try {
@@ -629,48 +698,51 @@ router.post("/admin/mld/import", requireAdmin, async (req, res) => {
             issueDate: listing.issueDate || new Date().toISOString().split("T")[0],
             maturityDate: listing.maturityDate || new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
             faceValue: listing.faceValue,
-            couponRate: listing.couponRate || undefined,
             underlying: "NIFTY 50",
             payoffType,
-            creditRating: listing.creditRating,
-            listingType: listing.listingType,
-            exchange: listing.exchange,
+            rating: (listing as any).creditRating,
             minInvestment: listing.faceValue,
-            lotSize: 1,
             status: "active",
             riskScore: 5,
             isPublished: false,
+            metadata: {
+              couponRate: (listing as any).couponRate,
+              listingType: (listing as any).listingType,
+              exchange: (listing as any).exchange,
+              lotSize: 1,
+            },
             createdAt: new Date(),
           })
           .returning();
         
         imported.push(newMld);
         existingIsinSet.add(normalizedIsin);
-      } catch (itemError: any) {
-        console.error(`[BSE Import] Error importing ${listing.isin}:`, itemError.message);
-        errors.push(`${listing.isin}: ${itemError.message}`);
+      } catch (itemError: unknown) {
+        const msg = itemError instanceof Error ? itemError.message : String(itemError);
+        console.error(`[BSE Import] Error importing ${listing.isin}:`, msg);
+        importErrors.push(`${listing.isin}: ${msg}`);
       }
     }
     
-    console.log(`[BSE Import] Completed: ${imported.length} imported, ${skipped.length} skipped, ${errors.length} errors`);
+    console.log(`[BSE Import] Completed: ${imported.length} imported, ${skipped.length} skipped, ${importErrors.length} errors`);
     
     res.json({
       success: true,
       summary: {
         imported: imported.length,
         skipped: skipped.length,
-        errors: errors.length,
+        errors: importErrors.length,
       },
       imported,
       skipped,
-      errors,
+      errors: importErrors,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[BSE Import] Import error:", error);
     res.status(500).json({ 
       success: false, 
       error: "Failed to import BSE MLDs",
-      details: error.message,
+      details: error instanceof Error ? error.message : String(error),
     });
   }
 });
@@ -688,21 +760,22 @@ const mldExpressInterestSchema = z.object({
 });
 
 // POST /mld/:id/express-interest - Express interest in an MLD
-router.post("/mld/:id/express-interest", async (req, res) => {
+router.post("/mld/:id/express-interest", async (req, res): Promise<void> => {
   try {
     const { id } = req.params;
     
     // Get the MLD details
     const [mld] = await db.select().from(mldMaster).where(eq(mldMaster.id, id));
     if (!mld) {
-      return res.status(404).json({ error: "MLD not found" });
+      res.status(404).json({ error: "MLD not found" });
+      return;
     }
     
     const data = mldExpressInterestSchema.parse(req.body);
     
     // Get user info if authenticated
-    const userId = (req as any).user?.id || null;
-    const kycStatus = (req as any).user?.kycStatus || null;
+    const userId = (req as AuthRequest).user?.id || null;
+    const kycStatus = (req as AuthRequest).user?.kycStatus || null;
     
     const [inquiry] = await db
       .insert(investmentInquiries)
@@ -730,9 +803,10 @@ router.post("/mld/:id/express-interest", async (req, res) => {
       message: "Thank you for your interest. Our team will contact you soon.",
       inquiryId: inquiry.id,
     });
-  } catch (error: any) {
-    if (error.name === "ZodError") {
-      return res.status(400).json({ error: "Invalid data", details: error.errors });
+  } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: "Invalid data", details: error.errors });
+      return;
     }
     console.error("Error creating MLD inquiry:", error);
     res.status(500).json({ error: "Failed to submit inquiry" });

@@ -23,6 +23,7 @@ import { registerPortfolioCompareAISIPRoutes } from './routes/portfolio-compare-
 import { registerFamilyCollaborationRoutes } from './routes/family-collaboration';
 import { registerAlertSystemRoutes } from './routes/alert-system';
 import { registerSystemAdminRoutes } from './routes/system-admin';
+import policyStatusRoutes from './routes/admin/policy-status-routes';
 import { registerIrisKfintechRoutes } from './routes/iris-kfintech-routes';
 import { executionGuard } from "./middleware/execution-guard";
 import { proxyToInsurance } from './clients/insurance-client';
@@ -716,6 +717,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   registerMFMonthwiseRoutes(app);
   registerAgentCapitalGainsRoutes(app);
   registerAdminComplianceTestRoutes(app);
+  app.use("/api/system/policy-status", policyStatusRoutes);
 
   // =================================================================
   // CLIENT ENRICHMENT API ENDPOINTS

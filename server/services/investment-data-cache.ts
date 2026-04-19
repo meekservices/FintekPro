@@ -10,7 +10,7 @@
  */
 
 import { storage } from "../storage";
-import type { InvestmentProduct, ProductType, RiskLevel, Liquidity } from "../../shared/unified-investment-product";
+import type { InvestmentProduct, UnifiedProductType as ProductType, RiskLevel, LiquidityLevel as Liquidity } from "../../shared/unified-investment-product";
 
 interface CacheEntry<T> {
   data: T;
@@ -35,7 +35,7 @@ interface CacheMetrics {
   productCounts: Record<ProductType, number>;
 }
 
-const PRODUCT_CACHE_CONFIG: Record<ProductType, ProductTypeCacheConfig> = {
+const PRODUCT_CACHE_CONFIG: Record<string, ProductTypeCacheConfig> = {
   STOCK: { ttlMs: 5 * 60 * 1000, staleTtlMs: 15 * 60 * 1000, refreshEnabled: true },
   MF: { ttlMs: 6 * 60 * 60 * 1000, staleTtlMs: 12 * 60 * 60 * 1000, refreshEnabled: true },
   BOND: { ttlMs: 30 * 60 * 1000, staleTtlMs: 60 * 60 * 1000, refreshEnabled: true },
@@ -173,7 +173,7 @@ class InvestmentDataCache {
       const { db } = await import("../db");
       const { reits } = await import("@shared/schema");
       const reitList = await db.select().from(reits).limit(50);
-      return reitList.map(reit => ({
+      return reitList.map((reit: any) => ({
         product_id: reit.id,
         product_type: 'REIT' as ProductType,
         name: reit.name,
@@ -185,15 +185,15 @@ class InvestmentDataCache {
         volatility_proxy: 15,
         tax_treatment: 'reit',
         lock_in_period: null,
-        min_investment: parseFloat(reit.currentPrice?.toString() || '0') || 300,
+        min_investment: parseFloat(((reit as any).currentPrice)?.toString() || '0') || 300,
         regulatory_tags: ['SEBI_REGULATED', 'EXCHANGE_TRADED'],
         source: 'exchange',
-        current_price: parseFloat(reit.currentPrice?.toString() || '0'),
-        yield_or_return: parseFloat(reit.dividendYield?.toString() || '0'),
-        sector: reit.assetType || 'Real Estate',
+        current_price: parseFloat(((reit as any).currentPrice)?.toString() || '0'),
+        yield_or_return: parseFloat(((reit as any).dividendYield)?.toString() || '0'),
+        sector: ((reit as any).assetType) || 'Real Estate',
         raw_data: reit,
         last_updated: reit.lastUpdated?.toISOString() || new Date().toISOString(),
-      }));
+      })) as any[];
     } catch (error) {
       console.warn(`[InvestmentDataCache] Failed to fetch REITs: ${(error as any)?.message || error}`);
       return [];
@@ -205,7 +205,7 @@ class InvestmentDataCache {
       const { db } = await import("../db");
       const { invits } = await import("@shared/schema");
       const invitList = await db.select().from(invits).limit(50);
-      return invitList.map(invit => ({
+      return invitList.map((invit: any) => ({
         product_id: invit.id,
         product_type: 'INVIT' as ProductType,
         name: invit.name,
@@ -217,15 +217,15 @@ class InvestmentDataCache {
         volatility_proxy: 18,
         tax_treatment: 'invit',
         lock_in_period: null,
-        min_investment: parseFloat(invit.currentPrice?.toString() || '0') || 200,
+        min_investment: parseFloat(((invit as any).currentPrice)?.toString() || '0') || 200,
         regulatory_tags: ['SEBI_REGULATED', 'EXCHANGE_TRADED'],
         source: 'exchange',
-        current_price: parseFloat(invit.currentPrice?.toString() || '0'),
-        yield_or_return: parseFloat(invit.distributionYield?.toString() || '0'),
-        sector: invit.assetType || 'Infrastructure',
+        current_price: parseFloat(((invit as any).currentPrice)?.toString() || '0'),
+        yield_or_return: parseFloat(((invit as any).distributionYield)?.toString() || '0'),
+        sector: ((invit as any).assetType) || 'Infrastructure',
         raw_data: invit,
         last_updated: invit.lastUpdated?.toISOString() || new Date().toISOString(),
-      }));
+      })) as any[];
     } catch (error) {
       console.warn(`[InvestmentDataCache] Failed to fetch InvITs: ${(error as any)?.message || error}`);
       return [];
@@ -237,7 +237,7 @@ class InvestmentDataCache {
       const { db } = await import("../db");
       const { ipoCompanies } = await import("@shared/schema");
       const ipoList = await db.select().from(ipoCompanies).limit(50);
-      return ipoList.map(ipo => ({
+      return ipoList.map((ipo: any) => ({
         product_id: ipo.id,
         product_type: 'IPO' as ProductType,
         name: ipo.companyName,
@@ -249,15 +249,15 @@ class InvestmentDataCache {
         volatility_proxy: 40,
         tax_treatment: 'equity',
         lock_in_period: null,
-        min_investment: parseFloat(ipo.minLotPrice?.toString() || '0') || 15000,
+        min_investment: parseFloat(((ipo as any).minLotPrice)?.toString() || '0') || 15000,
         regulatory_tags: ['SEBI_REGULATED'],
         source: 'exchange',
-        current_price: parseFloat(ipo.priceRangeHigh?.toString() || ipo.issuePrice?.toString() || '0'),
+        current_price: parseFloat(((ipo as any).priceRangeHigh)?.toString() || ((ipo as any).issuePrice)?.toString() || '0'),
         yield_or_return: 0,
         sector: ipo.sector || 'Various',
         raw_data: ipo,
-        last_updated: ipo.updatedAt?.toISOString() || new Date().toISOString(),
-      }));
+        last_updated: ((ipo as any).updatedAt)?.toISOString() || new Date().toISOString(),
+      })) as any[];
     } catch (error) {
       console.warn(`[InvestmentDataCache] Failed to fetch IPOs: ${(error as any)?.message || error}`);
       return [];
@@ -269,7 +269,7 @@ class InvestmentDataCache {
       const { db } = await import("../db");
       const { preIpoCompanies } = await import("@shared/schema");
       const unlistedList = await db.select().from(preIpoCompanies).limit(50);
-      return unlistedList.map(company => ({
+      return unlistedList.map((company: any) => ({
         product_id: company.id,
         product_type: 'UNLISTED' as ProductType,
         name: company.companyName,
@@ -281,15 +281,15 @@ class InvestmentDataCache {
         volatility_proxy: 60,
         tax_treatment: 'equity',
         lock_in_period: null,
-        min_investment: parseFloat(company.minInvestment?.toString() || '0') || 100000,
+        min_investment: parseFloat(((company as any).minimumInvestment)?.toString() || '0') || 100000,
         regulatory_tags: ['SEBI_ACCREDITED_INVESTOR'],
         source: 'unlisted_marketplace',
-        current_price: parseFloat(company.currentPrice?.toString() || '0'),
+        current_price: parseFloat(((company as any).currentPrice)?.toString() || '0'),
         yield_or_return: 0,
         sector: company.sector || 'Various',
         raw_data: company,
-        last_updated: company.lastPriceUpdate?.toISOString() || new Date().toISOString(),
-      }));
+        last_updated: ((company as any).lastPriceUpdate)?.toISOString() || new Date().toISOString(),
+      })) as any[];
     } catch (error) {
       console.warn(`[InvestmentDataCache] Failed to fetch Unlisted Equities: ${(error as any)?.message || error}`);
       return [];
@@ -304,7 +304,7 @@ class InvestmentDataCache {
       const aifList = await db.select().from(aifMaster)
         .where(and(eq(aifMaster.fundStatus, 'active'), eq(aifMaster.isPublished, true)))
         .limit(50);
-      return aifList.map(aif => ({
+      return aifList.map((aif: any) => ({
         product_id: aif.id,
         product_type: 'AIF' as ProductType,
         name: aif.name,
@@ -324,7 +324,7 @@ class InvestmentDataCache {
         sector: aif.category || 'Alternative',
         raw_data: aif,
         last_updated: aif.updatedAt?.toISOString() || new Date().toISOString(),
-      }));
+      })) as any[];
     } catch (error) {
       console.warn(`[InvestmentDataCache] Failed to fetch AIFs: ${(error as any)?.message || error}`);
       return [];
@@ -344,8 +344,8 @@ class InvestmentDataCache {
   }
 
   private async fetchStocks(): Promise<InvestmentProduct[]> {
-    const stocks = await storage.getAllStocks?.() || [];
-    return stocks.slice(0, 100).map(stock => this.normalizeStock(stock));
+    const stocks = await (storage as any).getAllStocks?.()() || [];
+    return stocks.slice(0, 100).map((stock: any) => this.normalizeStock(stock));
   }
 
   private normalizeStock(stock: any): InvestmentProduct {
@@ -381,7 +381,7 @@ class InvestmentDataCache {
   }
 
   private async fetchMutualFunds(): Promise<InvestmentProduct[]> {
-    const funds = await storage.searchMutualFunds?.('', 100) || [];
+    const funds = await (storage as any).searchMutualFunds?.('') || [];
     return funds.slice(0, 100).map(fund => this.normalizeMutualFund(fund));
   }
 
@@ -421,8 +421,8 @@ class InvestmentDataCache {
   }
 
   private async fetchBonds(type: ProductType): Promise<InvestmentProduct[]> {
-    const bonds = await storage.getAllBonds?.() || [];
-    return bonds.slice(0, 50).map(bond => this.normalizeBond(bond, type));
+    const bonds = await (storage as any).getAllBonds?.()() || [];
+    return bonds.slice(0, 50).map((bond: any) => this.normalizeBond(bond, type));
   }
 
   private normalizeBond(bond: any, type: ProductType): InvestmentProduct {

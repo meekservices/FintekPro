@@ -73,8 +73,8 @@ export function registerKYCWizardPart2Sub2Routes(app: Express) {
         console.log(`[KYC Wizard] Using cached CKYC data for user ${userId}`);
         const ckycDecision = kycOrchestratorService.computeCkycConfidence({
           found: true,
-          data: profile.ckycAuthBridgeResponse,
-          kin: profile.ckycAuthBridgeKin,
+          data: (profile as any).ckycAuthBridgeResponse,
+          kin: (profile as any).ckycAuthBridgeKin,
           provider: 'truthscreen'
         });
 
@@ -84,7 +84,7 @@ export function registerKYCWizardPart2Sub2Routes(app: Express) {
           : 'risk_profiling';
 
         await storage.updateKycVerificationSession(sessionId, {
-          ckycData: profile.ckycAuthBridgeResponse,
+          ckycData: (profile as any).ckycAuthBridgeResponse,
           ckycFetched: true,
           ckycFetchedAt: new Date(),
           currentStep: nextStep,
@@ -107,7 +107,7 @@ export function registerKYCWizardPart2Sub2Routes(app: Express) {
           ckycFound: true,
           message: "CKYC record verified via Smart Mode.",
           data: {
-            kin: profile.ckycAuthBridgeKin,
+            kin: (profile as any).ckycAuthBridgeKin,
             name: `${profile.firstName} ${profile.lastName || ''}`.trim(),
             kycStatus: 'verified',
             confidence_score: ckycDecision.confidence_score,
@@ -214,7 +214,7 @@ export function registerKYCWizardPart2Sub2Routes(app: Express) {
             .set({
               aadhaarVerifiedViaSmartKyc: true,
               aadhaarVerificationDate: new Date(),
-            })
+            } as any)
             .where(eq(schema.users.id, userId));
 
           // Update kycVault with Aadhaar/address timestamps (CKYC is address-equivalent)
@@ -224,11 +224,11 @@ export function registerKYCWizardPart2Sub2Routes(app: Express) {
             const now = new Date();
             if (existingVaultCkyc.length > 0) {
               await db.update(schema.kycVault)
-                .set({ aadhaarVerifiedAt: now, addressVerifiedAt: now, updatedAt: now })
+                .set({ aadhaarVerifiedAt: now, addressVerifiedAt: now, updatedAt: now } as any)
                 .where(eq(schema.kycVault.userId, userId));
             } else {
               await db.insert(schema.kycVault)
-                .values({ userId, aadhaarVerifiedAt: now, addressVerifiedAt: now, source: 'ckyc_registry', kycStatus: 'pending' });
+                .values({ userId, aadhaarVerifiedAt: now, addressVerifiedAt: now, source: 'ckyc_registry', kycStatus: 'pending' } as any);
             }
           } catch (vaultCkycErr) {
             console.warn('[KYC] Non-fatal: vault update after CKYC auto-populate failed:', (vaultCkycErr as any)?.message);
@@ -461,7 +461,7 @@ export function registerKYCWizardPart2Sub2Routes(app: Express) {
           kycTierStatus: tierResult.tier_status,
           kycTierUpgradedAt: new Date(),
           fatcaDeclarationDate: new Date(),
-        })
+        } as any)
         .where(eq(schema.userProfiles.userId, userId));
 
       // Save PAN number, verified flags, and smartKycCompletedAt to users table
@@ -568,7 +568,7 @@ export function registerKYCWizardPart2Sub2Routes(app: Express) {
         console.log('[KYC] kycVault populated with verified status for user:', userId);
         // Invalidate caches so next sufficiency and compliance checks reflect new vault state
         try {
-          const { invalidateSufficiencyCache } = await import('../services/kyc-sufficiency-service');
+          const { invalidateSufficiencyCache } = await import('../../services/kyc-sufficiency-service');
           invalidateSufficiencyCache(userId);
         } catch { /* non-fatal */ }
         try {

@@ -13,6 +13,7 @@ import {
 import { eq, and, desc } from 'drizzle-orm';
 import { requireAuth } from '../middleware/roleMiddleware';
 import { nanoid } from 'nanoid';
+import { autonomousRebalancePlanner } from '../services/rebalancing';
 
 const router = Router();
 
@@ -191,52 +192,57 @@ router.post('/api/ai/generate-rebalance-proposal', requireAuth, async (req: Requ
       console.warn('[AI Rebalancing] Failed to load risk profile:', e?.message);
     }
 
-    const recommendations = await generateRebalanceRecommendations(holdings, riskProfile);
+    const recommendations = await autonomousRebalancePlanner.evaluatePortfolio(
+      totalValue,
+      holdings.map(h => ({ asset_class: h.assetType, weight: h.currentValue / totalValue })),
+      { 
+        portfolio_id: portfolioId || `web-user-${userId}`, 
+        target_allocation: [] // In production, this would fetch from URCAE
+      }
+    );
 
-    const proposalId = nanoid();
-    const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
-    const executableAmount = recommendations.reduce((sum, r) => {
-      const executableHoldings = r.holdings.filter(h => h.actionType === 'executable');
-      return sum + executableHoldings.reduce((s, h) => s + Math.abs(h.suggestedChange), 0);
-    }, 0);
+    if (recommendations.status === "BLOCK") {
+      return res.status(403).json({ 
+        success: false, 
+        error: "Policy Block", 
+        reasons: recommendations.governance_reasoning 
+      });
+    }
 
+    const proposalId = recommendations.audit_id || nanoid();
     const proposalNumber = `RBL-${Date.now().toString(36).toUpperCase()}`;
+    
+    // Maintain legacy DB persistence for UI compatibility while using new engine outputs
     const [proposal] = await db.insert(aiProposals).values({
       id: proposalId,
       clientId: userId,
       proposalNumber,
-      title: `AI Rebalancing Proposal - ${includeExternal ? 'Unified Portfolio' : 'FintekPro Only'}`,
-      description: `Risk profile: ${riskProfile?.riskCategory || 'moderate'}`,
+      title: `AI Rebalancing Proposal - Policy Hardened`,
+      description: `Verified by Autonomous Rebalance Engine (APRE v1.1).`,
       status: 'pending_review',
       totalInvestmentAmount: totalValue.toString(),
-      diagnosticsId: null,
-      validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       aiGeneratedAt: new Date(),
-      aiEngineVersion: '1.0.0',
+      aiEngineVersion: '1.1.0',
     }).returning();
 
+    // Map new engine "Plan" items back to legacy ProposalItems for UI rendering
     const proposalItems = [];
-    for (const rec of recommendations) {
-      for (const holding of rec.holdings) {
-        if (Math.abs(holding.suggestedChange) > 100) {
+    if (recommendations.plan) {
+       for (const action of (recommendations.plan as any[])) {
           const [item] = await db.insert(aiProposalItems).values({
             id: nanoid(),
             proposalId,
-            recommendationType: rec.action.toUpperCase(),
-            assetClass: rec.assetType.toLowerCase(),
-            productId: holding.symbol,
-            schemeName: `${holding.symbol} (${holding.source})`,
-            isin: null,
-            amount: Math.abs(holding.suggestedChange).toString(),
-            rationale: `${rec.action === 'sell' ? 'Reduce' : 'Increase'} allocation to reach ${rec.targetPercent}% target`,
-            problemIdentified: `Asset drift of ${rec.drift.toFixed(1)}% from target allocation`,
-            portfolioImpactSummary: `Current: ${rec.currentPercent.toFixed(1)}% → Target: ${rec.targetPercent}%`,
-            status: holding.actionType === 'executable' ? 'pending' : 'advisory',
+            recommendationType: action.action === 'buy' ? 'BUY' : 'SELL',
+            assetClass: action.asset_class,
+            productId: action.asset_class,
+            schemeName: action.asset_class,
+            amount: action.amount.toString(),
+            rationale: "Rebalancing to reach target risk-parity bounds.",
+            status: 'pending',
             priority: 1,
           }).returning();
           proposalItems.push(item);
-        }
-      }
+       }
     }
 
     res.json({
@@ -244,13 +250,12 @@ router.post('/api/ai/generate-rebalance-proposal', requireAuth, async (req: Requ
       proposalId,
       proposal,
       items: proposalItems,
-      recommendations,
+      recommendations: recommendations.plan,
+      simulation: recommendations.simulation_summary,
       summary: {
         totalHoldings: holdings.length,
         totalValue,
-        executableAmount,
-        advisoryAmount: totalValue - executableAmount,
-        includeExternal,
+        proposal_audit_trail: proposalId
       }
     });
   } catch (error: any) {

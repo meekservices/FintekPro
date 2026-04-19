@@ -260,7 +260,7 @@ export default function ProjectFinanceWizard({ applicationId, loanSubType, onCom
         projectType: p.projectType || "",
         totalUnits: p.totalUnits,
         totalSalableArea: p.totalSalableArea ? Number(p.totalSalableArea) : undefined,
-        expectedCompletionDate: p.expectedCompletionDate || "",
+        expectedCompletionDate: p.expectedCompletionDate ? (typeof p.expectedCompletionDate === 'string' ? p.expectedCompletionDate.split('T')[0] : new Date(p.expectedCompletionDate).toISOString().split('T')[0]) : "",
         tenureMonths: p.projectTenureMonths,
       });
       if (p.landDetails) {
@@ -274,7 +274,7 @@ export default function ProjectFinanceWizard({ applicationId, loanSubType, onCom
           titleStatus: p.landDetails.titleStatus || "",
           landOwnership: p.landDetails.landOwnership || "",
           registrationNumber: p.landDetails.registrationNumber || "",
-          registrationDate: p.landDetails.registrationDate || "",
+          registrationDate: p.landDetails.registrationDate ? (typeof p.landDetails.registrationDate === 'string' ? p.landDetails.registrationDate.split('T')[0] : new Date(p.landDetails.registrationDate).toISOString().split('T')[0]) : "",
           marketValue: p.landDetails.marketValue ? Number(p.landDetails.marketValue) : undefined,
           guidanceValue: p.landDetails.guidanceValue ? Number(p.landDetails.guidanceValue) : undefined,
           purchaseValue: p.landDetails.purchaseValue ? Number(p.landDetails.purchaseValue) : undefined,

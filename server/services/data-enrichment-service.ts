@@ -18,7 +18,7 @@ import { nsdlISINService } from './nsdl-isin-service';
 import { ExternalServiceError } from '../utils/errors';
 import { nseIndiaProviderInstance, bseIndiaProviderInstance } from './market-movers-cache';
 
-export type DataSource = 'nse' | 'bse' | 'nse_bse' | 'credhive' | 'finnhub' | 'yahoo' | 'google_finance' | 'manual' | 'mca';
+export type DataSource = 'nse' | 'bse' | 'nse_bse' | 'credhive' | 'finnhub' | 'yahoo' | 'google_finance' | 'manual' | 'mca' | 'admin';
 
 export interface MetricValue {
   value: number | string | null;
@@ -209,7 +209,7 @@ class DataEnrichmentService {
 
       const filingId = rows[0]?.filing_id;
       const avgConfidence = rows.length > 0
-        ? rows.reduce((sum, r) => sum + (parseFloat(r.extraction_confidence) || 0.95), 0) / rows.length
+        ? rows.reduce((sum: any, r: any) => sum + (parseFloat(r.extraction_confidence) || 0.95), 0) / rows.length
         : 0;
 
       return { metrics, filingId, confidence: avgConfidence };
@@ -406,10 +406,10 @@ class DataEnrichmentService {
 
       // Extract debt information from charges if available
       if (mcaData.charges && mcaData.charges.length > 0) {
-        const activeCharges = mcaData.charges.filter(c => 
+        const activeCharges = mcaData.charges.filter((c: any) => 
           c.status && c.status.toLowerCase() !== 'closed' && c.status.toLowerCase() !== 'satisfied'
         );
-        const totalDebt = activeCharges.reduce((sum, c) => sum + toNumber(c.chargeAmount), 0);
+        const totalDebt = activeCharges.reduce((sum: any, c: any) => sum + toNumber(c.chargeAmount), 0);
         
         if (totalDebt > 0) {
           metrics['totalDebt'] = {
@@ -982,15 +982,15 @@ class DataEnrichmentService {
 
     const company = await storage.getUnlistedCompanyById(companyId);
     if (!company) {
-      throw new ExternalServiceError('DataEnrichment', 'Company not found', null, false);
+      throw new ExternalServiceError('DataEnrichment', 'Company not found', undefined, false);
     }
 
     const confidence = computeIdentityConfidence({
-      cin: company.cin,
+      cin: (company as any).cin,
       isin: company.isin,
-      companyName: company.companyName,
-      legalName: company.legalName,
-      pan: company.pan,
+      companyName: (company as any).companyName || company.name,
+      legalName: (company as any).legalName || company.name,
+      pan: (company as any).pan,
     });
 
     // Allow admin-triggered fetches (forceRefresh) to bypass identity check when CIN or ISIN is present
@@ -1023,7 +1023,7 @@ class DataEnrichmentService {
       auditTrail.push({
         id: crypto.randomUUID(),
         timestamp: now,
-        action: 'bypass',
+        action: 'bypass' as any,
         source: 'admin',
         reason: `Admin-triggered enrichment bypass: CIN=${company.cin || 'N/A'}, ISIN=${company.isin || 'N/A'}`,
       });
@@ -1077,10 +1077,10 @@ class DataEnrichmentService {
           }
         } else {
           // NSDL lookup failed, try MCA name search as fallback
-          console.log(`[DataEnrichment] NSDL lookup failed, trying MCA name search for: ${company.companyName || company.name}`);
+          console.log(`[DataEnrichment] NSDL lookup failed, trying MCA name search for: ${(company as any).companyName || company.name}`);
           
           try {
-            const companyName = company.companyName || company.name || '';
+            const companyName = (company as any).companyName || company.name || '';
             if (companyName && mcaService.isConfigured()) {
               const mcaSearchResults = await mcaService.searchCompanyByName(companyName);
               
@@ -1207,7 +1207,7 @@ class DataEnrichmentService {
         reason: 'Fetching data from NSE/BSE exchange filings',
       });
 
-      const nseBseResult = await this.fetchFromNSEBSE(companyId, company.symbol || undefined, financialYear);
+      const nseBseResult = await this.fetchFromNSEBSE(companyId, (company as any).symbol || undefined, financialYear);
       
       if (Object.keys(nseBseResult.metrics).length > 0) {
         enriched.sources.push('nse_bse');
@@ -1341,7 +1341,7 @@ class DataEnrichmentService {
             action: 'fetch',
             source: 'finnhub',
             confidence: this.getSourceConfidence('finnhub'),
-            reason: `Fetched ${Object.keys(finnhubMetrics).filter(k => finnhubMetrics[k] !== undefined).length} metrics from Finnhub`,
+            reason: `Fetched ${Object.keys(finnhubMetrics).filter((k: any) => finnhubMetrics[k] !== undefined).length} metrics from Finnhub`,
           });
         }
       } catch (error: any) {
@@ -1449,7 +1449,7 @@ class DataEnrichmentService {
     for (const [metricName, values] of collectedMetrics.entries()) {
       if (values.length === 0) continue;
 
-      values.sort((a, b) => {
+      values.sort((a: any, b: any) => {
         const priorityA = this.config.sourcePriority.indexOf(a.source);
         const priorityB = this.config.sourcePriority.indexOf(b.source);
         if (priorityA !== priorityB) return priorityA - priorityB;
@@ -1476,10 +1476,10 @@ class DataEnrichmentService {
 
     const metricConfidences = Object.values(enriched.metrics)
       .filter((m): m is MetricValue => m !== undefined)
-      .map(m => m.confidenceScore);
+      .map((m: any) => m.confidenceScore);
     
     enriched.overallConfidence = metricConfidences.length > 0
-      ? Number((metricConfidences.reduce((a, b) => a + b, 0) / metricConfidences.length).toFixed(2))
+      ? Number((metricConfidences.reduce((a: any, b: any) => a + b, 0) / metricConfidences.length).toFixed(2))
       : 0;
 
     await this.persistAuditLog(companyId, financialYear, auditTrail);
@@ -1569,7 +1569,7 @@ class DataEnrichmentService {
 
       const rows = result.rows as any[];
 
-      const history = rows.map(row => ({
+      const history = rows.map((row: any) => ({
         value: row.metric_value,
         source: row.source as DataSource,
         timestamp: new Date(row.created_at),
@@ -1637,11 +1637,11 @@ class DataEnrichmentService {
     }
 
     const confidence = computeIdentityConfidence({
-      cin: company.cin,
+      cin: (company as any).cin,
       isin: company.isin,
-      companyName: company.companyName,
-      legalName: company.legalName,
-      pan: company.pan,
+      companyName: (company as any).companyName || company.name,
+      legalName: (company as any).legalName || company.name,
+      pan: (company as any).pan,
     });
 
     const blockReasons: string[] = [];
@@ -1761,18 +1761,18 @@ class DataEnrichmentService {
     }
 
     const mergedQuarterlyResults = [
-      ...nseResults.quarterlyResults.map(r => ({ ...r, source: 'nse' })),
-      ...bseResults.financialResults.map(r => ({ ...r, source: 'bse' })),
+      ...nseResults.quarterlyResults.map((r: any) => ({ ...r, source: 'nse' })),
+      ...bseResults.financialResults.map((r: any) => ({ ...r, source: 'bse' })),
     ];
 
     const mergedAnnouncements = [
-      ...nseResults.announcements.map(a => ({ ...a, source: 'nse' })),
-      ...bseResults.announcements.map(a => ({ ...a, source: 'bse' })),
-    ].sort((a, b) => new Date(b.broadcastDate || b.newsDate || 0).getTime() - new Date(a.broadcastDate || a.newsDate || 0).getTime());
+      ...nseResults.announcements.map((a: any) => ({ ...a, source: 'nse' })),
+      ...bseResults.announcements.map((a: any) => ({ ...a, source: 'bse' })),
+    ].sort((a: any, b: any) => new Date(b.broadcastDate || b.newsDate || 0).getTime() - new Date(a.broadcastDate || a.newsDate || 0).getTime());
 
     const mergedCorporateActions = [
-      ...nseResults.corporateActions.map(c => ({ ...c, source: 'nse' })),
-      ...bseResults.corporateActions.map(c => ({ ...c, source: 'bse' })),
+      ...nseResults.corporateActions.map((c: any) => ({ ...c, source: 'nse' })),
+      ...bseResults.corporateActions.map((c: any) => ({ ...c, source: 'bse' })),
     ];
 
     const confidence = sources.length === 2 ? 0.95 : sources.length === 1 ? 0.85 : 0;

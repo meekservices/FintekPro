@@ -108,7 +108,7 @@ export async function getKYCStatus(userId: string): Promise<KYCStatus> {
   
   // Individual verification status checks (same as kyc-level-gate)
   const panVerified = profile.panVerifiedViaSandbox || false;
-  const ckycVerified = profile.ckycFetchedViaAuthBridge || false;
+  const ckycVerified = (profile as any).ckycFetchedViaAuthBridge || false;
   const kraVerified = profile.kraVerifiedViaProtean || false;
   const addressOvdVerified = ckycVerified || kraVerified; // CKYC/KRA contains verified address
   const photographCaptured = profile.isProfileCompleted || false;
@@ -134,8 +134,8 @@ export async function getKYCStatus(userId: string): Promise<KYCStatus> {
     hasLevel2Requirements ? "enhanced" : hasLevel1Requirements ? "basic" : "none";
 
   // Calculate or get due date
-  let dueDate = profile.kycUpdateDueDate;
-  const lastUpdated = profile.kycLastUpdatedDate || profile.profileCompletedAt || profile.createdAt;
+  let dueDate = (profile as any).kycUpdateDueDate;
+  const lastUpdated = (profile as any).kycLastUpdatedDate || profile.profileCompletedAt || profile.createdAt;
 
   if (!dueDate && lastUpdated) {
     dueDate = calculateKYCDueDate(lastUpdated, profile.riskCategory || "low");
@@ -191,12 +191,12 @@ export async function getKYCStatus(userId: string): Promise<KYCStatus> {
     dueDate: dueDate || null,
     daysUntilExpiry,
     requiresReKYC,
-    remindersSent: profile.kycUpdateRemindersSent || 0,
+    remindersSent: (profile as any).kycUpdateRemindersSent || 0,
     canTradeMutualFunds,
     canTradeBroking,
     canTradeInternational,
     riskCategory: profile.riskCategory || "low",
-    reviewFrequency: profile.riskReviewFrequency || "10_years",
+    reviewFrequency: (profile as any).riskReviewFrequency || "10_years",
     lastUpdated: lastUpdated || null,
     pendingActions,
   };
@@ -240,7 +240,7 @@ export async function updateKYCDueDate(userId: string) {
     throw new Error("Profile not found");
   }
 
-  const lastUpdated = profile.kycLastUpdatedDate || profile.createdAt || new Date();
+  const lastUpdated = (profile as any).kycLastUpdatedDate || profile.createdAt || new Date();
   const dueDate = calculateKYCDueDate(lastUpdated, profile.riskCategory || "low");
 
   await db
@@ -249,7 +249,7 @@ export async function updateKYCDueDate(userId: string) {
       kycUpdateDueDate: dueDate,
       kycLastUpdatedDate: lastUpdated,
       updatedAt: new Date(),
-    })
+    } as any)
     .where(eq(userProfiles.userId, userId));
 
   return dueDate;
@@ -267,14 +267,14 @@ export async function incrementReminderCount(userId: string) {
     throw new Error("Profile not found");
   }
 
-  const newCount = (profile.kycUpdateRemindersSent || 0) + 1;
+  const newCount = ((profile as any).kycUpdateRemindersSent || 0) + 1;
 
   await db
     .update(userProfiles)
     .set({
       kycUpdateRemindersSent: newCount,
       updatedAt: new Date(),
-    })
+    } as any)
     .where(eq(userProfiles.userId, userId));
 
   return newCount;
@@ -303,7 +303,7 @@ export async function resetReKYCProcess(userId: string) {
       kycUpdateRemindersSent: 0,
       profileCompletedAt: now,
       updatedAt: now,
-    })
+    } as any)
     .where(eq(userProfiles.userId, userId));
 
   return { newDueDate, lastUpdated: now };

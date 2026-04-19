@@ -64,6 +64,16 @@ interface TaxSession {
   suggestedTaxRegime?: string;
 }
 
+interface FilingRecord {
+  id?: string;
+  status?: string;
+  acknowledgementNumber?: string;
+  filedAt?: string;
+  itrForm?: string;
+  assessmentYear?: string;
+  [key: string]: any;
+}
+
 interface SessionData {
   session?: TaxSession;
   dataSources?: DataSource[];

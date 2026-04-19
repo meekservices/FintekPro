@@ -29,7 +29,43 @@ import {
 const router = Router();
 
 // ── GET /api/pricing/stats — daily run statistics ───────────────────────────
-router.get("/stats", async (req, res) => {
+interface AuthRequest extends Request {
+  user?: {
+    id: string;
+    email?: string;
+  };
+}
+
+interface GoldenPriceRow {
+  price_date?: string;
+  priceDate?: string;
+  asset_class?: string;
+  assetClass?: string;
+  price?: string | number | null;
+  open_price?: string | number | null;
+  high_price?: string | number | null;
+  low_price?: string | number | null;
+  volume?: string | number | null;
+  change_percent?: string | number | null;
+  source?: string;
+  confidence_score?: number;
+  confidence?: number;
+  is_validated?: boolean;
+  isValidated?: boolean;
+  is_flagged?: boolean;
+  isFlagged?: boolean;
+  flag_reason?: string;
+  flagReason?: string;
+  previous_price?: string | number | null;
+  deviation_pct?: string | number | null;
+  currency?: string;
+  updated_at?: string | Date;
+  updatedAt?: string | Date;
+  [key: string]: any;
+}
+
+// ── GET /api/pricing/stats — daily run statistics ───────────────────────────
+router.get("/stats", async (req, res): Promise<void> => {
   const { date } = req.query as { date?: string };
   const priceDate = date ?? new Date().toISOString().slice(0, 10);
 
@@ -59,18 +95,19 @@ router.get("/stats", async (req, res) => {
       SELECT COUNT(*) AS total FROM price_audit_log WHERE price_date = ${priceDate}
     `);
 
-    return res.json({
+    res.json({
       date: priceDate,
       byAssetClass: stats.rows,
-      auditEntriesTotal: parseInt((auditCount.rows[0] as any)?.total ?? "0"),
+      auditEntriesTotal: parseInt((auditCount.rows[0] as { total?: string })?.total ?? "0"),
     });
-  } catch (e: any) {
-    return res.status(500).json({ error: e?.message });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ error: msg });
   }
 });
 
 // ── GET /api/pricing/flagged — prices flagged for large deviation ────────────
-router.get("/flagged", async (req, res) => {
+router.get("/flagged", async (req, res): Promise<void> => {
   const { date, limit = "100" } = req.query as { date?: string; limit?: string };
 
   try {
@@ -81,21 +118,24 @@ router.get("/flagged", async (req, res) => {
       ORDER BY price_date DESC, ABS(deviation_pct::numeric) DESC
       LIMIT ${parseInt(limit)}
     `);
-    return res.json({ count: rows.rows.length, flagged: rows.rows });
-  } catch (e: any) {
-    return res.status(500).json({ error: e?.message });
+    res.json({ count: rows.rows.length, flagged: rows.rows });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ error: msg });
   }
 });
 
 // ── POST /api/pricing/batch — multi-ISIN lookup ─────────────────────────────
-router.post("/batch", async (req, res) => {
+router.post("/batch", async (req, res): Promise<void> => {
   const { isins, date } = req.body as { isins: string[]; date?: string };
 
   if (!Array.isArray(isins) || isins.length === 0) {
-    return res.status(400).json({ error: "isins must be a non-empty array" });
+    res.status(400).json({ error: "isins must be a non-empty array" });
+    return;
   }
   if (isins.length > 200) {
-    return res.status(400).json({ error: "Maximum 200 ISINs per batch request" });
+    res.status(400).json({ error: "Maximum 200 ISINs per batch request" });
+    return;
   }
 
   try {
@@ -104,14 +144,15 @@ router.post("/batch", async (req, res) => {
     for (const isin of isins) {
       result[isin] = prices[isin] ? formatRow(prices[isin]) : null;
     }
-    return res.json({ date: date ?? new Date().toISOString().slice(0, 10), count: Object.keys(result).length, prices: result });
-  } catch (e: any) {
-    return res.status(500).json({ error: e?.message });
+    res.json({ date: date ?? new Date().toISOString().slice(0, 10), count: Object.keys(result).length, prices: result });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ error: msg });
   }
 });
 
 // ── POST /api/pricing/price-now — on-demand pricing ─────────────────────────
-router.post("/price-now", async (req, res) => {
+router.post("/price-now", async (req, res): Promise<void> => {
   const {
     isin, symbol, assetClass = "equity",
     couponRate, maturityDate, faceValue, strikePrice, underlying, lastRoundPrice,
@@ -123,37 +164,45 @@ router.post("/price-now", async (req, res) => {
     date?: string; dryRun?: boolean;
   };
 
-  if (!isin) return res.status(400).json({ error: "isin is required" });
+  if (!isin) {
+    res.status(400).json({ error: "isin is required" });
+    return;
+  }
 
   const priceDate = date ?? new Date().toISOString().slice(0, 10);
   const job = { isin, symbol, assetClass, couponRate, maturityDate, faceValue, strikePrice, underlying, lastRoundPrice };
 
   try {
     const result = await priceInstrument(job, priceDate, { dryRun });
-    if (!result) return res.status(422).json({ error: "Could not determine price from any source" });
-    return res.json({ ...result, dryRun });
-  } catch (e: any) {
-    return res.status(500).json({ error: e?.message });
+    if (!result) {
+      res.status(422).json({ error: "Could not determine price from any source" });
+      return;
+    }
+    res.json({ ...result, dryRun });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ error: msg });
   }
 });
 
 // ── POST /api/pricing/override — admin manual override (SEBI audit) ─────────
-router.post("/override", async (req, res) => {
+router.post("/override", async (req, res): Promise<void> => {
   const { isin, priceDate, price, reason, changedBy } = req.body as {
     isin: string; priceDate: string; price: number; reason: string; changedBy?: string;
   };
 
   if (!isin || !priceDate || !price || !reason) {
-    return res.status(400).json({ error: "isin, priceDate, price, and reason are required" });
+    res.status(400).json({ error: "isin, priceDate, price, and reason are required" });
+    return;
   }
 
-  const actor = changedBy ?? (req as any).user?.email ?? "admin";
+  const actor = changedBy ?? (req as AuthRequest).user?.email ?? "admin";
 
   try {
     const existing = await db.execute(sql`
       SELECT id, price, source FROM golden_prices WHERE isin = ${isin} AND price_date = ${priceDate} LIMIT 1
     `);
-    const ex = existing.rows?.[0] as any;
+    const ex = existing.rows?.[0] as { price?: string; source?: string } | undefined;
 
     if (ex) {
       await db.execute(sql`
@@ -177,26 +226,28 @@ router.post("/override", async (req, res) => {
       `);
     }
 
-    return res.json({ success: true, isin, priceDate, price, source: "BROKER_QUOTE", changedBy: actor });
-  } catch (e: any) {
-    return res.status(500).json({ error: e?.message });
+    res.json({ success: true, isin, priceDate, price, source: "BROKER_QUOTE", changedBy: actor });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ error: msg });
   }
 });
 
 // ── POST /api/pricing/run-daily — trigger full daily run ────────────────────
-router.post("/run-daily", async (req, res) => {
+router.post("/run-daily", async (req, res): Promise<void> => {
   const { date, batchSize, delayMs } = req.body as { date?: string; batchSize?: number; delayMs?: number };
 
   res.json({ status: "started", date: date ?? new Date().toISOString().slice(0, 10), message: "Daily golden pricing run initiated" });
   runDailyGoldenPricing(date, { batchSize, delayMs }).then(result => {
     console.log("[GoldenPricing] Admin-triggered daily run complete:", result);
   }).catch(e => {
-    console.error("[GoldenPricing] Admin-triggered daily run error:", e?.message);
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[GoldenPricing] Admin-triggered daily run error:", msg);
   });
 });
 
 // ── GET /api/pricing/audit/:isin — SEBI audit trail ─────────────────────────
-router.get("/audit/:isin", async (req, res) => {
+router.get("/audit/:isin", async (req, res): Promise<void> => {
   const { isin } = req.params;
   const { limit = "50" } = req.query as { limit?: string };
 
@@ -205,14 +256,15 @@ router.get("/audit/:isin", async (req, res) => {
       SELECT * FROM price_audit_log WHERE isin = ${isin}
       ORDER BY created_at DESC LIMIT ${parseInt(limit)}
     `);
-    return res.json({ isin, count: rows.rows.length, audit: rows.rows });
-  } catch (e: any) {
-    return res.status(500).json({ error: e?.message });
+    res.json({ isin, count: rows.rows.length, audit: rows.rows });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ error: msg });
   }
 });
 
 // ── GET /api/pricing/:isin/history — historical golden prices ───────────────
-router.get("/:isin/history", async (req, res) => {
+router.get("/:isin/history", async (req, res): Promise<void> => {
   const { isin } = req.params;
   const { from, to, limit = "90" } = req.query as { from?: string; to?: string; limit?: string };
 
@@ -230,51 +282,60 @@ router.get("/:isin/history", async (req, res) => {
         ORDER BY price_date DESC LIMIT ${parseInt(limit)}
       `);
     }
-    return res.json({ isin, count: rows.rows.length, prices: rows.rows.map(formatRow) });
-  } catch (e: any) {
-    return res.status(500).json({ error: e?.message });
+    res.json({ isin, count: rows.rows.length, prices: rows.rows.map(formatRow) });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ error: msg });
   }
 });
 
 // ── GET /api/pricing/:isin — latest golden price ────────────────────────────
 // NOTE: This MUST be last among GET routes to avoid capturing /stats, /flagged, /audit
-router.get("/:isin", async (req, res) => {
+router.get("/:isin", async (req, res): Promise<void> => {
   const { isin } = req.params;
   const { date } = req.query as { date?: string };
 
   try {
     if (date) {
       const row = await getGoldenPrice(isin, date);
-      if (!row) return res.status(404).json({ error: "No golden price found for this ISIN and date" });
-      return res.json({ isin, ...formatRow(row) });
+      if (!row) {
+        res.status(404).json({ error: "No golden price found for this ISIN and date" });
+        return;
+      }
+      res.json({ isin, ...formatRow(row) });
+      return;
     }
 
     const row = await getLatestGoldenPrice(isin);
-    if (!row) return res.status(404).json({ error: "No golden price found for this ISIN" });
-    return res.json({ isin, ...formatRow(row) });
-  } catch (e: any) {
-    return res.status(500).json({ error: e?.message });
+    if (!row) {
+      res.status(404).json({ error: "No golden price found for this ISIN" });
+      return;
+    }
+    res.json({ isin, ...formatRow(row) });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ error: msg });
   }
 });
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
-function formatRow(r: any) {
+function formatRow(r: GoldenPriceRow) {
   return {
     date: r.price_date ?? r.priceDate,
     assetClass: r.asset_class ?? r.assetClass,
-    price: r.price ? parseFloat(r.price) : null,
-    open: r.open_price ? parseFloat(r.open_price) : null,
-    high: r.high_price ? parseFloat(r.high_price) : null,
-    low: r.low_price ? parseFloat(r.low_price) : null,
-    volume: r.volume ? parseFloat(r.volume) : null,
-    changePercent: r.change_percent ? parseFloat(r.change_percent) : null,
+    price: r.price ? parseFloat(String(r.price)) : null,
+    open: r.open_price ? parseFloat(String(r.open_price)) : null,
+    high: r.high_price ? parseFloat(String(r.high_price)) : null,
+    low: r.low_price ? parseFloat(String(r.low_price)) : null,
+    volume: r.volume ? parseFloat(String(r.volume)) : null,
+    changePercent: r.change_percent ? parseFloat(String(r.change_percent)) : null,
     source: r.source,
     confidence: r.confidence_score ?? r.confidence,
     isValidated: r.is_validated ?? r.isValidated,
     isFlagged: r.is_flagged ?? r.isFlagged,
     flagReason: r.flag_reason ?? r.flagReason,
-    previousPrice: r.previous_price ? parseFloat(r.previous_price) : null,
-    deviationPct: r.deviation_pct ? parseFloat(r.deviation_pct) : null,
+    previousPrice: r.previous_price ? parseFloat(String(r.previous_price)) : null,
+    deviationPct: r.deviation_pct ? parseFloat(String(r.deviation_pct)) : null,
     currency: r.currency ?? "INR",
     updatedAt: r.updated_at ?? r.updatedAt,
   };

@@ -587,7 +587,7 @@ export class IntelligentLoanRecommendationEngine {
     if (loanType === 'personal' && lenderList.includes('Bajaj Finance')) {
       try {
         const bajajAPI = new BajajFinanceAPI();
-        const loanDetails = await bajajAPI.getPersonalLoanDetails({
+        const loanDetails = await (bajajAPI as any).getPersonalLoanDetails({
           income: profile.monthlyIncome,
           employmentType: profile.employmentType,
           loanAmount: amount,
@@ -608,7 +608,7 @@ export class IntelligentLoanRecommendationEngine {
     if (loanType === 'car' && lenderList.includes('Tata Capital')) {
       try {
         const tataAPI = new TataCapitalAPI();
-        const loanDetails = await tataAPI.getUsedCarLoanDetails({
+        const loanDetails = await (tataAPI as any).getUsedCarLoanDetails({
           income: profile.monthlyIncome,
           employmentType: profile.employmentType,
           loanAmount: amount,

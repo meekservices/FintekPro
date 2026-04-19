@@ -1,6 +1,22 @@
-import { Express } from 'express';
+import { Express, Request } from 'express';
 import { storage } from '../storage';
 import { yieldTrackerService } from '../yield-tracker-service';
+import { smartInvestmentService } from '../smart-investment-service';
+import { insertInvestmentIdeaSchema, insertYieldTrackerSchema } from '@shared/schema';
+
+// Local compliance monitor stub - logs to console for audit trail
+const complianceMonitor = {
+  logEvent: (event: Record<string, unknown>) => {
+    console.log('[ComplianceAudit]', JSON.stringify(event));
+  }
+};
+
+// Extend session type to include user
+declare module 'express-session' {
+  interface SessionData {
+    user?: { id: string; role?: string; email?: string };
+  }
+}
 
 export function registerInvestmentIdeasRoutes(app: Express): void {
 app.get('/api/investment-ideas', async (req, res) => {

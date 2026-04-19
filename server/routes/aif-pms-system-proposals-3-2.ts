@@ -14,7 +14,7 @@ app.get("/api/agent/transaction-reports", requireAgent, async (req, res) => {
     const { clientId, status, reportType } = req.query;
     
     // Get all reports where the agent is the requester
-    const reports = await storage.getAgentTransactionReports(req.user.id, {
+    const reports = await storage.getAgentTransactionReports(req.user!.id, {
       clientId: clientId as string,
       status: status as string,
       reportType: reportType as string
@@ -43,7 +43,7 @@ app.get("/api/agent/transaction-reports/:id/download", requireAgent, async (req,
     }
     
     // Verify agent has access to this report
-    if (report.agentId !== req.user.id) {
+    if ((report as any).agentId !== req.user!.id) {
       return res.status(403).json({ error: "Access denied to this report" });
     }
     
@@ -53,17 +53,17 @@ app.get("/api/agent/transaction-reports/:id/download", requireAgent, async (req,
     
     // Update download count
     await storage.updateTransactionReport(id, {
-      downloadCount: (report.downloadCount || 0) + 1,
+      downloadCount: ((report as any).downloadCount || 0) + 1,
       downloadedAt: new Date()
     });
     
-    const filename = `client-transaction-report-${report.clientId}-${report.reportPeriod}-${Date.now()}`;
+    const filename = `client-transaction-report-${(report as any).clientId}-${(report as any).reportPeriod}-${Date.now()}`;
     
     if (format === 'pdf') {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
       
-      const pdfContent = `Client Transaction Report\n\nClient ID: ${report.clientId}\nReport Type: ${report.reportType}\nPeriod: ${report.reportPeriod}\nSource: ${report.apiProvider}\nGenerated: ${new Date().toLocaleDateString('en-IN')}\n\nTotal Purchases: ₹${report.totalPurchases || 0}\nTotal Redemptions: ₹${report.totalRedemptions || 0}\nTransaction Count: ${report.transactionCount || 0}`;
+      const pdfContent = `Client Transaction Report\n\nClient ID: ${(report as any).clientId}\nReport Type: ${(report as any).reportType}\nPeriod: ${(report as any).reportPeriod}\nSource: ${(report as any).apiProvider}\nGenerated: ${new Date().toLocaleDateString('en-IN')}\n\nTotal Purchases: ₹${(report as any).totalPurchases || 0}\nTotal Redemptions: ₹${(report as any).totalRedemptions || 0}\nTransaction Count: ${(report as any).transactionCount || 0}`;
       
       res.send(Buffer.from(pdfContent));
     } else if (format === 'excel') {
@@ -71,7 +71,7 @@ app.get("/api/agent/transaction-reports/:id/download", requireAgent, async (req,
       res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
       
       const excelContent = "Client,Report Type,Period,Purchases,Redemptions,Count\n" +
-        `${report.clientId},${report.reportType},${report.reportPeriod},${report.totalPurchases || 0},${report.totalRedemptions || 0},${report.transactionCount || 0}`;
+        `${(report as any).clientId},${(report as any).reportType},${(report as any).reportPeriod},${(report as any).totalPurchases || 0},${(report as any).totalRedemptions || 0},${(report as any).transactionCount || 0}`;
       
       res.send(Buffer.from(excelContent));
     } else {
@@ -95,7 +95,7 @@ app.post("/api/agent/transaction-reports/:id/share", requireAgent, async (req, r
     }
     
     // Verify agent has access to this report
-    if (report.agentId !== req.user.id) {
+    if ((report as any).agentId !== req.user!.id) {
       return res.status(403).json({ error: "Access denied to this report" });
     }
     
@@ -106,8 +106,8 @@ app.post("/api/agent/transaction-reports/:id/share", requireAgent, async (req, r
     const sharing = await storage.createReportSharing({
       reportId: id,
       reportType: 'transaction_report',
-      sharedBy: req.user.id,
-      sharedWith: report.clientId,
+      sharedBy: req.user!.id,
+      sharedWith: (report as any).clientId,
       sharedWithType,
       accessType: 'download',
       message,
@@ -454,7 +454,7 @@ app.post("/api/admin/api-config/test/:serviceId", requireAdmin, async (req, res)
           result = { success: false, message: 'Missing Credhive API key' };
         } else {
           try {
-            const { credhiveService: ch } = await import('./services/credhive-service');
+            const { credhiveService: ch } = await import('../services/credhive-service');
             const searchResp = await ch.searchCompanies('Reliance');
             result = {
               success: searchResp.success,
@@ -476,15 +476,6 @@ app.post("/api/admin/api-config/test/:serviceId", requireAdmin, async (req, res)
         };
     }
 
-    // Log the test
-    await adminService.logActivity({
-      userId: req.user!.id,
-      action: 'api_connection_test',
-      resource: `Service: ${serviceId}`,
-      ipAddress: req.ip || req.connection.remoteAddress,
-      userAgent: req.get('User-Agent'),
-      details: { serviceId, result: result.success ? 'success' : 'failure' }
-    });
 
     res.json({ success: true, data: result });
   } catch (error: any) {
@@ -520,15 +511,6 @@ app.post("/api/admin/api-config/environment/:serviceId", requireAdmin, async (re
     // Update the environment variable
     process.env[envVar] = environment;
 
-    // Log the change
-    await adminService.logActivity({
-      userId: req.user!.id,
-      action: 'api_environment_change',
-      resource: `Service: ${serviceId}`,
-      ipAddress: req.ip || req.connection.remoteAddress,
-      userAgent: req.get('User-Agent'),
-      details: { serviceId, environment, envVar }
-    });
 
     res.json({ 
       success: true, 
@@ -545,8 +527,8 @@ app.post("/api/admin/api-config/environment/:serviceId", requireAdmin, async (re
 // AI Provider Switch (Admin)
 app.get("/api/admin/ai-provider", requireAdmin, async (req, res) => {
   try {
-    const { aiService } = await import("./services/ai-service");
-    const { unifiedAIRecommendationEngine } = await import("./services/unified-ai-recommendation-engine");
+    const { aiService } = await import("../services/ai-service");
+    const { unifiedAIRecommendationEngine } = await import("../services/unified-ai-recommendation-engine");
     
     const aiDefault = aiService.getDefaultProvider();
     const unifiedStatus = unifiedAIRecommendationEngine.getStatus();
@@ -573,20 +555,11 @@ app.post("/api/admin/ai-provider/switch", requireAdmin, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid provider. Must be "openai" or "gemini"' });
     }
 
-    const { aiService } = await import("./services/ai-service");
-    const { unifiedAIRecommendationEngine } = await import("./services/unified-ai-recommendation-engine");
+    const { aiService } = await import("../services/ai-service");
+    const { unifiedAIRecommendationEngine } = await import("../services/unified-ai-recommendation-engine");
 
     aiService.setDefaultProvider(provider as any);
     unifiedAIRecommendationEngine.setPrimaryProvider(provider as 'openai' | 'gemini');
-
-    await adminService.logActivity({
-      userId: req.user!.id,
-      action: 'ai_provider_switch',
-      resource: `AI Provider: ${provider}`,
-      ipAddress: req.ip || req.connection.remoteAddress,
-      userAgent: req.get('User-Agent'),
-      details: { provider, previousProvider: provider === 'openai' ? 'gemini' : 'openai' }
-    });
 
     res.json({
       success: true,

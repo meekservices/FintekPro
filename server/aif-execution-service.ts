@@ -269,8 +269,8 @@ class AIFExecutionService {
       }
       
       // Check KYC tier - must be accredited_investor
-      if (profile.kycTier !== 'accredited_investor') {
-        errors.push(`KYC tier is ${profile.kycTier}, must be accredited_investor for AIF investments`);
+      if ((profile as any).kycTier !== 'accredited_investor') {
+        errors.push(`KYC tier is ${(profile as any).kycTier}, must be accredited_investor for AIF investments`);
       }
       
       // Check accredited investor status
@@ -284,24 +284,24 @@ class AIFExecutionService {
       }
       
       // Verify qualification route
-      let qualificationRoute = profile.accreditedInvestorType || 'unknown';
+      let qualificationRoute = (profile as any).accreditedInvestorType || 'unknown';
       
       // Income-based qualification
       if (qualificationRoute === 'income_based') {
-        if (!profile.annualIncomeAmount || Number(profile.annualIncomeAmount) < ACCREDITED_INVESTOR_CRITERIA.ANNUAL_INCOME_THRESHOLD) {
+        if (!(profile as any).annualIncomeAmount || Number((profile as any).annualIncomeAmount) < ACCREDITED_INVESTOR_CRITERIA.ANNUAL_INCOME_THRESHOLD) {
           errors.push(`Annual income must be ₹${(ACCREDITED_INVESTOR_CRITERIA.ANNUAL_INCOME_THRESHOLD / 10000000).toFixed(1)}Cr+`);
         }
-        if (!profile.incomeProofDocuments || (Array.isArray(profile.incomeProofDocuments) && profile.incomeProofDocuments.length === 0)) {
+        if (!(profile as any).incomeProofDocuments || (Array.isArray((profile as any).incomeProofDocuments) && (profile as any).incomeProofDocuments.length === 0)) {
           errors.push('Income proof documents required');
         }
       }
       
       // Net worth-based qualification
       else if (qualificationRoute === 'networth_based') {
-        if (!profile.netWorthExcludingResidence || Number(profile.netWorthExcludingResidence) < ACCREDITED_INVESTOR_CRITERIA.NET_WORTH_THRESHOLD) {
+        if (!(profile as any).netWorthExcludingResidence || Number((profile as any).netWorthExcludingResidence) < ACCREDITED_INVESTOR_CRITERIA.NET_WORTH_THRESHOLD) {
           errors.push(`Net worth (excluding residence) must be ₹${(ACCREDITED_INVESTOR_CRITERIA.NET_WORTH_THRESHOLD / 10000000).toFixed(1)}Cr+`);
         }
-        if (!profile.caCertificateUrl) {
+        if (!(profile as any).caCertificateUrl) {
           errors.push('CA certificate for net worth verification required');
         }
       }
@@ -311,7 +311,7 @@ class AIFExecutionService {
         if (!profile.portfolioValueAmount || Number(profile.portfolioValueAmount) < ACCREDITED_INVESTOR_CRITERIA.PORTFOLIO_VALUE_THRESHOLD) {
           errors.push(`Portfolio value must be ₹${(ACCREDITED_INVESTOR_CRITERIA.PORTFOLIO_VALUE_THRESHOLD / 10000000).toFixed(1)}Cr+`);
         }
-        if (!profile.portfolioStatementUrl) {
+        if (!(profile as any).portfolioStatementUrl) {
           errors.push('Portfolio statement required');
         }
       }
@@ -342,7 +342,7 @@ class AIFExecutionService {
       
       return {
         isValid: errors.length === 0,
-        tier: profile.kycTier || 'unknown',
+        tier: (profile as any).kycTier || 'unknown',
         qualificationRoute,
         errors,
       };

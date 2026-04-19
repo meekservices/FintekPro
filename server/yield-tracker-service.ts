@@ -61,22 +61,23 @@ export class YieldTrackerService {
     const tracker: InsertYieldTracker = {
       id: randomUUID(),
       userId,
-      portfolioId: trackerData.portfolioId,
-      investmentId: trackerData.investmentId,
+      portfolioId: trackerData.portfolioId || null,
+      investmentId: trackerData.investmentId || null,
       symbol: trackerData.symbol || '',
       instrumentType: trackerData.instrumentType || 'equity',
-      initialInvestment: trackerData.initialInvestment || 0,
-      currentValue: trackerData.currentValue || 0,
-      unitsHeld: trackerData.unitsHeld || 0,
-      averagePurchasePrice: trackerData.averagePurchasePrice || 0,
-      currentPrice: trackerData.currentPrice || 0,
-      totalDividends: trackerData.totalDividends || 0,
-      totalInterest: trackerData.totalInterest || 0,
-      totalCharges: trackerData.totalCharges || 0,
+      initialInvestment: trackerData.initialInvestment || "0",
+      totalInvestment: trackerData.totalInvestment || "0",
+      currentValue: trackerData.currentValue || "0",
+      unitsHeld: trackerData.unitsHeld || "0",
+      averagePurchasePrice: trackerData.averagePurchasePrice || "0",
+      currentPrice: trackerData.currentPrice || "0",
+      totalDividends: trackerData.totalDividends || "0",
+      totalInterest: trackerData.totalInterest || "0",
+      totalCharges: trackerData.totalCharges || "0",
       purchaseDate: trackerData.purchaseDate || new Date(),
       benchmark: trackerData.benchmark || 'NIFTY50',
       riskProfile: trackerData.riskProfile || 'moderate',
-      targetYield: trackerData.targetYield || 0,
+      targetYield: trackerData.targetYield || "0",
       priceHistory: trackerData.priceHistory || [],
       performanceHistory: trackerData.performanceHistory || [],
       lastUpdated: new Date()
@@ -90,17 +91,22 @@ export class YieldTrackerService {
     const tracker = await storage.getYieldTracker(trackerId);
     if (!tracker) return undefined;
 
-    const currentValue = tracker.unitsHeld * currentPrice;
-    const totalReturn = ((currentValue + tracker.totalDividends + tracker.totalInterest - tracker.totalCharges) / tracker.initialInvestment - 1) * 100;
+    const currentValue = Number(tracker.unitsHeld || 0) * currentPrice;
+    const totalInvestmentNum = Number(tracker.totalInvestment || 1);
+    const totalDividendsNum = Number(tracker.totalDividends || 0);
+    const totalInterestNum = Number(tracker.totalInterest || 0);
+    const totalChargesNum = Number(tracker.totalCharges || 0);
+    
+    const totalReturn = ((currentValue + totalDividendsNum + totalInterestNum - totalChargesNum) / totalInvestmentNum - 1) * 100;
     
     // Update price history
-    const priceHistory = [...tracker.priceHistory];
+    const priceHistory = [...(tracker.priceHistory || [])];
     priceHistory.push({
       date: new Date().toISOString(),
       price: currentPrice,
       volume: marketData.volume || 0,
-      change: currentPrice - tracker.currentPrice,
-      changePercent: ((currentPrice - tracker.currentPrice) / tracker.currentPrice) * 100
+      change: currentPrice - Number(tracker.currentPrice || 0),
+      changePercent: ((currentPrice - Number(tracker.currentPrice || 0)) / (Number(tracker.currentPrice) || 1)) * 100
     });
 
     // Keep only last 365 days of price history
@@ -108,10 +114,10 @@ export class YieldTrackerService {
       priceHistory.splice(0, priceHistory.length - 365);
     }
 
-    const updates = {
-      currentPrice,
-      currentValue,
-      totalReturn,
+    const updates: Partial<YieldTracker> = {
+      currentPrice: currentPrice.toString(),
+      currentValue: currentValue.toString(),
+      totalReturn: totalReturn.toString(),
       priceHistory,
       lastUpdated: new Date()
     };
@@ -121,20 +127,21 @@ export class YieldTrackerService {
 
   // Calculate comprehensive yield metrics
   static calculateYieldMetrics(tracker: YieldTracker): YieldMetrics {
-    const returns = this.calculateReturns(tracker.priceHistory);
-    const daysHeld = Math.max(1, (new Date().getTime() - new Date(tracker.purchaseDate).getTime()) / (1000 * 60 * 60 * 24));
+    const returns = this.calculateReturns(tracker.priceHistory || []);
+    const daysHeld = Math.max(1, (new Date().getTime() - new Date(tracker.createdAt!).getTime()) / (1000 * 60 * 60 * 24));
     
-    const totalReturn = tracker.totalReturn || 0;
+    const totalReturn = Number(tracker.totalReturn) || 0;
     const annualizedReturn = Math.pow(1 + totalReturn / 100, 365 / daysHeld) - 1;
     const volatility = this.calculateVolatility(returns);
-    const maxDrawdown = this.calculateMaxDrawdown(tracker.priceHistory);
+    const maxDrawdown = this.calculateMaxDrawdown(tracker.priceHistory || []);
     
     // Risk-adjusted metrics
     const excessReturn = annualizedReturn - YieldTrackerService.riskFreeRate;
     const sharpeRatio = volatility > 0 ? excessReturn / volatility : 0;
     
     // Beta calculation (simplified using benchmark correlation)
-    const benchmarkReturn = YieldTrackerService.benchmarkReturns[tracker.benchmark as keyof typeof YieldTrackerService.benchmarkReturns] || 0.12;
+    const benchmarkValue = tracker.benchmark || 'NIFTY50';
+    const benchmarkReturn = YieldTrackerService.benchmarkReturns[benchmarkValue as keyof typeof YieldTrackerService.benchmarkReturns] || 0.12;
     const beta = this.calculateBeta(returns, benchmarkReturn);
     const alpha = annualizedReturn - (YieldTrackerService.riskFreeRate + beta * (benchmarkReturn - YieldTrackerService.riskFreeRate));
     
@@ -158,15 +165,16 @@ export class YieldTrackerService {
 
   // Calculate benchmark comparison
   static calculateBenchmarkComparison(tracker: YieldTracker): BenchmarkComparison {
-    const benchmarkReturn = YieldTrackerService.benchmarkReturns[tracker.benchmark as keyof typeof YieldTrackerService.benchmarkReturns] || 0.12;
-    const trackerReturn = (tracker.totalReturn || 0) / 100;
+    const benchmarkValue = tracker.benchmark || 'NIFTY50';
+    const benchmarkReturn = YieldTrackerService.benchmarkReturns[benchmarkValue as keyof typeof YieldTrackerService.benchmarkReturns] || 0.12;
+    const trackerReturn = (Number(tracker.totalReturn) || 0) / 100;
     const activeReturn = trackerReturn - benchmarkReturn;
     
     // Simplified tracking error calculation
     const trackingError = Math.abs(activeReturn) * 0.5; // Placeholder calculation
     
     return {
-      benchmark: tracker.benchmark,
+      benchmark: benchmarkValue,
       benchmarkReturn: benchmarkReturn * 100,
       activeReturn: activeReturn * 100,
       trackingError: trackingError * 100,
@@ -183,8 +191,8 @@ export class YieldTrackerService {
     for (const tracker of trackers) {
       const metrics = this.calculateYieldMetrics(tracker);
       const benchmarkComparison = this.calculateBenchmarkComparison(tracker);
-      const riskMetrics = this.calculateRiskMetrics(tracker.priceHistory);
-      const monthlyReturns = this.calculateMonthlyReturns(tracker.priceHistory);
+      const riskMetrics = this.calculateRiskMetrics(tracker.priceHistory || []);
+      const monthlyReturns = this.calculateMonthlyReturns(tracker.priceHistory || []);
 
       const endDate = new Date();
       const startDate = new Date();
@@ -218,21 +226,21 @@ export class YieldTrackerService {
       ? trackers.filter(t => t.portfolioId === portfolioId)
       : trackers;
 
-    const totalValue = portfolioTrackers.reduce((sum, t) => sum + (t.currentValue || 0), 0);
-    const totalInvestment = portfolioTrackers.reduce((sum, t) => sum + t.initialInvestment, 0);
+    const totalValue = portfolioTrackers.reduce((sum, t) => sum + (Number(t.currentValue) || 0), 0);
+    const totalInvestment = portfolioTrackers.reduce((sum, t) => sum + Number(t.totalInvestment || 0), 0);
     const totalReturn = totalInvestment > 0 ? ((totalValue - totalInvestment) / totalInvestment) * 100 : 0;
 
     // Calculate weighted yield
     const weightedYield = portfolioTrackers.reduce((sum, t) => {
-      const weight = t.initialInvestment / totalInvestment;
-      return sum + (weight * (t.totalReturn || 0));
+      const weight = Number(t.totalInvestment || 0) / totalInvestment;
+      return sum + (weight * (Number(t.totalReturn) || 0));
     }, 0);
 
     // Calculate diversification metrics
     const sectorAllocation: Record<string, number> = {};
     portfolioTrackers.forEach(t => {
-      const sector = t.instrumentType || 'other';
-      sectorAllocation[sector] = (sectorAllocation[sector] || 0) + t.initialInvestment;
+      const sector = t.strategyType || 'other';
+      sectorAllocation[sector] = (sectorAllocation[sector] || 0) + Number(t.totalInvestment || 0);
     });
 
     // Normalize sector allocation to percentages
@@ -242,7 +250,7 @@ export class YieldTrackerService {
 
     // Simplified diversification ratio
     const numInstruments = portfolioTrackers.length;
-    const concentrationRisk = Math.max(...Object.values(sectorAllocation)) / 100;
+    const concentrationRisk = numInstruments > 0 ? Math.max(...Object.values(sectorAllocation)) / 100 : 0;
     const diversificationRatio = numInstruments > 0 ? (1 - concentrationRisk) * numInstruments / 10 : 0;
 
     return {
@@ -273,8 +281,8 @@ export class YieldTrackerService {
   private static calculateVolatility(returns: number[]): number {
     if (returns.length < 2) return 0;
     
-    const mean = returns.reduce((sum, r) => sum + r, 0) / returns.length;
-    const variance = returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / (returns.length - 1);
+    const mean = returns.reduce((sum: any, r: any) => sum + r, 0) / returns.length;
+    const variance = returns.reduce((sum: any, r: any) => sum + Math.pow(r - mean, 2), 0) / (returns.length - 1);
     return Math.sqrt(variance * 252); // Annualized volatility
   }
 
@@ -301,8 +309,8 @@ export class YieldTrackerService {
     // Simplified beta calculation
     if (returns.length === 0) return 1;
     
-    const meanReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length;
-    const covariance = returns.reduce((sum, r) => sum + (r - meanReturn) * (benchmarkReturn - 0.12), 0) / returns.length;
+    const meanReturn = returns.reduce((sum: any, r: any) => sum + r, 0) / returns.length;
+    const covariance = returns.reduce((sum: any, r: any) => sum + (r - meanReturn) * (benchmarkReturn - 0.12), 0) / returns.length;
     const benchmarkVariance = Math.pow(0.05, 2); // Assumed benchmark volatility
     
     return benchmarkVariance > 0 ? covariance / benchmarkVariance : 1;
@@ -311,11 +319,11 @@ export class YieldTrackerService {
   private static calculateDownsideDeviation(returns: number[]): number {
     if (returns.length === 0) return 0;
     
-    const downsideReturns = returns.filter(r => r < 0);
+    const downsideReturns = returns.filter((r: any) => r < 0);
     if (downsideReturns.length === 0) return 0;
     
-    const meanDownside = downsideReturns.reduce((sum, r) => sum + r, 0) / downsideReturns.length;
-    const downsideVariance = downsideReturns.reduce((sum, r) => sum + Math.pow(r - meanDownside, 2), 0) / downsideReturns.length;
+    const meanDownside = downsideReturns.reduce((sum: any, r: any) => sum + r, 0) / downsideReturns.length;
+    const downsideVariance = downsideReturns.reduce((sum: any, r: any) => sum + Math.pow(r - meanDownside, 2), 0) / downsideReturns.length;
     
     return Math.sqrt(downsideVariance * 252);
   }
@@ -333,7 +341,7 @@ export class YieldTrackerService {
       };
     }
 
-    const sortedReturns = [...returns].sort((a, b) => a - b);
+    const sortedReturns = [...returns].sort((a: any, b: any) => a - b);
     const var95Index = Math.floor(returns.length * 0.05);
     const var99Index = Math.floor(returns.length * 0.01);
     
@@ -341,16 +349,16 @@ export class YieldTrackerService {
     const var99 = sortedReturns[var99Index] || 0;
     
     // Conditional VaR (Expected Shortfall)
-    const cvar95 = var95Index > 0 ? sortedReturns.slice(0, var95Index).reduce((sum, r) => sum + r, 0) / var95Index : 0;
-    const cvar99 = var99Index > 0 ? sortedReturns.slice(0, var99Index).reduce((sum, r) => sum + r, 0) / var99Index : 0;
+    const cvar95 = var95Index > 0 ? sortedReturns.slice(0, var95Index).reduce((sum: any, r: any) => sum + r, 0) / var95Index : 0;
+    const cvar99 = var99Index > 0 ? sortedReturns.slice(0, var99Index).reduce((sum: any, r: any) => sum + r, 0) / var99Index : 0;
     
     // Skewness and Kurtosis
-    const mean = returns.reduce((sum, r) => sum + r, 0) / returns.length;
-    const variance = returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / returns.length;
+    const mean = returns.reduce((sum: any, r: any) => sum + r, 0) / returns.length;
+    const variance = returns.reduce((sum: any, r: any) => sum + Math.pow(r - mean, 2), 0) / returns.length;
     const std = Math.sqrt(variance);
     
-    const skewness = std > 0 ? returns.reduce((sum, r) => sum + Math.pow((r - mean) / std, 3), 0) / returns.length : 0;
-    const kurtosis = std > 0 ? returns.reduce((sum, r) => sum + Math.pow((r - mean) / std, 4), 0) / returns.length - 3 : 0;
+    const skewness = std > 0 ? returns.reduce((sum: any, r: any) => sum + Math.pow((r - mean) / std, 3), 0) / returns.length : 0;
+    const kurtosis = std > 0 ? returns.reduce((sum: any, r: any) => sum + Math.pow((r - mean) / std, 4), 0) / returns.length - 3 : 0;
 
     return {
       var95: var95 * 100,

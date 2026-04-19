@@ -4,6 +4,14 @@ import { storage } from '../storage';
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, sql, and, or } from 'drizzle-orm';
+import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "../gemini";
+import { marketStoryService, type MarketData as StoryMarketData } from "../market-story-service";
+import { auditLogArchivalService } from "../services/audit-log-archival";
+import { objectStorageClient as objectStorage } from "../objectStorage";
+import { whatsappService } from "../whatsapp";
+import { marketingService } from "../marketing-automation";
+import { portfolioIntelligence } from "../portfolio-intelligence";
+import { amfiService } from "../amfi-service";
 
 export function registerMFMonthwiPart4Routes(app: Express): void {
   app.post("/api/ai/market-insight", async (req, res) => {

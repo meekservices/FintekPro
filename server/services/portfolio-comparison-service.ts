@@ -192,7 +192,7 @@ export class PortfolioComparisonService {
   ): Promise<PortfolioMetrics> {
     
     // Calculate basic metrics
-    const totalInvested = holdings.reduce((sum, holding) => {
+    const totalInvested = holdings.reduce((sum: any, holding: any) => {
       return sum + (parseFloat(holding.quantity) * parseFloat(holding.avgPrice));
     }, 0);
 
@@ -229,7 +229,7 @@ export class PortfolioComparisonService {
     const returns = this.getHistoricalReturns(totalGainLossPercent, timePeriod);
 
     // Determine data availability status for regulatory compliance
-    const hasHistoricalData = Object.values(returns).some(v => v !== null);
+    const hasHistoricalData = Object.values(returns).some((v: any) => v !== null);
     const hasRiskMetrics = volatility !== null && sharpeRatio !== null;
     
     return {
@@ -270,7 +270,7 @@ export class PortfolioComparisonService {
   private calculateAssetAllocation(holdings: PortfolioHolding[], totalValue: number) {
     const allocation = { equity: 0, debt: 0, gold: 0, cash: 0, others: 0 };
     
-    holdings.forEach(holding => {
+    holdings.forEach((holding: any) => {
       const value = parseFloat(holding.quantity) * parseFloat(holding.avgPrice);
       const percentage = (value / totalValue) * 100;
       
@@ -298,7 +298,7 @@ export class PortfolioComparisonService {
   private calculateSectorExposure(holdings: PortfolioHolding[], totalValue: number) {
     const exposure = { technology: 0, banking: 0, healthcare: 0, energy: 0, consumer: 0, others: 0 };
     
-    holdings.forEach(holding => {
+    holdings.forEach((holding: any) => {
       const value = parseFloat(holding.quantity) * parseFloat(holding.avgPrice);
       const percentage = (value / totalValue) * 100;
       const sector = holding.sector?.toLowerCase() || 'others';
@@ -323,7 +323,7 @@ export class PortfolioComparisonService {
 
   private calculateTopHoldings(holdings: PortfolioHolding[], totalValue: number) {
     return holdings
-      .map(holding => {
+      .map((holding: any) => {
         const value = parseFloat(holding.quantity) * parseFloat(holding.avgPrice);
         return {
           symbol: holding.symbol,
@@ -332,24 +332,24 @@ export class PortfolioComparisonService {
           value
         };
       })
-      .sort((a, b) => b.value - a.value)
+      .sort((a: any, b: any) => b.value - a.value)
       .slice(0, 10);
   }
 
   private calculateVolatility(holdings: PortfolioHolding[]): number | null {
     // Simplified volatility calculation based on beta values
-    const betas = holdings.map(h => parseFloat(h.beta || '1')).filter(b => !isNaN(b));
+    const betas = holdings.map((h: any) => parseFloat(h.beta || '1')).filter((b: any) => !isNaN(b));
     if (betas.length === 0) return null;
     
-    const avgBeta = betas.reduce((sum, beta) => sum + beta, 0) / betas.length;
+    const avgBeta = betas.reduce((sum: any, beta: any) => sum + beta, 0) / betas.length;
     return avgBeta * 15; // Convert to percentage volatility (simplified)
   }
 
   private calculateBeta(holdings: PortfolioHolding[]): number | null {
-    const betas = holdings.map(h => parseFloat(h.beta || '1')).filter(b => !isNaN(b));
+    const betas = holdings.map((h: any) => parseFloat(h.beta || '1')).filter((b: any) => !isNaN(b));
     if (betas.length === 0) return null;
     
-    return betas.reduce((sum, beta) => sum + beta, 0) / betas.length;
+    return betas.reduce((sum: any, beta: any) => sum + beta, 0) / betas.length;
   }
 
   private calculateSharpeRatio(returns: number, volatility: number | null): number | null {
@@ -389,22 +389,22 @@ export class PortfolioComparisonService {
   private calculateDownsideDeviation(holdings: PortfolioHolding[], targetReturn: number = 6): number | null {
     // Approximate downside deviation from portfolio characteristics
     // In production, this would use historical daily returns
-    const returns = holdings.map(h => {
+    const returns = holdings.map((h: any) => {
       const currentValue = parseFloat(h.quantity) * parseFloat(h.currentPrice || h.avgPrice);
       const investedValue = parseFloat(h.quantity) * parseFloat(h.avgPrice);
       return ((currentValue - investedValue) / investedValue) * 100;
-    }).filter(r => !isNaN(r));
+    }).filter((r: any) => !isNaN(r));
 
     if (returns.length === 0) return null;
 
     // Filter only negative returns (below target)
-    const negativeReturns = returns.filter(r => r < targetReturn);
+    const negativeReturns = returns.filter((r: any) => r < targetReturn);
     if (negativeReturns.length === 0) return null; // No downside data - return null instead of 0
 
     // Calculate squared deviations from target for downside observations only
-    const squaredDeviations = negativeReturns.map(r => Math.pow(r - targetReturn, 2));
+    const squaredDeviations = negativeReturns.map((r: any) => Math.pow(r - targetReturn, 2));
     // Divide by number of downside observations (not total observations) for proper semi-deviation
-    const meanSquaredDeviation = squaredDeviations.reduce((a, b) => a + b, 0) / negativeReturns.length;
+    const meanSquaredDeviation = squaredDeviations.reduce((a: any, b: any) => a + b, 0) / negativeReturns.length;
     
     return Math.sqrt(meanSquaredDeviation);
   }
@@ -470,8 +470,8 @@ export class PortfolioComparisonService {
     const baseScore = Math.min(holdings.length * 10, 100); // More holdings = higher score
     
     // Penalize concentration
-    const totalValue = holdings.reduce((sum, h) => sum + (parseFloat(h.quantity) * parseFloat(h.avgPrice)), 0);
-    const concentrationPenalty = holdings.reduce((penalty, holding) => {
+    const totalValue = holdings.reduce((sum: any, h: any) => sum + (parseFloat(h.quantity) * parseFloat(h.avgPrice)), 0);
+    const concentrationPenalty = holdings.reduce((penalty: any, holding: any) => {
       const weight = (parseFloat(holding.quantity) * parseFloat(holding.avgPrice)) / totalValue;
       return penalty + (weight > 0.2 ? (weight - 0.2) * 100 : 0); // Penalize positions > 20%
     }, 0);
@@ -502,13 +502,13 @@ export class PortfolioComparisonService {
   }
 
   private calculateConcentrationRisk(holdings: PortfolioHolding[], totalValue: number): number {
-    const weights = holdings.map(holding => {
+    const weights = holdings.map((holding: any) => {
       const value = parseFloat(holding.quantity) * parseFloat(holding.avgPrice);
       return value / totalValue;
     });
     
     // Calculate Herfindahl-Hirschman Index for concentration
-    const hhi = weights.reduce((sum, weight) => sum + (weight * weight), 0);
+    const hhi = weights.reduce((sum: any, weight: any) => sum + (weight * weight), 0);
     return hhi * 100; // Convert to percentage
   }
 
@@ -556,7 +556,7 @@ export class PortfolioComparisonService {
     const assets = ['equity', 'debt', 'gold', 'cash', 'others'];
     let correlation = 0;
     
-    assets.forEach(asset => {
+    assets.forEach((asset: any) => {
       const diff = Math.abs(allocation1[asset] - allocation2[asset]);
       correlation += (100 - diff) / 100;
     });
@@ -571,7 +571,7 @@ export class PortfolioComparisonService {
         rank: index + 1,
         score: this.calculatePerformanceScore(portfolio)
       }))
-      .sort((a, b) => b.score - a.score)
+      .sort((a: any, b: any) => b.score - a.score)
       .map((item, index) => ({ ...item, rank: index + 1 }));
   }
 
@@ -595,10 +595,10 @@ export class PortfolioComparisonService {
   }
 
   private analyzeRisk(portfolios: PortfolioMetrics[]) {
-    const sortedByRiskAdjusted = [...portfolios].sort((a, b) => (b.sharpeRatio || 0) - (a.sharpeRatio || 0));
-    const sortedByDiversification = [...portfolios].sort((a, b) => (b.diversificationScore || 0) - (a.diversificationScore || 0));
-    const sortedByVolatility = [...portfolios].sort((a, b) => (a.volatility || 100) - (b.volatility || 100));
-    const sortedBySharpe = [...portfolios].sort((a, b) => (b.sharpeRatio || 0) - (a.sharpeRatio || 0));
+    const sortedByRiskAdjusted = [...portfolios].sort((a: any, b: any) => (b.sharpeRatio || 0) - (a.sharpeRatio || 0));
+    const sortedByDiversification = [...portfolios].sort((a: any, b: any) => (b.diversificationScore || 0) - (a.diversificationScore || 0));
+    const sortedByVolatility = [...portfolios].sort((a: any, b: any) => (a.volatility || 100) - (b.volatility || 100));
+    const sortedBySharpe = [...portfolios].sort((a: any, b: any) => (b.sharpeRatio || 0) - (a.sharpeRatio || 0));
 
     return {
       bestRiskAdjustedReturn: sortedByRiskAdjusted[0]?.portfolioName || '',
@@ -614,8 +614,8 @@ export class PortfolioComparisonService {
     let mostBalanced = '';
     let minDeviation = Infinity;
 
-    portfolios.forEach(portfolio => {
-      const deviation = Object.keys(idealAllocation).reduce((sum, asset) => {
+    portfolios.forEach((portfolio: any) => {
+      const deviation = Object.keys(idealAllocation).reduce((sum: any, asset: any) => {
         return sum + Math.abs(portfolio.assetAllocation[asset as keyof typeof idealAllocation] - idealAllocation[asset as keyof typeof idealAllocation]);
       }, 0);
       
@@ -626,12 +626,12 @@ export class PortfolioComparisonService {
     });
 
     // Find highest equity exposure
-    const highestEquity = portfolios.reduce((max, portfolio) => 
+    const highestEquity = portfolios.reduce((max: any, portfolio: any) => 
       portfolio.assetAllocation.equity > max.assetAllocation.equity ? portfolio : max
     );
 
     // Find most conservative (highest debt allocation)
-    const mostConservative = portfolios.reduce((max, portfolio) => 
+    const mostConservative = portfolios.reduce((max: any, portfolio: any) => 
       (portfolio.assetAllocation.debt + portfolio.assetAllocation.cash) > 
       (max.assetAllocation.debt + max.assetAllocation.cash) ? portfolio : max
     );
@@ -659,10 +659,10 @@ export class PortfolioComparisonService {
   }
 
   private calculatePortfolioOverlap(portfolio1: PortfolioMetrics, portfolio2: PortfolioMetrics) {
-    const holdings1 = new Set(portfolio1.topHoldings.map(h => h.symbol));
-    const holdings2 = new Set(portfolio2.topHoldings.map(h => h.symbol));
+    const holdings1 = new Set(portfolio1.topHoldings.map((h: any) => h.symbol));
+    const holdings2 = new Set(portfolio2.topHoldings.map((h: any) => h.symbol));
     
-    const commonHoldings = [...holdings1].filter(symbol => holdings2.has(symbol)).length;
+    const commonHoldings = [...holdings1].filter((symbol: any) => holdings2.has(symbol)).length;
     const totalUniqueHoldings = new Set([...holdings1, ...holdings2]).size;
     
     const overlapPercent = totalUniqueHoldings > 0 ? (commonHoldings / totalUniqueHoldings) * 100 : 0;
@@ -671,7 +671,7 @@ export class PortfolioComparisonService {
   }
 
   private async generateRebalancingSuggestions(portfolios: PortfolioMetrics[]) {
-    return portfolios.map(portfolio => ({
+    return portfolios.map((portfolio: any) => ({
       portfolioId: portfolio.portfolioId,
       suggestions: this.generatePortfolioSuggestions(portfolio)
     }));
@@ -728,7 +728,7 @@ export class PortfolioComparisonService {
     riskAnalysis: any, 
     assetAllocationAnalysis: any
   ) {
-    const bestPerformer = portfolios.reduce((best, portfolio) => 
+    const bestPerformer = portfolios.reduce((best: any, portfolio: any) => 
       portfolio.totalGainLossPercent > best.totalGainLossPercent ? portfolio : best
     );
     
@@ -758,7 +758,7 @@ export class PortfolioComparisonService {
   }
 
   private calculateOverallRiskScore(portfolios: PortfolioMetrics[]): number {
-    const avgRiskScore = portfolios.reduce((sum, p) => sum + p.riskScore, 0) / portfolios.length;
+    const avgRiskScore = portfolios.reduce((sum: any, p: any) => sum + p.riskScore, 0) / portfolios.length;
     return Math.round(avgRiskScore * 10) / 10; // Round to 1 decimal place
   }
 
@@ -779,7 +779,7 @@ export class PortfolioComparisonService {
       comparisonType,
       benchmarkIndex,
       timePeriod,
-      performanceMetrics: result.portfolios.map(p => ({
+      performanceMetrics: result.portfolios.map((p: any) => ({
         portfolioId: p.portfolioId,
         returns: p.returns,
         riskScore: p.riskScore,
@@ -790,17 +790,17 @@ export class PortfolioComparisonService {
       assetAllocationComparison: result.assetAllocationAnalysis,
       correlationMatrix: result.correlationMatrix,
       diversificationAnalysis: {
-        portfolios: result.portfolios.map(p => ({
+        portfolios: result.portfolios.map((p: any) => ({
           portfolioId: p.portfolioId,
           diversificationScore: p.diversificationScore,
           concentrationRisk: p.concentrationRisk
         }))
       },
-      sectorExposure: result.portfolios.reduce((acc, p) => {
+      sectorExposure: result.portfolios.reduce((acc: any, p: any) => {
         acc[p.portfolioId] = p.sectorExposure;
         return acc;
       }, {} as any),
-      topHoldingsComparison: result.portfolios.map(p => ({
+      topHoldingsComparison: result.portfolios.map((p: any) => ({
         portfolioId: p.portfolioId,
         topHoldings: p.topHoldings
       })),

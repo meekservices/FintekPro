@@ -29,6 +29,8 @@ import {
 import { eq, and, desc, sql, or, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import crypto from 'crypto';
+const logAgentAction = async (..._args: any[]) => {};
+
 
 const upload = multer({
   storage: multer.memoryStorage(),

@@ -5,6 +5,7 @@ import { mvoEngine, type AssetData, type MVOResult, type TransitionConstraints }
 import { blackLittermanEngine, type ViewSignal, type BLResult } from './black-litterman-engine';
 import { driftPredictionEngine, type DriftPredictionResult } from './drift-prediction-engine';
 import { callPython, isPythonServiceConfigured } from '../../clients/python-client';
+import { marketRegimeDetector } from '../risk';
 
 export interface QuantInput {
   assetsData: AssetData[];
@@ -73,16 +74,19 @@ class QuantOrchestrator {
       return result;
     }
 
-    console.log('[QuantOrch] Starting transition-aware quant pipeline for', riskProfile,
-      `MVO=${policy.useMvo}, BL=${policy.useBlackLitterman}, Drift=${policy.useAiDriftPrediction}`);
+    const isBlackSwan = marketRegimeDetector.detectBlackSwanEvent();
 
     const tc: Partial<TransitionConstraints> = {
       gamma: 5.0,
       maxPosition: Math.min(policy.maxAssetWeight, 0.20),
-      turnoverCap: 0.40,
+      turnoverCap: isBlackSwan ? 0.80 : 0.40, // Widen turnover cap during Black Swan to allow defensive pivots
       minWeight: 0.01,
       ...transitionConstraints,
     };
+
+    if (isBlackSwan) {
+      console.warn(`🛑 [QuantOrch] Systemic Resilience Trigger: 10σ Black Swan active. Transition constraints widened.`);
+    }
 
     let blPosteriorReturns: number[] | undefined;
 

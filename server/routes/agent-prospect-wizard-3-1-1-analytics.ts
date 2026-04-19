@@ -1,4 +1,6 @@
 type NormalizedHolding = any;
+import { schemeGovernanceService } from "../services/scheme-governance-service";
+import { portfolioAnalyticsDataService } from "../services/portfolio-analytics-data-service";
 
 export function calculateCapitalGains(holdings: NormalizedHolding[]) {
   const now = new Date();

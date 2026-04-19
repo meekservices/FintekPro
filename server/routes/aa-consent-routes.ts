@@ -18,7 +18,6 @@ import { db } from '../db';
 import { 
   aaConsentSessions, 
   dataSourceConsents,
-  users,
   portfolios
 } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
@@ -27,19 +26,24 @@ import { AAFIUService } from '../services/aa-fiu-service';
 import { kycPortfolioMigrationService } from '../services/kyc-portfolio-migration-service';
 import { unifiedHoldingsReaderService } from '../services/unified-holdings-reader-service';
 
-const router = Router();
+const router: Router = Router();
 const aaService = new AAFIUService();
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
 
 /**
  * GET /api/aa/consent/active
  * Check if user has an active AA consent session
  */
-router.get('/consent/active', async (req: Request, res: Response) => {
+router.get('/consent/active', async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.query.userId as string;
     
     if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
+      res.status(400).json({ error: 'userId is required' });
+      return;
     }
 
     const [session] = await db
@@ -63,9 +67,9 @@ router.get('/consent/active', async (req: Request, res: Response) => {
         aaProvider: session.aaProvider,
       } : null
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[AA] Error checking active consent:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: errorMessage(error) });
   }
 });
 
@@ -73,12 +77,19 @@ router.get('/consent/active', async (req: Request, res: Response) => {
  * POST /api/aa/consent/create
  * Create a new AA consent request
  */
-router.post('/consent/create', async (req: Request, res: Response) => {
+router.post('/consent/create', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId, panNumber, assetTypes, validityDays = 90, syncFrequencyDays = 30 } = req.body;
+    const { userId, panNumber, assetTypes, validityDays = 90, syncFrequencyDays = 30 } = req.body as {
+      userId?: string;
+      panNumber?: string;
+      assetTypes?: string[];
+      validityDays?: number;
+      syncFrequencyDays?: number;
+    };
 
     if (!userId || !panNumber) {
-      return res.status(400).json({ error: 'userId and panNumber are required' });
+      res.status(400).json({ error: 'userId and panNumber are required' });
+      return;
     }
 
     const consentResponse = await aaService.createConsent({
@@ -92,14 +103,14 @@ router.post('/consent/create', async (req: Request, res: Response) => {
 
     // Record consent in audit log
     await db.insert(dataSourceConsents).values({
-      userId: userId as any,
+      userId: userId,
       dataSource: assetTypes?.includes('DEMAT') ? 'demat' : 'mutual_funds',
       provider: 'account_aggregator',
       consentGiven: true,
       consentPurpose: 'portfolio_sync',
       consentText: `I authorize FintekPro to fetch my ${assetTypes?.join(', ') || 'financial'} data via Account Aggregator for portfolio analysis.`,
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent'),
+      ipAddress: req.ip || '',
+      userAgent: req.get('user-agent') || '',
     });
 
     res.json({
@@ -109,9 +120,9 @@ router.post('/consent/create', async (req: Request, res: Response) => {
       sessionId: consentResponse.sessionId,
       expiresAt: consentResponse.expiresAt,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[AA] Error creating consent:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: errorMessage(error) });
   }
 });
 
@@ -120,22 +131,28 @@ router.post('/consent/create', async (req: Request, res: Response) => {
  * Fetch data from FIUs after consent approval
  * Routes to staging for review OR direct sync based on useStaging flag
  */
-router.post('/data/fetch', async (req: Request, res: Response) => {
+router.post('/data/fetch', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { consentSessionId, userId, useStaging = true } = req.body;
+    const { consentSessionId, userId, useStaging = true } = req.body as {
+      consentSessionId?: string;
+      userId?: string;
+      useStaging?: boolean;
+    };
 
     if (!consentSessionId || !userId) {
-      return res.status(400).json({ error: 'consentSessionId and userId are required' });
+      res.status(400).json({ error: 'consentSessionId and userId are required' });
+      return;
     }
 
     // Step 1: Fetch fresh data from AA
     const fetchResult = await aaService.fetchAllData(consentSessionId);
 
     if (!fetchResult.success) {
-      return res.status(500).json({ 
+      res.status(500).json({ 
         error: 'Failed to fetch data from Account Aggregator',
         details: fetchResult.errors
       });
+      return;
     }
 
     // Prepare holdings for staging or direct storage
@@ -197,20 +214,22 @@ router.post('/data/fetch', async (req: Request, res: Response) => {
 
       if (!stagingResponse.ok) {
         console.error('[AA] Staging creation failed:', stagingResponse.status);
-        return res.status(500).json({ 
+        res.status(500).json({ 
           error: 'Failed to create staging session for review',
           details: `Staging service returned ${stagingResponse.status}`
         });
+        return;
       }
 
-      const stagingResult = await stagingResponse.json();
+      const stagingResult = (await stagingResponse.json()) as { success?: boolean; sessionId?: string; error?: string };
 
       if (!stagingResult.success || !stagingResult.sessionId) {
         console.error('[AA] Staging result invalid:', stagingResult);
-        return res.status(500).json({ 
+        res.status(500).json({ 
           error: 'Staging session creation returned invalid response',
           details: stagingResult.error || 'No session ID returned'
         });
+        return;
       }
 
       res.json({
@@ -273,17 +292,13 @@ router.post('/data/fetch', async (req: Request, res: Response) => {
         summary: {
           mutualFundsCount: fetchResult.aggregatedData?.mutualFunds?.length || 0,
           dematHoldingsCount: fetchResult.aggregatedData?.dematHoldings?.length || 0,
-          npsCount: fetchResult.aggregatedData?.nps?.length || 0,
-          epfCount: fetchResult.aggregatedData?.epf?.length || 0,
-          ppfCount: fetchResult.aggregatedData?.ppf?.length || 0,
-          loansCount: fetchResult.aggregatedData?.loans?.length || 0,
           fetchedAt: new Date().toISOString(),
         }
       });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[AA] Error fetching data:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: errorMessage(error) });
   }
 });
 
@@ -291,9 +306,9 @@ router.post('/data/fetch', async (req: Request, res: Response) => {
  * POST /api/aa/callback
  * Callback from AA portal after user approves consent
  */
-router.post('/callback', async (req: Request, res: Response) => {
+router.post('/callback', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { consentHandleId, status, userId } = req.body;
+    const { consentHandleId, status } = req.body as { consentHandleId?: string; status?: string; userId?: string };
 
     console.log(`[AA] Consent callback: ${consentHandleId} - ${status}`);
 
@@ -304,7 +319,7 @@ router.post('/callback', async (req: Request, res: Response) => {
           status: 'active',
           updatedAt: new Date()
         })
-        .where(eq(aaConsentSessions.consentHandleId, consentHandleId));
+        .where(eq(aaConsentSessions.consentHandleId, consentHandleId || ''));
 
       res.json({ success: true, status: 'consent_approved' });
     } else {
@@ -313,13 +328,13 @@ router.post('/callback', async (req: Request, res: Response) => {
           status: 'rejected',
           updatedAt: new Date()
         })
-        .where(eq(aaConsentSessions.consentHandleId, consentHandleId));
+        .where(eq(aaConsentSessions.consentHandleId, consentHandleId || ''));
 
       res.json({ success: false, status: 'consent_rejected' });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[AA] Callback error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: errorMessage(error) });
   }
 });
 
@@ -327,12 +342,13 @@ router.post('/callback', async (req: Request, res: Response) => {
  * GET /api/aa/holdings/summary
  * Get summary of holdings from unified reader
  */
-router.get('/holdings/summary', async (req: Request, res: Response) => {
+router.get('/holdings/summary', async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.query.userId as string;
     
     if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
+      res.status(400).json({ error: 'userId is required' });
+      return;
     }
 
     const summary = await unifiedHoldingsReaderService.getPortfolioSummary(userId);
@@ -347,9 +363,9 @@ router.get('/holdings/summary', async (req: Request, res: Response) => {
         autoSyncEnabled: clientType.autoSyncEnabled,
       }
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[AA] Error getting holdings summary:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: errorMessage(error) });
   }
 });
 
@@ -357,9 +373,14 @@ router.get('/holdings/summary', async (req: Request, res: Response) => {
  * POST /api/aa/consent/revoke
  * Revoke an active consent session
  */
-router.post('/consent/revoke', async (req: Request, res: Response) => {
+router.post('/consent/revoke', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { consentSessionId, userId, reason } = req.body;
+    const { consentSessionId, userId, reason } = req.body as { consentSessionId?: string; userId?: string; reason?: string };
+
+    if (!consentSessionId || !userId) {
+      res.status(400).json({ error: 'consentSessionId and userId are required' });
+      return;
+    }
 
     await db.update(aaConsentSessions)
       .set({ 
@@ -373,20 +394,20 @@ router.post('/consent/revoke', async (req: Request, res: Response) => {
 
     // Record revocation in audit
     await db.insert(dataSourceConsents).values({
-      userId: userId as any,
+      userId: userId,
       dataSource: 'all',
       provider: 'account_aggregator',
       consentGiven: false,
       consentPurpose: 'consent_revocation',
       consentText: `User revoked AA consent. Reason: ${reason || 'User requested'}`,
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent'),
+      ipAddress: req.ip || '',
+      userAgent: req.get('user-agent') || '',
     });
 
     res.json({ success: true, message: 'Consent revoked successfully' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[AA] Error revoking consent:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: errorMessage(error) });
   }
 });
 

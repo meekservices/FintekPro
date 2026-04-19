@@ -47,7 +47,8 @@ import {
   Upload,
   X,
   File,
-  Trash2
+  Trash2,
+  AlertCircle
 } from "lucide-react";
 import {
   PieChart as RechartsPie,
@@ -1785,10 +1786,8 @@ export default function IntelligentTaxHub() {
                     data-testid={`income-item-${idx}`}
                   >
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-4 h-4 rounded"
-                        style={{ backgroundColor: item.color }}
-                      />
+                      <style>{`.swatch-${idx}{background-color:${item.color}}`}</style>
+                      <div className={`w-4 h-4 rounded swatch-${idx}`} />
                       <span className="font-medium">{item.name}</span>
                     </div>
                     <span className="font-bold">₹{item.value.toLocaleString()}</span>

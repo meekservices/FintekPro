@@ -427,9 +427,10 @@ export function CorporateKYCWizard() {
   const queryClient = useQueryClient();
 
   // Load progress on mount
-  const { data: progress } = useQuery({
+  const progressQuery = useQuery({
     queryKey: ["/api/kyc/corporate/progress"],
   });
+  const progress: any = progressQuery.data;
 
   useEffect(() => {
     if (progress && !progress.isCompleted) {

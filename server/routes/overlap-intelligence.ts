@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { overlapIntelligenceEngine } from "../services/overlap-intelligence-engine";
 import { z } from "zod";
+import * as schema from "@shared/schema";
 
 const router = Router();
 

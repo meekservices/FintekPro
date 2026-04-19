@@ -367,8 +367,8 @@ class PortfolioAnalyticsDataService {
     
     try {
       // Extract scheme codes and ISINs for batch lookup
-      const schemeCodes = funds.map(f => f.schemeCode).filter(Boolean) as string[];
-      const isins = funds.map(f => f.isin).filter(Boolean) as string[];
+      const schemeCodes = funds.map((f: any) => f.schemeCode).filter(Boolean) as string[];
+      const isins = funds.map((f: any) => f.isin).filter(Boolean) as string[];
       
       // Single batch query
       let dbFunds: Array<{ schemeCode: string | null; isin: string | null; expenseRatio: string | null; category: string | null; schemeName: string | null }> = [];
@@ -376,10 +376,10 @@ class PortfolioAnalyticsDataService {
       if (schemeCodes.length > 0 || isins.length > 0) {
         const conditions = [];
         if (schemeCodes.length > 0) {
-          conditions.push(sql`${mutualFunds.schemeCode} IN (${sql.join(schemeCodes.map(c => sql`${c}`), sql`, `)})`);
+          conditions.push(sql`${mutualFunds.schemeCode} IN (${sql.join(schemeCodes.map((c: any) => sql`${c}`), sql`, `)})`);
         }
         if (isins.length > 0) {
-          conditions.push(sql`${mutualFunds.isin} IN (${sql.join(isins.map(i => sql`${i}`), sql`, `)})`);
+          conditions.push(sql`${mutualFunds.isin} IN (${sql.join(isins.map((i: any) => sql`${i}`), sql`, `)})`);
         }
         
         dbFunds = await db.select({
@@ -394,8 +394,8 @@ class PortfolioAnalyticsDataService {
       }
       
       // Create lookup maps for fast matching
-      const bySchemeCode = new Map(dbFunds.filter(f => f.schemeCode).map(f => [f.schemeCode!, f]));
-      const byIsin = new Map(dbFunds.filter(f => f.isin).map(f => [f.isin!, f]));
+      const bySchemeCode = new Map(dbFunds.filter((f: any) => f.schemeCode).map((f: any) => [f.schemeCode!, f]));
+      const byIsin = new Map(dbFunds.filter((f: any) => f.isin).map((f: any) => [f.isin!, f]));
       
       // Match each fund to its expense ratio using stable key
       for (const fund of funds) {
@@ -455,7 +455,7 @@ class PortfolioAnalyticsDataService {
     const getKey = (s: { name: string; isin?: string }) => s.isin || s.name;
     
     try {
-      const isins = stocks.map(s => s.isin).filter(Boolean) as string[];
+      const isins = stocks.map((s: any) => s.isin).filter(Boolean) as string[];
       
       let dbStocks: Array<{ isin: string | null; symbol: string; dividendYield: string | null; sector: string | null; broadSector: string | null }> = [];
       
@@ -468,10 +468,10 @@ class PortfolioAnalyticsDataService {
           broadSector: listedStocks.broadSector,
         })
         .from(listedStocks)
-        .where(sql`${listedStocks.isin} IN (${sql.join(isins.map(i => sql`${i}`), sql`, `)})`);
+        .where(sql`${listedStocks.isin} IN (${sql.join(isins.map((i: any) => sql`${i}`), sql`, `)})`);
       }
       
-      const byIsin = new Map(dbStocks.filter(s => s.isin).map(s => [s.isin!, s]));
+      const byIsin = new Map(dbStocks.filter((s: any) => s.isin).map((s: any) => [s.isin!, s]));
       
       // Collect stocks missing dividend yield for Yahoo Finance batch lookup
       const missingYieldStocks: Array<{ key: string; isin: string; symbol: string; sector: string }> = [];
@@ -530,10 +530,10 @@ class PortfolioAnalyticsDataService {
         // Fetch both .NS and .BO in one pass for resilience
         try {
           const nsQuotes = await Promise.allSettled(
-            batch.map(s => yahooFinance.quote(`${s.symbol}.NS`, {}, { validateResult: false }).catch(() => null))
+            batch.map((s: any) => yahooFinance.quote(`${s.symbol}.NS`, {}, { validateResult: false }).catch(() => null))
           );
           const boQuotes = await Promise.allSettled(
-            batch.map(s => yahooFinance.quote(`${s.symbol}.BO`, {}, { validateResult: false }).catch(() => null))
+            batch.map((s: any) => yahooFinance.quote(`${s.symbol}.BO`, {}, { validateResult: false }).catch(() => null))
           );
 
           const dbUpdates: Array<{ isin: string; dividendYield: string }> = [];
@@ -584,7 +584,7 @@ class PortfolioAnalyticsDataService {
           // Persist to DB asynchronously
           if (dbUpdates.length > 0) {
             Promise.all(
-              dbUpdates.map(u =>
+              dbUpdates.map((u: any) =>
                 db.update(listedStocks)
                   .set({ dividendYield: u.dividendYield } as any)
                   .where(eq(listedStocks.isin, u.isin))

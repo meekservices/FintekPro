@@ -1422,7 +1422,7 @@ export class DatabaseStorage implements IStorage {
   async createPortfolio(portfolio: InsertPortfolio): Promise<Portfolio> {
     const [newPortfolio] = await db
       .insert(schema.portfolios)
-      .values(portfolio)
+      .values(portfolio as any)
       .returning();
     return newPortfolio;
   }
@@ -1607,7 +1607,7 @@ export class DatabaseStorage implements IStorage {
 
   // Financial Obligations methods
   async getFinancialObligations(userId: string): Promise<FinancialObligation[]> {
-    return db.select().from(schema.financialObligations).where(eq(schema.financialObligations.userId, userId)).orderBy(schema.financialObligations.dueDate);
+    return db.select().from(schema.financialObligations).where(eq(schema.financialObligations.userId, userId)).orderBy((schema.financialObligations as any).dueDate);
   }
 
   async getFinancialObligationById(id: string): Promise<FinancialObligation | undefined> {
@@ -1634,7 +1634,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUserCibilObligations(userId: string): Promise<void> {
     await db.delete(schema.financialObligations)
-      .where(and(eq(schema.financialObligations.userId, userId), eq(schema.financialObligations.fromCibil, true)));
+      .where(and(eq(schema.financialObligations.userId, userId), eq((schema.financialObligations as any).fromCibil, true)));
   }
 
   async getInsuranceHoldings(userId: string): Promise<InsuranceHolding[]> {
@@ -1705,7 +1705,7 @@ export class DatabaseStorage implements IStorage {
         ipAddress: result.ipAddress || null,
         userAgent: result.userAgent || null,
         isActive: result.isActive ?? true
-      };
+      } as unknown as GovernmentSchemeConsent;
     } catch (error) {
       console.error("Error creating government scheme consent:", error);
       throw error;
@@ -1740,7 +1740,7 @@ export class DatabaseStorage implements IStorage {
         ipAddress: r.ipAddress || null,
         userAgent: r.userAgent || null,
         isActive: r.isActive ?? true
-      }));
+      } as unknown as GovernmentSchemeConsent));
     } catch (error) {
       console.error("Error getting government scheme consents:", error);
       return [];
@@ -4989,7 +4989,7 @@ export class DatabaseStorage implements IStorage {
   async createFamilyGroup(data: InsertFamilyGroup): Promise<FamilyGroup> {
     const [result] = await db
       .insert(schema.familyGroups)
-      .values(data)
+      .values(data as any)
       .returning();
     return result;
   }
@@ -5106,7 +5106,7 @@ export class DatabaseStorage implements IStorage {
         firstName: r.userFirstName || undefined,
         lastName: r.userLastName || undefined,
       },
-    }));
+    })) as any;
   }
 
   async updateMemberRole(memberId: string, role: string): Promise<FamilyMember> {
@@ -5202,7 +5202,7 @@ export class DatabaseStorage implements IStorage {
         firstName: r.userFirstName || undefined,
         lastName: r.userLastName || undefined,
       },
-    }));
+    })) as any;
   }
 
   async logFamilyActivity(data: InsertFamilyActivityLog): Promise<FamilyActivityLog> {
@@ -6604,7 +6604,7 @@ export class DatabaseStorage implements IStorage {
     const ckycDocs = await ckycDocsQuery;
     
     let allDocuments = [...manualDocs, ...ckycDocs];
-    allDocuments.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+    allDocuments.sort((a, b) => new Date((b as any).uploadedAt || 0).getTime() - new Date((a as any).uploadedAt || 0).getTime());
     
     const total = allDocuments.length;
     const limit = filters?.limit || 50;
@@ -6793,9 +6793,9 @@ export class DatabaseStorage implements IStorage {
     
     const allRecords = await query;
     
-    const alerts = allRecords.filter(r => 
+    const alerts = (allRecords as any[]).filter(r => 
       r.riskImpact === 'high' || r.complianceImpact === 'major' || r.complianceImpact === 'critical'
-    ).map(record => ({
+    ).map((record: any) => ({
       ...record,
       severity: record.complianceImpact === 'critical' ? 'critical' : 
                 record.riskImpact === 'high' ? 'high' : 'medium',
@@ -6865,7 +6865,7 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db.update(schema.complianceAuditTrail)
       .set({
         metadata: sql`jsonb_set(COALESCE(metadata, '{}'::jsonb), '{resolved}', 'true'::jsonb)`,
-      })
+      } as any)
       .where(eq(schema.complianceAuditTrail.id, alertId))
       .returning();
     
@@ -6880,11 +6880,11 @@ export class DatabaseStorage implements IStorage {
   }> {
     const allRecords = await db.select().from(schema.complianceAuditTrail);
     
-    const alerts = allRecords.filter(r => 
+    const alerts = (allRecords as any[]).filter(r => 
       r.riskImpact === 'high' || r.complianceImpact === 'major' || r.complianceImpact === 'critical'
     );
     
-    const criticalAlerts = alerts.filter(a => a.complianceImpact === 'critical').length;
+    const criticalAlerts = alerts.filter((a: any) => a.complianceImpact === 'critical').length;
     
     const manualSubmissions = await db.select()
       .from(schema.manualKycSubmissions)
@@ -6925,7 +6925,7 @@ export class DatabaseStorage implements IStorage {
       userId,
       user,
       userProfile,
-      kycTier: userProfile?.kycTier || 'basic', // kycTier is in userProfiles, not users
+      kycTier: (userProfile as any)?.kycTier || 'basic', // kycTier is in userProfiles, not users
       kycStatus: ckycRecords[0]?.status || manualSubmissions[0]?.status || 'not_started',
       ckycRecords,
       manualSubmissions,
@@ -6936,7 +6936,7 @@ export class DatabaseStorage implements IStorage {
   async updateUserKycTier(userId: string, tier: string, updatedBy: string, reason?: string): Promise<any | undefined> {
     // Get existing profile first
     const existingProfile = await this.getUserProfile(userId);
-    const oldTier = existingProfile?.kycTier || 'basic';
+    const oldTier = (existingProfile as any)?.kycTier || 'basic';
     
     // Update userProfile, not users table (kycTier is in userProfiles)
     await this.upsertUserProfile({
@@ -7012,11 +7012,11 @@ export class DatabaseStorage implements IStorage {
     const [completedOrders] = await db.select({ count: sql<number>`count(*)` }).from(schema.unifiedOrders).where(eq(schema.unifiedOrders.status, 'completed'));
     
     const [totalRevenueResult] = await db.select({ 
-      total: sql<string>`COALESCE(SUM(CAST(${schema.unifiedOrders.totalAmount} AS DECIMAL)), 0)::text` 
+      total: sql<string>`COALESCE(SUM(CAST(${(schema.unifiedOrders as any).totalAmount} AS DECIMAL)), 0)::text` 
     }).from(schema.unifiedOrders).where(eq(schema.unifiedOrders.paymentStatus, 'completed'));
     
     const [todayRevenueResult] = await db.select({ 
-      total: sql<string>`COALESCE(SUM(CAST(${schema.unifiedOrders.totalAmount} AS DECIMAL)), 0)::text` 
+      total: sql<string>`COALESCE(SUM(CAST(${(schema.unifiedOrders as any).totalAmount} AS DECIMAL)), 0)::text` 
     }).from(schema.unifiedOrders)
       .where(and(
         eq(schema.unifiedOrders.paymentStatus, 'completed'),
@@ -7031,7 +7031,7 @@ export class DatabaseStorage implements IStorage {
     const ordersByProductType = await db.select({
       productType: schema.unifiedOrders.productType,
       count: sql<number>`count(*)::int`,
-      revenue: sql<string>`COALESCE(SUM(CAST(${schema.unifiedOrders.totalAmount} AS DECIMAL)), 0)::text`
+      revenue: sql<string>`COALESCE(SUM(CAST(${(schema.unifiedOrders as any).totalAmount} AS DECIMAL)), 0)::text`
     }).from(schema.unifiedOrders)
       .where(eq(schema.unifiedOrders.paymentStatus, 'completed'))
       .groupBy(schema.unifiedOrders.productType);
@@ -7118,7 +7118,7 @@ export class DatabaseStorage implements IStorage {
       user: user ? {
         id: user.id,
         userId: user.userId,
-        name: user.name,
+        name: (user as any).name,
         email: user.email,
         mobile: user.mobile
       } : null
@@ -7259,20 +7259,20 @@ export class DatabaseStorage implements IStorage {
     const whereClause = and(...conditions);
     
     const [totalRevenueResult] = await db.select({
-      total: sql<string>`COALESCE(SUM(CAST(${schema.unifiedOrders.totalAmount} AS DECIMAL)), 0)::text`
+      total: sql<string>`COALESCE(SUM(CAST(${(schema.unifiedOrders as any).totalAmount} AS DECIMAL)), 0)::text`
     }).from(schema.unifiedOrders).where(whereClause);
     
     const revenueByProductType = await db.select({
-      productType: schema.unifiedOrders.productType,
-      revenue: sql<string>`COALESCE(SUM(CAST(${schema.unifiedOrders.totalAmount} AS DECIMAL)), 0)::text`,
+      productType: sql<string>`COALESCE(${schema.unifiedOrders.productType}, 'unknown')`,
+      revenue: sql<string>`COALESCE(SUM(CAST(${(schema.unifiedOrders as any).totalAmount} AS DECIMAL)), 0)::text`,
       orders: sql<number>`count(*)::int`
     }).from(schema.unifiedOrders)
       .where(whereClause)
       .groupBy(schema.unifiedOrders.productType);
     
     const revenueByGateway = await db.select({
-      gateway: schema.unifiedOrders.paymentGateway,
-      revenue: sql<string>`COALESCE(SUM(CAST(${schema.unifiedOrders.totalAmount} AS DECIMAL)), 0)::text`,
+      gateway: sql<string>`COALESCE(${schema.unifiedOrders.paymentGateway}, 'Other')`,
+      revenue: sql<string>`COALESCE(SUM(CAST(${(schema.unifiedOrders as any).totalAmount} AS DECIMAL)), 0)::text`,
       transactions: sql<number>`count(*)::int`
     }).from(schema.unifiedOrders)
       .where(whereClause)
@@ -7280,7 +7280,7 @@ export class DatabaseStorage implements IStorage {
     
     const dailyRevenue = await db.select({
       date: sql<string>`DATE(${schema.unifiedOrders.createdAt})::text`,
-      revenue: sql<string>`COALESCE(SUM(CAST(${schema.unifiedOrders.totalAmount} AS DECIMAL)), 0)::text`
+      revenue: sql<string>`COALESCE(SUM(CAST(${(schema.unifiedOrders as any).totalAmount} AS DECIMAL)), 0)::text`
     }).from(schema.unifiedOrders)
       .where(whereClause)
       .groupBy(sql`DATE(${schema.unifiedOrders.createdAt})`)
@@ -7589,7 +7589,7 @@ export class DatabaseStorage implements IStorage {
       return createdAtTimestamp >= startOfMonthTimestamp;
     }).length;
 
-    const activeClients = relationships.filter(r => r.status === 'active').length;
+    const activeClients = (relationships as any[]).filter(r => r.status === 'active').length;
     const totalReferrals = relationships.length;
     const conversionRate = totalReferrals > 0 ? (activeClients / totalReferrals) * 100 : 0;
 
@@ -7651,8 +7651,8 @@ export class DatabaseStorage implements IStorage {
         lastName: user?.lastName || '',
         email: user?.email || 'N/A',
         mobile: user?.mobile || 'N/A',
-        status: rel.status || 'pending',
-        interestedProducts: rel.assignedProducts || [],
+        status: (rel as any).status || 'pending',
+        interestedProducts: (rel as any).assignedProducts || [],
         referredDate: rel.createdAt || new Date().toISOString(),
         totalEarnings: Math.round(totalEarnings * 100) / 100,
       };
@@ -7672,9 +7672,9 @@ export class DatabaseStorage implements IStorage {
         .from(schema.users)
         .where(eq(schema.users.id, comm.clientId)) : [null];
 
-      const grossCommission = parseFloat(comm.grossCommission.toString());
+      const grossCommission = parseFloat((comm as any).grossCommission?.toString() ?? '0');
       const agentNetCommission = parseFloat(comm.agentNetCommission.toString());
-      const tdsAmount = parseFloat(comm.tdsAmount.toString());
+      const tdsAmount = parseFloat((comm as any).tdsAmount?.toString() ?? '0');
 
       return {
         id: comm.id,
@@ -7683,7 +7683,7 @@ export class DatabaseStorage implements IStorage {
         productType: comm.productType || 'N/A',
         transactionType: comm.transactionType || 'N/A',
         transactionAmount: parseFloat(comm.transactionAmount.toString()),
-        commissionRate: parseFloat(comm.commissionRate.toString()),
+        commissionRate: parseFloat((comm as any).commissionRate?.toString() ?? '0'),
         marketingFee: agentNetCommission,
         tdsAmount: tdsAmount,
         netEarnings: agentNetCommission,
@@ -7722,7 +7722,7 @@ export class DatabaseStorage implements IStorage {
         firstName: data.firstName,
         lastName: data.lastName,
         password: '',
-        role: 'user',
+        roles: ['user'] as any,
         isActive: false,
         twoFactorEnabled: false,
       });
@@ -7744,7 +7744,7 @@ export class DatabaseStorage implements IStorage {
           assignedProducts: data.interestedProducts,
           notes: data.notes,
           updatedAt: new Date(),
-        })
+        } as any)
         .where(eq(schema.clientAgentRelationships.id, existingRelationship[0].id))
         .returning();
       return updated;
@@ -7761,7 +7761,7 @@ export class DatabaseStorage implements IStorage {
         notes: data.notes,
         createdAt: new Date(data.referredDate),
         updatedAt: new Date(),
-      })
+      } as any)
       .returning();
 
     return relationship;
@@ -7886,7 +7886,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createStoreCategory(data: any): Promise<any> {
-    const [category] = await db.insert(schema.storeCategories)
+    const result = await db.insert(schema.storeCategories)
       .values({
         ...data,
         id: randomUUID(),
@@ -7894,7 +7894,7 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date(),
       })
       .returning();
-    return category;
+    return Array.isArray(result) ? result[0] : (result as any).rows?.[0];
   }
 
   async updateStoreCategory(id: string, data: any): Promise<any | undefined> {
@@ -8787,14 +8787,14 @@ export class DatabaseStorage implements IStorage {
     return await db.select()
       .from(schema.supportSteps)
       .where(eq(schema.supportSteps.templateId, templateId))
-      .orderBy(asc(schema.supportSteps.order));
+      .orderBy(asc((schema.supportSteps as any).order));
   }
 
   async getSupportStepsByTicketId(ticketId: string): Promise<SupportStep[]> {
     return await db.select()
       .from(schema.supportSteps)
       .where(eq(schema.supportSteps.ticketId, ticketId))
-      .orderBy(asc(schema.supportSteps.order));
+      .orderBy(asc((schema.supportSteps as any).order));
   }
 
   async getSupportStepById(id: string): Promise<SupportStep | null> {

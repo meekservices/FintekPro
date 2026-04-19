@@ -1,14 +1,17 @@
 import { Express } from 'express';
 import { db } from '../db';
+import { storage } from '../storage';
 import { requireAdmin } from '../middleware/roleMiddleware';
 import { requireLevel1, requireLevel2, injectKYCLevel } from '../middleware/kyc-level-gate';
 import { validateKYC } from '../kyc-middleware';
 import { nseNcbApi } from '../nseNcbApi';
 import { bseBondApi } from '../bseBondApi';
 import { bseDirectApi } from '../bseDirectApi';
-import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema } from '@shared/schema';
+import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema, fundComparisons, comparisonHistory } from '@shared/schema';
 import { eq, desc, sql, and, or, gte, lte, inArray } from 'drizzle-orm';
 import { isProductionEnvironment } from '../utils/enrichment-guard';
+import { amfiService } from '../amfi-service';
+import { FundComparisonService } from '../services/fund-comparison-service';
 
 export function registerBondTradingOrderPart4Part2Routes(app: Express): void {
   app.get("/api/amfi/nav-history/:scheme_code", async (req, res) => {

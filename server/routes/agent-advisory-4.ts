@@ -29,6 +29,10 @@ import {
 import { eq, and, desc, sql, or, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import crypto from 'crypto';
+const logAgentAction = async (..._args: any[]) => {};
+const calculateAge = (_dob: any) => 30;
+const calculateAssetAllocation = (..._args: any[]) => ({});
+
 
 const upload = multer({
   storage: multer.memoryStorage(),

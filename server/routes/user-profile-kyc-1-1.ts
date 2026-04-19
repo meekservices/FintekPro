@@ -274,7 +274,7 @@ app.get("/api/user/advisory-subscription", requireClientOrHigher, async (req, re
 // KYC Status endpoint - returns comprehensive KYC info and transaction readiness
 app.get("/api/profile/kyc-status", requireClientOrHigher, async (req, res) => {
   try {
-    const { getKYCStatus } = await import("./rekyc-service");
+    const { getKYCStatus } = await import("../rekyc-service");
     const userId = req.user!.id;
     
     const kycStatus = await getKYCStatus(userId);

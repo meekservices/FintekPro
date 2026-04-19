@@ -1,0 +1,1275 @@
+import { sql } from "drizzle-orm";
+import { boolean, date, decimal, index, integer, jsonb, numeric, pgTable, real, serial, text, timestamp, uniqueIndex, varchar } from 'drizzle-orm/pg-core';
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+import { users } from './users';
+import { investmentProposals, investmentProposalItems } from './proposals-base';
+import { portfolios, assetAllocation } from './portfolio';
+import { agents as Agent } from './agents';
+import { documents as Document } from './documents';
+import { onboardingInvitations } from '../schema'; // Will move this later if needed
+
+// --- Core Prospect & E-Sign Tables ---
+
+export const prospectProposals = pgTable("prospect_proposals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  shareToken: varchar("share_token").notNull().unique(),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  agentName: varchar("agent_name"),
+  agentArnCode: varchar("agent_arn_code"),
+  agentMobile: varchar("agent_mobile"),
+  agentEmail: varchar("agent_email"),
+  prospectName: varchar("prospect_name").notNull(),
+  prospectEmail: varchar("prospect_email"),
+  prospectMobile: varchar("prospect_mobile"),
+  prospectPan: varchar("prospect_pan"),
+  proposalType: varchar("proposal_type").notNull(),
+  clientType: varchar("client_type").default("individual"),
+  samplePortfolio: jsonb("sample_portfolio").$type<{
+    totalValue: number;
+    holdings: Array<{
+      name: string;
+      type: string;
+      currentValue: number;
+      allocation: number;
+      returns1Y?: number;
+    }>;
+    assetAllocation: Record<string, number>;
+  }>(),
+  investmentGoals: jsonb("investment_goals").$type<{
+    goalType: string;
+    targetAmount?: number;
+    timeHorizon: string;
+    monthlyInvestment?: number;
+    lumpsum?: number;
+    riskTolerance: string;
+  }>(),
+  allocationPolicy: jsonb("allocation_policy").$type<{
+    equity?: { target: number; lowerBand: number; upperBand: number };
+    debt?: { target: number; lowerBand: number; upperBand: number };
+    gold?: { target: number; lowerBand: number; upperBand: number };
+    cash?: { target: number; lowerBand: number; upperBand: number };
+    alternates?: { target: number; lowerBand: number; upperBand: number };
+    international?: { target: number; lowerBand: number; upperBand: number };
+  }>(),
+  proposalVersion: integer("proposal_version").default(1).notNull(),
+  parentProposalId: varchar("parent_proposal_id"),
+  isLatestVersion: boolean("is_latest_version").default(true),
+  lockedAt: timestamp("locked_at"),
+  isPublic: boolean("is_public").default(false),
+  expiresAt: timestamp("expires_at"),
+  watermarkAdvisorName: varchar("watermark_advisor_name"),
+  publicViewCount: integer("public_view_count").default(0),
+  complianceSnapshot: jsonb("compliance_snapshot").$type<{
+    riskMatchBoolean: boolean;
+    suitabilityScore: number;
+    disclosuresIncluded: boolean;
+    generatedAt: string;
+    regulatoryVersion: string;
+  }>(),
+  proposalTitle: varchar("proposal_title").notNull(),
+  executiveSummary: text("executive_summary"),
+  currentAnalysis: text("current_analysis"),
+  recommendations: jsonb("recommendations").$type<Array<{
+    productType: string;
+    productName: string;
+    productCode?: string;
+    amc?: string;
+    category?: string;
+    recommendedAmount: number;
+    allocationPercentage: number;
+    investmentType: string;
+    sipAmount?: number;
+    returns1Y?: number;
+    returns3Y?: number;
+    returns5Y?: number;
+    riskRating?: string;
+    selectionReason: string;
+  }>>(),
+  totalInvestmentAmount: decimal("total_investment_amount", { precision: 15, scale: 2 }),
+  projectedReturns: decimal("projected_returns", { precision: 5, scale: 2 }),
+  projectedValue: decimal("projected_value", { precision: 15, scale: 2 }),
+  targetAllocation: jsonb("target_allocation").$type<Record<string, number>>(),
+  globalAdvisorySelections: jsonb("global_advisory_selections").$type<Record<string, string[]>>(),
+  invitationId: varchar("invitation_id").references(() => onboardingInvitations.id),
+  referralCode: varchar("referral_code"),
+  viewCount: integer("view_count").default(0),
+  lastViewedAt: timestamp("last_viewed_at"),
+  firstViewedAt: timestamp("first_viewed_at"),
+  sharedViaEmail: boolean("shared_via_email").default(false),
+  sharedViaWhatsApp: boolean("shared_via_whatsapp").default(false),
+  emailSentAt: timestamp("email_sent_at"),
+  whatsappSentAt: timestamp("whatsapp_sent_at"),
+  status: varchar("status").notNull().default("draft"),
+  convertedUserId: varchar("converted_user_id").references(() => users.id),
+  convertedAt: timestamp("converted_at"),
+  validUntil: timestamp("valid_until"),
+  proposalSections: jsonb("proposal_sections").$type<{
+    exitLoadCalendar?: boolean;
+    capitalGainsSummary?: boolean;
+    portfolioHealthScore?: boolean;
+    expenseRatioAnalysis?: boolean;
+    dividendProjection?: boolean;
+    riskHeatmap?: boolean;
+    goalGapAnalysis?: boolean;
+    benchmarkComparison?: boolean;
+    priorityRecommendations?: boolean;
+    sipRecommendations?: boolean;
+    whatIfSimulator?: boolean;
+    executiveSummary?: boolean;
+  }>(),
+  analyticsData: jsonb("analytics_data"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_prospect_proposals_share_token").on(table.shareToken),
+  index("idx_prospect_proposals_agent").on(table.agentId),
+  index("idx_prospect_proposals_status").on(table.status),
+  index("idx_prospect_proposals_prospect_email").on(table.prospectEmail),
+]);
+
+export const prospectProposalEvents = pgTable("prospect_proposal_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => prospectProposals.id).notNull(),
+  eventType: varchar("event_type").notNull(),
+  eventData: jsonb("event_data"),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  referrer: varchar("referrer"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => [
+  index("idx_prospect_proposal_events_proposal").on(table.proposalId),
+  index("idx_prospect_proposal_events_type").on(table.eventType),
+]);
+
+export const insertProspectProposalSchema = createInsertSchema(prospectProposals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ProspectProposal = typeof prospectProposals.$inferSelect;
+export type InsertProspectProposal = z.infer<typeof insertProspectProposalSchema>;
+
+export const prospectClients = pgTable("prospect_clients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  name: varchar("name").notNull(),
+  email: varchar("email"),
+  mobile: varchar("mobile"),
+  pan: varchar("pan"),
+  clientType: varchar("client_type").default("individual"),
+  indicativeRiskProfile: varchar("indicative_risk_profile"),
+  state: varchar("state").notNull().default("prospect"),
+  readinessStatus: varchar("readiness_status").notNull().default("INITIAL"),
+  readinessStatusUpdatedAt: timestamp("readiness_status_updated_at"),
+  investmentHorizon: varchar("investment_horizon"),
+  investmentGoals: varchar("investment_goals"),
+  taxProfile: jsonb("tax_profile").$type<{
+    taxSlabCategory: string;
+    residencyStatus: string;
+    hasHuf: boolean;
+    hasOtherIncome: boolean;
+    completedAt: string;
+  }>(),
+  portfolioFetchConsent: boolean("portfolio_fetch_consent").default(false),
+  portfolioFetchConsentAt: timestamp("portfolio_fetch_consent_at"),
+  advisoryConsent: boolean("advisory_consent").default(false),
+  advisoryConsentAt: timestamp("advisory_consent_at"),
+  fetchedPortfolio: jsonb("fetched_portfolio").$type<{
+    fetchedAt: string;
+    source: string;
+    holdings: Array<{
+      isin?: string;
+      symbol?: string;
+      name: string;
+      productType: string;
+    }>;
+    totalValue: number;
+    assetAllocation: Record<string, number>;
+  }>(),
+  uploadedPortfolio: jsonb("uploaded_portfolio").$type<{
+    uploadedAt: string;
+    fileName: string;
+    fileType: string;
+    parsedHoldings: Array<{
+      name: string;
+      productType: string;
+      quantity: number;
+      currentValue: number;
+    }>;
+    totalValue: number;
+  }>(),
+  currentPortfolio: jsonb("current_portfolio").$type<Array<{
+    id?: string;
+    name: string;
+    isin?: string;
+    symbol?: string;
+    assetType: string;
+    productType?: string;
+    quantity: number;
+    averageCost?: number;
+    currentValue: number;
+    currentNav?: number;
+    investedValue?: number;
+    unrealizedGain?: number;
+    unrealizedGainPercent?: number;
+    folioNumber?: string;
+    broker?: string;
+    confidenceScore?: number;
+  }>>(),
+  portfolioAnalysis: jsonb("portfolio_analysis").$type<{
+    analyzedAt: string;
+    assetAllocationBreakdown: Record<string, { value: number; percentage: number }>;
+    concentrationRisk: {
+      topHoldingConcentration: number;
+      sectorConcentration: Record<string, number>;
+      alerts: string[];
+    };
+    performanceVsBenchmark: {
+      portfolioReturn: number;
+      benchmarkReturn: number;
+      alpha: number;
+      period: string;
+    };
+    missingAssetClasses: string[];
+    externalVsFintekpro: {
+      externalPercentage: number;
+      fintekproPercentage: number;
+    };
+    gapAnalysis: Array<{
+      gap: string;
+      severity: 'low' | 'medium' | 'high';
+      recommendation: string;
+    }>;
+    overallScore: number;
+    riskScore: number;
+  }>(),
+  convertedUserId: varchar("converted_user_id").references(() => users.id),
+  convertedAt: timestamp("converted_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_prospect_clients_agent").on(table.agentId),
+  index("idx_prospect_clients_state").on(table.state),
+  index("idx_prospect_clients_pan").on(table.pan),
+  index("idx_prospect_clients_readiness").on(table.readinessStatus),
+]);
+
+export const insertProspectClientSchema = createInsertSchema(prospectClients).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ProspectClient = typeof prospectClients.$inferSelect;
+export type InsertProspectClient = z.infer<typeof insertProspectClientSchema>;
+
+export const esignRequests = pgTable("esign_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  transactionId: varchar("transaction_id").notNull(),
+  documentType: varchar("document_type").notNull(),
+  documentName: text("document_name").notNull(),
+  documentHash: varchar("document_hash").notNull(),
+  signedDocumentUrl: text("signed_document_url"),
+  certificateSerial: varchar("certificate_serial").notNull().unique(),
+  signerName: text("signer_name").notNull(),
+  signerAadhaarMasked: varchar("signer_aadhaar_masked").notNull(),
+  signedAt: timestamp("signed_at").notNull(),
+  validFrom: timestamp("valid_from").notNull(),
+  validTo: timestamp("valid_to").notNull(),
+  signatureAlgorithm: varchar("signature_algorithm").default("SHA256withRSA"),
+  status: varchar("status").notNull().default("valid"),
+  revokedAt: timestamp("revoked_at"),
+  revokedReason: text("revoked_reason"),
+  provider: varchar("provider").default("authbridge"),
+  dscCertificateClass: varchar("dsc_certificate_class"),
+  dscCertificateType: varchar("dsc_certificate_type"),
+  dscIssuer: text("dsc_issuer"),
+  dscSubjectDN: text("dsc_subject_dn"),
+  dscCertificateFingerprint: varchar("dsc_certificate_fingerprint"),
+  dscTimestampAuthority: text("dsc_timestamp_authority"),
+  dscTimestamp: timestamp("dsc_timestamp"),
+  dscOcspStatus: varchar("dsc_ocsp_status"),
+  dscCrlStatus: varchar("dsc_crl_status"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_esign_certificates_user").on(table.userId),
+  index("idx_esign_certificates_transaction").on(table.transactionId),
+  index("idx_esign_certificates_serial").on(table.certificateSerial),
+  index("idx_esign_certificates_status").on(table.status),
+  index("idx_esign_certificates_provider").on(table.provider),
+]);
+
+export const esignCertificates = pgTable("esign_certificates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  transactionId: varchar("transaction_id").notNull(),
+  documentType: varchar("document_type").notNull(),
+  documentName: text("document_name").notNull(),
+  documentHash: varchar("document_hash").notNull(),
+  signedDocumentUrl: text("signed_document_url"),
+  certificateSerial: varchar("certificate_serial").notNull().unique(),
+  signerName: text("signer_name").notNull(),
+  signerAadhaarMasked: varchar("signer_aadhaar_masked").notNull(),
+  signedAt: timestamp("signed_at").notNull(),
+  validFrom: timestamp("valid_from").notNull(),
+  validTo: timestamp("valid_to").notNull(),
+  signatureAlgorithm: varchar("signature_algorithm").default("SHA256withRSA"),
+  status: varchar("status").notNull().default("valid"),
+  revokedAt: timestamp("revoked_at"),
+  revokedReason: text("revoked_reason"),
+  provider: varchar("provider").default("authbridge"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const esignAuditLog = pgTable("esign_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  transactionId: varchar("transaction_id").notNull(),
+  userId: varchar("user_id"),
+  action: varchar("action").notNull(),
+  status: varchar("status").notNull(),
+  details: jsonb("details"),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertEsignRequestSchema = createInsertSchema(esignRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type EsignRequest = typeof esignRequests.$inferSelect;
+export type InsertEsignRequest = z.infer<typeof insertEsignRequestSchema>;
+
+export const userSignatures = pgTable("user_signatures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  name: varchar("name").notNull(),
+  signatureType: varchar("signature_type").notNull(),
+  signatureDataUrl: text("signature_data_url").notNull(),
+  fontFamily: varchar("font_family"),
+  typedText: varchar("typed_text"),
+  width: integer("width"),
+  height: integer("height"),
+  isDefault: boolean("is_default").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_user_signatures_user").on(table.userId),
+  index("idx_user_signatures_default").on(table.userId, table.isDefault),
+]);
+
+export const insertUserSignatureSchema = createInsertSchema(userSignatures).omit({
+  userId: true,
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type UserSignature = typeof userSignatures.$inferSelect;
+export type InsertUserSignature = z.infer<typeof insertUserSignatureSchema>;
+
+// --- Auto-Migrated Tables ---
+export const proposalPayments = pgTable("proposal_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  proposalItemId: varchar("proposal_item_id").references(() => investmentProposalItems.id),
+  
+  // Payment gateway details
+  gateway: varchar("gateway").notNull(), // mf_central, cams, kfintech
+  gatewayTransactionId: varchar("gateway_transaction_id"),
+  paymentMethod: varchar("payment_method"), // netbanking, upi, card, wallet
+  
+  // Amount and currency
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  currency: varchar("currency").default("INR"),
+  
+  // Status tracking
+  status: varchar("status").default("initiated"), // initiated, processing, success, failed, cancelled
+  statusMessage: text("status_message"),
+  gatewayResponse: jsonb("gateway_response"), // Full gateway response
+  
+  // Client and agent info
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  
+  // Bank and settlement details
+  bankAccount: varchar("bank_account"), // Masked account number
+  ifscCode: varchar("ifsc_code"),
+  settlementStatus: varchar("settlement_status"), // pending, completed, failed
+  settlementDate: timestamp("settlement_date"),
+  
+  // Metadata
+  metadata: jsonb("metadata"), // Additional gateway-specific data
+  retryCount: integer("retry_count").default(0),
+  maxRetries: integer("max_retries").default(3),
+  
+  // Timestamps
+  initiatedAt: timestamp("initiated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const proposalAuditLog = pgTable("proposal_audit_log", {
+  id: serial("id").primaryKey(),
+  proposalId: varchar("proposal_id").notNull(),
+  eventType: varchar("event_type").notNull(),
+  isin: varchar("isin"),
+  schemeCode: text("scheme_code"),
+  schemeName: text("scheme_name"),
+  investmentType: varchar("investment_type"),
+  validationStatus: varchar("validation_status").notNull(),
+  validationMessage: text("validation_message"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  proposalIdIdx: index("idx_proposal_audit_log_proposal").on(table.proposalId),
+  eventTypeIdx: index("idx_proposal_audit_log_event").on(table.eventType),
+  createdAtIdx: index("idx_proposal_audit_log_created").on(table.createdAt),
+}));
+
+export const insertProposalAuditLogSchema = createInsertSchema(proposalAuditLog).omit({ id: true, createdAt: true });
+
+export type ProposalAuditLog = typeof proposalAuditLog.$inferSelect;
+
+export type InsertProposalAuditLog = z.infer<typeof insertProposalAuditLogSchema>;
+
+export const proposalVersions = pgTable("proposal_versions", {
+  id: serial("id").primaryKey(),
+  proposalId: varchar("proposal_id").notNull(),
+  versionNumber: integer("version_number").notNull().default(1),
+  payload: jsonb("payload").notNull(),
+  changeReason: text("change_reason"),
+  changedSchemes: jsonb("changed_schemes"),
+  allocationMode: varchar("allocation_mode", { length: 20 }),
+  strategySnapshot: jsonb("strategy_snapshot"),
+  strategyLocked: boolean("strategy_locked").default(false),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  proposalIdIdx: index("idx_proposal_versions_proposal").on(table.proposalId),
+  versionIdx: index("idx_proposal_versions_version").on(table.proposalId, table.versionNumber),
+}));
+
+export const insertProposalVersionSchema = createInsertSchema(proposalVersions).omit({ id: true, createdAt: true });
+
+export const proposalBacktestResults = pgTable("proposal_backtest_results", {
+  id: serial("id").primaryKey(),
+  proposalId: varchar("proposal_id").notNull(),
+  versionNumber: integer("version_number").notNull().default(1),
+  includesBacktest: boolean("includes_backtest").default(false),
+  commonStartDate: date("common_start_date"),
+  commonEndDate: date("common_end_date"),
+  oldPortfolioMetrics: jsonb("old_portfolio_metrics"),
+  proposedPortfolioMetrics: jsonb("proposed_portfolio_metrics"),
+  deltaSummary: jsonb("delta_summary"),
+  backtestSnapshotHash: varchar("backtest_snapshot_hash"),
+  assumptions: jsonb("assumptions"),
+  portfolioDifferenceSummary: jsonb("portfolio_difference_summary"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  proposalIdIdx: index("idx_proposal_backtest_proposal").on(table.proposalId),
+}));
+
+export const insertProposalBacktestResultSchema = createInsertSchema(proposalBacktestResults).omit({ id: true, createdAt: true });
+
+export const proposalInteractions = pgTable("proposal_interactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => prospectProposals.id).notNull(),
+  
+  // Interaction type
+  type: varchar("type").notNull(), // question, answer, revision_request, revision_completed, approval, rejection
+  
+  // Content
+  senderType: varchar("sender_type").notNull(), // client, agent
+  content: text("content").notNull(),
+  
+  // For revisions
+  revisionDetails: jsonb("revision_details").$type<{
+    originalValue?: any;
+    newValue?: any;
+    field?: string;
+    reason?: string;
+  }>(),
+  
+  // Read status
+  isRead: boolean("is_read").default(false),
+  readAt: timestamp("read_at"),
+  
+  // Timestamp
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_interactions_proposal").on(table.proposalId),
+  index("idx_proposal_interactions_type").on(table.type),
+]);
+
+export const insertProposalInteractionSchema = createInsertSchema(proposalInteractions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const proposalApprovals = pgTable("proposal_approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => prospectProposals.id).notNull(),
+  prospectClientId: varchar("prospect_client_id").references(() => prospectClients.id),
+  
+  // Approval status
+  status: varchar("status").notNull().default("pending"), // pending, approved, rejected, deferred
+  
+  // Disclosure acknowledgments
+  disclosureAcknowledged: boolean("disclosure_acknowledged").default(false),
+  disclosureAcknowledgedAt: timestamp("disclosure_acknowledged_at"),
+  riskAcknowledged: boolean("risk_acknowledged").default(false),
+  riskAcknowledgedAt: timestamp("risk_acknowledged_at"),
+  executionConsent: boolean("execution_consent").default(false),
+  executionConsentAt: timestamp("execution_consent_at"),
+  
+  // Digital signature
+  signatureType: varchar("signature_type"), // otp, esign, physical
+  signatureData: jsonb("signature_data"),
+  signedAt: timestamp("signed_at"),
+  
+  // Client notes
+  clientNotes: text("client_notes"),
+  
+  // Approval/Rejection details
+  approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  deferredUntil: timestamp("deferred_until"),
+  
+  // Immutable audit
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_approvals_proposal").on(table.proposalId),
+  index("idx_proposal_approvals_status").on(table.status),
+]);
+
+export const insertProposalApprovalSchema = createInsertSchema(proposalApprovals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const proposalHoldings = pgTable("proposal_holdings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Parent proposal
+  proposalId: varchar("proposal_id").references(() => prospectProposals.id, { onDelete: 'cascade' }).notNull(),
+  
+  // Instrument reference
+  instrumentId: varchar("instrument_id").references(() => instrumentMaster.id),
+  isin: varchar("isin").notNull(),
+  
+  // Holding details from instrument master (denormalized for performance)
+  securityName: varchar("security_name").notNull(),
+  assetClass: varchar("asset_class").notNull(),
+  category: varchar("category"),
+  issuer: varchar("issuer"),
+  
+  // Acquisition details
+  quantity: decimal("quantity", { precision: 15, scale: 4 }).notNull(),
+  buyPrice: decimal("buy_price", { precision: 15, scale: 4 }).notNull(),
+  buyDate: timestamp("buy_date"),
+  
+  // Current valuation
+  currentPrice: decimal("current_price", { precision: 15, scale: 4 }),
+  currentValue: decimal("current_value", { precision: 15, scale: 2 }),
+  unrealizedGainLoss: decimal("unrealized_gain_loss", { precision: 15, scale: 2 }),
+  unrealizedGainLossPercent: decimal("unrealized_gain_loss_percent", { precision: 8, scale: 2 }),
+  
+  // Import source
+  importedFrom: varchar("imported_from"), // manual, csv_zerodha, csv_upstox, cas_pdf
+  
+  // Notes
+  notes: text("notes"),
+  
+  // Order for display
+  sortOrder: integer("sort_order").default(0),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_holdings_proposal").on(table.proposalId),
+  index("idx_proposal_holdings_isin").on(table.isin),
+  index("idx_proposal_holdings_asset_class").on(table.assetClass),
+]);
+
+export const insertProposalHoldingSchema = createInsertSchema(proposalHoldings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const proposalMaterializations = pgTable("proposal_materializations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Proposal Context
+  userId: varchar("user_id").references(() => users.id),
+  clientId: varchar("client_id").references(() => users.id), // For agent->client proposals
+  agentId: varchar("agent_id").references(() => users.id), // Agent who created it
+  proposalType: varchar("proposal_type", { length: 50 }).notNull(), // ai_recommendation, manual, rebalancing, lumpsum, sip
+  
+  // Input Parameters (for cache validation)
+  inputHash: varchar("input_hash", { length: 64 }).notNull(), // SHA-256 of input parameters
+  investmentAmount: numeric("investment_amount", { precision: 18, scale: 2 }),
+  riskProfile: varchar("risk_profile", { length: 50 }),
+  investmentHorizon: varchar("investment_horizon", { length: 50 }),
+  goalType: varchar("goal_type", { length: 50 }),
+  
+  // Basket Composition (cached)
+  basketItems: jsonb("basket_items").notNull(), // [{productId, productType, name, allocation, amount, price, rationale}]
+  assetAllocation: jsonb("asset_allocation").notNull(), // {equity: 60, debt: 30, gold: 10}
+  
+  // Pricing Snapshot (at time of materialization)
+  pricingSnapshot: jsonb("pricing_snapshot").notNull(), // {productId: {price, timestamp}}
+  totalProposalValue: numeric("total_proposal_value", { precision: 18, scale: 2 }),
+  
+  // Expected Outcomes (pre-computed)
+  expectedReturn1Y: numeric("expected_return_1y", { precision: 8, scale: 4 }),
+  expectedReturn3Y: numeric("expected_return_3y", { precision: 8, scale: 4 }),
+  expectedReturn5Y: numeric("expected_return_5y", { precision: 8, scale: 4 }),
+  portfolioRiskScore: integer("portfolio_risk_score"), // 1-10
+  
+  // AI Rationale (cached)
+  overallRationale: text("overall_rationale"),
+  productRationales: jsonb("product_rationales"), // {productId: rationale}
+  riskDisclosures: jsonb("risk_disclosures"),
+  
+  // Regulatory Compliance
+  sebiCompliant: boolean("sebi_compliant").default(true),
+  suitabilityScore: numeric("suitability_score", { precision: 5, scale: 4 }),
+  complianceNotes: jsonb("compliance_notes"),
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("draft"), // draft, shared, accepted, executed, expired
+  sharedAt: timestamp("shared_at"),
+  acceptedAt: timestamp("accepted_at"),
+  executedAt: timestamp("executed_at"),
+  
+  // Cache Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  priceValidUntil: timestamp("price_valid_until"), // Prices may expire before proposal
+  hitCount: integer("hit_count").default(0),
+  lastAccessedAt: timestamp("last_accessed_at"),
+}, (table) => [
+  index("idx_pm_user").on(table.userId),
+  index("idx_pm_client").on(table.clientId),
+  index("idx_pm_agent").on(table.agentId),
+  index("idx_pm_input_hash").on(table.inputHash),
+  index("idx_pm_status").on(table.status),
+  index("idx_pm_expires").on(table.expiresAt),
+  index("idx_pm_type").on(table.proposalType),
+]);
+
+export const insertProposalMaterializationSchema = createInsertSchema(proposalMaterializations).omit({ id: true, createdAt: true, hitCount: true });
+
+export const proposalEsignWorkflows = pgTable("proposal_esign_workflows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Link to proposal
+  proposalId: varchar("proposal_id").references(() => prospectProposals.id).notNull(),
+  proposalType: varchar("proposal_type").notNull(), // sample_portfolio, fresh_investment
+  
+  // Document details
+  documentNumber: varchar("document_number").notNull().unique(),
+  documentName: varchar("document_name").notNull(),
+  documentType: varchar("document_type").notNull().default("investment_agreement"),
+  
+  // Document content
+  currentVersion: integer("current_version").default(1).notNull(),
+  originalDocumentUrl: varchar("original_document_url"),
+  currentDocumentUrl: varchar("current_document_url"),
+  signedDocumentUrl: varchar("signed_document_url"),
+  documentHash: varchar("document_hash"),
+  
+  // Document source (uploaded vs generated)
+  documentSource: varchar("document_source").default("generated"), // generated, uploaded
+  originalFileFormat: varchar("original_file_format"), // pdf, docx
+  uploadedByUserId: varchar("uploaded_by_user_id"),
+  uploadedAt: timestamp("uploaded_at"),
+  
+  // Editing controls
+  allowEditing: boolean("allow_editing").default(false).notNull(),
+  editingLockedAt: timestamp("editing_locked_at"),
+  editingLockedBy: varchar("editing_locked_by"),
+  
+  // Workflow settings
+  isSequential: boolean("is_sequential").default(true).notNull(),
+  requireAllSignatures: boolean("require_all_signatures").default(true).notNull(),
+  negotiationRound: integer("negotiation_round").default(1).notNull(),
+  
+  // Deadlines
+  deadline: timestamp("deadline"),
+  reminderDays: integer("reminder_days").default(3),
+  escalationDays: integer("escalation_days").default(7),
+  escalationEmail: varchar("escalation_email"),
+  lastReminderSentAt: timestamp("last_reminder_sent_at"),
+  
+  // Status
+  status: varchar("status").notNull().default("draft"), // draft, pending_edit, pending_approval, pending_signature, partially_signed, completed, declined, expired, cancelled
+  statusChangedAt: timestamp("status_changed_at").defaultNow(),
+  statusChangedBy: varchar("status_changed_by"),
+  
+  // Completion
+  completedAt: timestamp("completed_at"),
+  declinedAt: timestamp("declined_at"),
+  declinedBy: varchar("declined_by"),
+  declineReason: text("decline_reason"),
+  
+  // External provider references
+  zohoSignRequestId: varchar("zoho_sign_request_id"),
+  esignTransactionId: varchar("esign_transaction_id"), // Links to esignRequests.transactionId
+  
+  // Zoho CRM sync
+  zohoCrmDealId: varchar("zoho_crm_deal_id"),
+  zohoCrmContactId: varchar("zoho_crm_contact_id"),
+  zohoCrmSyncedAt: timestamp("zoho_crm_synced_at"),
+  
+  // Retention (SEBI 8-year requirement)
+  retentionPolicyYears: integer("retention_policy_years").default(8).notNull(),
+  retentionExpiresAt: timestamp("retention_expires_at"),
+  
+  // Creator
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdByRole: varchar("created_by_role"),
+  
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_esign_proposal").on(table.proposalId),
+  index("idx_proposal_esign_number").on(table.documentNumber),
+  index("idx_proposal_esign_status").on(table.status),
+  index("idx_proposal_esign_zoho").on(table.zohoSignRequestId),
+]);
+
+// Proposal document versions
+export const proposalEsignVersions = pgTable("proposal_esign_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: varchar("workflow_id").references(() => proposalEsignWorkflows.id, { onDelete: 'cascade' }).notNull(),
+  
+  versionNumber: integer("version_number").notNull(),
+  negotiationRound: integer("negotiation_round").default(1),
+  versionLabel: varchar("version_label"), // Original, Revision 1, Final
+  
+  documentUrl: varchar("document_url").notNull(),
+  documentHash: varchar("document_hash"),
+  
+  // Document source (uploaded vs generated)
+  documentSource: varchar("document_source").default("generated"), // generated, uploaded
+  originalFileFormat: varchar("original_file_format"), // pdf, docx
+  uploadedByUserId: varchar("uploaded_by_user_id"),
+  uploadedAt: timestamp("uploaded_at"),
+  fileSize: integer("file_size"),
+  
+  changeDescription: text("change_description"),
+  changesFromPrevious: jsonb("changes_from_previous").$type<{
+    fieldsModified: string[];
+    summary: string;
+  }>(),
+  
+  // Approval
+  approvalStatus: varchar("approval_status").default("pending"), // pending, approved, rejected
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectedBy: varchar("rejected_by").references(() => users.id),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Lock after signing
+  isLocked: boolean("is_locked").default(false),
+  lockedAt: timestamp("locked_at"),
+  
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdByName: varchar("created_by_name"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_esign_ver_workflow").on(table.workflowId),
+  index("idx_proposal_esign_ver_num").on(table.workflowId, table.versionNumber),
+]);
+
+// Proposal document participants
+export const proposalEsignParticipants = pgTable("proposal_esign_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: varchar("workflow_id").references(() => proposalEsignWorkflows.id, { onDelete: 'cascade' }).notNull(),
+  
+  // Participant (internal or external)
+  userId: varchar("user_id").references(() => users.id),
+  externalEmail: varchar("external_email"),
+  externalName: varchar("external_name"),
+  externalMobile: varchar("external_mobile"),
+  
+  // Role and order
+  role: varchar("role").notNull(), // creator, editor, reviewer, approver, signer, witness, cc
+  actionOrder: integer("action_order").default(1),
+  
+  // Permissions
+  canEdit: boolean("can_edit").default(false),
+  canComment: boolean("can_comment").default(true),
+  canApprove: boolean("can_approve").default(false),
+  canSign: boolean("can_sign").default(false),
+  
+  // Preferred signature method
+  preferredSignatureMethod: varchar("preferred_signature_method"), // zoho_sign, aadhaar_esign, dsc_token, otp
+  
+  // Status
+  actionStatus: varchar("action_status").default("pending"), // pending, waiting, in_progress, completed, declined
+  actionRequiredBy: timestamp("action_required_by"),
+  
+  // Tracking
+  hasEdited: boolean("has_edited").default(false),
+  lastEditedAt: timestamp("last_edited_at"),
+  editCount: integer("edit_count").default(0),
+  
+  hasApproved: boolean("has_approved").default(false),
+  approvedAt: timestamp("approved_at"),
+  approvalNotes: text("approval_notes"),
+  
+  hasSigned: boolean("has_signed").default(false),
+  signedAt: timestamp("signed_at"),
+  signatureMethod: varchar("signature_method"),
+  signatureData: jsonb("signature_data").$type<{
+    certificateId?: string;
+    signatureHash?: string;
+    signerName?: string;
+  }>(),
+  
+  hasDeclined: boolean("has_declined").default(false),
+  declinedAt: timestamp("declined_at"),
+  declineReason: text("decline_reason"),
+  
+  // View tracking
+  firstViewedAt: timestamp("first_viewed_at"),
+  lastViewedAt: timestamp("last_viewed_at"),
+  viewCount: integer("view_count").default(0),
+  
+  // Notifications
+  emailSentAt: timestamp("email_sent_at"),
+  remindersSent: integer("reminders_sent").default(0),
+  lastReminderAt: timestamp("last_reminder_at"),
+  
+  // Audit
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  deviceInfo: jsonb("device_info").$type<{ type?: string; os?: string; browser?: string; isMobile?: boolean }>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_esign_part_workflow").on(table.workflowId),
+  index("idx_proposal_esign_part_user").on(table.userId),
+  index("idx_proposal_esign_part_email").on(table.externalEmail),
+  index("idx_proposal_esign_part_role").on(table.role),
+]);
+
+// Proposal document comments/annotations
+export const proposalEsignComments = pgTable("proposal_esign_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: varchar("workflow_id").references(() => proposalEsignWorkflows.id, { onDelete: 'cascade' }).notNull(),
+  versionId: varchar("version_id").references(() => proposalEsignVersions.id),
+  participantId: varchar("participant_id").references(() => proposalEsignParticipants.id),
+  
+  commentType: varchar("comment_type").notNull().default("comment"), // comment, suggestion, question, issue
+  content: text("content").notNull(),
+  
+  // Position for annotations
+  pageNumber: integer("page_number"),
+  xPosition: decimal("x_position", { precision: 10, scale: 4 }),
+  yPosition: decimal("y_position", { precision: 10, scale: 4 }),
+  highlightedText: text("highlighted_text"),
+  
+  // Threading
+  parentCommentId: varchar("parent_comment_id"),
+  threadResolved: boolean("thread_resolved").default(false),
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  
+  isInternal: boolean("is_internal").default(false),
+  
+  authorId: varchar("author_id").references(() => users.id),
+  authorName: varchar("author_name"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+}, (table) => [
+  index("idx_proposal_esign_comm_workflow").on(table.workflowId),
+  index("idx_proposal_esign_comm_version").on(table.versionId),
+]);
+
+// Proposal document field edits for change tracking
+export const proposalEsignFieldEdits = pgTable("proposal_esign_field_edits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: varchar("workflow_id").references(() => proposalEsignWorkflows.id, { onDelete: 'cascade' }).notNull(),
+  versionId: varchar("version_id").references(() => proposalEsignVersions.id),
+  participantId: varchar("participant_id").references(() => proposalEsignParticipants.id),
+  
+  fieldName: varchar("field_name").notNull(),
+  fieldPath: varchar("field_path"),
+  
+  previousValue: text("previous_value"),
+  newValue: text("new_value"),
+  changeType: varchar("change_type").notNull(), // add, modify, delete
+  
+  approvalStatus: varchar("approval_status").default("pending"), // pending, approved, rejected
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectedBy: varchar("rejected_by").references(() => users.id),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  editedBy: varchar("edited_by").references(() => users.id),
+  editedByName: varchar("edited_by_name"),
+  
+  ipAddress: varchar("ip_address"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_esign_edit_workflow").on(table.workflowId),
+  index("idx_proposal_esign_edit_field").on(table.fieldName),
+  index("idx_proposal_esign_edit_approval").on(table.approvalStatus),
+]);
+
+
+// Proposal eSign audit log (immutable)
+export const proposalEsignAuditLogs = pgTable("proposal_esign_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: varchar("workflow_id").references(() => proposalEsignWorkflows.id).notNull(),
+  
+  action: varchar("action").notNull(),
+  actionCategory: varchar("action_category").notNull(),
+  description: text("description").notNull(),
+  
+  actorId: varchar("actor_id").references(() => users.id),
+  actorName: varchar("actor_name"),
+  actorEmail: varchar("actor_email"),
+  actorRole: varchar("actor_role"),
+  actorType: varchar("actor_type"),
+  
+  participantId: varchar("participant_id").references(() => proposalEsignParticipants.id),
+  versionId: varchar("version_id").references(() => proposalEsignVersions.id),
+  
+  previousState: jsonb("previous_state"),
+  newState: jsonb("new_state"),
+  metadata: jsonb("metadata"),
+  
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  deviceType: varchar("device_type"),
+  geoLocation: jsonb("geo_location").$type<{ country?: string; city?: string }>(),
+  
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_esign_audit_workflow").on(table.workflowId),
+  index("idx_proposal_esign_audit_action").on(table.action),
+  index("idx_proposal_esign_audit_actor").on(table.actorId),
+  index("idx_proposal_esign_audit_time").on(table.timestamp),
+]);
+
+// Insert schemas and types
+export const insertProposalEsignWorkflowSchema = createInsertSchema(proposalEsignWorkflows).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+
+export const proposalFlowState = pgTable("proposal_flow_state", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull().unique(),
+  
+  // Phase completion flags
+  riskProfileCompleted: boolean("risk_profile_completed").default(false),
+  investmentHorizonCompleted: boolean("investment_horizon_completed").default(false),
+  goalCompleted: boolean("goal_completed").default(false),
+  portfolioInputCompleted: boolean("portfolio_input_completed").default(false),
+  analysisCompleted: boolean("analysis_completed").default(false),
+  recommendationCompleted: boolean("recommendation_completed").default(false),
+  rebalancingCompleted: boolean("rebalancing_completed").default(false),
+  verdictCompleted: boolean("verdict_completed").default(false),
+  reportCompleted: boolean("report_completed").default(false),
+  
+  // Phase timestamps
+  riskProfileCompletedAt: timestamp("risk_profile_completed_at"),
+  investmentHorizonCompletedAt: timestamp("investment_horizon_completed_at"),
+  goalCompletedAt: timestamp("goal_completed_at"),
+  portfolioInputCompletedAt: timestamp("portfolio_input_completed_at"),
+  analysisCompletedAt: timestamp("analysis_completed_at"),
+  recommendationCompletedAt: timestamp("recommendation_completed_at"),
+  rebalancingCompletedAt: timestamp("rebalancing_completed_at"),
+  verdictCompletedAt: timestamp("verdict_completed_at"),
+  reportCompletedAt: timestamp("report_completed_at"),
+  
+  // Current phase tracking
+  currentPhase: varchar("current_phase").default("risk_profile"),
+  lockedPhases: jsonb("locked_phases").default([]),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_proposal_flow_state_proposal").on(table.proposalId),
+]);
+
+export const insertProposalFlowStateSchema = createInsertSchema(proposalFlowState).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+
+export type ProposalFlowState = typeof proposalFlowState.$inferSelect;
+
+export type InsertProposalFlowState = z.infer<typeof insertProposalFlowStateSchema>;
+
+export const proposalVerdicts = pgTable("proposal_verdicts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  
+  // Instrument identification
+  instrumentType: varchar("instrument_type").notNull(), // mutual_fund, stock, bond, etf
+  instrumentIsin: varchar("instrument_isin", { length: 20 }),
+  instrumentCode: varchar("instrument_code"),
+  instrumentName: varchar("instrument_name").notNull(),
+  
+  // Verdict (only BUY/HOLD/SELL allowed)
+  verdict: varchar("verdict", { length: 10 }).notNull(), // BUY, HOLD, SELL
+  verdictRationale: text("verdict_rationale"),
+  aiGenerated: boolean("ai_generated").default(true),
+  agentOverridden: boolean("agent_overridden").default(false),
+  
+  // Quantitative details
+  currentValue: decimal("current_value", { precision: 15, scale: 2 }),
+  targetValue: decimal("target_value", { precision: 15, scale: 2 }),
+  changeAmount: decimal("change_amount", { precision: 15, scale: 2 }),
+  changePercent: decimal("change_percent", { precision: 8, scale: 4 }),
+  
+  // Exit load & capital gains (for SELL verdicts)
+  exitLoadApplicable: boolean("exit_load_applicable").default(false),
+  exitLoadPercent: decimal("exit_load_percent", { precision: 5, scale: 2 }),
+  capitalGainsType: varchar("capital_gains_type"), // STCG, LTCG, nil
+  estimatedTax: decimal("estimated_tax", { precision: 15, scale: 2 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_proposal_verdicts_proposal").on(table.proposalId),
+  index("idx_proposal_verdicts_isin").on(table.instrumentIsin),
+]);
+
+export const insertProposalVerdictSchema = createInsertSchema(proposalVerdicts).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+
+export const proposalSipRecommendations = pgTable("proposal_sip_recommendations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  verdictId: varchar("verdict_id").references(() => proposalVerdicts.id),
+  
+  // Instrument details
+  instrumentType: varchar("instrument_type").notNull(),
+  instrumentIsin: varchar("instrument_isin", { length: 20 }),
+  instrumentName: varchar("instrument_name").notNull(),
+  
+  // SIP details
+  sipAmount: decimal("sip_amount", { precision: 15, scale: 2 }).notNull(),
+  sipFrequency: varchar("sip_frequency").default("monthly"), // monthly, quarterly, weekly
+  sipStartDate: date("sip_start_date"),
+  sipDurationMonths: integer("sip_duration_months"),
+  
+  // Source attribution (key field for GAP 4)
+  sipSource: varchar("sip_source").notNull(), // rebalancing, fresh, hybrid
+  sourceRationale: text("source_rationale"),
+  
+  // Original lumpsum conversion tracking
+  convertedFromLumpsum: boolean("converted_from_lumpsum").default(false),
+  originalLumpsumAmount: decimal("original_lumpsum_amount", { precision: 15, scale: 2 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_proposal_sip_proposal").on(table.proposalId),
+  index("idx_proposal_sip_source").on(table.sipSource),
+]);
+
+export const insertProposalSipRecommendationSchema = createInsertSchema(proposalSipRecommendations).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+
+export const proposalWhatIfScenarios = pgTable("proposal_what_if_scenarios", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  
+  // Mode and configuration
+  mode: varchar("mode").notNull(), // static, interactive
+  scenarioName: varchar("scenario_name").notNull(), // base, bull_10, bear_10, bear_20, custom
+  
+  // Assumptions
+  returnDelta: decimal("return_delta", { precision: 5, scale: 2 }).default('0'), // +10%, -10%, -20%
+  volatilityMultiplier: decimal("volatility_multiplier", { precision: 5, scale: 2 }).default('1'),
+  inflationRate: decimal("inflation_rate", { precision: 5, scale: 2 }).default('6'),
+  
+  // Projected outcomes
+  projectedValue1Y: decimal("projected_value_1y", { precision: 15, scale: 2 }),
+  projectedValue3Y: decimal("projected_value_3y", { precision: 15, scale: 2 }),
+  projectedValue5Y: decimal("projected_value_5y", { precision: 15, scale: 2 }),
+  projectedValue10Y: decimal("projected_value_10y", { precision: 15, scale: 2 }),
+  
+  // Risk metrics
+  maxDrawdown: decimal("max_drawdown", { precision: 5, scale: 2 }),
+  probabilityOfLoss: decimal("probability_of_loss", { precision: 5, scale: 2 }),
+  valueAtRisk95: decimal("value_at_risk_95", { precision: 15, scale: 2 }),
+  
+  // Include in report
+  includeInReport: boolean("include_in_report").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_what_if_proposal").on(table.proposalId),
+  index("idx_what_if_mode").on(table.mode),
+]);
+
+export const insertProposalWhatIfScenarioSchema = createInsertSchema(proposalWhatIfScenarios).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+
+export const proposalReportSections = pgTable("proposal_report_sections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  
+  // Section identification
+  sectionCode: varchar("section_code").notNull(), // exit_load, capital_gains, tax_impact, sip_projection, etc.
+  sectionName: varchar("section_name").notNull(),
+  sectionOrder: integer("section_order").default(0),
+  
+  // Dependency status
+  dependencyMet: boolean("dependency_met").default(false),
+  dependencyReason: text("dependency_reason"),
+  missingDependencies: jsonb("missing_dependencies").default([]),
+  
+  // Enablement
+  isEnabled: boolean("is_enabled").default(false),
+  enabledByAgent: boolean("enabled_by_agent").default(false),
+  enabledByAi: boolean("enabled_by_ai").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_report_sections_proposal").on(table.proposalId),
+]);
+
+export const insertProposalReportSectionSchema = createInsertSchema(proposalReportSections).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+
+export const proposalPdfMetadata = pgTable("proposal_pdf_metadata", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  
+  // Version control
+  version: varchar("version", { length: 20 }).notNull(), // v1.0, v1.1, v2.0
+  majorVersion: integer("major_version").default(1),
+  minorVersion: integer("minor_version").default(0),
+  
+  // Generation metadata
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  generatedBy: varchar("generated_by"), // agent_id or user_id
+  generatedByRole: varchar("generated_by_role"), // agent, admin, system
+  engineVersion: varchar("engine_version", { length: 20 }).default("PB_ENGINE_2.5"),
+  
+  // Tamper protection
+  pdfHash: varchar("pdf_hash", { length: 64 }).notNull(), // SHA256
+  previousHash: varchar("previous_hash", { length: 64 }), // Chain link to previous version
+  
+  // Content metadata
+  clientPan: varchar("client_pan", { length: 64 }), // Hashed PAN
+  riskProfileVersion: varchar("risk_profile_version", { length: 20 }),
+  benchmarkVersion: varchar("benchmark_version", { length: 20 }),
+  
+  // Sections included
+  sectionsIncluded: jsonb("sections_included").default([]), // Array of section codes
+  totalPages: integer("total_pages").default(0),
+  fileSizeBytes: integer("file_size_bytes").default(0),
+  
+  // Storage
+  storageKey: varchar("storage_key"), // Object storage key
+  downloadCount: integer("download_count").default(0),
+  lastDownloadedAt: timestamp("last_downloaded_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_pdf_metadata_proposal").on(table.proposalId),
+  index("idx_pdf_metadata_hash").on(table.pdfHash),
+]);
+
+export const insertProposalPdfMetadataSchema = createInsertSchema(proposalPdfMetadata).omit({
+  id: true, createdAt: true,
+});
+
+export type ProposalPdfMetadata = typeof proposalPdfMetadata.$inferSelect;
+
+export type InsertProposalPdfMetadata = z.infer<typeof insertProposalPdfMetadataSchema>;
+
+export const proposalAuditEvents = pgTable("proposal_audit_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  proposalVersion: varchar("proposal_version", { length: 20 }),
+  
+  // Event identification
+  eventType: varchar("event_type", { length: 50 }).notNull(), // PROSPECT_SELECTED, VERDICT_FINALIZED, PDF_GENERATED, etc.
+  eventAction: varchar("event_action", { length: 50 }), // CREATED, UPDATED, DELETED, OVERRIDDEN
+  
+  // Actor information
+  actorId: varchar("actor_id"),
+  actorRole: varchar("actor_role", { length: 30 }), // agent, admin, compliance, system
+  actorName: varchar("actor_name"),
+  
+  // Payload snapshots (immutable)
+  payloadBefore: jsonb("payload_before"), // State before change
+  payloadAfter: jsonb("payload_after"), // State after change
+  payloadDiff: jsonb("payload_diff"), // Computed difference
+  
+  // Override tracking
+  isOverride: boolean("is_override").default(false),
+  overrideReason: text("override_reason"),
+  overrideApprovedBy: varchar("override_approved_by"),
+  
+  // PDF-specific fields
+  pdfVersion: varchar("pdf_version", { length: 20 }),
+  pdfHash: varchar("pdf_hash", { length: 64 }),
+  
+  // Request context
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id"),
+  requestPath: varchar("request_path"),
+  
+  // Chain integrity
+  checksum: varchar("checksum", { length: 64 }).notNull(), // SHA256 of this event
+  previousChecksum: varchar("previous_checksum", { length: 64 }), // Link to previous event
+  
+  // Retention
+  retentionYears: integer("retention_years").default(8),
+  retentionExpiresAt: timestamp("retention_expires_at"),
+  isArchived: boolean("is_archived").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_audit_proposal").on(table.proposalId),
+  index("idx_proposal_audit_event_type").on(table.eventType),
+  index("idx_proposal_audit_actor").on(table.actorId),
+  index("idx_proposal_audit_checksum").on(table.checksum),
+  index("idx_proposal_audit_created").on(table.createdAt),
+]);
+
+export const insertProposalAuditEventSchema = createInsertSchema(proposalAuditEvents).omit({
+  id: true, createdAt: true,
+});

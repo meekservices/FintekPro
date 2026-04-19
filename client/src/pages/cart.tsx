@@ -91,7 +91,8 @@ interface BondOrder {
 }
 
 export default function Cart() {
-  const { cart, isLoading, updateCartItem, removeFromCart, clearCart, isUpdatingCartItem, isRemovingFromCart } = useCart();
+  const { cart: _cart, isLoading, updateCartItem, removeFromCart, clearCart, isUpdatingCartItem, isRemovingFromCart } = useCart();
+  const cart = _cart as any;
   const { 
     items: unifiedCartItems, 
     isLoading: unifiedCartLoading, 
@@ -134,7 +135,7 @@ export default function Cart() {
   const feesReady = !cartFeesLoading && cartFeeBreakdown?.summary !== undefined;
 
   // Fetch fee breakdown for unified investments using aggregated calculation
-  const unifiedTotalValue = unifiedCartItems.reduce((sum, item) => sum + Number(item.amount || 0) * (item.quantity || 1), 0);
+  const unifiedTotalValue = unifiedCartItems.reduce((sum: any, item: any) => sum + Number(item.amount || 0) * (item.quantity || 1), 0);
   
   // Map product categories to fee calculator product types
   const categoryToProductType: Record<string, string> = {
@@ -151,7 +152,7 @@ export default function Cart() {
   };
   
   // Build aggregated fee items from cart items with per-category amounts
-  const aggregatedFeeItems: FeeCartItem[] = unifiedCartItems.reduce((acc, item) => {
+  const aggregatedFeeItems: FeeCartItem[] = unifiedCartItems.reduce((acc: any, item: any) => {
     const productType = categoryToProductType[item.productCategory] || item.productCategory;
     const amount = Number(item.amount || 0) * (item.quantity || 1);
     
@@ -293,7 +294,7 @@ export default function Cart() {
         gst: cartFeeBreakdown.summary.totalGst,
         waivers: cartFeeBreakdown.summary.totalWaivers,
         grandTotal: cartFeeBreakdown.summary.grandTotal,
-        fees: cartFeeBreakdown.fees.map(f => ({
+        fees: cartFeeBreakdown.fees.map((f: any) => ({
           code: f.feeCode,
           name: f.feeName,
           amount: f.netAmount
@@ -510,16 +511,16 @@ export default function Cart() {
   });
 
   // Proposal filtering and counts
-  const filteredProposals = proposals?.filter(p => {
+  const filteredProposals = proposals?.filter((p: any) => {
     if (selectedProposalTab === 'all') return true;
     return p.proposalSource === selectedProposalTab;
   }) || [];
 
-  const aiCount = proposals?.filter(p => p.proposalSource === 'ai').length || 0;
-  const agentCount = proposals?.filter(p => p.proposalSource === 'agent').length || 0;
-  const clientCount = proposals?.filter(p => p.proposalSource === 'client').length || 0;
-  const pendingCount = proposals?.filter(p => p.status === 'pending').length || 0;
-  const highPriorityCount = proposals?.filter(p => p.priority === 'high').length || 0;
+  const aiCount = proposals?.filter((p: any) => p.proposalSource === 'ai').length || 0;
+  const agentCount = proposals?.filter((p: any) => p.proposalSource === 'agent').length || 0;
+  const clientCount = proposals?.filter((p: any) => p.proposalSource === 'client').length || 0;
+  const pendingCount = proposals?.filter((p: any) => p.status === 'pending').length || 0;
+  const highPriorityCount = proposals?.filter((p: any) => p.priority === 'high').length || 0;
 
   const formatCurrency = (amount?: number) => {
     if (!amount) return '-';
@@ -1072,8 +1073,8 @@ export default function Cart() {
             ) : (
               <div className="space-y-6">
                 {/* Group items by category - dynamically from actual data */}
-                {Array.from(new Set(unifiedCartItems.map(item => item.productCategory))).map((category) => {
-                  const categoryItems = unifiedCartItems.filter(item => item.productCategory === category);
+                {Array.from(new Set(unifiedCartItems.map((item: any) => item.productCategory))).map((category) => {
+                  const categoryItems = unifiedCartItems.filter((item: any) => item.productCategory === category);
                   
                   const getCategoryIcon = (cat: ProductCategory) => {
                     switch (cat) {
@@ -1235,13 +1236,13 @@ export default function Cart() {
                       <div className="flex justify-between">
                         <span>Approved Items:</span>
                         <span className="font-medium text-green-600" data-testid="text-summary-approved">
-                          {unifiedCartItems.filter(i => i.status === 'approved').length}
+                          {unifiedCartItems.filter((i: any) => i.status === 'approved').length}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Pending Approval:</span>
                         <span className="font-medium text-yellow-600" data-testid="text-summary-pending">
-                          {unifiedCartItems.filter(i => i.status === 'pending').length}
+                          {unifiedCartItems.filter((i: any) => i.status === 'pending').length}
                         </span>
                       </div>
                       <div className="border-t pt-3">
@@ -1283,7 +1284,7 @@ export default function Cart() {
                           className="w-full bg-finance-blue hover:bg-finance-blue/90"
                           size="lg"
                           onClick={async () => {
-                            const activeItems = unifiedCartItems.filter(i => i.status === 'active');
+                            const activeItems = unifiedCartItems.filter((i: any) => i.status === 'active');
                             if (activeItems.length === 0) {
                               toast({
                                 title: "No items to checkout",
@@ -1302,7 +1303,7 @@ export default function Cart() {
                               return;
                             }
                             try {
-                              const result = await checkoutUnifiedItems(activeItems.map(i => i.id));
+                              const result = await checkoutUnifiedItems(activeItems.map((i: any) => i.id));
                               toast({
                                 title: "Checkout Successful",
                                 description: `${result.count} order(s) created. View them in Portfolio.`,
@@ -1316,11 +1317,11 @@ export default function Cart() {
                               });
                             }
                           }}
-                          disabled={isCheckingOutUnified || unifiedCartItems.filter(i => i.status === 'active').length === 0 || !investmentFeesReady}
+                          disabled={isCheckingOutUnified || unifiedCartItems.filter((i: any) => i.status === 'active').length === 0 || !investmentFeesReady}
                           data-testid="button-checkout-investments"
                         >
                           <CreditCard className="h-5 w-5 mr-2" />
-                          {investmentFeesLoading ? "Calculating fees..." : isCheckingOutUnified ? "Processing..." : `Checkout ${unifiedCartItems.filter(i => i.status === 'active').length} Investment(s)`}
+                          {investmentFeesLoading ? "Calculating fees..." : isCheckingOutUnified ? "Processing..." : `Checkout ${unifiedCartItems.filter((i: any) => i.status === 'active').length} Investment(s)`}
                         </Button>
                         {investmentFeesLoading && (
                           <p className="text-xs text-center text-muted-foreground">
@@ -1626,7 +1627,7 @@ export default function Cart() {
                     </Card>
                   ) : (
                     <div className="grid gap-6">
-                      {filteredProposals.map(proposal => renderProposalCard(proposal))}
+                      {filteredProposals.map((proposal: any) => renderProposalCard(proposal))}
                     </div>
                   )}
                 </TabsContent>

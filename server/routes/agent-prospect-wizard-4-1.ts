@@ -29,6 +29,7 @@ import { prospectReadinessService } from "../services/prospect-readiness-service
 import { portfolioAnalyticsDataService } from "../services/portfolio-analytics-data-service";
 import { enrichAndScoreProspect, bulkScoreProspects, getSectorBenchmarks, getBenchmarkForSegment, bustBenchmarkCache } from "../services/prospect-scoring-engine";
 import { prospectScoreHistory } from "@shared/schema";
+import * as schema from "@shared/schema";
 
 // Multer setup for CAS file upload
 const upload = multer({

@@ -76,7 +76,7 @@ export async function transferVerifiedKYCData(
     }
     
     // Update tier to basic if not set (initial KYC completion)
-    if (!userProfile.kycTier || userProfile.kycTier === "basic") {
+    if (!(userProfile as any).kycTier || (userProfile as any).kycTier === "basic") {
       profileUpdateData.kycTier = "basic";
       profileUpdateData.kycTierUpgradedAt = new Date();
     }
@@ -438,7 +438,7 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
               confidenceScore: 100, // Mark as CAS-verified
               source: 'cas_fetch', // Track holding origin
               updatedAt: new Date()
-            });
+            } as any);
         }
         
         console.log('[Portfolio Refresh] MF holdings sync complete - refreshed', insertedKeys.size, 'MF holdings');
@@ -482,7 +482,7 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
                 confidenceScore: 100,
                 source: holding.depository === 'NSDL' ? 'nsdl' : 'cdsl',
                 updatedAt: new Date()
-              });
+              } as any);
             
             dematInsertedCount++;
           }
@@ -686,7 +686,7 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
                 tds: tx_record.tds?.toString() || '0',
                 netAmount: tx_record.netAmount?.toString() || tx_record.amount.toString(),
                 createdAt: new Date()
-              });
+              } as any);
           }
           
           console.log('[Portfolio Refresh] Demat transaction sync complete - synced', dematTransactionResult.transactions.length, 'transactions');

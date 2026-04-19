@@ -78,7 +78,7 @@ export function AchievementDashboard({ userId }: { userId: string }) {
     enabled: !!userId,
   });
 
-  const { data: leaderboard = [] } = useQuery({
+  const { data: leaderboard = [] } = useQuery<any[]>({
     queryKey: ['/api/achievements/leaderboard', { limit: 10 }],
   });
 

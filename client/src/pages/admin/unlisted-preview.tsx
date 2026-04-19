@@ -218,7 +218,7 @@ export default function UnlistedPreviewPage() {
   const buyPrice = searchParams.get('buyPrice') || '';
   const sellPrice = searchParams.get('sellPrice') || '';
 
-  const { data: company, isLoading: isLoadingCompany, isError: isCompanyError, refetch: refetchCompany } = useQuery<UnlistedCompany | null>({
+  const { data: company, isLoading: isLoadingCompany, isError: isCompanyError, refetch: refetchCompany } = useQuery<UnlistedCompany>({
     queryKey: ['/api/unlisted/admin/companies', id],
     queryFn: async () => {
       const response = await fetch(`/api/unlisted/admin/companies/${id}`, {
@@ -287,8 +287,8 @@ export default function UnlistedPreviewPage() {
     const autoEnrichCompany = async () => {
       if (!company || !id || hasAttemptedEnrichRef.current) return;
       
-      const needsSectorEnrich = !company.sector || (company.sector as string).toLowerCase().includes('unknown');
-      const needsIndustryEnrich = !company.industry || (company.industry as string).toLowerCase().includes('unknown');
+      const needsSectorEnrich = !company?.sector || (company?.sector as string).toLowerCase().includes('unknown');
+      const needsIndustryEnrich = !company?.industry || (company?.industry as string).toLowerCase().includes('unknown');
       
       if (!needsSectorEnrich && !needsIndustryEnrich) return;
       
@@ -710,7 +710,7 @@ export default function UnlistedPreviewPage() {
             </Button>
             <div>
               <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-                Preview: {company.name}
+                Preview: {company?.name}
               </h1>
               <p className="text-sm text-muted-foreground">
                 Review how this company will appear to clients before publishing
@@ -775,15 +775,15 @@ export default function UnlistedPreviewPage() {
       )}
 
       {/* Enrichment Result Notification */}
-      {enrichmentResult && enrichmentResult.enrichedFields.length > 0 && (
+      {!!(enrichmentResult && enrichmentResult.enrichedFields.length > 0) && (
         <Alert className="mb-4 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20" data-testid="alert-enriched">
           <CheckCircle className="h-4 w-4 text-emerald-500" />
           <AlertTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-            Company Data Enriched from {enrichmentResult.enrichmentSource}
+            Company Data Enriched from {enrichmentResult!.enrichmentSource}
           </AlertTitle>
           <AlertDescription className="text-xs text-emerald-600 dark:text-emerald-400">
             <div className="mt-2 space-y-1">
-              {enrichmentResult.enrichedFields.map((field: { field: string; oldValue: string | null; newValue: string; source: string }, i: number) => (
+              {enrichmentResult!.enrichedFields.map((field: { field: string; oldValue: string | null; newValue: string; source: string }, i: number) => (
                 <div key={i} className="flex items-center gap-2">
                   <span className="font-medium capitalize">{String(field.field)}:</span>
                   <span className="text-muted-foreground line-through">{String(field.oldValue || 'Empty')}</span>
@@ -807,32 +807,32 @@ export default function UnlistedPreviewPage() {
                     <Building2 className="w-6 h-6 text-blue-400" />
                   </div>
                   <div>
-                    <CardTitle className="text-foreground">{company.name}</CardTitle>
+                    <CardTitle className="text-foreground">{company?.name}</CardTitle>
                     <CardDescription className="text-muted-foreground">
-                      {company.sector || 'Unknown Sector'} • {company.industry || 'Unknown Industry'}
+                      {company?.sector || 'Unknown Sector'} • {company?.industry || 'Unknown Industry'}
                     </CardDescription>
                   </div>
                 </div>
                 <Badge 
                   className={`${
-                    company.listingStage === 'pre_ipo' 
+                    company?.listingStage === 'pre_ipo' 
                       ? 'bg-blue-600/20 text-blue-400' 
-                      : company.listingStage === 'growth'
+                      : company?.listingStage === 'growth'
                       ? 'bg-purple-600/20 text-purple-400'
                       : 'bg-muted/20 text-muted-foreground'
                   }`}
                 >
-                  {company.listingStage === 'pre_ipo' ? 'Pre-IPO' : 
-                   company.listingStage === 'growth' ? 'Growth' : 'Unlisted'}
+                  {company?.listingStage === 'pre_ipo' ? 'Pre-IPO' : 
+                   company?.listingStage === 'growth' ? 'Growth' : 'Unlisted'}
                 </Badge>
               </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                {company.cin ? (
+                {company?.cin ? (
                   <div>
                     <span className="text-muted-foreground">CIN</span>
-                    <p className="text-foreground font-mono text-xs">{company.cin}</p>
+                    <p className="text-foreground font-mono text-xs">{company?.cin}</p>
                   </div>
                 ) : (
                   <div className="col-span-2">
@@ -865,10 +865,10 @@ export default function UnlistedPreviewPage() {
                     </p>
                   </div>
                 )}
-                {company.isin && (
+                {company?.isin && (
                   <div>
                     <span className="text-muted-foreground">ISIN</span>
-                    <p className="text-foreground font-mono">{company.isin}</p>
+                    <p className="text-foreground font-mono">{company?.isin}</p>
                   </div>
                 )}
                 {company.faceValue && (
@@ -1300,7 +1300,7 @@ export default function UnlistedPreviewPage() {
                   <TableRow className="border-border">
                     <TableHead className="text-muted-foreground font-medium">Metric</TableHead>
                     <TableHead className="text-amber-400 font-medium">
-                      {company.name}
+                      {company?.name}
                       <Badge className="ml-2 bg-amber-500/20 text-amber-400 text-xs">Unlisted</Badge>
                     </TableHead>
                     {(company.listedPeers as Array<{name?: string; ticker?: string; exchange?: string}>).map((peer, index) => (
@@ -1695,7 +1695,7 @@ export default function UnlistedPreviewPage() {
           <div className="flex items-center gap-4">
             <CheckCircle className="w-5 h-5 text-emerald-400" />
             <span className="text-muted-foreground">
-              Ready to publish <span className="font-medium text-foreground">{company.name}</span> at 
+              Ready to publish <span className="font-medium text-foreground">{company?.name}</span> at 
               <span className="text-green-400 ml-1">₹{buyPrice}</span> / 
               <span className="text-red-400 ml-1">₹{sellPrice}</span>
             </span>

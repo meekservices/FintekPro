@@ -500,11 +500,11 @@ class AIGlobalAdvisoryService {
     const instrumentTypesIncluded = [...new Set(Object.values(globalAdvisorySelections).flat())];
 
     const usdToInrRate = await currencyExchangeService.getExchangeRate('USD', 'INR');
-    const buyRecommendations = recommendations.filter(r => r.recommendation === 'strong_buy' || r.recommendation === 'buy');
+    const buyRecommendations = recommendations.filter((r: any) => r.recommendation === 'strong_buy' || r.recommendation === 'buy');
     
     const DEFAULT_SUITABILITY = 70;
-    const normalizedScores = buyRecommendations.map(r => r.suitabilityScore ?? DEFAULT_SUITABILITY);
-    const totalSuitabilityScore = normalizedScores.reduce((sum, score) => sum + score, 0);
+    const normalizedScores = buyRecommendations.map((r: any) => r.suitabilityScore ?? DEFAULT_SUITABILITY);
+    const totalSuitabilityScore = normalizedScores.reduce((sum: any, score: any) => sum + score, 0);
     const hasBuyRecommendations = buyRecommendations.length > 0 && totalSuitabilityScore > 0;
     
     let estimatedLrsUtilization = 0;
@@ -961,10 +961,10 @@ class AIGlobalAdvisoryService {
     const urgency: 'high' | 'medium' | 'low' | 'none' = 
       maxDrift > 15 ? 'high' : maxDrift > 10 ? 'medium' : maxDrift > 5 ? 'low' : 'none';
 
-    const buyActions = actions.filter(a => a.action === 'buy');
-    const sellActions = actions.filter(a => a.action === 'sell');
-    const totalBuyValueInr = buyActions.reduce((sum, a) => sum + a.tradeValueInr, 0);
-    const totalSellValueInr = sellActions.reduce((sum, a) => sum + a.tradeValueInr, 0);
+    const buyActions = actions.filter((a: any) => a.action === 'buy');
+    const sellActions = actions.filter((a: any) => a.action === 'sell');
+    const totalBuyValueInr = buyActions.reduce((sum: any, a: any) => sum + a.tradeValueInr, 0);
+    const totalSellValueInr = sellActions.reduce((sum: any, a: any) => sum + a.tradeValueInr, 0);
     const totalBuyValueUsd = totalBuyValueInr / (await currencyExchangeService.getExchangeRate('USD', 'INR'));
     const lrsRemaining = LRS_ANNUAL_LIMIT_USD - lrsUtilizedYtdUsd;
 
@@ -994,7 +994,7 @@ class AIGlobalAdvisoryService {
       summary: {
         buyCount: buyActions.length,
         sellCount: sellActions.length,
-        holdCount: actions.filter(a => a.action === 'hold').length,
+        holdCount: actions.filter((a: any) => a.action === 'hold').length,
         totalBuyValueInr,
         totalSellValueInr,
         netFlowInr: totalBuyValueInr - totalSellValueInr,
@@ -1019,14 +1019,14 @@ class AIGlobalAdvisoryService {
     needsRebalancing: boolean
   ): Promise<string> {
     const fallbackResult = needsRebalancing 
-      ? `Your portfolio has drifted from target allocations. Consider executing the recommended ${actions.filter(a => a.action !== 'hold').length} trades to realign.`
+      ? `Your portfolio has drifted from target allocations. Consider executing the recommended ${actions.filter((a: any) => a.action !== 'hold').length} trades to realign.`
       : 'Your portfolio is well-balanced and aligned with your target allocations.';
 
     try {
       const prompt = `As a financial advisor, provide a brief 2-3 sentence insight about this portfolio rebalancing situation:
 - Needs rebalancing: ${needsRebalancing}
-- Number of buy actions: ${actions.filter(a => a.action === 'buy').length}
-- Number of sell actions: ${actions.filter(a => a.action === 'sell').length}
+- Number of buy actions: ${actions.filter((a: any) => a.action === 'buy').length}
+- Number of sell actions: ${actions.filter((a: any) => a.action === 'sell').length}
 - Maximum drift: ${Math.max(...Object.values(driftByAsset).map(Math.abs)).toFixed(1)}%
 Focus on actionable advice for an Indian investor investing globally.`;
 

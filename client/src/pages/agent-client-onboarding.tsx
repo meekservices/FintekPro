@@ -192,7 +192,7 @@ export default function AgentClientOnboarding() {
     return () => subscription.unsubscribe();
   }, [form, saveDraft]);
 
-  const panVerificationMutation = useMutation({
+  const panVerificationMutation = useMutation<any>({
     mutationFn: async (panNumber: string) => {
       return await apiRequest("/api/kyc/verify-pan", {
         method: "POST",
@@ -229,7 +229,7 @@ export default function AgentClientOnboarding() {
     },
   });
 
-  const documentUploadMutation = useMutation({
+  const documentUploadMutation = useMutation<any>({
     mutationFn: async (formData: FormData) => {
       return await apiRequest("/api/kyc/upload-document", {
         method: "POST",
@@ -254,7 +254,7 @@ export default function AgentClientOnboarding() {
     },
   });
 
-  const onboardClientMutation = useMutation({
+  const onboardClientMutation = useMutation<any>({
     mutationFn: async (data: FormData) => {
       return await apiRequest("/api/agent/clients/onboard", {
         method: "POST",
@@ -447,7 +447,7 @@ export default function AgentClientOnboarding() {
                 The following steps must be completed by the customer directly and cannot be performed by agents:
               </p>
               <div className="flex flex-wrap gap-1 mt-2">
-                {['Aadhaar OTP', 'Aadhaar Verification', 'FATCA Signature', 'Compliance Sign-off'].map(step => (
+                {['Aadhaar OTP', 'Aadhaar Verification', 'FATCA Signature', 'Compliance Sign-off'].map((step: any) => (
                   <span key={step} className="px-2 py-1 text-xs rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
                     {step}
                   </span>

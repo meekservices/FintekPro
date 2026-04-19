@@ -37,6 +37,7 @@ interface DailyPick {
   timeHorizon?: 'short_term' | 'medium_term' | 'long_term';
   confidenceScore?: number;
   sectorCategory?: string;
+  expiryDate?: string;
 }
 
 const getConfidenceColor = (score: number) => {

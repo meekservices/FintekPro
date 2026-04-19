@@ -54,6 +54,9 @@ import {
   clientUnlistedDisclosureLog,
   unlistedEquityValuationHistory,
 } from '@shared/schema';
+import { unlistedEscrowService } from "../services/unlisted-escrow-service";
+import { regulatoryReportingService } from "../services/regulatory-reporting-service";
+import { auditLogArchivalService } from "../services/audit-log-archival";
 
 // Admin middleware for unlisted marketplace admin routes
 const requireAdmin = (req: Request, res: Response, next: NextFunction) => {

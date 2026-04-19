@@ -26,7 +26,7 @@ const router = Router();
 const normalizeAssetType = (type: string | undefined) => holdingNormalizationService.normalizeAssetType(type);
 
 const deriveAllocation = (holdings: any[]) => {
-  const unifiedHoldings: UnifiedHolding[] = holdings.map(h => ({
+  const unifiedHoldings: UnifiedHolding[] = holdings.map((h: any) => ({
     name: h.name || '',
     assetType: holdingNormalizationService.normalizeAssetType(h.assetType),
     quantity: h.quantity || 0,
@@ -44,7 +44,7 @@ async function upsertProspectPortfolio(
   confidenceScore?: number,
   userId?: string
 ): Promise<string> {
-  const unifiedHoldings: UnifiedHolding[] = holdings.map(h => ({
+  const unifiedHoldings: UnifiedHolding[] = holdings.map((h: any) => ({
     name: h.name || h.productName || 'Unknown',
     isin: h.isin,
     symbol: h.symbol,
@@ -54,7 +54,7 @@ async function upsertProspectPortfolio(
     avgCostPerUnit: h.avgPrice || h.averageCost,
     investedValue: h.investedValue,
     currentValue: h.currentValue || h.value || 0,
-    broker: h.broker,
+    broker: (h as any).broker,
     purchaseDate: h.purchaseDate
   }));
 
@@ -224,7 +224,7 @@ router.post(
       }
       
       const snapshot = createPortfolioSnapshot(
-        importResult.holdings.map(h => ({
+        importResult.holdings.map((h: any) => ({
           name: h.name || 'Unknown',
           symbol: h.symbol,
           isin: h.isin,
@@ -248,7 +248,7 @@ router.post(
             uploadedAt: new Date().toISOString(),
             fileName: req.file.originalname,
             fileType: fileType,
-            parsedHoldings: snapshot.holdings.map(h => ({
+            parsedHoldings: snapshot.holdings.map((h: any) => ({
               name: h.name,
               quantity: h.quantity,
               value: h.currentValue,
@@ -329,7 +329,7 @@ router.post(
       
       const blockedDomains = ['localhost', '127.0.0.1', '0.0.0.0', '::1'];
       const urlObj = new URL(importUrl);
-      if (blockedDomains.some(d => urlObj.hostname.includes(d))) {
+      if (blockedDomains.some((d: any) => urlObj.hostname.includes(d))) {
         return res.status(400).json({ error: 'Invalid URL - local addresses not allowed' });
       }
       
@@ -357,7 +357,7 @@ router.post(
       }
       
       const snapshot = createPortfolioSnapshot(
-        importResult.holdings.map(h => ({
+        importResult.holdings.map((h: any) => ({
           name: h.name || 'Unknown',
           symbol: h.symbol,
           isin: h.isin,
@@ -381,7 +381,7 @@ router.post(
           fetchedPortfolio: {
             fetchedAt: new Date().toISOString(),
             source: importResult.brokerDetected || urlObj.hostname,
-            holdings: snapshot.holdings.map(h => ({
+            holdings: snapshot.holdings.map((h: any) => ({
               isin: h.isin,
               symbol: h.symbol,
               name: h.name,
@@ -633,7 +633,7 @@ router.post(
         assetType: h.assetType || 'mutual_fund',
         folioNumber: h.folioNumber || '',
         confidenceScore: h.confidenceScore || 85,
-        broker: h.broker || importResult.brokerDetected || 'Unknown',
+        broker: (h as any).broker || importResult.brokerDetected || 'Unknown',
         firstPurchaseDate: h.firstPurchaseDate || h.purchaseDate || '',
         lots: h.lots || [],
         lotSummary: h.lotSummary || '',
@@ -649,8 +649,8 @@ router.post(
         tierWarnings: h.tierWarnings || []
       }));
 
-      const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
-      const totalInvested = holdings.reduce((sum, h) => sum + h.investedValue, 0);
+      const totalValue = holdings.reduce((sum: any, h: any) => sum + h.currentValue, 0);
+      const totalInvested = holdings.reduce((sum: any, h: any) => sum + h.investedValue, 0);
       const fundsCount = holdings.length;
       const tierBreakdown = importResult.tierBreakdown || { FULL: fundsCount, VALUATION_ONLY: 0, SUMMARY_PLACEHOLDER: 0 };
       const lotCounts = importResult.lotCounts || { withLots: 0, withMultipleLots: 0, withoutLots: fundsCount };
@@ -722,11 +722,11 @@ router.get(
         .from(portfolioHoldings)
         .where(eq(portfolioHoldings.portfolioId, portfolio[0].id));
 
-      const totalValue = holdings.reduce((sum, h) => sum + (Number(h.currentValue) || 0), 0);
-      const totalInvested = holdings.reduce((sum, h) => sum + (Number(h.investedValue) || 0), 0);
+      const totalValue = holdings.reduce((sum: any, h: any) => sum + (Number(h.currentValue) || 0), 0);
+      const totalInvested = holdings.reduce((sum: any, h: any) => sum + (Number(h.investedValue) || 0), 0);
 
       const allocationMap: Record<string, number> = {};
-      holdings.forEach(h => {
+      holdings.forEach((h: any) => {
         const type = h.productType || h.assetType || 'other';
         allocationMap[type] = (allocationMap[type] || 0) + (Number(h.currentValue) || 0);
       });
@@ -751,7 +751,7 @@ router.get(
           createdAt: portfolio[0].createdAt,
           updatedAt: portfolio[0].updatedAt
         },
-        holdings: holdings.map(h => ({
+        holdings: holdings.map((h: any) => ({
           id: h.id,
           symbol: h.symbol,
           name: h.name,
@@ -763,7 +763,7 @@ router.get(
           assetType: h.assetType,
           productType: h.productType,
           folioNumber: h.folioNumber,
-          broker: h.broker,
+          broker: (h as any).broker,
           confidenceScore: h.confidenceScore
         })),
         allocation,

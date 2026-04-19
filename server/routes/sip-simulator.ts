@@ -3,6 +3,7 @@ import { z } from "zod";
 import { sipSimulatorEngine } from "../services/sip-simulator-engine";
 import { advisorTrainingService } from "../services/advisor-training-service";
 import { sebiAuditService, SEBI_AUDIT_ACTION_TYPES } from "../services/sebi-audit-service";
+import * as schema from "@shared/schema";
 
 const router = Router();
 

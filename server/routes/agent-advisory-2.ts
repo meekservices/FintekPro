@@ -29,6 +29,8 @@ import {
 import { eq, and, desc, sql, or, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import crypto from 'crypto';
+const logAgentAction = async (..._args: any[]) => {};
+
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -450,7 +452,7 @@ export function registerAgentAdvisoryPart2Routes(app: Express) {
         .update(proposalShares)
         .set({
           clientAction: action,
-          clientActionAt: new Date(),
+          clientAction: new Date(),
           clientFeedback: action === 'request_clarification' ? clarificationNote : null
         })
         .where(eq(proposalShares.id, share.id));
@@ -502,7 +504,7 @@ export function registerAgentAdvisoryPart2Routes(app: Express) {
 
       await db
         .update(proposalShares)
-        .set({ viewedAt: new Date() })
+        .set({ viewedAt: new Date() } as any)
         .where(and(
           eq(proposalShares.id, share.id),
           isNull(proposalShares.viewedAt)

@@ -4,8 +4,21 @@ import { storage } from '../storage';
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, sql, and, or } from 'drizzle-orm';
+import { auditLogArchivalService } from "../services/audit-log-archival";
+import { marketStoryService, type MarketData as StoryMarketData } from "../market-story-service";
+import { marketingService } from "../marketing-automation";
+import { whatsappService } from "../whatsapp";
+import { portfolioIntelligence } from "../portfolio-intelligence";
+import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "../gemini";
+import { objectStorageClient as objectStorage } from "../objectStorage";
 
 export function registerMFMonthwiPart3Routes(app: Express): void {
+  async function fetchCDSL(endpoint: string, data?: any) {
+    console.log(`CDSL API Call: ${endpoint}`, data);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return { status: "success", data: data || {} };
+  }
+
   app.post("/api/cdsl/edis/consent", async (req, res) => {
     try {
       const { boId, isin, quantity, clientCode, executionDate, tpin } = req.body;
@@ -715,11 +728,11 @@ export function registerMFMonthwiPart3Routes(app: Express): void {
       if (marketData.length === 0) {
         // Create mock data if no real data available
         marketData = [
-          { symbol: '^GSPC', fallbackPrice: 5620.45, change: 15.23, changePercent: 0.27 },
-          { symbol: '^DJI', fallbackPrice: 44156.73, change: -89.12, changePercent: -0.20 },
-          { symbol: '^IXIC', fallbackPrice: 17765.66, change: 45.67, changePercent: 0.26 },
-          { symbol: '^NSEI', fallbackPrice: 23145.60, change: 78.45, changePercent: 0.34 },
-          { symbol: '^BSESN', fallbackPrice: 76543.21, change: -23.45, changePercent: -0.03 }
+          { symbol: '^GSPC', price: 5620.45, change: 15.23, changePercent: 0.27 },
+          { symbol: '^DJI', price: 44156.73, change: -89.12, changePercent: -0.20 },
+          { symbol: '^IXIC', price: 17765.66, change: 45.67, changePercent: 0.26 },
+          { symbol: '^NSEI', price: 23145.60, change: 78.45, changePercent: 0.34 },
+          { symbol: '^BSESN', price: 76543.21, change: -23.45, changePercent: -0.03 }
         ];
       }
       
