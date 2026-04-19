@@ -4,7 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from './users';
 import { unlistedCompanies } from './unlisted';
-import { storeProducts, investmentProposals, Product, User } from '../schema';
+import { storeProducts, investmentProposals, Product } from '../schema';
 
 // Old User Cart (Product Store)
 export const userCart = pgTable("user_cart", {

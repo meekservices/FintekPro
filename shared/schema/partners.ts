@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { boolean, date, decimal, index, integer, jsonb, pgTable, real, serial, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { Agent, Partner, Document, User, caVerificationStatus, Product } from '../schema';
+import { caVerificationStatus, Product } from '../schema';
 import { users } from './users';
 import { agents } from './agents';
 
