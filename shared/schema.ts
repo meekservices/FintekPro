@@ -245,7 +245,7 @@ import {
   ValidationIssue,
   FilingRecord
 } from './schema/itr';
-import { 
+export { 
   products,
   productAccountPreferences,
   productApplications,

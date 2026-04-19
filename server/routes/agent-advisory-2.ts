@@ -452,7 +452,7 @@ export function registerAgentAdvisoryPart2Routes(app: Express) {
         .update(proposalShares)
         .set({
           clientAction: action,
-          clientAction: new Date(),
+          clientActionTimestamp: new Date(),
           clientFeedback: action === 'request_clarification' ? clarificationNote : null
         })
         .where(eq(proposalShares.id, share.id));
