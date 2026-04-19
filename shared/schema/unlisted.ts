@@ -4,7 +4,6 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { agents } from './agents';
 import { users } from './users';
-import { Document } from './documents';
 
 // --- Auto-Migrated Tables ---
 export const unlistedCompanies = pgTable("unlisted_companies", {

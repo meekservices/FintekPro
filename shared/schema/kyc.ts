@@ -3,14 +3,15 @@ import { boolean, date, decimal, index, integer, jsonb, numeric, pgTable, real, 
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from "./users";
-import { Agent, agents, agentPerformanceMetrics } from './agents';
-import { Partner, partners } from './partners';
+import { agents, agentPerformanceMetrics } from './agents';
+import { partners } from './partners';
 import { products, Product } from './products';
-import { Document, documents, documentEntityTypeEnum } from './documents';
+import { documents, documentEntityTypeEnum } from './documents';
 import { investmentProposals } from './proposals-base';
 import { users as User, userProfiles, userDematAccounts } from './users';
-import { portfolios as Portfolio, watchlists as Watchlist, bondHoldings } from './portfolio';
-import { USOrder as usOrders, BondOrder as bondOrders } from './orders';
+import { portfolios as Portfolio, watchlists as Watchlist } from './portfolio';
+import { bondHoldings } from './bonds';
+import { bondOrders, usOrders } from './orders';
 import { advisorySessions } from './advisory';
 
 export const digilockerApps = pgTable("digilocker_apps", {

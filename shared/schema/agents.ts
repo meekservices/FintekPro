@@ -3,9 +3,7 @@ import { boolean, date, decimal, index, integer, jsonb, numeric, pgTable, real, 
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from './users';
-import { Document, User, Portfolio } from '../schema';
-import { users } from './users';
-import { agentBaskets, insertAgentPerformanceMetricsSchema } from './kyc';
+import { agentBaskets } from './kyc';
 import { partners } from './partners';
 // --- Core Agent Master Tables ---
 
@@ -514,6 +512,7 @@ export const agentCertifications = pgTable("agent_certifications", {
 ]);
 
 // Agent Compliance Document Repository (for SEBI inspection-ready docs)
+export const insertAgentPerformanceMetricsSchema = createInsertSchema(agentPerformanceMetrics).omit({ id: true, createdAt: true, updatedAt: true });
 export type AgentPerformanceMetrics = typeof agentPerformanceMetrics.$inferSelect;
 export type InsertAgentPerformanceMetrics = z.infer<typeof insertAgentPerformanceMetricsSchema>;
 
