@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, boolean, index, integer, jsonb, decimal, date, serial, real, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { reits } from '../schema';
+import { reits, insertReitSchema } from './reit-invit';
 
 
 // --- Auto-Migrated Tables ---
@@ -503,9 +503,6 @@ export const screenerTechnicalIndicators = pgTable("screener_technical_indicator
   index("idx_screener_ti_date").on(table.symbol, table.date),
 ]);
 
-// Insert Schemas and Types for REIT
-export const insertReitSchema = createInsertSchema(reits).omit({
-  id: true,
-  createdAt: true,
-  lastUpdated: true,
-});
+// REIT types and schemas are now in reit-invit.ts
+export { insertReitSchema };
+export type { Reit, InsertReit } from './reit-invit';
