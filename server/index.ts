@@ -887,24 +887,27 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   app.use('/api/auto-population', autoPopMod.autoPopulationRouter);
   console.log('✅ KYC, marketing, prospect, user management routes registered');
   
-  // ── Marketplace routes: import all in parallel, register in order ────────────
-  logBootProgress("Step 6: Registering Marketplace Routes...");
-  const [
-    unlistedRoutes, complianceRoutes, bondMarketplaceRoutes, bondSeedAdminRoutes,
-    goldAdminRoutes, bondMarketplaceImprovements, bondCalendarRoutes,
-  ] = await Promise.all([
-    import('./routes/unlisted'),
-    import('./routes/compliance'),
-    import('./routes/bond-marketplace'),
-    import('./routes/bond-seed-admin'),
-    import('./routes/gold-admin'),
-    import('./routes/bond-marketplace-improvements'),
-    import('./routes/bond-calendar-routes'),
-  ]);
+  // ── Marketplace routes: import sequentially to isolate any hang ────────────
+  logBootProgress("Step 6a: importing unlisted routes...");
+  const unlistedRoutes = await import('./routes/unlisted');
+  logBootProgress("Step 6b: importing compliance routes...");
+  const complianceRoutes = await import('./routes/compliance');
+  logBootProgress("Step 6c: importing bond-marketplace routes...");
+  const bondMarketplaceRoutes = await import('./routes/bond-marketplace');
+  logBootProgress("Step 6d: importing bond-seed-admin routes...");
+  const bondSeedAdminRoutes = await import('./routes/bond-seed-admin');
+  logBootProgress("Step 6e: importing gold-admin routes...");
+  const goldAdminRoutes = await import('./routes/gold-admin');
+  logBootProgress("Step 6f: importing bond-marketplace-improvements routes...");
+  const bondMarketplaceImprovements = await import('./routes/bond-marketplace-improvements');
+  logBootProgress("Step 6g: importing bond-calendar routes...");
+  const bondCalendarRoutes = await import('./routes/bond-calendar-routes');
+  logBootProgress("Step 6h: registering marketplace routes...");
   app.use('/api/unlisted', unlistedRoutes.default);
   app.use('/api/compliance', complianceRoutes.default);
 
   // Regulatory Audit Norms — centralised SEBI/AMFI/PMLA/RBI norm definitions + health checks
+  logBootProgress("Step 6i: importing regulatory-audit-norms routes...");
   const { default: regulatoryAuditNormsRoutes } = await import('./routes/regulatory-audit-norms-routes');
   app.use('/api/admin/regulatory-audit', regulatoryAuditNormsRoutes);
   console.log('✅ Regulatory Audit Norms routes registered (/api/admin/regulatory-audit/*)');
