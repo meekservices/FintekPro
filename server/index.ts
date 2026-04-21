@@ -89,7 +89,8 @@ import fs from "fs";
 import { symbolMappingService } from "./services/symbol-mapping-service";
 import { creditRatingsService } from "./services/credit-ratings-service";
 import "./services/sms-service"; // Initialize SMS service
-import { bootState, logBootProgress } from "./boot-status";
+import { execSync } from 'child_process';
+import { bootState, logBootProgress } from './boot-status';
 import { registerAuthEventConsumers } from "./services/auth-event-consumers";
 
 // Ensure static build is available for production deployments
