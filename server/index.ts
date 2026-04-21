@@ -69,8 +69,8 @@ import rateLimit from "express-rate-limit";
 import { validationResult } from "express-validator";
 import { registerRoutes } from "./routes";
 import { registerRoleRoutes } from "./role-routes";
-import { setupVite, serveStatic, log as viteLog } from "./vite";
 import { logger } from "./logger";
+import { serveStatic } from "./static";
 import { complianceMiddleware } from "./compliance-monitor";
 import { storage } from "./storage";
 import { setupAuth as setupSessionAuth } from "./auth-setup";
@@ -2045,6 +2045,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   // Check both app.get("env") and REPLIT_DEPLOYMENT for production detection
   const isDevelopmentMode = app.get("env") === "development" && process.env.REPLIT_DEPLOYMENT !== '1';
   if (isDevelopmentMode) {
+    const { setupVite } = await import("./vite");
     await setupVite(app, server);
   } else {
     serveStatic(app);

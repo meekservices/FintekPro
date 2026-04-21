@@ -53,13 +53,8 @@ export class CashfreeService {
 
     // Validate credentials are present
     if (!this.appId || !this.secretKey) {
-      const isDev = process.env.NODE_ENV === 'development';
-      if (isDev) {
-        console.warn('⚠️ Cashfree PG credentials (CASHFREE_PG_APP_ID, CASHFREE_PG_SECRET_KEY) not configured');
-        console.warn('⚠️ Cashfree Payment Gateway APIs will not function properly');
-      } else {
-        throw new Error('Cashfree PG credentials (CASHFREE_PG_APP_ID, CASHFREE_PG_SECRET_KEY) are required in production');
-      }
+      console.warn('⚠️ Cashfree PG credentials (CASHFREE_PG_APP_ID, CASHFREE_PG_SECRET_KEY) not configured');
+      console.warn('⚠️ Cashfree Payment Gateway APIs will not function. Set credentials to enable payments.');
     }
 
     // Set base URL based on environment

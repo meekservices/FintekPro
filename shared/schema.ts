@@ -110,7 +110,7 @@ import {
 import { insertMfEnrichmentAuditLogSchema, mutualFundAmcs, mutualFunds, insertMfBatchValidationLogSchema, insertMfSchemeStockHoldingsSchema, mfBatchValidationLogs, mfSchemeStockHoldings, insertMfCategoryRuleSchema, mfCategoryRules, mfEnrichmentAuditLogs } from './schema/mutual-funds';
 import { mcaCharges, mcaIngestionLogs, insertMcaDirectorsSchema, mcaDataSources, insertMcaWalletPaymentSchema, insertMcaDataSourcesSchema, mcaDirectors, mcaDirectPayments, insertMcaChargesSchema, insertMcaRiskScoresSchema, mcaWalletPayments, insertMcaDirectPaymentSchema, mcaRiskScores, insertMcaIngestionLogsSchema } from './schema/mca';
 import { partnerCommissions, partnerHierarchyAgreements, partners, partnerCommissionRules, partnerApplicationDocuments, partnerWallets, partnerReferrals, partnerApplications, partnerAuditLogs, partnerSettlements } from './schema/partners';
-import { portfolioGeneratedReports, predictionAccuracy, portfolioReportAuditLogs, aiTalkingPoints, portfolioHoldings, pdfProfiles, proposalNotes, portfolioComparisons, riskAnalysis, portfolioUploads, pdfParsingAuditTrail, portfolioAlerts, portfolioPredictions, proposalShares, insertPortfolioReportTemplateSchema, assetForecasts, holdingLotsV2, portfolioSnapshots, portfolioReportTemplates, portfolios, familyGroups, insertPortfolioAlertSchema, insertPortfolioPredictionSchema, insertPortfolioSnapshotSchema, insertPortfolioDiagnosticsSchema, assetAllocation } from './schema/portfolio';
+import { portfolioGeneratedReports, predictionAccuracy, portfolioReportAuditLogs, aiTalkingPoints, portfolioHoldings, pdfProfiles, proposalNotes, portfolioComparisons, riskAnalysis, portfolioUploads, pdfParsingAuditTrail, portfolioAlerts, portfolioPredictions, proposalShares, insertPortfolioReportTemplateSchema, assetForecasts, holdingLotsV2, portfolioSnapshots, portfolioReportTemplates, portfolios, familyGroups, insertPortfolioAlertSchema, insertPortfolioPredictionSchema, insertPortfolioSnapshotSchema, insertPortfolioDiagnosticsSchema, assetAllocation, externalHoldings, watchlists, comprehensiveHoldings } from './schema/portfolio';
 import { 
   proposalVerdicts, 
   proposalEsignParticipants, 
@@ -3366,6 +3366,18 @@ export const leadActivityLog = pgTable("lead_activity_log", {
 });
 
 
+
+// Referral payout configuration table
+export const referralPayoutConfig = pgTable("referral_payout_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  configLevel: varchar("config_level").notNull(), // 'platform' | 'product' | 'user'
+  productType: varchar("product_type"),
+  payoutRate: decimal("payout_rate", { precision: 5, scale: 4 }),
+  payoutType: varchar("payout_type").default("percentage"), // 'percentage' | 'fixed'
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
 
 export const insertReferralPayoutConfigSchema = createInsertSchema(referralPayoutConfig).omit({
   id: true,

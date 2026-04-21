@@ -18,7 +18,7 @@ if [ ${#MISSING_VARS[@]} -gt 0 ]; then
   for V in "${MISSING_VARS[@]}"; do
     echo "  • $V"
   done
-  echo "[Startup] Set these in Railway → Project → Variables before deploying."
+  echo "[Startup] Set these in your platform (GCP Secret Manager) before deploying."
   exit 1
 fi
 
