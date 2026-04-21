@@ -27,36 +27,58 @@ export const isUsingProductionDb = isProduction || !!process.env.PRODUCTION_DATA
 //   Railway public (rlwy.net)      → SSL with cert verification (managed CA)
 //   Railway internal (.internal)   → no SSL (private network, no cert needed)
 //   Local / Replit Helium          → no SSL
+// Force SSL for all non-local production URLs unless using Unix sockets
+const isCloudSqlSocketAvailable = fs.existsSync('/cloudsql/fintekpro:asia-south1:fintekpro-db');
 const isRailwayInternal = selectedDbUrl.includes('.railway.internal');
+
 const needsSsl =
-  !isRailwayInternal && (
+  !isRailwayInternal && 
+  !isCloudSqlSocketAvailable && (
     selectedDbUrl.includes('neon.tech') ||
     selectedDbUrl.includes('.neon.') ||
-    selectedDbUrl.includes('neon.database') ||
     selectedDbUrl.includes('rlwy.net') ||
-    selectedDbUrl.includes('railway.app')
+    selectedDbUrl.includes('railway.app') ||
+    selectedDbUrl.includes('google.com') ||
+    isProduction // Modern GCP Cloud SQL requires SSL for all non-socket connections
   );
 
 const dbUrlSource = process.env.PRODUCTION_DATABASE_URL
   ? 'PRODUCTION_DATABASE_URL'
   : 'DATABASE_URL';
 
-logger.info(`[DB] Connected to ${dbUrlSource} (${needsSsl ? 'SSL' : isRailwayInternal ? 'TCP/internal' : 'TCP'})`);
+if (isCloudSqlSocketAvailable) {
+  logger.info(`[DB] Connected to ${dbUrlSource} via Cloud SQL Unix Socket`);
+} else {
+  logger.info(`[DB] Connected to ${dbUrlSource} (${needsSsl ? 'SSL' : isRailwayInternal ? 'TCP/internal' : 'TCP'})`);
+}
 
-const POOL_CONFIG = {
+const POOL_CONFIG: any = {
   connectionString: selectedDbUrl,
-  // Raised from 5 → 15: 200+ API routes + AI calls + KYC checks compete under load.
-  // Railway Postgres supports 100+ connections; 15 provides headroom with safety margin.
   max: isProduction ? 15 : 5,
   min: isProduction ? 2 : 0,
   idleTimeoutMillis: isProduction ? 60000 : 30000,
   connectionTimeoutMillis: 15000,
-  // Prevent runaway queries (complex reports, AI joins) from holding a connection indefinitely.
-  // 30s is generous enough for any legitimate query; catches infinite loops / missing indexes.
   statement_timeout: isProduction ? 30000 : 60000,
   allowExitOnIdle: false,
-  ssl: needsSsl ? true : false,
+  ssl: needsSsl ? { rejectUnauthorized: false } : false,
 };
+
+// If Cloud SQL Unix socket is available, leverage it for maximum performance and security
+if (isCloudSqlSocketAvailable) {
+  // Extract user, password, and database from the connection string
+  try {
+    const url = new URL(selectedDbUrl);
+    POOL_CONFIG.host = '/cloudsql/fintekpro:asia-south1:fintekpro-db';
+    POOL_CONFIG.port = 5432;
+    POOL_CONFIG.user = url.username;
+    POOL_CONFIG.password = url.password;
+    POOL_CONFIG.database = url.pathname.split('/')[1];
+    // Delete connectionString to ensure host/user/password win
+    delete POOL_CONFIG.connectionString;
+  } catch (e: any) {
+    logger.warn(`[DB] Failed to parse connection string for Unix socket optimization: ${e.message}`);
+  }
+}
 
 export const pool = new Pool(POOL_CONFIG);
 
