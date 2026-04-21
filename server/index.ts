@@ -2596,6 +2596,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     bootState.routesReady = true;
   } catch (error: any) {
     console.error('❌ [FATAL] Server initialization failed during boot sequence:', error);
+    bootState.error = `Boot Sequence Error: ${error?.message || String(error)}`;
     // Force routesReady to true so the Loading screen disappears and users can at least see 
     // the app (even if some things are broken) OR provide a better error page.
     console.warn('⚠️  Forcing routesReady=true despite boot error to unblock UI.');
