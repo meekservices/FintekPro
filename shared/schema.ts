@@ -267,7 +267,10 @@ export {
   insertFundPerformanceRollingSchema,
   insertFundManagerSchema,
   insertMarketingCampaignSchema,
-  insertCampaignRecipientSchema,
+  insertCampaignRecipientSchema
+} from './schema/products';
+
+export type {
   Product,
   ProductAccountPreference,
   ProductApplication,

@@ -130,16 +130,38 @@ export function getPoolStats() {
 }
 
 export async function testConnection(): Promise<boolean> {
-  try {
-    const client = await pool.connect();
-    await client.query('SELECT 1');
-    client.release();
-    logger.info('[DB] Database connection verified');
-    return true;
-  } catch (err: any) {
-    logger.error('[DB] Connection test failed', { error: err?.message || 'Unknown error' });
-    return false;
-  }
+  const source = process.env.PRODUCTION_DATABASE_URL ? 'PRODUCTION_DATABASE_URL' : 'DATABASE_URL';
+  logger.info(`[DB] Attempting to verify connection to ${source}...`);
+
+  return new Promise((resolve) => {
+    // 15-second safety timeout for the connection test itself
+    const timeout = setTimeout(() => {
+      logger.error(`[DB] Connection test TIMED OUT after 15s. Format may be incorrect or database unreachable.`);
+      resolve(false);
+    }, 15000);
+
+    pool.connect()
+      .then((client) => {
+        return client.query('SELECT 1')
+          .then(() => {
+            client.release();
+            clearTimeout(timeout);
+            logger.info('[DB] Connection verified successfully');
+            resolve(true);
+          })
+          .catch((err) => {
+            client.release();
+            clearTimeout(timeout);
+            logger.error(`[DB] Query failed during connection test: ${err.message}`);
+            resolve(false);
+          });
+      })
+      .catch((err) => {
+        clearTimeout(timeout);
+        logger.error(`[DB] Pool connection failed: ${err.message}`);
+        resolve(false);
+      });
+  });
 }
 
 // Tracks whether pool.end() has been called — background jobs check this

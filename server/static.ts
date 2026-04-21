@@ -3,7 +3,15 @@ import fs from "fs";
 import path from "path";
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+  let distPath = path.resolve(import.meta.dirname, "public");
+
+  // Robust check: in some production environments, the path may be different
+  if (!fs.existsSync(distPath)) {
+    const fallbackPath = path.resolve(process.cwd(), "dist", "public");
+    if (fs.existsSync(fallbackPath)) {
+      distPath = fallbackPath;
+    }
+  }
 
   if (!fs.existsSync(distPath)) {
     // In production, the build should always be here

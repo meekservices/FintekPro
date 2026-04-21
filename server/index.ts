@@ -89,18 +89,8 @@ import fs from "fs";
 import { symbolMappingService } from "./services/symbol-mapping-service";
 import { creditRatingsService } from "./services/credit-ratings-service";
 import "./services/sms-service"; // Initialize SMS service
+import { bootState, logBootProgress } from "./boot-status";
 import { registerAuthEventConsumers } from "./services/auth-event-consumers";
-
-// Global boot state - tracks server initialization progress
-export const bootState = {
-  serverListening: false,
-  authReady: false,
-  routesReady: false,
-  cronJobsReady: false,
-  startTime: Date.now(),
-  getBootTime: () => Date.now() - bootState.startTime,
-  isFullyReady: () => bootState.serverListening && bootState.authReady && bootState.routesReady
-};
 
 // Ensure static build is available for production deployments
 // Vite builds to dist/public, but serveStatic expects server/public
@@ -143,22 +133,72 @@ ensureStaticBuild();
 
 const app = express();
 
+logBootProgress("Server process started");
+
 // ============================================================================
 // PRIORITY HEALTH CHECKS - MUST BE FIRST (Railway/K8s Support)
 // Returns 200 OK immediately even while server is still booting.
 // ============================================================================
-app.get('/api/health', (_req, res) => res.status(200).json({ status: 'booting', uptime: process.uptime() }));
-app.get('/health', (_req, res) => res.status(200).json({ status: 'ok', uptime: process.uptime() }));
+app.get('/api/health', (_req, res) => res.status(200).json({ status: bootState.routesReady ? 'ready' : 'booting', milestone: bootState.milestone, error: bootState.error, uptime: process.uptime() }));
+app.get('/health', (_req, res) => res.status(200).json({ status: bootState.routesReady ? 'ok' : 'booting', milestone: bootState.milestone, error: bootState.error, uptime: process.uptime() }));
 app.get('/healthz', (_req, res) => res.status(200).send('OK'));
 app.get('/ready', (_req, res) => res.status(200).json({ status: 'ok' }));
 app.get('/live', (_req, res) => res.status(200).json({ status: 'ok' }));
 app.get('/', (_req, res, next) => {
   if (bootState.routesReady) return next();
-  res.status(200).set({ 'Content-Type': 'text/html' }).send('<!DOCTYPE html><html><body><p>Loading...</p></body></html>');
+  res.status(200).set({ 'Content-Type': 'text/html' }).send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>FintekPro | Initializing</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+            body { 
+                margin: 0; padding: 0; 
+                display: flex; flex-direction: column; 
+                justify-content: center; align-items: center; 
+                height: 100vh; background: #0a0a0b; 
+                color: #ffffff; font-family: 'Inter', sans-serif;
+                overflow: hidden;
+            }
+            .glow {
+                position: absolute; width: 400px; height: 400px;
+                background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(0,0,0,0) 70%);
+                filter: blur(50px); animation: pulse 8s infinite alternate;
+            }
+            .container { text-align: center; z-index: 10; position: relative; }
+            .logo { font-size: 32px; font-weight: 600; margin-bottom: 24px; letter-spacing: -0.02em; background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+            .loader { 
+                width: 48px; height: 48px; border: 2px solid #1f2937; border-top-color: #6366f1;
+                border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 24px;
+            }
+            .message { font-size: 16px; color: #9ca3af; font-weight: 300; }
+            @keyframes spin { to { transform: rotate(360deg); } }
+            @keyframes pulse { from { opacity: 0.4; transform: scale(1); } to { opacity: 0.8; transform: scale(1.1); } }
+        </style>
+    </head>
+    <body>
+        <div class="glow"></div>
+        <div class="container">
+            <div class="logo">FintekPro</div>
+            <div class="loader"></div>
+            <div class="message">Optimizing your market connection...</div>
+        </div>
+        <script>
+            // Auto-refresh every 5 seconds until ready
+            setTimeout(() => { window.location.reload(); }, 5000);
+        </script>
+    </body>
+    </html>
+  `);
 });
 
 // Environment validation for production readiness
-const requiredEnvVars = ['PRODUCTION_DATABASE_URL', 'SESSION_SECRET'];
+const requiredEnvVars = process.env.NODE_ENV === 'production' 
+  ? ['PRODUCTION_DATABASE_URL', 'SESSION_SECRET'] 
+  : ['DATABASE_URL', 'SESSION_SECRET'];
 const optionalButRecommended = ['OPENAI_API_KEY', 'TWILIO_ACCOUNT_SID', 'CASHFREE_APP_ID'];
 
 for (const envVar of requiredEnvVars) {
@@ -589,19 +629,6 @@ app.get('/', (req: Request, res: Response, next: NextFunction) => {
   );
 });
 
-// /api/health - always returns 200 as long as process is running
-app.get('/api/health', (_req: Request, res: Response) => {
-  res.status(200).json({
-    status: bootState.isFullyReady() ? 'ok' : 'booting',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    bootTime: bootState.getBootTime(),
-    ready: bootState.isFullyReady()
-  });
-});
-app.head('/api/health', (_req: Request, res: Response) => {
-  res.status(200).end();
-});
 
 // /health - simple health check
 app.get('/health', (_req: Request, res: Response) => {
@@ -654,6 +681,13 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
 });
 
 (async () => {
+  try {
+    logBootProgress("Starting async boot sequence...");
+    
+    // Masked DB URL for debugging
+    const dbUrl = process.env.PRODUCTION_DATABASE_URL || "MISSING";
+    const maskedUrl = dbUrl.replace(/:([^:@/]+)@/, ':****@').split('?')[0];
+    console.log(`🔗 [Boot] DB Configuration: ${maskedUrl}`);
   // Python analytics micro-service (Railway private network or public URL via PYTHON_SERVICE_URL).
   // Log the configured URL so it's visible in every boot.
   const pyUrl = process.env.PYTHON_SERVICE_URL;
@@ -676,6 +710,8 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     } catch (_) { /* best-effort — never crash the main server */ }
   }, 45_000);
 
+  logBootProgress("Step 1: Setting up Health Checks...");
+
   // Extended health check endpoints
   const { readinessCheck, livenessCheck } = await import('./health-check');
   app.get('/ready', (req, res) => {
@@ -695,6 +731,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   });
   app.get('/live', livenessCheck);
   
+  logBootProgress("Step 2: Initializing Session Authentication...");
   // Initialize authentication (Passport & sessions must be set up first)
   await setupSessionAuth(app);
   
@@ -703,19 +740,26 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   
   // Auth is now ready
   bootState.authReady = true;
+  logBootProgress("Step 3: Auth Ready. Auditing Regulatory Env...");
   console.log(`✅ Auth ready (${bootState.getBootTime()}ms)`);
 
-  // Log API gateway readiness (instrument-specific: MF=Iris, US=Alpaca, Indian=IIFL, etc.)
   try {
-    const { logGatewayReadinessSummary } = await import('./services/api-gateway-readiness');
-    logGatewayReadinessSummary();
-  } catch { /* non-fatal */ }
+    logBootProgress("Step 3a: Logging Gateway Readiness...");
+    // Log API gateway readiness (instrument-specific: MF=Iris, US=Alpaca, Indian=IIFL, etc.)
+    try {
+      const { logGatewayReadinessSummary } = await import('./services/api-gateway-readiness');
+      logGatewayReadinessSummary();
+    } catch (e) { 
+      console.warn('⚠️ [GatewayReadiness] Summary failed (non-fatal):', e);
+    }
+
+    logBootProgress("Step 3b: Auditing Env Vars...");
 
   // ── Regulatory environment variable audit (boot-time) ──────────────────────
   // These variables are required for regulatory compliance features.
   // Missing vars → silent failures in compliance-critical paths.
   const REQUIRED_COMPLIANCE_ENVS: { key: string; purpose: string; severity: 'critical' | 'high' | 'medium' }[] = [
-    { key: 'FIELD_ENCRYPTION_KEY', purpose: 'PII encryption (PAN/Aadhaar at-rest) — DPDP Act §8', severity: 'critical' },
+    { key: 'ENCRYPTION_MASTER_KEY', purpose: 'PII encryption (PAN/Aadhaar at-rest) — DPDP Act §8', severity: 'critical' },
     { key: 'SESSION_SECRET', purpose: 'Session integrity — SEBI CSCRF §4', severity: 'critical' },
     { key: 'SANDBOX_BASE_URL', purpose: 'KYC verification API (PAN/Bank/GSTIN) — PMLA §12', severity: 'high' },
     { key: 'TRUTHSCREEN_USERNAME', purpose: 'CKYC verification (TruthScreen) — SEBI/PMLA', severity: 'high' },
@@ -743,8 +787,11 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     console.log(`[EnvAudit] ✅ All critical compliance env vars present. ${missingHigh.length} high + ${missingMedium.length} medium warnings.`);
   }
 
-  // Register auth event consumers (structured logging + high-risk DB persistence)
-  registerAuthEventConsumers();
+    logBootProgress("Step 3c: Registering Auth Consumers...");
+    // Register auth event consumers (structured logging + high-risk DB persistence)
+    registerAuthEventConsumers();
+
+    logBootProgress("Step 3d: Setting up CSRF...");
 
   
   // CSRF token endpoint (must be after session middleware)
@@ -760,10 +807,17 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     res.json({ csrfToken: (req.session as any).csrfToken });
   });
   
-  // Apply CSRF protection after session/auth middleware
-  app.use('/api', createCsrfProtection());
+    // Apply CSRF protection after session/auth middleware
+    app.use('/api', createCsrfProtection());
+  } catch (error: any) {
+    console.error('❌ [FATAL] Error in Step 3 block:', error);
+    bootState.error = `Step 3 Error: ${error?.message || String(error)}`;
+    // Do NOT rethrow yet so outer catch can still force ready if needed
+    throw error;
+  }
   
   // Continue registering routes asynchronously (server is already listening)
+  logBootProgress("Step 4: Registering Core Routes...");
   console.log('📦 Registering routes...');
   
   // Register Version API route (for PWA update checks)
@@ -805,6 +859,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   const pythonProxyRoutes = await import('./routes/python-proxy');
   app.use(pythonProxyRoutes.default);
   console.log(`✅ Python Analytics Service proxy registered${process.env.PYTHON_SERVICE_URL ? ` → ${process.env.PYTHON_SERVICE_URL}` : ' (stub — set PYTHON_SERVICE_URL to activate)'}`);
+  logBootProgress("Step 5: Registering KYC & User Management Routes...");
   
   // ── KYC, marketing, user management: import all in parallel ─────────────────
   const [
@@ -833,6 +888,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   console.log('✅ KYC, marketing, prospect, user management routes registered');
   
   // ── Marketplace routes: import all in parallel, register in order ────────────
+  logBootProgress("Step 6: Registering Marketplace Routes...");
   const [
     unlistedRoutes, complianceRoutes, bondMarketplaceRoutes, bondSeedAdminRoutes,
     goldAdminRoutes, bondMarketplaceImprovements, bondCalendarRoutes,
@@ -1260,8 +1316,14 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         indexsql: string
       ) => {
         try {
-          await bgDb.execute(bgSql.raw(dedupsql));
-          await bgDb.execute(bgSql.raw(indexsql));
+          await Promise.race([
+            bgDb.execute(bgSql.raw(dedupsql)),
+            new Promise((_, reject) => setTimeout(() => reject(new Error(`Deduplication of ${label} timed out after 60s`)), 60000))
+          ]);
+          await Promise.race([
+            bgDb.execute(bgSql.raw(indexsql)),
+            new Promise((_, reject) => setTimeout(() => reject(new Error(`Indexing of ${label} timed out after 60s`)), 60000))
+          ]);
           console.log(`✅ [Migration] ${label} unique index created (background)`);
         } catch (e: any) {
           console.warn(`[Migration] ${label} (background):`, e?.message);
@@ -1497,7 +1559,8 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
            ON cache_refresh_schedule (cache_type)`
       );
 
-      // 17. corporate_actions (isin, ex_date, action_type)
+  logBootProgress("Step 7: Executing Database Migrations (Phase 2)...");
+  // 17. corporate_actions (isin, ex_date, action_type)
       await dedupAndIndex(
         'corporate_actions',
         `DELETE FROM corporate_actions
@@ -1511,7 +1574,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
       );
     });
   } catch (e: any) {
-    console.warn('[Migration] ON CONFLICT UNIQUE index skipped:', e?.message);
+    console.warn('[Migration] UNIQUE index sequence skipped:', e?.message);
   }
 
   // Boot-time: add missing columns to tables that exist in Railway DB but predate schema additions.
@@ -2056,12 +2119,10 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   app.use(notFoundHandler);
   app.use(errorHandler);
 
-  // ============================================================================
   // ROUTES ARE NOW FULLY REGISTERED - mark as ready
   // ============================================================================
   bootState.routesReady = true;
-  const bootMs = bootState.getBootTime();
-  console.log(`✅ All routes registered (total boot time: ${bootMs}ms)`);
+  logBootProgress(`Step 15: All routes registered (complete). Total boot time: ${bootState.getBootTime()}ms`);
 
   // T05: Emit structured DEPLOY audit event — appears in compliance_audit_trail
   // for every Railway deployment or manual restart. Useful for audit trail continuity.
@@ -2131,6 +2192,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   
   // Initialize Capital Gains Tax Reminder Scheduler (production only - sends notifications)
   if (isProductionEnvironment()) {
+    logBootProgress("Step 11: Starting Capital Gains Reminder Scheduler...");
     try {
       import('./services/reminder-scheduler').then(({ reminderScheduler }) => {
         reminderScheduler.start();
@@ -2146,6 +2208,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   }
 
   // GAP 4 FIX: KYC Expiry Monitor — daily check, runs in all environments
+  logBootProgress("Step 12: Starting KYC Expiry Monitor...");
   try {
     import('./services/kyc-expiry-monitor').then(({ kycExpiryMonitor }) => {
       kycExpiryMonitor.start();
@@ -2159,8 +2222,10 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   
   // Initialize Bond Catalog Service (production only - writes to DB)
   if (isProductionEnvironment()) {
+    logBootProgress("Step 13: Scheduling Bond Catalog Service (30s delay)...");
     setTimeout(() => {
       try {
+        logBootProgress("Step 13b: Starting Bond Catalog Service...");
         import('./bond-catalog-service').then(({ bondCatalogService }) => {
           bondCatalogService.startAutoRefresh();
           logger.service('Bond Catalog Service', 'Service initialized successfully');
@@ -2177,6 +2242,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   
   // Initialize Alert Monitoring Service (production only - writes to DB)
   if (isProductionEnvironment()) {
+    logBootProgress("Step 14: Starting Alert Monitoring Service...");
     try {
       import('./services/alert-monitoring-service').then(({ alertMonitoringService }) => {
         alertMonitoringService.start();
@@ -2193,8 +2259,10 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   
   // Initialize Currency Exchange Service (production only - writes to DB)
   if (isProductionEnvironment()) {
+    logBootProgress("Step 15: Scheduling Currency Exchange Service (45s delay)...");
     setTimeout(() => {
       try {
+        logBootProgress("Step 15b: Starting Currency Exchange Service...");
         import('./services/currency-exchange-service').then(async ({ currencyExchangeService }) => {
           await currencyExchangeService.initializeRates();
           currencyExchangeService.startAutoRefresh();
@@ -2521,10 +2589,17 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   } else {
     console.log('⏭️ [ProductionBootstrap] All data seeding skipped (development mode - production only)');
   }
+    logBootProgress("Step 16: Diagnostic boot sequence complete.");
+    bootState.routesReady = true;
+  } catch (error: any) {
+    console.error('❌ [FATAL] Server initialization failed during boot sequence:', error);
+    // Force routesReady to true so the Loading screen disappears and users can at least see 
+    // the app (even if some things are broken) OR provide a better error page.
+    console.warn('⚠️  Forcing routesReady=true despite boot error to unblock UI.');
+    bootState.routesReady = true;
+  }
 })().catch((error: any) => {
   console.error('❌ [FATAL] Server initialization failed:', error?.message || error);
-  // Don't exit - the server may still be able to handle health checks
-  // Only exit if the server never started listening
   if (!bootState.serverListening) {
     console.error('❌ Server never started listening, exiting...');
     process.exit(1);

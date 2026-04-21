@@ -1,4 +1,5 @@
 import type { Express, Request } from "express";
+import { logBootProgress } from "./boot-status";
 import { alpacaSseService } from './services/alpaca-sse-service';
 import { registerSecurityMasterCreditRatingRoutes } from './routes/security-master-credit-ratings';
 import { registerBondsMarketRoutes } from './routes/bonds-market';
@@ -265,6 +266,7 @@ import sipSimulatorRoutes from './routes/sip-simulator';
 import sebiAuditRoutes from './routes/sebi-audit';
 import regulatoryComplianceRoutes from './routes/regulatory-compliance-routes';
 export async function registerRoutes(app: Express, existingServer?: Server): Promise<Server> {
+  logBootProgress("registerRoutes: Started");
   const server = existingServer || createServer(app);
   registerSecurityMasterCreditRatingRoutes(app);
   
@@ -395,7 +397,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.use(executionGuard({ logExecution: true, blockOfflineExecution: true }));
   
   // Initialize user passwords with proper hashing
+  logBootProgress("registerRoutes: Initializing user passwords...");
   await storage.initializeUserPasswords();
+  logBootProgress("registerRoutes: User passwords initialized");
   
   // Initialize AI Portfolio Service
   const aiPortfolioService = new AIPortfolioService(storage as any);
@@ -413,7 +417,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // In production, use the admin endpoint GET /api/admin/whatsapp/qr to scan the QR.
   if (process.env.ENABLE_WHATSAPP === 'true') {
     try {
+      logBootProgress("registerRoutes: Initializing WhatsApp...");
       await whatsappService.initialize();
+      logBootProgress("registerRoutes: WhatsApp initialized");
       console.log('✅ WhatsApp Web client initialized');
     } catch (error) {
       console.log('⚠️ WhatsApp Web client init failed (non-critical):', error instanceof Error ? error.message : error);
@@ -502,7 +508,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
   // WhatsApp Web admin endpoints (requireAdmin is now in scope)
   registerAdminMiscRoutes(app);
+  logBootProgress("registerRoutes: Registering Platform Stats...");
   await registerPlatformStatsRoutes(app);
+  logBootProgress("registerRoutes: Platform Stats registered");
 
   // Route registrations from platform-stats-routes
   // Admin Mutual Funds Management Routes
@@ -792,7 +800,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   registerM2PCardRoutes(app);
   registerBankingRoutes(app);
   registerLoanRoutes(app);
+  logBootProgress("registerRoutes: Registering Loan Processing...");
   await registerLoanProcessingRoutes(app);
+  logBootProgress("registerRoutes: Loan Processing registered");
   registerLoanComparisonRoutes(app);
   app.use("/api/dsa-loans", dsaLoanRoutes);
   app.use("/api/admin/dsa-loans", adminDsaLoanRoutes);
@@ -823,5 +833,6 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   registerAdminPanelRoutes(app);
   registerIrisKfintechRoutes(app);
   
+  logBootProgress("registerRoutes: Finished");
   return server;
 }
