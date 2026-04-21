@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
-import { regulatoryAuditNormsService } from '../services/regulatory-audit-norms-service';
+
+// Lazy-loaded to avoid blocking the boot sequence (Cloud SQL init hangs on cold start)
+const getService = async () => (await import('../services/regulatory-audit-norms-service')).regulatoryAuditNormsService;
 
 const router = Router();
 
@@ -12,7 +14,8 @@ router.use(requireAuth);
  */
 router.get('/norms', async (_req: Request, res: Response) => {
   try {
-    const norms = regulatoryAuditNormsService.getNorms();
+    const svc = await getService();
+    const norms = svc.getNorms();
     res.json({ success: true, data: norms, total: norms.length });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -26,8 +29,9 @@ router.get('/norms', async (_req: Request, res: Response) => {
  */
 router.get('/readiness', async (req: Request, res: Response) => {
   try {
+    const svc = await getService();
     const force = req.query.force === '1';
-    const report = await regulatoryAuditNormsService.runAllChecks(force);
+    const report = await svc.runAllChecks(force);
     res.json({ success: true, data: report });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -40,8 +44,9 @@ router.get('/readiness', async (req: Request, res: Response) => {
  */
 router.post('/check/:normId', async (req: Request, res: Response) => {
   try {
+    const svc = await getService();
     const { normId } = req.params;
-    const result = await regulatoryAuditNormsService.runSingleCheck(normId);
+    const result = await svc.runSingleCheck(normId);
     res.json({ success: true, data: result });
   } catch (err: any) {
     const code = err.message.includes('not found') ? 404 : 500;
@@ -55,7 +60,8 @@ router.post('/check/:normId', async (req: Request, res: Response) => {
  */
 router.get('/norm/:normId', async (req: Request, res: Response) => {
   try {
-    const norm = regulatoryAuditNormsService.getNorm(req.params.normId);
+    const svc = await getService();
+    const norm = svc.getNorm(req.params.normId);
     if (!norm) return res.status(404).json({ success: false, error: 'Norm not found' });
     res.json({ success: true, data: norm });
   } catch (err: any) {
