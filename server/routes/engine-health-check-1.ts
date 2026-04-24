@@ -4,6 +4,7 @@ import { sipSimulatorEngine } from "../services/sip-simulator-engine";
 import { overlapIntelligenceEngine } from "../services/overlap-intelligence-engine";
 import { stockIntersectionAnalysisService } from "../services/stock-intersection-analysis-service";
 import { aiService } from "../services/ai-service";
+import { pickOfTheDayService } from "../services/pick-of-the-day-service";
 
 const router = Router();
 
@@ -360,6 +361,38 @@ router.get("/run", async (req: Request, res: Response) => {
         };
       }),
 
+      testEngine("Python Analytics Service", "AI & Quant Services", async () => {
+        const { probePythonHealth, getPythonHealthState, getPythonBaseUrl } = await import('../clients/python-client');
+        const isHealthy = await probePythonHealth();
+        const state = getPythonHealthState();
+        if (!isHealthy) {
+          throw new Error(`Python service unreachable or returned non-OK at ${getPythonBaseUrl()}`);
+        }
+        return {
+          baseUrl: getPythonBaseUrl(),
+          lastSuccessAt: state.lastSuccessAt,
+          circuitOpen: state.circuitOpen,
+          consecutiveFailures: state.consecutiveFailures,
+        };
+      }),
+
+      testEngine("Enrichment Worker Engine", "Background Services", async () => {
+        const { dataEnrichmentScheduler } = await import('../services/data-enrichment-scheduler');
+        const status = dataEnrichmentScheduler.getStatus();
+        return {
+          isRunning: status.isRunning,
+          lastRunTime: status.lastRunTime,
+          nextRunTime: status.nextRunTime,
+          lastRunStats: status.lastRunStats,
+        };
+      }),
+
+      testEngine("Mutual Fund Enrichment Stats", "Data Quality", async () => {
+        const { mfExtendedEnrichmentService } = await import('../services/mf-extended-enrichment-service');
+        const stats = await mfExtendedEnrichmentService.getEnrichmentStats();
+        return stats;
+      }),
+
       testEngine("Gemini AI Service", "AI Services", async () => {
         const response = await aiService.chat(
           [
@@ -394,6 +427,17 @@ router.get("/run", async (req: Request, res: Response) => {
           model: "gemini-2.5-flash",
           tokensUsed: response.usage?.totalTokens || 0,
           verificationResult: parsed,
+        };
+      }),
+
+      testEngine("Pick of the Day Engine", "AI Services", async () => {
+        const stats = await pickOfTheDayService.getPerformanceStats();
+        const todaysPicks = await pickOfTheDayService.getTodaysPicks();
+        return {
+          totalPicks: stats.total,
+          winRate: stats.winRate,
+          todaysPicksCount: todaysPicks.length,
+          hasLivePicks: stats.live > 0,
         };
       }),
     ]);

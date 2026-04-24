@@ -102,9 +102,9 @@ app.get('/api/enrichment/status', (_req, res) => {
 });
 
 // ── Start enrichment crons ──────────────────────────────────────────────────
-console.log('[EnrichmentWorker] Starting cron initialization...');
-initializeEnrichmentCrons(staggeredStart, 60_000); // 1 min initial delay
-console.log('[EnrichmentWorker] All enrichment crons registered');
+console.log('[EnrichmentWorker] ⚠️ Enrichment Crons are PAUSED pending GCP Database Consolidation.');
+// initializeEnrichmentCrons(staggeredStart, 60_000); // 1 min initial delay
+// console.log('[EnrichmentWorker] All enrichment crons registered');
 
 // ── Start HTTP server ───────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT || '8002', 10);

@@ -2535,28 +2535,101 @@ export class DatabaseStorage implements IStorage {
   }
 
   async approveProposal(proposalId: string, clientResponse?: string): Promise<InvestmentProposal | undefined> {
-    return undefined;
+    try {
+      const [updated] = await db
+        .update(schema.investmentProposals)
+        .set({ 
+          status: 'approved', 
+          clientResponse, 
+          approvedAt: new Date(),
+          updatedAt: new Date() 
+        })
+        .where(eq(schema.investmentProposals.id, proposalId))
+        .returning();
+      return updated;
+    } catch (error) {
+      console.error('Error approving proposal:', error);
+      throw error;
+    }
   }
 
   async rejectProposal(proposalId: string, clientResponse: string): Promise<InvestmentProposal | undefined> {
-    return undefined;
+    try {
+      const [updated] = await db
+        .update(schema.investmentProposals)
+        .set({ 
+          status: 'rejected', 
+          clientResponse, 
+          rejectedAt: new Date(),
+          updatedAt: new Date() 
+        })
+        .where(eq(schema.investmentProposals.id, proposalId))
+        .returning();
+      return updated;
+    } catch (error) {
+      console.error('Error rejecting proposal:', error);
+      throw error;
+    }
   }
 
   // Enhanced proposal methods for the new API endpoints
   async getAllProposals(): Promise<InvestmentProposal[]> {
-    return [];
+    try {
+      return await db
+        .select()
+        .from(schema.investmentProposals)
+        .orderBy(desc(schema.investmentProposals.createdAt));
+    } catch (error) {
+      console.error('Error fetching all proposals:', error);
+      throw error;
+    }
   }
 
   async getAllClients(): Promise<Array<{ id: string; name: string; email: string; }>> {
-    return [];
+    try {
+      return await db
+        .select({
+          id: schema.users.id,
+          name: schema.users.username,
+          email: schema.users.email
+        })
+        .from(schema.users)
+        .where(sql`${schema.users.roles} @> ARRAY['client']::text[]`);
+    } catch (error) {
+      console.error('Error fetching all clients:', error);
+      throw error;
+    }
   }
 
   async createProposal(proposalData: any): Promise<InvestmentProposal> {
-    throw new Error("Method not implemented");
+    try {
+      const [created] = await db
+        .insert(schema.investmentProposals)
+        .values(proposalData)
+        .returning();
+      return created;
+    } catch (error) {
+      console.error('Error creating proposal:', error);
+      throw error;
+    }
   }
 
   async updateProposalStatus(proposalId: string, status: string): Promise<InvestmentProposal> {
-    throw new Error("Method not implemented");
+    try {
+      const [updated] = await db
+        .update(schema.investmentProposals)
+        .set({ 
+          status, 
+          updatedAt: new Date() 
+        })
+        .where(eq(schema.investmentProposals.id, proposalId))
+        .returning();
+      if (!updated) throw new Error("Proposal not found");
+      return updated;
+    } catch (error) {
+      console.error('Error updating proposal status:', error);
+      throw error;
+    }
   }
 
   async deleteProposal(proposalId: string): Promise<boolean> {

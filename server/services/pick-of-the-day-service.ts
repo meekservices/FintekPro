@@ -73,6 +73,7 @@ export interface RationaleParams {
 export interface PickUpdateResult {
   updated: number;
   errors: number;
+  details?: string[];
 }
 
 export interface DailyPickData {
@@ -206,6 +207,7 @@ export class PickOfTheDayService {
   async refreshLivePicks(): Promise<PickUpdateResult> {
     let updated = 0;
     let errors = 0;
+    const details: string[] = [];
     
     try {
       const livePicks = await db.select().from(dailyPicks).where(eq(dailyPicks.status, 'live'));
@@ -244,6 +246,9 @@ export class PickOfTheDayService {
             }).where(eq(dailyPicks.id, pick.id));
 
             updated++;
+            if (newStatus !== pick.status) {
+              details.push(`${pick.instrumentName}: ${pick.status} -> ${newStatus} @ ₹${livePrice}`);
+            }
             
             if (newStatus !== 'live' && newStatus !== pick.status) {
                await this.notifyWatchlistSubscribers(pick, newStatus, livePrice, returnPct);
@@ -254,11 +259,63 @@ export class PickOfTheDayService {
           errors++;
         }
       }
-      return { updated, errors };
+      return { updated, errors, details };
     } catch (error) {
       console.error("[PickOfTheDay] Error in refreshLivePicks:", error);
-      return { updated, errors };
+      return { updated, errors, details };
     }
+  }
+
+  async getTodaysPicks(): Promise<DailyPickData[]> {
+    const today = new Date().toISOString().split('T')[0];
+    const picks = await db.select().from(dailyPicks).where(eq(dailyPicks.recoDate, today)).orderBy(dailyPicks.category);
+    return picks.map(p => this.transformPick(p));
+  }
+
+  async getLivePicks(): Promise<DailyPickData[]> {
+    const picks = await db.select().from(dailyPicks).where(eq(dailyPicks.status, 'live')).orderBy(desc(dailyPicks.recoDate));
+    return picks.map(p => this.transformPick(p));
+  }
+
+  async getPickHistory(category?: PickCategory, limit: number = 50): Promise<DailyPickData[]> {
+    const conditions = [];
+    if (category) {
+      conditions.push(eq(dailyPicks.category, category));
+    }
+    
+    const picks = await db.select()
+      .from(dailyPicks)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(dailyPicks.recoDate))
+      .limit(limit);
+    return picks.map(p => this.transformPick(p));
+  }
+
+  async getPerformanceStats(): Promise<any> {
+    const allPicks = await db.select().from(dailyPicks);
+    const totalPicks = allPicks.length;
+    if (totalPicks === 0) return { totalPicks: 0, livePicks: 0, targetHits: 0, stoplossHits: 0, hitRate: 0, avgReturn: 0 };
+
+    const resolved = allPicks.filter(p => p.status !== 'live');
+    const targetHits = resolved.filter(p => p.status === 'target_hit').length;
+    const hitRate = resolved.length > 0 ? (targetHits / resolved.length) * 100 : 0;
+    
+    const returns = allPicks.map(p => parseFloat(p.returnPct || '0')).filter(r => !isNaN(r));
+    const avgReturn = returns.length > 0 ? returns.reduce((a, b) => a + b, 0) / returns.length : 0;
+
+    return {
+      totalPicks,
+      livePicks: allPicks.filter(p => p.status === 'live').length,
+      targetHits,
+      stoplossHits: allPicks.filter(p => p.status === 'stoploss_hit').length,
+      expired: allPicks.filter(p => p.status === 'expired').length,
+      hitRate: parseFloat(hitRate.toFixed(2)),
+      avgReturn: parseFloat(avgReturn.toFixed(2))
+    };
+  }
+
+  async updatePickStatuses(): Promise<PickUpdateResult> {
+    return this.refreshLivePicks();
   }
 
   async getRecentlyPickedIds(category: PickCategory): Promise<Set<string>> {

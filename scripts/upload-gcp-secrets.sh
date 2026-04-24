@@ -55,7 +55,9 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # List of all secrets we want to sync
 SECRETS=(
     "PRODUCTION_DATABASE_URL"
+    "DATABASE_URL"
     "SESSION_SECRET"
+    "FIELD_ENCRYPTION_KEY"
     "ENCRYPTION_MASTER_KEY"
     "CASHFREE_APP_ID"
     "CASHFREE_SECRET_KEY"

@@ -19,6 +19,7 @@ export interface AuditLogParams {
   userAgent?: string;
   outcome: 'success' | 'failure';
   riskLevel?: 'low' | 'medium' | 'high' | 'critical';
+  actorType?: string | null;
 }
 
 function categorizeRoute(path: string): AuditCategory {
@@ -49,6 +50,7 @@ function determineRiskLevel(path: string, method: string): 'low' | 'medium' | 'h
 export async function auditLog(params: AuditLogParams): Promise<void> {
   auditBufferService.push({
     userId: params.userId != null ? String(params.userId) : null,
+    actorType: params.actorType ?? null,
     action: params.action,
     category: params.category,
     details: params.details ?? null,
@@ -82,6 +84,9 @@ const SENSITIVE_GET_PATTERNS = [
   '/api/download',
   '/api/report',
   '/api/statements',
+  '/api/agent',
+  '/api/baskets',
+  '/api/performance',
 ];
 
 export const auditTrailMiddleware = (req: Request, res: Response, next: NextFunction) => {
@@ -116,8 +121,12 @@ export const auditTrailMiddleware = (req: Request, res: Response, next: NextFunc
     const contentLength = req.get('Content-Length');
     if (contentLength) details.requestBodySize = parseInt(contentLength, 10);
     
+    const user = (req as any).user;
+    const actorType = user?.roles?.includes('agent') ? 'agent' : (user ? 'client' : null);
+
     auditLog({
       userId,
+      actorType,
       action: `${req.method} ${req.path}`,
       category: categorizeRoute(req.path),
       details,

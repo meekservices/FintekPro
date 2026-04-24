@@ -4,6 +4,9 @@
 
 set -e
 
+# Fix for gcloud Python version mismatch on macOS
+export CLOUDSDK_PYTHON="/opt/homebrew/bin/python3.13"
+
 echo "🔎 [Diagnostic] Locating Google Cloud SDK..."
 
 # Common paths for GCP SDK on macOS

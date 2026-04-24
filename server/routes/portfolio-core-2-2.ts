@@ -6,6 +6,7 @@ import { requireAuth } from '../middleware/roleMiddleware';
 import { insertPortfolioSchema, insertPortfolioHoldingSchema } from '@shared/schema';
 import { NseIndia } from 'stock-nse-india';
 import { AuthRequest } from '../types/broker-types';
+import { isProductionEnvironment } from '../utils/enrichment-guard';
 
 const nseIndia = new NseIndia();
 
@@ -183,15 +184,17 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
                 try {
                   // BSE API simulation with realistic data
                   const basePrice = parseFloat(holding.avgPrice || '0');
-                  const bsePrice = basePrice * (1 + (Math.random() - 0.5) * 0.05);
+                  const isProd = isProductionEnvironment();
+                  const bsePrice = isProd ? basePrice : basePrice * (1 + (Math.random() - 0.5) * 0.05);
                   currentPrice = bsePrice;
                   marketData = { 
                     symbol: holding.symbol || '',
                     lastPrice: bsePrice,
                     change: bsePrice - basePrice,
-                    pChange: ((bsePrice - basePrice) / (basePrice || 1)) * 100
+                    pChange: ((bsePrice - basePrice) / (basePrice || 1)) * 100,
+                    isStale: isProd
                   };
-                  exchange = 'BSE';
+                  exchange = isProd ? 'BSE (STALE)' : 'BSE';
                 } catch (error: unknown) {
                   console.log(`BSE data unavailable for ${holding.symbol}`);
                 }
@@ -205,15 +208,17 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
                 const mcxCommodity = MCX_COMMODITIES.find(c => c.symbol === holding.symbol);
                 if (mcxCommodity) {
                   const basePrice = parseFloat(holding.avgPrice || '0');
-                  const mcxPrice = basePrice * (1 + (Math.random() - 0.5) * 0.08);
+                  const isProd = isProductionEnvironment();
+                  const mcxPrice = isProd ? basePrice : basePrice * (1 + (Math.random() - 0.5) * 0.08);
                   currentPrice = mcxPrice;
                   marketData = {
                     symbol: holding.symbol || '',
                     lastPrice: mcxPrice,
                     change: mcxPrice - basePrice,
-                    pChange: ((mcxPrice - basePrice) / (basePrice || 1)) * 100
+                    pChange: ((mcxPrice - basePrice) / (basePrice || 1)) * 100,
+                    isStale: isProd
                   };
-                  exchange = 'MCX';
+                  exchange = isProd ? 'MCX (STALE)' : 'MCX';
                 }
               } catch (error: unknown) {
                 // Try NCDEX for agricultural commodities
@@ -238,15 +243,17 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
               // Try MSEI for currencies
               try {
                 const basePrice = parseFloat(holding.avgPrice || '0');
-                const mseiPrice = basePrice * (1 + (Math.random() - 0.5) * 0.02);
+                const isProd = isProductionEnvironment();
+                const mseiPrice = isProd ? basePrice : basePrice * (1 + (Math.random() - 0.5) * 0.02);
                 currentPrice = mseiPrice;
                 marketData = {
                   symbol: holding.symbol || '',
                   lastPrice: mseiPrice,
                   change: mseiPrice - basePrice,
-                  pChange: ((mseiPrice - basePrice) / (basePrice || 1)) * 100
+                  pChange: ((mseiPrice - basePrice) / (basePrice || 1)) * 100,
+                  isStale: isProd
                 };
-                exchange = 'MSEI';
+                exchange = isProd ? 'MSEI (STALE)' : 'MSEI';
               } catch (error: unknown) {
                 console.log(`Currency data unavailable for ${holding.symbol}`);
               }
@@ -254,31 +261,35 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 
             // If no market data found, simulate realistic price movement
             if (!marketData) {
-              const priceVariation = (Math.random() - 0.5) * 0.04; // ±4% variation
+              const isProd = isProductionEnvironment();
+              const priceVariation = isProd ? 0 : (Math.random() - 0.5) * 0.04; // ±4% variation only in non-prod
               const basePrice = parseFloat(holding.avgPrice || '0');
               currentPrice = basePrice * (1 + priceVariation);
               marketData = {
                 symbol: holding.symbol || '',
                 lastPrice: currentPrice,
                 change: currentPrice - basePrice,
-                pChange: priceVariation * 100
+                pChange: priceVariation * 100,
+                isStale: isProd
               };
-              exchange = 'SIMULATED';
+              exchange = isProd ? 'STALE' : 'SIMULATED';
             }
 
           } catch (error: unknown) {
             console.error(`Error fetching market data for ${holding.symbol}:`, error);
             // Use fallback simulation
-            const priceVariation = (Math.random() - 0.5) * 0.04;
+            const isProd = isProductionEnvironment();
+            const priceVariation = isProd ? 0 : (Math.random() - 0.5) * 0.04;
             const basePrice = parseFloat(holding.avgPrice || '0');
             currentPrice = basePrice * (1 + priceVariation);
             marketData = {
               symbol: holding.symbol || '',
               lastPrice: currentPrice,
               change: currentPrice - basePrice,
-              pChange: priceVariation * 100
+              pChange: priceVariation * 100,
+              isStale: isProd
             };
-            exchange = 'SIMULATED';
+            exchange = isProd ? 'ERROR_STALE' : 'SIMULATED';
           }
 
           // Calculate performance metrics
@@ -336,10 +347,11 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
         const avgPrice = parseFloat(holding.avgPrice || '0');
         const investedValue = quantity * avgPrice;
         
-        // Simulate current price with realistic market movement
-        const currentPrice = avgPrice * (1 + (Math.random() - 0.5) * 0.06); // ±6% variation
+        // Disable random variations in production
+        const isProd = isProductionEnvironment();
+        const currentPrice = isProd ? avgPrice : avgPrice * (1 + (Math.random() - 0.5) * 0.06); // ±6% variation only in dev
         const currentValue = quantity * currentPrice;
-        const dayChangeValue = currentValue * (Math.random() - 0.5) * 0.02; // ±2% day change
+        const dayChangeValue = isProd ? 0 : currentValue * (Math.random() - 0.5) * 0.02; // ±2% day change only in dev
 
         totalInvestedValue += investedValue;
         totalCurrentValue += currentValue;

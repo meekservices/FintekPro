@@ -68,6 +68,46 @@ class ComplianceMonitor {
     return eventId;
   }
 
+  async logSuspiciousActivity(activity: {
+    userId: string;
+    activityType: string;
+    details: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    metadata?: any;
+  }): Promise<string> {
+    return this.logEvent({
+      userId: activity.userId,
+      eventType: 'security_violation',
+      action: activity.activityType,
+      outcome: 'success', // The logging itself is a success
+      riskLevel: activity.severity,
+      details: {
+        note: activity.details,
+        ...activity.metadata
+      }
+    });
+  }
+
+  async logComplianceAudit(audit: {
+    userId: string;
+    action: string;
+    outcome: 'success' | 'failure';
+    details: string;
+    metadata?: any;
+  }): Promise<string> {
+    return this.logEvent({
+      userId: audit.userId,
+      eventType: 'admin_action',
+      action: audit.action,
+      outcome: audit.outcome,
+      riskLevel: audit.outcome === 'failure' ? 'medium' : 'low',
+      details: {
+        note: audit.details,
+        ...audit.metadata
+      }
+    });
+  }
+
   private analyzeEvent(event: ComplianceEvent) {
     // Track failed login attempts
     if (event.eventType === 'login' && event.outcome === 'failure' && event.ipAddress) {

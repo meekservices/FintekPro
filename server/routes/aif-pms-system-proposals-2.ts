@@ -383,4 +383,68 @@ app.patch("/api/proposals/:proposalId", authenticateUser, async (req, res) => {
 });
 
 // Client approval actions
+  app.post('/api/proposals/:id/approve', authenticateUser, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { clientResponse } = req.body;
+      const userId = (req as any).user.id;
+
+      const proposal = await storage.getInvestmentProposal(id);
+      if (!proposal) {
+        return res.status(404).json({ error: "Proposal not found" });
+      }
+
+      // Security check: Only the assigned client can approve
+      if (proposal.clientId !== userId) {
+        return res.status(403).json({ error: "You are not authorized to approve this proposal" });
+      }
+
+      if (proposal.status !== 'waiting_client_approval' && proposal.status !== 'pending') {
+        return res.status(400).json({ error: `Cannot approve proposal with status ${proposal.status}` });
+      }
+
+      const updated = await storage.approveProposal(id, clientResponse);
+      res.json({
+        success: true,
+        proposal: updated,
+        message: "Proposal approved successfully"
+      });
+    } catch (error: any) {
+      console.error("Error approving proposal:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Client rejection endpoint
+  app.post('/api/proposals/:id/reject', authenticateUser, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { clientResponse } = req.body;
+      const userId = (req as any).user.id;
+
+      if (!clientResponse) {
+        return res.status(400).json({ error: "Rejection reason is required" });
+      }
+
+      const proposal = await storage.getInvestmentProposal(id);
+      if (!proposal) {
+        return res.status(404).json({ error: "Proposal not found" });
+      }
+
+      // Security check: Only the assigned client can reject
+      if (proposal.clientId !== userId) {
+        return res.status(403).json({ error: "You are not authorized to reject this proposal" });
+      }
+
+      const updated = await storage.rejectProposal(id, clientResponse);
+      res.json({
+        success: true,
+        proposal: updated,
+        message: "Proposal rejected"
+      });
+    } catch (error: any) {
+      console.error("Error rejecting proposal:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 }

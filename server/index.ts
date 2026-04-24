@@ -60,6 +60,8 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
   console.error('[Global] Unhandled rejection:', reason);
 });
 
+import { db, testConnection } from "./db";
+import http from "http";
 import path from "path";
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
@@ -70,7 +72,7 @@ import { validationResult } from "express-validator";
 import { registerRoutes } from "./routes";
 import { registerRoleRoutes } from "./role-routes";
 import { logger } from "./logger";
-import { serveStatic } from "./static";
+import { serveStatic, registerSPACatchAll } from "./static";
 import { complianceMiddleware } from "./compliance-monitor";
 import { storage } from "./storage";
 import { setupAuth as setupSessionAuth } from "./auth-setup";
@@ -89,9 +91,9 @@ import fs from "fs";
 import { symbolMappingService } from "./services/symbol-mapping-service";
 import { creditRatingsService } from "./services/credit-ratings-service";
 import "./services/sms-service"; // Initialize SMS service
-import { execSync } from 'child_process';
 import { bootState, logBootProgress } from './boot-status';
 import { registerAuthEventConsumers } from "./services/auth-event-consumers";
+import { isProductionEnvironment } from "./utils/enrichment-guard";
 
 // Ensure static build is available for production deployments
 // Vite builds to dist/public, but serveStatic expects server/public
@@ -133,20 +135,39 @@ function ensureStaticBuild(): void {
 ensureStaticBuild();
 
 const app = express();
+const PORT = Number(process.env.PORT) || 5000;
+const server = http.createServer(app);
 
 logBootProgress("Server process started");
 
+// Serve static assets IMMEDIATELY so the frontend can load while we boot
+if (process.env.NODE_ENV === 'production') {
+  serveStatic(app);
+}
+
 // ============================================================================
-// PRIORITY HEALTH CHECKS - MUST BE FIRST (Railway/K8s Support)
-// Returns 200 OK immediately even while server is still booting.
+// PRIORITY HEALTH CHECKS - MUST BE FIRST (Railway/GCP/K8s Support)
+// These ensure the container survives initial deployment probes.
 // ============================================================================
-app.get('/api/health', (_req, res) => res.status(200).json({ status: bootState.routesReady ? 'ready' : 'booting', milestone: bootState.milestone, error: bootState.error, uptime: process.uptime() }));
-app.get('/health', (_req, res) => res.status(200).json({ status: bootState.routesReady ? 'ok' : 'booting', milestone: bootState.milestone, error: bootState.error, uptime: process.uptime() }));
-app.get('/healthz', (_req, res) => res.status(200).send('OK'));
-app.get('/ready', (_req, res) => res.status(200).json({ status: 'ok' }));
-app.get('/live', (_req, res) => res.status(200).json({ status: 'ok' }));
-app.get('/', (_req, res, next) => {
+app.get('/api/health', (_req, res) => {
+  res.status(200).json({ 
+    status: bootState.routesReady ? 'ready' : 'booting', 
+    milestone: bootState.milestone, 
+    error: bootState.error, 
+    uptime: process.uptime(),
+    bootTimeMs: bootState.getBootTime()
+  });
+});
+
+app.get(['/health', '/healthz', '/ready', '/live'], (_req, res) => {
+  // Always return 200 during boot to prevent infrastructure from killing the process
+  res.status(200).send(bootState.routesReady ? 'OK' : 'BOOTING');
+});
+
+// Primary Root Handler - serves the "Initializing" screen or delegates to the frontend
+app.get('/', (req, res, next) => {
   if (bootState.routesReady) return next();
+  
   res.status(200).set({ 'Content-Type': 'text/html' }).send(`
     <!DOCTYPE html>
     <html lang="en">
@@ -186,20 +207,26 @@ app.get('/', (_req, res, next) => {
             <div class="logo">FintekPro</div>
             <div class="loader"></div>
             <div class="message">Optimizing your market connection...</div>
+            <div style="margin-top: 20px; font-size: 12px; color: #4b5563;">Status: ${bootState.milestone}</div>
         </div>
         <script>
-            // Auto-refresh every 5 seconds until ready
-            setTimeout(() => { window.location.reload(); }, 5000);
+            // Auto-refresh every 3 seconds until ready
+            setTimeout(() => { window.location.reload(); }, 3000);
         </script>
     </body>
     </html>
   `);
 });
 
+
 // Environment validation for production readiness
-const requiredEnvVars = process.env.NODE_ENV === 'production' 
-  ? ['PRODUCTION_DATABASE_URL', 'SESSION_SECRET'] 
-  : ['DATABASE_URL', 'SESSION_SECRET'];
+const requiredEnvVars = ['SESSION_SECRET'];
+const dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
+if (!dbUrl) {
+  console.error(`❌ FATAL: Neither PRODUCTION_DATABASE_URL nor DATABASE_URL is set`);
+  process.exit(1);
+}
+
 const optionalButRecommended = ['OPENAI_API_KEY', 'TWILIO_ACCOUNT_SID', 'CASHFREE_APP_ID'];
 
 for (const envVar of requiredEnvVars) {
@@ -613,62 +640,30 @@ app.use((req, res, next) => {
 });
 
 // ============================================================================
-// IMMEDIATE HEALTH CHECK HANDLERS - registered synchronously BEFORE async init
-// These ensure the server responds to health checks as soon as server.listen() fires,
-// even while route registration is still in progress inside the async IIFE.
+// ============================================================================
+// BOOT-TIME MIDDLEWARES
 // ============================================================================
 
-// Root / handler for deployment health checks
-app.get('/', (req: Request, res: Response, next: NextFunction) => {
-  if (bootState.routesReady) {
-    return next();
-  }
-  res.status(200).set({ 'Content-Type': 'text/html' }).send(
-    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>FintekPro</title>' +
-    '<meta http-equiv="refresh" content="5"></head><body>' +
-    '<p>Loading FintekPro...</p></body></html>'
-  );
-});
-
-
-// /health - simple health check
-app.get('/health', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', uptime: process.uptime() });
-});
-
-// /healthz - supervisor/orchestrator health check (Railway, Kubernetes, self-healing supervisor)
-app.get('/healthz', (_req: Request, res: Response) => {
-  res.status(200).send('OK');
-});
-
-// ============================================================================
-// IMMEDIATE SERVER START - Create and listen SYNCHRONOUSLY before any async work
-// This ensures health checks respond within Replit's 5-second deployment timeout
-// ============================================================================
-import { createServer } from 'http';
-
-const server = createServer(app);
-const PORT = parseInt(process.env.PORT || '5000', 10);
-
-// Boot-in-progress middleware - returns 503 for API routes not yet loaded
+// Boot-in-progress API gate - returns 503 for non-health API routes while booting
 app.use('/api', (req: Request, res: Response, next: NextFunction) => {
   if (bootState.routesReady) return next();
   
-  // IMMUTABLE: Health checks MUST return 200 during boot to prevent Railway/K8s from killing the process
-  // Note: Inside an app.use('/api') middleware, req.path is relative (e.g. '/health' instead of '/api/health')
-  const healthPaths = ['/api/health', '/api/ready', '/health', '/ready', '/healthz'];
-  if (healthPaths.includes(req.path) || healthPaths.includes(`/api${req.path}`)) return next();
+  // Allow health checks to pass through
+  const healthPaths = ['/health', '/ready', '/live'];
+  if (healthPaths.includes(req.path)) return next();
   
-  if (req.path.startsWith('/api/auth') || req.path.startsWith('/api/login') || req.path.startsWith('/api/user')) return next();
-  if (req.path === '/api/csrf-token') return next();
+  // Allow essential auth routes to try and load (may fail gracefully)
+  if (req.path.startsWith('/auth') || req.path.startsWith('/login') || req.path === '/csrf-token') return next();
   
   res.status(503).json({
     status: 'booting',
-    message: 'Server is starting up, please wait a moment and refresh...',
-    bootTime: bootState.getBootTime(),
+    message: 'Server is starting up, please wait a moment...',
+    milestone: bootState.milestone,
+    bootTimeMs: bootState.getBootTime(),
     retryAfter: 5
   });
 });
+
 
 setupGracefulShutdown(server);
 
@@ -711,9 +706,16 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     } catch (_) { /* best-effort — never crash the main server */ }
   }, 45_000);
 
-  logBootProgress("Step 1: Setting up Health Checks...");
+  logBootProgress("Step 1: Setting up Health Checks & Verifying Database...");
+  // Verify database connectivity before proceeding with heavy service initialization
+  const isDbUp = await testConnection();
+  if (!isDbUp) {
+    console.error('❌ [CRITICAL] Database handshake failed. Boot sequence will likely hang or fail at Step 7.');
+    console.error('👉 Check PRODUCTION_DATABASE_URL and Cloud SQL socket connectivity.');
+  } else {
+    console.log('✅ Database connectivity verified.');
+  }
 
-  // Extended health check endpoints
   const { readinessCheck, livenessCheck } = await import('./health-check');
   app.get('/ready', (req, res) => {
     if (bootState.isFullyReady()) {
@@ -910,6 +912,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   // Regulatory Audit Norms — centralised SEBI/AMFI/PMLA/RBI norm definitions + health checks
   logBootProgress("Step 6i: importing regulatory-audit-norms routes...");
   const { default: regulatoryAuditNormsRoutes } = await import('./routes/regulatory-audit-norms-routes');
+  logBootProgress("Step 6j: registering regulatory routes...");
   app.use('/api/admin/regulatory-audit', regulatoryAuditNormsRoutes);
   console.log('✅ Regulatory Audit Norms routes registered (/api/admin/regulatory-audit/*)');
 
@@ -945,7 +948,6 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   app.use('/api/admin', commissionConfigRoutes.default);
   app.use('/api/regulatory', regulatoryFrameworkRoutes.default);
   app.use('/api/isin', isinIntelligenceRoutes.default);
-  app.use('/api/picks', pickOfTheDayRoutes.default);
   app.use('/api/ai', aiAlphaEngineRoutes.default);
   const { pickOfTheDayService } = pickOfTheDayMod;
   const { isProductionEnvironment } = enrichmentGuardMod;
@@ -1944,6 +1946,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
       CREATE TABLE IF NOT EXISTS audit_trail (
         id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id     VARCHAR,
+        actor_type  VARCHAR,
         action      VARCHAR NOT NULL,
         category    VARCHAR NOT NULL,
         details     TEXT,
@@ -1953,6 +1956,9 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         risk_level  VARCHAR,
         created_at  TIMESTAMPTZ DEFAULT NOW()
       )
+    `);
+    await auditDb.execute(auditSql`
+      ALTER TABLE audit_trail ADD COLUMN IF NOT EXISTS actor_type VARCHAR;
     `);
     console.log('✅ [Migration] audit_trail table verified/created');
   } catch (e: any) {
@@ -2115,7 +2121,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     const { setupVite } = await import("./vite");
     await setupVite(app, server);
   } else {
-    serveStatic(app);
+    registerSPACatchAll(app);
   }
 
   // Centralized error handling middleware (must be after all routes and Vite)
@@ -2125,8 +2131,8 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
 
   // ROUTES ARE NOW FULLY REGISTERED - mark as ready
   // ============================================================================
-  bootState.routesReady = true;
-  logBootProgress(`Step 15: All routes registered (complete). Total boot time: ${bootState.getBootTime()}ms`);
+  logBootProgress(`Step 11: All routes registered. Finalizing initialization...`);
+
 
   // T05: Emit structured DEPLOY audit event — appears in compliance_audit_trail
   // for every Railway deployment or manual restart. Useful for audit trail continuity.
@@ -2140,7 +2146,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         riskLevel: 'low',
         details: {
           event: 'server_boot_complete',
-          bootTimeMs: bootMs,
+          bootTimeMs: bootState.getBootTime(),
           nodeVersion: process.version,
           nodeEnv: process.env.NODE_ENV,
           appUrl: process.env.APP_URL || process.env.RAILWAY_PUBLIC_DOMAIN || 'unknown',
@@ -2192,421 +2198,84 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     }
   })();
 
-  // Initialize background services now that server is fully ready
+  // ============================================================================
+  // PHASE 3: FINALIZATION & READINESS
+  // ============================================================================
   
-  // Initialize Capital Gains Tax Reminder Scheduler (production only - sends notifications)
-  if (isProductionEnvironment()) {
-    logBootProgress("Step 11: Starting Capital Gains Reminder Scheduler...");
-    try {
-      import('./services/reminder-scheduler').then(({ reminderScheduler }) => {
-        reminderScheduler.start();
-        logger.service('Capital Gains Tax Reminder Scheduler', 'Service initialized successfully');
-      }).catch(error => {
-        logger.serviceError('Capital Gains Tax Reminder Scheduler', 'Failed to initialize service', error instanceof Error ? error : undefined);
-      });
-    } catch (error) {
-      logger.serviceError('Capital Gains Tax Reminder Scheduler', 'Error importing service module', error instanceof Error ? error : undefined);
-    }
-  } else {
-    console.log('⏭️ [CapitalGainsReminder] Scheduler skipped (development mode - production only)');
-  }
+  // CRITICAL: Signal that the app is ready for traffic
+  bootState.routesReady = true;
+  logBootProgress("Step 12: Boot sequence complete. Server is fully operational.");
 
-  // GAP 4 FIX: KYC Expiry Monitor — daily check, runs in all environments
-  logBootProgress("Step 12: Starting KYC Expiry Monitor...");
-  try {
-    import('./services/kyc-expiry-monitor').then(({ kycExpiryMonitor }) => {
-      kycExpiryMonitor.start();
-      logger.service('KYC Expiry Monitor', 'Service initialized — daily ARN/EUIN expiry checks active');
-    }).catch(error => {
-      console.error('❌ Failed to initialize KYC Expiry Monitor:', error);
-    });
-  } catch (error) {
-    console.error('❌ Error importing KYC Expiry Monitor:', error);
-  }
+  // ============================================================================
+  // PHASE 4: BACKGROUND SERVICES (NON-BLOCKING)
+  // These start after routesReady=true so they don't delay the primary boot.
+  // ============================================================================
   
-  // Initialize Bond Catalog Service (production only - writes to DB)
-  if (isProductionEnvironment()) {
-    logBootProgress("Step 13: Scheduling Bond Catalog Service (30s delay)...");
-    setTimeout(() => {
-      try {
-        logBootProgress("Step 13b: Starting Bond Catalog Service...");
-        import('./bond-catalog-service').then(({ bondCatalogService }) => {
-          bondCatalogService.startAutoRefresh();
-          logger.service('Bond Catalog Service', 'Service initialized successfully');
-        }).catch(error => {
-          console.error('❌ Failed to initialize bond catalog service:', error);
-        });
-      } catch (error) {
-        console.error('❌ Error importing bond catalog service:', error);
-      }
-    }, 30000);
-  } else {
-    console.log('⏭️ [BondCatalog] Auto-refresh skipped (development mode - production only)');
-  }
-  
-  // Initialize Alert Monitoring Service (production only - writes to DB)
-  if (isProductionEnvironment()) {
-    logBootProgress("Step 14: Starting Alert Monitoring Service...");
-    try {
-      import('./services/alert-monitoring-service').then(({ alertMonitoringService }) => {
-        alertMonitoringService.start();
-        logger.service('Alert Monitoring Service', 'Service initialized successfully');
-      }).catch(error => {
-        console.error('❌ Failed to initialize alert monitoring service:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error importing alert monitoring service:', error);
-    }
-  } else {
-    console.log('⏭️ [AlertMonitoring] Skipped (development mode - production only)');
-  }
-  
-  // Initialize Currency Exchange Service (production only - writes to DB)
-  if (isProductionEnvironment()) {
-    logBootProgress("Step 15: Scheduling Currency Exchange Service (45s delay)...");
-    setTimeout(() => {
-      try {
-        logBootProgress("Step 15b: Starting Currency Exchange Service...");
-        import('./services/currency-exchange-service').then(async ({ currencyExchangeService }) => {
-          await currencyExchangeService.initializeRates();
-          currencyExchangeService.startAutoRefresh();
-          logger.service('Currency Exchange Service', 'Service initialized successfully');
-        }).catch(error => {
-          console.error('❌ Failed to initialize currency exchange service:', error);
-        });
-      } catch (error) {
-        console.error('❌ Error importing currency exchange service:', error);
-      }
-    }, 45000);
-  } else {
-    console.log('⏭️ [CurrencyExchange] Auto-refresh skipped (development mode - production only)');
-  }
-  
-  // Initialize Session Cleanup Cron Job (production only - writes to DB)
-  if (isProductionEnvironment()) {
-    try {
-      import('./session-cleanup-cron').then(({ initSessionCleanupCron }) => {
-        initSessionCleanupCron();
-      }).catch(error => {
-        console.error('❌ Failed to initialize session cleanup cron:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error importing session cleanup cron:', error);
-    }
-  } else {
-    console.log('⏭️ [SessionCleanup] Skipped (development mode - production only)');
-  }
-  
-  // Initialize CKYC Provider Configuration (production only - writes to DB)
-  // 5s delay lets Neon pool fully warm before first DB write
-  if (isProductionEnvironment()) {
-    setTimeout(() => {
-      try {
-        import('./services/ckyc-provider-resolution-service').then(({ ckycProviderResolutionService }) => {
-          ckycProviderResolutionService.seedDefaultProviders().then(() => {
-            console.log('✅ CKYC Provider Configuration Service initialized');
-          }).catch(error => {
-            console.warn('⚠️ CKYC Provider seeding skipped (will retry on first request):', error instanceof Error ? error.message : 'Unknown error');
-          });
-        }).catch(error => {
-          console.warn('⚠️ CKYC Provider Service not loaded (app continues without it):', error instanceof Error ? error.message : 'Unknown error');
-        });
-      } catch (error) {
-        console.warn('⚠️ Error importing CKYC provider service (non-blocking):', error instanceof Error ? error.message : 'Unknown error');
-      }
-    }, 5000);
-  } else {
-    console.log('⏭️ [CKYCProvider] Seeding skipped (development mode - production only)');
-  }
-  
-  // Initialize AMFI Subscription Sync Service (production only - syncs per-fund subscription status from mfapi.in)
-  // 5s delay lets Neon pool fully warm before DB writes
-  if (isProductionEnvironment()) {
-    setTimeout(() => {
-      try {
-        import('./services/amfi-subscription-sync-service').then(({ amfiSubscriptionSyncService }) => {
-          amfiSubscriptionSyncService.sync().catch(err =>
-            console.error('❌ [SubscriptionSync] Boot-time sync failed:', err)
-          );
-        }).catch(error => {
-          console.error('❌ Failed to import amfi-subscription-sync-service:', error);
-        });
-      } catch (error) {
-        console.error('❌ Error initializing subscription sync:', error);
-      }
-    }, 5000);
-  } else {
-    console.log('⏭️ [SubscriptionSync] Boot-time sync skipped (development mode - production only)');
-  }
-
-  // Initialize Retention Cleanup Service (production only - deletes old data per PMLA/RBI compliance)
-  if (isProductionEnvironment()) {
-    try {
-      import('./services/retention-cleanup-service').then(({ retentionCleanupService }) => {
-        retentionCleanupService.scheduleCleanup();
-        logger.service('Retention Cleanup Service', 'Scheduled daily cleanup at 2:00 AM IST');
-      }).catch(error => {
-        console.error('❌ Failed to initialize retention cleanup service:', error);
-      });
-    } catch (error) {
-      console.error('❌ Error importing retention cleanup service:', error);
-    }
-  } else {
-    console.log('⏭️ [RetentionCleanup] Scheduler skipped (development mode - production only)');
-  }
-  
-  // Initialize Background Job Queue
-  try {
-    import('./services/background-job-queue').then(({ jobQueue }) => {
-      import('./services/government-scheme-data-fetcher').then(({ governmentSchemeDataFetcher }) => {
-        jobQueue.registerHandler('epf_passbook_download', async (payload) => {
-          return governmentSchemeDataFetcher.fetchSchemeData({
-            userId: payload.userId,
-            schemeType: 'epf',
-            panNumber: String(payload.panNumber || ''),
-            name: String(payload.name || ''),
-            dateOfBirth: String(payload.dateOfBirth || ''),
-            consentId: payload.consentId
-          });
-        });
-        
-        jobQueue.registerHandler('nps_statement_fetch', async (payload) => {
-          return governmentSchemeDataFetcher.fetchSchemeData({
-            userId: payload.userId,
-            schemeType: 'nps',
-            panNumber: String(payload.panNumber || ''),
-            name: String(payload.name || ''),
-            dateOfBirth: String(payload.dateOfBirth || ''),
-            consentId: payload.consentId
-          });
-        });
-        
-        logger.service('Background Job Queue', 'Initialized with government scheme handlers');
-      });
-    }).catch(error => {
-      console.error('❌ Failed to initialize background job queue:', error);
-    });
-  } catch (error) {
-    console.error('❌ Error importing background job queue:', error);
-  }
-  
-  // Initialize Unlisted Marketplace Cron Jobs
-  try {
-    initializeCronJobs();
-    bootState.cronJobsReady = true;
-    logger.service('Unlisted Marketplace Cron', 'Cron jobs initialized successfully');
-  } catch (error) {
-    logger.serviceError('Unlisted Marketplace Cron', 'Failed to initialize cron jobs', error instanceof Error ? error : undefined);
-  }
-
-  // ── Alpaca SSE Event Stream Auto-Start ────────────────────────────────────
-  // Start real-time event streams when Alpaca credentials are present.
-  // Covers: trade fills, account status, transfer updates, journal updates.
-  // Safe to run in both sandbox and production — isPaper flag controls demo behavior.
-  setTimeout(() => {
-    try {
-      import('./services/alpaca-sse-service').then(({ alpacaSseService }) => {
-        import('./services/alpaca-broker-service').then(({ alpacaBrokerService }) => {
-          if (alpacaBrokerService.isConfigured()) {
-            alpacaSseService.start([
-              'trade_updates',
-              'account_updates',
-              'transfer_updates',
-              'journal_updates',
-            ]);
-            const mode = alpacaBrokerService.isPaperTrading() ? 'sandbox' : 'production';
-            logger.service('AlpacaSSE', `Event streams started (${mode} mode)`);
-          } else {
-            logger.info('[AlpacaSSE] Skipped — ALPACA_API_KEY / ALPACA_SECRET_KEY not configured');
-          }
-        });
-      });
-    } catch (err: any) {
-      console.error('❌ [AlpacaSSE] Failed to start event streams:', err.message);
-    }
-  }, 15000); // 15s delay: wait for DB pool + auth to warm up
-
-
-  const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
-  if (isProduction) {
-    setTimeout(() => {
-      try {
-        import('./services/financial-data-scheduler').then(({ financialDataScheduler }) => {
-          financialDataScheduler.start();
-          logger.service('Financial Data Scheduler', 'Started periodic data refresh');
-        }).catch(error => {
-          console.error('❌ Failed to start financial data scheduler:', error);
-        });
-      } catch (error) {
-        console.error('❌ Error initializing financial data scheduler:', error);
-      }
-    }, 180000);
-    
-    // Initialize MF Returns Scheduler (calculates live CAGR returns from historical NAV)
-    setTimeout(() => {
-      try {
-        import('./services/mf-returns-scheduler').then(({ mfReturnsScheduler }) => {
-          mfReturnsScheduler.initialize();
-          console.log('📊 [MFReturnsScheduler] Returns sync scheduler initialized');
-        }).catch(error => {
-          console.error('❌ Failed to start MF returns scheduler:', error);
-        });
-      } catch (error) {
-        console.error('❌ Error initializing MF returns scheduler:', error);
-      }
-    }, 240000);
-  } else {
-    console.log('⏭️ [Financial Data Scheduler] Skipped (development mode - production only)');
-    console.log('⏭️ [MFReturnsScheduler] Skipped (development mode - production only)');
-  }
-  
-  // Seed default store categories if not present (production only - writes to DB)
-  // 5s delay lets Neon pool fully warm before DB writes
-  if (isProductionEnvironment()) {
-    setTimeout(() => {
-      storage.seedDefaultStoreCategories().catch(error => {
-        console.error('❌ Failed to seed store categories:', error);
-      });
-    }, 5000);
-  } else {
-    console.log('⏭️ [StoreCategories] Seeding skipped (development mode - production only)');
-  }
-
-  // Seed central test account (production only - no mock data on shared production DB from development)
-  if (isProductionEnvironment()) {
-    import('./seed-test-user').then(({ seedTestUser }) => {
-      seedTestUser().catch(error => {
-        console.error('⚠️ Failed to seed test user:', error instanceof Error ? error.message : error);
-      });
-    }).catch(() => {});
-  } else {
-    console.log('⏭️ [TestUser] Seeding skipped (development mode - no mock data on production DB)');
-  }
-
-  // Comprehensive data bootstrap: seed all reference data (production only - heavy DB writes)
-  if (isProductionEnvironment()) {
   setTimeout(async () => {
     try {
-      const { runProductionBootstrap } = await import('./production-bootstrap');
-      await runProductionBootstrap();
+      logBootProgress("Background: Starting schedulers and monitors...");
+      
+      if (isProductionEnvironment()) {
+        // 1. Core compliance and monitoring
+        const { kycExpiryMonitor } = await import('./services/kyc-expiry-monitor');
+        kycExpiryMonitor.start();
 
-      const { db } = await import('./db');
-      const { sql } = await import('drizzle-orm');
-
-      const indicesCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM market_indices`);
-      const indicesCount = parseInt(String((indicesCheck.rows[0] as any)?.cnt || '0'));
-
-      if (indicesCount <= 7) {
-        console.log('🔄 [Bootstrap] Seeding benchmark index data...');
-
-        try {
-          const { bseBenchmarkService } = await import('./services/bse-benchmark-service');
-          const bseResult = await bseBenchmarkService.seedBseIndices();
-          console.log(`✅ [Bootstrap] BSE indices seeded: ${bseResult.seeded} new, ${bseResult.existing} existing`);
-        } catch (err: any) {
-          console.error('⚠️ [Bootstrap] BSE index seeding failed:', err.message);
-        }
-
-        console.log('✅ [Bootstrap] Benchmark data seeding completed');
-      } else {
-        console.log(`✅ [Bootstrap] ${indicesCount} market indices already exist`);
-      }
-
-      // Category-based benchmark mapping - maps equity MFs to market indices using category rules
-      // This runs independently of AMFI raw benchmark text (which may not be available)
-      try {
-        const benchmarkMapCheck = await db.execute(sql`SELECT COUNT(*) as cnt FROM mf_benchmark_map`);
-        const benchmarkMapCount = parseInt(String((benchmarkMapCheck.rows[0] as any)?.cnt || '0'));
+        const { reminderScheduler } = await import('./services/reminder-scheduler');
+        reminderScheduler.start();
         
-        const fundsWithIsin = await db.execute(sql`
-          SELECT COUNT(*) as cnt FROM mutual_funds WHERE isin IS NOT NULL AND isin != ''
-        `);
-        const totalFundsWithIsin = parseInt(String((fundsWithIsin.rows[0] as any)?.cnt || '0'));
-        const mappingGap = totalFundsWithIsin > 0 ? ((totalFundsWithIsin - benchmarkMapCount) / totalFundsWithIsin) * 100 : 0;
+        const { alertMonitoringService } = await import('./services/alert-monitoring-service');
+        alertMonitoringService.start();
+
+        // 2. Real-time data streams
+        const { alpacaSseService } = await import('./services/alpaca-sse-service');
+        alpacaSseService.start();
+
+        // 3. Heavy Data Processing (staggered)
         
-        if (benchmarkMapCount === 0 || mappingGap > 50) {
-          console.log(`🔄 [Bootstrap] Benchmark mapping gap: ${benchmarkMapCount}/${totalFundsWithIsin} mapped (${mappingGap.toFixed(1)}% unmapped) - running category-based auto-mapping...`);
-          const { mfBenchmarkMappingService } = await import('./services/mf-benchmark-mapping-service');
-          const mapResult = await mfBenchmarkMappingService.autoMapUnmappedFunds(totalFundsWithIsin);
-          console.log(`✅ [Bootstrap] Category benchmark mapping: ${mapResult.mapped} mapped, ${mapResult.skipped} skipped`);
-          
-          // Also try AMFI raw benchmark text if available
-          const { amfiBenchmarkIngestionService } = await import('./services/amfi-benchmark-ingestion-service');
-          const amfiResult = await amfiBenchmarkIngestionService.syncAmfiSchemeBenchmarks();
-          if (amfiResult.normalized > 0) {
-            const amfiMapResult = await amfiBenchmarkIngestionService.autoMapFromAmfi();
-            console.log(`✅ [Bootstrap] AMFI benchmark overlay: ${amfiMapResult.mapped} new, ${amfiMapResult.updated} updated (overrides category mappings with higher confidence)`);
-          } else {
-            console.log(`ℹ️ [Bootstrap] AMFI raw benchmark text not available yet - category mapping is active`);
-          }
-        } else {
-          console.log(`✅ [Bootstrap] Benchmark mapping: ${benchmarkMapCount}/${totalFundsWithIsin} funds mapped`);
-        }
-      } catch (err: any) {
-        console.error('⚠️ [Bootstrap] Benchmark mapping failed:', err.message);
+        // Mutual Fund Returns (30s delay)
+        setTimeout(async () => {
+           try {
+             const { mfReturnsScheduler } = await import('./services/mf-returns-scheduler');
+             await mfReturnsScheduler.initialize();
+           } catch (e) {
+             console.error("❌ [Scheduler] MF returns initialization failed:", e);
+           }
+        }, 30000);
+
+        // Bond Catalog (60s delay)
+        setTimeout(async () => {
+           try {
+             const { bondCatalogService } = await import('./bond-catalog-service');
+             bondCatalogService.startAutoRefresh();
+           } catch (e) {
+             console.error("❌ [Catalog] Bond service start failed:", e);
+           }
+        }, 60000);
+
+        // Production Bootstrap (90s delay - very heavy)
+        setTimeout(async () => {
+           try {
+             logBootProgress("Background: Starting heavy data bootstrap...");
+             const { runProductionBootstrap } = await import('./production-bootstrap');
+             await runProductionBootstrap();
+             logBootProgress("Background: Data bootstrap complete.");
+           } catch (e) {
+             console.error("❌ [Bootstrap] Production data seeding failed:", e);
+           }
+        }, 90000);
       }
 
-      try {
-        const { schemeGovernanceService } = await import('./services/scheme-governance-service');
-        const { LEGACY_PURCHASE_RESTRICTED_FUNDS } = await import('./services/agent-prospect-wizard-service');
-        const ruleCount = await db.execute(sql`SELECT COUNT(*) as cnt FROM scheme_transaction_rules`);
-        const existingRules = parseInt(String((ruleCount.rows[0] as any)?.cnt || '0'));
-        if (existingRules === 0 && LEGACY_PURCHASE_RESTRICTED_FUNDS.length > 0) {
-          console.log('🔄 [Bootstrap] Seeding scheme transaction rules from restriction registry...');
-          const seedResult = await schemeGovernanceService.seedTransactionRulesFromRegistry(LEGACY_PURCHASE_RESTRICTED_FUNDS);
-          console.log(`✅ [Bootstrap] Scheme transaction rules seeded: ${seedResult.seeded} rules, ${seedResult.errors} errors`);
-        } else {
-          console.log(`✅ [Bootstrap] ${existingRules} scheme transaction rules already exist`);
-        }
-      } catch (err: any) {
-        console.error('⚠️ [Bootstrap] Scheme transaction rules seeding failed:', err.message);
-      }
-
-      const isBootstrapProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
-      if (isBootstrapProduction) {
-        const mfCheck = await db.execute(sql`
-          SELECT COUNT(*) as total, 
-                 SUM(CASE WHEN returns_1y IS NULL THEN 1 ELSE 0 END) as missing
-          FROM mutual_funds
-        `);
-        const mfTotal = parseInt(String((mfCheck.rows[0] as any)?.total || '0'));
-        const mfMissing = parseInt(String((mfCheck.rows[0] as any)?.missing || '0'));
-        const gapPercent = mfTotal > 0 ? (mfMissing / mfTotal) * 100 : 0;
-
-        if (gapPercent > 80 && mfTotal > 100) {
-          console.log(`🔄 [Bootstrap] MF returns gap: ${gapPercent.toFixed(1)}% missing - starting initial enrichment for top 500 funds...`);
-          try {
-            const { mfReturnsSyncService } = await import('./services/mf-returns-sync-service');
-            const result = await mfReturnsSyncService.runBatchSync(500);
-            console.log(`✅ [Bootstrap] MF returns initial enrichment: synced ${typeof result === 'object' ? JSON.stringify(result) : result}`);
-          } catch (err: any) {
-            console.error('⚠️ [Bootstrap] MF returns initial enrichment failed:', err.message);
-          }
-        }
-      } else {
-        console.log('⏭️ [Bootstrap] MF returns enrichment skipped (development mode - production only)');
-      }
-    } catch (error: any) {
-      console.error('❌ [Bootstrap] Data seeding failed:', error.message);
+    } catch (err) {
+      console.error("❌ [Boot] Error starting background services:", err);
     }
-  }, 60000);
-  } else {
-    console.log('⏭️ [ProductionBootstrap] All data seeding skipped (development mode - production only)');
-  }
-    logBootProgress("Step 16: Diagnostic boot sequence complete.");
-    bootState.routesReady = true;
+  }, 5000);
+
   } catch (error: any) {
-    console.error('❌ [FATAL] Server initialization failed during boot sequence:', error);
-    bootState.error = `Boot Sequence Error: ${error?.message || String(error)}`;
-    // Force routesReady to true so the Loading screen disappears and users can at least see 
-    // the app (even if some things are broken) OR provide a better error page.
-    console.warn('⚠️  Forcing routesReady=true despite boot error to unblock UI.');
-    bootState.routesReady = true;
+    console.error('❌ [FATAL] Server initialization failed:', error);
+    bootState.error = `Boot Error: ${error?.message || String(error)}`;
+    // Ensure the loading screen clears even on error so diagnostics can be viewed
+    bootState.routesReady = true; 
   }
-})().catch((error: any) => {
-  console.error('❌ [FATAL] Server initialization failed:', error?.message || error);
-  if (!bootState.serverListening) {
-    console.error('❌ Server never started listening, exiting...');
-    process.exit(1);
-  }
-});
+})();
+
+

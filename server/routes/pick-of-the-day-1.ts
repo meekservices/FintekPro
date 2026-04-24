@@ -328,7 +328,7 @@ router.get("/today", async (req, res) => {
     });
   } catch (error) {
     console.error("[API] Error fetching today's picks:", error);
-    res.status(500).json({ success: false, error: "Failed to fetch picks" });
+    res.status(500).json({ success: false, error: error.message, stack: error.stack });
   }
 });
 

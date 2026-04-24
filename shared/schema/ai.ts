@@ -62,6 +62,7 @@ export const dailyPicks = pgTable("daily_picks", {
   index("idx_daily_picks_status").on(table.status),
   index("idx_daily_picks_reco_date").on(table.recoDate),
   index("idx_daily_picks_isin").on(table.isin),
+  uniqueIndex("idx_daily_picks_unique_reco").on(table.category, table.recoDate, table.instrumentId, table.symbol),
 ]);
 
 export const insertDailyPickSchema = createInsertSchema(dailyPicks).omit({

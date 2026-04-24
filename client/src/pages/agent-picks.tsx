@@ -779,14 +779,14 @@ export default function AgentPicksPage() {
               </p>
               <div className="flex flex-wrap items-end gap-6">
                 <div>
-                  <div className="text-4xl font-black text-primary leading-none">{stats.hitRate ?? 0}%</div>
+                  <div className="text-4xl font-black text-primary leading-none">{Number(stats.hitRate ?? 0).toFixed(1)}%</div>
                   <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                     <Trophy className="h-3 w-3 text-amber-500" /> Hit Rate
                   </div>
                 </div>
                 <div>
-                  <div className={`text-4xl font-black leading-none ${(stats.avgReturn ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {(stats.avgReturn ?? 0) >= 0 ? '+' : ''}{(stats.avgReturn ?? 0).toFixed(1)}%
+                  <div className={`text-4xl font-black leading-none ${Number(stats.avgReturn ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {Number(stats.avgReturn ?? 0) >= 0 ? '+' : ''}{Number(stats.avgReturn ?? 0).toFixed(1)}%
                   </div>
                   <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                     <TrendingUp className="h-3 w-3 text-green-500" /> Avg Return
