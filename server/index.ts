@@ -223,7 +223,7 @@ app.get('/', (req, res, next) => {
 const requiredEnvVars = ['SESSION_SECRET'];
 const dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
 if (!dbUrl) {
-  console.error(`❌ FATAL: Neither PRODUCTION_DATABASE_URL nor DATABASE_URL is set`);
+  console.error(\`❌ FATAL: Neither PRODUCTION_DATABASE_URL nor DATABASE_URL is set\`);
   process.exit(1);
 }
 
@@ -231,7 +231,7 @@ const optionalButRecommended = ['OPENAI_API_KEY', 'TWILIO_ACCOUNT_SID', 'CASHFRE
 
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
-    console.error(`❌ FATAL: Required environment variable ${envVar} is not set`);
+    console.error(\`❌ FATAL: Required environment variable \${envVar} is not set\`);
     process.exit(1);
   }
 }
@@ -239,7 +239,7 @@ for (const envVar of requiredEnvVars) {
 if (process.env.NODE_ENV === 'production') {
   const missingOptional = optionalButRecommended.filter(v => !process.env[v]);
   if (missingOptional.length > 0) {
-    console.warn(`⚠️ Recommended env vars not set: ${missingOptional.join(', ')}`);
+    console.warn(\`⚠️ Recommended env vars not set: \${missingOptional.join(', ')}\`);
   }
 }
 
@@ -338,7 +338,7 @@ app.use(cors({
     
     // Block unknown origins in production with detailed logging
     if (isProduction) {
-      logger.warn(`[CORS] Blocked request from unknown origin: ${origin}`);
+      logger.warn(\`[CORS] Blocked request from unknown origin: \${origin}\`);
       return callback(new Error('Not allowed by CORS'), false);
     }
     
@@ -438,7 +438,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     next();
   } catch (error) {
     // Log the malformed request but don't crash - likely a bot/scanner
-    logger.warn(`[URL] Failed to decode malformed URL: ${req.url}`);
+    logger.warn(\`[URL] Failed to decode malformed URL: \${req.url}\`);
     return res.status(400).json({ error: 'Malformed URL encoding' });
   }
 });
@@ -474,7 +474,7 @@ const createCsrfProtection = () => (req: Request, res: Response, next: NextFunct
     ];
 
     if (process.env.RAILWAY_PUBLIC_DOMAIN) {
-      allowedOrigins.push(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+      allowedOrigins.push(\`https://\${process.env.RAILWAY_PUBLIC_DOMAIN}\`);
     }
     
     if (!isProduction) {
@@ -488,7 +488,7 @@ const createCsrfProtection = () => (req: Request, res: Response, next: NextFunct
       : false;
 
     if (requestOrigin && !isRailwayRequest && !allowedOrigins.some(allowed => requestOrigin.startsWith(allowed.replace(/\/$/, '')))) {
-      logger.warn(`[CSRF] Blocked request from: ${requestOrigin}`);
+      logger.warn(\`[CSRF] Blocked request from: \${requestOrigin}\`);
       return res.status(403).json({ error: 'Invalid request origin' });
     }
   }
@@ -503,7 +503,7 @@ const createCsrfProtection = () => (req: Request, res: Response, next: NextFunct
     }
     
     if (!csrfToken || csrfToken !== sessionToken) {
-      logger.warn(`[CSRF] Token mismatch for user ${(req.session as any).user?.id}`);
+      logger.warn(\`[CSRF] Token mismatch for user \${(req.session as any).user?.id}\`);
       return res.status(403).json({ error: 'Invalid CSRF token', code: 'CSRF_TOKEN_REQUIRED' });
     }
   }
@@ -587,7 +587,7 @@ app.use((req, res, next) => {
   const host = req.hostname;
   const customDomain = process.env.CUSTOM_DOMAIN || 'fintekpro.com';
   if (host === customDomain) {
-    return res.redirect(301, `https://www.${customDomain}${req.originalUrl}`);
+    return res.redirect(301, \`https://www.\${customDomain}\${req.originalUrl}\`);
   }
   next();
 });
@@ -672,8 +672,8 @@ setupGracefulShutdown(server);
 // is still holding the port during a supervisor restart — no fuser/lsof needed.
 server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   bootState.serverListening = true;
-  console.log(`🚀 Server listening on port ${PORT} (boot time: ${bootState.getBootTime()}ms)`);
-  logger.info(`Server listening on port ${PORT}`, { port: PORT, environment: process.env.NODE_ENV || 'development', bootTime: bootState.getBootTime() });
+  console.log(\`🚀 Server listening on port \${PORT} (boot time: \${bootState.getBootTime()}ms)\`);
+  logger.info(\`Server listening on port \${PORT}\`, { port: PORT, environment: process.env.NODE_ENV || 'development', bootTime: bootState.getBootTime() });
 });
 
 (async () => {
@@ -683,12 +683,12 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     // Masked DB URL for debugging
     const dbUrl = process.env.PRODUCTION_DATABASE_URL || "MISSING";
     const maskedUrl = dbUrl.replace(/:([^:@/]+)@/, ':****@').split('?')[0];
-    console.log(`🔗 [Boot] DB Configuration: ${maskedUrl}`);
+    console.log(\`🔗 [Boot] DB Configuration: \${maskedUrl}\`);
   // Python analytics micro-service (Railway private network or public URL via PYTHON_SERVICE_URL).
   // Log the configured URL so it's visible in every boot.
   const pyUrl = process.env.PYTHON_SERVICE_URL;
   if (pyUrl) {
-    console.log(`ℹ️  [Python] Using external service at ${pyUrl}`);
+    console.log(\`ℹ️  [Python] Using external service at \${pyUrl}\`);
   } else {
     console.warn('⚠️  [Python] PYTHON_SERVICE_URL not set — quant/AI analytics will return 503');
   }
@@ -744,7 +744,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   // Auth is now ready
   bootState.authReady = true;
   logBootProgress("Step 3: Auth Ready. Auditing Regulatory Env...");
-  console.log(`✅ Auth ready (${bootState.getBootTime()}ms)`);
+  console.log(\`✅ Auth ready (\${bootState.getBootTime()}ms)\`);
 
   try {
     logBootProgress("Step 3a: Logging Gateway Readiness...");
@@ -778,16 +778,16 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   const missingMedium: string[] = [];
   for (const env of REQUIRED_COMPLIANCE_ENVS) {
     if (!process.env[env.key]) {
-      const msg = `[EnvAudit] ⚠️  Missing ${env.severity.toUpperCase()}: ${env.key} — ${env.purpose}`;
+      const msg = \`[EnvAudit] ⚠️  Missing \${env.severity.toUpperCase()}: \${env.key} — \${env.purpose}\`;
       if (env.severity === 'critical') { console.error(msg); missingCritical.push(env.key); }
       else if (env.severity === 'high') { console.warn(msg); missingHigh.push(env.key); }
       else { console.warn(msg); missingMedium.push(env.key); }
     }
   }
   if (missingCritical.length > 0) {
-    console.error(`[EnvAudit] ❌ ${missingCritical.length} CRITICAL compliance env vars missing. Platform is operating in a degraded, non-compliant state.`);
+    console.error(\`[EnvAudit] ❌ \${missingCritical.length} CRITICAL compliance env vars missing. Platform is operating in a degraded, non-compliant state.\`);
   } else {
-    console.log(`[EnvAudit] ✅ All critical compliance env vars present. ${missingHigh.length} high + ${missingMedium.length} medium warnings.`);
+    console.log(\`[EnvAudit] ✅ All critical compliance env vars present. \${missingHigh.length} high + \${missingMedium.length} medium warnings.\`);
   }
 
     logBootProgress("Step 3c: Registering Auth Consumers...");
@@ -814,7 +814,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     app.use('/api', createCsrfProtection());
   } catch (error: any) {
     console.error('❌ [FATAL] Error in Step 3 block:', error);
-    bootState.error = `Step 3 Error: ${error?.message || String(error)}`;
+    bootState.error = \`Step 3 Error: \${error?.message || String(error)}\`;
     // Do NOT rethrow yet so outer catch can still force ready if needed
     throw error;
   }
@@ -861,7 +861,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   // Register Python Analytics Service proxy (proxies to PYTHON_SERVICE_URL when set)
   const pythonProxyRoutes = await import('./routes/python-proxy');
   app.use(pythonProxyRoutes.default);
-  console.log(`✅ Python Analytics Service proxy registered${process.env.PYTHON_SERVICE_URL ? ` → ${process.env.PYTHON_SERVICE_URL}` : ' (stub — set PYTHON_SERVICE_URL to activate)'}`);
+  console.log(\`✅ Python Analytics Service proxy registered\${process.env.PYTHON_SERVICE_URL ? \` → \${process.env.PYTHON_SERVICE_URL}\` : ' (stub — set PYTHON_SERVICE_URL to activate)'}\`);
   logBootProgress("Step 5: Registering KYC & User Management Routes...");
   
   // ── KYC, marketing, user management: import all in parallel ─────────────────
@@ -966,7 +966,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
       try {
         const result = await aiRegimeDetectionEngine.detectCurrentRegime();
         await aiRegimeDetectionEngine.persistRegime(result);
-        console.log(`[AI Regime] Detected: ${result.regimeLabel} (confidence: ${result.confidence.toFixed(1)}%)`);
+        console.log(\`[AI Regime] Detected: \${result.regimeLabel} (confidence: \${result.confidence.toFixed(1)}%)\`);
       } catch (error) {
         console.error('[AI Regime] Detection failed:', error);
       }
@@ -978,15 +978,15 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
       try {
         await aiModelGovernance.updatePredictionOutcomes();
         const summary = await aiModelGovernance.runGovernanceCheck();
-        console.log(`[AI Governance] Models: ${summary.healthyModels} healthy, ${summary.warningModels} warning, ${summary.criticalModels} critical`);
+        console.log(\`[AI Governance] Models: \${summary.healthyModels} healthy, \${summary.warningModels} warning, \${summary.criticalModels} critical\`);
         if (summary.modelsNeedingRetrain.length > 0) {
-          console.log(`[AI Governance] Auto-retraining: ${summary.modelsNeedingRetrain.join(', ')}`);
+          console.log(\`[AI Governance] Auto-retraining: \${summary.modelsNeedingRetrain.join(', ')}\`);
           for (const assetClass of summary.modelsNeedingRetrain) {
             try {
               await aiModelGovernance.triggerRetrain(assetClass);
-              console.log(`[AI Governance] Retrained model for ${assetClass}`);
+              console.log(\`[AI Governance] Retrained model for \${assetClass}\`);
             } catch (err) {
-              console.error(`[AI Governance] Retrain failed for ${assetClass}:`, err);
+              console.error(\`[AI Governance] Retrain failed for \${assetClass}:\`, err);
             }
           }
         }
@@ -1000,17 +1000,17 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
       try {
         const { db: cronDb } = await import('./db');
         const { sql: cronSql } = await import('drizzle-orm');
-        const result = await cronDb.execute(cronSql`
+        const result = await cronDb.execute(cronSql\`
           SELECT COUNT(*) AS cnt FROM daily_picks
           WHERE status IN ('target_hit','stoploss_hit','expired')
-        `);
+        \`);
         const count = Number((result.rows[0] as any)?.cnt ?? 0);
         if (count >= 20) {
           const { callPython: cp } = await import('./clients/python-client');
           await cp('/api/ml/train', 'POST', { assetClass: 'all', maxSamples: 5000 });
-          console.log(`[ML Cron] Auto-training triggered with ${count} completed picks`);
+          console.log(\`[ML Cron] Auto-training triggered with \${count} completed picks\`);
         } else {
-          console.log(`[ML Cron] Skipped — only ${count} completed picks (need ≥20)`);
+          console.log(\`[ML Cron] Skipped — only \${count} completed picks (need ≥20)\`);
         }
       } catch (e) {
         console.error('[ML Cron] Auto-training failed:', e);
@@ -1038,18 +1038,18 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         const { db: cronDb } = await import('./db');
         const { sql: cronSql } = await import('drizzle-orm');
         // 1. Expire picks past their scheduled expiry date
-        const result = await cronDb.execute(cronSql`
+        const result = await cronDb.execute(cronSql\`
           UPDATE daily_picks
           SET status = 'expired', updated_at = NOW()
           WHERE status = 'live'
             AND expiry_date IS NOT NULL
             AND expiry_date < CURRENT_DATE
-        `);
+        \`);
         const count = (result as any).rowCount ?? 0;
-        console.log(`[PicksExpiry] Expired ${count} picks past their expiry date`);
+        console.log(\`[PicksExpiry] Expired \${count} picks past their expiry date\`);
 
         // 2. Expire mutual fund picks whose NAV data is >45 days stale (discontinued/closed funds)
-        const staleMfResult = await cronDb.execute(cronSql`
+        const staleMfResult = await cronDb.execute(cronSql\`
           UPDATE daily_picks dp
           SET status = 'expired', updated_at = NOW()
           FROM mutual_funds mf
@@ -1057,28 +1057,28 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
             AND dp.category = 'mutual_funds'
             AND dp.instrument_id = mf.scheme_code
             AND mf.last_updated < NOW() - INTERVAL '45 days'
-        `);
+        \`);
         const staleMfCount = (staleMfResult as any).rowCount ?? 0;
         if (staleMfCount > 0) {
-          console.log(`[PicksExpiry] Expired ${staleMfCount} MF picks with stale NAV data (>45 days)`);
+          console.log(\`[PicksExpiry] Expired \${staleMfCount} MF picks with stale NAV data (>45 days)\`);
         }
 
         // 3. Safety net: expire any live picks that are >180 days old regardless of expiry_date
-        const ageResult = await cronDb.execute(cronSql`
+        const ageResult = await cronDb.execute(cronSql\`
           UPDATE daily_picks
           SET status = 'expired', updated_at = NOW()
           WHERE status = 'live'
             AND reco_date < CURRENT_DATE - INTERVAL '180 days'
-        `);
+        \`);
         const ageCount = (ageResult as any).rowCount ?? 0;
         if (ageCount > 0) {
-          console.log(`[PicksExpiry] Force-expired ${ageCount} picks older than 180 days`);
+          console.log(\`[PicksExpiry] Force-expired \${ageCount} picks older than 180 days\`);
         }
 
         // Also run the service's full status update (target/stoploss hits)
         const { pickOfTheDayService: svc } = await import('./services/pick-of-the-day-service');
         const r = await svc.refreshLivePicks();
-        console.log(`[PicksExpiry] Status sweep complete: ${r.updated} picks updated`);
+        console.log(\`[PicksExpiry] Status sweep complete: \${r.updated} picks updated\`);
       } catch (e) {
         console.error('[PicksExpiry] Expiry sweep failed:', e);
       }
@@ -1141,6 +1141,9 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   const { runGoldenPricingMigration } = await import("./db-migrations/golden-pricing-migration");
   await runGoldenPricingMigration();
 
+  const { runGovernanceNcdRepair } = await import("./db-migrations/governance-ncd-repair");
+  await runGovernanceNcdRepair();
+
   const { runInstitutionalDataMigration } = await import("./db-migrations/institutional-data-migration");
   await runInstitutionalDataMigration();
 
@@ -1151,7 +1154,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: notifDb } = await import('./db');
     const { sql: notifSql } = await import('drizzle-orm');
-    await notifDb.execute(notifSql`
+    await notifDb.execute(notifSql\`
       CREATE TABLE IF NOT EXISTS agent_notifications (
         id          SERIAL PRIMARY KEY,
         agent_id    TEXT NOT NULL,
@@ -1162,9 +1165,9 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         read_at     TIMESTAMPTZ,
         created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
-    `);
+    \`);
     // Migrate agent_id from INTEGER to TEXT if still an integer column (old deployments)
-    await notifDb.execute(notifSql`
+    await notifDb.execute(notifSql\`
       DO $$ BEGIN
         IF EXISTS (
           SELECT 1 FROM information_schema.columns
@@ -1175,11 +1178,11 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
           ALTER TABLE agent_notifications ALTER COLUMN agent_id TYPE TEXT USING agent_id::TEXT;
         END IF;
       END $$;
-    `);
-    await notifDb.execute(notifSql`
+    \`);
+    await notifDb.execute(notifSql\`
       CREATE INDEX IF NOT EXISTS idx_agent_notifications_agent_id
         ON agent_notifications (agent_id)
-    `);
+    \`);
   } catch (e: any) {
     console.error('[Migration] agent_notifications table error:', e?.message);
   }
@@ -1193,33 +1196,33 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
 
     // ── stock_prices_cache ────────────────────────────────────────────────────
     // Deduplicate: keep the most-recently-updated row per symbol
-    await cacheDb.execute(cacheSql`
+    await cacheDb.execute(cacheSql\`
       DELETE FROM stock_prices_cache
       WHERE id NOT IN (
         SELECT DISTINCT ON (symbol) id
         FROM stock_prices_cache
         ORDER BY symbol, updated_at DESC NULLS LAST
       )
-    `);
-    await cacheDb.execute(cacheSql`
+    \`);
+    await cacheDb.execute(cacheSql\`
       CREATE UNIQUE INDEX IF NOT EXISTS uq_stock_prices_cache_symbol
         ON stock_prices_cache (symbol)
-    `);
+    \`);
 
     // ── financial_instruments_cache ───────────────────────────────────────────
     // Deduplicate: keep the most-recently-updated row per (instrument_type, symbol, exchange)
-    await cacheDb.execute(cacheSql`
+    await cacheDb.execute(cacheSql\`
       DELETE FROM financial_instruments_cache
       WHERE id NOT IN (
         SELECT DISTINCT ON (instrument_type, symbol, COALESCE(exchange, '')) id
         FROM financial_instruments_cache
         ORDER BY instrument_type, symbol, COALESCE(exchange, ''), updated_at DESC NULLS LAST
       )
-    `);
-    await cacheDb.execute(cacheSql`
+    \`);
+    await cacheDb.execute(cacheSql\`
       CREATE UNIQUE INDEX IF NOT EXISTS uq_financial_instruments_cache_type_symbol_exchange
         ON financial_instruments_cache (instrument_type, symbol, exchange)
-    `);
+    \`);
 
     console.log('✅ [Migration] cache table UNIQUE indexes verified/created');
   } catch (e: any) {
@@ -1235,74 +1238,74 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     const { sql: uqSql } = await import('drizzle-orm');
 
     // ── currency_rates (base_currency, target_currency) ───────────────────────
-    await uqDb.execute(uqSql`
+    await uqDb.execute(uqSql\`
       DELETE FROM currency_rates
       WHERE id NOT IN (
         SELECT DISTINCT ON (base_currency, target_currency) id
         FROM currency_rates
         ORDER BY base_currency, target_currency, last_updated DESC NULLS LAST
       )
-    `);
-    await uqDb.execute(uqSql`
+    \`);
+    await uqDb.execute(uqSql\`
       CREATE UNIQUE INDEX IF NOT EXISTS uq_currency_rates_base_target
         ON currency_rates (base_currency, target_currency)
-    `);
+    \`);
 
     // ── mf_taxonomy_versions (version) ───────────────────────────────────────
-    await uqDb.execute(uqSql`
+    await uqDb.execute(uqSql\`
       DELETE FROM mf_taxonomy_versions
       WHERE id NOT IN (
         SELECT DISTINCT ON (version) id
         FROM mf_taxonomy_versions
         ORDER BY version, id ASC
       )
-    `);
-    await uqDb.execute(uqSql`
+    \`);
+    await uqDb.execute(uqSql\`
       CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_taxonomy_versions_version
         ON mf_taxonomy_versions (version)
-    `);
+    \`);
 
     // ── mf_category_master (taxonomy_version, group_code) ────────────────────
-    await uqDb.execute(uqSql`
+    await uqDb.execute(uqSql\`
       DELETE FROM mf_category_master
       WHERE id NOT IN (
         SELECT DISTINCT ON (taxonomy_version, group_code) id
         FROM mf_category_master
         ORDER BY taxonomy_version, group_code, id ASC
       )
-    `);
-    await uqDb.execute(uqSql`
+    \`);
+    await uqDb.execute(uqSql\`
       CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_category_master_version_code
         ON mf_category_master (taxonomy_version, group_code)
-    `);
+    \`);
 
     // ── mf_subcategory_master (subcategory_code) ──────────────────────────────
-    await uqDb.execute(uqSql`
+    await uqDb.execute(uqSql\`
       DELETE FROM mf_subcategory_master
       WHERE id NOT IN (
         SELECT DISTINCT ON (subcategory_code) id
         FROM mf_subcategory_master
         ORDER BY subcategory_code, id ASC
       )
-    `);
-    await uqDb.execute(uqSql`
-      CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_subcategory_master_code
+    \`);
+    await uqDb.execute(uqSql\`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_subcategory_code
         ON mf_subcategory_master (subcategory_code)
-    `);
+    \`);
 
     // ── quant_governance_policy (risk_profile) ────────────────────────────────
-    await uqDb.execute(uqSql`
+    await uqDb.execute(uqSql\`
       DELETE FROM quant_governance_policy
       WHERE id NOT IN (
         SELECT DISTINCT ON (risk_profile) id
         FROM quant_governance_policy
         ORDER BY risk_profile, id ASC
       )
-    `);
-    await uqDb.execute(uqSql`
+    \`);
+    await uqDb.execute(uqSql\`
       CREATE UNIQUE INDEX IF NOT EXISTS uq_quant_governance_policy_risk_profile
         ON quant_governance_policy (risk_profile)
-    `);
+    \`);
 
     console.log('✅ [Migration] ON CONFLICT UNIQUE indexes verified/created');
 
@@ -1324,15 +1327,15 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         try {
           await Promise.race([
             bgDb.execute(bgSql.raw(dedupsql)),
-            new Promise((_, reject) => setTimeout(() => reject(new Error(`Deduplication of ${label} timed out after 60s`)), 60000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error(\`Deduplication of \${label} timed out after 60s\`)), 60000))
           ]);
           await Promise.race([
             bgDb.execute(bgSql.raw(indexsql)),
-            new Promise((_, reject) => setTimeout(() => reject(new Error(`Indexing of ${label} timed out after 60s`)), 60000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error(\`Indexing of \${label} timed out after 60s\`)), 60000))
           ]);
-          console.log(`✅ [Migration] ${label} unique index created (background)`);
+          console.log(\`✅ [Migration] \${label} unique index created (background)\`);
         } catch (e: any) {
-          console.warn(`[Migration] ${label} (background):`, e?.message);
+          console.warn(\`[Migration] \${label} (background):\`, e?.message);
         }
       };
 
@@ -1347,19 +1350,19 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
           await client.query('SET statement_timeout = 0');
           // Self-join DELETE: keeps the row with the largest id (latest fetched) per key.
           // Far more efficient on large tables than IN (SELECT DISTINCT ON ...).
-          await client.query(`
+          await client.query(\`
             DELETE FROM historical_nav_data a
             USING historical_nav_data b
             WHERE a.identifier = b.identifier
               AND a.identifier_type = b.identifier_type
               AND a.date = b.date
               AND a.id < b.id
-          `);
+          \`);
           // CONCURRENTLY allows reads/writes during index build; cannot run in a transaction.
-          await client.query(`
+          await client.query(\`
             CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_historical_nav_unique
               ON historical_nav_data (identifier, identifier_type, date)
-          `);
+          \`);
           console.log('✅ [Migration] historical_nav_data unique index created (background)');
         } catch (e: any) {
           console.warn('[Migration] historical_nav_data (background):', e?.message);
@@ -1373,210 +1376,210 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
       // 2. mutual_fund_metrics (scheme_code, fiscal_year)
       await dedupAndIndex(
         'mutual_fund_metrics',
-        `DELETE FROM mutual_fund_metrics
+        \`DELETE FROM mutual_fund_metrics
          WHERE id NOT IN (
            SELECT DISTINCT ON (scheme_code, fiscal_year) id
            FROM mutual_fund_metrics
            ORDER BY scheme_code, fiscal_year, last_updated DESC NULLS LAST
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_metrics_scheme_fy
-           ON mutual_fund_metrics (scheme_code, fiscal_year)`
+         )\`,
+        \`CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_metrics_scheme_fy
+           ON mutual_fund_metrics (scheme_code, fiscal_year)\`
       );
 
       // 3. mf_taxonomy_versions (version)
       await dedupAndIndex(
         'mf_taxonomy_versions',
-        `DELETE FROM mf_taxonomy_versions
+        \`DELETE FROM mf_taxonomy_versions
          WHERE id NOT IN (
            SELECT DISTINCT ON (version) id
            FROM mf_taxonomy_versions
            ORDER BY version, id DESC
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_taxonomy_version
-           ON mf_taxonomy_versions (version)`
+         )\`,
+        \`CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_taxonomy_version
+           ON mf_taxonomy_versions (version)\`
       );
 
       // 4. mf_category_master (taxonomy_version, group_code)
       await dedupAndIndex(
         'mf_category_master',
-        `DELETE FROM mf_category_master
+        \`DELETE FROM mf_category_master
          WHERE id NOT IN (
            SELECT DISTINCT ON (taxonomy_version, group_code) id
            FROM mf_category_master
            ORDER BY taxonomy_version, group_code, id DESC
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS idx_mf_category_master_version_code
-           ON mf_category_master (taxonomy_version, group_code)`
+         )\`,
+        \`CREATE UNIQUE INDEX IF NOT EXISTS idx_mf_category_master_version_code
+           ON mf_category_master (taxonomy_version, group_code)\`
       );
 
       // 5. mf_subcategory_master (subcategory_code)
       await dedupAndIndex(
         'mf_subcategory_master',
-        `DELETE FROM mf_subcategory_master
+        \`DELETE FROM mf_subcategory_master
          WHERE id NOT IN (
            SELECT DISTINCT ON (subcategory_code) id
            FROM mf_subcategory_master
            ORDER BY subcategory_code, id DESC
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_subcategory_code
-           ON mf_subcategory_master (subcategory_code)`
+         )\`,
+        \`CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_subcategory_code
+           ON mf_subcategory_master (subcategory_code)\`
       );
 
       // 6. mf_portfolio_holdings (scheme_code, isin, as_of_date)
       await dedupAndIndex(
         'mf_portfolio_holdings',
-        `DELETE FROM mf_portfolio_holdings
+        \`DELETE FROM mf_portfolio_holdings
          WHERE id NOT IN (
            SELECT DISTINCT ON (scheme_code, isin, as_of_date) id
            FROM mf_portfolio_holdings
            ORDER BY scheme_code, isin, as_of_date, id DESC
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS idx_mf_portfolio_holdings_unique
-           ON mf_portfolio_holdings (scheme_code, isin, as_of_date)`
+         )\`,
+        \`CREATE UNIQUE INDEX IF NOT EXISTS idx_mf_portfolio_holdings_unique
+           ON mf_portfolio_holdings (scheme_code, isin, as_of_date)\`
       );
 
       // 7. mf_overlap_matrix (scheme_code_a, scheme_code_b)
       await dedupAndIndex(
         'mf_overlap_matrix',
-        `DELETE FROM mf_overlap_matrix
+        \`DELETE FROM mf_overlap_matrix
          WHERE id NOT IN (
            SELECT DISTINCT ON (scheme_code_a, scheme_code_b) id
            FROM mf_overlap_matrix
            ORDER BY scheme_code_a, scheme_code_b, id DESC
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS idx_mf_overlap_matrix_pair
-           ON mf_overlap_matrix (scheme_code_a, scheme_code_b)`
+         )\`,
+        \`CREATE UNIQUE INDEX IF NOT EXISTS idx_mf_overlap_matrix_pair
+           ON mf_overlap_matrix (scheme_code_a, scheme_code_b)\`
       );
 
       // 8. financial_instruments_cache (instrument_type, symbol, exchange)
       await dedupAndIndex(
         'financial_instruments_cache',
-        `DELETE FROM financial_instruments_cache
+        \`DELETE FROM financial_instruments_cache
          WHERE id NOT IN (
            SELECT DISTINCT ON (instrument_type, symbol, exchange) id
            FROM financial_instruments_cache
            ORDER BY instrument_type, symbol, exchange, fetched_at DESC NULLS LAST
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS uq_fin_cache_type_symbol_exchange
-           ON financial_instruments_cache (instrument_type, symbol, exchange)`
+         )\`,
+        \`CREATE UNIQUE INDEX IF NOT EXISTS uq_fin_cache_type_symbol_exchange
+           ON financial_instruments_cache (instrument_type, symbol, exchange)\`
       );
 
       // 9. instrument_prices (instrument_id, price_date)
       await dedupAndIndex(
         'instrument_prices',
-        `DELETE FROM instrument_prices
+        \`DELETE FROM instrument_prices
          WHERE id NOT IN (
            SELECT DISTINCT ON (instrument_id, price_date) id
            FROM instrument_prices
            ORDER BY instrument_id, price_date, id DESC
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_instrument_price
-           ON instrument_prices (instrument_id, price_date)`
+         )\`,
+        \`CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_instrument_price
+           ON instrument_prices (instrument_id, price_date)\`
       );
 
       // 10. ai_regime_history (regime_date) — column-level .unique() may not exist on prod
       await dedupAndIndex(
         'ai_regime_history',
-        `DELETE FROM ai_regime_history
+        \`DELETE FROM ai_regime_history
          WHERE id NOT IN (
            SELECT DISTINCT ON (regime_date) id
            FROM ai_regime_history
            ORDER BY regime_date, id DESC
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS uq_ai_regime_history_date
-           ON ai_regime_history (regime_date)`
+         )\`,
+        \`CREATE UNIQUE INDEX IF NOT EXISTS uq_ai_regime_history_date
+           ON ai_regime_history (regime_date)\`
       );
 
       // 11. exchange_filings (exchange, document_url)
       await dedupAndIndex(
         'exchange_filings',
-        `DELETE FROM exchange_filings
+        \`DELETE FROM exchange_filings
          WHERE id NOT IN (
            SELECT DISTINCT ON (exchange, document_url) id
            FROM exchange_filings
            ORDER BY exchange, document_url, id DESC
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS uq_exchange_filings_url
-           ON exchange_filings (exchange, document_url)`
+         )\`,
+        \`CREATE UNIQUE INDEX IF NOT EXISTS uq_exchange_filings_url
+           ON exchange_filings (exchange, document_url)\`
       );
 
       // 12. company_master_cache (cin)
       await dedupAndIndex(
         'company_master_cache',
-        `DELETE FROM company_master_cache
+        \`DELETE FROM company_master_cache
          WHERE id NOT IN (
            SELECT DISTINCT ON (cin) id
            FROM company_master_cache
            ORDER BY cin, id DESC
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS uq_company_master_cache_cin
-           ON company_master_cache (cin)`
+         )\`,
+        \`CREATE UNIQUE INDEX IF NOT EXISTS uq_company_master_cache_cin
+           ON company_master_cache (cin)\`
       );
 
       // 13. ca_verification_status (user_id)
       await dedupAndIndex(
         'ca_verification_status',
-        `DELETE FROM ca_verification_status
+        \`DELETE FROM ca_verification_status
          WHERE id NOT IN (
            SELECT DISTINCT ON (user_id) id
            FROM ca_verification_status
            ORDER BY user_id, id DESC
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS uq_ca_verification_user_id
-           ON ca_verification_status (user_id)`
+         )\`,
+        \`CREATE UNIQUE INDEX IF NOT EXISTS uq_ca_verification_user_id
+           ON ca_verification_status (user_id)\`
       );
 
       // 14. user_bank_accounts (user_id, account_number)
       await dedupAndIndex(
         'user_bank_accounts',
-        `DELETE FROM user_bank_accounts
+        \`DELETE FROM user_bank_accounts
          WHERE id NOT IN (
            SELECT DISTINCT ON (user_id, account_number) id
            FROM user_bank_accounts
            ORDER BY user_id, account_number, id DESC
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS uq_user_bank_accounts_user_acct
-           ON user_bank_accounts (user_id, account_number)`
+         )\`,
+        \`CREATE UNIQUE INDEX IF NOT EXISTS uq_user_bank_accounts_user_acct
+           ON user_bank_accounts (user_id, account_number)\`
       );
 
       // 15. agent_empanelments (agent_id)
       await dedupAndIndex(
         'agent_empanelments',
-        `DELETE FROM agent_empanelments
+        \`DELETE FROM agent_empanelments
          WHERE id NOT IN (
            SELECT DISTINCT ON (agent_id) id
            FROM agent_empanelments
            ORDER BY agent_id, id DESC
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_empanelments_agent_id
-           ON agent_empanelments (agent_id)`
+         )\`,
+        \`CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_empanelments_agent_id
+           ON agent_empanelments (agent_id)\`
       );
 
       // 16. cache_refresh_schedule (cache_type)
       await dedupAndIndex(
         'cache_refresh_schedule',
-        `DELETE FROM cache_refresh_schedule
+        \`DELETE FROM cache_refresh_schedule
          WHERE id NOT IN (
            SELECT DISTINCT ON (cache_type) id
            FROM cache_refresh_schedule
            ORDER BY cache_type, id DESC
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS uq_cache_refresh_schedule_type
-           ON cache_refresh_schedule (cache_type)`
+         )\`,
+        \`CREATE UNIQUE INDEX IF NOT EXISTS uq_cache_refresh_schedule_type
+           ON cache_refresh_schedule (cache_type)\`
       );
 
   logBootProgress("Step 7: Executing Database Migrations (Phase 2)...");
   // 17. corporate_actions (isin, ex_date, action_type)
       await dedupAndIndex(
         'corporate_actions',
-        `DELETE FROM corporate_actions
+        \`DELETE FROM corporate_actions
          WHERE id NOT IN (
            SELECT DISTINCT ON (isin, ex_date, action_type) id
            FROM corporate_actions
            ORDER BY isin, ex_date, action_type, id DESC
-         )`,
-        `CREATE UNIQUE INDEX IF NOT EXISTS idx_corp_actions_isin_ex_type
-           ON corporate_actions (isin, ex_date, action_type)`
+         )\`,
+        \`CREATE UNIQUE INDEX IF NOT EXISTS idx_corp_actions_isin_ex_type
+           ON corporate_actions (isin, ex_date, action_type)\`
       );
     });
   } catch (e: any) {
@@ -1589,10 +1592,10 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     const { sql: colSql } = await import('drizzle-orm');
 
     // mca_financial_snapshot.data_completeness — queried by MCA refresh scheduler
-    await colDb.execute(colSql`
+    await colDb.execute(colSql\`
       ALTER TABLE mca_financial_snapshot
         ADD COLUMN IF NOT EXISTS data_completeness NUMERIC DEFAULT 0
-    `);
+    \`);
 
     console.log('✅ [Migration] mca_financial_snapshot.data_completeness verified/added');
   } catch (e: any) {
@@ -1603,11 +1606,11 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: mainDb } = await import('./db');
     const { sql: migSql } = await import('drizzle-orm');
-    await mainDb.execute(migSql`
+    await mainDb.execute(migSql\`
       ALTER TABLE capital_gains_tax_reminders
         ADD COLUMN IF NOT EXISTS prospect_id VARCHAR,
         ADD COLUMN IF NOT EXISTS created_by_agent_id VARCHAR REFERENCES users(id)
-    `);
+    \`);
     console.log('✅ [Migration] capital_gains_tax_reminders columns verified/added');
   } catch (e: any) {
     console.error('[Migration] capital_gains_tax_reminders error:', e?.message);
@@ -1617,10 +1620,10 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: mainDb } = await import('./db');
     const { sql: migSql } = await import('drizzle-orm');
-    await mainDb.execute(migSql`
+    await mainDb.execute(migSql\`
       ALTER TABLE agents ADD COLUMN IF NOT EXISTS arn_expiry_date TIMESTAMPTZ;
       ALTER TABLE partners ADD COLUMN IF NOT EXISTS arn_expiry_date TIMESTAMPTZ
-    `);
+    \`);
     console.log('✅ [Migration] agents/partners arn_expiry_date columns verified/added');
   } catch (e: any) {
     console.error('[Migration] agents/partners arn_expiry_date error:', e?.message);
@@ -1630,12 +1633,12 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: mainDb } = await import('./db');
     const { sql: migSql } = await import('drizzle-orm');
-    await mainDb.execute(migSql`
+    await mainDb.execute(migSql\`
       ALTER TABLE tax_reminder_subscriptions ADD COLUMN IF NOT EXISTS prospect_id VARCHAR;
       ALTER TABLE kyc_approvals              ADD COLUMN IF NOT EXISTS prospect_id VARCHAR;
       ALTER TABLE mf_orders                  ADD COLUMN IF NOT EXISTS prospect_id VARCHAR;
       ALTER TABLE prospect_proposals         ADD COLUMN IF NOT EXISTS prospect_id VARCHAR
-    `);
+    \`);
     console.log('✅ [Migration] prospect_id columns verified/added (tax_reminders, kyc_approvals, mf_orders, prospect_proposals)');
   } catch (e: any) {
     console.error('[Migration] prospect_id columns error:', e?.message);
@@ -1645,10 +1648,10 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: mainDb } = await import('./db');
     const { sql: migSql } = await import('drizzle-orm');
-    await mainDb.execute(migSql`
+    await mainDb.execute(migSql\`
       ALTER TABLE tax_reminder_subscriptions ADD COLUMN IF NOT EXISTS created_by_agent_id VARCHAR REFERENCES users(id);
       ALTER TABLE capital_gains_tax_reminders ADD COLUMN IF NOT EXISTS created_by_agent_id VARCHAR REFERENCES users(id)
-    `);
+    \`);
     console.log('✅ [Migration] created_by_agent_id columns verified/added (tax_reminder_subscriptions, capital_gains_tax_reminders)');
   } catch (e: any) {
     console.error('[Migration] created_by_agent_id columns error:', e?.message);
@@ -1657,7 +1660,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: mainDb } = await import('./db');
     const { sql: migSql } = await import('drizzle-orm');
-    await mainDb.execute(migSql`
+    await mainDb.execute(migSql\`
       ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
       ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS current_price NUMERIC(20,6);
       ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS market_cap_value NUMERIC(20,2);
@@ -1666,7 +1669,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
       ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'INR';
       ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS data_source VARCHAR(50);
       ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()
-    `);
+    \`);
     console.log('✅ [Migration] screener_stocks columns verified/added');
   } catch (e: any) {
     console.error('[Migration] screener_stocks columns error:', e?.message);
@@ -1676,7 +1679,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db } = await import('./db');
     const { sql } = await import('drizzle-orm');
-    await db.execute(sql`
+    await db.execute(sql\`
       ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS plan_type VARCHAR DEFAULT 'regular';
       ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT false;
       ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
@@ -1707,7 +1710,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
       ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS naming_validation_status VARCHAR(10) DEFAULT 'PENDING';
       ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS lifecycle_metadata JSONB;
       ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS compliance_blocked_reason TEXT
-    `);
+    \`);
     console.log('✅ [Migration] mutual_funds columns verified/added');
   } catch (e: any) {
     console.error('[Migration] mutual_funds columns error:', e?.message);
@@ -1717,7 +1720,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: migDb } = await import('./db');
     const { sql: migSql } = await import('drizzle-orm');
-    await migDb.execute(migSql`
+    await migDb.execute(migSql\`
       ALTER TABLE us_broker_accounts
         ADD COLUMN IF NOT EXISTS alpaca_account_number VARCHAR,
         ADD COLUMN IF NOT EXISTS alpaca_status VARCHAR DEFAULT 'not_applied',
@@ -1727,7 +1730,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         ADD COLUMN IF NOT EXISTS agreements_signed_at TIMESTAMPTZ,
         ADD COLUMN IF NOT EXISTS cip_submitted_at TIMESTAMPTZ,
         ADD COLUMN IF NOT EXISTS account_approved_at TIMESTAMPTZ
-    `);
+    \`);
     console.log('✅ [Migration] us_broker_accounts account opening columns verified/added');
   } catch (e: any) {
     console.warn('[Migration] us_broker_accounts account opening columns skipped:', e?.message);
@@ -1737,11 +1740,11 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: agDb } = await import('./db');
     const { sql: agSql } = await import('drizzle-orm');
-    await agDb.execute(agSql`
+    await agDb.execute(agSql\`
       ALTER TABLE users
         ADD COLUMN IF NOT EXISTS agent_services TEXT[]
-    `);
-    await agDb.execute(agSql`
+    \`);
+    await agDb.execute(agSql\`
       CREATE TABLE IF NOT EXISTS agent_notifications (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         agent_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1751,11 +1754,11 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         read BOOLEAN NOT NULL DEFAULT false,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
-    `);
-    await agDb.execute(agSql`
+    \`);
+    await agDb.execute(agSql\`
       CREATE INDEX IF NOT EXISTS idx_agent_notifications_agent_id
         ON agent_notifications(agent_id)
-    `);
+    \`);
     console.log('✅ [Migration] agent_services column + agent_notifications table verified/created');
   } catch (e: any) {
     console.warn('[Migration] agent_services/agent_notifications skipped:', e?.message);
@@ -1765,18 +1768,18 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: aeDb } = await import('./db');
     const { sql: aeSql } = await import('drizzle-orm');
-    await aeDb.execute(aeSql`
+    await aeDb.execute(aeSql\`
       ALTER TABLE users
         ADD COLUMN IF NOT EXISTS agent_empanelment_status TEXT DEFAULT 'draft'
-    `);
+    \`);
     // Backfill from agent_empanelments table
-    await aeDb.execute(aeSql`
+    await aeDb.execute(aeSql\`
       UPDATE users u
       SET agent_empanelment_status = e.status
       FROM agent_empanelments e
       WHERE e.agent_id = u.id
         AND u.agent_empanelment_status IS DISTINCT FROM e.status
-    `);
+    \`);
     console.log('✅ [Migration] agent_empanelment_status column verified/backfilled on users');
   } catch (e: any) {
     console.warn('[Migration] agent_empanelment_status skipped:', e?.message);
@@ -1786,7 +1789,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: plDb } = await import('./db');
     const { sql: plSql } = await import('drizzle-orm');
-    await plDb.execute(plSql`
+    await plDb.execute(plSql\`
       ALTER TABLE prospect_leads
         ADD COLUMN IF NOT EXISTS estimated_networth   NUMERIC(18,2),
         ADD COLUMN IF NOT EXISTS investable_surplus   NUMERIC(15,2),
@@ -1796,7 +1799,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         ADD COLUMN IF NOT EXISTS composite_score      NUMERIC(6,2),
         ADD COLUMN IF NOT EXISTS scoring_version      VARCHAR,
         ADD COLUMN IF NOT EXISTS scored_at            TIMESTAMPTZ
-    `);
+    \`);
     console.log('✅ [Migration] prospect_leads scoring columns verified/added');
   } catch (e: any) {
     console.warn('[Migration] prospect_leads scoring columns skipped:', e?.message);
@@ -1806,7 +1809,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: caDb } = await import('./db');
     const { sql: caSql } = await import('drizzle-orm');
-    await caDb.execute(caSql`
+    await caDb.execute(caSql\`
       CREATE TABLE IF NOT EXISTS ca_verification_status (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id VARCHAR NOT NULL UNIQUE REFERENCES users(id),
@@ -1819,7 +1822,6 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         cop_valid_to DATE,
         cop_verified BOOLEAN DEFAULT false,
         cop_verified_at TIMESTAMPTZ,
-        pan_number VARCHAR NOT NULL DEFAULT '',
         pan_verified BOOLEAN DEFAULT false,
         pan_verified_at TIMESTAMPTZ,
         dsc_available BOOLEAN DEFAULT false,
@@ -1835,12 +1837,12 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
-    `);
+    \`);
     // Add any columns missing from older table instances
     // NOTE: user_id / icai_membership_number are included here so that tables
     // created before this schema revision (which used ca_id) get the new columns.
     // They are nullable because pre-existing rows were written under the old schema.
-    await caDb.execute(caSql`
+    await caDb.execute(caSql\`
       ALTER TABLE ca_verification_status
         ADD COLUMN IF NOT EXISTS user_id VARCHAR REFERENCES users(id),
         ADD COLUMN IF NOT EXISTS icai_membership_number VARCHAR,
@@ -1875,7 +1877,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         ADD COLUMN IF NOT EXISTS icai_source            VARCHAR,
         ADD COLUMN IF NOT EXISTS icai_raw_html          TEXT,
         ADD COLUMN IF NOT EXISTS icai_error             TEXT
-    `);
+    \`);
     console.log('✅ [Migration] ca_verification_status table verified/created');
   } catch (e: any) {
     console.warn('[Migration] ca_verification_status schema skipped:', e?.message);
@@ -1885,7 +1887,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: icaiDb } = await import('./db');
     const { sql: icaiSql } = await import('drizzle-orm');
-    await icaiDb.execute(icaiSql`
+    await icaiDb.execute(icaiSql\`
       ALTER TABLE partners
         ADD COLUMN IF NOT EXISTS icai_scraped_name       VARCHAR,
         ADD COLUMN IF NOT EXISTS icai_scraper_status     VARCHAR DEFAULT 'pending',
@@ -1893,7 +1895,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         ADD COLUMN IF NOT EXISTS icai_scraper_source     VARCHAR,
         ADD COLUMN IF NOT EXISTS icai_confidence_score   NUMERIC(4,2),
         ADD COLUMN IF NOT EXISTS icai_cop_status         VARCHAR
-    `);
+    \`);
     console.log('✅ [Migration] partners ICAI scraper columns verified/added');
   } catch (e: any) {
     console.warn('[Migration] partners ICAI scraper columns skipped:', e?.message);
@@ -1903,13 +1905,13 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: subDb } = await import('./db');
     const { sql: subSql } = await import('drizzle-orm');
-    await subDb.execute(subSql`
+    await subDb.execute(subSql\`
       ALTER TABLE users
         ADD COLUMN IF NOT EXISTS plan_tier VARCHAR DEFAULT 'free',
         ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ,
         ADD COLUMN IF NOT EXISTS cashfree_subscription_id VARCHAR
-    `);
-    await subDb.execute(subSql`
+    \`);
+    await subDb.execute(subSql\`
       CREATE TABLE IF NOT EXISTS platform_subscriptions (
         id                        VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id                   VARCHAR NOT NULL REFERENCES users(id),
@@ -1927,12 +1929,12 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         created_at                TIMESTAMPTZ DEFAULT NOW() NOT NULL,
         updated_at                TIMESTAMPTZ DEFAULT NOW() NOT NULL
       )
-    `);
-    await subDb.execute(subSql`
+    \`);
+    await subDb.execute(subSql\`
       CREATE INDEX IF NOT EXISTS idx_platform_subs_user   ON platform_subscriptions(user_id);
       CREATE INDEX IF NOT EXISTS idx_platform_subs_status ON platform_subscriptions(status);
       CREATE INDEX IF NOT EXISTS idx_platform_subs_tier   ON platform_subscriptions(plan_tier);
-    `);
+    \`);
     console.log('✅ [Migration] Subscription monetization schema verified/created');
   } catch (e: any) {
     console.warn('[Migration] Subscription monetization schema skipped:', e?.message);
@@ -1942,7 +1944,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: auditDb } = await import('./db');
     const { sql: auditSql } = await import('drizzle-orm');
-    await auditDb.execute(auditSql`
+    await auditDb.execute(auditSql\`
       CREATE TABLE IF NOT EXISTS audit_trail (
         id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id     VARCHAR,
@@ -1956,10 +1958,10 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         risk_level  VARCHAR,
         created_at  TIMESTAMPTZ DEFAULT NOW()
       )
-    `);
-    await auditDb.execute(auditSql`
+    \`);
+    await auditDb.execute(auditSql\`
       ALTER TABLE audit_trail ADD COLUMN IF NOT EXISTS actor_type VARCHAR;
-    `);
+    \`);
     console.log('✅ [Migration] audit_trail table verified/created');
   } catch (e: any) {
     console.error('[Migration] audit_trail table error:', e?.message);
@@ -1969,7 +1971,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: shDb } = await import('./db');
     const { sql: shSql } = await import('drizzle-orm');
-    await shDb.execute(shSql`
+    await shDb.execute(shSql\`
       CREATE TABLE IF NOT EXISTS self_healing_events (
         id            SERIAL PRIMARY KEY,
         event_type    VARCHAR(50) NOT NULL,
@@ -1980,11 +1982,11 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         context       TEXT,
         occurred_at   TIMESTAMPTZ DEFAULT NOW()
       )
-    `);
-    await shDb.execute(shSql`
+    \`);
+    await shDb.execute(shSql\`
       CREATE INDEX IF NOT EXISTS idx_self_healing_events_occurred_at
         ON self_healing_events (occurred_at DESC)
-    `);
+    \`);
     console.log('✅ [Migration] self_healing_events table verified/created');
   } catch (e: any) {
     console.error('[Migration] self_healing_events table error:', e?.message);
@@ -1994,7 +1996,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: fbDb } = await import('./db');
     const { sql: fbSql } = await import('drizzle-orm');
-    await fbDb.execute(fbSql`
+    await fbDb.execute(fbSql\`
       CREATE TABLE IF NOT EXISTS self_healing_feedback (
         id            SERIAL PRIMARY KEY,
         module        VARCHAR(50)  NOT NULL,
@@ -2006,11 +2008,11 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         fallback_used BOOLEAN      DEFAULT false,
         occurred_at   TIMESTAMPTZ  DEFAULT NOW()
       )
-    `);
-    await fbDb.execute(fbSql`
+    \`);
+    await fbDb.execute(fbSql\`
       CREATE INDEX IF NOT EXISTS idx_self_healing_feedback_module_occurred
         ON self_healing_feedback (module, occurred_at DESC)
-    `);
+    \`);
     console.log('✅ [Migration] self_healing_feedback table verified/created');
   } catch (e: any) {
     console.error('[Migration] self_healing_feedback table error:', e?.message);
@@ -2020,7 +2022,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: mainDb } = await import('./db');
     const { sql: migSql } = await import('drizzle-orm');
-    await mainDb.execute(migSql`
+    await mainDb.execute(migSql\`
       CREATE TABLE IF NOT EXISTS iris_sessions (
         id           VARCHAR PRIMARY KEY,
         pan          VARCHAR NOT NULL UNIQUE,
@@ -2031,7 +2033,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         updated_at   TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_iris_sessions_pan ON iris_sessions (pan);
-    `);
+    \`);
     console.log('✅ [Migration] iris_sessions table verified/created');
   } catch (e: any) {
     console.error('[Migration] iris_sessions table error:', e?.message);
@@ -2041,7 +2043,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   try {
     const { db: mainDb } = await import('./db');
     const { sql: migSql } = await import('drizzle-orm');
-    await mainDb.execute(migSql`
+    await mainDb.execute(migSql\`
       CREATE TABLE IF NOT EXISTS lrs_remittance_logs (
         id                   VARCHAR PRIMARY KEY,
         user_id              VARCHAR NOT NULL REFERENCES users(id),
@@ -2055,7 +2057,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
         created_at           TIMESTAMPTZ  DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_lrs_logs_user_fy ON lrs_remittance_logs (user_id, financial_year);
-    `);
+    \`);
     console.log('✅ [Migration] lrs_remittance_logs table verified/created');
   } catch (e: any) {
     console.error('[Migration] lrs_remittance_logs table error:', e?.message);
@@ -2110,7 +2112,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   // and don't fall through to the SPA catch-all
   const { apiResponse } = await import('./utils/responses');
   app.use('/api/*', (req, res) => {
-    apiResponse.notFound(res, `Route ${req.method} ${req.path} not found`);
+    apiResponse.notFound(res, \`Route \${req.method} \${req.path} not found\`);
   });
 
   // Setup Vite BEFORE error handlers so it can serve the frontend
@@ -2131,7 +2133,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
 
   // ROUTES ARE NOW FULLY REGISTERED - mark as ready
   // ============================================================================
-  logBootProgress(`Step 11: All routes registered. Finalizing initialization...`);
+  logBootProgress(\`Step 11: All routes registered. Finalizing initialization...\`);
 
 
   // T05: Emit structured DEPLOY audit event — appears in compliance_audit_trail
@@ -2173,11 +2175,11 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     try {
       const { db: gSecDb } = await import('./db');
       const { sql: drizzleSql } = await import('drizzle-orm');
-      const countResult = await gSecDb.execute(drizzleSql`SELECT COUNT(*) AS cnt FROM government_securities`);
+      const countResult = await gSecDb.execute(drizzleSql\`SELECT COUNT(*) AS cnt FROM government_securities\`);
       const existingCount = Number((countResult.rows[0] as any)?.cnt ?? 0);
       if (existingCount === 0) {
         console.log('🌱 Seeding government securities baseline...');
-        await gSecDb.execute(drizzleSql`
+        await gSecDb.execute(drizzleSql\`
           INSERT INTO government_securities (id, isin, security_name, security_type, issuer, face_value, coupon_rate, issue_date, maturity_date, current_price, yield_to_maturity, trading_status, minimum_investment, credit_rating, early_redemption_allowed, tax_status, indexation_benefit, data_source, last_updated, markup, markup_type, is_perpetual)
           VALUES
             (gen_random_uuid(), 'INE000000001', '7.18% GS 2033', 'g_sec', 'Government of India', 100, 7.18, '2026-02-27', '2036-02-20', 99.25, 7.28, 'upcoming', 10000, 'AAA', false, 'taxable', false, 'nse_ncb', NOW(), 0, 'percentage', false),
@@ -2190,7 +2192,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
             (gen_random_uuid(), 'SDLMH2030001', '7.35% Maharashtra SDL 2030', 'sdl', 'Government of Maharashtra', 100, 7.35, '2026-02-27', '2031-02-20', 99.50, 7.45, 'upcoming', 10000, 'AAA', false, 'taxable', false, 'nse_ncb', NOW(), 0, 'percentage', false),
             (gen_random_uuid(), 'INE000S01SG1', 'Sovereign Gold Bond 2025-26 Series I', 'sgb', 'Government of India', 1, 2.50, '2026-02-20', '2034-02-20', 6500.00, 2.50, 'active', 1, 'AAA', false, 'taxable', false, 'nse_ncb', NOW(), 0, 'percentage', false)
           ON CONFLICT (isin) DO NOTHING
-        `);
+        \`);
         console.log('✅ Government securities baseline seeded.');
       }
     } catch (err: any) {
@@ -2272,10 +2274,8 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
 
   } catch (error: any) {
     console.error('❌ [FATAL] Server initialization failed:', error);
-    bootState.error = `Boot Error: ${error?.message || String(error)}`;
+    bootState.error = \`Boot Error: \${error?.message || String(error)}\`;
     // Ensure the loading screen clears even on error so diagnostics can be viewed
     bootState.routesReady = true; 
   }
 })();
-
-
