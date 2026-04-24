@@ -795,17 +795,17 @@ export default function AgentPicksPage() {
                 <div className="hidden sm:block w-px h-10 bg-border" />
                 <div className="flex gap-6">
                   <div>
-                    <div className="text-2xl font-bold text-green-600">{stats.livePicks}</div>
+                    <div className="text-2xl font-bold text-green-600">{Number(stats.livePicks ?? 0)}</div>
                     <div className="text-xs text-muted-foreground flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Live
                     </div>
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-blue-600">{stats.targetHits}</div>
+                    <div className="text-2xl font-bold text-blue-600">{Number(stats.targetHits ?? 0)}</div>
                     <div className="text-xs text-muted-foreground">Targets Hit</div>
                   </div>
                   <div>
-                    <div className="text-2xl font-bold">{stats.totalPicks}</div>
+                    <div className="text-2xl font-bold">{Number(stats.totalPicks ?? 0)}</div>
                     <div className="text-xs text-muted-foreground">Total Picks</div>
                   </div>
                 </div>
@@ -813,13 +813,13 @@ export default function AgentPicksPage() {
             </div>
             <div className="sm:text-right">
               {(() => {
-                const closedCount = stats.targetHits + (stats.stoplossHits || 0) + (stats.expired || 0);
+                const closedCount = Number(stats.targetHits || 0) + Number(stats.stoplossHits || 0) + Number(stats.expired || 0);
                 return closedCount > 0 ? (
                   <div className="space-y-1">
                     <div className="text-xs text-muted-foreground">{closedCount} closed picks</div>
-                    <Progress value={stats.hitRate} className="h-2 w-32" />
+                    <Progress value={Number(stats.hitRate ?? 0)} className="h-2 w-32" />
                     <div className="text-[10px] text-muted-foreground">
-                      {stats.targetHits} wins · {stats.stoplossHits || 0} losses · {stats.expired || 0} expired
+                      {Number(stats.targetHits || 0)} wins · {Number(stats.stoplossHits || 0)} losses · {Number(stats.expired || 0)} expired
                     </div>
                   </div>
                 ) : null;
@@ -934,9 +934,9 @@ export default function AgentPicksPage() {
                           {count}
                         </Badge>
                       )}
-                      {catStats && catStats.total > 0 && (
-                        <span className={`text-[9px] font-semibold ml-0.5 ${catStats.hitRate >= 50 ? 'text-green-500' : catStats.hitRate >= 25 ? 'text-amber-500' : 'text-muted-foreground'}`}>
-                          {catStats.hitRate}%
+                      {catStats && Number(catStats.total) > 0 && (
+                        <span className={`text-[9px] font-semibold ml-0.5 ${Number(catStats.hitRate) >= 50 ? 'text-green-500' : Number(catStats.hitRate) >= 25 ? 'text-amber-500' : 'text-muted-foreground'}`}>
+                          {Number(catStats.hitRate)}%
                         </span>
                       )}
                     </Button>
@@ -1144,8 +1144,8 @@ export default function AgentPicksPage() {
                                 <div className="flex items-center justify-between text-sm mb-3">
                                   <span className="text-muted-foreground">Confidence</span>
                                   <div className="flex items-center gap-2 w-32">
-                                    <Progress value={stock.confidence} className="h-2" />
-                                    <span className="text-xs font-medium">{stock.confidence}%</span>
+                                    <Progress value={Number(stock.confidence ?? 0)} className="h-2" />
+                                    <span className="text-xs font-medium">{Number(stock.confidence ?? 0)}%</span>
                                   </div>
                                 </div>
 
@@ -1493,6 +1493,8 @@ export default function AgentPicksPage() {
                     <button
                       className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
                       onClick={() => setLiveSearchQuery("")}
+                      title="Clear search"
+                      aria-label="Clear search"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -1522,9 +1524,9 @@ export default function AgentPicksPage() {
                           {count}
                         </Badge>
                       )}
-                      {catStats && catStats.total > 0 && (
-                        <span className={`text-[9px] font-semibold ml-0.5 ${catStats.hitRate >= 50 ? 'text-green-500' : catStats.hitRate >= 25 ? 'text-amber-500' : 'text-muted-foreground'}`}>
-                          {catStats.hitRate}%
+                      {catStats && Number(catStats.total) > 0 && (
+                        <span className={`text-[9px] font-semibold ml-0.5 ${Number(catStats.hitRate) >= 50 ? 'text-green-500' : Number(catStats.hitRate) >= 25 ? 'text-amber-500' : 'text-muted-foreground'}`}>
+                          {Number(catStats.hitRate)}%
                         </span>
                       )}
                     </Button>
@@ -1682,9 +1684,9 @@ export default function AgentPicksPage() {
                           {count}
                         </Badge>
                       )}
-                      {catStats && catStats.total > 0 && (
-                        <span className={`text-[9px] font-semibold ml-0.5 ${catStats.hitRate >= 50 ? 'text-green-500' : catStats.hitRate >= 25 ? 'text-amber-500' : 'text-muted-foreground'}`}>
-                          {catStats.hitRate}%
+                      {catStats && Number(catStats.total) > 0 && (
+                        <span className={`text-[9px] font-semibold ml-0.5 ${Number(catStats.hitRate) >= 50 ? 'text-green-500' : Number(catStats.hitRate) >= 25 ? 'text-amber-500' : 'text-muted-foreground'}`}>
+                          {Number(catStats.hitRate)}%
                         </span>
                       )}
                     </Button>
@@ -2672,14 +2674,18 @@ function PickCard({
                     <span className="font-medium text-xs">{formatPrice(cur, pick.category)}</span>
                     <span className="text-green-600">TGT {formatPrice(tgt, pick.category)}</span>
                   </div>
-                  <div className="relative h-2 rounded-full bg-gradient-to-r from-red-200 via-muted to-green-200 dark:from-red-900/50 dark:to-green-900/50">
+                  <div 
+                    className="relative h-2 rounded-full bg-gradient-to-r from-red-200 via-muted to-green-200 dark:from-red-900/50 dark:to-green-900/50"
+                    style={{ 
+                      '--entry-pos': `${entryPct}%`,
+                      '--current-pos': `calc(${pct}% - 6px)`
+                    } as React.CSSProperties}
+                  >
                     <div
-                      className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-muted-foreground/50 rounded"
-                      style={{ left: `${entryPct}%` }}
+                      className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-muted-foreground/50 rounded left-[var(--entry-pos)]"
                     />
                     <div
-                      className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm ${isProfit ? 'bg-green-500' : 'bg-red-500'}`}
-                      style={{ left: `calc(${pct}% - 6px)` }}
+                      className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm left-[var(--current-pos)] ${isProfit ? 'bg-green-500' : 'bg-red-500'}`}
                     />
                   </div>
                   <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">

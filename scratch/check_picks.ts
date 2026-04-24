@@ -1,6 +1,6 @@
-import { db } from "./server/db";
-import { dailyPicks } from "./shared/schema";
-import { sql } from "drizzle-orm";
+import { db } from "../server/db";
+import { dailyPicks } from "../shared/schema";
+import { sql, eq } from "drizzle-orm";
 
 async function checkPicks() {
   try {
@@ -14,7 +14,8 @@ async function checkPicks() {
     
     const today = new Date().toISOString().split('T')[0];
     const todayCount = await db.select({ count: sql<number>`count(*)` })
-      .from(dailyPicks).where(sql`reco_date = ${today}`);
+      .from(dailyPicks).where(eq(dailyPicks.recoDate, today));
+    
     console.log(`Picks for today (${today}): ${todayCount[0]?.count || 0}`);
     
     process.exit(0);
