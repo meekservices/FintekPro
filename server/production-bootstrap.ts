@@ -165,6 +165,7 @@ export async function runProductionBootstrap(): Promise<BootstrapResult[]> {
   results.push(await seedAifFunds());
   results.push(await seedSEBI2026Taxonomy());
   results.push(await seedQuantGovernancePolicies());
+  results.push(await triggerMLTraining());
 
   const summary = results.map(r => `${r.category}: ${r.seeded} new (${r.total} total)`).join(', ');
   console.log(`[ProductionBootstrap] Complete: ${summary}`);
@@ -554,5 +555,29 @@ async function seedQuantGovernancePolicies(): Promise<BootstrapResult> {
   } catch (error: any) {
     console.error('[ProductionBootstrap] Quant governance seeding failed:', error.message);
     return { category: 'quant_governance', existing: 0, seeded: 0, total: 0 };
+  }
+}
+
+// ── ML Training Trigger ──────────────────────────────────────────────────────
+async function triggerMLTraining(): Promise<BootstrapResult> {
+  try {
+    const { callPython } = await import('./clients/python-client');
+    console.log('[ProductionBootstrap] ML: Checking for model readiness...');
+    
+    // We trigger training with force=false. The Python service will no-op if
+    // a model already exists and is healthy.
+    const result = await callPython('/api/ml/train', 'POST', { force: false });
+    
+    if (result) {
+      console.log('[ProductionBootstrap] ML: Training triggered/verified successfully');
+      return { category: 'ml_training', existing: 0, seeded: 1, total: 1 };
+    }
+    
+    console.warn('[ProductionBootstrap] ML: Training trigger returned no result (likely already training or service busy)');
+    return { category: 'ml_training', existing: 0, seeded: 0, total: 0 };
+  } catch (error: any) {
+    // We don't want ML failure to block the entire bootstrap process
+    console.warn('[ProductionBootstrap] ML: Initial training trigger failed (will retry on first use):', error.message);
+    return { category: 'ml_training', existing: 0, seeded: 0, total: 0, error: error.message };
   }
 }
