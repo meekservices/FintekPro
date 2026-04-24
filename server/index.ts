@@ -1147,6 +1147,9 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   const { runInstitutionalDataMigration } = await import("./db-migrations/institutional-data-migration");
   await runInstitutionalDataMigration();
 
+  const { runHistoricalNavIndexRepair } = await import("./db-migrations/historical-nav-repair");
+  await runHistoricalNavIndexRepair();
+
   const { initializeSecurityMaster } = await import("./db-migrations/security-master-migration");
   await initializeSecurityMaster();
 
