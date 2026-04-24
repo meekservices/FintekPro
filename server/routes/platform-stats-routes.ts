@@ -3,6 +3,8 @@ import { requireAdmin } from '../middleware/roleMiddleware';
 import { platformStatsCache } from '../services/platform-stats-cache';
 import { storage } from '../storage';
 import { db } from '../db';
+import { sql } from 'drizzle-orm';
+import { complianceMonitor } from '../compliance-monitor';
 
 export async function registerPlatformStatsRoutes(app: Express): Promise<void> {
 // Platform Statistics endpoint - Real data for homepage (with caching)

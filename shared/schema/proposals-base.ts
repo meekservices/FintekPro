@@ -38,7 +38,7 @@ export const investmentProposals = pgTable("investment_proposals", {
   projectedValue: decimal("projected_value", { precision: 15, scale: 2 }), // After time horizon
   
   // Status and approval workflow
-  status: varchar("status").default("pending"), // pending, approved, rejected, executed, cancelled, in_cart
+  status: varchar("status").default("pending"), // pending, waiting_client_approval, approved, rejected, executed, cancelled, in_cart
   clientResponse: text("client_response"), // Client's approval/rejection reason
   approvedAt: timestamp("approved_at"),
   rejectedAt: timestamp("rejected_at"),

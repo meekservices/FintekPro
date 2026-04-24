@@ -1,47 +1,35 @@
-# Build stage
-FROM node:20-slim AS builder
+# Stage 1: Build environment
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies
-# We need these to build the project
+# Layer cache the package.json and install dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
-# Copy source code
+# Copy all source files
 COPY . .
 
-# Build frontend (Vite) and backend (esbuild)
-# NODE_OPTIONS for memory intensive builds
+# Build the React/TypeScript assets and the Express server
 RUN NODE_OPTIONS='--max-old-space-size=2048' npm run build
 
-# Runtime stage
-FROM node:20-slim
+# Stage 2: Production runtime
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Environment defaults
 ENV NODE_ENV=production
-ENV PORT=5000
+ENV PORT=8080
 
-# Install production dependencies
+# Layer cache production dependencies
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
-# Copy built assets from builder
+# Copy compiled assets from builder
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/scripts ./scripts
-COPY --from=builder /app/shared ./shared
-COPY --from=builder /app/drizzle.production.config.ts ./
-COPY --from=builder /app/drizzle-migrations ./drizzle-migrations
-COPY --from=builder /app/package.json ./
 
-# Ensure the start script is executable
-RUN chmod +x scripts/start-production.sh
+# Expose the Cloud Run expected port
+EXPOSE 8080
 
-# Expose the port Cloud Run expects (usually 8080, but we use PORT env var)
-EXPOSE 5000
-
-# Use the existing production start script
-# This script handles DB schema sync and then starts node dist/index.js
-CMD ["bash", "scripts/start-production.sh"]
+# Run the compiled production Express server
+CMD ["npm", "start"]

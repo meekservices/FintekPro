@@ -8,10 +8,30 @@ async function check() {
   const selectedDbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
   if (!selectedDbUrl) { console.error("No DB URL"); process.exit(1); }
   
-  function toDirectUrl(url) { return url.replace(/\.c-\d+\./, "."); }
-  const isProd = !!process.env.PRODUCTION_DATABASE_URL;
-  const dbUrl = isProd ? toDirectUrl(selectedDbUrl) : selectedDbUrl;
-  const pool = new Pool({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
+  const poolConfig: any = {
+    connectionString: selectedDbUrl,
+    ssl: false
+  };
+
+  // Optimization: use 127.0.0.1 if host= is present but we are local
+  if (selectedDbUrl.includes('host=')) {
+    try {
+      const url = new URL(selectedDbUrl);
+      console.log(`📡 Detected Cloud SQL URL. Redirecting to local proxy at 127.0.0.1:5432...`);
+      poolConfig.host = '127.0.0.1';
+      poolConfig.port = 5432;
+      poolConfig.user = url.username;
+      poolConfig.password = url.password;
+      poolConfig.database = url.pathname.split('/')[1] || 'fintekpro';
+      delete poolConfig.connectionString;
+    } catch (e: any) {
+      console.warn(`⚠️  Failed to parse DB URL: ${e.message}`);
+    }
+  } else {
+    console.log(`📡 Using standard connection string: ${selectedDbUrl.split('@')[1] || '...'}`);
+  }
+
+  const pool = new Pool(poolConfig);
 
   try {
     const res = await pool.query(`

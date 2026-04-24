@@ -833,6 +833,11 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   registerAdminPanelRoutes(app);
   registerIrisKfintechRoutes(app);
   
+  // Pick of the Day Recommendation Engine
+  const pickOfTheDayRoutes = (await import("./routes/pick-of-the-day")).default;
+  app.use("/api/picks", pickOfTheDayRoutes);
+  console.log("✅ Pick of the Day routes registered (/api/picks/*)");
+  
   logBootProgress("registerRoutes: Finished");
   return server;
 }

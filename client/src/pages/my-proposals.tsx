@@ -37,7 +37,7 @@ import {
 } from "lucide-react";
 
 type ProposalSource = 'ai_rebalancing' | 'ai_retirement' | 'ai_goals' | 'agent' | 'self';
-type ProposalStatus = 'draft' | 'sent' | 'pending_review' | 'viewed' | 'accepted' | 'rejected' | 'expired' | 'partially_approved' | 'executed';
+type ProposalStatus = 'draft' | 'sent' | 'pending_review' | 'waiting_client_approval' | 'viewed' | 'accepted' | 'approved' | 'rejected' | 'expired' | 'partially_approved' | 'executed';
 type ProductCategory = 'mutual_fund' | 'equity' | 'bond' | 'ipo' | 'unlisted' | 'insurance' | 'loan' | 'aif' | 'pms';
 
 interface ProposalItem {
@@ -87,8 +87,10 @@ const statusConfig: Record<ProposalStatus, { label: string; icon: any; color: st
   draft: { label: "Draft", icon: Clock, color: "bg-muted text-foreground" },
   sent: { label: "Sent", icon: FileText, color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
   pending_review: { label: "Pending Review", icon: Clock, color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
+  waiting_client_approval: { label: "Waiting My Approval", icon: AlertCircle, color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200" },
   viewed: { label: "Viewed", icon: Eye, color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200" },
-  accepted: { label: "Accepted", icon: CheckCircle, color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+  accepted: { label: "Approved", icon: CheckCircle, color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+  approved: { label: "Approved", icon: CheckCircle, color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
   rejected: { label: "Rejected", icon: AlertCircle, color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
   expired: { label: "Expired", icon: AlertCircle, color: "bg-muted text-muted-foreground" },
   partially_approved: { label: "Partial", icon: CheckCircle, color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200" },
@@ -220,8 +222,8 @@ export default function MyProposalsPage() {
     );
     const agentProposals = proposals.filter(p => p.proposalSource === 'agent');
     const selfProposals = proposals.filter(p => p.proposalSource === 'self');
-    const pending = proposals.filter(p => ['sent', 'pending_review', 'viewed'].includes(p.status));
-    const accepted = proposals.filter(p => p.status === 'accepted');
+    const pending = proposals.filter(p => ['sent', 'pending_review', 'viewed', 'waiting_client_approval'].includes(p.status));
+    const accepted = proposals.filter(p => p.status === 'accepted' || p.status === 'approved');
     const cartReady = accepted.filter(p => !p.addedToCart);
     const totalValue = pending.reduce((sum, p) => sum + p.totalAmount, 0);
 
@@ -259,9 +261,10 @@ export default function MyProposalsPage() {
   };
 
   const renderProposalCard = (proposal: UnifiedProposal) => {
-    const isAccepted = proposal.status === 'accepted';
+    const isAccepted = proposal.status === 'accepted' || proposal.status === 'approved';
     const canAddToCart = isAccepted && !proposal.addedToCart;
-    const isPending = ['sent', 'pending_review', 'viewed'].includes(proposal.status);
+    const isPending = ['sent', 'pending_review', 'viewed', 'waiting_client_approval'].includes(proposal.status);
+    const needsAction = proposal.status === 'waiting_client_approval';
 
     return (
       <Card key={proposal.id} className="hover:shadow-md transition-shadow" data-testid={`proposal-card-${proposal.id}`}>
@@ -326,6 +329,7 @@ export default function MyProposalsPage() {
                 <>
                   <Button
                     size="sm"
+                    className={needsAction ? "bg-orange-600 hover:bg-orange-700 animate-pulse" : ""}
                     onClick={() => acceptProposalMutation.mutate(proposal.id)}
                     disabled={acceptProposalMutation.isPending}
                     data-testid={`accept-proposal-${proposal.id}`}
@@ -335,7 +339,7 @@ export default function MyProposalsPage() {
                     ) : (
                       <CheckCircle className="h-4 w-4 mr-1" />
                     )}
-                    Accept
+                    {needsAction ? "Review & Approve" : "Accept"}
                   </Button>
                   <Button
                     variant="destructive"

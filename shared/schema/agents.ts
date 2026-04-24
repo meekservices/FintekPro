@@ -5,6 +5,11 @@ import { z } from "zod";
 import { users } from './users';
 import { agentBaskets } from './kyc';
 import { partners } from './partners';
+
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+const AADHAAR_REGEX = /^[2-9]{1}[0-9]{11}$/;
+const ARN_REGEX = /^ARN-[0-9]+$/;
+const ICAI_MEMBERSHIP_REGEX = /^[0-9]{6}$/;
 // --- Core Agent Master Tables ---
 
 // Agents table
@@ -65,6 +70,16 @@ export const customerCareAgents = pgTable("customer_care_agents", {
   pendingCommissions: decimal("pending_commissions", { precision: 15, scale: 2 }).default("0.00"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCustomerCareAgentSchema = createInsertSchema(customerCareAgents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  panNumber: z.string().regex(PAN_REGEX, "Invalid PAN format").optional().nullable(),
+  aadharNumber: z.string().regex(AADHAAR_REGEX, "Invalid Aadhaar format").optional().nullable(),
+  arnCode: z.string().regex(ARN_REGEX, "Invalid ARN format (should be ARN-XXXXX)").optional().nullable(),
 });
 
 export const certificationQuizzes = pgTable("certification_quizzes", {
@@ -279,6 +294,16 @@ export const agents = pgTable("agents", {
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAgentSchema = createInsertSchema(agents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  panNumber: z.string().regex(PAN_REGEX, "Invalid PAN format").optional().nullable(),
+  aadharNumber: z.string().regex(AADHAAR_REGEX, "Invalid Aadhaar format").optional().nullable(),
+  arnCode: z.string().regex(ARN_REGEX, "Invalid ARN format (should be ARN-XXXXX)").optional().nullable(),
 });
 
 export const agentOverrideAuditLog = pgTable("agent_override_audit_log", {
@@ -821,6 +846,14 @@ export const caProfiles = pgTable("ca_profiles", {
   index("idx_ca_profiles_available").on(table.isAvailable),
 ]);
 
+export const insertCaProfileSchema = createInsertSchema(caProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  membershipNumber: z.string().regex(ICAI_MEMBERSHIP_REGEX, "Invalid ICAI Membership Number (6 digits required)"),
+});
+
 // Insert schemas and types for Agent ITR Filing
 export const insertAgentItrCaseSchema = createInsertSchema(agentItrCases).omit({
   id: true,
@@ -919,7 +952,9 @@ export const agentClientMappingRequests = pgTable("agent_client_mapping_requests
   index("idx_mapping_requests_pan").on(table.clientPan),
 ]);
 
-export const insertAgentClientMappingRequestSchema = createInsertSchema(agentClientMappingRequests).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAgentClientMappingRequestSchema = createInsertSchema(agentClientMappingRequests).omit({ id: true, createdAt: true, updatedAt: true }).extend({
+  clientPan: z.string().regex(PAN_REGEX, "Invalid PAN format").optional().nullable(),
+});
 
 export const agentBasketItems = pgTable("agent_basket_items", {
   id: uuid("id").primaryKey().defaultRandom(),

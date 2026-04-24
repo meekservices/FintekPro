@@ -3,24 +3,20 @@ const { Pool } = pg;
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 import { logger } from './logger';
+import fs from 'fs';
 
 // Determine environment first — URL selection depends on it.
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Connection strategy:
-//   PRODUCTION_DATABASE_URL set → always use Railway/Neon Postgres (both dev and prod)
-//   PRODUCTION_DATABASE_URL absent → fall back to DATABASE_URL (Replit Helium / local)
-const selectedDbUrl =
-  process.env.PRODUCTION_DATABASE_URL ||
-  process.env.DATABASE_URL;
+//   PRODUCTION_DATABASE_URL MUST be set (GCP Cloud SQL)
+const selectedDbUrl = process.env.PRODUCTION_DATABASE_URL;
 
 if (!selectedDbUrl) {
-  throw new Error(
-    "No database URL found. Set PRODUCTION_DATABASE_URL (Railway Postgres) or DATABASE_URL in your environment secrets."
-  );
+  throw new Error("No database URL found. Set PRODUCTION_DATABASE_URL in your environment secrets.");
 }
 
-export const isUsingProductionDb = isProduction || !!process.env.PRODUCTION_DATABASE_URL;
+export const isUsingProductionDb = true; // Always true now since we only use the production DB
 
 // SSL config based on URL type:
 //   Neon (neon.tech)               → SSL with cert verification (managed CA)
@@ -28,28 +24,22 @@ export const isUsingProductionDb = isProduction || !!process.env.PRODUCTION_DATA
 //   Railway internal (.internal)   → no SSL (private network, no cert needed)
 //   Local / Replit Helium          → no SSL
 // Force SSL for all non-local production URLs unless using Unix sockets
-const isCloudSqlSocketAvailable = fs.existsSync('/cloudsql/fintekpro:asia-south1:fintekpro-db');
-const isRailwayInternal = selectedDbUrl.includes('.railway.internal');
-
+const cloudSqlSocketPath = '/cloudsql/fintekpro:asia-south1:fintekpro-db';
+const isCloudSqlSocketAvailable = fs.existsSync(cloudSqlSocketPath);
 const needsSsl =
-  !isRailwayInternal && 
   !isCloudSqlSocketAvailable && (
-    selectedDbUrl.includes('neon.tech') ||
-    selectedDbUrl.includes('.neon.') ||
-    selectedDbUrl.includes('rlwy.net') ||
-    selectedDbUrl.includes('railway.app') ||
     selectedDbUrl.includes('google.com') ||
-    isProduction // Modern GCP Cloud SQL requires SSL for all non-socket connections
+    isProduction ||
+    // Ensure all PRODUCTION_DATABASE_URL connections use SSL if not using a socket
+    !selectedDbUrl.includes('host=')
   );
 
-const dbUrlSource = process.env.PRODUCTION_DATABASE_URL
-  ? 'PRODUCTION_DATABASE_URL'
-  : 'DATABASE_URL';
+const dbUrlSource = 'PRODUCTION_DATABASE_URL';
 
 if (isCloudSqlSocketAvailable) {
   logger.info(`[DB] Connected to ${dbUrlSource} via Cloud SQL Unix Socket`);
 } else {
-  logger.info(`[DB] Connected to ${dbUrlSource} (${needsSsl ? 'SSL' : isRailwayInternal ? 'TCP/internal' : 'TCP'})`);
+  logger.info(`[DB] Connected to ${dbUrlSource} (${needsSsl ? 'SSL' : 'TCP'})`);
 }
 
 const POOL_CONFIG: any = {
@@ -68,15 +58,29 @@ if (isCloudSqlSocketAvailable) {
   // Extract user, password, and database from the connection string
   try {
     const url = new URL(selectedDbUrl);
-    POOL_CONFIG.host = '/cloudsql/fintekpro:asia-south1:fintekpro-db';
+    POOL_CONFIG.host = cloudSqlSocketPath;
     POOL_CONFIG.port = 5432;
     POOL_CONFIG.user = url.username;
     POOL_CONFIG.password = url.password;
-    POOL_CONFIG.database = url.pathname.split('/')[1];
+    POOL_CONFIG.database = url.pathname.split('/')[1] || 'fintekpro';
     // Delete connectionString to ensure host/user/password win
     delete POOL_CONFIG.connectionString;
   } catch (e: any) {
     logger.warn(`[DB] Failed to parse connection string for Unix socket optimization: ${e.message}`);
+  }
+} else if (selectedDbUrl.includes('host=')) {
+  // Fallback: If socket path doesn't exist (local dev), connect to 127.0.0.1 (Cloud SQL Proxy default)
+  try {
+    const url = new URL(selectedDbUrl);
+    POOL_CONFIG.host = '127.0.0.1';
+    POOL_CONFIG.port = 5432;
+    POOL_CONFIG.user = url.username;
+    POOL_CONFIG.password = url.password;
+    POOL_CONFIG.database = url.pathname.split('/')[1] || 'fintekpro';
+    delete POOL_CONFIG.connectionString;
+    logger.info(`[DB] Unix socket not found. Falling back to 127.0.0.1 for Cloud SQL Auth Proxy.`);
+  } catch (e) {
+    // Fall back to raw connection string
   }
 }
 
@@ -152,7 +156,7 @@ export function getPoolStats() {
 }
 
 export async function testConnection(): Promise<boolean> {
-  const source = process.env.PRODUCTION_DATABASE_URL ? 'PRODUCTION_DATABASE_URL' : 'DATABASE_URL';
+  const source = 'PRODUCTION_DATABASE_URL';
   logger.info(`[DB] Attempting to verify connection to ${source}...`);
 
   return new Promise((resolve) => {

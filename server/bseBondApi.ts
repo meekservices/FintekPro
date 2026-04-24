@@ -117,6 +117,9 @@ export class BSEBondApiService {
   }): Promise<CorporateBond[]> {
     try {
       if (!this.validateCredentials()) {
+        if (IS_PRODUCTION) {
+          throw new Error('BSE Bond credentials not configured in production');
+        }
         console.log('BSE Bond: Using demo mode - returning sample bonds');
         return this.getDemoBonds();
       }
@@ -137,7 +140,10 @@ export class BSEBondApiService {
       return response.data.bonds || [];
     } catch (error: any) {
       const msg = error?.code === 'ETIMEDOUT' ? `ETIMEDOUT ${error?.address}:${error?.port}` : (error?.message || 'Unknown error');
-      bseWarn('tradable', `[BSE Bond] Tradable bonds fetch failed: ${msg} — using curated data`);
+      bseWarn('tradable', `[BSE Bond] Tradable bonds fetch failed: ${msg}`);
+      if (IS_PRODUCTION) {
+        return [];
+      }
       return this.getDemoBonds();
     }
   }
@@ -610,7 +616,10 @@ export class BSEBondApiService {
       return response.data.bonds || [];
     } catch (error: any) {
       const msg = error?.code === 'ETIMEDOUT' ? `ETIMEDOUT ${error?.address}:${error?.port}` : (error?.message || 'Unknown error');
-      bseWarn('taxfree', `[BSE Bond] Tax-free bonds fetch failed: ${msg} — using curated data`);
+      bseWarn('taxfree', `[BSE Bond] Tax-free bonds fetch failed: ${msg}`);
+      if (IS_PRODUCTION) {
+        return [];
+      }
       return this.getDemoTaxFreeBonds();
     }
   }
@@ -692,7 +701,10 @@ export class BSEBondApiService {
       return response.data.bonds || [];
     } catch (error: any) {
       const msg = error?.code === 'ETIMEDOUT' ? `ETIMEDOUT ${error?.address}:${error?.port}` : (error?.message || 'Unknown error');
-      bseWarn('infra', `[BSE Bond] Infrastructure bonds fetch failed: ${msg} — using curated data`);
+      bseWarn('infra', `[BSE Bond] Infrastructure bonds fetch failed: ${msg}`);
+      if (IS_PRODUCTION) {
+        return [];
+      }
       return this.getDemoInfrastructureBonds();
     }
   }

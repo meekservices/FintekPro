@@ -11,12 +11,7 @@ const complianceMonitor = {
   }
 };
 
-// Extend session type to include user
-declare module 'express-session' {
-  interface SessionData {
-    user?: { id: string; role?: string; email?: string };
-  }
-}
+import { logSuspiciousTransaction, checkSuspiciousValues } from "../utils/compliance-utils";
 
 export function registerInvestmentIdeasRoutes(app: Express): void {
 app.get('/api/investment-ideas', async (req, res) => {
@@ -107,6 +102,20 @@ app.post('/api/investment-ideas', async (req, res) => {
       ...req.body,
       userId: req.session.user.id
     });
+
+    // Regulatory Hardening: Data Integrity Guard
+    const amount = parseFloat(ideaData.recommendedInvestment || "0");
+    const suspiciousCheck = checkSuspiciousValues(amount);
+    if (suspiciousCheck.isSuspicious) {
+      logSuspiciousTransaction(req.session.user.id, amount, suspiciousCheck.reason!);
+      complianceMonitor.logEvent({ 
+        eventType: 'compliance_warning', 
+        action: 'suspicious_value_detected', 
+        userId: req.session.user.id,
+        details: suspiciousCheck.reason
+      });
+      // For now we just flag it in logs, but could block it if required by user
+    }
 
     const idea = await storage.createInvestmentIdea(ideaData);
     
@@ -349,6 +358,19 @@ app.post('/api/yield-tracker', async (req, res) => {
       ...req.body,
       userId: req.session.user.id
     });
+
+    // Regulatory Hardening: Data Integrity Guard
+    const amount = parseFloat(trackerData.initialInvestment || "0");
+    const suspiciousCheck = checkSuspiciousValues(amount);
+    if (suspiciousCheck.isSuspicious) {
+      logSuspiciousTransaction(req.session.user.id, amount, suspiciousCheck.reason!);
+      complianceMonitor.logEvent({ 
+        eventType: 'compliance_warning', 
+        action: 'suspicious_value_detected', 
+        userId: req.session.user.id,
+        details: suspiciousCheck.reason
+      });
+    }
 
     const tracker = await storage.createYieldTracker(trackerData);
     

@@ -14,6 +14,10 @@ import { bondHoldings } from './bonds';
 import { bondOrders, usOrders } from './orders';
 import { advisorySessions } from './advisory';
 
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+const AADHAAR_REGEX = /^[2-9]{1}[0-9]{11}$/;
+const PINCODE_REGEX = /^[1-9][0-9]{5}$/;
+
 export const digilockerApps = pgTable("digilocker_apps", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   appName: varchar("app_name").notNull(),
@@ -1068,6 +1072,9 @@ export const insertKycVerificationSessionSchema = createInsertSchema(kycVerifica
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  panNumber: z.string().regex(PAN_REGEX, "Invalid PAN format").optional().nullable(),
+  aadhaarNumber: z.string().regex(AADHAAR_REGEX, "Invalid Aadhaar format").optional().nullable(),
 });
 
 export const insertComplianceDocumentSchema = createInsertSchema(complianceDocuments).omit({
@@ -1080,6 +1087,10 @@ export const insertCkycRecordSchema = createInsertSchema(ckycRecords).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  panNumber: z.string().regex(PAN_REGEX, "Invalid PAN format"),
+  aadhaarNumber: z.string().regex(AADHAAR_REGEX, "Invalid Aadhaar format").optional().nullable(),
+  pincode: z.string().regex(PINCODE_REGEX, "Invalid Pincode format"),
 });
 
 export const insertSmartKycProgressSchema = createInsertSchema(smartKycProgress).omit({
@@ -1160,6 +1171,9 @@ export const insertKycFormProgressSchema = createInsertSchema(kycFormProgress).o
 
 export const insertManualKycSubmissionSchema = createInsertSchema(manualKycSubmissions).omit({
   id: true, createdAt: true, updatedAt: true,
+}).extend({
+  pan: z.string().regex(PAN_REGEX, "Invalid PAN format"),
+  pincode: z.string().regex(PINCODE_REGEX, "Invalid Pincode format"),
 });
 
 export const insertManualKycDocumentSchema = createInsertSchema(manualKycDocuments).omit({

@@ -91,12 +91,22 @@ export function errorHandler(
   // Normalize to AppError
   const appError = normalizeError(err);
   
+  // CRITICAL: Log the full stack trace for 500 errors in production to identify the root cause
+  if (appError.status >= 500) {
+    console.error(`❌ [FATAL_ERROR] ${req.method} ${req.path}`, {
+      message: err.message,
+      stack: err.stack,
+      traceId
+    });
+  }
+
   // Log the error with trace ID
   logError(appError, req, traceId);
 
   // Send response
   apiResponse.error(res, appError);
 }
+
 
 /**
  * Not found handler middleware

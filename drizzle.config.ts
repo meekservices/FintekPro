@@ -25,13 +25,12 @@ function toDirectUrl(url: string): string {
   return url.replace(/\.c-\d+\./, ".");
 }
 
-const isProd = !!process.env.PRODUCTION_DATABASE_URL;
+const rawUrl = process.env.PRODUCTION_DATABASE_URL!;
+if (!rawUrl) {
+  throw new Error("PRODUCTION_DATABASE_URL must be defined");
+}
 
-const rawUrl = isProd
-  ? process.env.PRODUCTION_DATABASE_URL!
-  : (process.env.DATABASE_URL || "postgresql://localhost:5432/placeholder");
-
-const dbUrl = isProd ? toDirectUrl(rawUrl) : rawUrl;
+const dbUrl = rawUrl;
 
 export default defineConfig({
   out: "./drizzle-migrations",
@@ -39,7 +38,7 @@ export default defineConfig({
   dialect: "postgresql",
   dbCredentials: {
     url: dbUrl,
-    ssl: isProd ? { rejectUnauthorized: false } : false,
+    ssl: { rejectUnauthorized: false }, // Force SSL mode matching PRODUCTION_DATABASE_URL
   },
   schemaFilter: ["drizzle_kit_managed"],
 });

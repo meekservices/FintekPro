@@ -23,6 +23,7 @@ interface AuditEntry {
   userAgent?: string | null;
   outcome: 'success' | 'failure';
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  actorType?: string | null;
   createdAt: Date;
 }
 
@@ -104,13 +105,13 @@ class AuditBufferService {
     const values = batch
       .map((e) => {
         const details = e.details ? JSON.stringify(e.details) : null;
-        return sql`(${e.userId ?? null}, ${e.action}, ${e.category}, ${details}, ${e.ipAddress ?? null}, ${e.userAgent ?? null}, ${e.outcome}, ${e.riskLevel}, ${e.createdAt})`;
+        return sql`(${e.userId ?? null}, ${e.actorType ?? null}, ${e.action}, ${e.category}, ${details}, ${e.ipAddress ?? null}, ${e.userAgent ?? null}, ${e.outcome}, ${e.riskLevel}, ${e.createdAt})`;
       });
 
     await db.execute(
       sql`
         INSERT INTO audit_trail
-          (user_id, action, category, details, ip_address, user_agent, outcome, risk_level, created_at)
+          (user_id, actor_type, action, category, details, ip_address, user_agent, outcome, risk_level, created_at)
         VALUES ${sql.join(values, sql`, `)}
         ON CONFLICT DO NOTHING
       `,

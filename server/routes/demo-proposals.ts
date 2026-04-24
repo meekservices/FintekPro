@@ -731,7 +731,7 @@ agentDemoRouter.post("/:id/convert", async (req: Request, res: Response) => {
         isDemo: false,
         demoConvertedAt: new Date(),
         demoConvertedBy: agentId,
-        status: 'pending',
+        status: 'waiting_client_approval',
         updatedAt: new Date(),
       })
       .where(eq(investmentProposals.id, id))

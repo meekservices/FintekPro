@@ -8,6 +8,8 @@ import { fetchSebiAifListings, SebiAifListing, generateComprehensiveAifSeedData,
 import { fetchSebiPmsListings, SebiPmsListing, generateComprehensivePmsSeedData, PmsSeedData } from "../services/sebi-pms-scraper";
 import { externalRemittanceService, RemittanceUploadRequest, RemittanceDocumentUpload } from "../services/external-remittance-service";
 import { aiRecommendationSyncService } from "../services/ai-recommendation-sync-service";
+import { checkSuspiciousValues } from "../utils/compliance-utils";
+import { complianceMonitor } from "../compliance-monitor";
 
 const router = Router();
 
@@ -84,6 +86,18 @@ router.post("/portfolio/aif", requireAuth, async (req, res) => {
     
     // Set client and added by
     const clientId = data.clientId || userId;
+
+    // Regulatory Compliance Check
+    const suspiciousCheck = checkSuspiciousValues(data.commitmentAmount, `AIF-Commitment-${data.aifName}`, clientId);
+    if (suspiciousCheck.isSuspicious) {
+      await complianceMonitor.logSuspiciousActivity({
+        userId: clientId,
+        activityType: 'SUSPICIOUS_AIF_COMMITMENT',
+        details: suspiciousCheck.reason || 'Commitment near regulatory threshold',
+        severity: 'medium',
+        metadata: { amount: data.commitmentAmount, aifName: data.aifName }
+      });
+    }
     
     // Calculate uncalled capital
     const capitalUncalled = parseFloat(data.commitmentAmount) - parseFloat(data.capitalCalled);
@@ -294,6 +308,18 @@ router.post("/portfolio/pms", requireAuth, async (req, res) => {
     }
     
     const clientId = data.clientId || userId;
+
+    // Regulatory Compliance Check
+    const suspiciousCheck = checkSuspiciousValues(data.investedAmount, `PMS-Investment-${data.pmsName}`, clientId);
+    if (suspiciousCheck.isSuspicious) {
+      await complianceMonitor.logSuspiciousActivity({
+        userId: clientId,
+        activityType: 'SUSPICIOUS_PMS_INVESTMENT',
+        details: suspiciousCheck.reason || 'Investment near regulatory threshold',
+        severity: 'medium',
+        metadata: { amount: data.investedAmount, pmsName: data.pmsName }
+      });
+    }
     
     // Calculate total invested
     const totalInvested = parseFloat(data.investedAmount) + parseFloat(data.additionalInfusions || "0");

@@ -42,7 +42,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-main.py
+venv/
 pyproject.toml
 
 # Large data exports - not for version control
@@ -96,3 +96,8 @@ pnpm-lock.yaml
 # Local development and cache
 npm_cache/
 find_user.ts
+fintek_data.dump
+fintek_data.dump
+cloudrun-env.yaml
+.gcloud/
+.gcloud_tmp_config/

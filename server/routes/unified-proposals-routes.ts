@@ -216,8 +216,8 @@ router.put("/:id/accept", async (req: Request, res: Response) => {
     await db
       .update(investmentProposals)
       .set({
-        status: 'accepted',
-        clientApprovedAt: new Date(),
+        status: 'approved',
+        approvedAt: new Date(),
         updatedAt: new Date(),
       } as any)
       .where(eq(investmentProposals.id, id));
@@ -227,7 +227,7 @@ router.put("/:id/accept", async (req: Request, res: Response) => {
       .set({ status: 'approved' })
       .where(eq(investmentProposalItems.proposalId, id));
 
-    res.json({ success: true, message: "Proposal accepted" });
+    res.json({ success: true, message: "Proposal approved" });
   } catch (error) {
     console.error("[Unified Proposals] Error accepting proposal:", error);
     res.status(500).json({ error: "Failed to accept proposal" });
@@ -268,6 +268,15 @@ router.put("/:id/reject", async (req: Request, res: Response) => {
       .set({ status: 'rejected' })
       .where(eq(investmentProposalItems.proposalId, id));
 
+    // Regulatory audit logging
+    await complianceMonitor.logSuspiciousActivity({
+      userId: (req as any).user?.id || 'unknown',
+      activityType: 'PROPOSAL_REJECTED',
+      details: `Proposal ${proposalId} rejected by client`,
+      severity: 'low',
+      metadata: { proposalId }
+    });
+
     res.json({ success: true, message: "Proposal rejected" });
   } catch (error) {
     console.error("[Unified Proposals] Error rejecting proposal:", error);
@@ -297,8 +306,8 @@ router.post("/:id/add-to-cart", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Proposal not found" });
     }
 
-    if (proposal.status !== 'accepted') {
-      return res.status(400).json({ error: "Proposal must be accepted before adding to cart" });
+    if (proposal.status !== 'approved') {
+      return res.status(400).json({ error: "Please approve the proposal first" });
     }
 
     const items = await db
