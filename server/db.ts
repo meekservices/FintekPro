@@ -77,8 +77,9 @@ if (isCloudSqlSocketAvailable) {
     POOL_CONFIG.user = url.username;
     POOL_CONFIG.password = url.password;
     POOL_CONFIG.database = url.pathname.split('/')[1] || 'fintekpro';
+    POOL_CONFIG.ssl = false; // Proxy handles encryption, local connection must be plain
     delete POOL_CONFIG.connectionString;
-    logger.info(`[DB] Unix socket not found. Falling back to 127.0.0.1 for Cloud SQL Auth Proxy.`);
+    logger.info(`[DB] Unix socket not found. Falling back to 127.0.0.1 for Cloud SQL Auth Proxy (SSL disabled).`);
   } catch (e) {
     // Fall back to raw connection string
   }

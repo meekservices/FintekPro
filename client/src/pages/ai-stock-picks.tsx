@@ -383,16 +383,16 @@ export default function AIStockPicks() {
 
                     <div className="flex items-center justify-between text-sm mb-2">
                       <span className="text-muted-foreground">Expected Return</span>
-                      <span className={`font-medium ${stock.expectedReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {stock.expectedReturn >= 0 ? '+' : ''}{stock.expectedReturn}%
+                      <span className={`font-medium ${Number(stock.expectedReturn ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {Number(stock.expectedReturn ?? 0) >= 0 ? '+' : ''}{Number(stock.expectedReturn ?? 0)}%
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between text-sm mb-3">
                       <span className="text-muted-foreground">Confidence</span>
                       <div className="flex items-center gap-2 w-32">
-                        <Progress value={stock.confidence} className="h-2" />
-                        <span className="text-xs font-medium">{stock.confidence}%</span>
+                        <Progress value={Number(stock.confidence ?? 0)} className="h-2" />
+                        <span className="text-xs font-medium">{Number(stock.confidence ?? 0)}%</span>
                       </div>
                     </div>
 

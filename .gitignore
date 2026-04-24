@@ -101,3 +101,4 @@ fintek_data.dump
 cloudrun-env.yaml
 .gcloud/
 .gcloud_tmp_config/
+.tmp/
