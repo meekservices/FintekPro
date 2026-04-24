@@ -189,25 +189,19 @@ export class HistoricalNavService {
         // becomes safe against concurrent duplicate inserts as well.
         await db.execute(sql`
           INSERT INTO historical_nav_data (identifier, identifier_type, date, nav, source, fetched_at, created_at)
-          SELECT t.identifier, t.identifier_type, t.date, t.nav, t.source, NOW(), NOW()
-          FROM (
-            VALUES ${sql.join(
-              batch.map(r => sql`(
-                ${r.identifier}::varchar,
-                ${r.identifierType}::varchar,
-                ${r.date}::date,
-                ${r.nav}::numeric,
-                ${r.source}::varchar
-              )`),
-              sql`, `
-            )}
-          ) AS t(identifier, identifier_type, date, nav, source)
-          WHERE NOT EXISTS (
-            SELECT 1 FROM historical_nav_data h
-            WHERE h.identifier = t.identifier
-              AND h.identifier_type = t.identifier_type
-              AND h.date = t.date
-          )
+          VALUES ${sql.join(
+            batch.map(r => sql`(
+              ${r.identifier}::varchar,
+              ${r.identifierType}::varchar,
+              ${r.date}::date,
+              ${r.nav}::numeric,
+              ${r.source}::varchar,
+              NOW(),
+              NOW()
+            )`),
+            sql`, `
+          )}
+          ON CONFLICT (identifier, identifier_type, date) DO NOTHING
         `);
 
         totalInserted += batch.length;
