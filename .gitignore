@@ -102,3 +102,7 @@ cloudrun-env.yaml
 .gcloud/
 .gcloud_tmp_config/
 .tmp/
+
+# Scratch artifacts
+scratch/*.js
+scratch/*.cjs
