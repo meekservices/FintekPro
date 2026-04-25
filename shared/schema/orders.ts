@@ -246,13 +246,23 @@ export const ReitInvitOrderTypeEnum = z.enum(['buy', 'sell']);
 export const ReitInvitOrderStatusEnum = z.enum(['pending', 'confirmed', 'executed', 'cancelled', 'failed']);
 
 // Zod Schemas
-export const insertBondOrderSchema = createInsertSchema(bondOrders).omit({
+export const insertBondOrderSchema = createInsertSchema(bondOrders).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  orderDate: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   orderDate: true,
 });
 
-export const insertUnifiedOrderSchema = createInsertSchema(unifiedOrders).omit({
+export const insertUnifiedOrderSchema = createInsertSchema(unifiedOrders).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+  completedAt: z.any(),
+  cancelledAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -260,24 +270,39 @@ export const insertUnifiedOrderSchema = createInsertSchema(unifiedOrders).omit({
   cancelledAt: true,
 });
 
-export const insertOrderLifecycleEventSchema = createInsertSchema(orderLifecycleEvents).omit({
+export const insertOrderLifecycleEventSchema = createInsertSchema(orderLifecycleEvents).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
 
-export const insertOrderDocumentSchema = createInsertSchema(orderDocuments).omit({
+export const insertOrderDocumentSchema = createInsertSchema(orderDocuments).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertReitInvitOrderSchema = createInsertSchema(reitInvitOrders).omit({
+export const insertReitInvitOrderSchema = createInsertSchema(reitInvitOrders).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertUsOrderSchema = createInsertSchema(usOrders).omit({
+export const insertUsOrderSchema = createInsertSchema(usOrders).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

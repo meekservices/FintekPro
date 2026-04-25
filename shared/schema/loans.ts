@@ -290,7 +290,10 @@ export const loanComparisonAnalytics = pgTable("loan_comparison_analytics", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertLoanComparisonAnalyticsSchema = createInsertSchema(loanComparisonAnalytics).omit({
+export const insertLoanComparisonAnalyticsSchema = createInsertSchema(loanComparisonAnalytics).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -360,7 +363,11 @@ export const loanCommissionLedger = pgTable("loan_commission_ledger", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertLoanCommissionLedgerSchema = createInsertSchema(loanCommissionLedger).omit({
+export const insertLoanCommissionLedgerSchema = createInsertSchema(loanCommissionLedger).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -443,7 +450,11 @@ export const loanLeads = pgTable("loan_leads", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertLoanLeadsSchema = createInsertSchema(loanLeads).omit({
+export const insertLoanLeadsSchema = createInsertSchema(loanLeads).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -598,14 +609,21 @@ export const providerProductCommissions = pgTable("provider_product_commissions"
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertLenderStaffSchema = createInsertSchema(lenderStaff).omit({
+export const insertLenderStaffSchema = createInsertSchema(lenderStaff).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
 export type LenderStaff = typeof lenderStaff.$inferSelect;
 export type InsertLenderStaff = z.infer<typeof insertLenderStaffSchema>;
 
-export const insertProviderProductCommissionsSchema = createInsertSchema(providerProductCommissions).omit({
+export const insertProviderProductCommissionsSchema = createInsertSchema(providerProductCommissions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

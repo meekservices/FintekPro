@@ -331,31 +331,51 @@ export type PlatformSubscription = typeof platformSubscriptions.$inferSelect;
 export type InsertPlatformSubscription = typeof platformSubscriptions.$inferInsert;
 
 // Zod Schemas
-export const insertUserSchema = createInsertSchema(users).omit({
+export const insertUserSchema = createInsertSchema(users).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
+export const insertUserProfileSchema = createInsertSchema(userProfiles).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertUserBankAccountSchema = createInsertSchema(userBankAccounts).omit({
+export const insertUserBankAccountSchema = createInsertSchema(userBankAccounts).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertUserDematAccountSchema = createInsertSchema(userDematAccounts).omit({
+export const insertUserDematAccountSchema = createInsertSchema(userDematAccounts).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertPlatformSubscriptionSchema = createInsertSchema(platformSubscriptions).omit({
+export const insertPlatformSubscriptionSchema = createInsertSchema(platformSubscriptions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

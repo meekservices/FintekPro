@@ -81,17 +81,26 @@ export const marketDataCache = pgTable("market_data_cache", {
 ]);
 
 // Zod Schemas
-export const insertMarketDataSchema = createInsertSchema(marketData).omit({
+export const insertMarketDataSchema = createInsertSchema(marketData).extend({
+  id: z.any(),
+  lastUpdated: z.any(),
+}).omit({
   id: true,
   lastUpdated: true,
 });
 
-export const insertMarketDataSnapshotSchema = createInsertSchema(marketDataSnapshots).omit({
+export const insertMarketDataSnapshotSchema = createInsertSchema(marketDataSnapshots).extend({
+  id: z.any(),
+  fetchedAt: z.any(),
+}).omit({
   id: true,
   fetchedAt: true,
 });
 
-export const insertMarketDataCacheSchema = createInsertSchema(marketDataCache).omit({
+export const insertMarketDataCacheSchema = createInsertSchema(marketDataCache).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });

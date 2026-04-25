@@ -136,7 +136,10 @@ export const fixedIncomeStatusLog = pgTable("fixed_income_status_log", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertGovernmentSecuritySchema = createInsertSchema(governmentSecurities).omit({
+export const insertGovernmentSecuritySchema = createInsertSchema(governmentSecurities).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -210,7 +213,10 @@ export const bondHoldings = pgTable("bond_holdings", {
 
 // Family Portfolio Permissions - Granular access control
 
-export const insertCorporateBondSchema = createInsertSchema(corporateBonds).omit({
+export const insertCorporateBondSchema = createInsertSchema(corporateBonds).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -252,7 +258,11 @@ export const bondCommissionConfig = pgTable("bond_commission_config", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertBondCommissionConfigSchema = createInsertSchema(bondCommissionConfig).omit({
+export const insertBondCommissionConfigSchema = createInsertSchema(bondCommissionConfig).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -336,7 +346,12 @@ export const bondSellListings = pgTable("bond_sell_listings", {
 
 export type BondSellListing = typeof bondSellListings.$inferSelect;
 export type InsertBondSellListing = typeof bondSellListings.$inferInsert;
-export const insertBondSellListingSchema = createInsertSchema(bondSellListings).omit({ 
+export const insertBondSellListingSchema = createInsertSchema(bondSellListings).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+  quantityRemaining: z.any(),
+}).omit({ 
   id: true, createdAt: true, updatedAt: true, quantityRemaining: true 
 });
 
@@ -403,7 +418,12 @@ export const bondBuyRequests = pgTable("bond_buy_requests", {
 
 export type BondBuyRequest = typeof bondBuyRequests.$inferSelect;
 export type InsertBondBuyRequest = typeof bondBuyRequests.$inferInsert;
-export const insertBondBuyRequestSchema = createInsertSchema(bondBuyRequests).omit({ 
+export const insertBondBuyRequestSchema = createInsertSchema(bondBuyRequests).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+  quantityFilled: z.any(),
+}).omit({ 
   id: true, createdAt: true, updatedAt: true, quantityFilled: true 
 });
 
@@ -497,7 +517,12 @@ export const bondDeals = pgTable("bond_deals", {
 
 export type BondDeal = typeof bondDeals.$inferSelect;
 export type InsertBondDeal = typeof bondDeals.$inferInsert;
-export const insertBondDealSchema = createInsertSchema(bondDeals).omit({ 
+export const insertBondDealSchema = createInsertSchema(bondDeals).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+  matchedAt: z.any(),
+}).omit({ 
   id: true, createdAt: true, updatedAt: true, matchedAt: true 
 });
 
@@ -548,7 +573,10 @@ export const bondMarketplaceAuditLogs = pgTable("bond_marketplace_audit_logs", {
 
 export type BondMarketplaceAuditLog = typeof bondMarketplaceAuditLogs.$inferSelect;
 export type InsertBondMarketplaceAuditLog = typeof bondMarketplaceAuditLogs.$inferInsert;
-export const insertBondMarketplaceAuditLogSchema = createInsertSchema(bondMarketplaceAuditLogs).omit({ 
+export const insertBondMarketplaceAuditLogSchema = createInsertSchema(bondMarketplaceAuditLogs).extend({
+  id: z.any(),
+  timestamp: z.any(),
+}).omit({ 
   id: true, timestamp: true 
 });
 
@@ -671,7 +699,11 @@ export const bondFeeProfiles = pgTable("bond_fee_profiles", {
 
 export type BondFeeProfile = typeof bondFeeProfiles.$inferSelect;
 export type InsertBondFeeProfile = typeof bondFeeProfiles.$inferInsert;
-export const insertBondFeeProfileSchema = createInsertSchema(bondFeeProfiles).omit({ 
+export const insertBondFeeProfileSchema = createInsertSchema(bondFeeProfiles).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ 
   id: true, createdAt: true, updatedAt: true 
 });
 
@@ -706,7 +738,11 @@ export const bondFeeOverrides = pgTable("bond_fee_overrides", {
 
 export type BondFeeOverride = typeof bondFeeOverrides.$inferSelect;
 export type InsertBondFeeOverride = typeof bondFeeOverrides.$inferInsert;
-export const insertBondFeeOverrideSchema = createInsertSchema(bondFeeOverrides).omit({ 
+export const insertBondFeeOverrideSchema = createInsertSchema(bondFeeOverrides).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ 
   id: true, createdAt: true, updatedAt: true 
 });
 
@@ -796,7 +832,12 @@ export const bondCatalog = pgTable("bond_catalog", {
 
 export type BondCatalogEntry = typeof bondCatalog.$inferSelect;
 export type InsertBondCatalogEntry = typeof bondCatalog.$inferInsert;
-export const insertBondCatalogSchema = createInsertSchema(bondCatalog).omit({ 
+export const insertBondCatalogSchema = createInsertSchema(bondCatalog).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+  publishedAt: z.any(),
+}).omit({ 
   id: true, createdAt: true, updatedAt: true, publishedAt: true 
 });
 
@@ -831,7 +872,10 @@ export const bondAlerts = pgTable("bond_alerts", {
 
 export type BondAlert = typeof bondAlerts.$inferSelect;
 export type InsertBondAlert = typeof bondAlerts.$inferInsert;
-export const insertBondAlertSchema = createInsertSchema(bondAlerts).omit({
+export const insertBondAlertSchema = createInsertSchema(bondAlerts).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true, createdAt: true
 });
 
@@ -1021,7 +1065,11 @@ export const investorClassificationRules = pgTable("investor_classification_rule
   index("idx_classification_active").on(table.isActive),
 ]);
 
-export const insertInvestorClassificationRuleSchema = createInsertSchema(investorClassificationRules).omit({
+export const insertInvestorClassificationRuleSchema = createInsertSchema(investorClassificationRules).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -1088,7 +1136,11 @@ export const bondCalendarEvents = pgTable("bond_calendar_events", {
   index("idx_bond_calendar_isin").on(table.isin),
 ]);
 
-export const insertBondCalendarEventSchema = createInsertSchema(bondCalendarEvents).omit({
+export const insertBondCalendarEventSchema = createInsertSchema(bondCalendarEvents).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -1159,7 +1211,12 @@ export const bondMetrics = pgTable("bond_metrics", {
   index("idx_bond_metrics_fy").on(table.fiscalYear),
 ]);
 
-export const insertBondMetricsSchema = createInsertSchema(bondMetrics).omit({
+export const insertBondMetricsSchema = createInsertSchema(bondMetrics).extend({
+  id: z.any(),
+  calculatedAt: z.any(),
+  lastUpdated: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true, calculatedAt: true, lastUpdated: true, createdAt: true,
 });
 

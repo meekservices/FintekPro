@@ -254,47 +254,76 @@ import { z } from "zod";
 import { Portfolio, User } from '../schema';
 
 
-export const insertMfFolioSchema = createInsertSchema(mfFolios).omit({
+export const insertMfFolioSchema = createInsertSchema(mfFolios).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertMfHoldingSchema = createInsertSchema(mfHoldings).omit({
+export const insertMfHoldingSchema = createInsertSchema(mfHoldings).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertBankMandateSchema = createInsertSchema(bankMandates).omit({
+export const insertBankMandateSchema = createInsertSchema(bankMandates).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertMfOrderSchema = createInsertSchema(mfOrders).omit({
+export const insertMfOrderSchema = createInsertSchema(mfOrders).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertMfOrderAuditLogSchema = createInsertSchema(mfOrderAuditLog).omit({
+export const insertMfOrderAuditLogSchema = createInsertSchema(mfOrderAuditLog).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
 
-export const insertSuitabilityAcknowledgementSchema = createInsertSchema(suitabilityAcknowledgements).omit({
+export const insertSuitabilityAcknowledgementSchema = createInsertSchema(suitabilityAcknowledgements).extend({
+  id: z.any(),
+  acknowledgedAt: z.any(),
+}).omit({
   id: true,
   acknowledgedAt: true,
 });
 
-export const insertMfReconciliationEntrySchema = createInsertSchema(mfReconciliationEntries).omit({
+export const insertMfReconciliationEntrySchema = createInsertSchema(mfReconciliationEntries).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertMfContractNoteSchema = createInsertSchema(mfContractNotes).omit({
+export const insertMfContractNoteSchema = createInsertSchema(mfContractNotes).extend({
+  id: z.any(),
+  generatedAt: z.any(),
+}).omit({
   id: true,
   generatedAt: true,
 });
@@ -474,7 +503,11 @@ export const mfSchemeStockHoldings = pgTable("mf_scheme_stock_holdings", {
   uniqueHolding: uniqueIndex("mf_scheme_stock_holdings_unique_idx").on(table.mfIsin, table.stockSymbol, table.holdingDate),
 }));
 
-export const insertMfSchemeStockHoldingsSchema = createInsertSchema(mfSchemeStockHoldings).omit({
+export const insertMfSchemeStockHoldingsSchema = createInsertSchema(mfSchemeStockHoldings).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -571,7 +604,10 @@ export const mfBatchValidationLogs = pgTable("mf_batch_validation_logs", {
   index("idx_mbvl_outcome").on(table.canProceed, table.createdAt),
 ]);
 
-export const insertMfBatchValidationLogSchema = createInsertSchema(mfBatchValidationLogs).omit({ id: true, createdAt: true });
+export const insertMfBatchValidationLogSchema = createInsertSchema(mfBatchValidationLogs).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export const mfMonthwisePerformance = pgTable("mf_monthwise_performance", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -593,7 +629,11 @@ export const mfMonthwisePerformance = pgTable("mf_monthwise_performance", {
   index("idx_mf_monthwise_performance_unique").on(table.schemeCode, table.monthYear),
 ]);
 
-export const insertMfMonthwisePerformanceSchema = createInsertSchema(mfMonthwisePerformance).omit({
+export const insertMfMonthwisePerformanceSchema = createInsertSchema(mfMonthwisePerformance).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -680,7 +720,12 @@ export const mutualFundMetrics = pgTable("mutual_fund_metrics", {
   uniqueIndex("uq_mf_metrics_scheme_fy").on(table.schemeCode, table.fiscalYear),
 ]);
 
-export const insertMutualFundMetricsSchema = createInsertSchema(mutualFundMetrics).omit({
+export const insertMutualFundMetricsSchema = createInsertSchema(mutualFundMetrics).extend({
+  id: z.any(),
+  calculatedAt: z.any(),
+  lastUpdated: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true, calculatedAt: true, lastUpdated: true, createdAt: true,
 });
 
@@ -706,7 +751,12 @@ export const mfBenchmarkMap = pgTable("mf_benchmark_map", {
   index("idx_mf_benchmark_map_scheme_code").on(table.mfSchemeCode),
 ]);
 
-export const insertMfBenchmarkMapSchema = createInsertSchema(mfBenchmarkMap).omit({
+export const insertMfBenchmarkMapSchema = createInsertSchema(mfBenchmarkMap).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+  overriddenAt: z.any(),
+}).omit({
   id: true, createdAt: true, updatedAt: true, overriddenAt: true,
 });
 
@@ -728,7 +778,10 @@ export const mfBenchmarkHistory = pgTable("mf_benchmark_history", {
   index("idx_mf_benchmark_history_changed").on(table.changedAt),
 ]);
 
-export const insertMfBenchmarkHistorySchema = createInsertSchema(mfBenchmarkHistory).omit({
+export const insertMfBenchmarkHistorySchema = createInsertSchema(mfBenchmarkHistory).extend({
+  id: z.any(),
+  changedAt: z.any(),
+}).omit({
   id: true, changedAt: true,
 });
 
@@ -751,7 +804,10 @@ export const mfBenchmarkLineage = pgTable("mf_benchmark_lineage", {
   index("idx_mf_benchmark_lineage_changed_at").on(table.changedAt),
 ]);
 
-export const insertMfBenchmarkLineageSchema = createInsertSchema(mfBenchmarkLineage).omit({
+export const insertMfBenchmarkLineageSchema = createInsertSchema(mfBenchmarkLineage).extend({
+  id: z.any(),
+  changedAt: z.any(),
+}).omit({
   id: true, changedAt: true,
 });
 
@@ -776,7 +832,10 @@ export const mfEnrichmentAuditLogs = pgTable("mf_enrichment_audit_logs", {
   index("idx_mf_enrichment_audit_run").on(table.enrichmentRunId),
 ]);
 
-export const insertMfEnrichmentAuditLogSchema = createInsertSchema(mfEnrichmentAuditLogs).omit({
+export const insertMfEnrichmentAuditLogSchema = createInsertSchema(mfEnrichmentAuditLogs).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true, createdAt: true,
 });
 
@@ -795,7 +854,10 @@ export const mfAumHistory = pgTable("mf_aum_history", {
   index("idx_mf_aum_history_date").on(table.asOfDate),
 ]);
 
-export const insertMfAumHistorySchema = createInsertSchema(mfAumHistory).omit({
+export const insertMfAumHistorySchema = createInsertSchema(mfAumHistory).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true, createdAt: true,
 });
 
@@ -818,7 +880,11 @@ export const mfCategoryRules = pgTable("mf_category_rules", {
   uniqueIndex("idx_mf_category_rules_unique").on(table.category, table.subCategory, table.version),
 ]);
 
-export const insertMfCategoryRuleSchema = createInsertSchema(mfCategoryRules).omit({
+export const insertMfCategoryRuleSchema = createInsertSchema(mfCategoryRules).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true, createdAt: true, updatedAt: true,
 });
 
@@ -963,4 +1029,8 @@ export const goldenPrices = pgTable("golden_prices", {
 
 export type GoldenPrice = typeof goldenPrices.$inferSelect;
 export type InsertGoldenPrice = typeof goldenPrices.$inferInsert;
-export const insertGoldenPriceSchema = createInsertSchema(goldenPrices).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertGoldenPriceSchema = createInsertSchema(goldenPrices).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });

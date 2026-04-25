@@ -86,27 +86,39 @@ export const reversalLedger = pgTable("reversal_ledger", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertCommissionConfigSchema = createInsertSchema(commissionConfig).omit({
+export const insertCommissionConfigSchema = createInsertSchema(commissionConfig).extend({
+  configId: z.any(),
+  createdAt: z.any(),
+}).omit({
   configId: true,
   createdAt: true,
 });
 export type InsertCommissionConfig = z.infer<typeof insertCommissionConfigSchema>;
 export type CommissionConfig = typeof commissionConfig.$inferSelect;
 
-export const insertProgressiveCommissionLedgerSchema = createInsertSchema(progressiveCommissionLedger).omit({
+export const insertProgressiveCommissionLedgerSchema = createInsertSchema(progressiveCommissionLedger).extend({
+  ledgerId: z.any(),
+  createdAt: z.any(),
+}).omit({
   ledgerId: true,
   createdAt: true,
 });
 export type InsertProgressiveCommissionLedger = z.infer<typeof insertProgressiveCommissionLedgerSchema>;
 export type ProgressiveCommissionLedger = typeof progressiveCommissionLedger.$inferSelect;
 
-export const insertCommissionExecutionSchema = createInsertSchema(commissionExecution).omit({
+export const insertCommissionExecutionSchema = createInsertSchema(commissionExecution).extend({
+  executedAt: z.any(),
+}).omit({
   executedAt: true,
 });
 export type InsertCommissionExecution = z.infer<typeof insertCommissionExecutionSchema>;
 export type CommissionExecution = typeof commissionExecution.$inferSelect;
 
-export const insertDisputeCaseSchema = createInsertSchema(disputeCases).omit({
+export const insertDisputeCaseSchema = createInsertSchema(disputeCases).extend({
+  disputeId: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   disputeId: true,
   createdAt: true,
   updatedAt: true,
@@ -114,14 +126,20 @@ export const insertDisputeCaseSchema = createInsertSchema(disputeCases).omit({
 export type InsertDisputeCase = z.infer<typeof insertDisputeCaseSchema>;
 export type DisputeCase = typeof disputeCases.$inferSelect;
 
-export const insertReversalLedgerSchema = createInsertSchema(reversalLedger).omit({
+export const insertReversalLedgerSchema = createInsertSchema(reversalLedger).extend({
+  reversalId: z.any(),
+  createdAt: z.any(),
+}).omit({
   reversalId: true,
   createdAt: true,
 });
 export type InsertReversalLedger = z.infer<typeof insertReversalLedgerSchema>;
 export type ReversalLedger = typeof reversalLedger.$inferSelect;
 
-export const insertAmfiVerificationLogSchema = createInsertSchema(amfiVerificationLog).omit({
+export const insertAmfiVerificationLogSchema = createInsertSchema(amfiVerificationLog).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });

@@ -38,7 +38,11 @@ export const fundManagers = pgTable("fund_managers", {
   index("idx_fund_managers_fund_house").on(table.fundHouse),
 ]);
 
-export const insertFundManagerSchema = createInsertSchema(fundManagers).omit({
+export const insertFundManagerSchema = createInsertSchema(fundManagers).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -365,7 +369,11 @@ export const fundPerformanceMonthwise = pgTable("fund_performance_monthwise", {
 ]);
 
 // Schemas & Types
-export const insertProductSchema = createInsertSchema(products).omit({
+export const insertProductSchema = createInsertSchema(products).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -373,7 +381,11 @@ export const insertProductSchema = createInsertSchema(products).omit({
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 
-export const insertProductAccountPreferenceSchema = createInsertSchema(productAccountPreferences).omit({
+export const insertProductAccountPreferenceSchema = createInsertSchema(productAccountPreferences).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -381,7 +393,11 @@ export const insertProductAccountPreferenceSchema = createInsertSchema(productAc
 export type ProductAccountPreference = typeof productAccountPreferences.$inferSelect;
 export type InsertProductAccountPreference = z.infer<typeof insertProductAccountPreferenceSchema>;
 
-export const insertProductApplicationSchema = createInsertSchema(productApplications).omit({
+export const insertProductApplicationSchema = createInsertSchema(productApplications).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -389,7 +405,11 @@ export const insertProductApplicationSchema = createInsertSchema(productApplicat
 export type ProductApplication = typeof productApplications.$inferSelect;
 export type InsertProductApplication = z.infer<typeof insertProductApplicationSchema>;
 
-export const insertPmsMasterSchema = createInsertSchema(pmsMaster).omit({
+export const insertPmsMasterSchema = createInsertSchema(pmsMaster).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -397,7 +417,11 @@ export const insertPmsMasterSchema = createInsertSchema(pmsMaster).omit({
 export type PmsMaster = typeof pmsMaster.$inferSelect;
 export type InsertPmsMaster = z.infer<typeof insertPmsMasterSchema>;
 
-export const insertMldMasterSchema = createInsertSchema(mldMaster).omit({
+export const insertMldMasterSchema = createInsertSchema(mldMaster).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -405,7 +429,11 @@ export const insertMldMasterSchema = createInsertSchema(mldMaster).omit({
 export type MldMaster = typeof mldMaster.$inferSelect;
 export type InsertMldMaster = z.infer<typeof insertMldMasterSchema>;
 
-export const insertGiftCityProductSchema = createInsertSchema(giftCityProducts).omit({
+export const insertGiftCityProductSchema = createInsertSchema(giftCityProducts).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -413,7 +441,10 @@ export const insertGiftCityProductSchema = createInsertSchema(giftCityProducts).
 export type GiftCityProduct = typeof giftCityProducts.$inferSelect;
 export type InsertGiftCityProduct = z.infer<typeof insertGiftCityProductSchema>;
 
-export const insertFundPerformanceMonthwiseSchema = createInsertSchema(fundPerformanceMonthwise).omit({
+export const insertFundPerformanceMonthwiseSchema = createInsertSchema(fundPerformanceMonthwise).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -512,7 +543,12 @@ export const campaignRecipients = pgTable("campaign_recipients", {
   index("idx_recipient_status").on(table.status),
 ]);
 
-export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns).omit({
+export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+  completedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -521,7 +557,10 @@ export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaig
 export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
 export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
 
-export const insertCampaignRecipientSchema = createInsertSchema(campaignRecipients).omit({
+export const insertCampaignRecipientSchema = createInsertSchema(campaignRecipients).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -562,7 +601,10 @@ export const fundPerformanceRolling = pgTable("fund_performance_rolling", {
   index("idx_fund_perf_rolling_date").on(table.asOfDate),
 ]);
 
-export const insertFundPerformanceRollingSchema = createInsertSchema(fundPerformanceRolling).omit({
+export const insertFundPerformanceRollingSchema = createInsertSchema(fundPerformanceRolling).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
