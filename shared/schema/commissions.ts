@@ -3,7 +3,8 @@ import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, uniq
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from "./users";
-import { prospectClients } from "./proposals-base";
+import { prospectClients } from "./proposals";
+import { customerCareAgents } from "./agents";
 
 export const amfiVerificationLog = pgTable("amfi_verification_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

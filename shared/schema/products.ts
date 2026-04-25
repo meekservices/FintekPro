@@ -4,6 +4,222 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { partners } from './partners';
 import { users } from './users';
+import { preIpoCompanies } from './unlisted';
+
+export const storeCategories: any = pgTable("store_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  slug: varchar("slug").notNull().unique(),
+  icon: varchar("icon"), // lucide icon name for UI display
+  parentCategoryId: varchar("parent_category_id"),
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  // Category availability controls
+  isEnabled: boolean("is_enabled").default(true), // Master toggle for category visibility
+  comingSoonMessage: text("coming_soon_message"), // Message shown when category is disabled
+  comingSoonExpectedDate: date("coming_soon_expected_date"), // Expected availability date
+  // Direct fund controls for this category
+  directFundsEnabled: boolean("direct_funds_enabled").default(false), // Toggle for Direct plan visibility
+  requiresAdvisorySubscription: boolean("requires_advisory_subscription").default(true), // Whether Direct funds need advisory subscription
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Advisory Subscription Plans - Track client subscriptions for Direct fund access
+export const advisorySubscriptions = pgTable("advisory_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Client information
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  
+  // Plan details
+  planName: varchar("plan_name").notNull(), // 'basic', 'premium', 'elite', 'family'
+  planType: varchar("plan_type").notNull(), // 'individual', 'family', 'corporate'
+  
+  // Subscription status
+  status: varchar("status").notNull().default("active"), // 'active', 'expired', 'cancelled', 'pending', 'suspended'
+  
+  // Validity period
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  
+  // Fee structure
+  subscriptionFee: decimal("subscription_fee", { precision: 15, scale: 2 }),
+  feeFrequency: varchar("fee_frequency").default("annual"), // 'monthly', 'quarterly', 'annual'
+  lastPaymentDate: date("last_payment_date"),
+  nextPaymentDate: date("next_payment_date"),
+  
+  // Direct fund access
+  directFundsAccess: boolean("direct_funds_access").default(true), // Whether this plan includes Direct fund access
+  maxDirectFundInvestment: decimal("max_direct_fund_investment", { precision: 15, scale: 2 }), // Optional investment limit
+  
+  // Categories included (null means all enabled categories)
+  includedCategories: text("included_categories").array(), // Array of category slugs
+  
+  // Enrolled by
+  enrolledBy: varchar("enrolled_by").references(() => users.id), // Admin/Partner/Agent who enrolled the client
+  enrolledByRole: varchar("enrolled_by_role"), // 'admin', 'partner', 'agent'
+  
+  // Additional metadata
+  notes: text("notes"),
+  metadata: jsonb("metadata"), // Additional plan-specific data
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  cancelledAt: timestamp("cancelled_at"),
+  cancellationReason: text("cancellation_reason"),
+});
+
+export const storeProducts = pgTable("store_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  shortDescription: text("short_description"),
+  fullDescription: text("full_description"),
+  categoryId: varchar("category_id").references(() => storeCategories.id).notNull(),
+  subcategoryId: varchar("subcategory_id"), // Link to subcategory for hierarchical structure
+  productType: varchar("product_type").notNull(), // 'mutual_fund', 'etf', 'bond', 'insurance', 'loan', 'advisory'
+  productKey: varchar("product_key"), // unique product identifier key
+  // Mutual Fund Plan Type (SEBI-compliant: Direct vs Regular)
+  planType: varchar("plan_type"), // 'direct' or 'regular' - for mutual funds only
+  expenseRatio: decimal("expense_ratio", { precision: 5, scale: 4 }), // TER percentage (e.g., 0.0050 = 0.50%)
+  trailCommission: decimal("trail_commission", { precision: 5, scale: 4 }), // Distributor trail commission % (Regular plans only)
+  exitLoad: decimal("exit_load", { precision: 5, scale: 2 }), // Exit load percentage
+  exitLoadPeriod: integer("exit_load_period"), // Exit load applicable period in days
+  // Scheme identifiers for mutual funds
+  amfiCode: varchar("amfi_code"), // AMFI scheme code
+  isinCode: varchar("isin_code"), // ISIN for the scheme
+  schemeCode: varchar("scheme_code"), // AMC-specific scheme code
+  price: decimal("price", { precision: 15, scale: 2 }),
+  currency: varchar("currency").default("INR"),
+  minimumInvestment: decimal("minimum_investment", { precision: 15, scale: 2 }),
+  lockInPeriod: integer("lock_in_period"), // in months
+  riskLevel: varchar("risk_level"), // 'low', 'medium', 'high'
+  expectedReturns: decimal("expected_returns", { precision: 5, scale: 2 }), // percentage
+  features: jsonb("features"), // array of key features
+  eligibility: jsonb("eligibility"), // eligibility criteria
+  documents: jsonb("documents"), // required documents
+  provider: varchar("provider"), // AMC/Bank/Insurance company name
+  providerCode: varchar("provider_code"), // internal provider code
+  regulatory: jsonb("regulatory"), // regulatory information like NAV, fund manager, etc.
+  isActive: boolean("is_active").default(true),
+  isFeatured: boolean("is_featured").default(false),
+  displayOrder: integer("display_order").default(0),
+  launchDate: date("launch_date"),
+  // Visibility controls for different user roles
+  visibleToClients: boolean("visible_to_clients").default(true),
+  visibleToPartners: boolean("visible_to_partners").default(true),
+  visibleToAgents: boolean("visible_to_agents").default(true),
+  visibleToGuests: boolean("visible_to_guests").default(true),
+  // Inquiry settings when product is disabled
+  showInquiryForm: boolean("show_inquiry_form").default(true),
+  inquiryMessage: text("inquiry_message"),
+  // Link to source unlisted company (for unlisted stocks seeded from admin)
+  sourceCompanyId: varchar("source_company_id").references(() => preIpoCompanies.id),
+  // Unlisted stock specific fields
+  lotSize: integer("lot_size"), // minimum shares per transaction
+  faceValue: decimal("face_value", { precision: 10, scale: 2 }),
+  marketCap: decimal("market_cap", { precision: 20, scale: 2 }),
+  peRatio: decimal("pe_ratio", { precision: 10, scale: 2 }),
+  // Admin-controlled buy/sell prices for unlisted stocks
+  buyPrice: decimal("buy_price", { precision: 15, scale: 2 }), // Admin-set price for buying
+  sellPrice: decimal("sell_price", { precision: 15, scale: 2 }), // Admin-set price for selling
+  priceSource: varchar("price_source"), // 'moneycontrol', 'internal', 'marketplace', 'manual'
+  priceUpdatedAt: timestamp("price_updated_at"), // When prices were last updated
+  priceMetadata: jsonb("price_metadata"), // Additional price context for auditing
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const storeProductImages = pgTable("store_product_images", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").references(() => storeProducts.id).notNull(),
+  imageUrl: varchar("image_url").notNull(),
+  altText: varchar("alt_text"),
+  isPrimary: boolean("is_primary").default(false),
+  displayOrder: integer("display_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const storeProductTags = pgTable("store_product_tags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull().unique(),
+  slug: varchar("slug").notNull().unique(),
+  color: varchar("color").default("#3B82F6"), // hex color for display
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const storeProductTagMappings = pgTable("store_product_tag_mappings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").references(() => storeProducts.id).notNull(),
+  tagId: varchar("tag_id").references(() => storeProductTags.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const userWishlist = pgTable("user_wishlist", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  productId: varchar("product_id").references(() => storeProducts.id).notNull(),
+  addedAt: timestamp("added_at").defaultNow(),
+});
+
+export const insertStoreCategorySchema = createInsertSchema(storeCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAdvisorySubscriptionSchema = createInsertSchema(advisorySubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertStoreProductSchema = createInsertSchema(storeProducts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertStoreProductImageSchema = createInsertSchema(storeProductImages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertStoreProductTagSchema = createInsertSchema(storeProductTags).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertStoreProductTagMappingSchema = createInsertSchema(storeProductTagMappings).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserWishlistSchema = createInsertSchema(userWishlist).omit({
+  id: true,
+  addedAt: true,
+});
+
+// Export types for Product Store
+export type StoreCategory = typeof storeCategories.$inferSelect;
+export type InsertStoreCategory = z.infer<typeof insertStoreCategorySchema>;
+export type AdvisorySubscription = typeof advisorySubscriptions.$inferSelect;
+export type InsertAdvisorySubscription = z.infer<typeof insertAdvisorySubscriptionSchema>;
+export type StoreProduct = typeof storeProducts.$inferSelect;
+export type InsertStoreProduct = z.infer<typeof insertStoreProductSchema>;
+export type StoreProductImage = typeof storeProductImages.$inferSelect;
+export type StoreProductTag = typeof storeProductTags.$inferSelect;
+export type UserWishlist = typeof userWishlist.$inferSelect;
 
 export const fundManagers = pgTable("fund_managers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

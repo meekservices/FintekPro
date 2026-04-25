@@ -6,6 +6,66 @@ import { agents } from './agents';
 import { users } from './users';
 
 // --- Auto-Migrated Tables ---
+export const preIpoCompanies = pgTable("pre_ipo_companies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyName: text("company_name").notNull(),
+  sector: varchar("sector").notNull(), // 'technology', 'healthcare', 'fintech', 'retail', etc.
+  industry: varchar("industry").notNull(), // more specific industry classification
+  foundedYear: integer("founded_year"),
+  headquarters: varchar("headquarters"),
+  website: varchar("website"),
+  description: text("description"),
+  businessModel: text("business_model"),
+  keyProducts: text("key_products").array().default([]),
+  
+  // Valuation and Financial Info
+  currentValuation: decimal("current_valuation", { precision: 20, scale: 2 }),
+  lastRoundValuation: decimal("last_round_valuation", { precision: 20, scale: 2 }),
+  lastRoundDate: timestamp("last_round_date"),
+  totalFundingRaised: decimal("total_funding_raised", { precision: 20, scale: 2 }),
+  revenue: decimal("revenue", { precision: 20, scale: 2 }),
+  revenueGrowthRate: decimal("revenue_growth_rate", { precision: 5, scale: 2 }),
+  profitability: varchar("profitability"), // 'profitable', 'break_even', 'loss_making'
+  burnRate: decimal("burn_rate", { precision: 15, scale: 2 }),
+  
+  // Pre-IPO Status
+  ipoStatus: varchar("ipo_status").notNull().default("preparation"), // 'preparation', 'filed', 'roadshow', 'priced', 'listed', 'withdrawn'
+  expectedIpoDate: timestamp("expected_ipo_date"),
+  expectedPriceRange: jsonb("expected_price_range"), // {min: number, max: number}
+  proposedExchange: varchar("proposed_exchange"), // 'NSE', 'BSE', 'NASDAQ', 'NYSE'
+  leadUnderwriters: text("lead_underwriters").array().default([]),
+  
+  // Company Metrics
+  employees: integer("employees"),
+  marketPosition: varchar("market_position"), // 'market_leader', 'strong_competitor', 'niche_player'
+  competitiveAdvantage: text("competitive_advantage"),
+  keyRisks: text("key_risks").array().default([]),
+  keyOpportunities: text("key_opportunities").array().default([]),
+  
+  // Investment Metrics
+  minimumInvestment: decimal("minimum_investment", { precision: 15, scale: 2 }),
+  investmentTier: varchar("investment_tier"), // 'tier_1', 'tier_2', 'tier_3' based on company quality
+  riskRating: varchar("risk_rating"), // 'low', 'medium', 'high', 'very_high'
+  expectedReturns: decimal("expected_returns", { precision: 5, scale: 2 }), // percentage
+  lockInPeriod: integer("lock_in_period"), // months
+  
+  // Tracking and Status
+  isAvailableForInvestment: boolean("is_available_for_investment").default(false),
+  investmentDeadline: timestamp("investment_deadline"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPreIpoCompanySchema = createInsertSchema(preIpoCompanies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type PreIpoCompany = typeof preIpoCompanies.$inferSelect;
+export type InsertPreIpoCompany = z.infer<typeof insertPreIpoCompanySchema>;
+
 export const unlistedCompanies = pgTable("unlisted_companies", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),

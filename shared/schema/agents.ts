@@ -1029,3 +1029,7 @@ export const insertAgentBasketItemSchema = createInsertSchema(agentBasketItems).
   id: z.any(),
   addedAt: z.any(),
 }).omit({ id: true, addedAt: true });
+export type Agent = typeof agents.$inferSelect;
+export type InsertAgent = typeof agents.$inferInsert;
+export type CustomerCareAgent = typeof customerCareAgents.$inferSelect;
+export type InsertCustomerCareAgent = typeof customerCareAgents.$inferInsert;

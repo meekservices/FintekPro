@@ -43,6 +43,13 @@ export const portfolioHoldings = pgTable("portfolio_holdings", {
   investedValue: decimal("invested_value", { precision: 15, scale: 2 }),
   assetType: text("asset_type").notNull(),
   sector: text("sector"),
+  assetClass: text("asset_class"),
+  folioNumber: text("folio_number"),
+  purchaseDate: timestamp("purchase_date"),
+  productType: text("product_type"),
+  returnPercentage: decimal("return_percentage", { precision: 10, scale: 2 }),
+  source: text("source"),
+  notes: text("notes"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -289,12 +296,12 @@ export const creditRatings = pgTable("credit_ratings", {
 
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { User } from './users';
-import { Agent } from './agents';
-import { Document } from './documents';
+import type { User } from './users';
+import type { Agent } from './agents';
+import type { Document } from './documents';
 import { investmentProposals } from './proposals-base';
 
-import { Product } from './products';
+import type { Product } from './products';
 import { mfHoldings } from './mutual-funds';
 
 import { advisorySessions, suitabilityChecks, insertAdvisorySessionSchema } from './advisory';
