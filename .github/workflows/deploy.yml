@@ -1,0 +1,93 @@
+name: Deploy to Google Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: fintekpro
+  REGION: asia-south1
+  SERVICE_NAME: fintekpro-app
+  REPO_NAME: fintekpro-repo
+
+jobs:
+  deploy:
+    name: Build and Deploy to Cloud Run
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker to use Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+                       -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:latest .
+
+      - name: Push Docker Image to Artifact Registry
+        run: |
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }} --all-tags
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          env_vars: |-
+            NODE_ENV=production
+            NODE_OPTIONS=--max-old-space-size=3072
+          secrets: |-
+            PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest
+            DATABASE_URL=DATABASE_URL:latest
+            SESSION_SECRET=SESSION_SECRET:latest
+            FIELD_ENCRYPTION_KEY=FIELD_ENCRYPTION_KEY:latest
+            ENCRYPTION_MASTER_KEY=ENCRYPTION_MASTER_KEY:latest
+            CASHFREE_APP_ID=CASHFREE_APP_ID:latest
+            CASHFREE_SECRET_KEY=CASHFREE_SECRET_KEY:latest
+            CASHFREE_ENVIRONMENT=CASHFREE_ENVIRONMENT:latest
+            OPENAI_API_KEY=OPENAI_API_KEY:latest
+            GEMINI_API_KEY=GEMINI_API_KEY:latest
+            SANDBOX_API_KEY=SANDBOX_API_KEY:latest
+            SANDBOX_API_SECRET=SANDBOX_API_SECRET:latest
+            SANDBOX_BASE_URL=SANDBOX_BASE_URL:latest
+            TRUTHSCREEN_USERNAME=TRUTHSCREEN_USERNAME:latest
+            TRUTHSCREEN_PASSWORD=TRUTHSCREEN_PASSWORD:latest
+            TWILIO_ACCOUNT_SID=TWILIO_ACCOUNT_SID:latest
+            TWILIO_AUTH_TOKEN=TWILIO_AUTH_TOKEN:latest
+            TWILIO_PHONE_NUMBER=TWILIO_PHONE_NUMBER:latest
+            PYTHON_SERVICE_URL=PYTHON_SERVICE_URL:latest
+            PYTHON_SERVICE_SECRET=PYTHON_SERVICE_SECRET:latest
+            FINNHUB_API_KEY=FINNHUB_API_KEY:latest
+            ZOHO_CLIENT_ID=ZOHO_CLIENT_ID:latest
+            ZOHO_CLIENT_SECRET=ZOHO_CLIENT_SECRET:latest
+            ZOHO_REFRESH_TOKEN=ZOHO_REFRESH_TOKEN:latest
+            ZOHO_WEBHOOK_SECRET=ZOHO_WEBHOOK_SECRET:latest
+          flags: |-
+            --port=5000
+            --memory=4Gi
+            --cpu=2
+            --timeout=300
+            --cpu-boost
+            --min-instances=0
+            --max-instances=3
+            --allow-unauthenticated
+            --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db
+
+      - name: Show Output
+        run: echo ${{ steps.deploy.outputs.url }}
