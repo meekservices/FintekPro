@@ -3,7 +3,7 @@ import { pgTable, text, varchar, timestamp, boolean, index, integer, jsonb, deci
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from './users';
-import { Document, sebiClauseChecklist } from '../schema';
+// import { sebiClauseChecklist } from '../schema'; // Moved here to break circularity
 
 export const changeOperationEnum = pgEnum("change_operation", [
   "insert",
@@ -339,6 +339,46 @@ export const insertDocumentCommentSchema = createInsertSchema(documentComments).
   createdAt: z.any(),
   updatedAt: z.any(),
 }).omit({ id: true, createdAt: true, updatedAt: true });
+export const sebiClauseChecklist = pgTable("sebi_clause_checklist", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Clause Identity
+  clauseCode: varchar("clause_code", { length: 50 }).unique().notNull(),
+  clauseCategory: varchar("clause_category", { length: 100 }).notNull(),
+  clauseTitle: varchar("clause_title", { length: 500 }).notNull(),
+  clauseDescription: text("clause_description"),
+  
+  // Applicability
+  isMandatory: boolean("is_mandatory").default(true),
+  isConditional: boolean("is_conditional").default(false),
+  conditionDescription: text("condition_description"),
+  applicableEntityTypes: text("applicable_entity_types").array(), // vendor, partner, agent, etc.
+  applicableAgreementTypes: text("applicable_agreement_types").array(),
+  
+  // Risk & Compliance
+  riskWeight: integer("risk_weight").default(1), // 1-10 importance
+  regulatoryReference: varchar("regulatory_reference", { length: 255 }), // SEBI circular/guideline reference
+  
+  // Template
+  suggestedClauseText: text("suggested_clause_text"),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  effectiveFrom: date("effective_from"),
+  effectiveTo: date("effective_to"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_sebi_checklist_category").on(table.clauseCategory),
+  index("idx_sebi_checklist_mandatory").on(table.isMandatory),
+]);
+
+export const insertSebiClauseChecklistSchema = createInsertSchema(sebiClauseChecklist).omit({ id: true, createdAt: true, updatedAt: true });
+export type SebiClauseChecklist = typeof sebiClauseChecklist.$inferSelect;
+export type InsertSebiClauseChecklist = z.infer<typeof insertSebiClauseChecklistSchema>;
+
 
 export const documentChecklistRuns = pgTable("document_checklist_runs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -655,3 +695,7 @@ export const insertDocumentOverrideSchema = createInsertSchema(documentOverrides
   id: z.any(),
   createdAt: z.any(),
 }).omit({ id: true, createdAt: true });
+export type Document = typeof documents.$inferSelect;
+export type InsertDocument = typeof documents.$inferInsert;
+export type DocumentVersion = typeof documentVersions.$inferSelect;
+export type InsertDocumentVersion = typeof documentVersions.$inferInsert;

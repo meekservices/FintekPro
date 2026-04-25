@@ -166,7 +166,7 @@ export const InstrumentAssetClassEnum = pgEnum('instrument_asset_class', [
   'real_estate',
   'other'
 ]);
-export type InstrumentAssetClass = z.infer<typeof InstrumentAssetClassEnum>;
+export type InstrumentAssetClass = (typeof InstrumentAssetClassEnum.enumValues)[number];
 
 export const instrumentMaster = pgTable("instrument_master", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

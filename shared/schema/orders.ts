@@ -5,7 +5,45 @@ import { portfolios } from "./portfolio";
 import { investmentProposals } from "./proposals-base";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { usBrokerAccounts } from '../schema';
+export const usBrokerAccounts = pgTable("us_broker_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  alpacaAccountId: varchar("alpaca_account_id"),
+  alpacaAccountNumber: varchar("alpaca_account_number"),
+  alpacaStatus: varchar("alpaca_status").default("not_applied"), // not_applied, SUBMITTED, APPROVED, ACTIVE, REJECTED, ACTION_REQUIRED, APPROVAL_PENDING
+  actionRequired: text("action_required"), // reason if ACTION_REQUIRED
+  status: varchar("status").default("pending").notNull(), // pending, paper, live, suspended, closed
+
+  // Application Wizard Tracking
+  applicationStep: varchar("application_step").default("identity"), // identity, financial, disclosures, agreements, submitted
+  applicationData: text("application_data"), // Full submitted application snapshot (JSON string)
+  agreementsSignedAt: timestamp("agreements_signed_at"),
+  cipSubmittedAt: timestamp("cip_submitted_at"),
+  accountApprovedAt: timestamp("account_approved_at"),
+
+  // LRS Tracking (USD 250k/year limit)
+  lrsUsedUsd: decimal("lrs_used_usd", { precision: 15, scale: 2 }).default("0"),
+  lrsFinancialYear: varchar("lrs_financial_year"), // e.g., "2024-25"
+  
+  // Compliance
+  femaEligible: boolean("fema_eligible").default(false),
+  riskProfileCompleted: boolean("risk_profile_completed").default(false),
+  w8benSubmitted: boolean("w8ben_submitted").default(false),
+  fatcaCompliant: boolean("fatca_compliant").default(false),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  lastSyncAt: timestamp("last_sync_at"),
+}, (table) => [
+  index("idx_us_broker_accounts_client").on(table.clientId),
+  index("idx_us_broker_accounts_status").on(table.status),
+]);
+
+export const insertUsBrokerAccountSchema = createInsertSchema(usBrokerAccounts).omit({ id: true, createdAt: true, updatedAt: true });
+export type UsBrokerAccount = typeof usBrokerAccounts.$inferSelect;
+export type InsertUsBrokerAccount = z.infer<typeof insertUsBrokerAccountSchema>;
+
 
 
 // ===== BOND ORDERS =====
