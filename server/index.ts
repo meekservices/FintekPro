@@ -223,7 +223,7 @@ app.get('/', (req, res, next) => {
 const requiredEnvVars = ['SESSION_SECRET'];
 const dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
 if (!dbUrl) {
-  console.error(`❌ FATAL: Neither PRODUCTION_DATABASE_URL nor DATABASE_URL is set`);
+  console.error('FATAL: Neither PRODUCTION_DATABASE_URL nor DATABASE_URL is set');
   process.exit(1);
 }
 
@@ -231,7 +231,7 @@ const optionalButRecommended = ['OPENAI_API_KEY', 'TWILIO_ACCOUNT_SID', 'CASHFRE
 
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
-    console.error(`❌ FATAL: Required environment variable ${envVar} is not set`);
+    console.error('FATAL: Required environment variable ' + envVar + ' is not set');
     process.exit(1);
   }
 }
