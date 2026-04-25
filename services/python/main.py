@@ -1,4 +1,5 @@
 import os
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,6 +21,33 @@ from routes.market_data import router as market_data_router
 
 load_dotenv()
 
+# Track whether the ML model is warm (used by /health)
+_model_ready = False
+
+
+async def _auto_train_ml():
+    """
+    Boot-time auto-training: warm the ML model cache so the first
+    /api/ml/score call doesn't fail with 'No trained model found'.
+    Non-blocking — failures are logged but never crash the server.
+    """
+    global _model_ready
+    try:
+        from routes.ml_scoring import train_model_internal
+        print("[MLAutoTrain] Starting boot-time model training...")
+        result = await train_model_internal(asset_class="all", max_samples=5000)
+        if "error" in result:
+            print(f"⚠️  [MLAutoTrain] Training returned error: {result['error']}")
+            if "Insufficient" in str(result.get("error", "")):
+                print("[MLAutoTrain] Not enough completed picks yet — model will be trained once data is available")
+        else:
+            _model_ready = True
+            print(f"✅ [MLAutoTrain] Model trained successfully — "
+                  f"R²={result.get('trainR2', '?')}, "
+                  f"samples={result.get('sampleSize', '?')}")
+    except Exception as e:
+        print(f"⚠️  [MLAutoTrain] Auto-training failed (non-fatal): {e}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -27,6 +55,9 @@ async def lifespan(app: FastAPI):
     try:
         await get_pool()
         print("✅ [FintekPro Python Service] Database pool ready")
+
+        # Auto-train ML model in a background task so it doesn't block startup
+        asyncio.create_task(_auto_train_ml())
     except Exception as db_err:
         print(f"⚠️  [FintekPro Python Service] Database pool unavailable at startup: {db_err}")
         print("⚠️  [FintekPro Python Service] Service will start — DB connections retried per request")
@@ -66,4 +97,9 @@ app.include_router(market_data_router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "fintekpro-python", "version": "4.0.0"}
+    return {
+        "status": "ok",
+        "service": "fintekpro-python",
+        "version": "4.0.0",
+        "model_ready": _model_ready,
+    }
