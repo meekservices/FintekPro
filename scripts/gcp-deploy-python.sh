@@ -32,6 +32,7 @@ gcloud run deploy "$SERVICE_NAME" \
     --min-instances 0 \
     --max-instances 2 \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
+    --remove-env-vars=PRODUCTION_DATABASE_URL,PYTHON_SERVICE_SECRET \
     --set-secrets="\
 PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,\
 PYTHON_SERVICE_SECRET=PYTHON_SERVICE_SECRET:latest\

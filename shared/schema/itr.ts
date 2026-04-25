@@ -117,7 +117,10 @@ export const itrDataSourcesSync = pgTable("itr_data_sources_sync", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertItrDataSourcesSyncSchema = createInsertSchema(itrDataSourcesSync).omit({
+export const insertItrDataSourcesSyncSchema = createInsertSchema(itrDataSourcesSync).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -202,7 +205,11 @@ export const validationIssues = pgTable("validation_issues", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertTaxSessionSchema = createInsertSchema(taxSessions).omit({
+export const insertTaxSessionSchema = createInsertSchema(taxSessions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -210,14 +217,20 @@ export const insertTaxSessionSchema = createInsertSchema(taxSessions).omit({
 export type TaxSession = typeof taxSessions.$inferSelect;
 export type InsertTaxSession = z.infer<typeof insertTaxSessionSchema>;
 
-export const insertTaxDataSourceSchema = createInsertSchema(taxDataSources).omit({
+export const insertTaxDataSourceSchema = createInsertSchema(taxDataSources).extend({
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   createdAt: true,
   updatedAt: true,
 });
 export type TaxDataSource = typeof taxDataSources.$inferSelect;
 export type InsertTaxDataSource = z.infer<typeof insertTaxDataSourceSchema>;
 
-export const insertValidationIssueSchema = createInsertSchema(validationIssues).omit({
+export const insertValidationIssueSchema = createInsertSchema(validationIssues).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -264,7 +277,11 @@ export const filingRecords = pgTable("filing_records", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertFilingRecordSchema = createInsertSchema(filingRecords).omit({
+export const insertFilingRecordSchema = createInsertSchema(filingRecords).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

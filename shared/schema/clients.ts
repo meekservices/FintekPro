@@ -476,7 +476,11 @@ export const clientEnrichmentData = pgTable("client_enrichment_data", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertClientEnrichmentDataSchema = createInsertSchema(clientEnrichmentData).omit({
+export const insertClientEnrichmentDataSchema = createInsertSchema(clientEnrichmentData).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -626,7 +630,11 @@ export const reportAccessLogs = pgTable(
 );
 
 // Insert schemas for transaction reporting
-export const insertGeneratedReportSchema = createInsertSchema(generatedReports).omit({
+export const insertGeneratedReportSchema = createInsertSchema(generatedReports).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -679,13 +687,21 @@ export const clientIntelligence = pgTable("client_intelligence", {
 ]);
 
 // Insert schemas and types for marketing tables
-export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns).omit({
+export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertClientIntelligenceSchema = createInsertSchema(clientIntelligence).omit({
+export const insertClientIntelligenceSchema = createInsertSchema(clientIntelligence).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -712,7 +728,10 @@ export const clientUnlistedDisclosureLog = pgTable("client_unlisted_disclosure_l
   index("idx_disclosure_log_acknowledged").on(table.acknowledgedAt),
 ]);
 
-export const insertClientUnlistedDisclosureLogSchema = createInsertSchema(clientUnlistedDisclosureLog).omit({
+export const insertClientUnlistedDisclosureLogSchema = createInsertSchema(clientUnlistedDisclosureLog).extend({
+  id: z.any(),
+  acknowledgedAt: z.any(),
+}).omit({
   id: true,
   acknowledgedAt: true,
 });
@@ -782,7 +801,11 @@ export const clientPortfolioAif = pgTable("client_portfolio_aif", {
   index("idx_client_portfolio_aif_status").on(table.entryStatus),
 ]);
 
-export const insertClientPortfolioAifSchema = createInsertSchema(clientPortfolioAif).omit({
+export const insertClientPortfolioAifSchema = createInsertSchema(clientPortfolioAif).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -852,7 +875,11 @@ export const clientPortfolioPms = pgTable("client_portfolio_pms", {
   index("idx_client_portfolio_pms_status").on(table.entryStatus),
 ]);
 
-export const insertClientPortfolioPmsSchema = createInsertSchema(clientPortfolioPms).omit({
+export const insertClientPortfolioPmsSchema = createInsertSchema(clientPortfolioPms).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -923,7 +950,11 @@ export const clientPortfolioMld = pgTable("client_portfolio_mld", {
   index("idx_client_portfolio_mld_status").on(table.entryStatus),
 ]);
 
-export const insertClientPortfolioMldSchema = createInsertSchema(clientPortfolioMld).omit({
+export const insertClientPortfolioMldSchema = createInsertSchema(clientPortfolioMld).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -932,12 +963,19 @@ export const insertClientPortfolioMldSchema = createInsertSchema(clientPortfolio
 export type ClientPortfolioMld = typeof clientPortfolioMld.$inferSelect;
 
 export type InsertClientPortfolioMld = z.infer<typeof insertClientPortfolioMldSchema>;
-export const insertReportAccessLogSchema = createInsertSchema(reportAccessLogs).omit({
+export const insertReportAccessLogSchema = createInsertSchema(reportAccessLogs).extend({
+  id: z.any(),
+  accessedAt: z.any(),
+}).omit({
   id: true,
   accessedAt: true,
 });
 
-export const insertClientStatementSchema = createInsertSchema(clientStatements).omit({
+export const insertClientStatementSchema = createInsertSchema(clientStatements).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

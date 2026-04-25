@@ -106,3 +106,4 @@ cloudrun-env.yaml
 # Scratch artifacts
 scratch/*.js
 scratch/*.cjs
+.env.local

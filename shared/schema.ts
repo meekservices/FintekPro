@@ -1729,11 +1729,8 @@ export type AgentCommission = typeof agentCommissions.$inferSelect;
 export type OtpVerification = typeof otpVerifications.$inferSelect;
 export type InsertOtpVerification = z.infer<typeof insertOtpVerificationSchema>;
 export type InsertPortfolio = z.infer<typeof insertPortfolioSchema>;
-export type Portfolio = typeof portfolios.$inferSelect;
 export type InsertExternalHolding = z.infer<typeof insertExternalHoldingSchema>;
-export type ExternalHolding = typeof externalHoldings.$inferSelect;
 export type InsertWatchlist = z.infer<typeof insertWatchlistSchema>;
-export type Watchlist = typeof watchlists.$inferSelect;
 
 export type ComprehensiveHolding = typeof comprehensiveHoldings.$inferSelect;
 export type InsertComprehensiveHolding = z.infer<typeof insertComprehensiveHoldingSchema>;
@@ -10997,34 +10994,8 @@ export const productKnowledge = pgTable("product_knowledge", {
 
 export const insertProductKnowledgeSchema = createInsertSchema(productKnowledge).omit({ id: true, createdAt: true, updatedAt: true });
 export type ProductKnowledge = typeof productKnowledge.$inferSelect;
-// Certification Quizzes (Optional)
-export const certificationQuizzes = pgTable("certification_quizzes", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // Quiz Info
-  certificationLevel: varchar("certification_level", { length: 5 }).notNull(), // L0, L1, L2, L3
-  title: varchar("title", { length: 255 }).notNull(),
-  description: text("description"),
-  
-  // Questions
-  questions: jsonb("questions").default([]).notNull(), // [{id, question, options: [], correctAnswer, type: "mcq"|"case_study", points}]
-  
-  // Configuration
-  passingScore: integer("passing_score").default(70).notNull(),
-  timeLimitMinutes: integer("time_limit_minutes").default(30),
-  maxAttempts: integer("max_attempts").default(3),
-  
-  // Status
-  isActive: boolean("is_active").default(true).notNull(),
-  
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => [
-  index("idx_cq_level").on(table.certificationLevel),
-]);
+// Certification Quizzes (Moved to shared/schema/agents.ts)
 
-export const insertCertificationQuizSchema = createInsertSchema(certificationQuizzes).omit({ id: true, createdAt: true, updatedAt: true });
-export type CertificationQuiz = typeof certificationQuizzes.$inferSelect;
 
 // quizAttempts moved to shared/schema/agents.ts
 

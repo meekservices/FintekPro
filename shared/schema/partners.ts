@@ -280,7 +280,10 @@ export const partnerCommissionLedger = pgTable("partner_commission_ledger", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertPartnerCommissionLedgerSchema = createInsertSchema(partnerCommissionLedger).omit({
+export const insertPartnerCommissionLedgerSchema = createInsertSchema(partnerCommissionLedger).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -313,7 +316,11 @@ export const partnerClientOwnership = pgTable("partner_client_ownership", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertPartnerClientOwnershipSchema = createInsertSchema(partnerClientOwnership).omit({
+export const insertPartnerClientOwnershipSchema = createInsertSchema(partnerClientOwnership).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

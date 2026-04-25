@@ -1,10 +1,10 @@
 import os
 import asyncpg
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 from urllib.parse import urlparse
 
-_pool: asyncpg.Pool | None = None
+_pool: Optional[asyncpg.Pool] = None
 
 
 def _mask_dsn(dsn: str) -> str:
