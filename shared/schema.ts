@@ -104,7 +104,8 @@ import {
   aifFunds, 
   aiUserInteractions, 
   aiTransactionTracking, 
-  aiFeatureSnapshots 
+  aiFeatureSnapshots,
+  aiTalkingPoints
 } from './schema/ai';
 import { 
   insertMfEnrichmentAuditLogSchema, 
@@ -166,7 +167,6 @@ import {
   portfolioGeneratedReports, 
   predictionAccuracy, 
   portfolioReportAuditLogs, 
-  aiTalkingPoints, 
   portfolioHoldings, 
   pdfProfiles, 
   proposalNotes, 
@@ -461,6 +461,7 @@ export * from "./schema/ib";
 export * from "./schema/orders";
 export * from "./schema/market-data";
 export * from "./schema/cart";
+export * from "./schema/reit-invit";
 
 // Session storage table
 export const sessions = pgTable(
@@ -11051,4 +11052,5 @@ export * from "./schema/family";
 export * from "./schema/portfolio";
 export * from "./schema/users";
 export * from "./schema/mutual-funds";
+export * from "./schema/products";
 

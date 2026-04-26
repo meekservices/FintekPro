@@ -8,11 +8,7 @@ import { leadProcessingModeEnum, leadStatusEnum } from "./enums";
 
 // --- Types & Interfaces ---
 
-/**
- * Robust definition for Partner Hierarchy Snapshot stored in JSONB
- * Supports up to 7 levels as per platform design.
- */
-export interface PartnerHierarchy {
+export type PartnerHierarchy = {
   partnerId: string;
   name: string;
   level: string; // L1, L2, L3, L4, L5, L6, L7
@@ -20,12 +16,8 @@ export interface PartnerHierarchy {
   parentId: string | null;
   commissionRate?: number;
   children?: PartnerHierarchy[];
-}
+};
 
-/**
- * Zod schema for PartnerHierarchy to ensure type safety in JSONB fields.
- * Uses z.lazy to handle the recursive structure.
- */
 export const partnerHierarchySchema: z.ZodType<PartnerHierarchy> = z.lazy(() =>
   z.object({
     partnerId: z.string(),
@@ -34,9 +26,9 @@ export const partnerHierarchySchema: z.ZodType<PartnerHierarchy> = z.lazy(() =>
     role: z.string(),
     parentId: z.string().nullable(),
     commissionRate: z.number().optional(),
-    children: z.array(partnerHierarchySchema).optional(),
+    children: z.array(z.lazy(() => partnerHierarchySchema)).optional(),
   })
-);
+) as z.ZodType<PartnerHierarchy>;
 
 // --- Tables ---
 
@@ -69,8 +61,8 @@ export const leadRegistry = pgTable("lead_registry", {
   index("idx_lead_registry_status").on(table.status),
 ]);
 
-export const insertLeadRegistrySchema = createInsertSchema(leadRegistry, {
-  partnerHierarchySnapshot: () => partnerHierarchySchema,
+export const insertLeadRegistrySchema = createInsertSchema(leadRegistry as any, {
+  partnerHierarchySnapshot: partnerHierarchySchema,
 }).omit({
   leadId: true, 
   firstTouchTimestamp: true, 
@@ -449,7 +441,7 @@ export const prospectScoreHistory = pgTable("prospect_score_history", {
 // --- Insert Schemas & Types ---
 
 // CRM Interactions
-export const insertCrmInteractionSchema = createInsertSchema(crmInteractions).omit({
+export const insertCrmInteractionSchema = createInsertSchema(crmInteractions as any).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -458,7 +450,7 @@ export type CrmInteraction = typeof crmInteractions.$inferSelect;
 export type InsertCrmInteraction = z.infer<typeof insertCrmInteractionSchema>;
 
 // CRM Opportunities
-export const insertCrmOpportunitySchema = createInsertSchema(crmOpportunities).omit({
+export const insertCrmOpportunitySchema = createInsertSchema(crmOpportunities as any).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -467,7 +459,7 @@ export type CrmOpportunity = typeof crmOpportunities.$inferSelect;
 export type InsertCrmOpportunity = z.infer<typeof insertCrmOpportunitySchema>;
 
 // CRM Tasks
-export const insertCrmTaskSchema = createInsertSchema(crmTasks).omit({
+export const insertCrmTaskSchema = createInsertSchema(crmTasks as any).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -476,7 +468,7 @@ export type CrmTask = typeof crmTasks.$inferSelect;
 export type InsertCrmTask = z.infer<typeof insertCrmTaskSchema>;
 
 // CRM Client Tags
-export const insertCrmClientTagSchema = createInsertSchema(crmClientTags).omit({
+export const insertCrmClientTagSchema = createInsertSchema(crmClientTags as any).omit({
   id: true,
   createdAt: true,
 });
@@ -484,7 +476,7 @@ export type CrmClientTag = typeof crmClientTags.$inferSelect;
 export type InsertCrmClientTag = z.infer<typeof insertCrmClientTagSchema>;
 
 // CRM Activity Log
-export const insertCrmActivityLogSchema = createInsertSchema(crmActivityLog).omit({
+export const insertCrmActivityLogSchema = createInsertSchema(crmActivityLog as any).omit({
   id: true,
   createdAt: true,
 });
@@ -492,7 +484,7 @@ export type CrmActivityLog = typeof crmActivityLog.$inferSelect;
 export type InsertCrmActivityLog = z.infer<typeof insertCrmActivityLogSchema>;
 
 // Lead Activity Log
-export const insertLeadActivityLogSchema = createInsertSchema(leadActivityLog).omit({
+export const insertLeadActivityLogSchema = createInsertSchema(leadActivityLog as any).omit({
   id: true,
   createdAt: true,
 });
@@ -500,7 +492,7 @@ export type LeadActivityLog = typeof leadActivityLog.$inferSelect;
 export type InsertLeadActivityLog = z.infer<typeof insertLeadActivityLogSchema>;
 
 // Lead Activities
-export const insertLeadActivitySchema = createInsertSchema(leadActivities).omit({
+export const insertLeadActivitySchema = createInsertSchema(leadActivities as any).omit({
   id: true,
   createdAt: true,
 });
@@ -508,7 +500,7 @@ export type LeadActivity = typeof leadActivities.$inferSelect;
 export type InsertLeadActivity = z.infer<typeof insertLeadActivitySchema>;
 
 // Prospect Leads
-export const insertProspectLeadSchema = createInsertSchema(prospectLeads).omit({
+export const insertProspectLeadSchema = createInsertSchema(prospectLeads as any).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -517,7 +509,7 @@ export type ProspectLead = typeof prospectLeads.$inferSelect;
 export type InsertProspectLead = z.infer<typeof insertProspectLeadSchema>;
 
 // Prospect Score History
-export const insertProspectScoreHistorySchema = createInsertSchema(prospectScoreHistory).omit({
+export const insertProspectScoreHistorySchema = createInsertSchema(prospectScoreHistory as any).omit({
   id: true,
   createdAt: true,
 });

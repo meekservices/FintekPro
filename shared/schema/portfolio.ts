@@ -272,27 +272,7 @@ export const symbolMapping = pgTable("symbol_mapping", {
   uniqueIndex("idx_symbol_mapping_isin_provider").on(table.isin, table.provider),
 ]);
 
-// ── Credit Ratings Layer — full history of rating changes per ISIN ───────────
-export const creditRatings = pgTable("credit_ratings", {
-  id: serial("id").primaryKey(),
-  isin: varchar("isin", { length: 20 }).notNull(),
-  instrumentName: text("instrument_name"),
-  rating: varchar("rating", { length: 20 }).notNull(), // AAA, AA+, AA, AA-, A+, A, A-, BBB+, ...
-  ratingOutlook: varchar("rating_outlook", { length: 30 }), // Stable, Positive, Negative, Watch Positive, Watch Negative
-  agency: varchar("agency", { length: 30 }).notNull(), // CRISIL, ICRA, CARE, INDIA_RATINGS, BRICKWORK, ACUITE
-  ratingDate: date("rating_date").notNull(),
-  previousRating: varchar("previous_rating", { length: 20 }),
-  ratingAction: varchar("rating_action", { length: 40 }), // Assigned, Affirmed, Upgraded, Downgraded, Watch, Withdrawn
-  isCurrent: boolean("is_current").default(true),
-  source: varchar("source", { length: 50 }).default("bonds_table"),
-  rawData: jsonb("raw_data"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => [
-  index("idx_credit_ratings_isin").on(table.isin),
-  index("idx_credit_ratings_agency").on(table.agency),
-  index("idx_credit_ratings_date").on(table.ratingDate),
-  index("idx_credit_ratings_current").on(table.isCurrent),
-]);
+
 
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
